@@ -114,6 +114,29 @@ describe('mapTrack', () => {
         // album cut as vouched-for clean -- which is exactly the claim a clean-only station acts on.
         expect(mapTrack({ id: 'track-1', name: 'Album Cut' })).not.toHaveProperty('advisory');
     });
+
+    it('takes the year off a release date at every precision Spotify sends one in', () => {
+        // `release_date_precision` decides which of the three shapes arrives, and a station asking
+        // for a decade wants the same answer from all of them.
+        const at = (release_date: string): number | undefined => mapTrack({ id: 'track-1', name: 'Song', album: { release_date } })?.year;
+
+        expect(at('1973')).toBe(1973);
+        expect(at('1973-04')).toBe(1973);
+        expect(at('1973-04-19')).toBe(1973);
+    });
+
+    it('says nothing about the year when there is no date, rather than guessing one', () => {
+        // Absent has to stay absent: the host reads an unknown year as eligible for any period, so a
+        // fabricated `0` would put every undated record in 1900 and out of every decade an operator
+        // could ask for.
+        expect(mapTrack({ id: 'track-1', name: 'Song' })).not.toHaveProperty('year');
+        expect(mapTrack({ id: 'track-1', name: 'Song', album: { name: 'Album' } })).not.toHaveProperty('year');
+        expect(mapTrack({ id: 'track-1', name: 'Song', album: { release_date: '' } })).not.toHaveProperty('year');
+        expect(mapTrack({ id: 'track-1', name: 'Song', album: { release_date: 'unknown' } })).not.toHaveProperty('year');
+        // A four-character head that parses to a number outside the bounds is a date this does not
+        // understand, not a year, and storing it would be worse than storing nothing.
+        expect(mapTrack({ id: 'track-1', name: 'Song', album: { release_date: '0000-01-01' } })).not.toHaveProperty('year');
+    });
 });
 
 describe('explicitFilterNotice', () => {

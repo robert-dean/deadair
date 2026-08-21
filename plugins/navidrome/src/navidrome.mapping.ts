@@ -21,6 +21,17 @@ export const text = (value: string | undefined): string | undefined => {
 };
 
 /**
+ * A tagged release year, or nothing.
+ *
+ * Subsonic sends `0` for an untagged file rather than omitting the field, so a truthiness test is
+ * the whole rule and a `typeof` check alone would put every untagged record in the year zero. The
+ * upper bound catches a tag that is a catalogue number or a timestamp, which is what a wrong `year`
+ * tag usually is.
+ */
+export const releaseYear = (value: number | undefined): number | undefined =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 1900 && value <= 2100 ? value : undefined;
+
+/**
  * The genres a song or record claims.
  *
  * OpenSubsonic's `genres[]` when the server sends it, falling back to the legacy
@@ -58,6 +69,9 @@ export function mapTrack(song: SubsonicChild, artworkUrl?: string): ProviderTrac
         ...(text(song.album) ? { album: text(song.album) } : {}),
         ...(durationMs(song.duration) !== undefined ? { durationMs: durationMs(song.duration) } : {}),
         ...(artworkUrl ? { artworkUrl } : {}),
+        // Straight off the file's own tags, which is the best year any provider gives: a library
+        // tags the record it holds rather than the reissue it was bought from.
+        ...(releaseYear(song.year) === undefined ? {} : { year: releaseYear(song.year) }),
     };
 }
 

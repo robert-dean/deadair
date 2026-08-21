@@ -56,6 +56,11 @@ export interface TrackIdentity {
     durationMs?: number;
     isrc?: string;
     artworkUrl?: string;
+    /**
+     * First release year, when the provider reports one. Four digits; see
+     * `ProviderTrack.year` for why it is not a date.
+     */
+    year?: number;
 }
 
 /** A canonical track competing to be the match for an incoming item. */
@@ -63,6 +68,34 @@ export interface TrackCandidate {
     id: string;
     durationMs: Nullable<number>;
 }
+
+/**
+ * The bounds a release year has to fall inside to be believed.
+ *
+ * Wide on purpose: this is a sanity check on a number a plugin handed over, not
+ * an opinion about what a station may hold. Recorded music starts well inside
+ * the lower bound, and the upper one is where a year stops being a year and
+ * starts being a parse that went wrong — the same pair `spotify.mapping.ts`
+ * closes an open-ended search range against.
+ */
+const YEAR_MIN = 1900;
+const YEAR_MAX = 2100;
+
+/**
+ * A release year worth storing, or nothing.
+ *
+ * Guarded rather than trusted because the values arrive from plugin code and
+ * three of the ways they go wrong are silent: Subsonic sends `0` for an
+ * untagged file, a date parsed with the wrong slice gives a two-digit number,
+ * and a `NaN` from a failed `Number()` writes as null in some drivers and
+ * throws in others. A year nobody can believe is worse than no year, because a
+ * period filter reads the absent one as eligible and the wrong one as proof.
+ */
+const usableYear = (value: number | undefined): number | undefined => {
+    if (value === undefined || !Number.isFinite(value)) return undefined;
+    const year = Math.trunc(value);
+    return year >= YEAR_MIN && year <= YEAR_MAX ? year : undefined;
+};
 
 /**
  * Which of several same-artist, same-title tracks an incoming item is.
@@ -238,12 +271,14 @@ export class CatalogResolverRepository extends DataRepository {
     }
 
     /**
-     * The canonical album for a name under one artist. `imageUrl` is recorded
-     * only when the album has none: a later enrichment pass should be able to
-     * replace provider art without a sync overwriting it on the next run.
+     * The canonical album for a name under one artist. `imageUrl` and `year` are
+     * recorded only when the album has none: a later enrichment pass should be
+     * able to replace provider art or a provider's release year without a sync
+     * overwriting it on the next run.
      */
-    async resolveAlbum(artistId: string, name: string, imageUrl?: string): Promise<string> {
+    async resolveAlbum(artistId: string, name: string, imageUrl?: string, year?: number): Promise<string> {
         const nameKey = normalizeKey(name);
+        const released = usableYear(year);
 
         const existing = await this.db
             .selectFrom('deadair.albums')
@@ -252,9 +287,11 @@ export class CatalogResolverRepository extends DataRepository {
             .where('nameKey', '=', nameKey)
             .executeTakeFirst();
 
-        const albumId = existing ? await this.followMerge('deadair.albums', existing) : await this.insertAlbum(artistId, name, nameKey, imageUrl);
+        const albumId = existing
+            ? await this.followMerge('deadair.albums', existing)
+            : await this.insertAlbum(artistId, name, nameKey, imageUrl, released);
 
-        if (existing && imageUrl) await this.fillAlbumImage(albumId, imageUrl);
+        if (existing) await this.fillAlbumBlanks(albumId, imageUrl, released);
         return albumId;
     }
 
@@ -272,7 +309,7 @@ export class CatalogResolverRepository extends DataRepository {
         const existingId = byIsrc ?? (await this.findByKeys(artistId, track));
 
         if (existingId) {
-            await this.fillTrackBlanks(existingId, albumId, track.durationMs);
+            await this.fillTrackBlanks(existingId, albumId, track.durationMs, usableYear(track.year));
             return { id: existingId, created: false };
         }
 
@@ -285,6 +322,7 @@ export class CatalogResolverRepository extends DataRepository {
                 title: track.title,
                 titleKey: normalizeKey(track.title),
                 durationMs: track.durationMs ?? null,
+                year: usableYear(track.year) ?? null,
             })
             .returning('id')
             .executeTakeFirstOrThrow();
@@ -401,10 +439,10 @@ export class CatalogResolverRepository extends DataRepository {
         return Number(result.numUpdatedRows ?? 0);
     }
 
-    private async insertAlbum(artistId: string, name: string, nameKey: string, imageUrl?: string): Promise<string> {
+    private async insertAlbum(artistId: string, name: string, nameKey: string, imageUrl?: string, year?: number): Promise<string> {
         const inserted = await this.db
             .insertInto('deadair.albums')
-            .values({ artistId, name, nameKey, imageUrl: imageUrl ?? null })
+            .values({ artistId, name, nameKey, imageUrl: imageUrl ?? null, year: year ?? null })
             .onConflict(oc => oc.columns(['artistId', 'nameKey']).doNothing())
             .returning('id')
             .executeTakeFirst();
@@ -419,8 +457,14 @@ export class CatalogResolverRepository extends DataRepository {
         return this.followMerge('deadair.albums', raced);
     }
 
-    private async fillAlbumImage(albumId: string, imageUrl: string): Promise<void> {
-        await this.db.updateTable('deadair.albums').set({ imageUrl }).where('id', '=', albumId).where('imageUrl', 'is', null).execute();
+    /** {@link fillTrackBlanks} for an album: the same fill-when-blank rule, for the same reason. */
+    private async fillAlbumBlanks(albumId: string, imageUrl: string | undefined, year: number | undefined): Promise<void> {
+        if (imageUrl !== undefined) {
+            await this.db.updateTable('deadair.albums').set({ imageUrl }).where('id', '=', albumId).where('imageUrl', 'is', null).execute();
+        }
+        if (year !== undefined) {
+            await this.db.updateTable('deadair.albums').set({ year }).where('id', '=', albumId).where('year', 'is', null).execute();
+        }
     }
 
     /**
@@ -474,13 +518,31 @@ export class CatalogResolverRepository extends DataRepository {
         return chosen?.id;
     }
 
-    /** Fills the canonical columns ingest may learn but must not restate. */
-    private async fillTrackBlanks(trackId: string, albumId: string | undefined, durationMs: number | undefined): Promise<void> {
+    /**
+     * Fills the canonical columns ingest may learn but must not restate.
+     *
+     * `year` joins the two that were already here, and the fill-when-blank rule is
+     * what keeps it from fighting enrichment: a provider dates the RELEASE it
+     * carries, so a 2011 remaster of a 1973 record comes through as 2011, while
+     * `enrichment.repository.ts` promotes the recording's own year from a source
+     * that knows the difference. Whichever arrives first wins and neither
+     * overwrites, which is the same bargain `album_id` and `duration_ms` already
+     * make. Before this, nothing but enrichment ever wrote the column at all.
+     */
+    private async fillTrackBlanks(
+        trackId: string,
+        albumId: string | undefined,
+        durationMs: number | undefined,
+        year: number | undefined,
+    ): Promise<void> {
         if (albumId !== undefined) {
             await this.db.updateTable('deadair.tracks').set({ albumId }).where('id', '=', trackId).where('albumId', 'is', null).execute();
         }
         if (durationMs !== undefined) {
             await this.db.updateTable('deadair.tracks').set({ durationMs }).where('id', '=', trackId).where('durationMs', 'is', null).execute();
+        }
+        if (year !== undefined) {
+            await this.db.updateTable('deadair.tracks').set({ year }).where('id', '=', trackId).where('year', 'is', null).execute();
         }
     }
 

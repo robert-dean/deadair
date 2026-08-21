@@ -47,6 +47,22 @@ describe('mapTrack', () => {
     it('never claims an ISRC, because Subsonic has no field for one', () => {
         expect(mapTrack(song)).not.toHaveProperty('isrc');
     });
+
+    it('carries the tagged release year', () => {
+        expect(mapTrack({ ...song, year: 1994 })?.year).toBe(1994);
+    });
+
+    it('reads an untagged year as no year rather than as the year zero', () => {
+        // Subsonic sends `0` for a file with no year tag instead of omitting the field, so this is
+        // the ordinary case on any real library rather than a defensive one. Absent has to stay
+        // absent: the host reads an unknown year as eligible for any period, and a stored `0` would
+        // be a positive claim that the record is out of every decade an operator can ask for.
+        expect(mapTrack({ ...song, year: 0 })).not.toHaveProperty('year');
+        expect(mapTrack(song)).not.toHaveProperty('year');
+        // A tag holding a catalogue number or a timestamp, which is what a wrong `year` usually is.
+        expect(mapTrack({ ...song, year: 94 })).not.toHaveProperty('year');
+        expect(mapTrack({ ...song, year: 19940101 })).not.toHaveProperty('year');
+    });
 });
 
 describe('mapTracks', () => {

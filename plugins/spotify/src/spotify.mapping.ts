@@ -20,6 +20,14 @@ interface SpotifyArtist {
 interface SpotifyAlbum {
     name?: string;
     images?: SpotifyImage[];
+    /**
+     * `YYYY`, `YYYY-MM` or `YYYY-MM-DD`, depending on `release_date_precision`.
+     *
+     * Present on the simplified album object too, which is the one nested inside every track, so
+     * this is available on a playlist walk and a search alike rather than only on a full album
+     * fetch. See {@link releaseYear} for why only the first four characters are read.
+     */
+    release_date?: string;
 }
 
 interface SpotifyTrack {
@@ -99,6 +107,26 @@ function pickArtwork(images?: SpotifyImage[]): string | undefined {
 }
 
 /**
+ * The year off a Spotify release date, or nothing.
+ *
+ * The first four characters and no date parsing at all, which is deliberate on both counts.
+ * `release_date` is a PARTIAL date by design — `release_date_precision` says whether it is a year, a
+ * month or a day — so `new Date('1973')` is a value with eleven months of precision it never had,
+ * and one that shifts across a timezone at that. A year is the only part every precision agrees on.
+ *
+ * What this year MEANS is the release Spotify carries rather than the recording, so a remaster is
+ * dated by its reissue. That is a real limit and the right one to accept here: the host fills the
+ * column only when it is blank, so a source that knows the difference still wins, and a decade filter
+ * with most of a library dated approximately beats one with almost none dated at all.
+ */
+function releaseYear(releaseDate: string | undefined): number | undefined {
+    if (typeof releaseDate !== 'string' || releaseDate.length < 4) return undefined;
+
+    const parsed = Number(releaseDate.slice(0, 4));
+    return Number.isInteger(parsed) && parsed >= YEAR_MIN && parsed <= YEAR_MAX ? parsed : undefined;
+}
+
+/**
  * A Spotify item is only a usable {@link ProviderTrack} once it has an id and
  * a title. Playlists can contain nulls (removed tracks) and episodes, so this
  * returns `undefined` rather than fabricating a half-empty track.
@@ -117,6 +145,9 @@ export function mapTrack(track: SpotifyTrack | null | undefined): ProviderTrack 
         // Carried rather than dropped, and only when it is a real reading: a caller ordering by it
         // must be able to tell "Spotify says this is obscure" from "Spotify did not say".
         ...(isRanking(track.popularity) ? { popularity: track.popularity } : {}),
+        // Absent rather than null when Spotify gave no date, because the host reads an unknown year
+        // as eligible for any period and a zero would read as 1900.
+        ...(releaseYear(track.album?.release_date) === undefined ? {} : { year: releaseYear(track.album?.release_date) }),
         // Only when Spotify actually said. A simplified track object carries no `explicit` at all,
         // and reading a missing field as `false` would report every album cut as clean — which is
         // the one mistake a clean-only station cannot survive, since it would be told the record

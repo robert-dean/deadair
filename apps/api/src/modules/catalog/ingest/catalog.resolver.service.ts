@@ -65,7 +65,11 @@ export class CatalogResolverService {
         return this.db.transaction().execute(async trx => {
             const resolver = this.resolver.withTransaction(trx);
             const artistId = await resolver.resolveArtist(artistName);
-            const albumId = track.album ? await resolver.resolveAlbum(artistId, track.album, track.artworkUrl) : undefined;
+            // The track's year is the album's here, and that is the provider's own claim rather than
+            // an inference: what a provider dates is the RELEASE an item sits on, so a row's year and
+            // its album's year are the same fact arriving once. Both are filled only when blank, so
+            // an album already dated by enrichment is left alone.
+            const albumId = track.album ? await resolver.resolveAlbum(artistId, track.album, track.artworkUrl, track.year) : undefined;
             const resolved = await resolver.resolveTrack(artistId, albumId, track);
             await resolver.upsertTrackSource(resolved.id, pluginId, track, origin);
             return { status: 'ingested', trackId: resolved.id, created: resolved.created };

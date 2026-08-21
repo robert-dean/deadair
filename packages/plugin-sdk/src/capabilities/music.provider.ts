@@ -23,6 +23,25 @@ export interface ProviderTrack {
     isrc?: string;
     artworkUrl?: string;
     /**
+     * The year this record was first released, as the provider reports it.
+     *
+     * A four-digit year and never a date: what a station asks of a period is which decade a record
+     * belongs to, and a provider that knows the month knows it about THIS release rather than about
+     * the recording — a 2011 remaster of a 1973 album is dated 2011 by every provider that carries
+     * it. Precision nobody can trust is worse than none, so the field is as coarse as the question.
+     *
+     * Optional, and absent must read as "the provider did not say" rather than as old or new. A host
+     * filtering by period has to treat an unknown year as ELIGIBLE: a record whose year nobody
+     * recorded is not evidence of the wrong decade, and dropping it would silently shrink a library
+     * to whatever happened to be tagged.
+     *
+     * It exists because the host was throwing this away. Spotify sends `album.release_date` on every
+     * search and playlist row and Subsonic sends `year`, while `deadair.tracks.year` was written only
+     * by a much later enrichment pass — so a station could not be asked for a period until something
+     * else had gone and looked the same records up.
+     */
+    year?: number;
+    /**
      * How well known the record is, 0 to 100, when the provider has an opinion.
      *
      * A RANKING and not a fact: providers compute it differently and none of them says how, so the

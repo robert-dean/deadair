@@ -959,6 +959,20 @@ export class DirectorService {
                         await this.expire(requests, segments, request);
                         continue;
                     }
+                    // A holding message is only true while the station is still holding. Its urgency
+                    // gives it fifteen minutes, which is right for a break ABOUT a record and badly
+                    // wrong for one whose entire content is "music in a moment": once a record has
+                    // committed, that sentence airs between two songs as a non-sequitur.
+                    //
+                    // Measured on the station: the spoken warm-up reached `ready` thirteen seconds
+                    // after it was asked for, by which time the first download had landed and the
+                    // station had been airing for eight of them. So the clock this is judged against
+                    // is not a deadline but the WAIT itself — the thing it exists to cover — and a
+                    // warm-up that missed its moment is over rather than merely late.
+                    if (request.kind === WARMUP_KIND && this.waitingOnAudioSince === undefined) {
+                        await this.expire(requests, segments, request);
+                        continue;
+                    }
                     if (request.segmentId === undefined) continue;
 
                     const segment = await segments.findById(request.segmentId);

@@ -2634,6 +2634,25 @@ describe('DirectorService holding a listener while it warms up', () => {
         expect(warmUpsIn(lineup)).toHaveLength(0);
     });
 
+    // The spoken floor takes a write and a render to produce — thirteen seconds, measured on the
+    // station — and the wait it covers can be shorter than that. Its urgency would otherwise keep it
+    // for fifteen minutes and air "music in a moment" between two songs.
+    it('drops a spoken holding message that missed its moment', async () => {
+        const { director, requests, seedCatalogued } = build({
+            items: ['a', 'b'],
+            audienceOpen: true,
+            canTalk: true,
+            waiting: [{ id: 'req-1', kind: WARMUP_KIND, urgency: 'next', source: 'audience', state: 'pending', segmentId: 'seg-ready' }] as never,
+            segments: [{ id: 'seg-ready', kind: WARMUP_KIND, state: 'ready', label: 'Warming up', audioChecksum: 'w', audioExt: 'mp3' }],
+        });
+        await seedCatalogued();
+
+        // `localAudio` defaults to everything, so the station commits at once and is not waiting.
+        await director.start();
+
+        expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'expired', ['pending', 'ready']);
+    });
+
     // The one step in the pass whose whole purpose is to make a bad moment more bearable, so it must
     // not be able to make one: a throw here would take the commit pass with it and cost the station
     // the very records it was covering for.

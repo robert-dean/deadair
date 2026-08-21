@@ -6,6 +6,9 @@ import { KokoroPlugin } from '../src/kokoro.plugin.js';
 
 const BASE_URL = 'http://kokoro.test:8880/v1';
 
+/** Voice rows as the host stores a `list` field: a JSON array of objects, in a string. */
+const voiceRows = (...entries: Record<string, string>[]): string => JSON.stringify(entries);
+
 /** Enough bytes to clear the "this is not audio" floor. */
 const audioChunk = (size = 4096): Uint8Array => new Uint8Array(size).fill(7);
 
@@ -129,7 +132,9 @@ describe('KokoroPlugin.speak', () => {
     });
 
     it('maps a station voice name to the engine voice the operator set', async () => {
-        const { plugin, calls } = await started({ config: { voices: 'host = af_bella\nnewsreader: am_michael' } });
+        const { plugin, calls } = await started({
+            config: { voices: voiceRows({ name: 'host', engine: 'af_bella' }, { name: 'newsreader', engine: 'am_michael' }) },
+        });
 
         const handle = await plugin.speak({ text: 'hello', voice: 'newsreader' });
 
@@ -137,8 +142,35 @@ describe('KokoroPlugin.speak', () => {
         await handle.audio.cancel();
     });
 
+    it('sends the speed a voice was given, and sends none when it was given none', async () => {
+        // Absent rather than 1: a request with no `speed` is the plainest thing this can ask for,
+        // and it is what every voice asked for before the column existed.
+        const config = { voices: voiceRows({ name: 'automaton', engine: 'am_echo', speed: '0.9' }, { name: 'host', engine: 'af_heart' }) };
+
+        // Two starts rather than two speaks against one, because `speechRequest` reads the FIRST
+        // speech call and a second assertion against the same recorder would re-read the first.
+        const slow = await started({ config });
+        const slowHandle = await slow.plugin.speak({ text: 'hello', voice: 'automaton' });
+        expect(speechRequest(slow.calls).speed).toBe(0.9);
+        await slowHandle.audio.cancel();
+
+        const plain = await started({ config });
+        const plainHandle = await plain.plugin.speak({ text: 'hello', voice: 'host' });
+        expect(speechRequest(plain.calls)).not.toHaveProperty('speed');
+        await plainHandle.audio.cancel();
+    });
+
+    it('passes a blend expression through untouched, because the engine takes one', async () => {
+        const { plugin, calls } = await started({ config: { voices: voiceRows({ name: 'host', engine: 'af_bella(2)+af_sky(1)' }) } });
+
+        const handle = await plugin.speak({ text: 'hello', voice: 'host' });
+
+        expect(speechRequest(calls).voice).toBe('af_bella(2)+af_sky(1)');
+        await handle.audio.cancel();
+    });
+
     it('falls back to the default voice for a name it has no mapping for, and says so', async () => {
-        const { plugin, calls, host } = await started({ config: { voices: 'host = af_bella', defaultVoice: 'af_heart' } });
+        const { plugin, calls, host } = await started({ config: { voices: voiceRows({ name: 'host', engine: 'af_bella' }), defaultVoice: 'af_heart' } });
 
         const handle = await plugin.speak({ text: 'hello', voice: 'renamed-persona' });
 
@@ -228,7 +260,7 @@ describe('KokoroPlugin.testConnection', () => {
 
 describe('KokoroPlugin.listVoices', () => {
     it('lists the station names, not everything the engine can do', async () => {
-        const { plugin } = await started({ config: { voices: 'host = af_bella', defaultVoice: 'af_heart' } });
+        const { plugin } = await started({ config: { voices: voiceRows({ name: 'host', engine: 'af_bella' }), defaultVoice: 'af_heart' } });
 
         const voices = await plugin.listVoices();
 
@@ -237,5 +269,69 @@ describe('KokoroPlugin.listVoices', () => {
         expect(voices.map(voice => voice.id)).toEqual(['', 'host']);
         expect(voices[0]!.description).toContain('af_heart');
         expect(voices[1]!.description).toContain('af_bella');
+    });
+
+    it('publishes a spec that changes with the mapping, which is what keys a cached preview', async () => {
+        // Without it the host keys a sample on the STATION voice name, which is exactly the part
+        // that does not change when an operator edits the mapping under it. See `SpeechVoice.spec`.
+        const specFor = async (row: Record<string, string>): Promise<string | undefined> => {
+            const { plugin } = await started({ config: { voices: voiceRows(row) } });
+            return (await plugin.listVoices()).find(voice => voice.id === 'host')?.spec;
+        };
+
+        const bella = await specFor({ name: 'host', engine: 'af_bella' });
+
+        expect(bella).not.toBe(await specFor({ name: 'host', engine: 'bm_george' }));
+        expect(bella).not.toBe(await specFor({ name: 'host', engine: 'af_bella', speed: '1.2' }));
+    });
+
+    it('says the speed in the description only when there is one to say', async () => {
+        const { plugin } = await started({
+            config: { voices: voiceRows({ name: 'host', engine: 'af_bella' }, { name: 'automaton', engine: 'am_echo', speed: '0.9' }) },
+        });
+
+        const voices = await plugin.listVoices();
+
+        expect(voices.find(voice => voice.id === 'host')!.description).not.toContain('x');
+        expect(voices.find(voice => voice.id === 'automaton')!.description).toContain('0.9x');
+    });
+});
+
+describe('KokoroPlugin.suggestConfigOptions', () => {
+    it('offers what the server actually has, for the engine cell and the default voice', async () => {
+        // The whole reason this exists: 68 voicepacks on the bundled server and a map holding the
+        // empty string, because filling it in required knowing `af_heart` by heart.
+        const { plugin } = await started({
+            fetchResponse: { body: JSON.stringify({ voices: [{ id: 'af_heart' }, { id: 'bm_george' }] }) },
+        });
+
+        const suggested = await plugin.suggestConfigOptions();
+
+        // Addressed as `<field>.<column>`, which is how the host publishes choices for one CELL of a
+        // list rather than for the field.
+        expect(suggested['voices.engine']).toEqual([
+            { value: 'af_heart', label: 'af_heart' },
+            { value: 'bm_george', label: 'bm_george' },
+        ]);
+        expect(suggested.defaultVoice).toEqual(suggested['voices.engine']);
+    });
+
+    it('reads a build that answers bare strings as well as one that answers objects', async () => {
+        const { plugin } = await started({ fetchResponse: { body: JSON.stringify({ voices: ['af_heart', 'bm_george'] }) } });
+
+        expect((await plugin.suggestConfigOptions())['voices.engine']?.map(option => option.value)).toEqual(['af_heart', 'bm_george']);
+    });
+
+    it('answers nothing rather than throwing when the server cannot be reached', async () => {
+        // An operator fixing a bad address needs the form, and the refresh control is right there.
+        const { plugin } = await started({ fetchResponse: { status: 502, body: 'nope' } });
+
+        await expect(plugin.suggestConfigOptions()).resolves.toEqual({});
+    });
+
+    it('answers nothing for a body it cannot make sense of', async () => {
+        const { plugin } = await started({ fetchResponse: { body: JSON.stringify({ voices: 'af_heart' }) } });
+
+        await expect(plugin.suggestConfigOptions()).resolves.toEqual({});
     });
 });

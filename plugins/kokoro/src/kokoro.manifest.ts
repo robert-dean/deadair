@@ -1,6 +1,6 @@
 import { PLUGIN_CAPABILITY_SPEECH, type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
-import { parseVoiceMap } from './kokoro.voices.js';
+import { MAX_SPEED, MIN_SPEED, VOICE_ENGINE_COLUMN, VOICE_NAME_COLUMN, VOICE_SPEED_COLUMN, VOICES_FIELD, voiceRowsAreComplete } from './kokoro.voices.js';
 
 export const PLUGIN_ID = 'deadair.kokoro';
 export const PLUGIN_VERSION = '0.0.1';
@@ -57,11 +57,11 @@ export const DEFAULT_FORMAT: ResponseFormat = 'mp3';
  * Validated on the way in, so `init()` never has to defend against a half-typed
  * form.
  *
- * `voices` is a textarea of `stationId = engineVoice` lines rather than a
- * structured field, because the host's form vocabulary has no map type and a
- * fixed set of named voice slots would be a guess at how many personas a station
- * will have. Parsing it here means a malformed line is refused at save time,
- * with the operator still looking at the form.
+ * `voices` is a `list` field, stored as a JSON array of row objects, so the only
+ * thing left to check here is that no row names one half of a mapping and not the
+ * other — a shape the form itself cannot prevent, and one that becomes a voice the
+ * station silently does not have. Refused at save time, with the operator still
+ * looking at the table.
  */
 export const configSchema = z.object({
     baseUrl: z.string().min(1),
@@ -69,10 +69,10 @@ export const configSchema = z.object({
     model: z.string().optional(),
     format: z.enum(Object.keys(RESPONSE_FORMATS) as [ResponseFormat, ...ResponseFormat[]]).optional(),
     defaultVoice: z.string().optional(),
-    voices: z
+    [VOICES_FIELD]: z
         .string()
         .optional()
-        .refine(value => parseVoiceMap(value).ok, { message: 'each entry must be "stationVoice = engineVoice"' }),
+        .refine(voiceRowsAreComplete, { message: 'every voice needs both a station name and an engine voice' }),
 });
 
 export const kokoroManifest: PluginManifest = {
@@ -128,13 +128,31 @@ export const kokoroManifest: PluginManifest = {
             label: 'Default voice',
             type: 'string',
             default: DEFAULT_VOICE,
-            help: 'Used for anything the station has no mapping for. Must be a voice this server has.',
+            help: 'Used for anything the station has no mapping for. Pick from what this server reports, or type a blend.',
         },
         {
-            key: 'voices',
+            key: VOICES_FIELD,
             label: 'Voices',
-            type: 'string',
-            help: '"stationVoice = engineVoice", separated by commas or newlines, e.g. "host = af_heart, newsreader = am_michael". The station asks for its own names; this says what they sound like here.',
+            type: 'list',
+            placeholder: 'No voices yet, so everything the station says uses the default.',
+            help:
+                'The station asks for its own names and this says what each one sounds like here. A name is whatever you want to call a voice — a role like "host" or "newsreader", or a character — and it is what a persona points at. ' +
+                'The engine voice offers what this server actually has; you can also type a blend, like "af_bella(2)+af_sky(1)".',
+            columns: [
+                { key: VOICE_NAME_COLUMN, label: 'Station voice', type: 'string', required: true, placeholder: 'host' },
+                // No `options` of its own: the list is whatever the operator's own server currently
+                // reports, which only the plugin can ask for. See `suggestConfigOptions`. Left as
+                // `string` rather than `select` so a blend expression, which names no single
+                // voicepack, is still typeable — the console draws a cell with choices as an
+                // autocomplete for exactly this reason.
+                { key: VOICE_ENGINE_COLUMN, label: 'Engine voice', type: 'string', required: true, placeholder: 'af_heart' },
+                { key: VOICE_SPEED_COLUMN, label: 'Speed', type: 'string', placeholder: '1' },
+            ],
+        },
+        {
+            key: 'speedNote',
+            type: 'note',
+            label: `Speed is optional and ranges from ${MIN_SPEED} to ${MAX_SPEED}. Leave it empty to read at the engine's own pace, which is what every voice did before the column existed.`,
         },
     ],
     configSchema,

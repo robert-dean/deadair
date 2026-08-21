@@ -4,6 +4,7 @@ import {
     Plugin,
     PluginError,
     tryJsonBody,
+    type ConfigFieldOption,
     type PluginConnectionResult,
     type SpeechHandle,
     type SpeechPluginInstance,
@@ -20,7 +21,7 @@ import {
     kokoroManifest,
     type ResponseFormat,
 } from './kokoro.manifest.js';
-import { voiceMapOf } from './kokoro.voices.js';
+import { VOICE_ENGINE_COLUMN, VOICES_FIELD, voiceMapOf, type VoiceMap, type VoiceMapping } from './kokoro.voices.js';
 
 export { kokoroManifest };
 
@@ -82,7 +83,7 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
     private model = DEFAULT_MODEL;
     private format: ResponseFormat = DEFAULT_FORMAT;
     private defaultVoice = DEFAULT_VOICE;
-    private voices: Record<string, string> = {};
+    private voices: VoiceMap = {};
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
@@ -90,7 +91,7 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         this.model = configString(config.model) ?? DEFAULT_MODEL;
         this.format = isResponseFormat(config.format) ? config.format : DEFAULT_FORMAT;
         this.defaultVoice = configString(config.defaultVoice) ?? DEFAULT_VOICE;
-        this.voices = voiceMapOf(config.voices);
+        this.voices = voiceMapOf(config[VOICES_FIELD]);
         this.apiKey = await this.host.secrets.get('apiKey');
 
         this.host.logger.info('kokoro ready', {
@@ -125,16 +126,81 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
      * that differs.
      */
     async listVoices(): Promise<SpeechVoice[]> {
-        const mapped = Object.entries(this.voices).map(([id, engineVoice]) => ({
+        const mapped = Object.entries(this.voices).map(([id, mapping]) => ({
             id,
             label: id,
-            description: `${engineVoice} on this server`,
-            spec: engineVoice,
+            description: describe(mapping),
+            spec: specOf(mapping),
         }));
 
         // Always offer the fallback, under its own name, so a station with no
         // mappings at all still has something to preview and choose.
-        return [{ id: '', label: 'Default', description: `${this.defaultVoice} on this server`, spec: this.defaultVoice }, ...mapped];
+        const fallback: VoiceMapping = { engine: this.defaultVoice };
+        return [{ id: '', label: 'Default', description: describe(fallback), spec: specOf(fallback) }, ...mapped];
+    }
+
+    /**
+     * What the settings form should offer, out of what the server actually has.
+     *
+     * This is what makes the form fillable, and the measurement behind it is
+     * blunt: 68 voicepacks on the bundled server, and a station whose map held
+     * the empty string, because filling it in required knowing `af_heart` by
+     * heart. `testConnection` has always fetched this list and thrown it away
+     * after counting it.
+     *
+     * Both fields get the same list and use it differently. The engine cell of
+     * each voice row is free text WITH these as suggestions, because the server's
+     * list is not the whole vocabulary — a blend expression names no single
+     * voicepack and is a legal value — and the default voice is the same. The
+     * column is addressed as `<field>.<column>`, which is how the host publishes
+     * choices for one cell of a list rather than for the field.
+     *
+     * Answers nothing rather than throwing when the server is unreachable: an
+     * operator fixing a bad address needs the form, and the refresh control is
+     * right there.
+     */
+    async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
+        if (this.baseUrl.length === 0) return {};
+
+        let voices: string[];
+        try {
+            voices = await this.fetchEngineVoices();
+        } catch (error) {
+            this.host.logger.debug('kokoro could not suggest voices', { error: error instanceof Error ? error.message : String(error) });
+            return {};
+        }
+
+        if (voices.length === 0) return {};
+
+        const options = voices.map(id => ({ value: id, label: id }));
+        return { [`${VOICES_FIELD}.${VOICE_ENGINE_COLUMN}`]: options, defaultVoice: options };
+    }
+
+    /**
+     * Every voice this server holds, by name.
+     *
+     * The bundled engine answers `{ voices: [{ id, name }] }` and other builds
+     * have answered a bare array of strings, so both shapes are read and anything
+     * else is no voices rather than a throw. Reported as ids, since that is what
+     * goes in the request.
+     */
+    private async fetchEngineVoices(): Promise<string[]> {
+        const response = await this.host.fetch(`${this.baseUrl}/audio/voices`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+        if (!response.ok) {
+            await response.body?.cancel().catch(() => {});
+            return [];
+        }
+
+        const body = await tryJsonBody<{ voices?: unknown }>(response);
+        const listed = Array.isArray(body?.voices) ? body.voices : [];
+
+        return listed.flatMap(entry => {
+            if (typeof entry === 'string') return entry.trim().length > 0 ? [entry.trim()] : [];
+            if (typeof entry !== 'object' || entry === null) return [];
+
+            const id = (entry as { id?: unknown }).id;
+            return typeof id === 'string' && id.trim().length > 0 ? [id.trim()] : [];
+        });
     }
 
     async speak(request: SpeechRequest): Promise<SpeechHandle> {
@@ -146,12 +212,22 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         if (text.length === 0) throw new PluginError('kokoro was asked to say nothing').withCode('config');
 
         const format = isResponseFormat(request.format) ? request.format : this.format;
-        const voice = this.resolveVoice(request.voice);
+        const mapping = this.resolveVoice(request.voice);
+        const voice = mapping.engine;
 
         const response = await this.host.fetch(`${this.baseUrl}/audio/speech`, {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...this.authHeaders() },
-            body: JSON.stringify({ model: this.model, input: text, voice, response_format: format }),
+            body: JSON.stringify({
+                model: this.model,
+                input: text,
+                voice,
+                response_format: format,
+                // Omitted rather than sent as 1 when the operator set no speed. A request with no
+                // `speed` is the plainest thing this can ask for, and it is what every voice asked
+                // for before the column existed.
+                ...(mapping.speed === undefined ? {} : { speed: mapping.speed }),
+            }),
             timeoutMs: SPEAK_TIMEOUT_MS,
         });
 
@@ -164,7 +240,7 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
                 .withUpstreamStatus(response.status);
         }
 
-        this.host.logger.debug('kokoro speaking', { voice, format, chars: text.length });
+        this.host.logger.debug('kokoro speaking', { voice, format, chars: text.length, ...(mapping.speed === undefined ? {} : { speed: mapping.speed }) });
 
         return { mime: RESPONSE_FORMATS[format], audio: response.body.pipeThrough(withPlausibilityCheck(voice)) };
     }
@@ -176,14 +252,14 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
      * station that says the wrong thing in the wrong voice is recoverable, and
      * one that goes silent because a persona was renamed is not.
      */
-    private resolveVoice(requested: string | undefined): string {
-        if (requested === undefined || requested.length === 0) return this.defaultVoice;
+    private resolveVoice(requested: string | undefined): VoiceMapping {
+        if (requested === undefined || requested.length === 0) return { engine: this.defaultVoice };
 
         const mapped = this.voices[requested];
         if (mapped !== undefined) return mapped;
 
         this.host.logger.warn('no mapping for this voice; using the default', { voice: requested, using: this.defaultVoice });
-        return this.defaultVoice;
+        return { engine: this.defaultVoice };
     }
 
     private authHeaders(): Record<string, string> {
@@ -192,3 +268,17 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
 }
 
 const isResponseFormat = (value: unknown): value is ResponseFormat => typeof value === 'string' && Object.hasOwn(RESPONSE_FORMATS, value);
+
+/** What a mapping sounds like, for the console's list. The speed is only worth saying when set. */
+const describe = (mapping: VoiceMapping): string =>
+    mapping.speed === undefined ? `${mapping.engine} on this server` : `${mapping.engine} on this server, at ${mapping.speed}x`;
+
+/**
+ * The token the host keys a cached voice preview on. See `SpeechVoice.spec`.
+ *
+ * Opaque to the host, so the only rule is that it change whenever the rendering
+ * would: both halves of the mapping are in it, and a voice with no speed reads as
+ * a different token from the same voice at 1x deliberately, because those are two
+ * different requests.
+ */
+const specOf = (mapping: VoiceMapping): string => (mapping.speed === undefined ? mapping.engine : `${mapping.engine}@${mapping.speed}`);

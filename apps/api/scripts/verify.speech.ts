@@ -41,7 +41,17 @@ const consoleLogger = {
     error: (message: string, meta?: unknown) => console.log(`  [error] ${message}`, meta ?? ''),
 };
 
-const config = { baseUrl: BASE_URL, model: 'kokoro', format: 'mp3', defaultVoice: 'af_heart', voices: 'host = af_bella' };
+const config = {
+    baseUrl: BASE_URL,
+    model: 'kokoro',
+    format: 'mp3',
+    defaultVoice: 'af_heart',
+    // A `list` field, so its stored form is a JSON array of row objects exactly as the console would
+    // have written it. The speed is here rather than omitted because it is the one part of the row
+    // that reaches the engine's request body, and this script is the only thing that proves a real
+    // server accepts it.
+    voices: JSON.stringify([{ name: 'host', engine: 'af_bella', speed: '0.95' }]),
+};
 
 /**
  * A container holding just the two scoped services the host resolves.

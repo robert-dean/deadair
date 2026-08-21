@@ -354,11 +354,29 @@ export class RenderService {
  * things: the key already identifies this voice saying this line, so a re-render of identical audio
  * is the same ETag and a remapped voice is a different one. Which is exactly what a validator should
  * mean here.
+ *
+ * ## Why this one revalidates and segment audio does not
+ *
+ * `must-revalidate` rather than the `max-age=86400` beside it, and it is the difference between the
+ * two URLs rather than a difference of opinion about caching. `/segments/{id}/audio` names a row
+ * whose bytes are content-addressed, so the id genuinely identifies the audio. `/voices/{id}/sample`
+ * names a STATION voice, which is precisely the part that does not change when an operator remaps
+ * it — so a day of `max-age` means the browser answers the next click out of its own cache and the
+ * request never arrives.
+ *
+ * Measured rather than reasoned: with the key fixed to include what a voice currently IS, a remap
+ * followed by a replay still played the old voice, and the API logged no second render because it
+ * saw no second request. Making the key honest was necessary and, on its own, invisible.
+ *
+ * The cost is one conditional request per click, which the conditional-GET middleware answers with
+ * a bodyless 304 whenever the mapping has not moved.
  */
+const SAMPLE_CACHE_CONTROL = 'private, no-cache, must-revalidate';
+
 const sampleResponse = (body: Buffer, key: string, ext: SegmentExtension): SegmentAudioResponse => ({
     contentType: SEGMENT_CONTENT_TYPES[ext],
     body,
-    headers: { cacheControl: CACHE_CONTROL, etag: `"${key}"` },
+    headers: { cacheControl: SAMPLE_CACHE_CONTROL, etag: `"${key}"` },
 });
 
 /** Whether a failure is the station being busy rather than anything wrong with the engine. */

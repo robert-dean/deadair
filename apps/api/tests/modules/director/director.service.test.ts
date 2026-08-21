@@ -10,7 +10,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
 import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 
-import { COMMIT_LEAD, DirectorService } from '../../../src/modules/director/director.service.js';
+import { COMMIT_LEAD, DirectorService, WARM_TICK_MS } from '../../../src/modules/director/director.service.js';
 import {
     StationLineup,
     isTrackItem,
@@ -38,6 +38,7 @@ import type { StoredBreakRequest } from '../../../src/modules/director/break.req
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
+import { Heartbeat, HEARTBEATS } from '../../../src/modules/shared/heartbeat.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -291,6 +292,10 @@ function build(options: Options = {}) {
 
     const activity = { record: vi.fn(async () => undefined) } as unknown as ActivityRecorder;
 
+    // Real rather than stubbed: it is a map of timestamps with no I/O behind it, so a double would
+    // only be a second thing to keep in step. The warm ticker's own tests read it.
+    const heartbeat = new Heartbeat();
+
     const director = new DirectorService(
         rundown,
         audience,
@@ -298,12 +303,14 @@ function build(options: Options = {}) {
         jobs as unknown as PgBossJobBroker,
         activity,
         new StationIdentity(),
+        heartbeat,
         station.config,
         logger,
     );
 
     return {
         director,
+        heartbeat,
         station,
         container,
         createScope,
@@ -2380,5 +2387,102 @@ describe('DirectorService opening a database scope', () => {
 
             expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'failed', ['pending', 'ready']);
         });
+    });
+});
+
+describe('DirectorService waking itself while it waits on bytes', () => {
+    // A commit pass runs when the running order CHANGES and at no other time, and off air the
+    // change never comes: the pusher's warm lead is 0, so it never pulls and the rundown never
+    // emits. On a warm station that is right. On a cold one the pass that would ask for the bytes
+    // is the pass that only runs once the bytes arrive, and the station sits still — which on
+    // 2026-08-20 is what left an operator clicking Start to hand-crank it.
+    it('asks again while the running order is full and cold', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, readyFor, seedCatalogued } = build({ items: ['a', 'b'], localAudio: [] });
+            await seedCatalogued();
+            await director.start();
+
+            readyFor.mockClear();
+            await vi.advanceTimersByTimeAsync(WARM_TICK_MS * 2);
+
+            expect(readyFor).toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    // The gate, which is the whole design: a healthy station must not be paying for a pass every
+    // few seconds. `noteAudioWait` clears the wait on any pass that commits something, so the loop
+    // stops asking without anything having to turn it off.
+    it('asks nothing of a station that is committing normally', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, readyFor, seedCatalogued } = build({ items: ['a', 'b'] });
+            await seedCatalogued();
+            await director.start();
+
+            readyFor.mockClear();
+            await vi.advanceTimersByTimeAsync(WARM_TICK_MS * 4);
+
+            expect(readyFor).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('stops asking once the bytes arrive', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, readyFor, seedCatalogued } = build({ items: ['a', 'b'], localAudio: [] });
+            await seedCatalogued();
+            await director.start();
+
+            // The download lands: every record is here now, so the next tick's pass commits and
+            // clears the wait, and the tick after that has nothing to ask about.
+            readyFor.mockImplementation(async bindings => new Set(bindings.map(binding => bindingKey(binding))));
+            await vi.advanceTimersByTimeAsync(WARM_TICK_MS);
+
+            readyFor.mockClear();
+            await vi.advanceTimersByTimeAsync(WARM_TICK_MS * 3);
+
+            expect(readyFor).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    // The beat says the LOOP is going round, not that the station is warming. A tick that correctly
+    // decided to do nothing is a pass, exactly as the transport's several early returns are.
+    it('beats even on a tick that decides there is nothing to do', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, heartbeat, seedCatalogued } = build({ items: ['a', 'b'] });
+            await seedCatalogued();
+            await director.start();
+
+            await vi.advanceTimersByTimeAsync(WARM_TICK_MS);
+
+            expect(heartbeat.all().find(loop => loop.name === HEARTBEATS.directorWarm)?.lastBeat).toBeDefined();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('stops the loop when the director is stopped', async () => {
+        vi.useFakeTimers();
+        try {
+            const { director, readyFor, seedCatalogued } = build({ items: ['a', 'b'], localAudio: [] });
+            await seedCatalogued();
+            await director.start();
+
+            await director.stop();
+            readyFor.mockClear();
+            await vi.advanceTimersByTimeAsync(WARM_TICK_MS * 3);
+
+            expect(readyFor).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

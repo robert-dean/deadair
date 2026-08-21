@@ -133,4 +133,12 @@ export const HEARTBEATS = {
     playoutReconcile: 'playout.reconcile',
     /** The Icecast listener poll. */
     audiencePoll: 'audience.poll',
+    /**
+     * The director asking again while the station is waiting on bytes.
+     *
+     * Unlike the two above it, this loop is idle by design: it posts a wake only while a commit
+     * pass has found a running order it could not commit anything from. So a beat here says the
+     * loop is alive and says nothing at all about whether the station is warming.
+     */
+    directorWarm: 'director.warm',
 } as const;

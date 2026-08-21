@@ -8,6 +8,7 @@ import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { TrackCachePlanner } from '#modules/playout/audio/track.cache.planner.js';
 import { TrackAudioService, bindingKey } from '#modules/playout/audio/track.audio.service.js';
 import { Epoch } from '#modules/shared/epoch.js';
+import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
@@ -76,6 +77,32 @@ export const COMMIT_LEAD = 1;
  * a warning rather than a post-mortem.
  */
 const WAITING_ON_AUDIO_MS = 60_000;
+
+/**
+ * How often a station that is waiting on bytes asks itself again.
+ *
+ * ## Why there has to be one at all
+ *
+ * A commit pass runs when the running order CHANGES, and nothing else. The single subscription in
+ * {@link start} is the whole of it, and off air the change never comes: `PlayoutPusher`'s
+ * `WARM_LEAD` is 0, so its reconcile never reaches `Rundown.next()` and the rundown never emits.
+ *
+ * On a warm station that is exactly right — the boundary is the change, and there is one every few
+ * minutes. On a COLD one it deadlocks, because the pass that would ask for the bytes is the pass
+ * that only runs once the bytes arrive. A fresh station sent its two `playout.cache_track` jobs and
+ * then sat still: on 2026-08-20 the only thing that moved it for eight minutes was an operator
+ * clicking Start over and over.
+ *
+ * A few seconds, and the yardstick is a DOWNLOAD rather than a boundary — the coarser cousin of
+ * `RECONCILE_TICK_MS`, which has to be quick because it renews a lease with a six-second life. This
+ * only has to notice that a record arrived, so anything much under a download's length is asking a
+ * question whose answer cannot have changed.
+ *
+ * It is deliberately not a job. pg-boss cron is minute-granularity, which would put up to a minute
+ * of dead air in front of the first listener; a self-rescheduling job would write a durable queue
+ * row every few seconds forever to carry a decision that lives entirely in memory.
+ */
+export const WARM_TICK_MS = 5_000;
 
 /**
  * How many segments the gather may pull in beyond the records it is filling the window with.
@@ -234,6 +261,8 @@ export class DirectorService {
     private waitingOnAudioReported = false;
     /** A write the throttle owes. Set while a timer is pending; see {@link persistSoon}. */
     private persistTimer?: NodeJS.Timeout;
+    /** The loop that asks again while the station is waiting on bytes. See {@link WARM_TICK_MS}. */
+    private warmTimer?: NodeJS.Timeout;
 
     constructor(
         private readonly rundown: Rundown,
@@ -258,6 +287,9 @@ export class DirectorService {
         // director is the only writer of it, because it is the only thing that starts and ends a
         // broadcast; `render`, `catalog` and `activity` read it without knowing this class exists.
         private readonly identity: StationIdentity,
+        // Beside `Epoch` and `StationIdentity` for the same reason those are here: a `shared/`
+        // singleton the transport also reads, so the edge runs to neither module.
+        private readonly heartbeat: Heartbeat,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
@@ -292,6 +324,14 @@ export class DirectorService {
             }),
         );
 
+        // The one thing that runs on a clock rather than on an event, and only because the event
+        // cannot arrive: see {@link WARM_TICK_MS}. Registered with the heartbeat before its first
+        // tick, per that class's own note that a loop should be measurable from its first
+        // millisecond rather than from whenever it first completes.
+        this.heartbeat.register(HEARTBEATS.directorWarm);
+        this.warmTimer = setInterval(() => this.warmTick(), WARM_TICK_MS);
+        this.warmTimer.unref?.();
+
         // Last, and the listeners above are armed first on purpose: this restore
         // ends in a commit pass that can reach the end of the order and stand the
         // station down, which is a `Rundown.reset` this class has to hear.
@@ -314,6 +354,8 @@ export class DirectorService {
      */
     async stop(): Promise<void> {
         for (const unsubscribe of this.unsubscribes.splice(0)) unsubscribe();
+        if (this.warmTimer) clearInterval(this.warmTimer);
+        this.warmTimer = undefined;
         this.rundown.detach();
         await this.flushPersist();
     }
@@ -473,6 +515,27 @@ export class DirectorService {
     /** Ask for a commit pass from a listener, swallowing anything it throws. */
     private wake(): void {
         this.send({ kind: 'wake' });
+    }
+
+    /**
+     * Ask again, but only while there is something the asking could change.
+     *
+     * The gate is the whole design. `waitingOnAudioSince` is set and cleared by {@link noteAudioWait}
+     * on every commit pass, so it means precisely "the last pass found candidates and committed none
+     * of them for want of their bytes" — which is the one state a pass nobody triggered can get the
+     * station out of. On a healthy station this method is two comparisons every few seconds and
+     * posts nothing, and a station that recovers stops posting the moment it commits, without
+     * anything having to turn the loop off.
+     *
+     * The beat is taken on every tick rather than only on one that posts, because what the heartbeat
+     * measures is whether the loop is going round. A tick that correctly decided to do nothing is a
+     * pass, exactly as `PlayoutPusher.reconcile`'s several early returns are.
+     */
+    private warmTick(): void {
+        this.heartbeat.beat(HEARTBEATS.directorWarm);
+        if (!this.active || this.waitingOnAudioSince === undefined) return;
+
+        this.wake();
     }
 
     /**

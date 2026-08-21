@@ -100,8 +100,8 @@ session and answer 401 instead of letting it through as a user who holds no perm
 
 **The station's words are a plugin, and the loop around them is not.** `llm` capability,
 `plugins/llm` on the AI SDK's OpenAI-compatible provider so one plugin covers a local server and a
-hosted one alike. `llm.pluginId` picks it, mirroring `render.speechPluginId` including its refusal to
-guess. The MODEL is a per-call parameter rather than config, because `plugin_configs.plugin_id` is a
+hosted one alike. `llm.pluginId` picks it, mirroring `render.speechPluginId` including its DEFAULT —
+see the plugin-selection gotcha. The MODEL is a per-call parameter rather than config, because `plugin_configs.plugin_id` is a
 primary key and a station wanting a big model for a show and a small one for an ident cannot express
 that by installing twice. Three things stay host-side in `modules/llm/`, deliberately: `LlmGate`,
 which holds one model slot **until the words stop arriving rather than until the call resolves**, with
@@ -443,6 +443,17 @@ by the CONSOLE against the station's own tables — the third way a form learns 
 only one a plugin cannot answer for itself, since a news plugin has no way to learn which categories
 this station holds.
 
+**A CELL's choices can also come from the plugin, which is the second of those three ways reaching
+one column rather than one field.** `suggestConfigOptions()` publishes under
+`columnSuggestionKey(fieldKey, columnKey)` — `voices.engine`, a dot-joined pair that cannot collide
+with a field key because a column key may not contain one — and the form merges it exactly where it
+merges a resolved `optionsFrom`. Both speech plugins fill their engine-voice column this way, which
+is the difference between a table an operator can complete and one that requires knowing `af_heart`
+by heart. **A cell with choices renders as an AUTOCOMPLETE and not a select**, deliberately: the
+server's list is what it currently holds rather than the whole vocabulary, so a Kokoro blend
+expression and a Chatterbox clip added since the last refresh both have to stay typeable. Being
+unable to name a voice the server HAS is a worse failure than naming one it does not.
+
 **A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
 baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the
 words named, and `toPlayerItems` drops the break when that is no longer what plays next. The next
@@ -456,7 +467,13 @@ the neighbours, the token counts and the duration, and is swept nightly against
 `render.scriptHistoryDays`. The prompt and the raw answer are kept only while `llm.captureWrites` is
 on, which is a switch for an evening of prompt tuning rather than a default.
 
-**The station's voice is a plugin.** `speech` capability, `plugins/kokoro` first, Chatterbox expected. A voice is an opaque station-level id (`host`, `newsreader`) that the PLUGIN maps in its own config; the host never interprets it, and engine-specific knobs stay with the engine. `render.speechPluginId` picks the speaker when several can talk, and declines to guess when none is chosen. **A segment carries a state per STAGE** — `planned → writing → written → rendering → ready`, with `failed` off the side — because making a break is two jobs with different failure modes: `WriteBreakJob` decides the words and `RenderSegmentJob` produces the audio, each claiming the row with a conditional update so a duplicate send is free. `claimForRender` starts at `written`, which is what makes a retry after a failed render re-speak the words already on the row instead of paying a writer to invent different ones. Throughout, **a segment that is not `ready` is skipped, never waited for**, which is what keeps a broken renderer from ever costing the station silence.
+**The station's voice is a plugin, and there are two of them now.** `speech` capability, `plugins/kokoro` and `plugins/chatterbox`. A voice is an opaque station-level id (`host`, `newsreader`, or a persona's own key) that the PLUGIN maps in its own config; the host never interprets it, and engine-specific knobs stay with the engine. That map is a `list` config field with a station name, an ENGINE voice and an optional speed — it was a single-line box of `host = af_heart` entries, which is why this station had 68 voicepacks installed and a map holding the empty string, and why the engine cell is an autocomplete over what the server actually reports (`suggestConfigOptions`) rather than free text with a good placeholder. It stays free text underneath, because a Kokoro blend expression names no single voicepack and a Chatterbox clip may have been dropped in since the last refresh. `render.speechPluginId` picks the speaker when several can talk and takes the first in id order when nobody has, saying which — see the plugin-selection gotcha.
+
+**An engine that does not lazily reload is a plugin that must load it back, and the unload rides the stream's own end.** `plugins/chatterbox` is the case: after `/api/unload`, synthesis 503s until `/restart_server` is called (which hot-swaps the engine rather than killing the process, despite the name), so `ensureLoaded` runs before EVERY synthesis rather than once at startup — the previous render's unload may have emptied the server and nothing else will notice. Three things about it are load-bearing. A load that fails **unloads before retrying once**, because a CUDA OOM strands its own partial allocations (3.5 GiB measured on a 16 GiB card) and an immediate retry throws itself at a GPU it just filled. It fails as **`unavailable` rather than `upstream`**, which is what makes a cold start that ran out of budget keep the segment's words on the row instead of writing the break off. And the unload fires from the **audio stream's end** rather than from `speak`, which returns long before the audio does — all three endings count once (drained, cancelled, refused as implausible), and `SpeechGate` serializing the engine is why this needs no in-flight counter the way the previous station's renderer did. `unloadAfterRender` is **off** by default: an unload reclaims roughly 70% of what the model held, because the graphics runtime keeps the rest until the server exits, so it buys a few gigabytes at the price of a load before the next break and is worth it only on a genuinely contended card. The same argument applies to the OTHER model on that card and `plugins/llm` has no equivalent; see `docs/todo/station-intelligence.md`.
+
+**A voice PREVIEW is keyed on what the voice currently IS, not on what it is called.** `VoiceSampleStore.keyFor` folds in `SpeechVoice.spec`, an opaque token a plugin changes whenever the rendering would (`engineVoice@speed`), because the station voice id is exactly the part that does NOT change when an operator edits the mapping under it — the file claimed a remap minted a new key for as long as it existed and could not deliver it. The other half is the HEADER: `/voices/{id}/sample` revalidates instead of carrying a day of `max-age`, since the URL names a station voice and a browser answering the next click out of its own cache means the request never arrives. Measured — with the key fixed and the header not, a remap still played the old voice and the API logged no second render. `/segments/{id}/audio` keeps its `max-age`, where the id really does identify the bytes.
+
+**A segment carries a state per STAGE** — `planned → writing → written → rendering → ready`, with `failed` off the side — because making a break is two jobs with different failure modes: `WriteBreakJob` decides the words and `RenderSegmentJob` produces the audio, each claiming the row with a conditional update so a duplicate send is free. `claimForRender` starts at `written`, which is what makes a retry after a failed render re-speak the words already on the row instead of paying a writer to invent different ones. Throughout, **a segment that is not `ready` is skipped, never waited for**, which is what keeps a broken renderer from ever costing the station silence.
 
 **How the station SAYS a word is a row, and most of them were written by somebody else.** The
 lexicon left `render.pronunciations` for `deadair.pronunciations` on the format clock's argument: an
@@ -542,6 +559,24 @@ registry is not where a setting is READ — each module keeps its typed resolver
 `parseAirMode`, `stationRules`) and shares the registry's defaults so the two cannot disagree. A row
 nobody declared is left alone rather than deleted. Still constants, deliberately: the four mixer
 knobs, because the real work there is a Liquidsoap restart (`docs/todo/mixer-settings-in-db.md`).
+
+**A capability with several plugins and no setting picks the FIRST, and says so.** `selectPlugin`
+(`modules/plugins/plugin.selection.ts`) is one rule shared by `render.speechPluginId`,
+`llm.pluginId` and `analysis.pluginId`, because a capability that answers differently depending on
+which subsystem is asking is the failure that file exists to prevent. It used to answer nothing here,
+arguing that a pick the operator did not make looks deliberate — which weighs a wrong-looking choice
+against SILENCE, and for speech silence is what it cost: installing a second TTS plugin took the
+station off the air until somebody visited a settings page, while everywhere else the station has
+this choice it degrades instead (the writer registry falls through, the set chain tops up, the floor
+cannot fail). The objection is answered by SAYING SO — `explainDefaultPick` names what was chosen and
+what it was chosen over, written once on the edge (`defaultPickIsNews`, module state because all
+three services are SCOPED and `speaker()` runs on every commit pass). Three things stay true. **A
+setting naming a plugin that is not a candidate still answers nothing without falling back**, because
+that is an instruction where the other is a default, and quietly using a different engine is how a
+station ends up wrong with nothing in the log. **"First" means `byPluginId` order**, so every caller
+sorts — `AnalysisService.candidates` was the one that did not, which "first" made load-bearing rather
+than tidy. And `explainNoPlugin` now has two branches rather than three, since several-and-none-chosen
+is no longer a refusal.
 
 **Nothing watches `plugin_configs`.** A plugin's configuration changes only through
 `PluginsService`, and every route there that writes one reinitializes the plugin itself. There is no

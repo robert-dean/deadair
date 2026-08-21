@@ -37,6 +37,14 @@ has no way to say whether that is the joke or the bug. Both answers are legitima
 station wants its host reading everything, a straight station wants a newsreader — and the shape that
 cannot express either is the current one.
 
+**One thing this entry assumed is no longer true, and it makes the work smaller.** It was written
+when a station had one usable voice, so "the pirate reads the headlines in the pirate's voice" was
+half a hypothetical: `segments.voice` could name a newsreader and nothing would sound different.
+The voice map is now a table an operator can actually fill, both bundled engines suggest what their
+server holds, and a `newsreader` slot is the obvious first row — so the question this section asks
+is a real one with an audible answer, and nothing in it is blocked on a voice existing to point at.
+See the speech gotcha in CLAUDE.md.
+
 **The seam is a nullable `kind` on `deadair.personas`**, and the precedence stays in the one place it
 already lives:
 

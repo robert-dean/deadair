@@ -3,6 +3,22 @@
 **As of:** 2026-08-15, found in the log while working out why no `welcome` break ever rendered. It
 is not that bug (that one is fixed: `da5c47d`, `2167fec`) and it was sitting beside it.
 
+**Pieces 1 and 2 are BUILT, 2026-08-21**, as the shape below specifies and with one addition it did
+not name: `SegmentRepository.releaseForRetry`, a conditional `rendering → written` that can only undo
+the claim the job itself is holding, so the difference between "tried and could not" and "never got
+to try" is a method rather than a comment. Piece 2 landed as `BreakPlanner.retryRenderOf`, which
+shares `MAX_RENDER_ATTEMPTS` and the no-speaker rule with `retryRenders` rather than restating them —
+a bound that means one thing inside the running order and another outside it is the kind of
+divergence nobody finds. A `written` row is free to ask for and only a `failed` one is counted.
+
+**Piece 3 is still deferred, on its own argument below.** What changed around it is that the case it
+would make rarer is about to become routine: `plugins/chatterbox` has to LOAD a model before it can
+speak, and a load that runs out of budget fails as `unavailable` — which is now the code that keeps
+the words on the row. That makes pieces 1 and 2 load-bearing for the second engine rather than merely
+tidy, and it makes piece 3 no more attractive than it was.
+
+What follows is the entry as it stood.
+
 ## The receipt
 
 ```

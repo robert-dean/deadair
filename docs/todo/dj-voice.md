@@ -448,6 +448,29 @@ behaviour rather than to a guess.
 - **A break still cannot be re-written.** A `failed` segment is not re-claimable for writing, on the
   grounds that the usual reason nothing could be written is that there was nothing true to say. An
   operator who edits their phrasings and wants last night's failures retried has no button for it.
+- **What the second engine can do and is not asked to. Added 2026-08-21**, with
+  `plugins/chatterbox`. It ships on the OpenAI-compatible path only, which means the station reaches
+  none of the three things that most distinguish that engine: **voice CLONING** against a reference
+  clip of the operator's own, and the expressiveness dials (`exaggeration`, `cfg_weight`,
+  `temperature`) that separate a theatrical read from a flat one. Both live on the engine's native
+  `POST /tts`, which is a superset of the OpenAI shape and takes a `voice_mode` of `clone` or
+  `predefined`. It also advertises paralinguistic tags (a laugh, a sigh, a cleared throat) as
+  something the text can carry, which is a writer question as much as an engine one and should be
+  scoped where the writers are rather than here. Until that lands, this engine is in expressive terms
+  a slower Kokoro with a different voice set — which was a deliberate first cut, since the model
+  lifecycle underneath it is what any integration needs and is worth having on its own.
+- **Getting a clip or a voicepack onto the server from the console.** Both engines want this and
+  neither has it: Chatterbox reads reference WAVs out of a directory and Kokoro reads `.pt`
+  voicepacks out of one, and in both cases the operator's only route is a file copy on the host. The
+  previous station had it as a `PUT` with the raw bytes as the body and the name in the query string,
+  hand-written rather than generated because a binary upload does not fit the JSON-only contract
+  codegen — which is the same reason it is not here. Note the compose file already mounts
+  `./.docvol/voices` for exactly this and seeds the image's own voicepacks into it, so the deployment
+  half is done and only the route is missing.
+- **A blend helper.** Kokoro takes `af_bella(2)+af_sky(1)` as a voice and also has a
+  `/v1/audio/voices/combine` that mints a persisted one. The expression is already typeable in the
+  voice table's engine cell, so what is missing is only the affordance for building and hearing one
+  before committing it — which is a console feature over an engine capability that works today.
 - **The harbor mount.** `input.harbor("dj", …)` was removed when the voice queue replaced it. Bring
   it back as a second arm of the voice source if something genuinely needs to stream live audio in;
   a real microphone is the honest case.

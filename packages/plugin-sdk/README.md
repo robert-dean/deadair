@@ -635,6 +635,26 @@ Implement `listVoices()` if you have more than one, so the console can draw a
 list and preview them. It is optional, and a single-voice plugin is a legitimate
 thing to be.
 
+Set `SpeechVoice.spec` on each one. It is an opaque token the host does not read
+— whatever identifies a RENDERING to you, like `af_heart@0.95` — and its only job
+is keying the cached preview at `GET /voices/{id}/sample`. Without it that cache
+is keyed on the station voice ID, which is exactly the part that does not change
+when the operator remaps it underneath, so a remap serves the old voice back
+forever. Leaving it out is safe for an engine whose voices cannot be
+reconfigured, and wrong for one whose can.
+
+**A voice map wants a `list` config field**, not a text box with a separator in
+it. Declare a column for the station's name and one for your engine's, and
+implement `suggestConfigOptions()` to fill the second from whatever the
+operator's own server currently reports — published under `"<fieldKey>.<columnKey>"`.
+That is the difference between a table somebody can complete and one that
+requires knowing your engine's voice ids by heart, and the shipped plugins get it
+wrong at your peril: one of them ran with an empty map against a server holding
+68 voices for as long as the field was a box. Keep the column `string` rather
+than `select` — a cell with choices renders as an autocomplete, so a value your
+list cannot enumerate (a blend expression, a clip added a minute ago) stays
+typeable.
+
 ## Producing words
 
 A plugin that declares `llm` continues a conversation. It is a **transport, not a

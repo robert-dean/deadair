@@ -236,6 +236,35 @@ should always beat a cadence.
 The invariant worth writing into the tests: **no tier makes music stop**. The floor is a
 deterministic generator and a queue, and both work with every network dependency down.
 
+### The resource that IS scarce here is the card, not the tokens
+
+**Added 2026-08-21**, from building the second speech engine, and it belongs in this section because
+it is the same shape as a budget and a different quantity. Nothing about a self-hosted model is
+billed, which is most of why the tiers above are deferred — but the GPU it sits on is finite and the
+station now has two things that want it. `plugins/chatterbox` can drop its model between breaks
+(`unloadAfterRender`, off by default) and `plugins/llm` has no equivalent, so a station that turns the
+speech side on is freeing memory for a language model that never gives any back.
+
+Three things are worth recording so this is not re-derived:
+
+- **Whether it is expressible at all is a question about the operator's server, not about us.** The
+  OpenAI-compatible protocol has no unload, so this is not a `plugins/llm` feature in the way the
+  speech one was a `plugins/chatterbox` feature: it depends on what the thing behind `baseUrl`
+  exposes, and a plugin that speaks the generic protocol has nowhere to put an engine-specific call
+  without becoming an engine-specific plugin.
+- **The measurement carries over and is not encouraging.** An unload of the speech model reclaimed
+  roughly 70% of what it held, because the graphics runtime keeps the rest until the process exits.
+  Assume the same shape here: this buys back most of a model, not a card.
+- **The cost is not symmetrical with the speech side.** A break is rendered ahead of its slot and can
+  be skipped, so paying a load before one is a break that is late at worst. A refill holds the model
+  for minutes and something is usually waiting on it, so an unload between refills is paid back at
+  exactly the moment the station wants an answer.
+
+Which is to say: worth doing only on a card that is measurably contended, and worth measuring before
+designing. `LlmGate` and `SpeechGate` being two independent gates over one physical card is the
+related idea, and a bigger one — see the "one model slot" gotcha in CLAUDE.md, which argues against
+widening a gate and says nothing yet about narrowing across two.
+
 ## 3. Ending-aware transitions
 
 **Landed at**, 2026-08-11, and not where this line said it would: an `analysis` capability of its

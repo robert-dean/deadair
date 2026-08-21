@@ -58,6 +58,12 @@ interface Options {
      */
     audioWaitSince?: number;
     /**
+     * How many records the ripener has on their way. Zero by default, so a test staging a wait
+     * stages the STUCK half unless it says otherwise — which is the one that used to be the only
+     * half there was.
+     */
+    warmingRecords?: number;
+    /**
      * Whether Icecast has ever answered with a count. Default true, because most of
      * these tests are about something else and a stats endpoint that never answered is a
      * fault in its own right.
@@ -113,6 +119,9 @@ function build(options: Options = {}) {
         // Read on the same poll: whether a running order that is committing nothing is empty or
         // merely cold. `undefined` is the ordinary state and means it is neither.
         audioWaitSince: vi.fn(() => options.audioWaitSince),
+        // The other half of that wait: whether anything is actually being fetched, which only the
+        // ripener's read of the warm window knows.
+        warmingRecords: vi.fn(() => options.warmingRecords ?? 0),
     } as unknown as DirectorConsoleService;
 
     // Deliberately always resolves an address, even when the stream is down: that is
@@ -279,6 +288,15 @@ describe('PlayoutService.getStatus', () => {
             expect(director.audioWaitSince).toHaveBeenCalled();
         });
 
+        it('calls a cold order with fetches behind it a station warming up', async () => {
+            // The same wait as above, and a different fact about it: a station downloading its first
+            // records is working and wants no operator, where one with nothing in flight is stuck.
+            const { service, director } = build({ hasProgramme: false, listeners: 1, audioWaitSince: Date.now() - 5_000, warmingRecords: 2 });
+
+            expect((await service.getStatus()).silence.cause).toBe('warmingUp');
+            expect(director.warmingRecords).toHaveBeenCalled();
+        });
+
         it('still calls an order that ran out an order that ran out', async () => {
             const { service } = build({ hasProgramme: false, listeners: 1 });
 
@@ -299,7 +317,7 @@ describe('PlayoutService.getStatus', () => {
 
             const { silence } = await service.getStatus();
 
-            expect(silence.checks).toHaveLength(10);
+            expect(silence.checks).toHaveLength(11);
             expect(silence.checks.filter(check => check.state === 'ok').length).toBeGreaterThan(0);
         });
     });

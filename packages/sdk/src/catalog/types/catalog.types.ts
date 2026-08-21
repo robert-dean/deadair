@@ -450,7 +450,7 @@ export interface TrackRow extends Track {
     enriched: boolean;
 }
 
-export interface TrackRowInput extends TrackInput {}
+export type TrackRowInput = TrackInput
 
 /**
  * One provider's stored answer. `found: false` is a recorded miss, which is a fact rather than a

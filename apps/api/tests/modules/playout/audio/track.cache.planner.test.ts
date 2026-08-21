@@ -205,7 +205,7 @@ describe('TrackCachePlanner.ripen', () => {
     it('reports a binding the catalog no longer offers as unfetchable', async () => {
         const { planner, send } = build([]);
 
-        expect(await planner.ripen(lineupOf([trackItem(1)]))).toEqual({ asked: 0, unfetchable: ['item-1'] });
+        expect(await planner.ripen(lineupOf([trackItem(1)]))).toEqual({ asked: 0, unfetchable: ['item-1'], warming: 0 });
         expect(send).not.toHaveBeenCalled();
     });
 
@@ -234,7 +234,7 @@ describe('TrackCachePlanner.ripen', () => {
     it('leaves a record the catalog has never seen alone rather than calling it unfetchable', async () => {
         const { planner, send } = build([]);
 
-        expect(await planner.ripen(lineupOf([uncataloguedItem(1), uncataloguedItem(2)]))).toEqual({ asked: 0, unfetchable: [] });
+        expect(await planner.ripen(lineupOf([uncataloguedItem(1), uncataloguedItem(2)]))).toEqual({ asked: 0, unfetchable: [], warming: 0 });
         expect(send).not.toHaveBeenCalled();
     });
 
@@ -260,10 +260,44 @@ describe('TrackCachePlanner.ripen', () => {
         expect(result.unfetchable).toEqual([]);
     });
 
+    // What the silence diagnosis reads to tell a station warming up from one that is stuck. Both are
+    // a full running order committing nothing; only this says whether anything is being done about
+    // it.
+    describe('saying how much is on its way', () => {
+        it('counts the records it just asked for', async () => {
+            const { planner } = build([state(1), state(2), state(3)]);
+
+            expect((await planner.ripen(lineupOf([trackItem(1), trackItem(2), trackItem(3)]))).warming).toBe(2);
+        });
+
+        it('counts a record an earlier pass is already fetching', async () => {
+            const { planner, send } = build([state(1)], { fetching: ['source-1'] });
+
+            expect((await planner.ripen(lineupOf([trackItem(1)]))).warming).toBe(1);
+            // And does not ask again for it: the count is about what is happening, not what this
+            // pass started.
+            expect(send).not.toHaveBeenCalled();
+        });
+
+        it('counts a record on disk as nothing to wait for', async () => {
+            const { planner } = build([state(1, { checksum: 'a'.repeat(64), ext: 'ogg' })]);
+
+            expect((await planner.ripen(lineupOf([trackItem(1)]))).warming).toBe(0);
+        });
+
+        // The stuck half, and the reason the count exists at all: a window whose every copy is
+        // benched has nothing coming, however full the running order looks.
+        it('says nothing is on its way when every copy is written off', async () => {
+            const { planner } = build([]);
+
+            expect((await planner.ripen(lineupOf([trackItem(1), trackItem(2)]))).warming).toBe(0);
+        });
+    });
+
     it('reads nothing for a window holding no records', async () => {
         const { planner, findForBindings, send } = build([]);
 
-        expect(await planner.ripen(lineupOf([segmentItem(1), segmentItem(2)]))).toEqual({ asked: 0, unfetchable: [] });
+        expect(await planner.ripen(lineupOf([segmentItem(1), segmentItem(2)]))).toEqual({ asked: 0, unfetchable: [], warming: 0 });
         expect(findForBindings).not.toHaveBeenCalled();
         expect(send).not.toHaveBeenCalled();
     });
@@ -271,7 +305,7 @@ describe('TrackCachePlanner.ripen', () => {
     it('says nothing when the whole window is already in hand', async () => {
         const { planner, send } = build([state(1, { checksum: 'a'.repeat(64), ext: 'ogg' })]);
 
-        expect(await planner.ripen(lineupOf([trackItem(1)]))).toEqual({ asked: 0, unfetchable: [] });
+        expect(await planner.ripen(lineupOf([trackItem(1)]))).toEqual({ asked: 0, unfetchable: [], warming: 0 });
         expect(send).not.toHaveBeenCalled();
         expect(logger.info).not.toHaveBeenCalled();
     });

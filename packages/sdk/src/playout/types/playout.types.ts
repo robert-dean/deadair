@@ -61,6 +61,7 @@ export type SilenceCause =
     | 'stoodDown'
     | 'noProgramme'
     | 'noAudience'
+    | 'warmingUp'
     | 'waitingOnAudio'
     | 'notDriving'
     | 'starved';
@@ -69,13 +70,13 @@ export type SilenceCause =
  * How one gate is doing. `waiting` is its own state rather than a mild fault, because a station
  * idling for want of a listener and a station that cannot reach its stream are both silent and only
  * one of them is something to go and fix
- * generated from [SilenceState](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L61)
+ * generated from [SilenceState](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L62)
  */
 export type SilenceState = 'ok' | 'waiting' | 'fault';
 
 /**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L91)
+ * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L92)
  */
 export interface PlayoutAiredQuery {
     /** The id the app put on the pushed uri's `annotate:` metadata */
@@ -84,7 +85,7 @@ export interface PlayoutAiredQuery {
 
 /**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L95)
+ * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L96)
  */
 export interface PlayoutStarveQuery {
     /** `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again */
@@ -107,7 +108,7 @@ export interface PlayoutNowPlaying {
 
 /**
  * One gate's answer about itself
- * generated from [SilenceCheck](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L63)
+ * generated from [SilenceCheck](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L64)
  */
 export interface SilenceCheck {
     /** Never `airing`, which is the absence of a blocking gate rather than a gate */
@@ -121,7 +122,7 @@ export interface SilenceCheck {
 
 /**
  * Why the station cannot be heard, as one answer
- * generated from [StationSilence](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L70)
+ * generated from [StationSilence](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L71)
  */
 export interface StationSilence {
     /** Whether the station believes its programme is reaching the mount. NOT whether anybody is hearing it: a station can be audible with no listeners in `always` mode, and can have listeners while airing the local bed */
@@ -135,7 +136,7 @@ export interface StationSilence {
 
 /**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L78)
+ * generated from [PlayoutStatus](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L79)
  */
 export interface PlayoutStatus {
     /** Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds */

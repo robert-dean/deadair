@@ -50,6 +50,7 @@ contract SilenceCause: enum(
     stoodDown,
     noProgramme,
     noAudience,
+    warmingUp,
     waitingOnAudio,
     notDriving,
     starved

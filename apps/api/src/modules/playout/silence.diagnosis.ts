@@ -32,12 +32,12 @@ import type { StreamConfigWarning } from '#modules/stream/stream.staleness.js';
  * singleton with a timer behind it, so a version that gathered its own inputs
  * could not be tested at all, and the ordering is exactly the part worth testing.
  *
- * It is deliberately not a health check. Four of the gates below —
- * `stoodDown`, `noProgramme`, `waitingOnAudio`, `noAudience` — describe a
- * completely healthy process in a particular state, and a surface that called any
- * of those `degraded` would be a light an operator learns to stop reading. That
- * is the mistake the `ready` badge was added to fix, and repeating it here would
- * undo it.
+ * It is deliberately not a health check. Five of the gates below —
+ * `stoodDown`, `noProgramme`, `warmingUp`, `waitingOnAudio`, `noAudience` —
+ * describe a completely healthy process in a particular state, and a surface that
+ * called any of those `degraded` would be a light an operator learns to stop
+ * reading. That is the mistake the `ready` badge was added to fix, and repeating
+ * it here would undo it.
  */
 
 /** Every gate that can silence the station, plus the answer when none of them is. */
@@ -50,6 +50,7 @@ export type SilenceCause =
     | 'stoodDown'
     | 'noProgramme'
     | 'noAudience'
+    | 'warmingUp'
     | 'waitingOnAudio'
     | 'notDriving'
     | 'starved';
@@ -140,6 +141,15 @@ export interface StationFacts {
      * pass has run lately — the sentences below are worded around that and not around the fetch.
      */
     audioWaitForMs?: number;
+    /**
+     * How many records in front of the station have their bytes on the way right now.
+     *
+     * Only meaningful alongside {@link audioWaitForMs}, and it is what splits that one wait into the
+     * two states it was always covering: a station downloading its first records is warming up, and
+     * the same station with nothing in flight is stuck. Zero and `undefined` mean the same thing
+     * here on purpose — a reading nobody supplied is not evidence that anything is coming.
+     */
+    warmingRecords?: number;
     airMode: AirMode;
     listeners: number;
     /** The gate's own answer, which lingers past the last listener. */
@@ -205,6 +215,7 @@ export function diagnose(facts: StationFacts): StationSilence {
         stoodDown(facts),
         noProgramme(facts),
         noAudience(facts),
+        warmingUp(facts),
         waitingOnAudio(facts),
     ];
 
@@ -367,28 +378,68 @@ function noProgramme(facts: StationFacts): SilenceCheck {
 }
 
 /**
- * There is a running order, and nothing in front of it has its audio on this machine.
+ * There is a running order, nothing in front of it is here yet, and the bytes are on their way.
  *
- * A record is not committed until its bytes are local, so that Liquidsoap's resolve is a read from
- * this app rather than a provider download inside the request it is waiting on. The cost of that
- * rule is this state: a running order full of records nobody has fetched yet commits nothing, and
- * the station is as silent as one with an empty order while being in no trouble at all.
+ * The first minutes of a station that has just been given something to play: a fresh install, an
+ * imported playlist, a replan, or a briefed refill whose records were all discovered at a provider.
+ * Every one of them is a full running order with an empty cache, and every one of them is the
+ * station working exactly as designed — the commit gate is holding precisely because the download it
+ * is waiting on has not finished.
  *
- * `waiting` while it is short, because a station downloading its next record is working, and the
- * operator has nothing to do but let it. A fault after {@link AUDIO_WAIT_AFTER_MS}, because by then
- * the explanation is no longer "a big file": every copy of every record in front of the cursor is
- * refusing, or nothing is asking for them.
+ * **Above {@link waitingOnAudio} rather than inside it**, because the two want different sentences
+ * and only one of them wants an operator. That check had to describe both, so it said "which is
+ * normally a download away" about a station where nothing was downloading at all, and then escalated
+ * to a fault over a wait that was going perfectly well.
+ *
+ * Never a fault, and it never escalates. This state cannot go on indefinitely: the moment the fetches
+ * stop, `warmingRecords` falls to zero and `waitingOnAudio` below takes over, keeping its own clock
+ * and its own escalation. So the answer to "what if it warms forever" is that it cannot — a station
+ * that stops making progress stops being in this state.
+ *
+ * **Below {@link noAudience}**, for that check's own reason: with nobody connected the commit pass is
+ * not being run on any clock a listener is waiting on, and an empty room is the headline while the
+ * room is empty.
+ */
+function warmingUp(facts: StationFacts): SilenceCheck {
+    const waitingFor = facts.audioWaitForMs;
+    const warming = facts.warmingRecords ?? 0;
+    if (facts.hasProgramme || waitingFor === undefined || warming === 0) {
+        return { code: 'warmingUp', state: 'ok', detail: 'The station is not waiting on a download.' };
+    }
+
+    return {
+        code: 'warmingUp',
+        state: 'waiting',
+        detail:
+            `The station has a running order and is fetching the first ${warming === 1 ? 'record' : `${warming} records`} of it. ` +
+            'It goes to air as soon as one of them is here.',
+    };
+}
+
+/**
+ * There is a running order, nothing in front of it is here, and nothing is coming.
+ *
+ * What is left once {@link warmingUp} above has taken the healthy version of this. A record is not
+ * committed until its bytes are local, so that Liquidsoap's resolve is a read from this app rather
+ * than a provider download inside the request it is waiting on. The cost of that rule is this state:
+ * a running order full of records nobody is fetching commits nothing, and the station is as silent as
+ * one with an empty order.
+ *
+ * `waiting` while it is short, because a fetch that has not started is usually a fetch about to start
+ * — the ripener asks for two per pass and the pass runs every few seconds. A fault after
+ * {@link AUDIO_WAIT_AFTER_MS}, because by then the explanation is no longer timing: every copy of
+ * every record in front of the cursor is refusing, or nothing is asking for them.
  *
  * Both sentences are about what has been COMMITTED rather than about what is downloading, and
  * deliberately: the wait is stamped by the commit pass, so a long one means "nothing has committed
- * since then", which is true whether the fetch is still running or nothing has looked lately.
+ * since then", which is true whether a fetch is running or nothing has looked lately.
  *
- * **Below {@link noAudience}, which is what keeps that escalation honest.** With nobody connected
- * the transport hands over nothing and the commit pass is not being run on any clock, so the wait
- * can sit there growing while no one has looked at it — an idle station would work itself up to a
- * fault over a running order it will commit the instant a listener arrives. Ranking it under the
- * audience gate says the true thing in both cases: an empty room is the headline while the room is
- * empty, and a wait somebody is actually waiting through is the headline once it is not.
+ * **Below {@link noAudience}, which is what keeps that escalation honest.** With nobody connected the
+ * transport hands over nothing and the commit pass is not being run on any clock, so the wait can sit
+ * there growing while no one has looked at it — an idle station would work itself up to a fault over
+ * a running order it will commit the instant a listener arrives. Ranking it under the audience gate
+ * says the true thing in both cases: an empty room is the headline while the room is empty, and a
+ * wait somebody is actually waiting through is the headline once it is not.
  */
 function waitingOnAudio(facts: StationFacts): SilenceCheck {
     const waitingFor = facts.audioWaitForMs;
@@ -402,7 +453,7 @@ function waitingOnAudio(facts: StationFacts): SilenceCheck {
             state: 'waiting',
             detail:
                 'The running order is full, and none of the records in front of it is on this machine yet. ' +
-                'Nothing goes to air until one of them is here, which is normally a download away.',
+                'Nothing has started fetching one, which on a station that is keeping up is a moment away.',
         };
     }
 

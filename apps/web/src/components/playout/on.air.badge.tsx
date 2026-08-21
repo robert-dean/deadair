@@ -62,18 +62,27 @@ const LABELS: Record<SilenceCause, string> = {
     configNotAdopted: 'config not adopted',
     stoodDown: 'off air',
     noProgramme: 'nothing to air',
-    waitingOnAudio: 'fetching records',
+    // "warming up" and not "fetching records", which is the sentence next door: this one is the
+    // station getting ready and the one below it is the station stuck, and the badge is the surface
+    // with the least room to explain which.
+    warmingUp: 'warming up',
+    waitingOnAudio: 'records not here',
     noAudience: 'ready',
     notDriving: 'not driving',
     starved: 'off the running order',
 };
 
 /**
- * The two states that are not faults, and must not be drawn as one.
+ * Overrides for the states that are not faults and must not be drawn as one.
  *
  * Standby for waiting on a listener, because it is the resting state of an
  * audience-gated station and the operator has nothing to do about it. Off for
  * stood down, because they did it on purpose.
+ *
+ * Partial rather than exhaustive on purpose: anything the diagnosis calls
+ * `waiting` falls back to standby, so a gate added there is drawn correctly here
+ * without this file having to hear about it. `warmingUp` is the first one to
+ * arrive that way.
  */
 const WAITING_TONES: Partial<Record<SilenceCause, StatusTone>> = {
     noAudience: 'standby',

@@ -55,12 +55,20 @@ describe('OnAirBadge', () => {
         expect(screen.getByText('nothing to air')).toBeInTheDocument();
     });
 
-    it('says a full running order is fetching rather than that it ran out', () => {
+    it('says a full running order is warming up rather than that it ran out', () => {
         // The two are the same silence and opposite facts: one wants an operator looking at why
         // refills are failing, and the other wants them to wait for a download.
+        render(<OnAirBadge silence={stationSilence('warmingUp')} />);
+
+        expect(screen.getByText('warming up')).toBeInTheDocument();
+    });
+
+    it('tells a station warming up apart from one whose records are not coming', () => {
+        // Both are a full running order committing nothing, and only the second wants looking at.
+        // One badge for both is how a station that had stopped fetching read as one that was busy.
         render(<OnAirBadge silence={stationSilence('waitingOnAudio')} />);
 
-        expect(screen.getByText('fetching records')).toBeInTheDocument();
+        expect(screen.getByText('records not here')).toBeInTheDocument();
     });
 });
 

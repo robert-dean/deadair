@@ -118,6 +118,18 @@ export class DirectorConsoleService {
     }
 
     /**
+     * How many records in front of the station have their bytes on the way.
+     *
+     * The passthrough beside {@link audioWaitSince}, for the same reason and read on the same poll.
+     * It is what splits that one wait in two: a station downloading its first records is working and
+     * wants no operator, and the same wait with nothing in flight is a station that has stopped
+     * making progress.
+     */
+    warmingRecords(): number {
+        return this.director.warmingRecords();
+    }
+
+    /**
      * The live running order, item by item.
      *
      * A segment is filled in from `deadair.segments` rather than from anything stored

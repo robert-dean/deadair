@@ -259,6 +259,8 @@ export class DirectorService {
     private waitingOnAudioSince?: number;
     /** Whether the current wait has already been reported, so the feed carries one row and not one a second. */
     private waitingOnAudioReported = false;
+    /** What the last ripen found on its way. See {@link warmingRecords}. */
+    private warming = 0;
     /** A write the throttle owes. Set while a timer is pending; see {@link persistSoon}. */
     private persistTimer?: NodeJS.Timeout;
     /** The loop that asks again while the station is waiting on bytes. See {@link WARM_TICK_MS}. */
@@ -410,6 +412,24 @@ export class DirectorService {
      */
     audioWaitSince(): number | undefined {
         return this.waitingOnAudioSince;
+    }
+
+    /**
+     * How many records in the warm window have their bytes actually on the way.
+     *
+     * The other half of {@link audioWaitSince}, and what turns it from one sentence into two. A wait
+     * with fetches behind it is a station warming up, which is working; the same wait with nothing
+     * behind it is a station stuck, which is not. Neither the transport nor the diagnosis can see
+     * this — it comes off the ripener's own read of the window, on the commit pass — so it is
+     * published here for the same reason the wait itself is.
+     *
+     * Stale by at most one pass, deliberately: it is whatever the last ripen found, so a fetch that
+     * completed a second ago still reads as warming until the next pass looks. That is the right
+     * direction to be wrong in, since the alternative is a station briefly reporting itself stuck
+     * between a download finishing and the pass that notices.
+     */
+    warmingRecords(): number {
+        return this.warming;
     }
 
     /**
@@ -1554,9 +1574,14 @@ export class DirectorService {
      */
     private async ripenTrackCache(lineup: StationLineup): Promise<void> {
         try {
-            const { unfetchable } = await inScope(this.container, scope => scope.get(TrackCachePlanner).ripen(lineup));
+            const { unfetchable, warming } = await inScope(this.container, scope => scope.get(TrackCachePlanner).ripen(lineup));
+            this.warming = warming;
             this.thin(lineup, unfetchable);
         } catch (error) {
+            // The count is left where it was rather than zeroed. A planner that could not read its
+            // rows knows nothing about what is in flight, and answering zero would say the positive
+            // thing "nothing is coming" — which is what turns the station's own report from warming
+            // into stuck over a transient database fault. Failing to look is not evidence.
             this.logger.warn(`director: could not fetch a record ahead of its slot (${errorText(error)})`);
         }
     }

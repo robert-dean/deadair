@@ -38,9 +38,24 @@ export interface RipenResult {
      * ordinary state of a fresh station.
      */
     unfetchable: string[];
+    /**
+     * Records in the window whose bytes are actively on their way: in flight already, or asked for
+     * on this pass.
+     *
+     * What it exists for is telling two silences apart that look identical from anywhere else. A
+     * station with a full running order and nothing committed is either downloading its first
+     * records — which is working, and wants no operator at all — or waiting on an upstream that has
+     * stopped answering. `waitingOnAudio` alone had to call both of them the same thing.
+     *
+     * A COUNT rather than a boolean because it costs nothing to be specific and a console can say
+     * "fetching 2 records" instead of "please wait". Note it says nothing about how far along any of
+     * them is: `TrackAudioService` de-duplicates by source id and holds no progress, and a byte
+     * count would be a second thing to keep in step with a download nobody is watching.
+     */
+    warming: number;
 }
 
-const NOTHING: RipenResult = { asked: 0, unfetchable: [] };
+const NOTHING: RipenResult = { asked: 0, unfetchable: [], warming: 0 };
 
 /**
  * How long the head of the warm window is assumed to be from air, at the least.
@@ -161,6 +176,8 @@ export class TrackCachePlanner {
 
         const wanted: string[] = [];
         const unfetchable: string[] = [];
+        /** Records the window found already being fetched, which this pass adds to rather than starts. */
+        let inFlight = 0;
         // How much airtime stands between now and the item being judged. It is what a backoff is
         // measured against: a record that will not be tried again until after its own slot has come
         // and gone is not going to be here in time, whatever happens after that.
@@ -201,9 +218,16 @@ export class TrackCachePlanner {
                 unfetchable.push(item.id);
                 continue;
             }
-            // Already here, whichever way: on disk, or being fetched right now by an earlier pass or by
-            // a request that got there first.
-            if (state.checksum !== undefined || this.service.isFetching(state.sourceId)) continue;
+            // Already on disk. Nothing to fetch and nothing to wait for.
+            if (state.checksum !== undefined) continue;
+
+            // On its way: an earlier pass asked, or a request that wanted the bytes got there first.
+            // Counted rather than merely skipped, because a station committing nothing while this is
+            // non-zero is warming up, and one committing nothing while it is zero is stuck.
+            if (this.service.isFetching(state.sourceId)) {
+                inFlight += 1;
+                continue;
+            }
 
             // Backing off after a refusal. This is the ONE place the backoff is read, because this is
             // the only speculative fetch: a request for these bytes ignores it, since something is
@@ -225,6 +249,9 @@ export class TrackCachePlanner {
             this.logger.info('playout: fetching a record before its slot', { count: wanted.length, window: bindings.length });
         }
 
-        return { asked: wanted.length, unfetchable };
+        // The jobs just sent count as warming alongside the ones already running: the send is what
+        // makes the bytes start coming, and a pass that asked for two records has done something
+        // about the silence even though nothing has arrived yet.
+        return { asked: wanted.length, unfetchable, warming: inFlight + wanted.length };
     }
 }

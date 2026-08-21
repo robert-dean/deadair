@@ -37,7 +37,7 @@ describe('diagnose', () => {
         // The panel says what it ruled out, which is most of what makes it worth opening.
         const answer = diagnose(airing({ streamUp: false }));
 
-        expect(answer.checks).toHaveLength(10);
+        expect(answer.checks).toHaveLength(11);
         expect(answer.checks.filter(check => check.state !== 'ok')).toHaveLength(1);
     });
 
@@ -49,6 +49,7 @@ describe('diagnose', () => {
             ['stoodDown', { active: false }],
             ['noProgramme', { hasProgramme: false }],
             ['noAudience', { audience: false, listeners: 0 }],
+            ['warmingUp', { hasProgramme: false, audioWaitForMs: 5_000, warmingRecords: 2 }],
             ['waitingOnAudio', { hasProgramme: false, audioWaitForMs: 5_000 }],
             ['notDriving', { driving: false }],
             ['starved', { starvedForMs: 30_000 }],
@@ -238,6 +239,45 @@ describe('diagnose', () => {
             // The wait is cleared by the commit pass as soon as there is nothing to wait FOR, so
             // an exhausted order arrives here with no wait on it.
             expect(diagnose(airing({ hasProgramme: false })).cause).toBe('noProgramme');
+        });
+
+        // The split the whole state exists for. Both of these are a full running order committing
+        // nothing, and from `audioWaitForMs` alone they are one fact: a station downloading its first
+        // records is working and wants no operator at all, and one with nothing in flight is stuck.
+        // Saying "which is normally a download away" about the second sent an operator to look at a
+        // download that was never happening.
+        it('calls a cold order with bytes on the way a station warming up', () => {
+            const answer = diagnose(airing({ hasProgramme: false, audioWaitForMs: 5_000, warmingRecords: 2 }));
+
+            expect(answer.cause).toBe('warmingUp');
+            expect(answer.checks.find(check => check.code === 'warmingUp')?.state).toBe('waiting');
+            expect(answer.checks.find(check => check.code === 'warmingUp')?.remedy).toBeUndefined();
+        });
+
+        // It never escalates, and it does not have to: the moment the fetches stop, `warmingRecords`
+        // falls to zero and the check below keeps its own clock. So "what if it warms forever" is not
+        // a state the station can be in.
+        it('does not work a long warm-up up into a fault, and hands over to the wait when the fetches stop', () => {
+            const long = { hasProgramme: false, audioWaitForMs: 300_000 } as const;
+
+            expect(diagnose(airing({ ...long, warmingRecords: 1 })).cause).toBe('warmingUp');
+            expect(diagnose(airing({ ...long, warmingRecords: 1 })).checks.find(check => check.code === 'warmingUp')?.state).toBe('waiting');
+
+            const stopped = diagnose(airing({ ...long, warmingRecords: 0 }));
+            expect(stopped.cause).toBe('waitingOnAudio');
+            expect(stopped.checks.find(check => check.code === 'waitingOnAudio')?.state).toBe('fault');
+        });
+
+        // A reading nobody supplied is not evidence that anything is coming, so it falls through to
+        // the same answer a zero does rather than quietly reporting the station as healthy.
+        it('treats an absent count as nothing in flight', () => {
+            expect(diagnose(airing({ hasProgramme: false, audioWaitForMs: 5_000 })).cause).toBe('waitingOnAudio');
+        });
+
+        it('lets an empty room have the headline over a warm-up too', () => {
+            const answer = diagnose(airing({ hasProgramme: false, audioWaitForMs: 5_000, warmingRecords: 2, audience: false, listeners: 0 }));
+
+            expect(answer.cause).toBe('noAudience');
         });
 
         it('says nothing at all while the station is airing, whatever the next record is doing', () => {

@@ -201,6 +201,11 @@ export class PlayoutService {
             // that ran out and one whose records are still being fetched both leave the transport
             // holding nothing.
             ...(audioWaitSince === undefined ? {} : { audioWaitForMs: now - audioWaitSince }),
+            // The other half of that wait, and from the same place for the same reason: whether
+            // anything is actually being fetched is the ripener's own read of the warm window, which
+            // happens on the commit pass and is invisible from here. It is what tells a station
+            // warming up from one that has stopped making progress.
+            warmingRecords: this.director.warmingRecords(),
             airMode: air.airMode,
             listeners: audience.count,
             audience: audience.hasAudience,

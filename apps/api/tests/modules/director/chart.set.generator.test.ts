@@ -255,9 +255,9 @@ describe('discovery', () => {
         it('names only the entries that fall inside it, and keeps an undated one', async () => {
             const { generator } = build({
                 entries: [
-                    { title: 'Now', artist: 'A', year: 2026 },
-                    { title: 'Then', artist: 'B', year: 1975 },
-                    { title: 'Undated', artist: 'C' },
+                    { rank: 1, title: 'Now', artist: 'A', year: 2026 },
+                    { rank: 2, title: 'Then', artist: 'B', year: 1975 },
+                    { rank: 3, title: 'Undated', artist: 'C' },
                 ],
             });
 
@@ -270,7 +270,7 @@ describe('discovery', () => {
             // Worth pinning rather than discovering on air: a chart is a snapshot of what is popular
             // NOW, so a station asked for a decade finds almost none of one eligible. An operator who
             // wants both wants a chart FROM that period, which is `rotation.chart`.
-            const { generator } = build({ entries: [{ title: 'Now', artist: 'A', year: 2026 }] });
+            const { generator } = build({ entries: [{ rank: 1, title: 'Now', artist: 'A', year: 2026 }] });
 
             expect(await generator.generate(inputs({ count: 4, era: { from: 1970, to: 1979 } }))).toEqual([]);
         });

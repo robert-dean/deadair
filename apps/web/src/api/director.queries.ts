@@ -6,6 +6,7 @@ import type {
     PutOnAirInput,
     ReplanStationInput,
     SetStationAirInput,
+    SetStationHostInput,
     StationOrder,
 } from '@deadair/sdk';
 
@@ -141,6 +142,18 @@ export function useMoveOrderItem() {
 export function useRemoveOrderItem() {
     const queryClient = useQueryClient();
     return useMutation(orderMutation<string>(queryClient, itemId => sdk.director.removeARunningOrderItem(itemId)));
+}
+
+/**
+ * Changes who is presenting the broadcast that is on air.
+ *
+ * An order mutation like the four above, because that is what it answers with: the running order
+ * carries the host and the label it resolves to, so the page redraws from the reply rather than
+ * re-reading. The breaks it costs are written again behind this, on the station's own clock.
+ */
+export function useRecastStation() {
+    const queryClient = useQueryClient();
+    return useMutation(orderMutation<SetStationHostInput>(queryClient, body => sdk.director.recastTheBroadcast(body)));
 }
 
 export function useAddOrderSegment() {

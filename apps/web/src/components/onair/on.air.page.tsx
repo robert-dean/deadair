@@ -10,6 +10,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { StatusLamp } from '../shared/status.lamp';
 import { SilenceDiagnosisPanel } from '../playout/silence.diagnosis.panel';
 import { BriefTheStation } from './brief.the.station';
+import { HostOnAir } from './host.on.air';
 import { ReplanTheRest } from './replan.the.rest';
 import { StationOrderTable } from './station.order.table';
 
@@ -113,20 +114,14 @@ export function OnAirPage() {
                                     </Badge>
                                 </Tooltip>
                             ) : undefined}
-                            {/* Only when this broadcast named one. A show on the station's own host
-                                draws nothing here, because the personas page already answers that
-                                and repeating it would read as an override nobody set. */}
-                            {loaded.personaLabel ? (
-                                <Tooltip
-                                    multiline
-                                    maw={360}
-                                    label="Who is hosting this broadcast. It stays with the show until the station is put on air again, whatever the personas page says."
-                                >
-                                    <Badge size="sm" variant="light" color="teal" tt="none">
-                                        hosted by: {loaded.personaLabel}
-                                    </Badge>
-                                </Tooltip>
-                            ) : undefined}
+                            {/* A control rather than a label, and drawn whichever way the host was
+                                arrived at: this is the one place a show's presenter can be changed
+                                without starting a new broadcast, and the personas page deliberately
+                                cannot reach a show that named its own. */}
+                            <HostOnAir
+                                {...(loaded.personaId === undefined ? {} : { personaId: loaded.personaId })}
+                                {...(loaded.personaLabel === undefined ? {} : { personaLabel: loaded.personaLabel })}
+                            />
                             <Text size="sm" c="dimmed">
                                 {planned === 1 ? '1 still to come' : `${planned} still to come`}
                             </Text>

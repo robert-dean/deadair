@@ -597,7 +597,21 @@ what the `music` line's removal bought: the system turn no longer changes shape 
 this refill was briefed. `station_lineup.persona_id` rides the row beside the brief for the same reason the brief is there,
 and `PersonaRepository.presenting` is the ONE place the precedence lives (this broadcast's host, then
 the station's active one, then nothing) because the break writer and the record chooser both read it
-and a station whose DJ depends on which one you ask is two stations.
+and a station whose DJ depends on which one you ask is two stations. **A show can be RECAST without
+starting a new broadcast**, which is the one thing that precedence used to make impossible: `PUT
+/director/air/persona` posts a `recast` command that rewrites `personaId` on the row and nothing else
+on it (`StationLineup.recast`, the sibling of `rebrief` and narrow for the same reason), and naming
+nobody hands the show back to the station's. The personas page reaches a show only when it named no
+host of its own, and `PersonasService.setActive` says so by posting the SAME command with no binding —
+what happened rather than what to do — through `AfterCommit`, since the director reads the personas
+table on its own connection and would otherwise resolve the row as it stood before the write. The
+second half is that **the outgoing host's unaired breaks are written again**: every segment past
+`committedThrough` goes back to `planned` and `ripen` asks for it under whoever is presenting now, on
+the same terms a broken promise gets. Nothing has to know who was presenting before, because being out
+of character is a property of the ROW — `SegmentRepository.recast` takes the INCOMING host and leaves
+alone a break already in their character, one with no `personaId` at all (a canned ident, a script an
+operator typed), and a `voice` an operator set by hand, which is why the voice is cleared through a
+correlated subquery against the stamped persona rather than from a value the caller passes.
 `CatalogSetGenerator` ignores it deliberately — approximating an instruction would make the thing
 that cannot fail depend on how well a guess landed — so a briefed station whose model produced
 nothing gets an ordinary hour rather than a bad impression of the one it asked for.

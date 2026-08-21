@@ -130,6 +130,17 @@ export class DirectorConsoleService {
     }
 
     /**
+     * Whether what the player is holding is a holding message and nothing else.
+     *
+     * The third passthrough on this poll, and the one that keeps the other two honest: a warm-up
+     * segment on its way to the mount is programme as far as the transport can tell, so without this
+     * the station reports itself as airing its show while it loops "give us a moment".
+     */
+    holdingWarmUp(): boolean {
+        return this.director.holdingWarmUp();
+    }
+
+    /**
      * The live running order, item by item.
      *
      * A segment is filled in from `deadair.segments` rather than from anything stored

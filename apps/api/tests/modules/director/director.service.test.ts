@@ -10,7 +10,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
 import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 
-import { COMMIT_LEAD, DirectorService, WARM_TICK_MS } from '../../../src/modules/director/director.service.js';
+import { COMMIT_LEAD, DirectorService, WAITING_ON_AUDIO_MS, WARM_TICK_MS } from '../../../src/modules/director/director.service.js';
 import {
     StationLineup,
     isTrackItem,
@@ -39,6 +39,7 @@ import { SegmentRepository, type Segment } from '../../../src/modules/render/seg
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import { Heartbeat, HEARTBEATS } from '../../../src/modules/shared/heartbeat.js';
+import { WARMUP_KIND } from '../../../src/modules/director/warmup.writer.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -106,6 +107,10 @@ interface Options {
     canTalk?: boolean;
     /** Requests already in flight, for the pass that places the ones whose audio has landed. */
     waiting?: StoredBreakRequest[];
+    /** Whether somebody is listening, which is what lets the station bother saying anything. */
+    audienceOpen?: boolean;
+    /** Holding messages the operator has recorded, as `SegmentRepository.listReady` answers them. */
+    cannedWarmUps?: { id: string; kind: string; state: string; label: string; source: string }[];
 }
 
 function build(options: Options = {}) {
@@ -197,6 +202,9 @@ function build(options: Options = {}) {
         findByIds: vi.fn(async (ids: readonly string[]) => new Map([...library].filter(([id]) => ids.includes(id)))),
         findById: vi.fn(async (id: string) => library.get(id)),
         markFailed: vi.fn(async () => {}),
+        // What the operator has recorded for a kind. Only the warm-up reads this off the director's
+        // own pass; the ident path goes through the planner's stub above.
+        listReady: vi.fn(async (kind: string) => (kind === WARMUP_KIND ? (options.cannedWarmUps ?? []) : [])),
         // Answers with what it was asked to reopen, which is what the real one returns: the rows it
         // actually moved back to `planned`.
         reopenClaims: vi.fn(async (itemIds: readonly string[]) =>
@@ -288,7 +296,10 @@ function build(options: Options = {}) {
 
     // A stub: what the gate does to the mount is PlayoutPusher's, and is tested there. The
     // director no longer tells it anything — it reads the same setting from the same config.
-    const audience = {} as unknown as AudienceWatch;
+    // Whether somebody is listening. Shut by default, because a segment handed over off air plays
+    // out to nobody — the measurement `WARM_LEAD = 0` exists for — so the warm-up must not plant one
+    // in every test that is about something else.
+    const audience = { gateOpen: () => options.audienceOpen ?? false } as unknown as AudienceWatch;
 
     const activity = { record: vi.fn(async () => undefined) } as unknown as ActivityRecorder;
 
@@ -2518,5 +2529,121 @@ describe('DirectorService waking itself while it waits on bytes', () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+});
+
+describe('DirectorService holding a listener while it warms up', () => {
+    const canned = [{ id: 'warm-1', kind: WARMUP_KIND, state: 'ready', label: 'Warming up', source: 'library' }];
+
+    /**
+     * A cold station with a full order, somebody listening, and a holding message recorded.
+     *
+     * The segment is in the LIBRARY as well as in `listReady`, because the two answer different
+     * questions: one is what the operator has recorded and the other is what `toPlayerItems` can
+     * actually resolve, and a station that plants a row it cannot then find would skip it and plant
+     * another every pass.
+     */
+    const cold = (over: Record<string, unknown> = {}) =>
+        build({
+            items: ['a', 'b'],
+            localAudio: [],
+            audienceOpen: true,
+            cannedWarmUps: canned,
+            segments: [{ id: 'warm-1', kind: WARMUP_KIND, state: 'ready', label: 'Warming up', audioChecksum: 'w', audioExt: 'mp3' }],
+            ...over,
+        });
+
+    const warmUpsIn = (lineup: StationLineup) => lineup.all().filter(item => item.kind === 'segment' && item.segmentKind === WARMUP_KIND);
+
+    // A listener who arrives into the first download hears silence and has no way to tell it from a
+    // station that is broken. The bytes-before-air rule is what makes that stretch exist at all, so
+    // covering it is the price of the rule rather than an extra.
+    // On the pass AFTER the one that discovered the wait, deliberately: `holdWarmUp` judges the wait
+    // the last pass left rather than one this pass is still deciding.
+    it('puts a recorded holding message at the head of a cold order', async () => {
+        const { director, lineup, rundown, seedCatalogued } = cold();
+        await seedCatalogued();
+
+        await director.start();
+        await wake(rundown);
+
+        expect(warmUpsIn(lineup)).toHaveLength(1);
+    });
+
+    // The running order IS the memory: one still to come or on air means the gap is covered, so
+    // nothing needs to remember what it planted. Without this the pass plants one every few seconds.
+    it('plants one at a time rather than a pile', async () => {
+        const { director, lineup, rundown, seedCatalogued } = cold();
+        await seedCatalogued();
+
+        await director.start();
+        await wake(rundown);
+        await wake(rundown);
+
+        expect(warmUpsIn(lineup)).toHaveLength(1);
+    });
+
+    // Bounded by the wait the feed already reports on, so the holding message covers exactly the
+    // stretch that is normal. A station whose provider has died should go quiet and let the fault be
+    // audible rather than reassure a listener all night that music is coming.
+    it('stops once the wait has stopped being an ordinary one', async () => {
+        const { director, lineup, rundown, seedCatalogued } = cold();
+        await seedCatalogued();
+        await director.start();
+        await wake(rundown);
+
+        // The first one has been and gone, so the order is uncovered. While the wait is still an
+        // ordinary one the station covers it again — which is what makes the assertion after the
+        // threshold mean something rather than merely restating a setup that was never live.
+        for (const item of warmUpsIn(lineup)) lineup.markSkipped(item.id);
+        await wake(rundown);
+        expect(warmUpsIn(lineup).filter(item => item.state === 'planned')).toHaveLength(1);
+
+        for (const item of warmUpsIn(lineup)) lineup.markSkipped(item.id);
+
+        vi.useFakeTimers();
+        try {
+            // Past the point where saying "music in a moment" is honest. The ticker keeps waking
+            // while the wait stands, so several passes look at this and decline.
+            await vi.advanceTimersByTimeAsync(WAITING_ON_AUDIO_MS + WARM_TICK_MS * 2);
+
+            expect(warmUpsIn(lineup).filter(item => item.state === 'planned')).toHaveLength(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    // A segment handed over off air plays out to NOBODY: with `driving` false Liquidsoap's
+    // `remainingMs` still falls with the wall clock, which is the measurement `WARM_LEAD = 0` exists
+    // for. Planting one on an idle station spends it on an empty room.
+    it('says nothing to an empty room', async () => {
+        const { director, lineup, seedCatalogued } = cold({ audienceOpen: false });
+        await seedCatalogued();
+
+        await director.start();
+
+        expect(warmUpsIn(lineup)).toHaveLength(0);
+    });
+
+    it('says nothing on a station that is committing normally', async () => {
+        const { director, lineup, seedCatalogued } = cold({ localAudio: undefined });
+        await seedCatalogued();
+
+        await director.start();
+
+        expect(warmUpsIn(lineup)).toHaveLength(0);
+    });
+
+    // The one step in the pass whose whole purpose is to make a bad moment more bearable, so it must
+    // not be able to make one: a throw here would take the commit pass with it and cost the station
+    // the very records it was covering for.
+    it('never costs the pass that keeps the station on air', async () => {
+        const { director, rundown, seedCatalogued, segmentStub } = cold();
+        segmentStub.listReady.mockRejectedValue(new Error('the pool is gone'));
+        await seedCatalogued();
+
+        await expect(director.start()).resolves.toBeUndefined();
+        // And the commit block behind it still ran.
+        expect(rundown.upcoming().length + 1).toBeGreaterThan(0);
     });
 });

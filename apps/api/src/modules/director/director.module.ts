@@ -6,6 +6,7 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { BreakPlanner } from './break.planner.js';
 import { BreakRequestRepository } from './break.request.repository.js';
 import { BreakWriterRegistry } from './break.writer.registry.js';
+import { WarmUpWriter } from './warmup.writer.js';
 import { ModelNewsBreakWriter } from './model.news.break.writer.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { NewsBreakWriter } from './news.break.writer.js';
@@ -129,6 +130,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
         registry.register(ModelNewsBreakWriter).useClass(ModelNewsBreakWriter).asScoped();
         registry.register(NewsBreakWriter).useClass(NewsBreakWriter).asScoped();
+        registry.register(WarmUpWriter).useClass(WarmUpWriter).asScoped();
         // What the station has already read out. A SINGLETON beside the scoped source below, for the
         // same reason `AdvisoryWatch` is one among the scoped generators: "the station already said
         // this" has to outlive the scope that discovered it. It was a field on `BulletinSource` and
@@ -168,6 +170,11 @@ export const DirectorModule: ServerKitModule = {
                             // something a listener has no way to check.
                             container.get(ModelNewsBreakWriter),
                             container.get(NewsBreakWriter),
+                            // The fourth kind, and the only one with no model in front of it. A
+                            // holding message is wanted at exactly the moment the station is least
+                            // able to produce anything, so a binding that could be slow would
+                            // arrive after the records it was covering for. See `WarmUpWriter`.
+                            container.get(WarmUpWriter),
                         ],
                         container.get(Logger),
                     ),

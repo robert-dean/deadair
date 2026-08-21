@@ -150,6 +150,14 @@ export interface StationFacts {
      * here on purpose — a reading nobody supplied is not evidence that anything is coming.
      */
     warmingRecords?: number;
+    /**
+     * Whether what the player holds is the station's own holding message and nothing else.
+     *
+     * {@link hasProgramme} is true of anything queued, so a warm-up segment on its way to the mount
+     * reads as the show and the chain answers `airing`. This is what tells the two apart, and it
+     * only ever narrows: absent means "no idea", which falls back to trusting `hasProgramme`.
+     */
+    holdingWarmUp?: boolean;
     airMode: AirMode;
     listeners: number;
     /** The gate's own answer, which lingers past the last listener. */
@@ -403,7 +411,12 @@ function noProgramme(facts: StationFacts): SilenceCheck {
 function warmingUp(facts: StationFacts): SilenceCheck {
     const waitingFor = facts.audioWaitForMs;
     const warming = facts.warmingRecords ?? 0;
-    if (facts.hasProgramme || waitingFor === undefined || warming === 0) {
+    // A holding message queued does not count as programme here, which is the one place the two
+    // have to be told apart: it is exactly what this state is ABOUT, so letting it satisfy
+    // `hasProgramme` would have the station stop reporting the wait at the moment it started
+    // covering for it.
+    const airingTheShow = facts.hasProgramme && facts.holdingWarmUp !== true;
+    if (airingTheShow || waitingFor === undefined || warming === 0) {
         return { code: 'warmingUp', state: 'ok', detail: 'The station is not waiting on a download.' };
     }
 

@@ -206,6 +206,10 @@ export class PlayoutService {
             // happens on the commit pass and is invisible from here. It is what tells a station
             // warming up from one that has stopped making progress.
             warmingRecords: this.director.warmingRecords(),
+            // And whether the only thing queued is the station saying so. `hasProgramme` cannot tell
+            // a holding message from the show, and the running order is the only thing that still
+            // knows which kind of segment reached the player.
+            holdingWarmUp: this.director.holdingWarmUp(),
             airMode: air.airMode,
             listeners: audience.count,
             audience: audience.hasAudience,

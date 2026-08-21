@@ -63,6 +63,8 @@ interface Options {
      * half there was.
      */
     warmingRecords?: number;
+    /** Whether what the player holds is a holding message rather than the show. */
+    holdingWarmUp?: boolean;
     /**
      * Whether Icecast has ever answered with a count. Default true, because most of
      * these tests are about something else and a stats endpoint that never answered is a
@@ -122,6 +124,9 @@ function build(options: Options = {}) {
         // The other half of that wait: whether anything is actually being fetched, which only the
         // ripener's read of the warm window knows.
         warmingRecords: vi.fn(() => options.warmingRecords ?? 0),
+        // Whether the only thing queued is the station saying it is warming up. False by default,
+        // so a test that stages a programme stages a real one.
+        holdingWarmUp: vi.fn(() => options.holdingWarmUp ?? false),
     } as unknown as DirectorConsoleService;
 
     // Deliberately always resolves an address, even when the stream is down: that is

@@ -14,6 +14,7 @@ import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/r
 import { ProductionRepository } from '#modules/productions/production.repository.js';
 import { ProductionScheduler } from '#modules/productions/production.scheduler.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { WARMUP_KIND } from './warmup.writer.js';
 import { isRenderItem, segmentRundownTrack } from '#modules/render/segment.source.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { ScrobbleService } from '#modules/scrobble/scrobble.service.js';
@@ -76,7 +77,7 @@ export const COMMIT_LEAD = 1;
  * items, which is roughly ten minutes of music, so a minute of not committing is early enough to be
  * a warning rather than a post-mortem.
  */
-const WAITING_ON_AUDIO_MS = 60_000;
+export const WAITING_ON_AUDIO_MS = 60_000;
 
 /**
  * How often a station that is waiting on bytes asks itself again.
@@ -103,6 +104,38 @@ const WAITING_ON_AUDIO_MS = 60_000;
  * row every few seconds forever to carry a decision that lives entirely in memory.
  */
 export const WARM_TICK_MS = 5_000;
+
+/**
+ * The dedupe key every warm-up request is taken under. One station, one holding message at a time.
+ *
+ * `WELCOME_KEY`'s shape and its reason: the request table is what makes the cooldown survive a
+ * restart, which is exactly when it matters, since a restart is also when every listener looks like
+ * a fresh arrival and every record looks cold at once.
+ */
+const WARMUP_KEY = 'warmup';
+
+/**
+ * How long the station will not ask for another holding message.
+ *
+ * Long enough to cover writing and speaking one — the commit pass runs every few seconds, and
+ * without this a station would queue a dozen while the first was still in the renderer. Short enough
+ * that a wait outlasting one holding message gets another rather than falling silent, since the
+ * whole point is to keep saying something for as long as the wait is a normal one.
+ *
+ * That upper bound is not this number's job: {@link WAITING_ON_AUDIO_MS} is, and it is what stops a
+ * station whose provider has died reassuring an empty room all night.
+ */
+const WARMUP_COOLDOWN_MS = 20_000;
+
+/**
+ * Lineup states that mean an item is behind us.
+ *
+ * The complement of "still to come or happening now", written this way round because the three
+ * forward states are the closed set and the past ones keep growing: `removed` and `unavailable` both
+ * arrived after `skipped`, and a check written as a list of past states would have silently stopped
+ * covering them.
+ */
+const isPast = (state: string): boolean => state !== 'planned' && state !== 'handed' && state !== 'airing';
 
 /**
  * How many segments the gather may pull in beyond the records it is filling the window with.
@@ -430,6 +463,25 @@ export class DirectorService {
      */
     warmingRecords(): number {
         return this.warming;
+    }
+
+    /**
+     * Whether what the player is holding right now is a holding message and nothing else.
+     *
+     * The fact that keeps the silence diagnosis honest once the station has something to SAY about
+     * warming up. `Rundown.hasProgramme()` is true of anything queued, so a warm-up segment on its
+     * way to the mount reads as programme and the whole chain answers `airing` — the station
+     * reporting that it is broadcasting its show while it loops "give us a moment". That is the same
+     * class of mistake as `starved`, where a listener hears SOMETHING and that is exactly what makes
+     * it hard to notice.
+     *
+     * Answered here rather than by the transport because a `RundownItem` does not carry the segment
+     * kind: a segment reaches the player as an item with a URL, and which KIND it was is a fact only
+     * the running order still holds.
+     */
+    holdingWarmUp(): boolean {
+        const items = this.lineup?.all() ?? [];
+        return items.some(item => item.kind === 'segment' && item.segmentKind === WARMUP_KIND && (item.state === 'handed' || item.state === 'airing'));
     }
 
     /**
@@ -1411,6 +1463,11 @@ export class DirectorService {
         // is about to commit rather than at it.
         await this.ripenTrackCache(lineup);
 
+        // AFTER the ripener, so it is judging the wait the last pass left rather than one this pass
+        // is about to change, and before the commit block so anything it plants is committable on
+        // this pass rather than the next.
+        await this.holdWarmUp(lineup, rules);
+
         const held = this.rundown.upcoming().length;
         if (held < COMMIT_LEAD) {
             // ── gather ──────────────────────────────────────────────────────────────
@@ -1604,6 +1661,85 @@ export class DirectorService {
             // thing "nothing is coming" — which is what turns the station's own report from warming
             // into stuck over a transient database fault. Failing to look is not evidence.
             this.logger.warn(`director: could not fetch a record ahead of its slot (${errorText(error)})`);
+        }
+    }
+
+    /**
+     * Say something to a listener who arrived before the station had any music.
+     *
+     * The audible half of the warm-up. A record is not committed until its bytes are here, so a
+     * station given a fresh running order has a full hour planned and cannot play a second of it
+     * until the first download lands — and a listener who tunes into that hears silence and has no
+     * way to tell it from a station that is broken.
+     *
+     * Five conditions, each of which is the whole reason for a line of it.
+     *
+     * **Only while somebody is there.** A segment handed over off air plays out to NOBODY: with
+     * `driving` false Liquidsoap's `remainingMs` still falls with the wall clock, which is the
+     * measurement `WARM_LEAD = 0` exists for. Planting one on an idle station would spend the
+     * holding message on an empty room and then have nothing left to say when a listener arrived.
+     *
+     * **Only while the wait is HEALTHY.** Bounded by {@link WAITING_ON_AUDIO_MS}, the same threshold
+     * the feed reports on, so the holding message covers exactly the stretch that is normal and then
+     * gets out of the way. A station whose provider has died should go quiet and let the fault be
+     * audible, rather than reassuring a listener every thirty seconds all night that music is coming.
+     *
+     * **One at a time.** The order is walked for a `warmup` segment that has not been played yet, so
+     * the next is planted only once the last has actually aired. That is what makes it a loop rather
+     * than a pile, and it needs no memory of its own: the running order IS the memory.
+     *
+     * **Canned first.** A file in `media/segments/inbox/warmup/` is already `ready` — no model, no
+     * speech plugin, no wait — so it airs on this pass. The written floor behind it is a whole
+     * write-and-render cycle, which is worth having and is not worth waiting for when the operator
+     * has recorded something.
+     *
+     * **Never fatal.** Swallowed exactly as {@link plantBreaks} is, and more so: this is the one
+     * thing in the pass whose entire purpose is to make a failure more bearable, so it must not be
+     * able to cause one.
+     */
+    private async holdWarmUp(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
+        // Everything is inside the try, guards included. This is the one step in the pass whose
+        // entire purpose is to make a bad moment more bearable, so it must not be able to make one:
+        // a throw out of the cheapest-looking condition here would take the commit pass with it and
+        // cost the station the very records it is covering for.
+        try {
+            const since = this.waitingOnAudioSince;
+            if (since === undefined || Date.now() - since >= WAITING_ON_AUDIO_MS) return;
+            if (!this.audience.gateOpen()) return;
+            // Already covered. `planned` is one still to come and `handed`/`airing` is one the
+            // listener is hearing now; only once it is behind us is there a gap to fill again.
+            if (lineup.all().some(item => item.kind === 'segment' && item.segmentKind === WARMUP_KIND && !isPast(item.state))) return;
+
+            const canned = await inScope(this.container, scope => scope.get(SegmentRepository).listReady(WARMUP_KIND));
+            if (canned.length > 0) {
+                const chosen = canned[Math.floor(Math.random() * canned.length)]!;
+                // At the head of what has not been committed, which is where the gap is. The same
+                // row legitimately airs several times over a long wait, exactly as an ident from the
+                // shared library does at three slots in an hour.
+                const placed = lineup.insertSegments([{ segmentId: chosen.id, atIndex: lineup.committedThrough(), segmentKind: WARMUP_KIND }]);
+                if (placed.ok) {
+                    this.logger.info('director: holding a listener with a recorded warm-up', { segment: chosen.id });
+                    await this.flushPersist();
+                }
+                return;
+            }
+
+            // Nothing recorded, so ask for words. `next` is rendered before it is injected, which is
+            // the right half of the seam here for the reason it is right for a welcome: a segment
+            // that reaches its slot unready is skipped, and there is no second chance at a listener
+            // who has already arrived into silence.
+            await this.takeRequest({
+                kind: WARMUP_KIND,
+                urgency: 'next',
+                source: 'audience',
+                reason: 'somebody tuned in while the station was still fetching its first records',
+                // Keyed and cooled down so a pass every few seconds does not queue a pile of them
+                // while the first is still being spoken.
+                key: WARMUP_KEY,
+                cooldownMs: WARMUP_COOLDOWN_MS,
+            });
+        } catch (error) {
+            this.logger.warn(`director: could not hold a listener while the station warms up (${errorText(error)})`);
         }
     }
 

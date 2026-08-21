@@ -274,6 +274,20 @@ describe('diagnose', () => {
             expect(diagnose(airing({ hasProgramme: false, audioWaitForMs: 5_000 })).cause).toBe('waitingOnAudio');
         });
 
+        // The hazard the holding message introduces. `hasProgramme` is true of anything queued, so
+        // a warm-up segment on its way to the mount reads as the show and the whole chain answers
+        // `airing` — the station reporting that it is broadcasting its programme while it loops
+        // "give us a moment". Same class of mistake as `starved`: the listener hears SOMETHING, and
+        // that is exactly what makes it hard to notice.
+        it('does not call itself on air because a holding message is queued', () => {
+            const facts = { hasProgramme: true, audioWaitForMs: 5_000, warmingRecords: 2 } as const;
+
+            expect(diagnose(airing({ ...facts, holdingWarmUp: true })).cause).toBe('warmingUp');
+            expect(diagnose(airing({ ...facts, holdingWarmUp: true })).audible).toBe(false);
+            // And a real programme queued still reads as one.
+            expect(diagnose(airing({ ...facts, holdingWarmUp: false })).cause).toBe('airing');
+        });
+
         it('lets an empty room have the headline over a warm-up too', () => {
             const answer = diagnose(airing({ hasProgramme: false, audioWaitForMs: 5_000, warmingRecords: 2, audience: false, listeners: 0 }));
 

@@ -30,6 +30,7 @@ function harness(
         claimed?: Segment | undefined;
         speak?: () => Promise<unknown>;
         measure?: () => Promise<unknown>;
+        released?: boolean;
     } = {},
 ) {
     const claimed = 'claimed' in options ? options.claimed : segment();
@@ -38,6 +39,7 @@ function harness(
         claimForRender: vi.fn(async () => claimed),
         markReady: vi.fn(async () => {}),
         markFailed: vi.fn(async () => {}),
+        releaseForRetry: vi.fn(async () => options.released ?? true),
         recordLoudness: vi.fn(async () => {}),
     } as unknown as SegmentRepository;
 
@@ -98,15 +100,49 @@ describe('RenderSegmentJob', () => {
     it('records the reason on the row when the plugin fails, and does not rethrow', async () => {
         const { job, segments } = harness({
             speak: async () => {
-                throw new PluginError('no active plugin can speak').withCode('unavailable');
+                throw new PluginError('the engine answered HTTP 500').withCode('upstream');
             },
         });
 
         // Not rethrown: the console is where an operator looks, and letting this bubble would spend
         // the job's one retry on a plugin that is usually still down.
         await expect(job.run({ segmentId: 'seg-1' })).resolves.toBeUndefined();
-        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', 'no active plugin can speak', 'rendering');
+        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', 'the engine answered HTTP 500', 'rendering');
+        expect(segments.releaseForRetry).not.toHaveBeenCalled();
         expect(segments.markReady).not.toHaveBeenCalled();
+    });
+
+    it('hands the claim back rather than writing the segment off when nothing could speak yet', async () => {
+        // The whole of `docs/todo/render-plugin-readiness.md` piece 1. `unavailable` is the window
+        // where no plugin is active — a boot, or any of the reinitializations every plugin config
+        // change performs — and the words on the row are untouched and still correct. Writing that
+        // off spends one of three render attempts on a failure that said nothing about the segment,
+        // and for a break outside the running order it ends the request outright.
+        const { job, segments } = harness({
+            speak: async () => {
+                throw new PluginError('no active plugin can speak').withCode('unavailable');
+            },
+        });
+
+        await expect(job.run({ segmentId: 'seg-1' })).resolves.toBeUndefined();
+        expect(segments.releaseForRetry).toHaveBeenCalledWith('seg-1', 'no active plugin can speak');
+        expect(segments.markFailed).not.toHaveBeenCalled();
+        expect(segments.markReady).not.toHaveBeenCalled();
+    });
+
+    it('falls back to failing the segment when the claim cannot be handed back', async () => {
+        // `releaseForRetry` is conditional on `rendering`, so a row something else has already moved
+        // answers false. Leaving it there would strand a row nothing owns, which is the exact
+        // failure `releaseStranded` exists to clean up — so the ordinary path takes over.
+        const { job, segments } = harness({
+            released: false,
+            speak: async () => {
+                throw new PluginError('no active plugin can speak').withCode('unavailable');
+            },
+        });
+
+        await expect(job.run({ segmentId: 'seg-1' })).resolves.toBeUndefined();
+        expect(segments.markFailed).toHaveBeenCalledWith('seg-1', 'no active plugin can speak', 'rendering');
     });
 
     it('fails a segment planned with no script rather than asking the engine to say nothing', async () => {

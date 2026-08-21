@@ -818,6 +818,45 @@ export class BreakPlanner {
      * A send is idempotent, because `claimForRender` is a conditional update — so a duplicate is
      * free, exactly as it is for the write job.
      */
+    /**
+     * Ask again for the audio of ONE break that is not in the running order.
+     *
+     * The same question {@link retryRenders} answers for the window, for the one case that walk
+     * cannot reach: an `interrupt` or `next` request is rendered BEFORE it is injected, so its
+     * segment has no position and `ripen` never sees it. Without this, a render that lost the race
+     * with plugin startup — or any other failure — stranded the request until it expired, and a
+     * welcome was lost outright because an operator saved a plugin setting at the wrong second.
+     * `docs/todo/render-plugin-readiness.md` piece 2.
+     *
+     * It shares {@link MAX_RENDER_ATTEMPTS} and the no-speaker rule with `retryRenders` rather than
+     * restating them, because a bound that means one thing in the order and another outside it is
+     * the kind of divergence nobody finds. A `written` row is free to ask for — it has never been
+     * tried — so only the `failed` case is counted against the bound.
+     *
+     * @returns whether it asked, so the caller can leave the request pending rather than failing it.
+     */
+    async retryRenderOf(segment: Segment): Promise<boolean> {
+        if (segment.state !== 'written' && segment.state !== 'failed') return false;
+        if (this.speech.speaker() === undefined) return false;
+
+        try {
+            if (segment.state === 'failed') {
+                const [row] = await this.segments.failedWithScript([segment.id]);
+                if (row === undefined || row.failures >= MAX_RENDER_ATTEMPTS) return false;
+            }
+
+            await this.jobs.send('render.segment', { segmentId: segment.id });
+            this.logger.info('director: asking again for the audio of a break the station is waiting on', {
+                segment: segment.id,
+                state: segment.state,
+            });
+            return true;
+        } catch (error) {
+            this.logger.warn(`director: could not ask again for the audio of a waiting break (${errorText(error)})`);
+            return false;
+        }
+    }
+
     private async retryRenders(ids: readonly string[], stale: ReadonlySet<string>, alsoRender: readonly string[]): Promise<string[]> {
         if (this.speech.speaker() === undefined) return [];
 

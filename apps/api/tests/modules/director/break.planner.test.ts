@@ -1024,6 +1024,73 @@ describe('BreakPlanner.ripen', () => {
         });
     });
 
+    // The same question for a break with no position at all. An `interrupt` or `next` request is
+    // rendered BEFORE it is injected, so `ripen` — which walks the running order — can never reach
+    // its segment, and a render that lost the race with plugin startup ended the request outright.
+    describe('retryRenderOf', () => {
+        const rendered = (send: { mock: { calls: unknown[][] } }): string[] =>
+            send.mock.calls.filter(([name]) => name === 'render.segment').map(([, payload]) => (payload as { segmentId: string }).segmentId);
+
+        const waiting = (state: string, extra: Record<string, unknown> = {}) =>
+            ({ id: 'seg-waiting', kind: 'welcome', state, script: 'Welcome in.', source: 'render', ...extra }) as unknown as Segment;
+
+        it('asks for the audio of a break whose words are decided and unspoken', async () => {
+            // `written` is what a render handed back when the HOST was not ready leaves behind, and
+            // it has never been tried, so it is free to ask for.
+            const built = build({ canWrite: true });
+
+            expect(await built.planner.retryRenderOf(waiting('written'))).toBe(true);
+            expect(rendered(built.send)).toEqual(['seg-waiting']);
+            // Never counted against the bound: nothing has failed.
+            expect(built.failedWithScript).not.toHaveBeenCalled();
+        });
+
+        it('asks again for one that failed, on the same bound the running order uses', async () => {
+            const built = build({ canWrite: true });
+            built.known.set('seg-waiting', waiting('failed'));
+            built.failures.set('seg-waiting', 2);
+
+            expect(await built.planner.retryRenderOf(waiting('failed'))).toBe(true);
+            expect(rendered(built.send)).toEqual(['seg-waiting']);
+        });
+
+        it('gives up after three failures, exactly as the running order does', async () => {
+            const built = build({ canWrite: true });
+            built.known.set('seg-waiting', waiting('failed'));
+            built.failures.set('seg-waiting', 3);
+
+            expect(await built.planner.retryRenderOf(waiting('failed'))).toBe(false);
+            expect(rendered(built.send)).toEqual([]);
+        });
+
+        it('leaves a break that failed with nothing to say', async () => {
+            // `failedWithScript` answers nothing for a wordless row, which is the other failure
+            // entirely: asking again does not give anybody something true to say.
+            const built = build({ canWrite: true });
+
+            expect(await built.planner.retryRenderOf(waiting('failed'))).toBe(false);
+            expect(rendered(built.send)).toEqual([]);
+        });
+
+        it('asks for nothing when no plugin can speak', async () => {
+            const built = build({ canWrite: true, speaker: false });
+
+            expect(await built.planner.retryRenderOf(waiting('written'))).toBe(false);
+            expect(rendered(built.send)).toEqual([]);
+        });
+
+        it('declines a state that is not its business', async () => {
+            // `planned` is the write job's, and `rendering`/`ready` are already somebody's. Only the
+            // two states where the words exist and the audio does not are answerable here.
+            const built = build({ canWrite: true });
+
+            for (const state of ['planned', 'writing', 'rendering', 'ready']) {
+                expect(await built.planner.retryRenderOf(waiting(state))).toBe(false);
+            }
+            expect(rendered(built.send)).toEqual([]);
+        });
+    });
+
     // Where a break somebody ASKED for goes. A different question from the spacing above: that one
     // is about elapsed airtime and is recomputed every pass, this one is about the clock — how long
     // a write and a render need — and is asked once.

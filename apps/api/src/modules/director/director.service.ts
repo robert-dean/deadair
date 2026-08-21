@@ -984,9 +984,18 @@ export class DirectorService {
                     if (request.segmentId === undefined) continue;
 
                     const segment = await segments.findById(request.segmentId);
+                    if (segment === undefined) {
+                        await requests.moveTo(request.id, 'failed', ['pending', 'ready']);
+                        continue;
+                    }
                     // Nothing could write it, or nothing could speak it. The reason is already on the
-                    // segment row; this is only the request agreeing that it is over.
-                    if (segment === undefined || segment.state === 'failed') {
+                    // segment row; this is only the request agreeing that it is over — but only once
+                    // the render has actually had its chances. A break outside the running order gets
+                    // none of them by default, because `retryRenders` walks the order and this segment
+                    // deliberately has no position, so a render that lost the race with plugin startup
+                    // used to end a welcome outright. The planner owns the bound.
+                    if (segment.state === 'failed') {
+                        if (await planner.retryRenderOf(segment)) continue;
                         await requests.moveTo(request.id, 'failed', ['pending', 'ready']);
                         continue;
                     }
@@ -999,6 +1008,14 @@ export class DirectorService {
                     // free, so this needs no memory of what it has already asked for.
                     if (segment.state === 'planned') {
                         await this.jobs.send('director.write_break', { segmentId: request.segmentId });
+                        continue;
+                    }
+                    // The words are decided and nothing is speaking them. The render-side twin of the
+                    // re-offer above, and the state a render leaves behind when the host was not ready
+                    // rather than the segment wrong — see `RenderSegmentJob`'s `unavailable` branch.
+                    // A duplicate send is free, because `claimForRender` is a conditional update.
+                    if (segment.state === 'written') {
+                        await planner.retryRenderOf(segment);
                         continue;
                     }
                     // Still being written or spoken: an ordinary state on most passes, since the

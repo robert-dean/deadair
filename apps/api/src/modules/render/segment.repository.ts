@@ -919,6 +919,35 @@ export class SegmentRepository extends DataRepository {
     }
 
     /**
+     * Hand a render back because the HOST was not ready, not because the segment was wrong.
+     *
+     * `rendering → written`, which is where {@link claimForRender} starts, so the existing
+     * `retryRenders` path picks the row up again with none of `MAX_RENDER_ATTEMPTS` spent — the
+     * words are intact and nothing about them has been judged. That is the difference this method
+     * exists to draw: {@link markFailed} says the station tried and could not, and this says it
+     * never got to try. Counting the second as the first is what
+     * `docs/todo/render-plugin-readiness.md` is about, and it costs a waiting request outright.
+     *
+     * Conditional on `rendering` so it can only ever undo this job's own claim, and unlike
+     * {@link release} it carries no clock: the caller is the job holding the claim right now, so
+     * there is no staleness question to ask.
+     */
+    async releaseForRetry(id: string, reason: string): Promise<boolean> {
+        const rows = await this.db
+            .updateTable('deadair.segments')
+            .set({ state: 'written' })
+            .where('id', '=', id)
+            .where('state', '=', 'rendering')
+            .returning('id')
+            .execute();
+
+        if (rows.length === 0) return false;
+
+        await this.record(id, 'rendering', 'written', reason);
+        return true;
+    }
+
+    /**
      * It did not work, and this is why.
      *
      * The audio columns are left exactly as they were rather than cleared. A segment that was

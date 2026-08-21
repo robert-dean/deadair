@@ -2,6 +2,7 @@ import { Container, Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
+import { isPluginError } from '@deadair/plugin-sdk';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { resolvePlayoutBaseUrl, segmentAudioUrl } from '#modules/playout/playout.urls.js';
@@ -116,6 +117,26 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
             await this.measure(segment.id);
         } catch (error) {
             const message = errorText(error);
+
+            // A host that could not speak is not a segment that was wrong, and writing it off as one
+            // is what `docs/todo/render-plugin-readiness.md` is about: `SpeechService` throws
+            // `unavailable` for exactly the window where no plugin is active — a boot, or any of the
+            // reinitializations every plugin config change performs — and the words on this row are
+            // untouched and still correct. So the claim is handed back and the row waits at
+            // `written`, which is where `claimForRender` starts, with none of `MAX_RENDER_ATTEMPTS`
+            // spent on a failure that said nothing about the segment.
+            //
+            // A station whose speech plugin is genuinely uninstalled is not hidden by this: the row
+            // sits `written` with nothing rendering it and the reason is on `segment_events`, rather
+            // than being silently ready.
+            if (isPluginError(error) && error.code === 'unavailable' && (await this.segments.releaseForRetry(segment.id, message))) {
+                this.logger.info('render: nothing could speak this segment yet; it keeps its words and will be asked for again', {
+                    job: this.context.id,
+                    segment: segment.id,
+                    error: message,
+                });
+                return;
+            }
 
             // The reason goes on the row, because the console is where an operator looks and a log
             // line scrolls away. Not rethrown: a failed render is data, and letting it bubble would

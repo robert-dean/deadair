@@ -25,6 +25,7 @@ import type {
     PutOnAirInput,
     ReplanStationInput,
     SetStationAirInput,
+    SetStationHostInput,
     StationAir,
     StationOrder,
     StationOrderItem,
@@ -362,6 +363,46 @@ export class DirectorConsoleService {
                   }),
             ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
         });
+    }
+
+    /**
+     * Change who is presenting the broadcast that is on air.
+     *
+     * The one way a show's host changes without a new broadcast. A persona put on air from the
+     * personas page is the STATION's, and `PersonaRepository.presenting` deliberately lets a show
+     * that named its own host keep it — so this is how you take that show off the host it named,
+     * and naming nobody here hands it back to the station's.
+     *
+     * **Validated at the door**, unlike {@link putOnAir}, which takes a persona id on trust because
+     * refusing to go on air over a stale one would be the station declining to broadcast. Nothing
+     * is at stake here but the request itself, and an operator picking from a list they were just
+     * shown should be told when it is gone rather than watching the show carry on unchanged.
+     *
+     * Awaited, so the order answered with is the one the recast produced — the rewrite sweep behind
+     * it is best-effort and its own event on the feed. What it costs is stated by the console:
+     * breaks already written for this show in the outgoing character are written again, and one
+     * that is not ready when its slot comes round is skipped rather than waited for.
+     *
+     * @throws 404 when there is no such persona.
+     */
+    async recast(input: SetStationHostInput): Promise<StationOrder> {
+        const personaId = input.personaId?.trim();
+        const host = personaId === undefined ? undefined : await this.personas.find(personaId);
+        if (personaId !== undefined && host === undefined) throw httpError(404).withDetails({ message: 'no such persona' });
+
+        await this.director.post({ kind: 'recast', bind: { ...(personaId === undefined ? {} : { personaId }) } });
+
+        void this.activity.record({
+            module: 'director',
+            kind: 'air.recast',
+            // The persona's own label, which is the station's own text about its own character —
+            // the one kind this feed may quote. See `ActivityRecorder`.
+            detail:
+                host === undefined ? 'An operator handed the broadcast back to the station’s host.' : `An operator put ${host.label} on the show.`,
+            ...(personaId === undefined ? {} : { data: { personaId } }),
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
+        });
+        return await this.getOrder();
     }
 
     /**

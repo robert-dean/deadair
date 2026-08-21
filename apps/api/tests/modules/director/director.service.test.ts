@@ -35,6 +35,7 @@ import { TrackCachePlanner } from '../../../src/modules/playout/audio/track.cach
 import { BreakPlanner } from '../../../src/modules/director/break.planner.js';
 import { BreakRequestRepository } from '../../../src/modules/director/break.request.repository.js';
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
+import { PersonaRepository } from '../../../src/modules/personas/persona.repository.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
@@ -111,6 +112,15 @@ interface Options {
     audienceOpen?: boolean;
     /** Holding messages the operator has recorded, as `SegmentRepository.listReady` answers them. */
     cannedWarmUps?: { id: string; kind: string; state: string; label: string; source: string }[];
+    /**
+     * Who the station has on air, and who else it could put there.
+     *
+     * `undefined` is a station that has chosen no persona, which is an ordinary state everywhere:
+     * the recast then finds every stamped break out of character.
+     */
+    personas?: { active?: string; known?: string[] };
+    /** A personas table that cannot be read at all, which must leave the breaks alone. */
+    personasFail?: boolean;
 }
 
 function build(options: Options = {}) {
@@ -210,6 +220,11 @@ function build(options: Options = {}) {
         reopenClaims: vi.fn(async (itemIds: readonly string[]) =>
             (options.claimedBy ?? []).filter(([item]) => itemIds.includes(item)).map(([, segment]) => segment),
         ),
+        // Which breaks were out of character, answered the way the real one does: the rows it moved
+        // back to `planned`. Which rows those ARE is SQL and is covered by
+        // `apps/api/scripts/segment.repair.smoke.ts`; what these tests are about is WHICH ids the
+        // director offers it, and that it offers them at all.
+        recast: vi.fn(async (ids: readonly string[]) => [...ids]),
     };
     const segments = segmentStub as unknown as SegmentRepository;
 
@@ -264,27 +279,42 @@ function build(options: Options = {}) {
         findById: vi.fn(async () => undefined),
     };
 
+    // The one place the precedence between a broadcast's host and the station's lives, stubbed to
+    // exactly that rule: a named host that exists wins, and anything else falls back to the active
+    // one. What the real one adds is SQL.
+    const personas = {
+        presenting: vi.fn(async (lineupPersonaId: string | undefined) => {
+            if (options.personasFail) throw new Error('the personas table is gone');
+
+            const named = lineupPersonaId !== undefined && (options.personas?.known ?? []).includes(lineupPersonaId) ? lineupPersonaId : undefined;
+            const id = named ?? options.personas?.active;
+            return id === undefined ? undefined : { id, key: id, label: id, voice: `${id}-voice` };
+        }),
+    };
+
     const scope = {
         get: vi.fn((token: unknown) =>
-            token === ProductionRepository
-                ? productions
-                : token === BreakRequestRepository
-                  ? requests
-                  : token === StationLineupRepository
-                    ? lineups
-                    : token === StationAirRepository
-                      ? airRepository
-                      : token === SegmentRepository
-                        ? segments
-                        : token === BreakPlanner
-                          ? breaks
-                          : token === CandidatesRepository
-                            ? candidates
-                            : token === TrackAudioService
-                              ? trackAudio
-                              : token === TrackCachePlanner
-                                ? cachePlanner
-                                : history,
+            token === PersonaRepository
+                ? personas
+                : token === ProductionRepository
+                  ? productions
+                  : token === BreakRequestRepository
+                    ? requests
+                    : token === StationLineupRepository
+                      ? lineups
+                      : token === StationAirRepository
+                        ? airRepository
+                        : token === SegmentRepository
+                          ? segments
+                          : token === BreakPlanner
+                            ? breaks
+                            : token === CandidatesRepository
+                              ? candidates
+                              : token === TrackAudioService
+                                ? trackAudio
+                                : token === TrackCachePlanner
+                                  ? cachePlanner
+                                  : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -333,6 +363,7 @@ function build(options: Options = {}) {
         snapshots,
         breaks,
         segmentStub,
+        personas,
         candidates,
         lineup,
         saved: () => saved,
@@ -668,6 +699,125 @@ describe('DirectorService committing', () => {
             await director.start();
 
             expect(candidates.bindingsFor).not.toHaveBeenCalled();
+        });
+    });
+
+    // Who is presenting can change mid-show, and the station has usually already written and spoken
+    // a couple of breaks in the outgoing character by then. Left alone they air minutes after the
+    // operator changed the host, which reads as the change not having taken.
+    describe('a broadcast that is recast', () => {
+        it('writes the host onto the running order and re-offers the breaks the last one wrote', async () => {
+            const { director, lineup, segmentStub, activity, snapshots, seed } = build({
+                items: ['a', 'b', 'c'],
+                personas: { active: 'classic', known: ['classic', 'pirate'] },
+            });
+            await seed();
+            lineup.insertSegment('seg-1', 2);
+            await director.start();
+
+            await director.post({ kind: 'recast', bind: { personaId: 'pirate' } });
+
+            expect(lineup.personaId).toBe('pirate');
+            // Written THROUGH rather than on the throttle: `WriteBreakJob` reads the host off the
+            // row, so a change that had not landed would have the next break written by whoever
+            // the operator has just replaced.
+            expect(snapshots.at(-1)?.personaId).toBe('pirate');
+            // The incoming host, so the sweep can leave alone any break already in their character.
+            expect(segmentStub.recast).toHaveBeenCalledWith(['seg-1'], 'pirate');
+            expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'break.rewriting', data: { segmentIds: ['seg-1'] } }));
+        });
+
+        it('leaves alone a break the player is already holding', async () => {
+            // Clearing the script of something handed over would take the words out from under a
+            // break about to air. The cut is where the player's hands start.
+            const { director, lineup, rundown, segmentStub, seed } = build({
+                items: ['a', 'b', 'c', 'd'],
+                personas: { active: 'classic', known: ['classic'] },
+                segments: [{ id: 'committed', kind: 'ident', state: 'ready', label: 'Ident', audioChecksum: 'x', audioExt: 'mp3' }],
+            });
+            await seed();
+            lineup.insertSegment('committed', 0);
+            lineup.insertSegment('planned', 4);
+            await director.start();
+            // The ident actually goes out, which is what puts it behind the cut. Nothing is behind
+            // it until something has aired.
+            await airNext(rundown);
+
+            await director.post({ kind: 'recast', bind: { personaId: 'classic' } });
+
+            expect(segmentStub.recast).toHaveBeenCalledWith(['planned'], 'classic');
+        });
+
+        it('hands the show back to the station when it is recast to nobody', async () => {
+            const { director, lineup, segmentStub, seed } = build({
+                items: ['a', 'b', 'c'],
+                personas: { active: 'classic', known: ['classic', 'pirate'] },
+            });
+            await seed();
+            lineup.recast('pirate');
+            lineup.insertSegment('seg-1', 3);
+            await director.start();
+
+            await director.post({ kind: 'recast', bind: {} });
+
+            expect(lineup.personaId).toBeUndefined();
+            expect(segmentStub.recast).toHaveBeenCalledWith(['seg-1'], 'classic');
+        });
+
+        it('leaves a show that named its own host alone when only the station changed', async () => {
+            // `PersonaRepository.presenting`'s precedence, and not a rule this command may reverse:
+            // a show names its host, the station names its default. The sweep still runs, because
+            // being out of character is a property of the row and nothing has changed for these.
+            const { director, lineup, snapshots, segmentStub, seed } = build({
+                items: ['a', 'b', 'c'],
+                personas: { active: 'pirate', known: ['classic', 'pirate'] },
+            });
+            await seed();
+            lineup.recast('classic');
+            lineup.insertSegment('seg-1', 3);
+            await director.start();
+            const written = snapshots.length;
+
+            await director.post({ kind: 'recast' });
+
+            expect(lineup.personaId).toBe('classic');
+            expect(snapshots).toHaveLength(written);
+            expect(segmentStub.recast).toHaveBeenCalledWith(['seg-1'], 'classic');
+        });
+
+        it('leaves every break alone when it cannot read who is presenting', async () => {
+            // Falling back to "nobody is presenting" would put every stamped break in the tail out
+            // of character and rewrite the lot over a transient fault.
+            const { director, lineup, segmentStub, seed } = build({ items: ['a'], personasFail: true });
+            await seed();
+            lineup.insertSegment('seg-1', 1);
+            await director.start();
+
+            await director.post({ kind: 'recast', bind: { personaId: 'pirate' } });
+
+            expect(lineup.personaId).toBe('pirate');
+            expect(segmentStub.recast).not.toHaveBeenCalled();
+        });
+
+        it('keeps the new host even when the breaks cannot be re-offered', async () => {
+            const { director, lineup, segmentStub, seed } = build({ items: ['a'], personas: { active: 'classic', known: ['classic', 'pirate'] } });
+            await seed();
+            lineup.insertSegment('seg-1', 1);
+            segmentStub.recast.mockRejectedValue(new Error('the segments table is gone'));
+            await director.start();
+
+            await director.post({ kind: 'recast', bind: { personaId: 'pirate' } });
+
+            expect(lineup.personaId).toBe('pirate');
+        });
+
+        it('does nothing at all when the station has no running order', async () => {
+            const { director, segmentStub } = build({ noOrder: true });
+            await director.start();
+
+            await director.post({ kind: 'recast', bind: { personaId: 'pirate' } });
+
+            expect(segmentStub.recast).not.toHaveBeenCalled();
         });
     });
 

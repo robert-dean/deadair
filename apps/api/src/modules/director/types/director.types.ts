@@ -30,8 +30,24 @@ export const StationItemState = z.enum(['planned', 'handed', 'airing', 'played',
 export type StationItemState = z.infer<typeof StationItemState>;
 
 /**
+ * Change who is presenting the broadcast that is on air
+ * generated from [SetStationHostInput](file://./../../../../data/contracts/director/director.types.ck#L81)
+ */
+export const SetStationHostInput = z.strictObject({
+    personaId: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe(
+            'Who hosts it from here on. Absent hands it back to whichever persona the station has on air, which is what a broadcast that never named one already does',
+        ),
+});
+export type SetStationHostInput = z.infer<typeof SetStationHostInput>;
+
+/**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L81)
+ * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L85)
  */
 export const AddStationSegmentInput = z.strictObject({
     segmentId: z.string().min(1).max(100),
@@ -55,7 +71,7 @@ export type AddStationSegmentInput = z.infer<typeof AddStationSegmentInput>;
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L87)
+ * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L91)
  */
 export const MoveStationItemInput = z.strictObject({
     toIndex: z.coerce.number().int().min(0),
@@ -64,7 +80,7 @@ export type MoveStationItemInput = z.infer<typeof MoveStationItemInput>;
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L91)
+ * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L95)
  */
 export const ExtendStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional(),
@@ -73,7 +89,7 @@ export type ExtendStationInput = z.infer<typeof ExtendStationInput>;
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L95)
+ * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L99)
  */
 export const ReplanStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional().describe('How many records to programme. Absent is roughly an hour'),
@@ -82,7 +98,7 @@ export const ReplanStationInput = z.strictObject({
         .max(500)
         .optional()
         .describe(
-            'What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the presenting persona. It steers every later refill too, not just this one batch',
+            "What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch",
         ),
 });
 export type ReplanStationInput = z.infer<typeof ReplanStationInput>;

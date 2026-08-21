@@ -11,6 +11,8 @@ import { Epoch } from '#modules/shared/epoch.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { Rundown, type RundownItem, type RundownTrack } from '#modules/playout/rundown.js';
+import { PersonaRepository } from '#modules/personas/persona.repository.js';
+import type { Persona } from '#modules/personas/persona.js';
 import { ProductionRepository } from '#modules/productions/production.repository.js';
 import { ProductionScheduler } from '#modules/productions/production.scheduler.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
@@ -481,7 +483,9 @@ export class DirectorService {
      */
     holdingWarmUp(): boolean {
         const items = this.lineup?.all() ?? [];
-        return items.some(item => item.kind === 'segment' && item.segmentKind === WARMUP_KIND && (item.state === 'handed' || item.state === 'airing'));
+        return items.some(
+            item => item.kind === 'segment' && item.segmentKind === WARMUP_KIND && (item.state === 'handed' || item.state === 'airing'),
+        );
     }
 
     /**
@@ -669,6 +673,10 @@ export class DirectorService {
 
             case 'rebrief':
                 await this.rebrief(command.brief);
+                return undefined;
+
+            case 'recast':
+                await this.recast(command.bind);
                 return undefined;
 
             case 'edit':
@@ -1181,6 +1189,97 @@ export class DirectorService {
         this.lineup.rebrief(brief);
         await this.persist();
         this.logger.info('director: the broadcast was re-briefed', { brief: brief ?? '' });
+    }
+
+    /**
+     * Change who is presenting, and un-say what the outgoing host had lined up.
+     *
+     * Two halves, and the FIRST is the durable one. `bind` present means this broadcast was recast
+     * and the binding is written THROUGH for {@link rebrief}'s exact reason: `WriteBreakJob` reads
+     * the host off the row, so a change riding the throttle would have the next break written by
+     * whoever the operator has just replaced. `bind` absent means the STATION's active persona
+     * changed, and this broadcast's binding is deliberately not touched — a show that named its own
+     * host keeps it, which is `PersonaRepository.presenting`'s precedence and not a rule to reverse
+     * from here.
+     *
+     * The second half is the breaks. A recast changes nothing about the RECORDS, so nothing is
+     * committed and nothing is retracted; what it changes is who is about to speak, and the station
+     * has usually already written and spoken a couple of breaks in the outgoing character. Those go
+     * back to `planned` and `BreakPlanner.ripen` asks for them again — the same repair a broken
+     * promise gets, on the same terms: no deadline, and one that is not `ready` when its slot comes
+     * round is skipped rather than waited for.
+     *
+     * **Who was presenting before is never asked, and cannot be.** On the station's own path this
+     * runs after the new persona is already active, so the question has no answer left; and it does
+     * not need one, because being out of character is a property of the ROW — every break stamped
+     * with anybody but the incoming host is one, whether it was written under the outgoing host or
+     * under the one before them. `SegmentRepository.recast` asks it that way, which also means a
+     * recast that changed nothing matches nothing and this is safe to post whenever it might have.
+     *
+     * **Only past the cut.** {@link StationLineup.committedThrough} is where the player's hands
+     * start, and clearing the script of something already handed over would take the words out from
+     * under a break about to air. The whole tail behind it is swept rather than the write-ahead
+     * window, because the set is small and a break written early is exactly the one this is for.
+     *
+     * Swallowed on failure, and that is the point of the `try`: the operator's change of host is
+     * durable either way, and a sweep that could not run leaves breaks that are merely in the wrong
+     * character, which is what the station would have aired had nothing been built at all.
+     */
+    private async recast(bind?: { personaId?: string }): Promise<void> {
+        if (!this.lineup) return;
+        const lineup = this.lineup;
+
+        if (bind !== undefined) {
+            lineup.recast(bind.personaId);
+            await this.persist();
+            this.logger.info('director: the broadcast was recast', { persona: bind.personaId ?? '' });
+        }
+
+        try {
+            // A read that FAILED leaves the breaks alone rather than falling back to "nobody is
+            // presenting", which would put every break in the tail out of character and rewrite the
+            // lot over a transient fault. The change of host above is durable either way.
+            const incoming = await this.presenting(lineup.personaId);
+            if (!incoming.read) return;
+
+            const ids = [
+                ...new Set(
+                    lineup
+                        .all()
+                        .slice(lineup.committedThrough())
+                        .flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])),
+                ),
+            ];
+            const rewritten = await inScope(this.container, async scope => scope.get(SegmentRepository).recast(ids, incoming.persona?.id));
+            if (rewritten.length === 0) return;
+
+            this.logger.info('director: the station changed presenter, so the breaks the last one wrote will be written again', {
+                segments: rewritten,
+                persona: incoming.persona?.key,
+            });
+            this.reportRewriting(rewritten, { one: 'was written by a different presenter', many: 'were written by a different presenter' });
+        } catch (error) {
+            this.logger.warn(`director: could not re-offer the breaks the outgoing presenter wrote (${errorText(error)})`);
+        }
+    }
+
+    /**
+     * Who is presenting, resolved the one way everything resolves it.
+     *
+     * Answers whether the question could be ASKED as well as what the answer was, because the two
+     * are opposite facts here and `undefined` already means something: a station that has chosen no
+     * persona is ordinary everywhere downstream, and a personas table that could not be read must
+     * not be mistaken for one. {@link recast} would otherwise read a failed call as every break in
+     * the tail being out of character.
+     */
+    private async presenting(personaId: string | undefined): Promise<{ read: boolean; persona?: Persona }> {
+        try {
+            const persona = await inScope(this.container, async scope => scope.get(PersonaRepository).presenting(personaId));
+            return { read: true, ...(persona === undefined ? {} : { persona }) };
+        } catch (error) {
+            this.logger.warn(`director: could not read who is presenting (${errorText(error)})`);
+            return { read: false };
+        }
     }
 
     /**

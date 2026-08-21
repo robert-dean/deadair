@@ -8,6 +8,7 @@ import type {
     PutOnAirInput,
     ReplanStationInput,
     SetStationAirInput,
+    SetStationHostInput,
     StationAir,
     StationOrder,
 } from './types/director.types.js';
@@ -56,6 +57,19 @@ export class DirectorClient {
      */
     async getTheRunningOrder(): Promise<StationOrder> {
         const result = await this.fetch(`/director/air/order`, { method: 'GET' });
+        return await parseJson<StationOrder>(result);
+    }
+
+    /**
+     * @name Recast the broadcast
+     * @description Changes who is presenting this broadcast. Breaks already written for it in the outgoing character are written again in the new one
+     */
+    async recastTheBroadcast(body: SetStationHostInput): Promise<StationOrder> {
+        const result = await this.fetch(`/director/air/persona`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
         return await parseJson<StationOrder>(result);
     }
 

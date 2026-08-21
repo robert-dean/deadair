@@ -25,8 +25,17 @@ export type StationOnEnd = 'extend' | 'repeat' | 'stop';
 export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped' | 'unavailable' | 'removed';
 
 /**
+ * Change who is presenting the broadcast that is on air
+ * generated from [SetStationHostInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L81)
+ */
+export interface SetStationHostInput {
+    /** Who hosts it from here on. Absent hands it back to whichever persona the station has on air, which is what a broadcast that never named one already does */
+    personaId?: string;
+}
+
+/**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L81)
+ * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L85)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -38,7 +47,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L87)
+ * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L91)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -46,7 +55,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L91)
+ * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L95)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -54,12 +63,12 @@ export interface ExtendStationInput {
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L95)
+ * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L99)
  */
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */
     count?: number;
-    /** What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the presenting persona. It steers every later refill too, not just this one batch */
+    /** What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch */
     brief?: string;
 }
 

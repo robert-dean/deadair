@@ -488,6 +488,30 @@ describe('StationLineup editing', () => {
         expect(lineup.toSnapshot()).not.toHaveProperty('brief');
     });
 
+    it('changes who is presenting without changing which broadcast this is', () => {
+        // A show that swaps its host is the same show: the brief it was given and the id last
+        // night's programme is filed under both survive it.
+        const lineup = new StationLineup({ ...binding(), brief: 'ambient only', personaId: 'classic' });
+        const before = lineup.toSnapshot().broadcastId;
+
+        lineup.recast('pirate');
+
+        expect(lineup.personaId).toBe('pirate');
+        expect(lineup.brief).toBe('ambient only');
+        expect(lineup.toSnapshot().broadcastId).toBe(before);
+    });
+
+    it('hands the show back to the station when it is recast to nobody', () => {
+        // The same thing an empty brief does one field over, and the reason `presenting` has a
+        // fallback at all: absent means "whoever the station has on air", not "no host".
+        const lineup = new StationLineup({ ...binding(), personaId: 'classic' });
+
+        lineup.recast();
+
+        expect(lineup.personaId).toBeUndefined();
+        expect(lineup.toSnapshot()).not.toHaveProperty('personaId');
+    });
+
     it('carries the period as one answer, with either end standing alone', () => {
         // One accessor rather than two because every reader wants both: the prompt states a range,
         // the resolver judges against a range, and the draw narrows on one.

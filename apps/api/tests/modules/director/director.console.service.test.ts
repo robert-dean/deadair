@@ -117,7 +117,7 @@ function build(options: Options = {}) {
     const activity = { record: vi.fn(async (_event: Record<string, unknown>) => undefined) };
     // Read-only here: the console names a host and the personas page owns it. `find` answers for
     // the one test that draws a host's name onto the running order.
-    const personas = { find: vi.fn(async (id: string) => options.persona?.(id)) } as never;
+    const personas = { find: vi.fn(async (id: string) => options.persona?.(id)) };
     // Read-only here too, and the default is the ordinary state: a station with no schedule, so a
     // broadcast an operator starts by hand is stamped with no slot. The one test that cares hands
     // over its own.
@@ -130,7 +130,7 @@ function build(options: Options = {}) {
             playlists,
             tracks,
             segments,
-            personas,
+            personas as never,
             schedule,
             settings,
             jobs,
@@ -139,6 +139,7 @@ function build(options: Options = {}) {
             logger,
         ),
         activity,
+        personas,
         segments,
         settings,
         air,
@@ -548,12 +549,55 @@ describe('DirectorConsoleService editing the running order', () => {
         expect(director.post).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'rebrief' }));
     });
 
-    it('clears the brief when the operator empties the box, handing programming back to the persona', async () => {
+    it('clears the brief when the operator empties the box, handing programming back to ordinary rotation', async () => {
         const { service, director } = build({ order: onAirWith(3) });
 
         await service.replanOrder({ brief: '' });
 
         expect(director.post).toHaveBeenCalledWith({ kind: 'rebrief', brief: '' });
+    });
+
+    // The one way a show's host changes without a new broadcast. What it costs — the breaks already
+    // written for this show being written again — is the director's half and is tested there.
+    it('recasts the broadcast, naming the host the operator picked', async () => {
+        const { service, director } = build({ order: onAirWith(3), persona: id => ({ id, label: 'The Pirate' }) });
+
+        await service.recast({ personaId: 'pirate' });
+
+        expect(director.post).toHaveBeenCalledWith({ kind: 'recast', bind: { personaId: 'pirate' } });
+    });
+
+    it('hands the show back to the station when no host is named', async () => {
+        // Absent means "whoever the station has on air", exactly as an empty brief means ordinary
+        // rotation. Nothing is looked up, because there is nothing to look up.
+        const { service, director, personas } = build({ order: onAirWith(3) });
+
+        await service.recast({});
+
+        expect(director.post).toHaveBeenCalledWith({ kind: 'recast', bind: {} });
+        expect(personas.find).not.toHaveBeenCalled();
+    });
+
+    it('refuses a persona the station no longer has, rather than changing the show to nobody', async () => {
+        // Unlike `putOnAir`, which takes an id on trust: refusing to go on air over a stale host
+        // would be the station declining to broadcast. Nothing is at stake here but the request.
+        const { service, director } = build({ order: onAirWith(3), persona: () => undefined });
+
+        expect(await statusOf(service.recast({ personaId: 'gone' }))).toBe(404);
+        expect(director.post).not.toHaveBeenCalled();
+    });
+
+    it('records the recast against the operator who asked for it', async () => {
+        const { service, activity } = build({ order: onAirWith(3), persona: id => ({ id, label: 'The Pirate' }) });
+
+        await service.recast({ personaId: 'pirate' });
+
+        expect(activity.record.mock.calls[0]![0]).toMatchObject({
+            module: 'director',
+            kind: 'air.recast',
+            detail: expect.stringContaining('The Pirate'),
+            actorId: 'actor-1',
+        });
     });
 
     it('records the replan against the operator who asked for it', async () => {

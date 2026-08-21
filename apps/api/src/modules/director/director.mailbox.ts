@@ -126,6 +126,21 @@ export type DirectorCommand =
      */
     | { kind: 'rebrief'; brief?: string }
     /**
+     * Who is presenting has changed. Re-check who that is, and re-open the breaks the outgoing
+     * host wrote and the station has not aired yet.
+     *
+     * **`bind` is what happened rather than what to do.** Present means this BROADCAST was recast
+     * and its own host is now `bind.personaId` — absent inside it clears the binding, handing the
+     * show back to the station's. Absent means the STATION's active persona changed and this
+     * broadcast's binding is not to be touched: a show that named its own host keeps it, which is
+     * `PersonaRepository.presenting`'s precedence and not a rule this command may quietly reverse.
+     *
+     * One command rather than two because both end in the same question — is what the station is
+     * about to say still in character — and because only the director can answer it: the cut
+     * between what the player is holding and what is still free is its own state.
+     */
+    | { kind: 'recast'; bind?: { personaId?: string } }
+    /**
      * Somebody at the desk changed the order. Answers with whether it took.
      *
      * The edit is applied HERE rather than by the caller, because the running order

@@ -27,6 +27,7 @@ import { Kysely, PostgresDialect, sql } from 'kysely';
 import { KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroonedsoftware/kysely';
 
 import type { DB } from '../src/modules/data/db.js';
+import { PersonaRepository } from '../src/modules/personas/persona.repository.js';
 import { SegmentRepository } from '../src/modules/render/segment.repository.js';
 import { StationIdentity } from '../src/modules/shared/station.identity.js';
 
@@ -148,6 +149,55 @@ async function findsWhatCanBeSpokenAgain(): Promise<void> {
     check((await segments.failedWithScript([spoken]))[0]?.failures === 2, 'the count follows the row rather than a process');
 }
 
+/**
+ * The station changed presenter: the outgoing host's breaks are re-opened and nobody else's are.
+ *
+ * Four rows, because being "out of character" is a property of the ROW rather than of the change,
+ * and each of the three exemptions is a different `where`. The voice case is the one worth having a
+ * real database for: it is a correlated subquery against `deadair.personas`, so a unit test could
+ * only assert that it was asked for.
+ */
+async function recasts(): Promise<void> {
+    const personas = new PersonaRepository(db, new StationIdentity());
+    const outgoing = await personas.create({ key: `${KIND}.outgoing`, label: 'Outgoing', style: 'A voice', voice: 'outgoing-voice' });
+    const incoming = await personas.create({ key: `${KIND}.incoming`, label: 'Incoming', style: 'Another voice', voice: 'incoming-voice' });
+
+    const theirs = await writtenBy(outgoing.id, outgoing.voice);
+    const already = await writtenBy(incoming.id, incoming.voice);
+    const nobodys = await written('item-1');
+    const operators = await writtenBy(outgoing.id, 'a-voice-the-operator-chose');
+
+    const reopened = await segments.recast([theirs, already, nobodys, operators], incoming.id);
+    const row = await segments.findById(theirs);
+    // `persona_id` is on the row and not on `Segment`, because nothing reads it back through the
+    // repository. It is the whole subject here, so this one asks the table.
+    const stamped = async (id: string) =>
+        (await db.selectFrom('deadair.segments').select(['personaId', 'voice']).where('id', '=', id).executeTakeFirst())!;
+
+    check(reopened.length === 2, `only the outgoing host's breaks are re-opened (it moved ${reopened.length})`);
+    check(!reopened.includes(already), 'a break already in the incoming character is left alone');
+    check(!reopened.includes(nobodys), 'a break nobody presented is left alone, because it is in no character to be out of');
+    check(row?.state === 'planned' && row?.script === undefined, `the words are gone and it is planned again (it is ${row?.state})`);
+    check((await stamped(theirs)).personaId == null, 'the stamped host goes with the words it describes');
+    check((await stamped(theirs)).voice == null, 'and the voice goes with it, since it was the outgoing host’s');
+    check((await stamped(operators)).voice === 'a-voice-the-operator-chose', 'a voice an operator set by hand survives the recast');
+    check((await trail(theirs)).includes('written→planned'), 'the trail says it was un-written');
+}
+
+/** The same as {@link written}, under a persona and in a voice, as a break the station planted is. */
+async function writtenBy(personaId: string, voice: string | undefined): Promise<string> {
+    const planned = await segments.plan({ kind: KIND, label: 'Smoke' });
+    await segments.claimForWrite(planned.id);
+    await segments.writeScript(planned.id, {
+        script: 'In character, at length.',
+        label: 'Smoke',
+        writer: 'model',
+        personaId,
+        ...(voice === undefined ? {} : { voice }),
+    });
+    return planned.id;
+}
+
 /** Nothing outside the window the caller named may move. */
 async function staysInsideItsWindow(): Promise<void> {
     const mine = await written('item-1');
@@ -168,9 +218,13 @@ try {
     await releasesAStrandedWrite();
     await releasesAStrandedRender();
     await findsWhatCanBeSpokenAgain();
+    await recasts();
     await staysInsideItsWindow();
 } finally {
     const { numDeletedRows } = await db.deleteFrom('deadair.segments').where('kind', '=', KIND).executeTakeFirst();
+    // After the segments, because `segments.persona_id` references them: `on delete set null` would
+    // otherwise leave the rows above pointing at nothing halfway through the cleanup.
+    await db.deleteFrom('deadair.personas').where('key', 'like', `${KIND}.%`).execute();
     console.log(`\n  cleaned up ${numDeletedRows} segment${numDeletedRows === 1n ? '' : 's'}`);
     await db.destroy();
 }

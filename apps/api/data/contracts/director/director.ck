@@ -84,6 +84,24 @@ operation /director/air/order: {
     }
 }
 
+operation /director/air/persona: {
+    put: { # Changes who is presenting this broadcast. Breaks already written for it in the outgoing character are written again in the new one
+        name: Recast the broadcast
+        service: DirectorConsoleService.recast
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: SetStationHostInput
+        }
+        response: {
+            200: {
+                application/json: StationOrder
+            }
+        }
+    }
+}
+
 operation /director/air/extend: {
     post: { # Queues a refill and returns at once. Generating a set walks the catalog, and an operator pressing a button should not be held open through it
         name: Extend the running order

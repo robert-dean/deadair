@@ -657,14 +657,59 @@ export class SegmentRepository extends DataRepository {
     }
 
     /**
+     * The same repair again, for breaks the station's OUTGOING presenter wrote.
+     *
+     * A recast is the third way words stop being the right ones, and the least obvious: nothing
+     * about them is untrue, they are simply in somebody else's character and somebody else's voice.
+     * Left alone they would air minutes after the operator changed the host, which reads as the
+     * change not having taken. So they go back to `planned` and `BreakPlanner.ripen` asks for them
+     * again, under whoever is presenting by then.
+     *
+     * Two things narrow it beyond {@link reopenSegments}, and both are about not taking work that
+     * was never the outgoing host's. **A row with no `personaId` is left alone** — a canned ident, a
+     * break written while the station had no persona at all, or a script an operator typed
+     * themselves is not in anybody's character and rewriting it would throw away words nobody asked
+     * to replace. And **a row already stamped with the incoming host is left alone**, which is what
+     * makes this safe to call when nothing actually changed.
+     *
+     * `personaId` is cleared with the script on `writeScript`'s own argument, that it describes the
+     * words. `voice` is cleared only where it IS the voice of the persona stamped on that ROW,
+     * which is why it is a subquery rather than a value the caller passes: `writeScript` keeps a
+     * voice an operator set by hand through `POST /segments` and only fills in the persona's where
+     * the row had none, so blanket-clearing would silently discard that instruction, while clearing
+     * nothing would have the new character speak in the old one's voice — `WriteBreakJob` computes
+     * `segment.voice ?? persona?.voice`. Asking the row rather than the caller also means a tail
+     * holding breaks by two different outgoing hosts is handled in one statement. A stamped persona
+     * always resolves, because `segments.persona_id` is `on delete set null` and a row whose host
+     * was deleted has already fallen out of the guard above.
+     *
+     * @param ids the segments in the running order that have not been handed to the player.
+     * @param personaId who is presenting NOW. Absent is a station that has chosen nobody, and every
+     *   break with a host is then out of character.
+     */
+    async recast(ids: readonly string[], personaId?: string): Promise<string[]> {
+        if (ids.length === 0) return [];
+
+        return await this.reopen('id', ids, 'the station changed presenter', { personaId, recast: true });
+    }
+
+    /**
      * Back to `planned`, for whichever rows the caller named.
      *
      * The state guard is the load-bearing part and is why this is one method rather than two
      * similar ones: `writing` and `rendering` must never be reset, because both are a job's claim
      * and a row moved underneath one finishes into a state its caller no longer owns.
+     *
+     * `host` is the recast's extra half and is absent for the two callers that are about a break's
+     * CONTENT rather than about who said it. See {@link recast}.
      */
-    private async reopen(by: 'id' | 'claimsItemId', values: readonly string[], reason: string): Promise<string[]> {
-        const rows = await this.db
+    private async reopen(
+        by: 'id' | 'claimsItemId',
+        values: readonly string[],
+        reason: string,
+        host?: { personaId?: string; recast: true },
+    ): Promise<string[]> {
+        let query = this.db
             .updateTable('deadair.segments')
             .set({
                 state: 'planned',
@@ -673,11 +718,29 @@ export class SegmentRepository extends DataRepository {
                 claimsItemId: null,
                 claimsTimeFrom: null,
                 claimsTimeUntil: null,
+                ...(host === undefined
+                    ? {}
+                    : {
+                          personaId: null,
+                          // Per ROW rather than per statement, which is why it is a subquery: two
+                          // segments in the same window can legitimately disagree about whether
+                          // their voice came from their persona or from the operator, and about
+                          // which persona it was.
+                          voice: sql<string | null>`case
+                            when voice = (select p.voice from deadair.personas p where p.id = segments.persona_id) then null
+                            else voice
+                          end`,
+                      }),
             })
             .where(by, 'in', [...values])
-            .where('state', 'in', ['planned', 'written', 'ready'])
-            .returning('id')
-            .execute();
+            .where('state', 'in', ['planned', 'written', 'ready']);
+
+        if (host !== undefined) {
+            query = query.where('personaId', 'is not', null);
+            if (host.personaId !== undefined) query = query.where('personaId', '<>', host.personaId);
+        }
+
+        const rows = await query.returning('id').execute();
 
         for (const row of rows) await this.record(row.id, 'written', 'planned', reason);
         return rows.map(row => row.id);

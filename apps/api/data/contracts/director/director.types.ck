@@ -78,6 +78,10 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     onEnd?: StationOnEnd
 }
 
+contract SetStationHostInput: { # Change who is presenting the broadcast that is on air
+    personaId?: string(min=1, max=100) # Who hosts it from here on. Absent hands it back to whichever persona the station has on air, which is what a broadcast that never named one already does
+}
+
 contract AddStationSegmentInput: { # Put something the station says into the running order
     segmentId: string(min=1, max=100)
     atIndex?: int(min=0) # Where to put it. Absent puts it at the end. A position already handed to the player is refused
@@ -94,5 +98,5 @@ contract ExtendStationInput: { # Add tracks to the running order now, rather tha
 
 contract ReplanStationInput: { # Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
     count?: int(min=1, max=100) # How many records to programme. Absent is roughly an hour
-    brief?: string(max=500) # What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the presenting persona. It steers every later refill too, not just this one batch
+    brief?: string(max=500) # What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch
 }

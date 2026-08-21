@@ -732,6 +732,28 @@ export class StationLineup implements LiveOrder {
         this.binding = brief ? { ...rest, brief } : rest;
     }
 
+    /**
+     * Change who is presenting this broadcast.
+     *
+     * The second thing a broadcast may legitimately change its mind about, and narrow for
+     * {@link rebrief}'s reason rather than by analogy with it: a show that swaps its host is the same
+     * show, where a show playing different material under a different name is not. {@link broadcastId}
+     * is untouched, so last night's programme is still one thing to ask about afterwards.
+     *
+     * **Absent CLEARS it, and clearing means something**, exactly as an empty brief does: it hands
+     * the show back to whichever persona the station has on air, which is what a broadcast that
+     * never named a host does already. `PersonaRepository.presenting` is the one place that
+     * precedence lives and this only decides what it is asked.
+     *
+     * Nothing here touches the breaks the outgoing host has already written. That is the director's
+     * half, because it is a question about the running order's cut and about rows in another table.
+     */
+    recast(personaId?: string): void {
+        const { personaId: _current, ...rest } = this.binding;
+
+        this.binding = personaId ? { ...rest, personaId } : rest;
+    }
+
     /** Add to the end. Nothing else moves: this is the plan continuing. */
     append(tracks: readonly RundownTrack[]): StationLineupItem[] {
         if (tracks.length === 0) return [];

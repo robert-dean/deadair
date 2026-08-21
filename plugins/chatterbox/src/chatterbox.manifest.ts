@@ -36,6 +36,54 @@ export const DEFAULT_MODEL = 'chatterbox';
 export const DEFAULT_VOICE = 'Olivia.wav';
 
 /**
+ * The voices a fresh station starts with, and which clip each one is here.
+ *
+ * **The NAMES are the point, and they are the other engine's names on purpose.**
+ * A persona names a station voice, so the two bundled speech plugins shipping the
+ * same twenty slots is what makes switching engines a settings change rather than
+ * a rewrite of nineteen characters. That is the whole of what the indirection was
+ * built for, and it is only true if both maps actually cover the same vocabulary
+ * — `voice.slots.test.ts` in the API holds them to it, because a slot that exists
+ * on one engine and not the other is a persona that silently loses its voice on
+ * the day the operator switches.
+ *
+ * **The PICKS here are weaker than the other engine's, and it is worth saying so.**
+ * Kokoro's voice ids carry their accent and register in the name, and the previous
+ * station had auditioned ten of them, so those rows are evidence. This engine's
+ * voices are reference clips named after people — nothing in `Everett.wav` says
+ * whether it growls — so these are assigned to match the other map's gender and to
+ * keep every character distinct, and nothing more. They are a starting point that
+ * makes the station sound like twenty different people rather than one, which is
+ * the failure worth fixing first; which of them suits the pirate is a question for
+ * whoever listens, and it is one table row to answer.
+ */
+export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?: string }[] = [
+    { name: 'classic', engine: 'Olivia.wav' },
+    { name: 'latenight', engine: 'Miles.wav', speed: '0.95' },
+    { name: 'cratedigger', engine: 'Jade.wav' },
+    { name: 'pirate', engine: 'Everett.wav' },
+    { name: 'howler', engine: 'Axel.wav', speed: '1.1' },
+    { name: 'quietstorm', engine: 'Layla.wav', speed: '0.9' },
+    { name: 'countdown', engine: 'Michael.wav' },
+    { name: 'wisecrack', engine: 'Cora.wav' },
+    { name: 'shockjock', engine: 'Austin.wav', speed: '1.1' },
+    { name: 'conspiracy', engine: 'Jeremiah.wav' },
+    { name: 'bossjock', engine: 'Ryan.wav', speed: '1.15' },
+    { name: 'videoage', engine: 'Gianna.wav' },
+    { name: 'slacker', engine: 'Connor.wav', speed: '0.9' },
+    { name: 'millennium', engine: 'Emily.wav', speed: '1.1' },
+    { name: 'automaton', engine: 'Jordan.wav', speed: '0.95' },
+    { name: 'naturalist', engine: 'Julian.wav', speed: '0.9' },
+    { name: 'playbyplay', engine: 'Leonardo.wav', speed: '1.15' },
+    { name: 'gumshoe', engine: 'Thomas.wav', speed: '0.9' },
+    { name: 'forecast', engine: 'Alexander.wav', speed: '0.9' },
+    { name: 'newsreader', engine: 'Abigail.wav' },
+];
+
+/** The rows as the config stores them: a JSON array in a string, exactly as the console writes it. */
+export const DEFAULT_VOICES_JSON = JSON.stringify(DEFAULT_VOICE_ROWS);
+
+/**
  * How long one synthesis may take.
  *
  * Bounds the request and its headers, not the audio. Generous even by the other
@@ -139,6 +187,7 @@ export const chatterboxManifest: PluginManifest = {
             key: VOICES_FIELD,
             label: 'Voices',
             type: 'list',
+            default: DEFAULT_VOICES_JSON,
             placeholder: 'No voices yet, so everything the station says uses the default.',
             help:
                 'The station asks for its own names and this says what each one sounds like here. A name is whatever you want to call a voice — a role like "host" or "newsreader", or a character — and it is what a persona points at. ' +

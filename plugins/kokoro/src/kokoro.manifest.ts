@@ -22,6 +22,76 @@ export const DEFAULT_MODEL = 'kokoro';
 export const DEFAULT_VOICE = 'af_heart';
 
 /**
+ * The voices a fresh station starts with, and which engine voice each one is here.
+ *
+ * ## Why a plugin ships a map of the station's own names
+ *
+ * Because the alternative was measured and it was one voice. An empty map is not
+ * a neutral starting point: every persona falls through to `defaultVoice`, so a
+ * station with nineteen written characters reads all of them in the same warm
+ * American female and the operator has no way to know that is a default rather
+ * than a decision. The names are the STATION's vocabulary and the engine voices
+ * are this plugin's answer to them, which is exactly the split the whole
+ * indirection is for — `plugins/chatterbox` ships the same names against its own
+ * clips, so switching engines keeps every persona pointed at something.
+ *
+ * ## Where the picks come from
+ *
+ * The previous station's built-in voice profiles, for the ten characters it had,
+ * and each persona's own sheet for the rest. Two of those inherited picks carry
+ * an argument worth keeping: a pirate's growl is nearer `bm_george` than anything
+ * in the American set and the dialect reads far better in it, and a measured,
+ * thoughtful read lands better in `bm_fable` than in any of them. A shipping
+ * forecast is not read by an American either.
+ *
+ * What is NOT inherited is the previous station's per-provider matrix, which
+ * mapped every profile onto every engine host-side. That was rejected here on
+ * purpose: the engine's opinion belongs to the engine, which is why this table is
+ * in a plugin and the names in it are the only part the host knows.
+ *
+ * ## Two rules about the rows
+ *
+ * **No two characters that could air in one shift share a voice.** They are all
+ * distinct here, which is easy at twenty against sixty-eight; the rule matters on
+ * an engine with fewer, where sharing is fine between characters a schedule keeps
+ * apart and wrong between two a listener hears in an hour.
+ *
+ * **A speed is only set where the persona's own words ask for one** — "speaking
+ * slow", "breathless", "hushed", "never lets a second of dead air happen". A
+ * default that nudged every voice would be this file having an opinion about
+ * characters it did not write.
+ */
+export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?: string }[] = [
+    { name: 'classic', engine: 'af_heart' },
+    { name: 'latenight', engine: 'am_echo', speed: '0.95' },
+    { name: 'cratedigger', engine: 'af_kore' },
+    { name: 'pirate', engine: 'bm_george' },
+    { name: 'howler', engine: 'am_fenrir', speed: '1.1' },
+    { name: 'quietstorm', engine: 'af_river', speed: '0.9' },
+    { name: 'countdown', engine: 'am_michael' },
+    { name: 'wisecrack', engine: 'af_jessica' },
+    { name: 'shockjock', engine: 'am_adam', speed: '1.1' },
+    { name: 'conspiracy', engine: 'am_eric' },
+    { name: 'bossjock', engine: 'am_liam', speed: '1.15' },
+    { name: 'videoage', engine: 'af_nova' },
+    { name: 'slacker', engine: 'am_puck', speed: '0.9' },
+    { name: 'millennium', engine: 'af_sarah', speed: '1.1' },
+    { name: 'automaton', engine: 'af_alloy', speed: '0.95' },
+    { name: 'naturalist', engine: 'bm_fable', speed: '0.9' },
+    { name: 'playbyplay', engine: 'bm_lewis', speed: '1.15' },
+    { name: 'gumshoe', engine: 'am_onyx', speed: '0.9' },
+    { name: 'forecast', engine: 'bm_daniel', speed: '0.9' },
+    // Not a persona. The one role slot worth shipping, because a bulletin read in
+    // the host's voice is a decision a station should be able to make rather than
+    // one it falls into — see `docs/todo/personas.md` §1, which is the work that
+    // will read it.
+    { name: 'newsreader', engine: 'bf_emma' },
+];
+
+/** The rows as the config stores them: a JSON array in a string, exactly as the console writes it. */
+export const DEFAULT_VOICES_JSON = JSON.stringify(DEFAULT_VOICE_ROWS);
+
+/**
  * How long one synthesis may take.
  *
  * This bounds the request and its headers only, not the audio, which arrives
@@ -134,6 +204,7 @@ export const kokoroManifest: PluginManifest = {
             key: VOICES_FIELD,
             label: 'Voices',
             type: 'list',
+            default: DEFAULT_VOICES_JSON,
             placeholder: 'No voices yet, so everything the station says uses the default.',
             help:
                 'The station asks for its own names and this says what each one sounds like here. A name is whatever you want to call a voice — a role like "host" or "newsreader", or a character — and it is what a persona points at. ' +

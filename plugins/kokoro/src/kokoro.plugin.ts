@@ -15,6 +15,7 @@ import {
     DEFAULT_FORMAT,
     DEFAULT_MODEL,
     DEFAULT_VOICE,
+    DEFAULT_VOICES_JSON,
     PROBE_TIMEOUT_MS,
     RESPONSE_FORMATS,
     SPEAK_TIMEOUT_MS,
@@ -91,7 +92,12 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         this.model = configString(config.model) ?? DEFAULT_MODEL;
         this.format = isResponseFormat(config.format) ? config.format : DEFAULT_FORMAT;
         this.defaultVoice = configString(config.defaultVoice) ?? DEFAULT_VOICE;
-        this.voices = voiceMapOf(config[VOICES_FIELD]);
+        // A station that has never opened this form gets the shipped map; one that HAS gets exactly
+        // what it saved, including an empty table. That asymmetry is deliberate and is the opposite
+        // call to `rotation.breakTemplates`, where clearing the box restores the station's own
+        // phrasings — because clearing THAT produces a silent DJ and clearing this produces a
+        // station that speaks in one voice, which is a thing an operator may legitimately want.
+        this.voices = voiceMapOf(config[VOICES_FIELD] ?? DEFAULT_VOICES_JSON);
         this.apiKey = await this.host.secrets.get('apiKey');
 
         this.host.logger.info('kokoro ready', {

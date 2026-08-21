@@ -30,9 +30,14 @@ describe('the seeded personas', () => {
         expect(new Set(keys).size).toBe(keys.length);
     });
 
-    it('name no voice, because only the installed engine knows which ids exist', () => {
+    it('each name a voice, so the roster does not all read in the same one', () => {
+        // The opposite of what this asserted for as long as it existed, on the reasoning that only
+        // the installed engine knows which ids exist. True of an ENGINE id and not of the STATION
+        // name this column holds — and the cost of the old rule was nineteen written characters
+        // that a listener could not tell apart. Both bundled speech plugins ship a row for every key
+        // below; `voice.slots.test.ts` is what holds the three lists together.
         for (const persona of SEED_PERSONAS) {
-            expect(persona.voice, `${persona.key} must not pin a voice`).toBeUndefined();
+            expect(persona.voice, `${persona.key} names no voice`).toBe(persona.key);
         }
     });
 

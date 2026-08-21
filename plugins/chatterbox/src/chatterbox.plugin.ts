@@ -16,6 +16,7 @@ import {
     DEFAULT_MODEL,
     DEFAULT_UNLOAD_AFTER_RENDER,
     DEFAULT_VOICE,
+    DEFAULT_VOICES_JSON,
     PROBE_TIMEOUT_MS,
     RESPONSE_FORMATS,
     SPEAK_TIMEOUT_MS,
@@ -152,7 +153,9 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         this.model = configString(config.model) ?? DEFAULT_MODEL;
         this.format = isResponseFormat(config.format) ? config.format : DEFAULT_FORMAT;
         this.defaultVoice = configString(config.defaultVoice) ?? DEFAULT_VOICE;
-        this.voices = voiceMapOf(config[VOICES_FIELD]);
+        // A station that has never opened this form gets the shipped map; one that HAS gets what
+        // it saved, including an empty table. See the same line in the other speech plugin.
+        this.voices = voiceMapOf(config[VOICES_FIELD] ?? DEFAULT_VOICES_JSON);
         this.unloadAfterRender = isOn(config.unloadAfterRender);
         this.apiKey = await this.host.secrets.get('apiKey');
 

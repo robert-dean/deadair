@@ -40,10 +40,12 @@ cannot express either is the current one.
 **One thing this entry assumed is no longer true, and it makes the work smaller.** It was written
 when a station had one usable voice, so "the pirate reads the headlines in the pirate's voice" was
 half a hypothetical: `segments.voice` could name a newsreader and nothing would sound different.
-The voice map is now a table an operator can actually fill, both bundled engines suggest what their
-server holds, and a `newsreader` slot is the obvious first row — so the question this section asks
-is a real one with an audible answer, and nothing in it is blocked on a voice existing to point at.
-See the speech gotcha in CLAUDE.md.
+Since 2026-08-21 both bundled speech plugins ship a map covering every seeded persona plus a
+**`newsreader` slot**, put there for exactly this entry, and each persona names its own voice. So the
+question this section asks is now a real one with an audible answer, the row to point at already
+exists on both engines, and none of the work below is blocked on a voice to reach for — what is
+missing is only the `kind` column and the precedence, which is what this section was always about.
+See the speech and persona gotchas in CLAUDE.md.
 
 **The seam is a nullable `kind` on `deadair.personas`**, and the precedence stays in the one place it
 already lives:

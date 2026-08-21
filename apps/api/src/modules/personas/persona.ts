@@ -52,9 +52,19 @@ export interface PersonaDraft extends PersonaSheet {
     /**
      * The station voice that speaks this persona, as the opaque id a speech plugin maps.
      *
-     * Unset means the plugin's own default, and every seeded persona ships that way: which voices
-     * exist is a question only the installed engine can answer, so guessing an id here would ship a
-     * warning on every break. An operator picks one from `GET /voices`.
+     * Unset means the plugin's own default. Every seeded persona used to ship that way, on the
+     * grounds that which voices exist is a question only the installed engine can answer — true of
+     * an ENGINE id and not of a STATION one, which is what this actually holds. Both bundled speech
+     * plugins now ship a map covering every seeded persona's key, so a seed naming its own key
+     * resolves on either engine and switching between them rewrites nothing.
+     *
+     * The measured cost of the old rule was the whole point: nineteen written characters, every one
+     * of them read in the same voice, with nothing on any page saying that was a default rather than
+     * a decision.
+     *
+     * An id with no row behind it still falls back and still warns once, which is what makes
+     * deleting a row from the map an expressible thing to do rather than a way to break a persona.
+     * An operator picks one from `GET /voices`.
      */
     voice?: string;
     /**

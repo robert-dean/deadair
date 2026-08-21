@@ -38,12 +38,29 @@
  * to disagree with what the console shows. That is the difference between a seed and a default, and
  * it is why an operator can delete one.
  *
- * ## Every one of them ships without a voice
+ * ## Every one of them names a voice, and it is its own key
  *
- * Deliberate, and the same reason `render.speechPluginId` declines to guess: which voice ids exist
- * is a question only the installed speech engine can answer. A seeded `voice: 'gruff-male'` would
- * be a warning on every break of every fresh install. Unset means the plugin's default, which
- * always works, and the personas page is where a real one gets picked.
+ * They shipped without one for a long time, on the reasoning that which voice ids exist is a
+ * question only the installed speech engine can answer, so a seeded `voice: 'gruff-male'` would be a
+ * warning on every break of every fresh install. That was right about an ENGINE id and wrong about
+ * the thing this column holds, which is a STATION name the plugin maps. Both bundled speech plugins
+ * now ship a map with a row for every key below, so a seed naming its own key resolves on either
+ * engine — and a station that switches engines keeps all nineteen characters rather than rewriting
+ * them.
+ *
+ * The cost of the old rule was the whole roster sounding identical. Nineteen sheets, nineteen sets
+ * of diction markers, nineteen fenced characters, and a listener hearing one warm American female
+ * read every one of them — with nothing on any page saying that was a default rather than a choice.
+ *
+ * The names being the persona KEYS rather than a separate vocabulary (`gruff-male`, `warm-female`)
+ * is the same call `topics` makes about the operator's own words: a slot describes a character this
+ * station actually has, so there is one list to keep straight instead of two and a mapping between
+ * them. `newsreader` is the one slot in those maps that is not a persona, because a bulletin read in
+ * the host's voice should be a decision rather than something a station falls into — see
+ * `docs/todo/personas.md` §1.
+ *
+ * Deleting a row from a plugin's map is still expressible: the voice falls back to the engine's
+ * default and warns once, exactly as an unmapped name always did.
  *
  * ## The classic host has phrasings now, and the argument it used to make was the wrong way round
  *
@@ -148,6 +165,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'classic',
         label: 'Classic host',
+        voice: 'classic',
         style: 'a warm, upbeat radio host who is genuinely glad to be handing over the next record',
         diction: [
             'Always contract: "you\'re", "that\'s", "here\'s", "we\'ll". Never the expanded form',
@@ -185,6 +203,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'latenight',
         label: 'Late-night companion',
+        voice: 'latenight',
         style: 'a quiet late-night host sitting close to the mic, keeping company with whoever is still awake',
         djName: 'Ray',
         diction: [
@@ -224,6 +243,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'cratedigger',
         label: 'Crate-digger',
+        voice: 'cratedigger',
         style: 'a college-radio crate-digger with dry wit and an unreasonable amount of liner-note knowledge',
         djName: 'Bex',
         diction: [
@@ -259,6 +279,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'pirate',
         label: 'Pirate captain',
+        voice: 'pirate',
         style: 'a swashbuckling pirate captain who somehow ended up running a radio station, warm and easy to listen to under all the growl',
         djName: 'Captain Salt',
         diction: [
@@ -314,6 +335,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'howler',
         label: 'Midnight howler',
+        voice: 'howler',
         style: 'a gravel-throated late-night rock and roll shouter, part disc jockey and part preacher',
         djName: 'Sonny',
         diction: [
@@ -349,6 +371,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'quietstorm',
         label: 'Quiet-storm host',
+        voice: 'quietstorm',
         style: 'a velvet late-night soul host, speaking slow and close to the mic for whoever is still up',
         djName: 'Vee',
         diction: [
@@ -385,6 +408,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'countdown',
         label: 'Countdown host',
+        voice: 'countdown',
         style: 'an earnest chart-countdown host who takes every record, and every listener, completely seriously',
         djName: 'Dale',
         diction: [
@@ -421,6 +445,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'wisecrack',
         label: 'Wisecracking host',
+        voice: 'wisecrack',
         style: 'a dry, wisecracking host who finds every record slightly ridiculous and plays it anyway',
         djName: 'Fran',
         diction: [
@@ -473,6 +498,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'shockjock',
         label: 'Morning-zoo host',
+        voice: 'shockjock',
         style: 'a loud morning-zoo host who is rude about absolutely everything except the person listening',
         djName: 'Chaz',
         diction: [
@@ -525,6 +551,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'conspiracy',
         label: 'Overnight conspiracy host',
+        voice: 'conspiracy',
         style: 'an overnight host who believes the records are trying to tell you something, and is doing his level best to warn you in time',
         djName: 'Mac',
         diction: [
@@ -591,6 +618,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'bossjock',
         label: 'Boss jock (late sixties to seventies)',
+        voice: 'bossjock',
         style: 'a fast, tight AM top-40 jock who never lets a second of dead air happen and treats every record as an event',
         djName: 'Johnny Dial',
         diction: [
@@ -628,6 +656,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'videoage',
         label: 'Video-age jock (eighties)',
+        voice: 'videoage',
         style: 'a bright, enormous eighties jock who introduces every record as though a camera were on it',
         djName: 'Kiki Vox',
         diction: [
@@ -677,6 +706,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'slacker',
         label: 'Alt-rock slacker (nineties)',
+        voice: 'slacker',
         style: 'a flat, unbothered nineties alternative jock who plays great records and cannot summon the energy to sell one',
         djName: 'Deke',
         diction: [
@@ -712,6 +742,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'millennium',
         label: 'Millennium pop host (two thousands)',
+        voice: 'millennium',
         style: 'a breathless request-and-countdown host for whom every record is something somebody asked for',
         djName: 'Ari',
         diction: [
@@ -760,6 +791,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'automaton',
         label: 'Station automaton',
+        voice: 'automaton',
         style: 'the station itself speaking, a synthetic announcer that is faintly and politely aware of being one',
         djName: 'Unit 7',
         diction: [
@@ -800,6 +832,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'naturalist',
         label: 'Wildlife narrator',
+        voice: 'naturalist',
         style: 'a hushed natural-history narrator who has mistaken a radio station for a habitat and is documenting it with enormous care',
         djName: 'Dr Wren',
         diction: [
@@ -839,6 +872,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'playbyplay',
         label: 'Play-by-play announcer',
+        voice: 'playbyplay',
         style: 'a live sports commentator calling a four-minute record as though the result were still in doubt',
         djName: 'Mick Dunphy',
         diction: [
@@ -886,6 +920,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'gumshoe',
         label: 'Night-desk gumshoe',
+        voice: 'gumshoe',
         style: 'a hard-boiled private detective who took the overnight shift at a radio station and narrates it like a case',
         djName: 'Sam Kessler',
         diction: [
@@ -932,6 +967,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
     {
         key: 'forecast',
         label: 'Coastal announcer',
+        voice: 'forecast',
         style: 'a formal maritime-bulletin announcer who reads a running order in the cadence of a shipping forecast',
         djName: 'The Announcer',
         diction: [

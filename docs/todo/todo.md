@@ -9,14 +9,15 @@ points at that file. Checked against the tree on 2026-08-11.
       name its own host. What is left is scoped in `personas.md`: §3 is the schedule writing that
       column, §5 is what the station says when a boundary changes the host, and §1 is the
       newsreader, which is the first case one-persona-per-station could not express
-- [~] more voices, add phonetics — phonetics is DONE (`deadair.pronunciations`, mined out of the
-      articles the fact store already holds by `pronunciation.gloss.ts`, with a console page). The
-      voices half is now REACHABLE rather than done: the map moved from a one-line box to a table
-      whose engine cell offers what the server actually reports, and a second engine
-      (`plugins/chatterbox`) exists beside Kokoro. What is left is the part that changes what the
-      station SOUNDS like — a curated default map so a fresh install has named voices, and a `voice`
-      on each of the 19 seeded personas, which today all read in the same one. Both are scoped in
-      `dj-voice.md`, along with the cloning and upload halves the second engine does not reach yet
+- [x] more voices, add phonetics — DONE. Phonetics is `deadair.pronunciations`, mined out of the
+      articles the fact store already holds by `pronunciation.gloss.ts`, with a console page. Voices
+      took four pieces: the map moved from a one-line box to a table whose engine cell offers what
+      the server actually reports, a second engine arrived (`plugins/chatterbox`, with the model
+      lifecycle a GPU engine needs), both plugins ship a curated twenty-slot map so a fresh install
+      has named voices rather than one, and all 19 seeded personas name their own. What is left is
+      not "more voices" but reaching more of what the second engine can do — cloning and the
+      expressiveness dials on its native path, and an upload route for clips and voicepacks. Both in
+      `dj-voice.md`
 - [~] inject news/weather breaks — **news is done, 2026-08-15**: the `news` capability, `plugins/rss`
       and `NewsService` under a `read_news` tool the DJ can call mid-break, plus a `news` segment kind
       that `:30 news` on the station clock produces, with a model writer over a floor that reads

@@ -171,9 +171,11 @@ one the host could make itself. See the CLAUDE.md gotcha for what is load-bearin
 
 **The operator can now say what an hour should be**, which is the other half of this entry that was
 never written down here because it did not exist: `station_lineup.brief`, free text, set when the
-station goes on air and re-read on every refill, in the user turn of `setPrompt` and beating the
-active persona's `music` line where the two disagree (`llm.setPersona`, which it beat when this was
-written, is retired — see the personas section of CLAUDE.md). Measured on the station's own `gpt-oss-radio`: asked for
+station goes on air and re-read on every refill, in the user turn of `setPrompt`. It is now the ONLY
+thing that says what to play: `llm.setPersona` was retired into a persona's `music` line, and that
+line has since been deleted too, because a second prose description of the music made a local model
+split the difference between the two. A period (`era_from`/`era_to`) rides beside it as the one
+structured half a brief can have — see the personas and era gotchas in CLAUDE.md. Measured on the station's own `gpt-oss-radio`: asked for
 "heavy metal hits" it named 23 of 24 in four searches and 85 seconds, `finish: 'stop'`, and four of
 those were records the library did not hold and Spotify did.
 

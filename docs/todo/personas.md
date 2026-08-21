@@ -2,7 +2,7 @@
 
 **Scoped 2026-08-15**, against the tree as it stood with the news bulletin in flight. Who the station
 IS is built and is described in CLAUDE.md: `deadair.personas` (migration 0012), the sheet and its
-diction split (`persona.sheet.ts`), the templates chain, the voice on the row, the `music` line, the
+diction split (`persona.sheet.ts`), the templates chain, the voice on the row, the
 one-active partial unique index, `PersonaRepository.presenting`, the console page and editor, and the
 four seeds in `persona.defaults.ts`. None of that is re-opened here.
 
@@ -238,6 +238,13 @@ Two decisions, neither settled:
 - **Mood**, which is [station-moment.md](station-moment.md) and is deliberately a different axis: a
   persona is who the station is and a mood is what the hour is like. A persona that changed with the
   clock would be a schedule, which is §3.
-- **A persona choosing its own music beyond the `music` line.** The line reaches `ModelSetGenerator`
-  and the brief beats it, and that precedence is settled (CLAUDE.md, and
-  [station-intelligence.md](station-intelligence.md) §1).
+- **A persona choosing its own music at all — RESOLVED, in the other direction (2026-08-21).** This
+  entry read "a persona choosing its own music beyond the `music` line", and the line itself is now
+  gone. It was a FOURTH way to steer the programming beside the three keyed to the clock
+  (`station_lineup.brief`, `schedule_slots.brief`, `schedule.sustainingBrief`), and two prose
+  descriptions reaching one local model made it split the difference — so it had to be withheld from
+  any briefed refill, which was a structural rule costing a page of explanation in three files.
+  Deleting the field deleted the rule, and `SetInputs.persona` went with it: the record chooser no
+  longer learns who is presenting. **A persona is a voice.** What an hour plays is the brief, plus
+  the one structured half a brief can have — `era_from`/`era_to`, which is what lets a decade reach
+  the deterministic draw as well as the model. See the personas and era gotchas in CLAUDE.md.

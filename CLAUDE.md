@@ -222,17 +222,24 @@ the operator's: a placeholder outside an optional chunk that cannot be filled me
 not apply, and a phrasing saying nothing about the record just finished is only offered where there
 is none.
 
-**Who the station IS is a row, and it reaches four things rather than one.** `deadair.personas`, one
-active per station enforced by a partial unique index, with its own contract and its own console page
-— a table for the reason `docs/todo/station-moment.md` argues moods are one: a `ConfigField`
-describes one row of a form and this is a list an operator adds to and switches between. It replaced
+**Who the station IS is a row, and it is a VOICE and nothing else.** `deadair.personas`, one active
+per station enforced by a partial unique index, with its own contract and its own console page — a
+table for the reason `docs/todo/station-moment.md` argues moods are one: a `ConfigField` describes
+one row of a form and this is a list an operator adds to and switches between. It replaced
 `llm.breakPersona` and `llm.setPersona`, both retired, and the reason it could not stay two settings
-is what putting one on air now does: it changes what the model is TOLD (the sheet, in
-`break.prompt.ts`), what the station says when the model declined (the persona's own `templates`,
-ahead of `rotation.breakTemplates` in `resolveTemplates`), which VOICE speaks it (`segments.voice`,
-stamped by `WriteBreakJob` in the same statement as the words), and what it PROGRAMMES towards (the
-`music` line, and only that line — what a character sounds like has nothing to do with what it
-plays). Five things are load-bearing. **`diction` is not a quirk**: a quirk applies to the sentences
+is what putting one on air does: it changes what the model is TOLD (the sheet, in `break.prompt.ts`),
+what the station says when the model declined (the persona's own `templates`, ahead of
+`rotation.breakTemplates` in `resolveTemplates`), and which VOICE speaks it (`segments.voice`,
+stamped by `WriteBreakJob` in the same statement as the words). **It says nothing whatsoever about
+what the station PLAYS**, and the `music` line that used to is gone: it was a FOURTH way to steer the
+programming beside the three keyed to the clock (`station_lineup.brief`, `schedule_slots.brief`,
+`schedule.sustainingBrief`), and two prose descriptions reaching one local model made it split the
+difference — so the line had to be withheld from any refill carrying a brief, which was a structural
+rule costing a page of explanation in three files. Deleting the field deleted the rule, and
+`SetInputs.persona` went with it: the record chooser no longer learns who is presenting at all. The
+ten seeds' `music` sentences survive as a comment in `persona.defaults.ts`, because they are exactly
+what an operator wants in the brief box, and as a comment rather than a field because pairing a
+character with an hour is their call. Five things are load-bearing. **`diction` is not a quirk**: a quirk applies to the sentences
 it fits and diction applies to every sentence there will ever be, which is why it leads the sheet AND
 is restated after the content rules — the failure it addresses is CAUSED by those rules, since a host
 reads seven careful instructions about naming records accurately and answers them in careful, plain
@@ -582,20 +589,45 @@ payload.** `station_lineup.brief` is what they asked for in their own words ("he
 distinct from `name`, which is only a label. It rides the running order because `onEnd: 'extend'`
 keeps asking for more: a theme held in a refill's payload would last one batch and drift back to
 ordinary rotation within the hour with nothing saying so. It reaches the model in the USER turn (this
-refill's instruction, where the system turn is the standing job), and a briefed refill is not sent
-the presenting persona's `music` line AT ALL. That is structural rather than an instruction, and
-deliberately so: it read "where the two disagree, follow this" until a local model handed both
-"ambient and nothing else" and "heavy metal hits" was observed to split the difference, and the
-cheapest way to make a brief win is not to hand over the competing text. So the rule is one rule with
-no switch — **brief the station and the persona is purely the presenter; leave it unbriefed and the
-persona programmes** — which is what makes a persona a DJ rather than a second opinion.
-`station_lineup.persona_id` rides the row beside the brief for the same reason the brief is there,
+refill's instruction, where the system turn is the standing job). It is now the ONLY thing that says
+what to play — a persona is purely the presenter, always, with no switch and no exception — which is
+what the `music` line's removal bought: the system turn no longer changes shape depending on whether
+this refill was briefed. `station_lineup.persona_id` rides the row beside the brief for the same reason the brief is there,
 and `PersonaRepository.presenting` is the ONE place the precedence lives (this broadcast's host, then
 the station's active one, then nothing) because the break writer and the record chooser both read it
 and a station whose DJ depends on which one you ask is two stations.
 `CatalogSetGenerator` ignores it deliberately — approximating an instruction would make the thing
 that cannot fail depend on how well a guess landed — so a briefed station whose model produced
 nothing gets an ordinary hour rather than a bad impression of the one it asked for.
+
+**A PERIOD is the brief's exact half, and it is the one part the deterministic floor honours.**
+`station_lineup.era_from`/`era_to` ride the row beside the brief (and `schedule_slots.era_from`/`_to`
+beside a slot's, plus `schedule.sustainingEraFrom`/`...To` for the hours nothing is scheduled),
+inclusive four-digit years with either end able to stand alone. Migration 0017 argues in writing that
+a slot must carry no structured filters beside its brief, and that is right about genre and mood,
+where a dropdown is strictly weaker than prose — "flamenco guitar with a bit of swing" is not a
+field. A period is the exception and the station had already conceded it: `set.prompt.ts` tells the
+model never to write "80s" in a query and to pass `yearFrom`/`yearTo` instead, because the words do
+not work and the numbers do. What being a column buys is `CandidatesRepository.sample` narrowing on
+it, so a station asked for a decade keeps playing one with `llm.setGenerator` off entirely — which
+prose can never do, since prose reaches a model and nothing else. There is nothing to approximate: a
+year range is not a guess. Four things are load-bearing. **An unknown year is ELIGIBLE**, the
+opposite call to `clean-only` and deliberately — an advisory is a content policy where silence must
+not read as consent, and this is programming, where dropping a record the station owns for want of a
+tag costs the hour; `deadair.tracks.year` is filled at INGEST from what a provider sent (Spotify's
+`album.release_date`, Subsonic's `year`) as well as by enrichment, and never overwritten, which is
+what stops that eligibility being a loophole big enough to swallow the feature. **It is sent to the
+model WITH a prose brief** rather than instead of one, unlike the `music` line it replaces: a range
+and a style are not competing claims and a number cannot be split the difference on. **It is not on
+`ResolvedRules`**, for `rotation.advisory`'s reason — `NO_RULES` zeroes that bag and a setlist would
+silently start playing any decade — so it is judged in `PickResolver.judge` beside `rejectDisliked`.
+And **an era that empties the library runs SHORT rather than relaxing**, on `rotation.briefOnly`'s
+own rule, with `EraWatch` writing one `station_events` row on the edge; it must be all-or-nothing
+across the draw and the resolver, because a floor that widened would hand the resolver picks the
+resolver then drops. The three surfaces that apply it — the draw, `yearsFor` behind the resolver, and
+`TracksRepository.searchPlayable` — have to agree, and `apps/api/scripts/era.smoke.ts` is what holds
+them to it, since a record eligible for one and not the others is a refill that silently comes back
+short.
 
 **Removing a break MARKS it; removing a record splices it.** `StationLineup.remove` is asymmetric on
 purpose. `BreakPlanner` is idempotent positionally and by nothing else — it counts records since the

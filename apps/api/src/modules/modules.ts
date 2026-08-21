@@ -109,8 +109,15 @@ const ordered: ServerKitModule[] = [
     LlmModule,
     // Before RenderModule and DirectorModule, which are the two that read a
     // persona: one for the voice a break is spoken in, one for the words and the
-    // phrasings underneath them. Nothing here reaches forward into either, and it
-    // owns no loop — its ready() seeds a station that has no personas at all.
+    // phrasings underneath them. It owns no loop — its ready() seeds a station
+    // that has no personas at all.
+    //
+    // It DOES reach forward into DirectorModule now, at request time: putting a
+    // persona on air has to tell the show that is running, and the director is the
+    // one owner of that. ScheduleModule below does the same from further up. The
+    // list is a lifecycle order rather than a resolution one, so a scoped service
+    // resolving a singleton registered later in it is fine; what would not be is
+    // reaching for one at boot.
     PersonasModule,
     // After PlaylistsModule and PersonasModule, whose rows a slot names, and before
     // DirectorModule, which is the thing that actually changes the station over.

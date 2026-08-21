@@ -2,7 +2,12 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import { AfterCommit } from '#modules/data/after.commit.js';
+import { DirectorService } from '#modules/director/director.service.js';
 import { LlmService } from '#modules/llm/llm.service.js';
+import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
+import { errorText } from '#modules/shared/error.text.js';
 import type {
     GeneratedPersona,
     Persona as PersonaView,
@@ -38,9 +43,24 @@ export class PersonasService {
     constructor(
         private readonly personas: PersonaRepository,
         private readonly llm: LlmService,
+        // Reaching FORWARDS: PersonasModule sits above DirectorModule in `modules.ts`, which is a
+        // dependency order for lifecycle rather than for resolution. `ScheduleModule` already does
+        // the same, from further up, for the same reason — the director is the one owner of what is
+        // on air and everything else posts it a command. See {@link setActive}.
+        private readonly director: DirectorService,
+        private readonly afterCommit: AfterCommit,
+        // Who is asking, so putting a character on air is on the feed as somebody's decision. This
+        // is the station's second surface that can change what it sounds like mid-show.
+        private readonly context: AuthorizationContext,
+        private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
+
+    /** The actor to stamp on an event, when there is one. See `DirectorConsoleService.actor`. */
+    private actor(): string | undefined {
+        return this.context.actor.kind === 'user' ? this.context.actor.actorId : undefined;
+    }
 
     async list(): Promise<PersonaList> {
         return this.answer();
@@ -68,9 +88,52 @@ export class PersonasService {
         return this.answer();
     }
 
+    /**
+     * Put one persona on air and take the previous one off.
+     *
+     * ## It reaches the show that is running, and only sometimes
+     *
+     * This is the STATION's host. A broadcast that named its own keeps it, which is
+     * `PersonaRepository.presenting`'s precedence and the whole point of
+     * `station_lineup.persona_id` — the way to change THAT show's host is the on-air page, which
+     * says so. So the director is told what happened rather than what to do: the recast command
+     * with no binding re-checks who is presenting and leaves the running order's own answer alone.
+     *
+     * What it costs when it does reach the show is a rewrite of the breaks the outgoing host had
+     * lined up, because they are already written and spoken in a character the station has just
+     * stopped being. That decision lives in the director; see `DirectorService.recast`.
+     *
+     * **After the commit, and not optional.** The director reads the personas table on its own
+     * pooled connection, so from inside this transaction it would resolve the row as it stood
+     * BEFORE this write and conclude that nothing had changed — the failure `AfterCommit` exists
+     * for, in its quiet form. Best-effort once it runs: a director that would not take the command
+     * must not cost the operator a write that has already happened.
+     */
     async setActive(id: string): Promise<PersonaList> {
         const active = await this.personas.setActive(id);
         if (active === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
+
+        this.afterCommit.add(async () => {
+            try {
+                await this.director.post({ kind: 'recast' });
+            } catch (error) {
+                this.logger.warn(`personas: the station changed character but the show could not be told (${errorText(error)})`, { key: active.key });
+            }
+        });
+
+        void this.activity.record({
+            // `director` rather than a module of its own, and it is the honest answer rather than
+            // the cheap one: the feed's modules are what an operator filters by — `director` is
+            // drawn as "Programming" — and who the station sounds like on air is that, sitting
+            // beside the `air.recast` this event's other half posts. A chip for one kind of event
+            // would be a filter nobody would use.
+            module: 'director',
+            kind: 'persona.active',
+            // The persona's own label, which is the station's own text about its own character.
+            detail: `An operator put ${active.label} on air.`,
+            data: { personaId: active.id, key: active.key },
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
+        });
 
         this.logger.info('personas: the station changed character', { key: active.key });
         return this.answer();

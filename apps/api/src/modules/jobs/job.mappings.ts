@@ -33,16 +33,7 @@ export type JobMapping = Constructor<Job> | PgBossJobRegistration;
 /** The job class behind a mapping, in either form. */
 export const jobClassOf = (mapping: JobMapping): Constructor<Job> => (typeof mapping === 'function' ? mapping : mapping.job) as Constructor<Job>;
 
-@Injectable()
-export class FakeJob implements Job {
-    async run(): Promise<void> {
-        console.log('FakeJob executed');
-    }
-}
-
 export const JobMappings: Record<JobNames, JobMapping> = {
-    fake: FakeJob,
-
     // Hourly. A provider's library changes on human timescales, and the walk
     // costs one rate-limited request per 50 items, so there is nothing to gain
     // from asking more often and a rate-limit ban to lose.

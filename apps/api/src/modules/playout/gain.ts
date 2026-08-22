@@ -25,16 +25,21 @@ export const TARGET_LUFS_KEY = 'playout.targetLufs';
 /**
  * Where the station wants its records to sit, in LUFS.
  *
- * **-16 because that is what `normalize(target=-16.)` in `radio.liq` already
+ * **-13 because that is what `normalize(target=-13.)` in `radio.liq` already
  * aims at**, and the two must agree or they spend every record arguing: a static
  * gain to one level followed by a follower chasing another means the follower has
  * something to do on every track, which is the behaviour this exists to stop.
- * Change one and change the other.
+ * Change one and change the other — there are TWO of them in `radio.liq`, the
+ * playout follower and the local bed, and a mount whose fallback bed sits at a
+ * different level from the programme is the same fault heard at the boundary.
  *
- * It is also roughly where streaming services normalise, so a station left on all
- * day sits at the level everything else the operator listens to does.
+ * It sits a few decibels above where streaming services normalise, which is a
+ * station's call rather than a correction: this is a radio mount, and the level
+ * that reads as on-air next to one is louder than the level that reads as right
+ * inside an album. The ceiling is {@link MAX_TARGET_LUFS}, and what stops a high
+ * target becoming distortion is that a boost is still capped by the true peak.
  */
-export const DEFAULT_TARGET_LUFS = -16;
+export const DEFAULT_TARGET_LUFS = -13;
 
 /**
  * The range an operator may ask for.
@@ -187,7 +192,7 @@ export function gainFor(measured: MeasuredLoudness, targetLufs: number): number 
  * line came in at -25.9, -26.4 (raw), -28.3 and -25.5 LUFS to BS.1770, true
  * peaks around -9 to -11 dBFS. A speech engine aims at nothing, so this is the
  * shape of every one of them: a level that is whatever the model happened to
- * produce, a long way under the -16 the station's records air at.
+ * produce, a long way under the -13 the station's records air at.
  *
  * It is an ASSUMPTION and a poor one by design — the spread above is 2.8 dB, so
  * it is wrong by a decibel or so for most voices. It exists to be the fallback

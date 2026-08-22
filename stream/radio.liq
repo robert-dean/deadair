@@ -175,7 +175,7 @@ end
 music_bed = playlist.list(id="music", mode="randomize", bed_tracks())
 thread.run(delay=15., every=15., fun () -> music_bed.reload(bed_tracks()))
 
-music = normalize(target=-16., music_bed)
+music = normalize(target=-13., music_bed)
 
 # The station's own name, hoisted because two things need it: the mount's advertised name (step 6)
 # and the label the mount carries whenever what is playing is NOT a programme item.
@@ -444,6 +444,28 @@ playout_bed = playout_queue
 # An unmeasured track passes through at 1.0, which is the ordinary case.
 playout_bed = amplify(1., override="liq_amplify", playout_bed)
 
+# The stamp has now been spent, so it is REMOVED before anything else can spend it again.
+#
+# `amplify`'s `override` parameter defaults to `liq_amplify` and a set override REPLACES the factor
+# the operator was given rather than multiplying with it, so ANY later `amplify` that does not say
+# `override=null` silently applies this record's correction a second time and discards whatever it
+# was actually asked to do. That is not a hypothetical about future edits to this file: **Liquidsoap's
+# own `normalize` ends in `amplify(id=id, {v()}, …)` with no `override`** (`src/libs/audio.liq`), so
+# the follower thirty lines below was re-applying the stamp on every measured record and throwing its
+# own computed gain away. Measured off the mount: a record stamped -5 dB aired 5 dB below where it
+# was sent, and the whole library sat around ten decibels under the breaks.
+#
+# Removing the key is the fix rather than `override=null` on each operator, because only this scales:
+# the offender was inside the standard library where there is no argument to pass, and the next one
+# will be too. Everything downstream that legitimately wants a per-item gain has already had it.
+#
+# `update=true` keeps every other key — `liq_cross_*` is read by `cross` further down, and the title
+# and artist are what the mount is labelled with — and an empty value is how `metadata.map` spells
+# "delete this one" (`strip`, on by default: `else Frame.Metadata.remove x m`). The two `on_track`
+# handlers that report the stamp for the reading are attached to `playout_queue` ABOVE this, so what
+# an operator sees in `/control/status` is still exactly what the app sent.
+playout_bed = metadata.map(update=true, strip=true, fun (_) -> [("liq_amplify", "")], playout_bed)
+
 # The mic chain's compressor, for the half of the breaks that never reach the mic chain.
 #
 # A break has two routes to the mount and until now only one of them was processed. Over a record it
@@ -524,16 +546,31 @@ playout_bed = compress(
 #
 # At `gain_max=0.` there is no elevation to carry across either, and that costs nothing this station
 # can hear: every record it has measured falls between -18.5 and -4.9 LUFS, averaging -9.5, so
-# nothing in the library is quiet enough to want lifting towards -16 and the up half of the follower
+# nothing in the library is quiet enough to want lifting towards -13 and the up half of the follower
 # had no legitimate work to do here.
 #
 # What is left is the honest half of the fallback, which is holding down an unmeasured loud master
 # until it has been measured. When coverage is complete this operator comes out of the chain
 # entirely and `gain.ts` is the whole level policy.
 #
+# **It only started doing that job once the stamp was stripped above.** `normalize` ends in
+# `amplify(id=id, {v()}, …)` with no `override=null` (`src/libs/audio.liq`), so on any record
+# carrying `liq_amplify` this operator was not normalizing at all: the override replaced `{v()}`
+# outright, the follower's own gain was computed and discarded every frame, and what came out was
+# the app's correction applied a second time. Everything the block above says about `up`,
+# `threshold` and `gain_max` was therefore true of unmeasured records only, which is exactly the
+# half nobody was listening to.
+#
+# One consequence to keep in mind now that it is live: `target` here is an RMS figure and
+# `playout.targetLufs` is a loudness one, so the two agree in name rather than in units. A record
+# levelled to -13 LUFS lands a decibel or three either side of -13 dBFS RMS depending on how bright
+# it is, and this being cut-only means the bass-heavy end of the library can still be trimmed a
+# little below where `gain.ts` sent it. That is bounded and quiet; it is not the same operator
+# fighting the static gain the way an up-and-down follower would.
+#
 # These numbers can only be judged by listening, and they are a first answer rather than a tuned one.
 playout_bed =
-  normalize(target=-16., threshold=-25., up=30., gain_max=0., track_sensitive=false, playout_bed)
+  normalize(target=-13., threshold=-25., up=30., gain_max=0., track_sensitive=false, playout_bed)
 
 # Blend one record into the next.
 #
@@ -1140,10 +1177,18 @@ thread.run(every=voice_tick, voice_cue_check)
 #
 #   4. amplify, the operator trim. Last, so the compressor sees a consistent input and the knob
 #      moves the finished voice rather than how hard it is being worked.
+#
+#      `override=null` is load-bearing and is NOT the same as leaving it out. `amplify`'s override
+#      parameter DEFAULTS to "liq_amplify" (settings.amplify.override), and when an override is set
+#      the operator uses it INSTEAD of the factor it was passed — `k = match override with Some o ->
+#      o | None -> coeff ()`. So a bare `amplify(x, s)` anywhere below step 2 applies this segment's
+#      stamp a SECOND time and silently discards `x`. Measured off the mount before it was disabled:
+#      a break stamped +8.7 dB aired at -7.9 LUFS against a design target of -18, hard into the bus
+#      limiter, while VOICE_GAIN_DB did nothing at all because it was the discarded factor.
 voice_bus = fade.in(duration=0.04, voice)
 voice_bus = amplify(1., override="liq_amplify", voice_bus)
 voice_bus = compress(attack=5.0, release=120.0, threshold=-18.0, ratio=4.0, knee=2.0, gain=0.0, voice_bus)
-voice_bus = amplify(lin_of_dB(voice_gain_db), voice_bus)
+voice_bus = amplify(lin_of_dB(voice_gain_db), override=null, voice_bus)
 
 # 4) Mix the voice with the bed, per the talk-over mode.
 #    ON  (talk_over): the bed is amplified by a gain we ramp ourselves, and the voice is simply
@@ -1185,7 +1230,14 @@ def ducked(music_bed, dj_voice) =
           end
       end
   )
-  add(normalize=false, [amplify({gain()}, music_bed), dj_voice])
+  #    `override=null` is load-bearing here for the same reason it is in the mic chain, and this is
+  #    the site where getting it wrong cost the most. `amplify`'s override DEFAULTS to "liq_amplify",
+  #    and a set override REPLACES the factor rather than multiplying with it, so a bare
+  #    `amplify({gain()}, music_bed)` did two things at once: it applied each record's stamp a SECOND
+  #    time, and it threw the duck ramp away, since the ramp IS the discarded factor. Measured off
+  #    the mount: records aired at `-16 + stamp` rather than at -16 — -26.3 LUFS against a -7.9 LUFS
+  #    break — and no stamped record ever ducked under the voice.
+  add(normalize=false, [amplify({gain()}, override=null, music_bed), dj_voice])
 end
 
 programme =

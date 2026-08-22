@@ -11,6 +11,7 @@ import {
     MAX_GAIN_DB,
     MIN_GAIN_DB,
     DEFAULT_SPEECH_TRIM_DB,
+    DEFAULT_TARGET_LUFS,
     MAX_SPEECH_TRIM_DB,
     MIN_SPEECH_TRIM_DB,
     resolveSpeechTrimDb,
@@ -149,8 +150,11 @@ describe('speechGainFor', () => {
     it('bounds a measurement that cannot be right, and a target that is not one', () => {
         expect(speechGainFor({ loudnessLufs: -70 }, TARGET, TRIM)).toBe(MAX_GAIN_DB);
         expect(speechGainFor({ loudnessLufs: 12 }, TARGET, TRIM)).toBe(-MAX_GAIN_DB);
-        // A settings row holding nonsense still has to produce a break at a sane level.
-        expect(speechGainFor({}, Number.NaN, TRIM)).toBe(TARGET - TRIM - ASSUMED_SPEECH_LUFS);
+        // A settings row holding nonsense still has to produce a break at a sane level, and the
+        // level it falls back to is the station's DEFAULT target rather than this file's fixture
+        // one: `TARGET` here is a number chosen to make the arithmetic above readable, where an
+        // unreadable settings row is exactly the case `DEFAULT_TARGET_LUFS` exists to answer.
+        expect(speechGainFor({}, Number.NaN, TRIM)).toBe(DEFAULT_TARGET_LUFS - TRIM - ASSUMED_SPEECH_LUFS);
         expect(speechGainFor({ loudnessLufs: '-24' as unknown as number }, TARGET, TRIM)).toBe(TARGET - TRIM - ASSUMED_SPEECH_LUFS);
     });
 });

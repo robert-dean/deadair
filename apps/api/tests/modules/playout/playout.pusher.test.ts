@@ -807,7 +807,12 @@ describe('PlayoutPusher arming a talk-over', () => {
 
         await pusher.reconcile();
 
-        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining('liq_amplify="4 dB"'), expect.any(String), 8000);
+        // Derived rather than hand-computed, so a change of station loudness stays the operator's
+        // taste rather than a failing suite -- and asserted as DIFFERENT from the assumed case,
+        // which is the actual claim: the measurement is what got used, not `ASSUMED_SPEECH_LUFS`.
+        const measured = speechGainFor({ loudnessLufs: -22 }, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB);
+        expect(measured).not.toBe(speechGainFor({}, DEFAULT_TARGET_LUFS, DEFAULT_SPEECH_TRIM_DB));
+        expect(control.armVoice).toHaveBeenCalledWith(expect.stringContaining(`liq_amplify="${measured} dB"`), expect.any(String), 8000);
     });
 
     it('arms nothing for a record with no cue', async () => {

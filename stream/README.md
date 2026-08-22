@@ -161,10 +161,32 @@ One thing it costs: `playout_queue.remaining()` is read below the `cross`, so th
 reading runs ahead of the listener by whatever is buffered. It is display-only and nothing schedules
 against it, so it is left alone rather than corrected into a second number that could disagree.
 
-The target is in two places and they have to agree: `playout.targetLufs` in `deadair.settings`, which
-is what the app gains each record to, and `normalize(target=…)` here, which is what everything
-unmeasured is pulled toward. Change one and change the other, or the follower spends every record
-undoing the static gain.
+The target is in THREE places and they have to agree: `playout.targetLufs` in `deadair.settings`,
+which is what the app gains each record to, and the two `normalize(target=…)` calls here — the
+playout follower and the local music bed — which are what everything unmeasured is pulled toward.
+Change one and change the others, or the follower spends every record undoing the static gain and
+the fallback bed sits at a different level from the programme.
+
+**The stamp is stripped the moment it has been applied, and that is not tidiness.** Liquidsoap's
+`amplify` takes an `override` parameter that DEFAULTS to `liq_amplify`, and a set override REPLACES
+the factor you passed rather than multiplying with it (`k = match override with Some o -> o | None ->
+coeff ()`). So any `amplify` that does not say `override=null` and sees a record still carrying the
+key is two bugs at once: the correction lands twice, and whatever that operator was actually asked to
+do is silently discarded.
+
+The offender was **inside the standard library**, which is why `metadata.map` removing the key beats
+auditing call sites: `normalize` ends in `amplify(id=id, {v()}, …)` with no `override`
+(`src/libs/audio.liq`), so the follower in the playout chain re-applied every measured record's stamp
+and threw its own computed gain away. Records aired at `target + stamp` instead of `target` —
+measured off the mount at -26.3 LUFS against a -7.9 LUFS break, an 18 dB gap where the design puts
+the voice 2 dB UNDER the music — and `normalize` was not normalizing anything except the records
+nobody had measured. It read as "the music is quiet", and nothing in any log named it, because every
+stage was doing exactly what it was told.
+
+Two call sites in `radio.liq` had the same latent fault and now pass `override=null` explicitly: the
+duck (where the discarded factor was the duck RAMP, so no stamped record ever ducked under the voice)
+and the `VOICE_GAIN_DB` trim in the mic chain (where it was the operator's own knob). The voice queue
+never meets the strip above, so that one is load-bearing rather than belt-and-braces.
 
 The **duck** is ours, not `smooth_add`'s: `radio.liq` ramps a gain ref on the bed while the
 harbor source is ready, and `add`s the voice on top. `smooth_add` fades the bed down but never

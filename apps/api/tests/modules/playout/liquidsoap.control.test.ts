@@ -10,7 +10,7 @@ import { parseReading, PlayoutControlClient } from '../../../src/modules/playout
 import { annotateUri, itemAnnotations, HARD_JOIN_MS, ITEM_KEY } from '../../../src/modules/playout/annotate.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
 import { speechGainFor } from '../../../src/modules/playout/gain.js';
-import { DEFAULT_SPEECH_TRIM_DB, DEFAULT_TARGET_LUFS } from '../../../src/modules/playout/gain.js';
+import { DEFAULT_SPEECH_TRIM_DB } from '../../../src/modules/playout/gain.js';
 import type { LiquidsoapEndpoint } from '../../../src/modules/playout/liquidsoap.endpoint.js';
 import type { StreamConfigWatch } from '../../../src/modules/stream/stream.staleness.js';
 
@@ -367,10 +367,21 @@ describe('annotateUri', () => {
     });
 });
 
-/** The station's target, for the cases that are not about levels at all. */
+/**
+ * The target these tests reckon against, PINNED rather than read from
+ * `DEFAULT_TARGET_LUFS`.
+ *
+ * Every expectation below is a hand-computed decibel figure, so tying them to the
+ * default would make a change of station LOUDNESS — which is taste, and an operator's
+ * to make — fail a suite that is about arithmetic and formatting. `gain.test.ts` pins
+ * its own for the same reason. The one case that genuinely IS about the default is the
+ * unreadable-settings-row fallback, and it lives over there and names the constant.
+ */
+const TARGET = -16;
+
 // No successor and no blending: the boundary annotations are inert, which keeps every
 // test below about the thing it is named for. The blend has its own block at the end.
-const CONTEXT = { targetLufs: DEFAULT_TARGET_LUFS, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, levelingEnabled: true, crossfade: false, stationName: 'Deadair' };
+const CONTEXT = { targetLufs: TARGET, speechTrimDb: DEFAULT_SPEECH_TRIM_DB, levelingEnabled: true, crossfade: false, stationName: 'Deadair' };
 
 /** What a boundary the station does not blend is stamped with, as it reaches the player. */
 const HARD_JOIN = String(HARD_JOIN_MS / 1000);
@@ -499,12 +510,8 @@ describe('itemAnnotations: gain', () => {
     it('follows the station target rather than a constant', () => {
         // Read per hand-over from `deadair.settings`, so this is what an operator moving
         // it actually changes.
-        expect(
-            itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { ...CONTEXT, targetLufs: -14 }).liq_amplify,
-        ).toBe('6 dB');
-        expect(
-            itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { ...CONTEXT, targetLufs: -23 }).liq_amplify,
-        ).toBe('-3 dB');
+        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { ...CONTEXT, targetLufs: -14 }).liq_amplify).toBe('6 dB');
+        expect(itemAnnotations(item({ loudnessLufs: -20, truePeakDb: -9 }), { ...CONTEXT, targetLufs: -23 }).liq_amplify).toBe('-3 dB');
     });
 
     it('rides the annotate uri alongside the cue points', () => {
@@ -528,7 +535,7 @@ describe('itemAnnotations: a break the station spoke', () => {
     it('stamps an unmeasured break rather than leaving it where the engine put it', () => {
         // The opposite call from the unmeasured RECORD above, and the reason the two are
         // separate functions: nothing else in the graph will lift this.
-        expect(itemAnnotations(segment(), CONTEXT).liq_amplify).toBe(`${speechGainFor({}, -16, DEFAULT_SPEECH_TRIM_DB)} dB`);
+        expect(itemAnnotations(segment(), CONTEXT).liq_amplify).toBe(`${speechGainFor({}, TARGET, DEFAULT_SPEECH_TRIM_DB)} dB`);
     });
 
     it('stamps every break, including one that needs nothing', () => {
@@ -611,9 +618,7 @@ describe('itemAnnotations: the blend', () => {
 
     it('does not blend into nothing', () => {
         // The tail of what has been planned. Nothing follows, so there is no boundary.
-        expect(
-            itemAnnotations(measured('item-1'), { ...CONTEXT, crossfade: true }).liq_cross_end_duration,
-        ).toBe(HARD_JOIN);
+        expect(itemAnnotations(measured('item-1'), { ...CONTEXT, crossfade: true }).liq_cross_end_duration).toBe(HARD_JOIN);
     });
 
     it('rides the annotate uri alongside everything else', () => {

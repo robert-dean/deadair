@@ -69,27 +69,50 @@ export const DEFAULT_VOICE = 'Olivia.wav';
  * makes the station sound like twenty different people rather than one, which is
  * the failure worth fixing first; which of them suits the pirate is a question for
  * whoever listens, and it is one table row to answer.
+ *
+ * **Not one row sets a SPEED, and that is this engine rather than an oversight.**
+ * Twelve of them did, copied across from the other map, where the rule is that a
+ * speed is set only where the persona's own words ask for one ("breathless",
+ * "hushed"). That rule is sound over there and wrong here, because the two engines
+ * mean different things by the field. Kokoro is deterministic and scales its
+ * duration predictor: asked for 1.1 it answered in x0.939 of the time, not the
+ * x0.909 a stretch would give, because only the phonemes moved and the pauses did
+ * not. This engine has no pace parameter at all, so its OpenAI-shaped layer
+ * time-stretches audio the model has already finished — measured, the same line
+ * rendered three times at speed 1 came back 4.000s, 3.960s and 4.240s (it samples,
+ * so ~7% of spread is free), 1.1 came back 3.709s and 0.9 came back 4.711s, both
+ * tracking 1/speed inside that noise, and every one of them at 24 kHz. Duration
+ * scaling by exactly 1/speed with the pitch held is a pitch-preserving stretch, and
+ * what it costs is the phase smearing that reads as a short echo on the voice,
+ * worst on sibilants and worse the further from 1.
+ *
+ * So the shipped rows ask this engine for nothing but a clip, which is also the
+ * better instrument here: these voices are reference recordings, and a recording
+ * carries pace and register natively where a multiplier can only stretch what came
+ * out. The COLUMN stays, because it is an operator's call on their own server and
+ * the field's own help says what it costs. Do not "restore" the parity with
+ * `plugins/kokoro` — the divergence is the measurement.
  */
 export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?: string }[] = [
     { name: 'classic', engine: 'Olivia.wav' },
-    { name: 'latenight', engine: 'Miles.wav', speed: '0.95' },
+    { name: 'latenight', engine: 'Miles.wav' },
     { name: 'cratedigger', engine: 'Jade.wav' },
     { name: 'pirate', engine: 'Everett.wav' },
-    { name: 'howler', engine: 'Axel.wav', speed: '1.1' },
-    { name: 'quietstorm', engine: 'Layla.wav', speed: '0.9' },
+    { name: 'howler', engine: 'Axel.wav' },
+    { name: 'quietstorm', engine: 'Layla.wav' },
     { name: 'countdown', engine: 'Michael.wav' },
     { name: 'wisecrack', engine: 'Cora.wav' },
-    { name: 'shockjock', engine: 'Austin.wav', speed: '1.1' },
+    { name: 'shockjock', engine: 'Austin.wav' },
     { name: 'conspiracy', engine: 'Jeremiah.wav' },
-    { name: 'bossjock', engine: 'Ryan.wav', speed: '1.15' },
+    { name: 'bossjock', engine: 'Ryan.wav' },
     { name: 'videoage', engine: 'Gianna.wav' },
-    { name: 'slacker', engine: 'Connor.wav', speed: '0.9' },
-    { name: 'millennium', engine: 'Emily.wav', speed: '1.1' },
-    { name: 'automaton', engine: 'Jordan.wav', speed: '0.95' },
-    { name: 'naturalist', engine: 'Julian.wav', speed: '0.9' },
-    { name: 'playbyplay', engine: 'Leonardo.wav', speed: '1.15' },
-    { name: 'gumshoe', engine: 'Thomas.wav', speed: '0.9' },
-    { name: 'forecast', engine: 'Alexander.wav', speed: '0.9' },
+    { name: 'slacker', engine: 'Connor.wav' },
+    { name: 'millennium', engine: 'Emily.wav' },
+    { name: 'automaton', engine: 'Jordan.wav' },
+    { name: 'naturalist', engine: 'Julian.wav' },
+    { name: 'playbyplay', engine: 'Leonardo.wav' },
+    { name: 'gumshoe', engine: 'Thomas.wav' },
+    { name: 'forecast', engine: 'Alexander.wav' },
     { name: 'newsreader', engine: 'Abigail.wav' },
 ];
 
@@ -246,7 +269,10 @@ export const chatterboxManifest: PluginManifest = {
         {
             key: 'speedNote',
             type: 'note',
-            label: `Speed is optional and ranges from ${MIN_SPEED} to ${MAX_SPEED}. Leave it empty to read at the engine's own pace.`,
+            label:
+                `Speed is optional and ranges from ${MIN_SPEED} to ${MAX_SPEED}. Leave it empty, which is what every shipped voice does. ` +
+                'This engine has no pace of its own, so a speed is applied by stretching audio it has already finished, and that leaves a smearing on the voice that sounds like a faint echo. ' +
+                'It is worst on a voice with a lot of sibilance, and it gets worse the further from 1 you go. Prefer a clip that already reads at the pace you want.',
         },
         {
             key: 'unloadAfterRender',

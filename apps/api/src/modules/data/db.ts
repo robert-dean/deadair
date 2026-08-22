@@ -356,6 +356,7 @@ export interface DeadairPersonas {
 
 export interface DeadairPlayHistory {
   airedAt: Generated<DateTime>;
+  artist: Generated<string>;
   artistKey: string;
   artists: string;
   broadcastId: string | null;

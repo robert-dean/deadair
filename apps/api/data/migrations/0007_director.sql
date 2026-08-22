@@ -173,6 +173,13 @@ create table deadair.play_history (
     external_id text not null,
     title text not null,
     artists text not null,
+    -- The LEAD artist as written, which is neither of the two columns around it. `artists` is the
+    -- whole credit line joined for display, and `artist_key` is normalized past the point of being
+    -- speakable ("Beyoncé" is stored there as "beyonce"). Everything that wants to NAME the lead —
+    -- the similarity seeds, the broadcast memory a break is written against — was recovering it by
+    -- splitting `artists` on the first comma, which reads "Earth, Wind & Fire" as "Earth". The
+    -- writer has had this value in hand the whole time; it just had nowhere to put it.
+    artist text not null default '',
     song_key text not null,
     artist_key text not null,
     -- What put it in the running order: an import, the director, later a listener request or

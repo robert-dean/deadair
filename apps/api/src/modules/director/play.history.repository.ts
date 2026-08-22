@@ -82,6 +82,9 @@ export class PlayHistoryRepository extends DataRepository {
                 title: item.title,
                 // The credit as written, for display. Identity comes from the keys below.
                 artists: item.artists.join(', '),
+                // The lead as written, which is the only speakable form of it: `artists` above is
+                // the whole credit line and `artistKey` below is normalized past being sayable.
+                artist: item.artist,
                 // Off `artist`, the item's lead, and never off `artists` — which is a credit line
                 // in one element for everything a generator resolved, so keying it wrote
                 // "drake wizkid kyla" as one artist and no repeat window or cooldown could match a
@@ -165,7 +168,7 @@ export class PlayHistoryRepository extends DataRepository {
 
         const rows = await this.db
             .selectFrom('deadair.playHistory')
-            .select(['artists', 'artistKey'])
+            .select(['artist', 'artistKey'])
             .where('stationKey', '=', stationKey)
             .orderBy('airedAt', 'desc')
             // Several rows per artist is the normal case, so the scan is deliberately
@@ -181,13 +184,13 @@ export class PlayHistoryRepository extends DataRepository {
             if (names.length >= limit) break;
             if (seen.has(row.artistKey)) continue;
 
-            // The lead credit: `record` writes `artists.join(', ')`, and everything that
-            // looks an artist up matches on the first alone.
-            const lead = row.artists.split(',')[0]?.trim();
-            if (!lead) continue;
+            // The lead as the writer had it. This used to split `artists` on the first comma,
+            // which is right about a joined credit line and wrong about a name with a comma in
+            // it — "Earth, Wind & Fire" seeded the similarity generator as "Earth".
+            if (!row.artist) continue;
 
             seen.add(row.artistKey);
-            names.push(lead);
+            names.push(row.artist);
         }
 
         return names;
@@ -201,10 +204,10 @@ export class PlayHistoryRepository extends DataRepository {
      * the one before whenever a show had just started. That is what `broadcast_id` is on this table
      * for.
      *
-     * The LEAD credit, never the credit line, by the rule the search tools already follow: `record`
-     * writes `artists.join(', ')` and everything that looks an artist up matches the first alone, so
-     * handing a writer "USHER, Lil Jon, Ludacris" as an artist would put a name on air that nothing
-     * else in the station agrees exists.
+     * The LEAD credit, never the credit line, by the rule the search tools already follow: handing a
+     * writer "USHER, Lil Jon, Ludacris" as an artist would put a name on air that nothing else in
+     * the station agrees exists. It is read off the column the writer filled rather than recovered
+     * from `artists`, which cost the station any lead with a comma in its own name.
      *
      * Deliberately NOT deduplicated. A record played twice in one broadcast is a fact worth a
      * presenter knowing, and collapsing it would hide exactly the case somebody would want to
@@ -215,13 +218,13 @@ export class PlayHistoryRepository extends DataRepository {
 
         const rows = await this.db
             .selectFrom('deadair.playHistory')
-            .select(['title', 'artists'])
+            .select(['title', 'artist'])
             .where('broadcastId', '=', broadcastId)
             .orderBy('airedAt', 'desc')
             .limit(Math.floor(limit))
             .execute();
 
-        return rows.map(row => ({ title: row.title, artist: row.artists.split(',')[0]?.trim() ?? row.artists }));
+        return rows.map(row => ({ title: row.title, artist: row.artist }));
     }
 
     /**

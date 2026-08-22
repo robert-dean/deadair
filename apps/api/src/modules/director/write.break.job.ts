@@ -575,7 +575,15 @@ function neighboursOf(lineup: StationLineup, segmentId: string): Neighbours | un
                 itemId: item.id,
                 track: {
                     title: item.track.title,
-                    artist: item.track.artists[0] ?? 'an unknown artist',
+                    // The item's LEAD, never `artists[0]`, which `RundownItem.artists` prohibits in
+                    // as many words: half the producers here only ever have the credit as one
+                    // string, so a resolved collaboration carries "USHER, Lil Jon, Ludacris" in a
+                    // single element. Reading position zero therefore announced the whole credit
+                    // line for a resolved record and dropped every featured artist for a
+                    // playlist-sourced one — the same words spoken differently depending on where
+                    // the item came from. `||` rather than `??` because an item with no artist
+                    // carries the empty string rather than `undefined`.
+                    artist: item.track.artist || 'an unknown artist',
                     // Carried for what comes later rather than for anything today. See `BreakTrack`.
                     ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
                 },

@@ -488,6 +488,25 @@ describe('WriteBreakJob', () => {
         );
     });
 
+    // `artists` is the credit as written, for display, and everything a generator resolves carries
+    // that whole line in ONE element — so `artists[0]` was the lead only by luck, and this is the
+    // shape where the luck runs out. The listener heard "USHER, Lil Jon, Ludacris" read as if it
+    // were one artist's name, while the same record arriving from a playlist lost its features
+    // instead: the same words spoken differently depending on where the item came from.
+    it('names the lead artist, not the credit line a resolved collaboration carries', async () => {
+        const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        lineup.append([
+            { pluginId: 'deadair.spotify', externalId: 'yeah', title: 'Yeah!', artists: ['USHER, Lil Jon, Ludacris'], artist: 'USHER' },
+            track('Pink Moon', 'Nick Drake'),
+        ]);
+        lineup.insertSegment('seg-1', 1);
+        const { job, writers } = harness({ lineup });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ previous: { title: 'Yeah!', artist: 'USHER' } }));
+    });
+
     describe('a break the running order does not hold', () => {
         /** The same two records, and no break planted between them. */
         const withoutBreak = (): StationLineup => {

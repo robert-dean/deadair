@@ -3,6 +3,7 @@ import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { PlainJob } from '#modules/jobs/plain.job.js';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
@@ -50,6 +51,9 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         // The reactor, which is a singleton: this job runs in its own scope and still has to reach
         // the one object that is actually airing the lineup it just extended.
         private readonly director: DirectorService,
+        // A singleton, like the director above it: a refill that came back empty is a fact about the
+        // station rather than about this run, and the feed is where an operator meets it.
+        private readonly activity: ActivityRecorder,
         private readonly config: AppConfig,
         context: JobContext,
         container: Container,
@@ -145,5 +149,24 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
             resolved: planned.resolved,
             added: added.length,
         });
+
+        // A refill that added NOTHING, which is the state that used to stop the station for good and
+        // is now merely a wasted job — see `EXTEND_GUARD_MS`. Worth its own row rather than left to
+        // `SetGeneratorChain.announce`, which speaks for the CHAIN: it reports a chain that named
+        // too few, and says nothing about the case that is arguably worse, where generators named
+        // plenty and the resolver dropped every one of them against the rules, the period or a
+        // binding it could not find. `named` and `resolved` beside `added` are what tell those two
+        // apart at a glance. Bounded by the guard window, so this cannot become a poll.
+        if (added.length === 0) {
+            void this.activity.record({
+                module: 'director',
+                kind: 'order.refillEmpty',
+                severity: 'warn',
+                detail:
+                    `The station asked for ${count} more records and got none, so the running order is still running down. ` +
+                    `${planned.named} were named and ${planned.resolved} survived the station's rules.`,
+                data: { asked: count, named: planned.named, resolved: planned.resolved },
+            });
+        }
     }
 }

@@ -164,6 +164,26 @@ const SEGMENT_SLACK = 4;
  */
 const EXTEND_BELOW = 8;
 
+/**
+ * How long one refill send suppresses the next.
+ *
+ * The guard it bounds exists so a burst of rundown events cannot queue a dozen
+ * identical jobs for one shortfall, and a time box serves that completely. What
+ * it must not do is outlive the shortfall, which is what a plain latch did: a
+ * refill that honestly resolved to NO records posted an empty append, which
+ * returns before the commit pass that would have cleared the flag, so every
+ * later boundary returned early and the order drained to nothing. The same
+ * ending arrived four other ways — the job throwing with its retries spent, and
+ * its three early returns that post nothing at all — and all five are one bug,
+ * which is that the only evidence accepted for "the last one finished" was the
+ * order growing. A refill can finish without growing it.
+ *
+ * Generous against how long a refill takes rather than tuned: the model half is
+ * minutes on a slow host, and asking twice costs one wasted job where asking
+ * never costs the station its running order.
+ */
+export const EXTEND_GUARD_MS = 300_000;
+
 /** How long a reading of `station_air` is trusted before it is re-read. */
 const AIR_TTL_MS = 5_000;
 
@@ -242,8 +262,13 @@ export class DirectorService {
     private get airMode(): AirMode {
         return parseAirMode(this.config.get(AIR_MODE_KEY, ''));
     }
-    /** A refill is already queued. Cleared once the order has actually grown. */
-    private extendSent = false;
+    /**
+     * When a refill was last asked for, or `undefined` for not waiting on one.
+     *
+     * A timestamp rather than a flag, because it has to expire: see {@link EXTEND_GUARD_MS}.
+     * Cleared early once the order has actually grown, which is the good outcome.
+     */
+    private extendSentAt?: number;
     /**
      * A stand-down whose write has not landed yet.
      *
@@ -1662,7 +1687,7 @@ export class DirectorService {
                 for (const itemId of prepared.unavailable) lineup.markUnavailable(itemId);
 
                 // The order moved, so a refill decision made a moment ago is stale.
-                this.extendSent = this.extendSent && lineup.remaining() < EXTEND_BELOW;
+                if (lineup.remaining() >= EXTEND_BELOW) this.extendSentAt = undefined;
                 // A break may have promised one of the records that just came out. Sent rather
                 // than awaited, and after the mutations, because the promise is already broken —
                 // the claim check would drop the break at hand-over either way — and this is only
@@ -1910,7 +1935,7 @@ export class DirectorService {
 
         // A refill decision made a moment ago is stale now that the order is shorter, and a break may
         // have promised one of these. Both are exactly what the commit block does for the same marks.
-        this.extendSent = this.extendSent && lineup.remaining() < EXTEND_BELOW;
+        if (lineup.remaining() >= EXTEND_BELOW) this.extendSentAt = undefined;
         void this.reopenPromises(dropped);
         this.persistSoon();
     }
@@ -2304,20 +2329,23 @@ export class DirectorService {
      * Send a refill when the tail is getting short.
      *
      * Guarded, because a burst of rundown events would otherwise queue a dozen
-     * identical jobs for one shortfall. The guard clears when the order has
-     * actually grown, which is the only evidence the last one landed.
+     * identical jobs for one shortfall. The guard clears early when the order has
+     * actually grown, and otherwise EXPIRES — the order growing is evidence the
+     * last refill landed, but its absence is not evidence one is still coming.
+     * See {@link EXTEND_GUARD_MS} for the five ways a refill finishes without
+     * adding anything, every one of which used to stop the station for good.
      */
     private async topUpIfShort(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
         if (!rules.autoExtend || lineup.remaining() >= EXTEND_BELOW) {
-            this.extendSent = false;
+            this.extendSentAt = undefined;
             return;
         }
-        if (this.extendSent) return;
+        if (this.extendSentAt !== undefined && Date.now() - this.extendSentAt < EXTEND_GUARD_MS) return;
 
-        // The guard is set only once the send has actually landed. Setting it first means a send
-        // that throws latches it forever: nothing clears the guard until the order grows, and the
-        // order cannot grow until a refill is sent. One failure and the station never refills
-        // again, which is how this one spent an afternoon silent.
+        // The guard is set only once the send has actually landed, so a send that threw is asked
+        // again on the very next boundary rather than waiting out the window. That is now belt and
+        // braces — the window expires either way — but it is the difference between the next
+        // boundary and five minutes of a shortening order, and it costs one line.
         try {
             await this.jobs.send('director.extend_lineup', {});
         } catch (error) {
@@ -2328,7 +2356,7 @@ export class DirectorService {
             this.logger.warn(`director: could not ask for a refill (${errorText(error)})`);
             return;
         }
-        this.extendSent = true;
+        this.extendSentAt = Date.now();
 
         this.logger.info('director: the running order is running short; a refill is on its way', { remaining: lineup.remaining() });
     }
@@ -2480,7 +2508,7 @@ export class DirectorService {
         this.epoch.bump();
         this.pendingVoice = undefined;
         this.active = false;
-        this.extendSent = false;
+        this.extendSentAt = undefined;
         this.airReadAt = 0;
         this.standingDown = true;
         // Nothing written from here on belongs to a broadcast, because there is not one on.

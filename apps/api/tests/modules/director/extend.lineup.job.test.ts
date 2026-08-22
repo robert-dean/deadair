@@ -21,6 +21,8 @@ import type { PickResolver } from '../../../src/modules/director/pick.resolver.j
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
 import type { SetGenerator, SetInputs, TrackPick } from '../../../src/modules/director/set.generator.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
+import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
+import type { StationEvent } from '../../../src/modules/activity/station.events.repository.js';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -105,9 +107,15 @@ function build(options: Options & { stationRules?: Record<string, string> } = {}
     const preemption = new RefillPreemption();
     if (options.preemptedTimes) for (let i = 0; i < options.preemptedTimes; i++) preemption.mark();
 
+    // The feed. Best-effort by contract and `void`ed by its caller, so the double only has to
+    // record what it was asked to say — see the empty-refill case below.
+    const recorded: StationEvent[] = [];
+    const activity = { record: vi.fn(async (event: StationEvent) => void recorded.push(event)) } as unknown as ActivityRecorder;
+
     return {
-        job: new ExtendLineupJob(lineups, generator, resolver, preemption, director, station.config, context, container, logger),
+        job: new ExtendLineupJob(lineups, generator, resolver, preemption, director, activity, station.config, context, container, logger),
         director,
+        recorded: () => recorded,
         posted: () => posted,
         preemption,
         lineup,
@@ -223,6 +231,35 @@ describe('ExtendLineupJob', () => {
         await job.run({ count: 2 });
 
         expect(lineup.all().flatMap(item => (item.kind === 'track' ? [item.track.title] : []))).toEqual(['Playable']);
+    });
+
+    // A refill can resolve to nothing without anything having gone wrong, and the station is then
+    // running down with a full library — two facts with nothing connecting them unless this says so.
+    // The counts are what tell a generator that named nothing apart from a resolver that dropped
+    // everything it named, which are different problems with the same symptom.
+    it('says so on the feed when a refill comes back with nothing at all', async () => {
+        const { job, recorded } = build({
+            picks: [
+                { title: 'Off brief', artist: 'One' },
+                { title: 'Wrong decade', artist: 'Two' },
+            ],
+            resolvable: () => [],
+        });
+
+        await job.run({ count: 2 });
+
+        const event = recorded().find(entry => entry.kind === 'order.refillEmpty');
+        expect(event).toBeDefined();
+        expect(event?.severity).toBe('warn');
+        expect(event?.data).toMatchObject({ asked: 2, named: 2, resolved: 0 });
+    });
+
+    it('says nothing on the feed about a refill that actually added records', async () => {
+        const { job, recorded } = build({ picks: [{ title: 'Playable', artist: 'One' }] });
+
+        await job.run({ count: 1 });
+
+        expect(recorded().some(entry => entry.kind === 'order.refillEmpty')).toBe(false);
     });
 
     it('refuses to generate into a setlist', async () => {

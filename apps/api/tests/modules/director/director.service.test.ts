@@ -10,7 +10,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { Container } from 'injectkit';
 import type { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 
-import { COMMIT_LEAD, DirectorService, WAITING_ON_AUDIO_MS, WARM_TICK_MS } from '../../../src/modules/director/director.service.js';
+import { COMMIT_LEAD, DirectorService, EXTEND_GUARD_MS, WAITING_ON_AUDIO_MS, WARM_TICK_MS } from '../../../src/modules/director/director.service.js';
 import {
     StationLineup,
     isTrackItem,
@@ -2270,6 +2270,50 @@ describe('DirectorService asking for a refill', () => {
         await director.start();
         await settle();
 
+        await wake(rundown);
+        await wake(rundown);
+
+        expect(jobs.send).toHaveBeenCalledTimes(1);
+    });
+
+    // The one that took the station off the air for good. A refill can finish without adding
+    // anything — a brief nothing matched, a period that empties the library, every pick dropped at
+    // the resolver — and it posts an empty append, which returns before the commit pass that used to
+    // be the only thing that cleared the guard. So the station asked once, was answered "nothing",
+    // and never asked again while its order drained to silence.
+    it('asks again after a refill that honestly came back with nothing', async () => {
+        const { director, rundown, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+        await settle();
+
+        await wake(rundown);
+        expect(jobs.send).toHaveBeenCalledTimes(1);
+
+        // The refill ran, found nothing, and handed back an empty batch.
+        await director.post({ kind: 'appendTracks', tracks: [] });
+        await settle();
+
+        // Past the window in which one send suppresses the next.
+        vi.setSystemTime(Date.now() + EXTEND_GUARD_MS + 1);
+        await wake(rundown);
+
+        expect(jobs.send.mock.calls.length).toBeGreaterThan(1);
+    });
+
+    // The other half of the same rule: expiring must not turn the guard off. A burst of boundaries
+    // inside the window is still one shortfall and still deserves one job.
+    it('still asks only once for a burst inside the guard window', async () => {
+        const { director, rundown, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+        await settle();
+
+        await wake(rundown);
+        await director.post({ kind: 'appendTracks', tracks: [] });
+        await settle();
+
+        vi.setSystemTime(Date.now() + Math.floor(EXTEND_GUARD_MS / 2));
         await wake(rundown);
         await wake(rundown);
 

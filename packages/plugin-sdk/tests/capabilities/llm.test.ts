@@ -89,4 +89,95 @@ describe('collectGeneration', () => {
 
         await expect(collectGeneration(handle)).rejects.toThrow('the model went away');
     });
+
+    // Stopping early is the whole reason the one model slot can be taken back. Without it a caller
+    // holding the slot drains whatever the model is saying however long that takes, and the thing
+    // waiting for it gives up first.
+    describe('stopping early', () => {
+        /** A stream that never finishes on its own, which is what a slow model looks like. */
+        function endlessHandle(): { handle: LlmHandle; cancelled: () => boolean } {
+            let cancelled = false;
+            let rejectResult: (error: Error) => void = () => {};
+            const result = new Promise<LlmResult>((_resolve, reject) => {
+                rejectResult = reject;
+            });
+
+            const text = new ReadableStream<string>({
+                pull(controller) {
+                    controller.enqueue('and another thing ');
+                },
+                cancel() {
+                    cancelled = true;
+                    // A real plugin's abort settles the result too, and by rejecting: the
+                    // generation did not finish. Nobody is awaiting it on this path, which is
+                    // exactly the shape that used to produce an unhandled rejection.
+                    rejectResult(new Error('aborted'));
+                },
+            });
+
+            return { handle: { text, result }, cancelled: () => cancelled };
+        }
+
+        it('cancels the stream when the signal fires, which is what stops the plugin', async () => {
+            const { handle, cancelled } = endlessHandle();
+            const controller = new AbortController();
+            const collecting = collectGeneration(handle, controller.signal);
+
+            controller.abort();
+
+            await expect(collecting).rejects.toThrow(/stopped before it finished/);
+            expect(cancelled()).toBe(true);
+        });
+
+        it('stops a read that is already waiting, rather than one chunk later', async () => {
+            // The read is in flight when the signal fires and never comes back on its own. Awaiting
+            // it instead of racing it is how a cancellation waits out the very generation it is
+            // meant to interrupt.
+            let cancelled = false;
+            const text = new ReadableStream<string>({
+                pull() {
+                    return new Promise<void>(() => undefined);
+                },
+                cancel() {
+                    cancelled = true;
+                },
+            });
+            const controller = new AbortController();
+            const collecting = collectGeneration({ text, result: new Promise(() => {}) }, controller.signal);
+
+            controller.abort();
+
+            await expect(collecting).rejects.toThrow(/stopped before it finished/);
+            expect(cancelled).toBe(true);
+        });
+
+        it('does not cancel a generation that finished before the signal was ever used', async () => {
+            const { handle } = handleFor(['all ', 'done']);
+            const controller = new AbortController();
+
+            await expect(collectGeneration(handle, controller.signal)).resolves.toEqual(RESULT);
+        });
+
+        it('leaves no unhandled rejection behind when the result rejects on abort', async () => {
+            const rejections: unknown[] = [];
+            const onRejection = (reason: unknown) => rejections.push(reason);
+            process.on('unhandledRejection', onRejection);
+
+            try {
+                const { handle } = endlessHandle();
+                const controller = new AbortController();
+                const collecting = collectGeneration(handle, controller.signal);
+                controller.abort();
+                await expect(collecting).rejects.toThrow();
+
+                // Two turns, because an unhandled rejection is reported at the end of a macrotask
+                // rather than synchronously with the throw above.
+                await new Promise(resolve => setTimeout(resolve, 10));
+            } finally {
+                process.off('unhandledRejection', onRejection);
+            }
+
+            expect(rejections).toEqual([]);
+        });
+    });
 });

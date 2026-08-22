@@ -17,6 +17,7 @@ import {
 import { createOpenAICompatible, type OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
 import { streamText } from 'ai';
 import { hostFetch } from './llm.fetch.js';
+import { abortWith, withCancel } from './llm.abort.js';
 import { splitSystemPrompt, toModelMessages, toToolSet } from './llm.messages.js';
 import { describeModels, toolCapableModels } from './llm.models.js';
 import { llmManifest, MODEL_CACHE_MS, PROBE_TIMEOUT_MS, PROVIDER_NAME } from './llm.manifest.js';
@@ -235,6 +236,11 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         // turn more easily than it can imitate a separate field.
         const { system, rest } = splitSystemPrompt(request.messages);
 
+        // Aborted when the host cancels the text stream, and linked to the invocation signal so
+        // that being abandoned before the first chunk still stops the request.
+        const controller = new AbortController();
+        abortWith(this.host.signal, controller);
+
         const stream = streamText({
             model: provider.chatModel(model),
             ...(system === undefined ? {} : { system }),
@@ -246,19 +252,30 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             // not reason and a strict server answers 400 rather than ignoring it,
             // so "send nothing" has to be the default rather than a value.
             ...(request.reasoningEffort === undefined ? {} : { providerOptions: { [PROVIDER_NAME]: { reasoningEffort: request.reasoningEffort } } }),
-            // The invocation's own signal, so being abandoned by the host and
-            // stopping are the same moment rather than two.
-            abortSignal: this.host.signal,
+            // This plugin's OWN abort, deliberately not `host.signal`.
+            //
+            // The invocation signal is the right bound on STARTING a generation and the wrong one
+            // for running it: `PluginInvoker` disposes that controller the moment `generate`
+            // resolves, and `generate` resolves as soon as the request is away. So a generation —
+            // which legitimately outlives the call that started it — had no live signal on it at
+            // all, and nothing the host did could stop it. A refill holding the one model slot
+            // therefore ran to completion however long it took, while a break with a ten-second
+            // patience gave up and went to the floor: the exact failure the gate's preemption was
+            // built to prevent, still happening because the abort had nowhere to land.
+            abortSignal: controller.signal,
         });
 
         this.host.logger.debug('llm generating', { model, messages: request.messages.length, tools: request.tools?.length ?? 0 });
 
         return {
-            text: stream.textStream,
+            // Cancelling this is what stops the generation, per `LlmHandle.text`. Forwarding
+            // `stream.textStream` alone did not: it is one branch of a tee, so closing it left the
+            // other branch — which `resultOf` below is reading — pulling the provider regardless.
+            text: withCancel(stream.textStream, () => controller.abort()),
             // Built here rather than awaited, so `generate` returns as soon as the
             // request is away. Every promise underneath settles when the stream
             // does, which is why the contract is drain-then-read.
-            result: this.resultOf(stream),
+            result: this.resultOf(stream, controller),
         };
     }
 
@@ -285,15 +302,27 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     }
 
     /** The SDK's several settled promises, as the one result the station's boundary describes. */
-    private async resultOf(stream: ReturnType<typeof streamText>): Promise<LlmResult> {
-        const [text, reasoningText, content, toolCalls, usage, finishReason] = await Promise.all([
-            stream.text,
-            stream.reasoningText,
-            stream.content,
-            stream.toolCalls,
-            stream.usage,
-            stream.finishReason,
-        ]);
+    private async resultOf(stream: ReturnType<typeof streamText>, controller: AbortController): Promise<LlmResult> {
+        let settled;
+        try {
+            settled = await Promise.all([
+                stream.text,
+                stream.reasoningText,
+                stream.content,
+                stream.toolCalls,
+                stream.usage,
+                stream.finishReason,
+            ]);
+        } catch (error) {
+            // A generation the host stopped is not a fault, and every one of the promises above
+            // rejects when the request is aborted. Reported as `unavailable` rather than passed on
+            // as whatever the SDK threw, because the caller asked for this and the alternative is a
+            // deliberate stop arriving looking like a broken model server.
+            if (controller.signal.aborted) throw new PluginError('the generation was stopped before it finished').withCode('unavailable');
+            throw error;
+        }
+
+        const [text, reasoningText, content, toolCalls, usage, finishReason] = settled;
 
         // An answer with no words in it is worth describing rather than passing on as an empty
         // string, because every cause looks identical from the caller: a model that had nothing to

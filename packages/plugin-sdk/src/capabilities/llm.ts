@@ -49,6 +49,7 @@
  */
 
 import type { PluginLifecycle } from '../plugin.lifecycle.js';
+import { PluginError } from '../plugin.error.js';
 
 /**
  * How hard a reasoning model should think before answering.
@@ -218,8 +219,17 @@ export interface LlmHandle {
      * The answer as it arrives.
      *
      * The host reads it to the end or cancels it, and either one releases what is
-     * underneath. Usually the provider's own stream forwarded through, which
-     * makes that true for free.
+     * underneath. **Cancelling has to actually stop the generation**, which is a
+     * requirement on the PLUGIN rather than something the platform can arrange:
+     * the host has no other handle on the work once `generate` has returned.
+     *
+     * The trap that makes this worth spelling out is that forwarding a provider's
+     * stream does NOT satisfy it by itself. A plugin that hands over one branch of
+     * a tee, or whose {@link result} keeps reading the source, has given the host
+     * a stream it can close and a generation it cannot stop — and the invocation
+     * signal is no help, because that is disposed the moment `generate` resolves
+     * and a generation legitimately outlives the call that started it. So a plugin
+     * owns an abort of its own, for as long as the words are still arriving.
      */
     text: ReadableStream<string>;
 
@@ -302,20 +312,67 @@ export interface LlmPluginInstance extends PluginLifecycle {
  * A free function rather than a method, following `jsonBody` and `tryJsonBody`:
  * it keeps the handle the platform's own shape, and it is nothing a plugin should
  * have to implement.
+ *
+ * Pass a `signal` to stop early. The drain is raced against it and the stream is
+ * cancelled, which — per {@link LlmHandle.text} — is what asks the plugin to stop
+ * generating. Without one this waits for the model however long it takes, which is
+ * right for a caller that has nothing better to do and wrong for one holding a
+ * slot something with a deadline is queued for.
  */
-export async function collectGeneration(handle: LlmHandle): Promise<LlmResult> {
+export async function collectGeneration(handle: LlmHandle, signal?: AbortSignal): Promise<LlmResult> {
     const reader = handle.text.getReader();
+    // Attached before anything can reject, and for that alone. A cancelled generation settles
+    // `result` by rejecting, and on the abort path below nobody ever awaits it — so without a
+    // handler already on it the process takes an unhandled rejection for a stop the host asked for.
+    void handle.result.catch(() => undefined);
+
     try {
-        // Read for the backpressure, not for the text: `result.text` is the accumulated
-        // answer and the authority on it. A plugin forwarding a provider stream and a
-        // plugin buffering one both satisfy that, and only the first would agree with
-        // whatever this loop concatenated.
-        while (!(await reader.read()).done) {
-            // Nothing to do with the chunk here.
+        while (true) {
+            if (signal?.aborted) break;
+
+            // Raced rather than awaited, because a read that is already waiting on the provider
+            // does not come back when the signal fires. The loser is dropped, and `cancel` below
+            // is what actually ends it.
+            const chunk = await Promise.race([reader.read(), aborted(signal)]);
+            if (chunk === ABORTED) break;
+
+            // Read for the backpressure, not for the text: `result.text` is the accumulated
+            // answer and the authority on it. A plugin forwarding a provider stream and a
+            // plugin buffering one both satisfy that, and only the first would agree with
+            // whatever this loop concatenated.
+            if (chunk.done) break;
         }
     } finally {
-        reader.releaseLock();
+        if (signal?.aborted) {
+            // NOT awaited, and the lock is left held. A read is still outstanding — that is the
+            // whole situation being escaped — and `cancel()` does not settle until the source's
+            // pending pull does, so awaiting it here would wait out the generation this is
+            // cancelling. The side effect that reaches the plugin's abort runs synchronously
+            // inside the stream's own cancel algorithm, which is the part that matters.
+            void reader.cancel().catch(() => undefined);
+        } else {
+            reader.releaseLock();
+        }
+    }
+
+    if (signal?.aborted) {
+        // Deliberately NOT awaiting `settled`. Attaching the handler is what prevents the unhandled
+        // rejection, and waiting for it would put this back where it started: a plugin whose result
+        // only settles when the generation ends would hold the caller here for exactly as long as
+        // the generation it just cancelled.
+        throw new PluginError('the generation was stopped before it finished').withCode('unavailable');
     }
 
     return handle.result;
+}
+
+/** The sentinel the race below resolves to, so an abort is told apart from a chunk. */
+const ABORTED = Symbol('aborted');
+
+/** A promise that settles when the signal fires, and never otherwise. */
+function aborted(signal: AbortSignal | undefined): Promise<typeof ABORTED> {
+    if (signal === undefined) return new Promise<typeof ABORTED>(() => undefined);
+    if (signal.aborted) return Promise.resolve(ABORTED);
+
+    return new Promise<typeof ABORTED>(resolve => signal.addEventListener('abort', () => resolve(ABORTED), { once: true }));
 }

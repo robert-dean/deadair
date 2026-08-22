@@ -124,7 +124,7 @@ export class AnalysisService {
         // On the edge only, for `SpeechService.speaker`'s reason. It matters more here than there,
         // because nothing about a station measured by an analyzer nobody chose looks wrong from the
         // outside: this line is the only place it is ever said.
-        if (defaultPickIsNews(chosen, candidates, ANALYSIS_PLUGIN_KEY)) {
+        if (defaultPickIsNews(chosen, candidates, ANALYSIS_PLUGIN_KEY, configured)) {
             this.logger.info(`analysis: ${explainDefaultAnalyzer(chosen, candidates)}`);
         }
         return chosen;

@@ -187,12 +187,23 @@ const reportedDefaults = new Map<string, string>();
 /**
  * Whether this default pick is news, marking it reported if so.
  *
- * The edge, so a caller is one `if` rather than its own memory. Returns false for a station whose
+ * The edge, so a caller is one `if` rather than its own memory. Answers false for a station whose
  * key is set or which has only one candidate, because neither is a decision anybody needs telling
- * about — see {@link pickedByDefault}.
+ * about — which is {@link pickedByDefault}, asked here rather than restated.
+ *
+ * It took the setting's NAME and not its VALUE for as long as it existed, so it could not ask the
+ * first of those questions and did not: a station that had named its plugin, with a second one
+ * installed, was told once per process that `render.speechPluginId is unset, so "…" was chosen`,
+ * naming the operator's own explicit choice as a fallback. Both clauses of that sentence were false.
+ * `pickedByDefault` carried the missing check the whole time and had no caller.
  */
-export function defaultPickIsNews(chosen: SelectablePlugin, candidates: readonly SelectablePlugin[], settingKey: string): boolean {
-    if (candidates.length <= 1) return false;
+export function defaultPickIsNews(
+    chosen: SelectablePlugin,
+    candidates: readonly SelectablePlugin[],
+    settingKey: string,
+    configured: string | undefined,
+): boolean {
+    if (!pickedByDefault(candidates, configured)) return false;
 
     const answer = `${chosen.record.id}\n${candidates.map(candidate => candidate.record.id).join(',')}`;
     if (reportedDefaults.get(settingKey) === answer) return false;

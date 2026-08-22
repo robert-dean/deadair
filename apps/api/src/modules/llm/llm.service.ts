@@ -310,7 +310,7 @@ export class LlmService {
         // On the edge only, for `SpeechService.speaker`'s reason: an unset key picking rather than
         // refusing is only honest if the choice is said out loud, and only bearable if it is said
         // once.
-        if (defaultPickIsNews(chosen, candidates, LLM_PLUGIN_KEY)) {
+        if (defaultPickIsNews(chosen, candidates, LLM_PLUGIN_KEY, configured)) {
             this.logger.info(`llm: ${explainDefaultGenerator(chosen, candidates)}`);
         }
         return chosen;

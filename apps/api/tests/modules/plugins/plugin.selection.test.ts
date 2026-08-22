@@ -114,28 +114,49 @@ describe('defaultPickIsNews', () => {
         // A caller asks on every render and every commit pass. Saying it once is the whole bargain
         // that lets an unset key pick rather than refuse; saying it every time would be a line per
         // track boundary for as long as the key stays unset.
-        expect(defaultPickIsNews(first, [first, second], WORDING.key)).toBe(true);
-        expect(defaultPickIsNews(first, [first, second], WORDING.key)).toBe(false);
+        expect(defaultPickIsNews(first, [first, second], WORDING.key, undefined)).toBe(true);
+        expect(defaultPickIsNews(first, [first, second], WORDING.key, undefined)).toBe(false);
     });
 
     it('is news again when the answer changes', () => {
         // An install, an uninstall, or the operator finally choosing are all worth reporting, and
         // all three change either the pick or the field of candidates.
-        expect(defaultPickIsNews(first, [first, second], WORDING.key)).toBe(true);
-        expect(defaultPickIsNews(first, [first, second, plugin('mid.third')], WORDING.key)).toBe(true);
-        expect(defaultPickIsNews(second, [first, second, plugin('mid.third')], WORDING.key)).toBe(true);
+        expect(defaultPickIsNews(first, [first, second], WORDING.key, undefined)).toBe(true);
+        expect(defaultPickIsNews(first, [first, second, plugin('mid.third')], WORDING.key, undefined)).toBe(true);
+        expect(defaultPickIsNews(second, [first, second, plugin('mid.third')], WORDING.key, undefined)).toBe(true);
     });
 
     it('says nothing about a single candidate', () => {
-        expect(defaultPickIsNews(first, [first], WORDING.key)).toBe(false);
+        expect(defaultPickIsNews(first, [first], WORDING.key, undefined)).toBe(false);
+    });
+
+    // The case that was live and untested. A station whose operator named a plugin was told, once
+    // per process, that the key was unset and something had been chosen for them — a sentence whose
+    // both halves were false, about the choice they had just made.
+    it('says nothing when the operator named the plugin themselves', () => {
+        expect(defaultPickIsNews(first, [first, second], WORDING.key, 'acme.first')).toBe(false);
+    });
+
+    // A key set to the OTHER candidate is still a choice, even though the pick differs from the
+    // first in id order. `selectPlugin` answers nothing for a key naming no candidate, so this only
+    // ever runs for a name that matched.
+    it('says nothing when the named plugin is not the first in id order', () => {
+        expect(defaultPickIsNews(second, [first, second], WORDING.key, 'zeta.second')).toBe(false);
+    });
+
+    // Whitespace is not a choice: `pickedByDefault` trims, and every one of these settings is read
+    // out of a table whose values are strings an operator could have blanked.
+    it('treats an empty or blank key as unset', () => {
+        expect(defaultPickIsNews(first, [first, second], WORDING.key, '')).toBe(true);
+        expect(defaultPickIsNews(first, [first, second], 'llm.pluginId', '   ')).toBe(true);
     });
 
     it('keeps the three capabilities apart', () => {
         // Keyed by the SETTING, since that is what identifies the capability. Sharing one slot
         // would mean the analyzer's pick silenced the report of the model's.
-        expect(defaultPickIsNews(first, [first, second], 'render.speechPluginId')).toBe(true);
-        expect(defaultPickIsNews(first, [first, second], 'llm.pluginId')).toBe(true);
-        expect(defaultPickIsNews(first, [first, second], 'analysis.pluginId')).toBe(true);
+        expect(defaultPickIsNews(first, [first, second], 'render.speechPluginId', undefined)).toBe(true);
+        expect(defaultPickIsNews(first, [first, second], 'llm.pluginId', undefined)).toBe(true);
+        expect(defaultPickIsNews(first, [first, second], 'analysis.pluginId', undefined)).toBe(true);
     });
 });
 

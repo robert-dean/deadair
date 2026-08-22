@@ -132,7 +132,7 @@ export class SpeechService {
         // On the edge only. This runs on every commit pass, so reporting it every time would be a
         // line per track boundary for as long as the key stays unset — and saying it once is the
         // whole bargain that lets an unset key pick rather than refuse.
-        if (defaultPickIsNews(chosen, candidates, SPEECH_PLUGIN_KEY)) {
+        if (defaultPickIsNews(chosen, candidates, SPEECH_PLUGIN_KEY, configured)) {
             this.logger.info(`render: ${explainDefaultSpeaker(chosen, candidates)}`);
         }
         return chosen;

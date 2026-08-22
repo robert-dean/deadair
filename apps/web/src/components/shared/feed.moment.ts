@@ -1,4 +1,12 @@
 const TIME = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const STAMP = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+});
 const FULL = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
 const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 
@@ -16,6 +24,20 @@ const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric'
 export function formatMoment(iso: string | undefined): string {
     const date = parse(iso);
     return date === undefined ? '' : TIME.format(date);
+}
+
+/**
+ * A date and a wall-clock time on one line, in the operator's own zone, for a log tail.
+ *
+ * A log line is written as UTC and read by somebody sitting in a timezone. It carries its own date
+ * because a retained tail routinely spans days and every line has to stand on its own: this is a
+ * column somebody scans and copies out of, not a feed with headings. 12-hour explicitly, and with a
+ * 2-digit hour so the column still lines up, because a log is read against the operator's memory of
+ * their own day rather than against a clock.
+ */
+export function formatMomentStamp(iso: string | undefined): string {
+    const date = parse(iso);
+    return date === undefined ? '' : STAMP.format(date);
 }
 
 /** The same moment in full, for the tooltip: the list shows times and a feed can span days. */

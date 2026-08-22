@@ -7,6 +7,7 @@ import { sdk } from '../../api/client';
 import { pluginLogsOptions, useSetPluginLogLevel } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
+import { formatMomentFull, formatMomentStamp } from '../shared/feed.moment';
 
 /** A Mantine palette name per level, so a scan of the tail reads severity at a glance. */
 const LOG_LEVEL_COLOR: Record<PluginLogLevel, string> = {
@@ -164,8 +165,8 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
                                     c={LOG_LEVEL_COLOR[entry.level]}
                                     style={{ overflowWrap: 'anywhere' }}
                                 >
-                                    <Text component="span" c="dimmed" inherit>
-                                        {entry.ts}
+                                    <Text component="span" c="dimmed" inherit title={formatMomentFull(entry.ts)}>
+                                        {formatMomentStamp(entry.ts)}
                                     </Text>{' '}
                                     [{entry.level}] {entry.text}
                                 </Text>

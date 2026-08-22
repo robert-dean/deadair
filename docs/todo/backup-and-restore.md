@@ -228,6 +228,13 @@ Each leaves the tree working and is one commit.
 - The live running order, `break_requests` and `scrobble_queue`.
 - Cached track bytes.
 - Per-row conflict resolution.
+- **A quarantine for imported artefacts, because nothing in tier 1 is executable.** Every row it
+  carries is prose or configuration, so an import can be judged by the dry run and nothing else. That
+  stops being true the day an operator can author a KIND of break with a data hook attached (see
+  [comparable-stations.md](comparable-stations.md)), and the rule to adopt then is the one that
+  design already carries: an artefact that arrives with code in it lands **disabled**, and enabling it
+  is a separate act by a human who read it. Written down here so that lands as one line rather than as
+  a retrofit across an import path that assumed everything it touched was text.
 - **Scheduled backups.** That is a cron plus a destination, and there is no destination abstraction
   anywhere in this tree to hang it on. An operator with an export URL and `platform.manage` can write
   a one-line cron themselves; a half-built one that writes somewhere the operator forgot is worse than

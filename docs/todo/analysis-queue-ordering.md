@@ -99,6 +99,16 @@ the backfill rather than the mechanism. It is more moving parts: the pacing in
 and an edge-triggered measurement is by definition firing while the station is fetching the next
 record. It should post work onto the same paced walk rather than measuring inline.
 
+**2b. Pace the walk against the AUDIENCE, not just against a constant.** `TRACK_PACE_MS` exists so
+background fetches do not compete with the station's own, which is a rule written against a station
+that is always fetching. This one is not: in `audience` mode it airs only while somebody is connected,
+so `AudienceWatch.gateOpen()` already answers exactly when the walk is competing with a listener and
+when it has the machine to itself. A comparable station reaches the same idea from the other side and
+calls it quiet hours. Here it is a term rather than a schedule, because the gate is a live reading and
+an hour of the day is a guess about one. The bound is that it must slow the walk and never stop it: a
+station that airs every evening and nothing else would otherwise measure only what it has already
+played, which is the inversion (1) exists to avoid.
+
 **3. Tell an unfetchable track apart from an undecodable one.** `analysis/app.py` already classifies
 its own failures (`unfetchable` vs `undecodable` vs `truncated`) and `analyzer.plugin.ts` carries the
 code into the error message, so the distinction survives all the way into

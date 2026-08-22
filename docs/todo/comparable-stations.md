@@ -5,6 +5,11 @@ Icecast and Liquidsoap in containers, a Node brain above them, a Subsonic librar
 local speech engine, a Python analysis sidecar. Close enough to this tree that almost every finding
 lands on a seam that already exists here.
 
+**Revised:** 2026-08-22, after a second pass over the same station's published operator manual and
+its community pages rather than its source. The counts below describe the first pass and are left as
+they were; the second pass is its own section, near the bottom, and it changes the ordering at the
+end.
+
 **Status: a survey, and nothing in it is built.** It is written down for the reason
 [stream-server-alternatives.md](stream-server-alternatives.md) is: the pass was done once and should
 not have to be done again. The findings are stated on their own terms rather than as a comparison,
@@ -169,6 +174,90 @@ would reuse its ordering, which is already causal rather than alphabetical.
   choosing which verbs an outside agent may reach and how they authenticate, which is
   [service-actors.md](service-actors.md)'s question wearing a different hat.
 
+## The second pass, and why reading the manual found things reading the source did not
+
+Everything above came from the code. The published operator documentation and the community pages
+turned up six more, and they cluster differently because they are the parts of a station that only
+show up once somebody has to explain it to an operator: an extension point, a way of looking at the
+library, a column on a character, a document with no code in it, and two confirmations of calls
+already made here.
+
+**An operator can author a KIND of break there, and here only a developer can.** A kind is a
+directory: a short brief in prose saying what to cover and when to stay quiet, frontmatter carrying a
+cooldown, an optional cron and a declaration of which "right now" facts the writer may reference, and
+optionally a small module that fetches live data and may decline before any words are written. The
+words are still written at air time, around whatever is playing, which is the same split this tree
+already makes between a phrasing and a script.
+
+Every piece of that exists here and the operator can reach none of them. `segments.kind`,
+`TopicKindRegistry`, `BreakWriterRegistry`, `clock_bands` and `BreakPromptShape` between them are the
+whole mechanism, and adding a kind of break is a code change in five files. The argument for closing
+that is their catalogue rather than their design: a two-line unrhymed poem about the moment, a note on
+what taping music off the radio was like, a first-time-I-heard-this memory tied to the host's own
+backstory. Not one of those needs code and not one of them would ever have been specified.
+
+Two rules to copy exactly if it lands. The frontmatter's context list is `BreakPromptShape` written by
+an operator instead of by a file, so it should BE that type rather than a second vocabulary beside it,
+on `topics`' own argument: one list to keep straight instead of two and a mapping between them. And a
+kind arrives **disabled** and is enabled by hand, which is what makes an authored kind and an imported
+one the same object with the same guard. Note this is separable from the community exchange, which
+stays in the section below: the exchange is distribution, and this is authoring.
+
+**Nothing here draws the library as a shape, and the embedding axis is what would make one worth
+drawing.** Theirs is a full-screen map of every measured record, placed by genre and lit by energy,
+recolourable by confidence, loudness, pace or vocal presence, filterable by mood and band, with a
+per-record dossier carrying tempo, key, moods, the nearest neighbours in embedding space and a
+timeline showing where the intro ends, where the outro starts and where the singing is.
+
+It is listed here rather than as a seventh finding because it is the inspection surface for the axis
+above, and the calibration trap there is close to invisible without it. A mood that took 61.7% of a
+library is a number in a report and an obvious stain on a map, and recolouring by CONFIDENCE is the
+same argument the usage surface makes for the budget: it is hard to argue about a threshold without
+seeing what it did. It also has nothing to draw until the axis exists, which is why it is not ranked
+on its own.
+
+**Chattiness is a property of the character there and a property of the station here.**
+`deadair.personas` carries `brevity`, which is how long a break is, and `latitude`, which is how much
+room the character is given. How OFTEN it talks is not on the row at all: it is `rotation.breaks` and
+the format clock, station-wide, so nineteen characters share one setting. Theirs is a five-step
+frequency per persona, from silent to relentless. Here that is one nullable column and a term in
+`BreakPlanner`'s spacing walk, and it composes with the two already on the row for the reason those
+two are separate rather than one field: a character that talks over every boundary and one that says
+a line an hour are the same character at two settings, where a short break and a licensed one are two
+different kinds of claim.
+
+One bound has to be decided before it is built rather than after: whether the quietest setting reaches
+silence. `rotation.breaks` off is already the way to stop the station talking, and a persona that can
+switch itself off is a second switch that can disagree with the first, with nothing in a log saying
+which one held.
+
+**A licensing page, which is a document and not a feature.** Six questions answered plainly: the
+software provides no music rights and is broadcast infrastructure in the way a mixer and a stream
+server are; two rights are usually in play, the composition and the recording, administered by
+different bodies in each country; non-commercial does not exempt a station, because the rule is about
+public performance rather than about money; a private address is materially lower risk than a shared
+one; and the ways to be unambiguously clear are original recordings, permissively licensed material,
+or the public domain. It also gives an hourly archive a second reason for existing, which is that it
+is the record.
+
+That is worth taking because this tree is meant to ship for other people to run, so the question
+arrives with the first stranger who runs it, and because it is the only item in this file with a
+deadline that is not of our own choosing.
+
+**Two confirmations, each of a call already made here.** The same model behaves differently through
+different providers, because each one translates tools and structured output its own way, which is
+`strayToolCall`'s finding reached from the other end and is the reason a model that works is one
+measured on the route it will actually be called through rather than one chosen by name. And their
+shelf of third-party players exists because the station serves an unauthenticated now-playing document
+beside the mount: that is the cheap half of [now-playing-displays.md](now-playing-displays.md) and it
+sits directly beside the `.pls` and `.m3u` entry in the small ones, since two static text routes and
+one read-only JSON route are the whole of what makes a hardware player or a car receiver useful.
+
+Their never-play rules take a seasonal window, which [never-play-rules.md](never-play-rules.md)
+already specifies as `inSeason`, down to a `from > to` interval wrapping the year end. Recorded here
+only because a second implementation reaching the same shape independently is evidence the shape is
+right, not because anything is missing.
+
 ## What is deliberately not wanted
 
 Recording these stops the survey being re-run to reach the same answer.
@@ -176,9 +265,12 @@ Recording these stops the survey being re-run to reach the same answer.
 - **Player skins, native apps, a public player.** This console is a broadcast desk and deliberately
   does not play the mount. The listener surface is the mount itself plus whatever the operator points
   at it.
-- **A community catalog of shared personas, skills and shows.** It is a good design (prompt-only by
-  contract, so the reviewed exchange can never carry code) and it is a good design for a project with
-  many installs. This one has one operator.
+- **A community catalog of shared personas, skills and shows**, and the three pages around it: a
+  directory of other stations broadcasting now, a dispatch blog, and a shelf of third-party players.
+  The catalog is a good design (prompt-only by contract, so the reviewed exchange can never carry
+  code) and all four are good designs for a project with many installs. This one has one operator.
+  What this rejection does NOT cover is the authoring half above: an operator writing a kind of break
+  for their own station needs no exchange to share it through.
 - **Stem separation for transitions.** The other station does it, opt-in, with a byte-budgeted cache
   that overran its own 500 GB budget to 674 GB before the accounting was fixed. It needs a GPU, a
   second model with its own weights licence, and a large cache, and it pays off only at boundaries
@@ -193,13 +285,21 @@ Recording these stops the survey being re-run to reach the same answer.
 
 ## Worth taking, in order
 
-1. **The beat layer**, because it is one measurement pass that settles three deferred entries: the
+Revised after the second pass, with the original reasons kept.
+
+1. **The licensing page**, first because it is an afternoon, it is prose rather than engineering, and
+   it is the only entry whose timing is set by something outside this repo.
+2. **The beat layer**, because it is one measurement pass that settles three deferred entries: the
    ending-shaped fade above, the talk-up limit in [track-analysis.md](track-analysis.md), and the
    vocal-onset half of [track-lyrics.md](track-lyrics.md).
-2. **The station check-up**, because everything it reads already exists and it is the answer to a
+3. **The station check-up**, because everything it reads already exists and it is the answer to a
    question the operator asks at three in the morning.
-3. **Trace correlation**, small, and it is what makes the check-up and the usage surface readable
+4. **Trace correlation**, small, and it is what makes the check-up and the usage surface readable
    rather than merely present.
-4. **The embedding axis**, which is the largest and the only one that unblocks a file currently marked
-   blocked. Do not start it without the calibration rule above.
-5. The small ones, in any order, none of which is a day's work.
+5. **Persona chattiness**, one nullable column and one term in a walk, decided about silence first.
+6. **Operator-authored break kinds**, which is the largest of the second-pass findings and the only
+   one that adds a surface rather than a field.
+7. **The embedding axis, and the map with it**, the largest overall and the only one that unblocks a
+   file currently marked blocked. Do not start it without the calibration rule above, and do not build
+   the map first: it has nothing to draw.
+8. The small ones, in any order, none of which is a day's work.

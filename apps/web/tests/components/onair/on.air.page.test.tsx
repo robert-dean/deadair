@@ -441,16 +441,22 @@ describe('OnAirPage', () => {
         expect(screen.getByText('Browse playlists')).toBeInTheDocument();
     });
 
-    it('still offers a brief with a running order up, and says it replaces one', async () => {
+    it('still offers a brief with a running order up, behind its own heading, and says it replaces one', async () => {
         // The box used to live inside the empty state, and Stop does not empty the running order:
         // it stands the station down and leaves the order for a resume. So an operator who had ever
         // been on air could not reach this again without dropping every item by hand.
+        //
+        // Shut rather than gone, which is the second half: the form is five controls and four
+        // paragraphs, and open on this page it pushed the running order off the screen. What has to
+        // survive is that it is REACHABLE, so the heading is asserted as a control and the sentence
+        // about what it costs is read after opening it.
         getTheRunningOrder.mockResolvedValue(order());
         getStationAir.mockResolvedValue(stationAir({ active: false }));
 
         render(<OnAirPage />);
 
-        expect(await screen.findByText('Tell the station what to play')).toBeInTheDocument();
+        const open = await screen.findByRole('button', { name: /Tell the station what to play instead/ });
+        await userEvent.click(open);
         expect(screen.getByText(/starts a new broadcast/)).toBeInTheDocument();
         // The playlist card stays behind: it answers having nothing on, and the nav already has it.
         expect(screen.queryByText('Browse playlists')).not.toBeInTheDocument();

@@ -47,6 +47,17 @@ describe('SilenceDiagnosisPanel', () => {
         expect(screen.getByText('The stream is not reachable')).toBeInTheDocument();
     });
 
+    it('puts the ruled-out list behind a control while the station is audible, and names how much is behind it', () => {
+        // Eleven gates all answering `ok` is a list nobody asked for while the station is going
+        // out, and on the running-order page it pushed the order itself off the screen. It is one
+        // click away rather than gone, because the case above — a station that cannot be heard —
+        // is the one it was written for, and there it is still open.
+        render(<SilenceDiagnosisPanel silence={stationSilence()} />);
+
+        expect(screen.queryByText('Ruled out')).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Ruled out \(\d+\)/ })).toBeInTheDocument();
+    });
+
     it('reports a replaced config even on a station that is airing', () => {
         // It is never the cause, because a station can air perfectly well to somebody who
         // connected before the config was replaced. It is still the reason the next

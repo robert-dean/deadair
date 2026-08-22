@@ -1,4 +1,5 @@
-import { Button, Card, Group, NumberInput, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
+import { Button, Card, Collapse, Group, NumberInput, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
+import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { usePutStationOnAir } from '../../api/director.queries';
@@ -59,6 +60,15 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
     const [eraTo, setEraTo] = useState<number | string>('');
     const onAir = usePutStationOnAir();
     const personas = usePersonas();
+    // Shut while there is a broadcast to interrupt, open while there is not.
+    //
+    // The form is five controls and four paragraphs of consequence, all of which an operator wants
+    // the first time and none of which they want while watching an hour go out: on air it sat
+    // between the station's own status and the running order, and pushed the order off the screen.
+    // What is behind the fold is only the FORM — the thing it starts is destructive, so what stays
+    // in view is the sentence naming it, which is also the affordance.
+    const [opened, setOpened] = useState(false);
+    const showing = opened || !replacing;
 
     const asked = brief.trim();
     const failure = onAir.isError ? apiErrorMessage(onAir.error, 'The station could not be put on air.') : undefined;
@@ -78,96 +88,113 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
     };
 
     return (
-        <Card padding="xl">
+        <Card padding={replacing ? 'md' : 'xl'}>
             <Stack gap="sm" align="flex-start">
-                <Text fw={500}>Tell the station what to play</Text>
-                <Text size="sm" c="dimmed">
-                    It programmes itself against this, from your own library first and from your providers when the library cannot fill it. A record
-                    it does not own yet is fetched and kept. What you like and dislike is taken into account either way.
-                </Text>
                 {replacing ? (
-                    <Text size="sm" c="orange.4">
-                        This starts a new broadcast: everything still to come below is dropped, and what is playing stops.
-                    </Text>
-                ) : undefined}
-                <Group gap="sm" wrap="nowrap" w="100%" align="flex-start">
-                    <TextInput
-                        flex={1}
-                        placeholder="heavy metal hits"
-                        aria-label="What the station should play"
-                        value={brief}
-                        maxLength={500}
-                        onChange={event => setBrief(event.currentTarget.value)}
-                        onKeyDown={event => {
-                            if (event.key === 'Enter') start();
-                        }}
-                    />
-                    <Select
-                        w={220}
-                        aria-label="Who is hosting"
-                        placeholder="The station's host"
-                        clearable
-                        data={(personas.data?.personas ?? []).map(persona => ({
-                            value: persona.id,
-                            label: persona.active ? `${persona.label} (on air)` : persona.label,
-                        }))}
-                        value={personaId ?? null}
-                        onChange={value => setPersonaId(value ?? undefined)}
-                    />
-                    <Tooltip
-                        label={
-                            failure ??
-                            (replacing
-                                ? 'Replaces the running order and starts programming against this. Every listener hears the result at once.'
-                                : 'Puts the station on air and starts programming against this. Every listener hears the result.')
-                        }
-                        color={failure ? 'red' : undefined}
-                        multiline
-                        maw={320}
+                    <Button
+                        variant="subtle"
+                        color="gray"
+                        size="compact-sm"
+                        px={0}
+                        rightSection={showing ? <IconChevronUp size={14} stroke={1.8} /> : <IconChevronDown size={14} stroke={1.8} />}
+                        onClick={() => setOpened(open => !open)}
                     >
-                        <Button color={failure ? 'red' : undefined} loading={onAir.isPending} disabled={asked.length === 0} onClick={start}>
-                            Go on air
-                        </Button>
-                    </Tooltip>
-                </Group>
-                <Group gap="sm" wrap="nowrap" align="flex-start">
-                    <NumberInput
-                        w={120}
-                        aria-label="Earliest year"
-                        placeholder="From year"
-                        min={1900}
-                        max={2100}
-                        allowDecimal={false}
-                        hideControls
-                        className="da-num"
-                        value={eraFrom}
-                        onChange={setEraFrom}
-                    />
-                    <NumberInput
-                        w={120}
-                        aria-label="Latest year"
-                        placeholder="To year"
-                        min={1900}
-                        max={2100}
-                        allowDecimal={false}
-                        hideControls
-                        className="da-num"
-                        value={eraTo}
-                        onChange={setEraTo}
-                    />
-                    <Text size="xs" c="dimmed" style={{ lineHeight: '36px' }}>
-                        A period, if you want one. Unlike the words, it holds without a model.
-                    </Text>
-                </Group>
-                <Text size="xs" c="dimmed">
-                    The host stays with this broadcast until you go on air again. Leave it empty to use whichever persona the station has on air. A
-                    record whose release year the catalogue does not know is played whatever the period.
-                </Text>
-                <Text size="xs" c="dimmed">
-                    Needs a model to programme with: turn on “Let a model choose what the station plays” in settings. Without one the station falls
-                    back to its own rotation, which ignores the brief.
-                </Text>
+                        Tell the station what to play instead
+                    </Button>
+                ) : (
+                    <Text fw={500}>Tell the station what to play</Text>
+                )}
             </Stack>
+            <Collapse expanded={showing}>
+                <Stack gap="sm" align="flex-start" pt={replacing ? 'sm' : 0}>
+                    <Text size="sm" c="dimmed">
+                        It programmes itself against this, from your own library first and from your providers when the library cannot fill it. A
+                        record it does not own yet is fetched and kept. What you like and dislike is taken into account either way.
+                    </Text>
+                    {replacing ? (
+                        <Text size="sm" c="orange.4">
+                            This starts a new broadcast: everything still to come below is dropped, and what is playing stops.
+                        </Text>
+                    ) : undefined}
+                    <Group gap="sm" wrap="nowrap" w="100%" align="flex-start">
+                        <TextInput
+                            flex={1}
+                            placeholder="heavy metal hits"
+                            aria-label="What the station should play"
+                            value={brief}
+                            maxLength={500}
+                            onChange={event => setBrief(event.currentTarget.value)}
+                            onKeyDown={event => {
+                                if (event.key === 'Enter') start();
+                            }}
+                        />
+                        <Select
+                            w={220}
+                            aria-label="Who is hosting"
+                            placeholder="The station's host"
+                            clearable
+                            data={(personas.data?.personas ?? []).map(persona => ({
+                                value: persona.id,
+                                label: persona.active ? `${persona.label} (on air)` : persona.label,
+                            }))}
+                            value={personaId ?? null}
+                            onChange={value => setPersonaId(value ?? undefined)}
+                        />
+                        <Tooltip
+                            label={
+                                failure ??
+                                (replacing
+                                    ? 'Replaces the running order and starts programming against this. Every listener hears the result at once.'
+                                    : 'Puts the station on air and starts programming against this. Every listener hears the result.')
+                            }
+                            color={failure ? 'red' : undefined}
+                            multiline
+                            maw={320}
+                        >
+                            <Button color={failure ? 'red' : undefined} loading={onAir.isPending} disabled={asked.length === 0} onClick={start}>
+                                Go on air
+                            </Button>
+                        </Tooltip>
+                    </Group>
+                    <Group gap="sm" wrap="nowrap" align="flex-start">
+                        <NumberInput
+                            w={120}
+                            aria-label="Earliest year"
+                            placeholder="From year"
+                            min={1900}
+                            max={2100}
+                            allowDecimal={false}
+                            hideControls
+                            className="da-num"
+                            value={eraFrom}
+                            onChange={setEraFrom}
+                        />
+                        <NumberInput
+                            w={120}
+                            aria-label="Latest year"
+                            placeholder="To year"
+                            min={1900}
+                            max={2100}
+                            allowDecimal={false}
+                            hideControls
+                            className="da-num"
+                            value={eraTo}
+                            onChange={setEraTo}
+                        />
+                        <Text size="xs" c="dimmed" style={{ lineHeight: '36px' }}>
+                            A period, if you want one. Unlike the words, it holds without a model.
+                        </Text>
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                        The host stays with this broadcast until you go on air again. Leave it empty to use whichever persona the station has on air.
+                        A record whose release year the catalogue does not know is played whatever the period.
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                        Needs a model to programme with: turn on “Let a model choose what the station plays” in settings. Without one the station
+                        falls back to its own rotation, which ignores the brief.
+                    </Text>
+                </Stack>
+            </Collapse>
         </Card>
     );
 }

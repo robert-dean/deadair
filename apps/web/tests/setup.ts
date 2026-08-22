@@ -71,6 +71,13 @@ class ResizeObserverStub {
 
 window.ResizeObserver = ResizeObserverStub;
 
+// jsdom implements no scrolling whatsoever, and `Element.prototype.scrollTo` is absent rather than
+// inert: a component that holds its own scroll position — the running order, which keeps the item
+// on air under the table's header — throws on mount here instead of failing an assertion. Stubbed
+// on the same argument as the two above, since the alternative is a layout decision made by the
+// test runner. Nothing asserts on scrolling; there is nothing laid out to scroll.
+Element.prototype.scrollTo = () => {};
+
 // jsdom has no font loading API, and Mantine's autosizing textarea waits on one: it measures a box
 // again once the fonts have settled, which is a real thing to do in a browser and a `TypeError` on
 // mount here. Stubbed rather than avoided, because otherwise the rule becomes "do not use `autosize`

@@ -1,0 +1,40 @@
+/*
+ * The running order's own two things a Mantine theme cannot say.
+ *
+ * Both are about ONE row: the one that is going out. Everything else on this table is drawn by the
+ * theme, and a rule that could live in `theme.components` belongs there rather than here.
+ */
+
+/**
+ * The scroll port.
+ *
+ * Its own element rather than `Table.ScrollContainer` with a `maxHeight`, and the reason is the
+ * pinning above it: that component puts the bound on a div INSIDE its ScrollArea viewport, so the
+ * element that owns the vertical scroll is not the element a row's offset can be measured against,
+ * and a sticky `thead` sticks to a scrollport that never moves. One element owning both axes is
+ * what makes `pinnedTop` arithmetic and the sticky header both true at once. The scrollbars are
+ * themed globally in `tokens.css`, so a native one already looks like the console's.
+ */
+.port {
+    overflow: auto;
+    /* Tall enough to be a running order rather than a peephole, short enough that the page's own
+       controls stay on screen while it scrolls. The page still scrolls; this only stops the table
+       taking the whole document with it. */
+    max-height: max(320px, calc(100vh - 20rem));
+}
+
+/**
+ * The row that is actually going out.
+ *
+ * A tally bar down its edge and a lift off the panel, because with the order pinned this row is
+ * where an operator's eye lands and bold text alone is not a lamp. Drawn on the first cell rather
+ * than the row: `border-collapse` drops a border on a `tr`, and an inset shadow on the leading cell
+ * is the one form that survives it.
+ */
+.airing {
+    background-color: var(--da-raised);
+}
+
+.airing > td:first-of-type {
+    box-shadow: inset 3px 0 0 var(--mantine-color-red-6);
+}

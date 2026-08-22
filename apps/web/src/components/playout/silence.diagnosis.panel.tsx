@@ -1,4 +1,6 @@
-import { Alert, Badge, Button, Code, CopyButton, Group, List, Stack, Text } from '@mantine/core';
+import { useState } from 'react';
+import { Alert, Badge, Button, Code, Collapse, CopyButton, Group, List, Stack, Text } from '@mantine/core';
+import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { SilenceCause, SilenceCheck, StationSilence } from '@deadair/sdk';
 
 export interface SilenceDiagnosisProps {
@@ -30,7 +32,12 @@ export function SilenceDiagnosisPanel({ silence }: SilenceDiagnosisProps) {
         return (
             <Alert color="green" title="The station is on air">
                 <Text size="sm">{silence.detail}</Text>
-                <RuledOut checks={silence.checks} />
+                {/* Shut, and only here. Every gate reporting `ok` is eleven lines answering a
+                    question nobody asked while the station is audible, and on this page it pushed
+                    the running order — the thing the page is FOR — off the bottom of the screen.
+                    It is one click away rather than gone, because the moment it is worth reading
+                    is the moment the branch below draws it open. */}
+                <RuledOut checks={silence.checks} collapsible />
             </Alert>
         );
     }
@@ -66,29 +73,46 @@ export function SilenceDiagnosisPanel({ silence }: SilenceDiagnosisProps) {
  * silence is deciding where to look next, and a list of places they do not have
  * to look is most of that decision.
  */
-function RuledOut({ checks }: { checks: SilenceCheck[] }) {
+function RuledOut({ checks, collapsible = false }: { checks: SilenceCheck[]; collapsible?: boolean }) {
+    const [open, setOpen] = useState(false);
     const ok = checks.filter(check => check.state === 'ok');
     if (ok.length === 0) return undefined;
 
     return (
         <Stack gap="xxs">
-            <Text size="xs" c="dimmed">
-                Ruled out
-            </Text>
-            <List size="xs" spacing={2}>
-                {ok.map(check => (
-                    <List.Item key={check.code}>
-                        <Group gap="xxs" wrap="nowrap">
-                            <Badge size="xs" variant="light" color="gray" tt="none">
-                                {TITLES[check.code]}
-                            </Badge>
-                            <Text size="xs" c="dimmed">
-                                {check.detail}
-                            </Text>
-                        </Group>
-                    </List.Item>
-                ))}
-            </List>
+            {collapsible ? (
+                <Button
+                    variant="subtle"
+                    color="gray"
+                    size="compact-xs"
+                    w="fit-content"
+                    px={0}
+                    rightSection={open ? <IconChevronUp size={13} stroke={1.8} /> : <IconChevronDown size={13} stroke={1.8} />}
+                    onClick={() => setOpen(shown => !shown)}
+                >
+                    Ruled out ({ok.length})
+                </Button>
+            ) : (
+                <Text size="xs" c="dimmed">
+                    Ruled out
+                </Text>
+            )}
+            <Collapse expanded={open || !collapsible}>
+                <List size="xs" spacing={2}>
+                    {ok.map(check => (
+                        <List.Item key={check.code}>
+                            <Group gap="xxs" wrap="nowrap">
+                                <Badge size="xs" variant="light" color="gray" tt="none">
+                                    {TITLES[check.code]}
+                                </Badge>
+                                <Text size="xs" c="dimmed">
+                                    {check.detail}
+                                </Text>
+                            </Group>
+                        </List.Item>
+                    ))}
+                </List>
+            </Collapse>
         </Stack>
     );
 }

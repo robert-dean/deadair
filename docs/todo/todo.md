@@ -30,10 +30,13 @@ points at that file. Checked against the tree on 2026-08-11.
       news feature: a host-side watcher over any polled source that posts a `BreakRequest`, so a new
       number one and a weather warning are the same loop. The de-duplication contract it needs is
       already on the `news` capability
-- [ ] persona memory — scoped in `personas.md` §2. The cheap half exists (a writer is shown the last
-      six scripts of its kind), and it is keyed by KIND rather than by character and cannot outlive a
-      segment, so the prerequisite is a `persona_key` on `script_history` before anything summarizes
-      it
+- [x] persona memory — **BUILT 2026-08-22**, as `personas.md` §2 scoped it. `script_history` carries
+      a `persona_key` now, `deadair.persona_notes` holds what each character has accumulated, and the
+      two kinds are two different claims: what it actually SAID goes into use with the broadcast line
+      as its evidence, what it has SETTLED INTO is proposed because nothing can verify an inference.
+      A trait reaches the system turn beside the sheet and a saying the user turn beside the show's
+      memory; a bulletin gets neither. What is left is the operator's opinion of a break, which is
+      `break-ratings.md`
 - [~] talkshows with callers (can we do real and fake like a conspiracy theories ) — **the machinery
       is built, 2026-08-16**: a production is several beats written in several passes that airs as one
       block (`modules/productions`, `produced-episodes.md`), which is what a talkshow is made of. Two

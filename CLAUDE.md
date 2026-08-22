@@ -293,6 +293,43 @@ others). The slots are the persona KEYS rather than a second vocabulary, on `top
 list to keep straight instead of two and a mapping between them. Deleting a row from a plugin's map
 stays expressible, because an unmapped name still falls back to the engine's default and warns once.
 
+**A character also ACCUMULATES, and the two things it accumulates are two different claims.**
+`deadair.personas` is a sheet somebody wrote and a break is written against that sheet plus the last
+few scripts of this broadcast, so a host could never refer back to something it said last week or
+stay consistent about an opinion it had already put on air. `deadair.persona_notes` is the store that
+answers it, keyed by `personas.key` with no foreign key, on `script_history.persona_key`'s rule —
+which is itself the prerequisite this needed and is stamped on every write ATTEMPT rather than only
+the winner, so a character whose model breaks are all being refused is visible instead of hidden
+behind the floor. **A `said` note records something the character actually broadcast and carries the
+script as its evidence, so nothing was inferred and it goes active unattended; a `trait` note infers
+who the character is becoming, which no quote can entail, so it arrives `suggested` and the operator
+is the check.** That asymmetry is why they are one column rather than two tables and why the pass
+verifies only half of what it writes: a `trait` note read into a prompt IS a sheet edit, just not one
+its author wrote. The rest is `deadair.pronunciations`' shape exactly — `rejected` is a state rather
+than a deletion or the nightly pass re-proposes it forever, a partial unique index over
+`lower(btrim(note))` stops it writing the same line twice while leaving an operator free to write
+their own, and a `not null`-style evidence constraint makes an unsourced model note inexpressible.
+Four things are load-bearing. **The two halves land in different TURNS** — a trait beside the sheet in
+the system turn because it is who the presenter IS, a saying beside the show's memory in the user turn
+because it is what the presenter DID — and it is called a NOTEBOOK in `break.prompt.ts` because "the
+notes" has meant a record's enrichment facts there since the facts arrived. **`showsNotebook` withholds
+BOTH halves from a bulletin**, which is `showsFacts`' argument one source further out: a model
+reporting the news and handed a list of the character's own past sayings will read one out, and it is
+worse than a discography note because nothing about it is even trying to be true today. **The read and
+the rest are two calls** (`forPrompt` then `markUsed`), so a rehearsal hears the character as it stands
+without spending the next real break's lines; the stamp is at SELECTION, inheriting `chooseFacts`'
+documented inaccuracy. And **only the model reads any of it** — a template has nowhere to put a
+sentence like this, so a station with no model keeps its notebook and never says anything out of it.
+The distil pass (`llm.personaNotes`, off) runs at 03:41 and that time is not a preference: the
+script-history sweep at 04:23 deletes the material it reads. Its watermark is carried as the column's
+own TEXT rather than as a `DateTime`, because Luxon is millisecond-resolution and Postgres is
+microsecond, so a watermark taken from a row compares as earlier than that row and re-reads it
+forever. Nothing here judges whether a break was any GOOD, because nothing in the station records
+that; the one clause that will is named in a comment on `ScriptHistoryRepository.writtenBy` and
+`docs/todo/break-ratings.md` holds the other end, including why a rating cannot be a column on
+`script_history` and why optimising against `characterFault` would be steering at the failure
+`overusedWords` already documents.
+
 **What buys a character room is what the break does not have to say, never the word ceiling.**
 Measured before changing anything: 2 of 137 captured answers reached `DEFAULT_MAX_WORDS` and the
 median break came in at 28 words, so the ceiling was never what bounded one — the model stops on its

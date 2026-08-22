@@ -81,7 +81,28 @@ station decides who speaks from the kind, and the row remembers what it decided.
 **`station_lineup.persona_id` is unaffected.** A show names its host, and a host is not a newsreader;
 a briefed broadcast that names a persona overrides the host arm of the precedence and nothing else.
 
-## 2. Persona memory, which the short window is not
+## 2. Persona memory, which the short window is not — BUILT
+
+**Built 2026-08-22**, and it cost what this section predicted plus one thing it did not. The
+prerequisite landed first as its own commit (`script_history.persona_key`, stamped on every write
+ATTEMPT rather than only the winner, so a character whose model breaks are all being refused is
+visible rather than hidden behind the floor). `deadair.persona_notes` is the store, shaped after
+`deadair.pronunciations`; `deadair.persona_note_passes` is the watermark, which is where this parts
+company with `fact_extractions` — documents arrive in no order and each needs its own mark, scripts
+are a time-ordered stream and one timestamp covers them.
+
+The thing it did not predict is a precision bug the smoke script caught: Luxon is
+millisecond-resolution and Postgres is microsecond, so a watermark taken from a row's own
+`created_at` compares as EARLIER than that row and re-reads it on every pass, forever. Both ends
+carry the column's own text now. Anything else that stores "how far did I get" against a
+`timestamptz` has the same trap waiting.
+
+What is left is the OPINION. The pass reads every written break by a character, and nothing in the
+station says whether any of them were any good — so a note distilled from a break the operator
+disliked is the character being taught to repeat what did not land. The one clause is named in a
+comment on `ScriptHistoryRepository.writtenBy`; [break-ratings.md](break-ratings.md) is the other end.
+
+The rest of this section is kept as the record of what was decided and why.
 
 There is already an avoid-list: `WriteBreakJob` hands the writer the last six scripts of the same
 kind ([write.break.job.ts:172](../../apps/api/src/modules/director/write.break.job.ts:172),

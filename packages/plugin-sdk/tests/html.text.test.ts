@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeEntities, firstSentence, plainText, truncateSentences, truncateWords } from '../src/html.text.js';
+import { decodeEntities, firstSentence, plainText, sentencesWithin, truncateSentences, truncateWords } from '../src/html.text.js';
 
 describe('plainText', () => {
     it('takes the tags out and the entities down', () => {
@@ -91,6 +91,42 @@ describe('truncateSentences', () => {
         const text = 'Filed Saturday, Aug. 15, 2026, from Hilo, where the river rose overnight. A second sentence follows.';
 
         expect(truncateSentences(text, 80)).toBe('Filed Saturday, Aug. 15, 2026, from Hilo, where the river rose overnight.');
+    });
+});
+
+/**
+ * The cut a station makes on its own words rather than on a publisher's, so the fallback is nothing
+ * at all: the caller is choosing between this script and a sentence it wrote itself.
+ */
+describe('sentencesWithin', () => {
+    it('leaves anything inside the count alone', () => {
+        expect(sentencesWithin('Four words, near enough.', 40)).toBe('Four words, near enough.');
+    });
+
+    it('keeps whole sentences and drops the rest', () => {
+        const text = 'The record still holds up. The single after it did not. Make of that what you will.';
+
+        expect(sentencesWithin(text, 14)).toBe('The record still holds up. The single after it did not.');
+    });
+
+    // The case the ceiling's original comment describes, and the only one still worth declining: a
+    // cut here could only be mid-clause, which is the one thing a voice must not read.
+    it('answers with nothing when the first sentence is already over', () => {
+        expect(sentencesWithin('A single sentence that runs a good deal longer than it was ever given room for', 8)).toBeUndefined();
+    });
+
+    // Measured on a captured break: the naive split left the closing quote at the head of the half
+    // that was thrown away, so the station would have aired an unbalanced one.
+    it('keeps a closing quote with the sentence it ends', () => {
+        const text = 'A guitar lesson masquerading as “love.” The track reminds me of a tired choir. Ambitious in name only.';
+
+        expect(sentencesWithin(text, 12)).toBe('A guitar lesson masquerading as “love.”');
+    });
+
+    it('does not cut at an abbreviation or a decimal', () => {
+        const text = 'It sat at 3.5 million copies by Aug. 15, 2026, which nobody expected. The follow-up sold nothing.';
+
+        expect(sentencesWithin(text, 15)).toBe('It sat at 3.5 million copies by Aug. 15, 2026, which nobody expected.');
     });
 });
 

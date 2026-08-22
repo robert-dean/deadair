@@ -153,3 +153,48 @@ export function truncateSentences(value: string, maxChars: number): string {
     if (lastStop <= 0) return truncateWords(value, maxChars);
     return value.slice(0, lastStop + 1).trimEnd();
 }
+
+/** How many words a passage is, on the one definition every caller here uses. */
+const wordsIn = (value: string): number => value.split(/\s+/).filter(Boolean).length;
+
+/**
+ * The closing quotes and brackets a boundary swallowed, so a cut keeps them.
+ *
+ * {@link SENTENCE_END} matches the terminator, then any closers, then the
+ * whitespace before the next sentence. Cutting at the terminator alone leaves
+ * the closer at the head of the half that was thrown away, which turns `as
+ * "love."` into `as "love.` — an unbalanced quote in something a voice reads.
+ */
+const closersIn = (boundary: string): string => boundary.slice(1).trimEnd();
+
+/**
+ * The longest run of WHOLE sentences within a word count, or nothing.
+ *
+ * The word-counted sibling of {@link truncateSentences}, and the difference
+ * between them is the fallback rather than the unit. That one cuts mid-clause
+ * when the first sentence is already too long, because its caller would rather
+ * have a hard stop than three paragraphs. This one answers `undefined`, because
+ * its caller is choosing between a script and something else it can say
+ * instead, and half a sentence read aloud is worse than either.
+ *
+ * A passage already within the count comes back trimmed and otherwise
+ * untouched, so a caller can put this in front of everything rather than
+ * branching on the length itself.
+ */
+export function sentencesWithin(value: string, maxWords: number): string | undefined {
+    const text = value.trim();
+    if (wordsIn(text) <= maxWords) return text;
+
+    let fits: string | undefined;
+
+    SENTENCE_END.lastIndex = 0;
+    for (let match = SENTENCE_END.exec(text); match !== null; match = SENTENCE_END.exec(text)) {
+        if (!endsSentence(text, match.index)) continue;
+
+        const ending = text.slice(0, match.index + 1 + closersIn(match[0]).length);
+        if (wordsIn(ending) > maxWords) break;
+        fits = ending;
+    }
+
+    return fits;
+}

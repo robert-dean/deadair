@@ -55,6 +55,14 @@ export interface ScriptWrite {
     script?: string;
     /** The binding that produced or declined it. `BreakWriter.name`. */
     writer: string;
+    /**
+     * Who was presenting, as the persona's own KEY.
+     *
+     * The key rather than the id, and denormalised like everything else here, because this table
+     * outlives what it describes: `segments.persona_id` records the same fact and cannot answer it
+     * once the segment is gone. Absent means nobody was presenting, which is an ordinary state.
+     */
+    personaKey?: string;
     /** The model that said it, for a writer that used one. */
     model?: string;
     /** What the line was rendered from, for a writer working from something an operator can edit. */
@@ -86,6 +94,8 @@ export interface ScriptHistoryPageQuery {
     kind?: string;
     writer?: string;
     outcome?: ScriptOutcome;
+    /** Everything one character has said, which is the read a persona's own page wants. */
+    personaKey?: string;
     /** Every attempt made for one break, in place of the whole history. */
     segmentId?: string;
 }
@@ -120,6 +130,7 @@ interface ScriptHistoryRow {
     label: string | null;
     script: string | null;
     writer: string;
+    personaKey: string | null;
     model: string | null;
     source: string | null;
     previous: unknown;
@@ -140,6 +151,7 @@ const HISTORY_COLUMNS = [
     'label',
     'script',
     'writer',
+    'personaKey',
     'model',
     'source',
     'previous',
@@ -163,6 +175,7 @@ function toEntry(row: ScriptHistoryRow): ScriptHistoryEntry {
         ...(row.segmentId == null ? {} : { segmentId: row.segmentId }),
         ...(row.label == null ? {} : { label: row.label }),
         ...(row.script == null ? {} : { script: row.script }),
+        ...(row.personaKey == null ? {} : { personaKey: row.personaKey }),
         ...(row.model == null ? {} : { model: row.model }),
         ...(row.source == null ? {} : { source: row.source }),
         ...(row.previous == null ? {} : { previous: row.previous as HistoryTrack }),
@@ -200,6 +213,7 @@ export class ScriptHistoryRepository extends DataRepository {
                 label: write.label ?? null,
                 script: write.script ?? null,
                 writer: write.writer,
+                personaKey: write.personaKey ?? null,
                 model: write.model ?? null,
                 source: write.source ?? null,
                 previous: toJsonb(write.previous),
@@ -307,6 +321,7 @@ export class ScriptHistoryRepository extends DataRepository {
         if (query.kind !== undefined) statement = statement.where('kind', '=', query.kind);
         if (query.writer !== undefined) statement = statement.where('writer', '=', query.writer);
         if (query.outcome !== undefined) statement = statement.where('outcome', '=', query.outcome);
+        if (query.personaKey !== undefined) statement = statement.where('personaKey', '=', query.personaKey);
         // Newest first like every other read here, rather than the oldest-first walk a single
         // break's attempts would suggest: this is the same page in the same order, narrowed. The
         // handful of rows one segment produces fits on it either way.

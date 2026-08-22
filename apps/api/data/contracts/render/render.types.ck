@@ -67,6 +67,7 @@ contract ScriptAttempt: { # One attempt to write something the station would say
     kind: string(min=1, max=50) # What sort of break it was for: `talkbreak`, `welcome`, `news`
     writer: string(min=1, max=100) # The binding that produced or declined it
     outcome: ScriptOutcome
+    personaKey?: string(max=100) # Who was presenting, as the persona's own key. Absent means nobody was, which is an ordinary state. Stamped on every attempt including the declined ones, so a character whose model breaks are all being refused is visible rather than hidden behind the floor
     label?: string(max=400)
     script?: string(max=20000) # The words. Absent for an attempt that produced none
     model?: string(max=200) # The model that said it, for a writer that used one
@@ -87,6 +88,7 @@ contract ScriptHistoryQuery: { # One page of what the station has written, newes
     kind?: string(min=1, max=50)
     writer?: string(min=1, max=100)
     outcome?: ScriptOutcome
+    personaKey?: string(min=1, max=100) # Everything ONE character has said. Absent is every character and none
     segmentId?: string(min=1, max=100) # Every attempt made for ONE break, which is how a console reaches the words behind an item of the running order. Absent is the whole history
 }
 

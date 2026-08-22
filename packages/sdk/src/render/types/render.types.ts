@@ -94,7 +94,7 @@ export interface ScriptPromptMessage {
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L98)
+ * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L100)
  */
 export interface SegmentScanResult {
     /** Audio files seen, whether or not they were already known */
@@ -107,7 +107,7 @@ export interface SegmentScanResult {
 
 /**
  * One name the station says differently from how it is written
- * generated from [Pronunciation](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L104)
+ * generated from [Pronunciation](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L106)
  */
 export interface Pronunciation {
     id: string;
@@ -131,7 +131,7 @@ export interface Pronunciation {
 
 /**
  * A name and how to say it
- * generated from [PronunciationWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L121)
+ * generated from [PronunciationWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L123)
  */
 export interface PronunciationWrite {
     written: string;
@@ -141,7 +141,7 @@ export interface PronunciationWrite {
 
 /**
  * Accepting a proposal, turning one down, or taking an entry out of use without losing it
- * generated from [PronunciationStateWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L126)
+ * generated from [PronunciationStateWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L128)
  */
 export interface PronunciationStateWrite {
     state: 'active' | 'suggested' | 'rejected';
@@ -149,7 +149,7 @@ export interface PronunciationStateWrite {
 
 /**
  * Which part of the lexicon to read
- * generated from [PronunciationQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L130)
+ * generated from [PronunciationQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L132)
  */
 export interface PronunciationQuery {
     /** Absent is all of it */
@@ -178,7 +178,7 @@ export interface VoiceList {
 
 /**
  * One page of what the station has written, newest first
- * generated from [ScriptHistoryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L84)
+ * generated from [ScriptHistoryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L85)
  */
 export interface ScriptHistoryQuery {
     limit?: number;
@@ -187,6 +187,8 @@ export interface ScriptHistoryQuery {
     kind?: string;
     writer?: string;
     outcome?: ScriptOutcome;
+    /** Everything ONE character has said. Absent is every character and none */
+    personaKey?: string;
     /** Every attempt made for ONE break, which is how a console reaches the words behind an item of the running order. Absent is the whole history */
     segmentId?: string;
 }
@@ -203,6 +205,8 @@ export interface ScriptAttempt {
     /** The binding that produced or declined it */
     writer: string;
     outcome: ScriptOutcome;
+    /** Who was presenting, as the persona's own key. Absent means nobody was, which is an ordinary state. Stamped on every attempt including the declined ones, so a character whose model breaks are all being refused is visible rather than hidden behind the floor */
+    personaKey?: string;
     label?: string;
     /** The words. Absent for an attempt that produced none */
     script?: string;
@@ -227,14 +231,14 @@ export interface ScriptAttempt {
 
 /**
  * The station's lexicon, oldest first
- * generated from [PronunciationList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L117)
+ * generated from [PronunciationList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L119)
  */
 export interface PronunciationList {
     pronunciations: Pronunciation[];
 }
 
 /**
- * generated from [ScriptHistoryPage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L93)
+ * generated from [ScriptHistoryPage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L95)
  */
 export interface ScriptHistoryPage {
     attempts: ScriptAttempt[];

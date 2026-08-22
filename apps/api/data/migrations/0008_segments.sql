@@ -280,6 +280,18 @@ create table deadair.script_history (
     -- Which binding produced or declined this. `BreakWriter.name`: 'deterministic' today, a model
     -- and an operator's templates later. Unconstrained text, like `segments.writer`.
     writer text not null,
+    -- WHO was presenting, as the persona's own key rather than its id.
+    --
+    -- The key, and no foreign key at all, for the reason everything else on this row is denormalised:
+    -- the table exists to outlive what it describes. `segments.persona_id` already records which
+    -- character a break was written as and cannot cover for this, because the whole point of the
+    -- denormalisation is that the segment may be gone. `personas_key_unique (station_key, key)` is
+    -- what makes the key a stable name; a persona deleted and written back by `restore` keeps it,
+    -- where the id does not.
+    --
+    -- Null is ordinary and means nobody was presenting: a station that has chosen no persona writes
+    -- exactly what it wrote before personas existed.
+    persona_key text,
     -- Which model said it, for a writer that used one. Null otherwise, which is most rows.
     model text,
     -- What the line was rendered FROM, for a writer that works from something an operator can edit:
@@ -314,6 +326,11 @@ create table deadair.script_history (
 -- statement in the module that touches the whole table its index.
 create index script_history_recent_idx on deadair.script_history (created_at desc);
 create index script_history_segment_idx on deadair.script_history (segment_id, created_at) where segment_id is not null;
+
+-- The third read: what ONE character has said. Station-keyed and leading with the key, unlike the
+-- recency index above, because this one is never the retention sweep's — it answers a question about
+-- a persona, which is a per-station thing, and the sweep has its own index two lines up.
+create index script_history_persona_idx on deadair.script_history (station_key, persona_key, created_at desc) where persona_key is not null;
 
 -- What this break is ABOUT, for one the station planted for itself.
 --

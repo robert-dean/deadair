@@ -244,7 +244,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
 
         // Before the row is touched, and before any early return below, so an attempt is recorded
         // whichever way this goes. What the station TRIED is as much of the record as what it said.
-        await this.remember(segmentId, segment.kind, neighbours, result);
+        await this.remember(segmentId, segment.kind, neighbours, result, persona?.key);
 
         if (!isWritten(result)) {
             // Not an error and not logged as one: a break nothing had anything to say for is a break
@@ -431,8 +431,13 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      *
      * Every attempt, not only the winner. A model that declined and a floor that covered for it are
      * two facts, and the second on its own reads as a station that never had a model configured.
+     *
+     * The persona key goes on EVERY attempt, including the ones that declined, because who was
+     * presenting is a fact about the moment rather than about the writer that won it: a character
+     * whose model breaks are all being refused is exactly the thing this column exists to make
+     * visible, and stamping only the winner would hide it behind the floor.
      */
-    private async remember(segmentId: string, kind: string, neighbours: Neighbours, result: BreakWriteResult): Promise<void> {
+    private async remember(segmentId: string, kind: string, neighbours: Neighbours, result: BreakWriteResult, personaKey?: string): Promise<void> {
         if (result.attempts.length === 0) return;
 
         try {
@@ -443,6 +448,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                     writer: attempt.writer,
                     outcome: attempt.outcome,
                     durationMs: attempt.durationMs,
+                    ...(personaKey === undefined ? {} : { personaKey }),
                     ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
                     ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
                     ...(attempt.written === undefined ? {} : { script: attempt.written.script, label: attempt.written.label }),

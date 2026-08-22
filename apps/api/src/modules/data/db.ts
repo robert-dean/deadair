@@ -463,6 +463,7 @@ export interface DeadairScriptHistory {
   model: string | null;
   next: Json | null;
   outcome: "written" | "declined" | "failed";
+  personaKey: string | null;
   previous: Json | null;
   prompt: Json | null;
   raw: string | null;

@@ -101,6 +101,7 @@ export class RenderService {
             ...(query.kind === undefined ? {} : { kind: query.kind }),
             ...(query.writer === undefined ? {} : { writer: query.writer }),
             ...(query.outcome === undefined ? {} : { outcome: query.outcome }),
+            ...(query.personaKey === undefined ? {} : { personaKey: query.personaKey }),
             ...(query.segmentId === undefined ? {} : { segmentId: query.segmentId }),
         });
 
@@ -459,6 +460,7 @@ function toAttempt(entry: ScriptHistoryEntry): ScriptAttempt {
         kind: entry.kind,
         writer: entry.writer,
         outcome: entry.outcome,
+        ...(entry.personaKey === undefined ? {} : { personaKey: entry.personaKey }),
         ...(entry.label === undefined ? {} : { label: entry.label }),
         ...(entry.script === undefined ? {} : { script: entry.script }),
         ...(entry.model === undefined ? {} : { model: entry.model }),

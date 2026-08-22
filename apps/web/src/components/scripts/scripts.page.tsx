@@ -220,6 +220,8 @@ function AttemptDetail({ attempt }: { attempt: ScriptAttempt }) {
         <Stack gap="sm" px="md" pt="xs" pb="md" style={{ background: 'var(--da-raised)' }}>
             <Group gap="lg" wrap="wrap">
                 <Fact label="Kind" value={attempt.kind} />
+                {/* Absent means nobody was presenting, which is an ordinary state rather than a gap. */}
+                {attempt.personaKey === undefined ? undefined : <Fact label="Host" value={attempt.personaKey} />}
                 {attempt.model === undefined ? undefined : <Fact label="Model" value={attempt.model} />}
                 {attempt.source === undefined ? undefined : <Fact label="From" value={attempt.source} />}
                 {attempt.durationMs === undefined ? undefined : <Fact label="Took" value={`${(attempt.durationMs / 1000).toFixed(1)}s`} numeric />}

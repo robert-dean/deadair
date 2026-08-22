@@ -47,6 +47,26 @@ const OUTCOME_TONE: Record<ScriptOutcome, StatusTone> = {
     failed: 'fault',
 };
 
+/**
+ * What this page is, given what it has been narrowed to.
+ *
+ * The two narrowings do not compose in practice — nothing links to one break of one character — but
+ * the break wins if they ever do, because it is the narrower of the two.
+ */
+function title(segmentId: string | undefined, personaKey: string | undefined): string {
+    if (segmentId !== undefined) return 'One break';
+    if (personaKey !== undefined) return `Everything ${personaKey} has said`;
+    return 'Scripts';
+}
+
+function describe(segmentId: string | undefined, personaKey: string | undefined): string {
+    if (segmentId !== undefined) return 'Every attempt at writing this one break, newest first, including the ones that came to nothing.';
+    if (personaKey !== undefined) {
+        return 'Every attempt this character has made, newest first. A run of declines with the floor writing underneath is what a sheet nothing can satisfy looks like.';
+    }
+    return 'Everything the station has written, newest first, one entry per attempt. A model that declined and the line that went out instead are both here.';
+}
+
 export interface ScriptsPageProps {
     /**
      * One break's attempts rather than the whole history, as a link off the running order asks for.
@@ -55,6 +75,14 @@ export interface ScriptsPageProps {
      * segment the library no longer holds still has every word it was ever given.
      */
     segmentId?: string;
+    /**
+     * One character's attempts rather than the whole history, as a link off the personas page asks
+     * for.
+     *
+     * The KEY rather than the id, because that is what `script_history` stamps: the rows outlive
+     * the persona, deliberately, so what a character said survives the character being deleted.
+     */
+    personaKey?: string;
 }
 
 /**
@@ -70,10 +98,11 @@ export interface ScriptsPageProps {
  * the ordinary case and says so.
  *
  * Narrowed to one break when a `segmentId` arrives, which is what a link off the running order
- * lands on. The filter is a QUERY rather than a client-side sieve, so the pagination underneath it
- * still means what it says.
+ * lands on, and to one character when a `personaKey` does, which is what a link off the personas
+ * page lands on. Both are a QUERY rather than a client-side sieve, so the pagination underneath
+ * them still means what it says.
  */
-export function ScriptsPage({ segmentId }: ScriptsPageProps = {}) {
+export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
     const [outcome, setOutcome] = useState<ScriptOutcome | 'all'>('all');
     const [writer, setWriter] = useState<string>('all');
 
@@ -82,6 +111,7 @@ export function ScriptsPage({ segmentId }: ScriptsPageProps = {}) {
             ...(outcome === 'all' ? {} : { outcome }),
             ...(writer === 'all' ? {} : { writer }),
             ...(segmentId === undefined ? {} : { segmentId }),
+            ...(personaKey === undefined ? {} : { personaKey }),
         },
         true,
     );
@@ -92,22 +122,20 @@ export function ScriptsPage({ segmentId }: ScriptsPageProps = {}) {
     return (
         <Stack gap="lg">
             <PageHeader
-                title={segmentId === undefined ? 'Scripts' : 'One break'}
+                title={title(segmentId, personaKey)}
                 description={
                     <Text size="sm" c="dimmed">
-                        {segmentId === undefined
-                            ? 'Everything the station has written, newest first, one entry per attempt. A model that declined and the line that went out instead are both here.'
-                            : 'Every attempt at writing this one break, newest first — including the ones that came to nothing.'}
+                        {describe(segmentId, personaKey)}
                     </Text>
                 }
             />
 
             {/* The way back out, and it says what it is narrowed to rather than only offering to
-                clear it: an operator who followed a link off the running order and then paged
-                through has to be able to tell this from the whole history. */}
-            {segmentId === undefined ? undefined : (
+                clear it: an operator who followed a link off the running order or off a persona
+                card and then paged through has to be able to tell this from the whole history. */}
+            {segmentId === undefined && personaKey === undefined ? undefined : (
                 <Group gap="xs">
-                    <Anchor renderRoot={props => <Link to="/scripts" search={{ segment: '' }} {...props} />} size="sm">
+                    <Anchor renderRoot={props => <Link to="/scripts" search={{ segment: '', persona: '' }} {...props} />} size="sm">
                         Read everything the station has written
                     </Anchor>
                 </Group>
@@ -138,9 +166,14 @@ export function ScriptsPage({ segmentId }: ScriptsPageProps = {}) {
                             a filter to clear. */}
                         {segmentId !== undefined && outcome === 'all' && writer === 'all'
                             ? 'Nothing has been written for this break yet. The station asks for the words as the slot comes near, not when the break is planted.'
-                            : outcome === 'all' && writer === 'all'
-                              ? 'Nothing yet. The station writes here every time it makes a break, whether or not the words made it to air.'
-                              : 'Nothing matches that filter.'}
+                            : /* A character with no attempts has never been on air, which is a
+                                 different answer again from a filter matching nothing: there is
+                                 nothing to clear and nothing went wrong. */
+                              personaKey !== undefined && outcome === 'all' && writer === 'all'
+                              ? 'This character has not written anything yet. A row lands here on every attempt it makes, including the ones it declines.'
+                              : outcome === 'all' && writer === 'all'
+                                ? 'Nothing yet. The station writes here every time it makes a break, whether or not the words made it to air.'
+                                : 'Nothing matches that filter.'}
                     </Text>
                 </Card>
             ) : undefined}

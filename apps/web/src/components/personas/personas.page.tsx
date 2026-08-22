@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ActionIcon, Badge, Button, Card, CloseButton, Group, Stack, Text, TextInput } from '@mantine/core';
+import { ActionIcon, Anchor, Badge, Button, Card, CloseButton, Group, Stack, Text, TextInput } from '@mantine/core';
+import { Link } from '@tanstack/react-router';
 import type { Persona, PersonaInput, Voice } from '@deadair/sdk';
 
 import {
@@ -204,6 +205,19 @@ export function PersonasPage() {
                                         </ActionIcon>
                                     </Group>
                                 ) : undefined}
+
+                                {/* In the card's own column rather than the row of buttons, because
+                                    it goes somewhere rather than doing something — and because six
+                                    actions in that row is one more than fits. Keyed on the
+                                    persona's KEY rather than its id, since that is what
+                                    `script_history` stamps: the rows outlive the character, so what
+                                    it said survives it being deleted. */}
+                                <Anchor
+                                    size="xs"
+                                    renderRoot={props => <Link to="/scripts" search={{ segment: '', persona: persona.key }} {...props} />}
+                                >
+                                    What they&apos;ve said
+                                </Anchor>
 
                                 {persona.voice && preview.failureFor(persona.voice) ? (
                                     <Text size="xs" c="red.4">

@@ -20,6 +20,7 @@ import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
 import { PersonaNotesPanel } from './persona.notes';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
+import { PresentingBanner } from './presenting.banner';
 
 /**
  * Who the station is when it opens its mouth.
@@ -103,6 +104,10 @@ export function PersonasPage() {
             {personas.error ? (
                 <ErrorAlert title="Personas could not be loaded" error={personas.error} fallback="The persona list is unavailable." />
             ) : undefined}
+
+            {/* Draws itself only when the show on air named a host of its own, which is the one
+                state where the "On air" badge below is not who is speaking. */}
+            <PresentingBanner />
 
             {/* The one failure that stays page-level, because the button that asks for it is up
                 here and it is about the list rather than about any row in it. Putting one on air,

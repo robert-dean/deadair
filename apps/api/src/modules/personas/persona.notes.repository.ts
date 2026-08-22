@@ -190,6 +190,58 @@ export class PersonaNotesRepository extends DataRepository {
         return found !== undefined;
     }
 
+    /**
+     * How far the distil pass has read this character, or `undefined` for never.
+     *
+     * A watermark rather than a mark per script, which is where this parts company with
+     * `fact_extractions`: documents arrive individually and in no order, so each needs its own mark,
+     * while scripts are a time-ordered stream and one timestamp says everything about what has been
+     * seen. A pass that read forty scripts and wrote nothing still moves it, which is the property
+     * that table exists for — a pass that yielded nothing must not look like one that never ran.
+     *
+     * Carried as the column's own TEXT rather than as a `DateTime`, which is the same precision
+     * argument `ScriptHistoryRepository.writtenBy` makes at the other end and has to hold at both:
+     * Luxon is millisecond-resolution and Postgres is microsecond, so a watermark that went through
+     * a `DateTime` would compare as earlier than the row it was taken from and re-read it forever.
+     */
+    async readThrough(personaKey: string): Promise<string | undefined> {
+        const row = await this.db
+            .selectFrom('deadair.personaNotePasses')
+            .select(sql<string | null>`read_through::text`.as('readThrough'))
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .executeTakeFirst();
+
+        return row?.readThrough ?? undefined;
+    }
+
+    /**
+     * Move the watermark, and record that a pass ran at all.
+     *
+     * `ran_at` moves on every pass and `read_through` only when something was actually read, so a
+     * character whose window is still filling up (below `MIN_SCRIPTS`) is visibly being looked at
+     * without its scripts being consumed.
+     */
+    async markRead(personaKey: string, readThrough: string | undefined): Promise<void> {
+        await this.db
+            .insertInto('deadair.personaNotePasses')
+            .values({
+                stationKey: this.station.stationKey,
+                personaKey,
+                readThrough: (readThrough === undefined ? null : sql`${readThrough}::timestamptz`) as never,
+                ranAt: sql`now()` as never,
+            })
+            .onConflict(conflict =>
+                conflict.columns(['stationKey', 'personaKey']).doUpdateSet({
+                    ranAt: sql`now()`,
+                    // Never backwards. Two passes cannot legitimately overlap, but a hand-run one
+                    // against an older window should not un-read what the nightly pass already has.
+                    readThrough: sql`greatest(deadair.persona_note_passes.read_through, excluded.read_through)`,
+                }),
+            )
+            .execute();
+    }
+
     private async chooseKind(personaKey: string, kind: PersonaNoteKind): Promise<{ id: string; note: string }[]> {
         return await this.db
             .selectFrom('deadair.personaNotes')

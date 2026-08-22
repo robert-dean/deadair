@@ -29,6 +29,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import type { DB } from '../src/modules/data/db.js';
 import { PersonaNotesRepository } from '../src/modules/personas/persona.notes.repository.js';
 import { PERSONA_NOTE_LIMITS } from '../src/modules/personas/persona.note.js';
+import { ScriptHistoryRepository } from '../src/modules/render/script.history.repository.js';
 import { StationIdentity } from '../src/modules/shared/station.identity.js';
 
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
@@ -151,6 +152,54 @@ await db
         // And a reader that does NOT rest gets the same answer twice, which is what makes a rehearsal
         // repeatable and what stops a preview spending the next real break's lines.
         check('reading without resting changes nothing', (await notes.forPrompt(KEY)).notes.trait, next.notes.trait);
+
+        say('');
+        say('the window the distil pass reads');
+        // Raw SQL with an optional fragment in the middle of it, which no unit test touches: the
+        // per-segment dedup, the exclusive watermark, and the oldest-first order the model needs to
+        // see a habit developing rather than a list read backwards.
+        const scripts = new ScriptHistoryRepository(trx, new StationIdentity());
+
+        // Two attempts at one break — a model that declined and the floor that covered for it — plus
+        // a second break. Told about the first twice, a pass notes the repetition as a habit.
+        const segment = '00000000-0000-4000-8000-00000000beef';
+        await sql`
+            insert into deadair.segments (id, kind, state, station_key, label)
+            values (${segment}::uuid, 'talkbreak', 'ready', 'main', 'a smoke break')
+            on conflict do nothing
+        `.execute(trx);
+        await sql`
+            insert into deadair.script_history (station_key, persona_key, segment_id, kind, writer, outcome, script, created_at) values
+                ('main', ${KEY}, ${segment}::uuid, 'talkbreak', 'model', 'declined', null, now() - interval '3 hours'),
+                ('main', ${KEY}, ${segment}::uuid, 'talkbreak', 'deterministic', 'written', 'the floor covered for it', now() - interval '3 hours'),
+                ('main', ${KEY}, null, 'talkbreak', 'model', 'written', 'an older break', now() - interval '5 hours'),
+                ('main', ${KEY}, null, 'talkbreak', 'model', 'written', 'a newer break', now() - interval '1 hour')
+        `.execute(trx);
+
+        const whole = await scripts.writtenBy(KEY, undefined, 20);
+        check('one break with two attempts counts once', whole.length, 3);
+        check('oldest first, so a habit reads as one developing', whole.map(row => row.script), [
+            'an older break',
+            'the floor covered for it',
+            'a newer break',
+        ]);
+        check('a declined attempt carries no words and is not offered as any', whole.some(row => row.script == null), false);
+
+        const since = whole[1]!.at;
+        check('the watermark is exclusive, so a script read once is not read again', (await scripts.writtenBy(KEY, since, 20)).map(row => row.script), [
+            'a newer break',
+        ]);
+
+        // And the round trip through the column, which is the half the check above cannot see: a
+        // watermark that lost precision on the way OUT would re-read its own last row even though
+        // the comparison is right. This is why both ends carry text rather than a `DateTime`.
+        await notes.markRead(KEY, whole.at(-1)!.at);
+        check('the watermark survives the column exactly', await notes.readThrough(KEY), whole.at(-1)!.at);
+        check('so the pass that stored it reads nothing new', await scripts.writtenBy(KEY, await notes.readThrough(KEY), 20), []);
+
+        // A second pass over a thinner window must not un-read what the first got through.
+        await notes.markRead(KEY, whole[0]!.at);
+        check('and never moves backwards', await notes.readThrough(KEY), whole.at(-1)!.at);
 
         say('');
         const total = await sql<{ n: number }>`select count(*)::int as n from deadair.persona_notes where persona_key = ${KEY}`.execute(trx);

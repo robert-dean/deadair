@@ -17,6 +17,7 @@ import { ScheduleTickJob } from '#modules/schedule/schedule.tick.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
+import { PersonaDistilJob } from '#modules/personas/persona.distil.job.js';
 import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
 import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
@@ -304,10 +305,32 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // decision. It is one delete against an indexed timestamp, so the hour is chosen to stay out of
     // the way rather than because the work is heavy.
     //
+    // Nightly, and BEFORE the script-history sweep below, which is the one thing about this
+    // schedule that is not a preference: 03:41 reads the material that 04:23 deletes, and a station
+    // with a short `render.scriptHistoryDays` would otherwise find the window already thrown away.
+    // Forty minutes of headroom because a full roster against one self-hosted model slot is minutes
+    // rather than seconds — see `RUN_BUDGET_MS`, which is ten of them.
+    //
+    // Nightly rather than hourly because what it is looking for is a HABIT: a character develops
+    // over days, and a pass every hour would read four breaks at a time and see nothing in them.
+    // `MIN_SCRIPTS` is the same argument stated as a floor.
+    //
+    // One retry. Unlike the sweeps below, a run that failed left its watermarks where they were and
+    // has real work outstanding — but only one, because the next night is never far away and the
+    // usual reason this fails is the model host being down, which a retry ten minutes later does not
+    // fix. `expiresIn` sits above a full run and well below the interval.
+    'personas.distil_notes': {
+        job: PersonaDistilJob,
+        cron: '41 3 * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 15 }) },
+    },
+
     // NO retry, unlike everything else here, and the reason is which way the failure falls: a sweep
     // that did not run leaves rows that will be swept tomorrow, and the only thing a retry can buy
     // is a second chance to delete something. Nothing is waiting on it and nothing degrades without
     // it, so the cron IS the retry.
+    //
+    // Note the pass above reads what this deletes, and runs first. That ordering is load-bearing.
     'render.prune_script_history': {
         job: PruneScriptHistoryJob,
         cron: '23 4 * * *',

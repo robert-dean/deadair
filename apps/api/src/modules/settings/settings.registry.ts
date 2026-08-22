@@ -26,6 +26,7 @@ import { MODEL_WRITER_DEFAULT, MODEL_WRITER_KEYS } from '#modules/director/model
 import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { ALWAYS_REACH_DEFAULT, MUSIC_SEARCH_KEYS } from '#modules/llm/music.search.tool.js';
 import { MODEL_FACTS_DEFAULT, MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
+import { PERSONA_NOTES_DEFAULT, PERSONA_NOTES_KEYS } from '#modules/personas/persona.distil.service.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
     ANALYSIS_LOCAL_PACE_KEY,
@@ -604,6 +605,23 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: MODEL_FACTS_KEYS.enabled,
         default: '',
         help: "Reading is the one job here where nothing is waiting, so this is the place a slower and more careful model costs you nothing. Leave empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: PERSONA_NOTES_KEYS.enabled,
+        label: 'Let a model read each character back to itself',
+        type: 'boolean',
+        default: PERSONA_NOTES_DEFAULT,
+        help: 'Once a night, a model reads what each of your characters has actually said on air and writes down what is worth remembering: opinions they gave, and habits they have settled into. Anything it claims the presenter SAID is checked against the exact words that were broadcast; anything it infers about who they are becoming is proposed rather than used, and waits for you on the persona’s notebook. It runs in the background at the lowest priority, so a talk break always gets the model first.',
+    },
+    {
+        group: 'llm',
+        key: PERSONA_NOTES_KEYS.model,
+        label: 'Model for reading a character back',
+        type: 'string',
+        dependsOn: PERSONA_NOTES_KEYS.enabled,
+        default: '',
+        help: "Nothing is waiting on this, so it is another place a slower and more careful model costs you nothing. Leave empty for the plugin's own default.",
     },
     {
         group: 'llm',

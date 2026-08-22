@@ -289,6 +289,56 @@ export class ScriptHistoryRepository extends DataRepository {
     }
 
     /**
+     * What ONE character has actually said, oldest first, since a given moment.
+     *
+     * The read the notebook's distil pass makes, and the reason `persona_key` exists on this table.
+     * Oldest first rather than newest, unlike everything else here, because the model is being asked
+     * to notice a habit developing and a list handed to it backwards is a list it reads as one.
+     *
+     * Deduplicated per segment exactly as {@link spokenDuring} is, and for the same reason: a break
+     * the model declined and the floor then wrote is two rows and one thing the station said, and a
+     * pass told it twice will note the repetition as a habit.
+     *
+     * `since` is the watermark, exclusive, so a script read by the last pass is not read again.
+     * `undefined` means this character has never been read and takes the whole window.
+     *
+     * **It is a string, and that is not laziness about types.** Postgres keeps a `timestamptz` to the
+     * microsecond and Luxon cannot represent one — a `DateTime` round trip truncates to the
+     * millisecond, so a watermark taken from a row's own `created_at` always compares as EARLIER than
+     * that row and the last script of every window is read again on the next pass, forever. Carrying
+     * the column's own text through and casting it back is exact. Measured: without this, the
+     * exclusive watermark returned the row it was taken from.
+     *
+     * **This is where the operator's opinion joins**, once there is one. `docs/todo/break-ratings.md`
+     * scopes `deadair.script_ratings`, and the clause to add here is exactly one: a note distilled
+     * from a break the operator thumbed down is the character being taught to repeat the thing that
+     * did not land.
+     *
+     *     left join deadair.script_ratings r on r.script_id = said.id
+     *     ...and r.rating is distinct from -1
+     */
+    async writtenBy(personaKey: string, since: string | undefined, limit: number): Promise<{ id: string; script: string; at: string }[]> {
+        if (limit <= 0) return [];
+
+        const rows = await sql<{ id: string; script: string; at: string }>`
+            select id, script, at from (
+                select distinct on (coalesce(segment_id::text, id::text)) id, script, created_at, created_at::text as at
+                from deadair.script_history
+                where station_key = ${this.identity.stationKey}
+                  and persona_key = ${personaKey}
+                  and outcome = 'written'
+                  and script is not null
+                  ${since === undefined ? sql`` : sql`and created_at > ${since}::timestamptz`}
+                order by coalesce(segment_id::text, id::text), created_at desc
+            ) said
+            order by said.created_at asc
+            limit ${Math.floor(limit)}
+        `.execute(this.db);
+
+        return rows.rows.map(row => ({ id: row.id, script: row.script, at: row.at }));
+    }
+
+    /**
      * One page of what the station has written, newest first.
      *
      * A keyset over `(created_at, id)` rather than an offset, for the reason `ActivityRepository`

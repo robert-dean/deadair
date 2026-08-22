@@ -13,6 +13,7 @@ export type JobNames =
     | 'director.write_break'
     | 'director.produce'
     | 'schedule.tick'
+    | 'personas.distil_notes'
     | 'render.segment'
     | 'render.prune_script_history'
     | 'activity.prune_events'

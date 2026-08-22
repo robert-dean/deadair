@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { PersonaRepository } from './persona.repository.js';
+import { PersonaDistilService } from './persona.distil.service.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
 import { PersonaNotesService } from './persona.notes.service.js';
 import { PersonaRehearsalService } from './persona.rehearsal.service.js';
@@ -31,6 +32,11 @@ export const PersonasModule: ServerKitModule = {
         registry.register(PersonaNotesRepository).useClass(PersonaNotesRepository).asScoped();
         registry.register(PersonasService).useClass(PersonasService).asScoped();
         registry.register(PersonaNotesService).useClass(PersonaNotesService).asScoped();
+        // Scoped like the rest, and resolved by a cron job rather than by a request. It reaches
+        // FORWARDS into `RenderModule` for the script history, which is the same thing
+        // `PersonaRehearsalService` does into the director and is fine for the same reason: this
+        // list is a lifecycle order, not a resolution order.
+        registry.register(PersonaDistilService).useClass(PersonaDistilService).asScoped();
         // Scoped like the two above, and it resolves `BreakWriterRegistry` out of the director's
         // registrations at REQUEST time — which is why this module being registered before that one
         // costs nothing. The list is a lifecycle order (start, ready, shutdown), not a resolution

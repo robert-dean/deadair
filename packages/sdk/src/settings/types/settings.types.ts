@@ -1,10 +1,10 @@
 import type { ConfigFieldDescriptor } from '../../plugins/types/plugins.types.js';
 
 /**
- * Which section of the settings page a setting belongs in
+ * Which part of the console owns a setting. Every one of these but `schedule` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes
  * generated from [SettingGroup](file://./../../../../../apps/api/data/contracts/settings/settings.types.ck#L7)
  */
-export type SettingGroup = 'station' | 'rotation' | 'playout' | 'render' | 'llm' | 'analysis';
+export type SettingGroup = 'station' | 'rotation' | 'playout' | 'render' | 'llm' | 'analysis' | 'schedule';
 
 /**
  * A submitted settings form. Partial: a key that is present is written, a key that is absent is left

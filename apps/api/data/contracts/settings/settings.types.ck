@@ -4,7 +4,15 @@ options {
     }
 }
 
-contract SettingGroup: enum(station, rotation, playout, render, llm, analysis) # Which section of the settings page a setting belongs in
+contract SettingGroup: enum(
+    station,
+    rotation,
+    playout,
+    render,
+    llm,
+    analysis,
+    schedule
+) # Which part of the console owns a setting. Every one of these but `schedule` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes
 
 # A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
 # and shared deliberately: a plugin's settings form and the station's are the same problem, and the

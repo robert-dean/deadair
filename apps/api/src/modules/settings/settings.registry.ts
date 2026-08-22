@@ -73,12 +73,26 @@ import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.set
  * does.
  */
 export interface SettingDescriptor extends ConfigField {
-    /** Which section of the settings page this belongs in. */
+    /**
+     * Which part of the console owns this setting.
+     *
+     * A section of the settings page for all but one of them. `schedule` is the exception and is
+     * deliberately not drawn there: what the station plays between blocks is a question about the
+     * timetable, so it is edited beside the timetable, by a panel that draws its own controls. See
+     * the group's own note below.
+     */
     group: SettingGroup;
 }
 
-/** The sections the console draws, in the order it draws them. */
-export const SETTING_GROUPS = ['station', 'rotation', 'playout', 'render', 'llm', 'analysis'] as const;
+/**
+ * The groups there are, in the order the settings page draws the ones it draws.
+ *
+ * Not every group is a card on that page. `schedule` is owned by `SustainingPanel` on the schedule
+ * page, which is why `GROUPS` in `settings.page.tsx` is a list of its own rather than this one: a
+ * group that is not in that list is drawn by whoever claimed it, and a group in neither is a bug
+ * `settings.registry.test.ts` cannot see. Adding one means deciding which page draws it.
+ */
+export const SETTING_GROUPS = ['station', 'rotation', 'playout', 'render', 'llm', 'analysis', 'schedule'] as const;
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
 
@@ -334,49 +348,6 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'One phrasing per line, in the same syntax as the breaks above, with {{greeting}} for "good morning" and the like. ' +
             'A greeting is deliberately not a back-announce: somebody who has just arrived did not hear the last record, so ' +
             "{{previous.*}} is not offered here. Empty restores the station's own.",
-    },
-    {
-        group: 'rotation',
-        key: SUSTAINING_KEYS.pluginId,
-        label: 'Between scheduled blocks: which plugin',
-        type: 'string',
-        help:
-            'A schedule need not cover the whole day. The hours no block claims play this instead — what a broadcaster calls a sustaining service. ' +
-            'Leave all three empty and the station simply carries on with whatever the last block left it, which makes ending a block mean nothing.',
-    },
-    {
-        group: 'rotation',
-        key: SUSTAINING_KEYS.playlistId,
-        label: 'Between scheduled blocks: which playlist',
-        type: 'string',
-        help: 'The playlist id, as listed at /playlists. Both this and the plugin are needed for a playlist to be read; a brief alone is also a coherent answer.',
-    },
-    {
-        group: 'rotation',
-        key: SUSTAINING_KEYS.brief,
-        label: 'Between scheduled blocks: what to play',
-        type: 'text',
-        help:
-            "In your own words, for the model that chooses records, exactly as a block's own brief works. Set on its own it makes the station " +
-            'programme itself towards something between blocks rather than from a playlist. It never falls silent: a gap plays something or the ' +
-            'station keeps what it has, so the schedule can never take a running station off air.',
-    },
-    {
-        group: 'rotation',
-        key: SUSTAINING_KEYS.eraFrom,
-        label: 'Between scheduled blocks: earliest year',
-        type: 'number',
-        help:
-            'The period played between blocks, as a four-digit year. Unlike the words above, this reaches the record draw as well as the model, ' +
-            'so it holds even on a station with no model configured. A record whose release year the catalogue does not know is played whatever ' +
-            'the period: leaving it out is not evidence of the wrong decade.',
-    },
-    {
-        group: 'rotation',
-        key: SUSTAINING_KEYS.eraTo,
-        label: 'Between scheduled blocks: latest year',
-        type: 'number',
-        help: 'The other end, on the same terms. Set both for a decade; either stands alone, so a lower bound on its own means "this year onwards".',
     },
     {
         group: 'rotation',
@@ -666,6 +637,55 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_ANALYSIS_LOCAL_PACE_MS,
         help: 'A record the station has already kept costs no provider request to measure, so this can be far shorter than the download pause above — but it is not free: it is still disk and decode time on whatever machine is running the analyzer. Set to 0 to measure the local half of the library flat out.',
+    },
+
+    // ── schedule ───────────────────────────────────────────────────────────────
+    // What plays in the hours no block claims — what a broadcaster calls a
+    // sustaining service. Declared here because they are station settings and
+    // `PUT /settings` refuses a key nobody declared, and drawn NOWHERE on the
+    // settings page: `SustainingPanel` owns them, beside the timetable that makes
+    // sense of them. The labels are the panel's, and are short because the page
+    // around them says what they are about.
+    {
+        group: 'schedule',
+        key: SUSTAINING_KEYS.pluginId,
+        label: 'Playing from: which plugin',
+        type: 'string',
+        help: 'The plugin behind the playlist a gap plays. Both halves are needed for a playlist to be read; a brief alone is also a coherent answer, and so is nothing at all.',
+    },
+    {
+        group: 'schedule',
+        key: SUSTAINING_KEYS.playlistId,
+        label: 'Playing from: which playlist',
+        type: 'string',
+        help: 'The playlist id, as the plugin knows it.',
+    },
+    {
+        group: 'schedule',
+        key: SUSTAINING_KEYS.brief,
+        label: 'Asked to play',
+        type: 'text',
+        help:
+            "In your own words, for the model that chooses records, exactly as a block's own brief works. Set on its own it makes the station " +
+            'programme itself towards something between blocks rather than from a playlist. It never falls silent: a gap plays something or the ' +
+            'station keeps what it has, so the schedule can never take a running station off air.',
+    },
+    {
+        group: 'schedule',
+        key: SUSTAINING_KEYS.eraFrom,
+        label: 'From year',
+        type: 'number',
+        help:
+            'The period played between blocks, as a four-digit year. Unlike the words above, this reaches the record draw as well as the model, ' +
+            'so it holds even on a station with no model configured. A record whose release year the catalogue does not know is played whatever ' +
+            'the period: leaving it out is not evidence of the wrong decade.',
+    },
+    {
+        group: 'schedule',
+        key: SUSTAINING_KEYS.eraTo,
+        label: 'To year',
+        type: 'number',
+        help: 'The other end, on the same terms. Set both for a decade; either stands alone, so a lower bound on its own means "this year onwards".',
     },
 
     // ── secrets ────────────────────────────────────────────────────────────────

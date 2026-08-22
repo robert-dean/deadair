@@ -128,6 +128,22 @@ describe('SettingsPage', () => {
         expect(screen.queryByRole('heading', { name: 'Voice' })).not.toBeInTheDocument();
     });
 
+    it('draws nothing for a group another page owns', async () => {
+        // `schedule` is the sustaining source, edited beside the timetable by `SustainingPanel`.
+        // Drawing it here as well would be two forms writing one key, and only one of them next to
+        // the thing that explains it.
+        getSettings.mockResolvedValue(
+            settingsOf({
+                descriptors: [...SETTINGS.descriptors, { group: 'schedule', key: 'schedule.sustainingBrief', label: 'Asked to play', type: 'text' }],
+            }),
+        );
+
+        render(<SettingsPage />);
+
+        await screen.findByRole('heading', { name: 'Station' });
+        expect(screen.queryByLabelText('Asked to play')).not.toBeInTheDocument();
+    });
+
     it('round-trips a dot-keyed setting, which the form library reads as a nested path', async () => {
         // Every station setting is dot-keyed, and Mantine treats a dot in a FIELD NAME as a path
         // into a nested object. Naming the inputs after the keys made every one of them render

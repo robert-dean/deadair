@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import { AIR_MODE_KEY, AIR_MODES, DEFAULT_AIR_MODE, parseAirMode } from '../../../src/modules/playout/air.mode.js';
 import { STREAM_DEFAULTS, STREAM_KEYS, STREAM_SECRET_KEYS } from '../../../src/modules/stream/stream.settings.js';
+import { SUSTAINING_KEYS } from '../../../src/modules/schedule/schedule.service.js';
 import { findDescriptor, isSecretField, SETTING_DESCRIPTORS, SETTING_GROUPS } from '../../../src/modules/settings/settings.registry.js';
 
 describe('the settings registry', () => {
@@ -19,6 +20,16 @@ describe('the settings registry', () => {
     it('puts every descriptor in a group the console draws', () => {
         for (const descriptor of SETTING_DESCRIPTORS) {
             expect(SETTING_GROUPS).toContain(descriptor.group);
+        }
+    });
+
+    it('leaves the sustaining source in the group the schedule page draws', () => {
+        // These five are edited by `SustainingPanel`, on the schedule page, and the settings page
+        // draws no card for their group. Moving one back into `rotation` would put it on both
+        // pages, with two forms writing one key and only one of them beside the timetable that
+        // explains it.
+        for (const key of Object.values(SUSTAINING_KEYS)) {
+            expect(findDescriptor(key)?.group, key).toBe('schedule');
         }
     });
 

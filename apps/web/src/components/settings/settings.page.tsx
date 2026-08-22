@@ -8,7 +8,14 @@ import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
 import { StorageCard } from './storage.card';
 
-/** The sections, in the order an operator should meet them, and what each one is for. */
+/**
+ * The sections, in the order an operator should meet them, and what each one is for.
+ *
+ * Not every declared group is here, and the omission is the mechanism rather than a gap: a group
+ * this list does not name is drawn by whichever page claimed it. `schedule` is the one — what the
+ * station plays between blocks is edited beside the timetable that makes sense of it, by
+ * `SustainingPanel`, so adding it back here would draw those five settings twice.
+ */
 const GROUPS: { key: StationSettingDescriptor['group']; title: string; blurb: string }[] = [
     {
         key: 'station',

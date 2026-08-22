@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { ConfigFieldDescriptor } from '../../plugins/types/plugins.types.js';
 
 /**
- * Which section of the settings page a setting belongs in
+ * Which part of the console owns a setting. Every one of these but `schedule` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes
  * generated from [SettingGroup](file://./../../../../data/contracts/settings/settings.types.ck#L7)
  */
-export const SettingGroup = z.enum(['station', 'rotation', 'playout', 'render', 'llm', 'analysis']);
+export const SettingGroup = z.enum(['station', 'rotation', 'playout', 'render', 'llm', 'analysis', 'schedule']);
 export type SettingGroup = z.infer<typeof SettingGroup>;
 
 /**

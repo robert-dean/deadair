@@ -1,4 +1,3 @@
-const TIME = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const STAMP = new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
@@ -8,10 +7,10 @@ const STAMP = new Intl.DateTimeFormat(undefined, {
     hour12: true,
 });
 const FULL = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
-const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
 
 /**
- * When something happened, to the second.
+ * When something happened: the date and the wall-clock time to the second, in the operator's own
+ * zone.
  *
  * Its own helper rather than `shared/format.date`, which is deliberately day-precision: that one
  * answers "when did we last hear from this source", where a wall-clock time would imply a precision
@@ -19,49 +18,27 @@ const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric'
  * are the whole point — a render that failed two seconds after a break was written is a different
  * story from one that failed an hour later.
  *
- * An absent or unparseable value renders as nothing rather than as `Invalid Date`.
- */
-export function formatMoment(iso: string | undefined): string {
-    const date = parse(iso);
-    return date === undefined ? '' : TIME.format(date);
-}
-
-/**
- * A date and a wall-clock time on one line, in the operator's own zone, for a log tail.
+ * It carries its own date because everything reading it spans days: a feed loads older pages as an
+ * operator scrolls and a retained log tail holds whatever was written since it last rotated. The
+ * feeds used to answer that with a heading wherever the calendar day changed, which every list had
+ * to know about; a row that says its own date needs nothing around it.
  *
- * A log line is written as UTC and read by somebody sitting in a timezone. It carries its own date
- * because a retained tail routinely spans days and every line has to stand on its own: this is a
- * column somebody scans and copies out of, not a feed with headings. 12-hour explicitly, and with a
- * 2-digit hour so the column still lines up, because a log is read against the operator's memory of
- * their own day rather than against a clock.
+ * 12-hour explicitly, with a 2-digit hour so the column still lines up, because these are read
+ * against the operator's memory of their own day rather than against a clock.
+ *
+ * An absent or unparseable value renders as nothing rather than as `Invalid Date`. The input is an
+ * ISO string off the wire, so a value the API never sent and a value it sent wrong look the same
+ * here, and neither is worth showing.
  */
 export function formatMomentStamp(iso: string | undefined): string {
     const date = parse(iso);
     return date === undefined ? '' : STAMP.format(date);
 }
 
-/** The same moment in full, for the tooltip: the list shows times and a feed can span days. */
+/** The same moment in full, for the tooltip: the column abbreviates the month and drops the year. */
 export function formatMomentFull(iso: string | undefined): string {
     const date = parse(iso);
     return date === undefined ? '' : FULL.format(date);
-}
-
-/**
- * The calendar day, for deciding where one day ends and the next begins.
- *
- * `toDateString` rather than a formatted label, because this is compared and never shown: two
- * entries are on the same day or they are not, and a locale format that happened to omit the year
- * would make last August look like this one.
- */
-export function dayOf(iso: string | undefined): string {
-    const date = parse(iso);
-    return date === undefined ? '' : date.toDateString();
-}
-
-/** The same day as a heading. The year is left off: a feed swept at 90 days cannot span one. */
-export function formatDay(iso: string | undefined): string {
-    const date = parse(iso);
-    return date === undefined ? '' : DAY.format(date);
 }
 
 function parse(iso: string | undefined): Date | undefined {

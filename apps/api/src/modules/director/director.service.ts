@@ -1,12 +1,14 @@
 import { Container, Injectable } from 'injectkit';
+import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import { AnalysisRepository } from '#modules/analysis/analysis.repository.js';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from '#modules/playout/air.mode.js';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { TrackCachePlanner } from '#modules/playout/audio/track.cache.planner.js';
-import { TrackAudioService, bindingKey } from '#modules/playout/audio/track.audio.service.js';
+import { CACHE_AHEAD, TrackAudioService, bindingKey } from '#modules/playout/audio/track.audio.service.js';
 import { Epoch } from '#modules/shared/epoch.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
@@ -40,6 +42,7 @@ import {
     type StationLineupSnapshot,
 } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
+import { awaitsMeasurement, measurementOf } from './track.measurement.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -1632,6 +1635,12 @@ export class DirectorService {
         // is about to commit rather than at it.
         await this.ripenTrackCache(lineup);
 
+        // AFTER the ripener and BEFORE the commit block, which is the only placement that works.
+        // A measurement is taken on the local file, so it cannot exist until the audio does, and
+        // the item has to carry it before `toPlayerItems` stamps a gain from it. Between the two
+        // is the one window where both are true.
+        await this.remeasure(lineup);
+
         // AFTER the ripener, so it is judging the wait the last pass left rather than one this pass
         // is about to change, and before the commit block so anything it plants is committable on
         // this pass rather than the next.
@@ -1830,6 +1839,66 @@ export class DirectorService {
             // thing "nothing is coming" — which is what turns the station's own report from warming
             // into stuck over a transient database fault. Failing to look is not evidence.
             this.logger.warn(`director: could not fetch a record ahead of its slot (${errorText(error)})`);
+        }
+    }
+
+    /**
+     * Take the measurement again for records that entered the order without one.
+     *
+     * A record's loudness and cue points are copied onto the item when `PickResolver` resolves the
+     * pick, and analysis runs on an hourly cron over fifteen tracks at a time — so a record ingested
+     * into a long running order is routinely resolved before anything has measured it. It then aired
+     * unlevelled and untrimmed for the whole life of that order, however many hours it sat there,
+     * because the snapshot was never taken again. Measured on air: two records went out at their raw
+     * master level while `deadair.track_analysis` had held a complete measurement of each for
+     * twenty minutes.
+     *
+     * Only the warm window, and for a reason rather than for thrift: a measurement cannot exist
+     * before the audio it was taken from, so the records worth asking about are exactly the ones
+     * {@link ripenTrackCache} has been fetching. Asking about the whole order would be one large
+     * read per pass to re-discover that the far end is still unmeasured.
+     *
+     * Failures are swallowed on {@link ripenTrackCache}'s terms, and the fallback is the state this
+     * replaced rather than anything worse: a record whose measurement could not be read airs the way
+     * every record aired before this existed, which is untrimmed and at its own level. **Nothing here
+     * may treat an absent measurement as a fault** — that rule is what the whole snapshot design
+     * rests on, and this pass narrows how often it is reached instead of changing it.
+     */
+    private async remeasure(lineup: StationLineup): Promise<void> {
+        const items = lineup.all();
+        const from = Math.max(0, lineup.committedThrough());
+        // The same window the cache planner warms, for the reason above: these are the records whose
+        // audio this pass has been getting hold of, so they are the ones that can have been measured.
+        const waiting = items
+            .slice(from, from + CACHE_AHEAD)
+            .filter(isTrackItem)
+            .filter(item => item.state === 'planned' && awaitsMeasurement(item.track));
+        if (waiting.length === 0) return;
+
+        try {
+            const trackIds = [...new Set(waiting.map(item => item.track.trackId!))];
+            const found = await inScope(this.container, scope => scope.get(AnalysisRepository).trustedAnalysisFor(trackIds, ANALYSIS_SCHEMA_VERSION));
+
+            let taken = 0;
+            for (const item of waiting) {
+                const analysis = found.get(item.track.trackId!);
+                // Absent is the ordinary answer and says only that nothing has measured this record
+                // yet. It is not logged, because on a station with an unmeasured tail that would be
+                // a line per record per boundary saying nothing had changed.
+                if (analysis === undefined) continue;
+                if (lineup.remeasure(item.id, measurementOf(analysis))) taken += 1;
+            }
+
+            if (taken === 0) return;
+            // One line for the batch rather than one per record, and only when something actually
+            // changed: this is the pass telling the operator that records which would have aired raw
+            // now will not.
+            this.logger.info('director: took the measurement again for records that entered the order without one', { records: taken });
+            // Memory is the authority and the row is the record, so the write rides the same throttle
+            // every other edit does. Nothing waits on it: what airs is read from the object.
+            this.persistSoon();
+        } catch (error) {
+            this.logger.warn(`director: could not re-read a measurement for the records coming up (${errorText(error)})`);
         }
     }
 

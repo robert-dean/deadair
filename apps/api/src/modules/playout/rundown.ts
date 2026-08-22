@@ -119,11 +119,18 @@ export interface RundownItem {
      *
      * A SNAPSHOT taken when the item was resolved, exactly like `durationMs` and
      * `artworkUrl` beside it, rather than something read at hand-over. The
-     * measurement lives in `deadair.track_analysis` and this is a copy of it, so
-     * a track measured after it entered the running order airs untrimmed until
-     * the order is rebuilt. That is the ordinary case and not worth solving: a
-     * lineup is consumed rather than kept, and an untrimmed record is what the
-     * station does today anyway.
+     * measurement lives in `deadair.track_analysis` and this is a copy of it.
+     *
+     * A copy can be STALE, and this one was, for as long as it was only ever taken
+     * once: analysis runs on an hourly cron over a handful of tracks, so a record
+     * ingested into a long order is routinely resolved before anything has measured
+     * it, and it then aired untrimmed and unlevelled for the whole life of that order
+     * however many hours it waited. The argument for leaving it — that a lineup is
+     * consumed rather than kept — holds for a short order and quietly stops holding
+     * for the long ones `onEnd: 'extend'` produces. So the snapshot is RETAKEN as a
+     * record's slot approaches: `DirectorService.remeasure` over the warm window, and
+     * `StationLineup.remeasure` applies it. Still a copy, and still absent whenever
+     * nothing has measured the record yet.
      *
      * All FOUR are absent together or present together, and absent is ordinary —
      * an unmeasured track, an incomplete measurement, or one from a schema version

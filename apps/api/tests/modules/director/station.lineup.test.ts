@@ -705,3 +705,77 @@ describe('StationLineup and a block of segments', () => {
         });
     });
 });
+
+describe('StationLineup remeasuring', () => {
+    /** A measurement as `measurementOf` produces one, both halves present. */
+    const measured = { cueInMs: 100, introEndMs: 8_000, outroStartMs: 200_000, cueOutMs: 210_000, loudnessLufs: -9.4, truePeakDb: 0.4 };
+
+    const trackOf = (lineup: StationLineup, externalId: string) => {
+        const item = lineup.all().find(candidate => candidate.kind === 'track' && candidate.track.externalId === externalId);
+        return item?.kind === 'track' ? item.track : undefined;
+    };
+
+    it('puts a measurement onto a record that entered the order without one', () => {
+        // The case this exists for: analysis runs on an hourly cron, so a record ingested
+        // into a long order is routinely resolved before anything has measured it.
+        const lineup = lineupWith(['a', 'b']);
+        const item = lineup.all()[0]!;
+
+        expect(lineup.remeasure(item.id, measured)).toBe(true);
+        expect(trackOf(lineup, 'a')).toMatchObject(measured);
+    });
+
+    it('replaces the old measurement rather than merging with it', () => {
+        // Two analyses are two descriptions of one record, and mixing them gives a record
+        // trimmed by one and levelled by the other.
+        const lineup = lineupWith(['a']);
+        const item = lineup.all()[0]!;
+        lineup.remeasure(item.id, measured);
+
+        lineup.remeasure(item.id, { loudnessLufs: -14 });
+
+        expect(trackOf(lineup, 'a')).toMatchObject({ loudnessLufs: -14 });
+        expect(trackOf(lineup, 'a')?.cueOutMs).toBeUndefined();
+        expect(trackOf(lineup, 'a')?.truePeakDb).toBeUndefined();
+    });
+
+    it('leaves everything about the record that is not a measurement', () => {
+        // Title and credit were deliberately taken from the catalog row rather than from
+        // the pick, and this may not quietly undo that.
+        const lineup = lineupWith(['a']);
+        const item = lineup.all()[0]!;
+
+        lineup.remeasure(item.id, measured);
+
+        expect(trackOf(lineup, 'a')).toMatchObject({ title: 'Track a', artist: 'An Artist', pluginId: 'deadair.spotify', externalId: 'a' });
+    });
+
+    it('refuses an empty measurement rather than clearing what is there', () => {
+        // Nothing to say is not the same as saying nothing.
+        const lineup = lineupWith(['a']);
+        const item = lineup.all()[0]!;
+        lineup.remeasure(item.id, measured);
+
+        expect(lineup.remeasure(item.id, {})).toBe(false);
+        expect(trackOf(lineup, 'a')).toMatchObject(measured);
+    });
+
+    it('will not touch an item the player has already been handed', () => {
+        // Committing is a promise: the annotation has gone, so moving the trim under audio
+        // that is already resolved changes nothing a listener hears.
+        const lineup = lineupWith(['a', 'b']);
+        const [handed] = hand(lineup, 1);
+
+        expect(lineup.remeasure(handed!.id, measured)).toBe(false);
+        expect(trackOf(lineup, 'a')?.loudnessLufs).toBeUndefined();
+    });
+
+    it('will not touch a segment or an id that is not in the order', () => {
+        const lineup = lineupWith(['a']);
+        lineup.insertSegments([{ segmentId: 'ident', atIndex: 0 }]);
+        const segment = lineup.all().find(item => item.kind === 'segment')!;
+
+        expect(lineup.remeasure(segment.id, measured)).toBe(false);
+        expect(lineup.remeasure('no-such-item', measured)).toBe(false);
+    });
+});

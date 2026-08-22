@@ -32,6 +32,7 @@ import { Rundown, type RundownTrack } from '../../../src/modules/playout/rundown
 import { TrackResolver } from '../../../src/modules/playout/playout.capability.js';
 import { TrackAudioService, bindingKey } from '../../../src/modules/playout/audio/track.audio.service.js';
 import { TrackCachePlanner } from '../../../src/modules/playout/audio/track.cache.planner.js';
+import { AnalysisRepository } from '../../../src/modules/analysis/analysis.repository.js';
 import { BreakPlanner } from '../../../src/modules/director/break.planner.js';
 import { BreakRequestRepository } from '../../../src/modules/director/break.request.repository.js';
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
@@ -97,6 +98,16 @@ interface Options {
      * record's own slot. The director takes these out of the order before their slots arrive.
      */
     unfetchable?: string[];
+    /**
+     * External ids `deadair.track_analysis` now holds a complete measurement for.
+     *
+     * Stands in for a measurement that landed AFTER the record entered the order, which is the
+     * ordinary case: analysis runs on an hourly cron, so a record ingested into a long order is
+     * routinely resolved before anything has measured it.
+     */
+    analysed?: string[];
+    /** The analysis read throws, so the pass has to fall back to airing the record raw. */
+    analysisFails?: boolean;
     /**
      * Which segment promised which line, as `[itemId, segmentId]` pairs.
      *
@@ -261,6 +272,23 @@ function build(options: Options = {}) {
     }));
     const cachePlanner = { ripen } as unknown as TrackCachePlanner;
 
+    // What has been measured, keyed the way `PickResolver` keys it. `catalogued` mints
+    // `track-<externalId>`, so a test naming external ids reads the same either way.
+    const trustedAnalysisFor = vi.fn(async (trackIds: readonly string[]) => {
+        if (options.analysisFails) throw new Error('the analysis table is gone');
+
+        const wanted = (options.analysed ?? []).map(externalId => `track-${externalId}`);
+        return new Map(
+            trackIds
+                .filter(trackId => wanted.includes(trackId))
+                .map(trackId => [
+                    trackId,
+                    { trackId, schemaVersion: 1, data: { cueIn: 100, introEnd: 8_000, outroStart: 200_000, cueOut: 210_000, integratedLufs: -9.4 } },
+                ]),
+        );
+    });
+    const analysis = { trustedAnalysisFor } as unknown as AnalysisRepository;
+
     // What the station has been asked to say. In memory here: what these tests are about is the
     // director's own restraint — the cooldown, and declining while off air — rather than the SQL,
     // which `apps/api/scripts/break.request.smoke.ts` covers against the real database.
@@ -314,7 +342,9 @@ function build(options: Options = {}) {
                                 ? trackAudio
                                 : token === TrackCachePlanner
                                   ? cachePlanner
-                                  : history,
+                                  : token === AnalysisRepository
+                                    ? analysis
+                                    : history,
         ),
         disposeAsync: vi.fn(async () => {}),
     };
@@ -358,6 +388,7 @@ function build(options: Options = {}) {
         scope,
         rundown,
         readyFor,
+        trustedAnalysisFor,
         lineups,
         productions,
         snapshots,
@@ -417,6 +448,64 @@ const airNext = async (rundown: Rundown) => {
 
     return pulled;
 };
+
+describe('DirectorService taking the measurement again', () => {
+    // A measurement is a SNAPSHOT copied onto the item when the pick was resolved, and analysis
+    // runs on an hourly cron -- so a record ingested into a long order is routinely resolved
+    // before anything has measured it. It used to keep that hole for the whole life of the order,
+    // which is a record airing at its raw master level with a complete measurement sitting in
+    // `deadair.track_analysis` the entire time.
+    it('fills in a measurement that landed after the record entered the order', async () => {
+        const { director, lineup, seedCatalogued } = build({ items: ['a', 'b', 'c'], analysed: ['b'] });
+        await seedCatalogued();
+
+        await director.start();
+
+        const b = lineup.all().find(item => isTrackItem(item) && item.track.externalId === 'b');
+        expect(b && isTrackItem(b) ? b.track : undefined).toMatchObject({ loudnessLufs: -9.4, cueInMs: 100, cueOutMs: 210_000 });
+    });
+
+    it('leaves a record nothing has measured yet exactly as it was', async () => {
+        // The ordinary state rather than a fault: it airs untrimmed and at its own level, which is
+        // what every record did before any of this existed.
+        const { director, lineup, seedCatalogued } = build({ items: ['a', 'b'], analysed: [] });
+        await seedCatalogued();
+
+        await director.start();
+
+        expect(lineup.all().every(item => !isTrackItem(item) || item.track.loudnessLufs === undefined)).toBe(true);
+    });
+
+    it('asks only about the records that are still missing one', async () => {
+        // The read is batched and bounded by the warm window, and a record that already carries
+        // both halves has nothing to re-read.
+        const { director, seedCatalogued, trustedAnalysisFor } = build({ items: ['a', 'b'], analysed: ['a'] });
+        await seedCatalogued();
+
+        await director.start();
+        trustedAnalysisFor.mockClear();
+        await director.post({ kind: 'wake' });
+        await settle();
+
+        // `a` was filled in on the first pass, so the second asks about `b` alone. Asserted as a
+        // flattened list rather than per call, so a pass that asked about NOTHING cannot pass this
+        // by having no calls to disagree with.
+        const asked = trustedAnalysisFor.mock.calls.flatMap(call => [...call[0]]);
+        expect(asked).toContain('track-b');
+        expect(asked).not.toContain('track-a');
+    });
+
+    it('airs the record raw rather than failing the pass when the measurement cannot be read', async () => {
+        // Same terms as the ripener beside it: a read that fails must not take down the pass that
+        // keeps the running order full and the station on air.
+        const { director, rundown, seedCatalogued } = build({ items: ['a', 'b'], analysed: ['a'], analysisFails: true });
+        await seedCatalogued();
+
+        await director.start();
+
+        expect(idsOf(rundown.upcoming())).toEqual(['a']);
+    });
+});
 
 describe('DirectorService thinning the order before the slot arrives', () => {
     // The half that turns "silence at the boundary" into "rotation got thinner an hour ago". The

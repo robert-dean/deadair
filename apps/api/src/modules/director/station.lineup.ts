@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AiringResult, LiveOrder } from '#modules/playout/live.order.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
+import { MEASUREMENT_FIELDS, type TrackMeasurement } from './track.measurement.js';
 
 /**
  * The station's live running order: every item it means to air, in order, each
@@ -752,6 +753,47 @@ export class StationLineup implements LiveOrder {
         const { personaId: _current, ...rest } = this.binding;
 
         this.binding = personaId ? { ...rest, personaId } : rest;
+    }
+
+    /**
+     * Take this record's measurement again, now that there is one.
+     *
+     * A measurement is a SNAPSHOT copied onto the item when the pick was resolved, and
+     * analysis runs on an hourly cron — so a record ingested into a long order is
+     * routinely resolved before anything has measured it, and used to air unlevelled
+     * and untrimmed for the whole life of that order however long it waited. This is
+     * how the snapshot is retaken; `DirectorService.remeasure` decides when.
+     *
+     * Three bounds, each of them the reason for a line of it.
+     *
+     * **`planned` only.** A committed item has already been annotated and handed to the
+     * player, so changing its cue points here would move the trim under audio that is
+     * already resolved and change nothing the listener hears. It is the same rule
+     * `markUnavailable` bends and this one does not: there is no urgency here worth a
+     * promise being rewritten underneath the transport.
+     *
+     * **Replace rather than merge**, over the whole of {@link MEASUREMENT_FIELDS}. Two
+     * analyses are two descriptions of one record and mixing them gives a record
+     * trimmed by one and levelled by the other, which is worse than either.
+     *
+     * **The track's other fields are untouched.** Title, credit, artwork and binding
+     * are not measurements and several of them were deliberately taken from the
+     * catalog row rather than from the pick; this may not quietly undo that.
+     *
+     * @returns whether anything actually changed, so the caller can log a real number.
+     */
+    remeasure(itemId: string, measurement: TrackMeasurement): boolean {
+        const item = this.itemList.find(candidate => candidate.id === itemId);
+        if (item === undefined || !isTrackItem(item) || item.state !== 'planned') return false;
+        // Nothing to say is not the same as saying nothing: an analysis that came back with
+        // neither half would otherwise CLEAR a measurement the item already had.
+        if (Object.keys(measurement).length === 0) return false;
+
+        const track: Record<string, unknown> = { ...item.track };
+        for (const field of MEASUREMENT_FIELDS) delete track[field];
+        item.track = { ...track, ...measurement } as RundownTrack;
+
+        return true;
     }
 
     /** Add to the end. Nothing else moves: this is the plan continuing. */

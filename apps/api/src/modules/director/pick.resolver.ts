@@ -3,10 +3,9 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
-import { AnalysisRepository, type StoredAnalysis } from '#modules/analysis/analysis.repository.js';
+import { AnalysisRepository } from '#modules/analysis/analysis.repository.js';
 import { CatalogResolverService } from '#modules/catalog/ingest/catalog.resolver.service.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
-import type { MeasuredLoudness } from '#modules/playout/gain.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { advisoryPolicy, demandsClean } from './advisory.policy.js';
 import { CandidatesRepository, bindsAnything, withinPeriod, type EraWindow } from './candidates.repository.js';
@@ -15,6 +14,7 @@ import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import { applyRules, spaceArtists, type ResolvedRules, type RotationCandidate } from './rotation.rules.js';
 import type { TrackPick } from './set.generator.js';
+import { measurementOf } from './track.measurement.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -65,107 +65,6 @@ export const MAX_DISCOVERIES = 32;
  * gets a lookup for every record it named.
  */
 export const discoveryCap = (picks: number): number => Math.min(Math.max(picks, MIN_DISCOVERIES), MAX_DISCOVERIES);
-
-/** The four cue points as an item carries them: all of them, or none. */
-type CuePointSnapshot = { cueInMs?: number; introEndMs?: number; outroStartMs?: number; cueOutMs?: number };
-
-/**
- * The measured cue points as an item carries them, or nothing.
- *
- * Snapshotted onto the item rather than read at hand-over, which is the same
- * call `durationMs` and `artworkUrl` already make. The consequence is stated on
- * `RundownItem`: a track measured after it enters a running order airs untrimmed
- * until that order is rebuilt, which is what the station does today anyway.
- *
- * The numbers are validated once more here even though the repository filtered
- * the rows, because `data` is a jsonb blob written by a plugin: the host stores
- * it unread on purpose, so this is the first place anything looks inside it.
- *
- * **All four or none**, which is stricter than it needs to be for the outer two
- * and is the right call anyway. The trim only needs `cueIn` and `cueOut`, so a
- * blob with a bad `introEnd` could still trim — but the four points describe one
- * shape, and a measurement that contradicts itself about where a record is
- * underway is not one to trust about where it stops either. An unmeasured track
- * plays untrimmed, which is an ordinary state and not a fault.
- *
- * The ordering check is the whole chain rather than the ends. `measure.py` clamps
- * its output into this order before it answers, so a violation arriving here is
- * not a detector being imprecise: it is a blob from something else.
- */
-function cuePoints(analysis: StoredAnalysis | undefined): CuePointSnapshot {
-    const cueInMs = analysis?.data.cueIn;
-    const introEndMs = analysis?.data.introEnd;
-    const outroStartMs = analysis?.data.outroStart;
-    const cueOutMs = analysis?.data.cueOut;
-
-    const points = [cueInMs, introEndMs, outroStartMs, cueOutMs];
-    if (points.some(point => typeof point !== 'number' || !Number.isFinite(point))) return {};
-    if (cueInMs! < 0 || cueOutMs! <= cueInMs!) return {};
-    // Non-strict between the inner points: a record with no intro to speak of, or one
-    // that ends the instant its outro begins, is a real record rather than a bad blob.
-    if (introEndMs! < cueInMs! || outroStartMs! < introEndMs! || cueOutMs! < outroStartMs!) return {};
-
-    return { cueInMs, introEndMs, outroStartMs, cueOutMs };
-}
-
-/**
- * The measured loudness as an item carries it, field by field.
- *
- * Unlike {@link cuePoints}, which are all-or-nothing because a cue span that is
- * half measured describes nothing, these are independent: an analyzer may report
- * a loudness and no peak, and `gainFor` has a defined answer for every
- * combination including none of them. So each field is taken on its own and a
- * bad one costs only itself.
- *
- * Validated here for the same reason the cue points are: `data` is a jsonb blob
- * a plugin wrote and the host stored without reading, so this is the first place
- * anything looks inside it.
- */
-function loudness(analysis: StoredAnalysis | undefined): MeasuredLoudness {
-    const data = analysis?.data;
-    // `integratedLufs` is the analyzer's name for it and `loudnessLufs` is the
-    // item's; this line is the whole of that translation.
-    const loudnessLufs = taggedLoudness(data) ?? measurement(data?.integratedLufs);
-    const truePeakDb = measurement(data?.truePeakDb);
-    const samplePeakDb = measurement(data?.samplePeakDb);
-
-    return {
-        ...(loudnessLufs === undefined ? {} : { loudnessLufs }),
-        ...(truePeakDb === undefined ? {} : { truePeakDb }),
-        ...(samplePeakDb === undefined ? {} : { samplePeakDb }),
-    };
-}
-
-/**
- * How loud the FILE says it is, from its own ReplayGain or R128 tags.
- *
- * Preferred over the measurement where a file carries it, which is the rule
- * `docs/todo/station-intelligence.md` §4 states and the reason for it is not
- * accuracy: a tag is what the mastering engineer or the label decided, and the
- * measurement is what this station guessed. Where they disagree the station is
- * not the authority.
- *
- * **This is the only place the preference is expressed**, so an item carries one
- * loudness and everything downstream is spared knowing where it came from. The
- * blob keeps both.
- *
- * The tagged PEAK is deliberately not preferred anywhere: it is a sample peak by
- * definition, and the measurement has a true one, which is the number a boost is
- * actually capped against.
- */
-function taggedLoudness(data: StoredAnalysis['data'] | undefined): number | undefined {
-    const gainDb = measurement(data?.tagGainDb);
-    const referenceLufs = measurement(data?.tagReferenceLufs);
-    // Both or neither. A gain with no reference is not a weaker claim about the
-    // record's level, it is no claim at all -- the two conventions in the wild
-    // are five decibels apart -- so an incomplete pair falls through to the
-    // measurement rather than being read against an assumed reference here.
-    if (gainDb === undefined || referenceLufs === undefined) return undefined;
-
-    return referenceLufs - gainDb;
-}
-
-const measurement = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);
 
 /**
  * A pick that has been matched to a catalog row, carrying what the rules judge it by.
@@ -276,12 +175,7 @@ export class PickResolver {
      *   reason everything else is: a pick is a NAME, so a generator that never read the catalog can
      *   hand over a record from the wrong decade and mean no harm by it.
      */
-    async resolve(
-        picks: readonly TrackPick[],
-        rules: ResolvedRules,
-        preference: readonly string[] = [],
-        era?: EraWindow,
-    ): Promise<RundownTrack[]> {
+    async resolve(picks: readonly TrackPick[], rules: ResolvedRules, preference: readonly string[] = [], era?: EraWindow): Promise<RundownTrack[]> {
         if (picks.length === 0) return [];
 
         const policy = advisoryPolicy(this.config);
@@ -347,8 +241,10 @@ export class PickResolver {
                 ...(row?.album == null ? {} : { album: row.album }),
                 ...(row?.artworkUrl == null ? {} : { artworkUrl: row.artworkUrl }),
                 ...(row?.year == null ? {} : { year: row.year }),
-                ...cuePoints(measured.get(trackId)),
-                ...loudness(measured.get(trackId)),
+                // The snapshot as it stands NOW. It is retaken by `DirectorService` if the
+                // measurement lands after this, which is why the mapping is shared rather than
+                // written here: see `track.measurement.ts`.
+                ...measurementOf(measured.get(trackId)),
                 trackId,
             });
         }

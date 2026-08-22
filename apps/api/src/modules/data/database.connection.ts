@@ -16,10 +16,14 @@ export interface DatabaseConnection {
 }
 
 /**
- * The owner role (`DATABASE_USER`), which owns the schema and bypasses RLS.
+ * The owner role (`DATABASE_USER`), which owns the schema and may change it.
  *
- * For privileged maintenance only. dbmate and pg-boss hold their own connections
- * as this role for the same reason.
+ * For privileged maintenance. dbmate holds its own connection as this role and
+ * `JobsModule` calls this for pg-boss, which manages its own schema.
+ *
+ * It would also bypass RLS, which is why the runtime path deliberately does not
+ * use it — though there are no policies to bypass yet. See
+ * `docs/todo/row-level-security.md`.
  */
 export function resolveOwnerConnection(config: AppConfig): DatabaseConnection {
     return {
@@ -34,9 +38,14 @@ export function resolveOwnerConnection(config: AppConfig): DatabaseConnection {
 /**
  * The role ordinary application reads and writes go through.
  *
- * `DATABASE_APP_USER` when it is configured, so the non-owner role is subject to
- * the RLS policies the owner would bypass, and the owner otherwise. That
- * fallback is what lets a development install run with one set of credentials.
+ * `DATABASE_APP_USER` when it is configured, so ordinary traffic runs as a role
+ * that holds only DML grants and is created `nobypassrls`, and the owner
+ * otherwise. That fallback is what lets a development install run with one set
+ * of credentials.
+ *
+ * The `nobypassrls` half is preparation rather than protection today: no
+ * migration declares a policy, so there is nothing for it not to bypass. What it
+ * does buy already is that the runtime path cannot alter the schema.
  *
  * Shared rather than repeated because there are now two callers deciding it —
  * the runtime pool in `data.module.ts`, and the settings source in

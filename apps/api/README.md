@@ -77,7 +77,7 @@ Registered in the order below (see [modules.ts](src/modules/modules.ts)).
 
 | Module             | Path                                                 | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ------------------ | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Data**           | [modules/data](src/modules/data)                     | The Kysely/Postgres pool and the Redis client. When `DATABASE_APP_USER` is set the runtime pool connects as the non-owner `app_user` role so the org-isolation RLS policies actually enforce (the table owner bypasses RLS); dbmate and pg-boss keep their own owner connections via `DATABASE_USER`. Pool size and acquire/idle timeouts are tunable (`DATABASE_POOL_*`) because each request holds a connection for its whole lifetime. Also the generated DB types (`db.ts`) and the shared `DataRepository` base.                                                |
+| **Data**           | [modules/data](src/modules/data)                     | The Kysely/Postgres pool and the Redis client. When `DATABASE_APP_USER` is set the runtime pool connects as the non-owner `app_user` role, which holds DML grants only and cannot alter the schema; dbmate and pg-boss keep their own owner connections via `DATABASE_USER`. The role is `nobypassrls` and there are no RLS policies for it not to bypass — see [row-level-security.md](../../docs/todo/row-level-security.md). Pool size and acquire/idle timeouts are tunable (`DATABASE_POOL_*`) because each request holds a connection for its whole lifetime. Also the generated DB types (`db.ts`) and the shared `DataRepository` base.                                                |
 | **Crypto**         | [modules/crypto](src/modules/crypto)                 | The `EncryptionProvider`, keyed from `KMS_LOCAL_ROOT_KEY`. Registered before authentication so anything needing envelope encryption (auth factors, plugin credentials) resolves it without depending on auth's setup order.                                                                                                                                                                                                                                                                                                                                          |
 | **Authentication** | [modules/authentication](src/modules/authentication) | Wires `@maroonedsoftware/authentication`: the bearer/JWT scheme handler and deadair's JWT issuer, factor services and Kysely repositories (password, email, phone, OIDC, FIDO, authenticator), MFA challenge and orchestration, Redis-backed rate limiting on password attempts, sessions and login-activity tracking, and the request/response cookie jars used by refresh-cookie flows. Google OIDC registers only when its client id and secret are configured. `OTP_DEV_BYPASS` accepts any submitted code and hard-fails at boot unless `NODE_ENV=development`. |
 | **Permissions**    | [modules/permissions](src/modules/permissions)       | The Zanzibar-style tuple store and check path: `PermissionsService`, the Kysely `DeadairPermissionsTupleRepository`, the per-request `AuthorizationContext`, and `AccessControlService`. The authorization model in `generated/` is compiled from [data/permissions/core.perm](data/permissions/core.perm). `platform.roles.ts` holds the role → permission-pattern map that Zanzibar can't express per-object; its header documents the invariant that every role there must have a matching relation in the `.perm` file.                                          |
@@ -158,18 +158,19 @@ Three of those carry most of the weight:
   its own peer address either way.
 
 - **[audit.context](src/server/middleware/audit.context.middleware.ts)** opens the per-request
-  transaction, sets the `app.actor_*` GUCs on it, and overrides the scoped `Kysely` and pg-boss
-  connection provider so job enqueues commit atomically with the request. GETs run in a transaction
-  too, because the org-isolation GUC is set `is_local` and would otherwise expire after one
-  statement.
+  transaction, sets the `app.actor_*` GUCs on it (a prepared seam — nothing reads them yet), and
+  overrides the scoped `Kysely` and pg-boss connection provider so job enqueues commit atomically
+  with the request. GETs run in a transaction too, so `AfterCommit` means what it says on every
+  route and a read path that enqueues something still gets that atomicity.
 - **[authorization.context](src/server/middleware/authorization.context.middleware.ts)** collapses
   the auth package's flat context into deadair's `Actor` union and resolves the actor's platform
   roles into a permission set.
 
 [transaction.exemptions.ts](src/server/middleware/transaction.exemptions.ts) makes the opt-out set
-declarative (OPTIONS preflight, `/`, `/healthcheck`, streaming responses). Its header documents the
-bar a new exemption has to clear: an exempt request has no transaction, so it must not rely on the
-org-isolation RLS policies.
+declarative (OPTIONS preflight, `/`, `/healthcheck`, streaming responses, now-playing). Its header
+documents the bar a new exemption has to clear: an exempt request has no transaction, so it must not
+enqueue a job describing work that could still fail, and must not rely on `AfterCommit` for anything
+a caller reads back in the same request.
 
 ---
 

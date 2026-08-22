@@ -970,7 +970,7 @@ pass. The beat is skipped for a pass that threw and taken for one that returned 
 `return`s in `reconcile` are the loop working. Two of the five timer loops have adopted it; the rest
 are one line each on the day something reads them.
 
-**Two database pools.** The runtime pool connects as the non-owner `app_user` role so RLS actually enforces; a separate owner pool handles privileged maintenance.
+**Two database pools, and the isolation they are FOR is not built.** The runtime pool connects as the non-owner `app_user` role (created `nobypassrls`, granted DML only) and a separate owner pool handles privileged maintenance, so the runtime path cannot alter the schema. That is all it currently buys: **no migration declares a single RLS policy**, there is no organization table to isolate by, and the four `app.actor_*` GUCs set on every request transaction and every `TransactionalJob` are read by nothing — no trigger, no policy, no `current_setting` anywhere. Nine places used to state or imply otherwise, including this one. `docs/todo/row-level-security.md` records what would have to be built and, more importantly, the one thing that must not happen: **the per-request transaction must not be deleted on the grounds that its RLS justification was fiction.** Its other two reasons are live — `AfterCommit` running when the work is durable, and a job enqueued during a request committing atomically with it — which is why the exempt branch runs `AfterCommit` itself.
 
 **The console is a broadcast desk, and the design language is enforced by structure rather than by
 discipline.** `apps/web` is Mantine v9 and nothing else — no CSS-in-JS, no utility framework. The

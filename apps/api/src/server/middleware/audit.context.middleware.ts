@@ -8,12 +8,22 @@ import { DEFAULT_TRANSACTION_EXEMPTIONS, isTransactionExempt } from './transacti
 
 export const auditContextMiddleware: () => ServerKitMiddleware = () => {
     return async (ctx, next) => {
-        // GET runs in a transaction too. authorization.context sets the `app.actor_org_id` GUC with
-        // is_local=true, which only survives inside a transaction; without one it expires after a
-        // single statement on the pooled connection, so the org-isolation RLS policies
-        // (current_setting without missing_ok) would raise on every read under the non-owner
-        // DATABASE_APP_USER role. Exempt routes (OPTIONS, health/root, streaming — see
-        // transaction.exemptions.ts) don't rely on those policies and skip the transaction.
+        // GET runs in a transaction too, and there are TWO reasons for that — which matters,
+        // because for a long time this comment gave only a third one that was not true.
+        //
+        // 1. `AfterCommit` means what it says. A deferred settings reload or a plugin reinit runs
+        //    when the request's work is durable, and on a route with no transaction the exempt
+        //    branch below has to stand in for that.
+        // 2. A job enqueued during a request commits atomically with it, via the connection
+        //    provider overridden below. Without the transaction a job can be picked up describing
+        //    work that then rolled back.
+        //
+        // What it USED to say was that `authorization.context` pins an `app.actor_org_id` GUC that
+        // org-isolation RLS policies read, and that they would raise on every read without it.
+        // None of that exists: that middleware sets no GUC, no migration declares a policy, and
+        // the four GUCs set below are read by nothing. See `docs/todo/row-level-security.md`.
+        // The transaction stays because of the two reasons above, and deleting it on the grounds
+        // that the RLS story was fiction would break both.
         if (isTransactionExempt(ctx, DEFAULT_TRANSACTION_EXEMPTIONS)) {
             await next();
             // There was no transaction to wait for, so "after the commit" is here.
@@ -35,6 +45,13 @@ export const auditContextMiddleware: () => ServerKitMiddleware = () => {
         const actorIp = ctx.ipAddress ?? null;
 
         await db.transaction().execute(async trx => {
+            // Written and, today, read by NOTHING: no trigger, no policy, no `current_setting`
+            // anywhere in the schema. They are a prepared seam rather than a live control, kept
+            // because the alternative is a database-side audit trail that starts with no history
+            // and because they cost one statement on a connection already being set up. Say so
+            // rather than implying otherwise — see `docs/todo/row-level-security.md` for what
+            // would have to be true for them to matter, including the `app.actor_org_id` this
+            // deliberately does not set because there is no organization to name.
             await sql`
                 select set_config('app.actor_type', ${actorType}, true),
                        set_config('app.actor_id', ${actorId}, true),

@@ -1,7 +1,8 @@
-// An exempt request runs with no transaction, so it also runs without the org
-// isolation GUC surviving past a single statement. Getting this set wrong is
-// quiet in both directions: too broad and a route silently loses its RLS, too
-// narrow and a hot public poll spends a pooled connection per call.
+// An exempt request runs with no transaction, so it gives up atomicity with
+// anything it enqueues and its `AfterCommit` work runs when the handler returns
+// rather than when a commit lands. Getting this set wrong is quiet in both
+// directions: too broad and a route silently loses those guarantees, too narrow
+// and a hot public poll spends a pooled connection per call.
 
 import { describe, expect, it } from 'vitest';
 

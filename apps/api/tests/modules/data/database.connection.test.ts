@@ -43,8 +43,8 @@ describe('resolveRuntimeConnection', () => {
     });
 
     it('falls back to the owner when no app role is configured', () => {
-        // The development case: one set of credentials, and RLS not enforced because the owner
-        // bypasses it. It has to keep working, so an unset DATABASE_APP_USER is not an error.
+        // The development case: one set of credentials, running as the owner. It has to keep
+        // working, so an unset DATABASE_APP_USER is not an error.
         expect(resolveRuntimeConnection(configOf(OWNER))).toEqual(resolveOwnerConnection(configOf(OWNER)));
     });
 

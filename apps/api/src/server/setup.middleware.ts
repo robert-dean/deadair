@@ -53,10 +53,13 @@ export const setupMiddleware = (container: Container) => {
     middlewares.push(bridgeSecretMiddleware());
     middlewares.push(authenticationMiddleware());
     middlewares.push(auditContextMiddleware());
-    // authorization.context resolves the active org (validating any
-    // `x-organization-id` header against the user's actual memberships) and
-    // pins `app.actor_org_id` on the active transaction so identity's RLS
-    // policies can read it.
+    // authorization.context collapses the auth package's context into the `Actor` union, checks the
+    // actor still exists (a schema rebuild wipes Postgres and not Redis, so a browser can hold a
+    // token for a user who does not), and resolves platform roles from the tuple store.
+    //
+    // It does NOT resolve an organization or pin any GUC, which is what this said for as long as it
+    // existed. There is no organization table and no RLS to read one — see
+    // `docs/todo/row-level-security.md`.
     middlewares.push(authorizationContextMiddleware());
     // Pushed after jsonMiddleware so its response-side hook runs INSIDE json's (Koa onion): it sees
     // the still-object token body, moves the refresh token into an httpOnly cookie, and strips it

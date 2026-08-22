@@ -35,9 +35,13 @@ export const DataModule: ServerKitModule = {
         };
 
         // The runtime query pool connects as the non-owner `app_user` role where one is configured,
-        // so the RLS policies actually enforce (the table owner bypasses them) and falls back to
-        // the owner otherwise. dbmate (migrations) and pg-boss (queue-schema management, see
-        // JobsModule) keep their own owner connections.
+        // falling back to the owner otherwise. dbmate (migrations) and pg-boss (queue-schema
+        // management, see JobsModule) keep their own owner connections.
+        //
+        // The role is created `nobypassrls` and holds only DML grants, so it is the role RLS would
+        // apply to IF any existed. None does today — no migration declares a policy — so what the
+        // split currently buys is the narrower thing: the runtime path cannot DDL, and the seam is
+        // in place for the day the policies are written. See `docs/todo/row-level-security.md`.
         //
         // Which role that is gets decided in one place rather than here, because there are now two
         // callers of the answer: this pool, and the settings config source that reads

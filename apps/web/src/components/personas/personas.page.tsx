@@ -11,10 +11,12 @@ import {
     useRestorePersonas,
     useUpdatePersona,
 } from '../../api/personas.queries';
+import { apiErrorMessage } from '../../api/sdk.error';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
 import { PersonaNotesPanel } from './persona.notes';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
@@ -47,11 +49,19 @@ export function PersonasPage() {
     // Which character's notebook is open, or none. One at a time, because the panel fetches per
     // persona and a page of nineteen open notebooks is nineteen requests nobody asked for.
     const [notebook, setNotebook] = useState<string | undefined>(undefined);
+    // Which character a delete is being asked about. Holding the persona rather than its id, so the
+    // dialog can name what it is about to take without looking it back up.
+    const [deleting, setDeleting] = useState<Persona | undefined>(undefined);
 
     const close = () => {
         setEditing(undefined);
         create.reset();
         update.reset();
+    };
+
+    const closeDelete = () => {
+        setDeleting(undefined);
+        remove.reset();
     };
 
     const submit = (draft: PersonaInput) => {
@@ -87,28 +97,11 @@ export function PersonasPage() {
                 <ErrorAlert title="Personas could not be loaded" error={personas.error} fallback="The persona list is unavailable." />
             ) : undefined}
 
-            {putOnAir.error ? (
-                <ErrorAlert
-                    title="That persona could not be put on air"
-                    error={putOnAir.error}
-                    fallback="The station is still in the character it was."
-                />
-            ) : undefined}
-
+            {/* The one failure that stays page-level, because the button that asks for it is up
+                here and it is about the list rather than about any row in it. Putting one on air,
+                rehearsing one and deleting one all report on the card that asked. */}
             {restore.error ? (
                 <ErrorAlert title="The station personas could not be restored" error={restore.error} fallback="Nothing was written." />
-            ) : undefined}
-
-            {remove.error ? (
-                <ErrorAlert title="That persona could not be deleted" error={remove.error} fallback="Nothing was removed." />
-            ) : undefined}
-
-            {rehearse.error ? (
-                <ErrorAlert
-                    title="That persona could not be rehearsed"
-                    error={rehearse.error}
-                    fallback="Nothing was changed — a rehearsal writes no row and cannot air."
-                />
             ) : undefined}
 
             {personas.isPending ? (
@@ -185,17 +178,30 @@ export function PersonasPage() {
                                 <Button variant="subtle" size="compact-sm" onClick={() => setEditing(persona)}>
                                     Edit
                                 </Button>
+                                {/* The one action here that loses something an operator wrote, so
+                                    it is the one that asks first and says what goes with it. */}
                                 <Button
                                     variant="subtle"
                                     color="red"
                                     size="compact-sm"
                                     loading={remove.isPending && remove.variables === persona.id}
-                                    onClick={() => remove.mutate(persona.id)}
+                                    onClick={() => setDeleting(persona)}
                                 >
                                     Delete
                                 </Button>
                             </Group>
                         </Group>
+
+                        {/* Each failure belongs to the button that asked for it. A page-level alert
+                            for a per-card button puts the reason at the top of a list of fourteen,
+                            where an operator working on the ninth will not see it. */}
+                        {putOnAir.error && putOnAir.variables === persona.id ? (
+                            <CardFailure error={putOnAir.error} fallback="The station is still in the character it was." />
+                        ) : undefined}
+
+                        {rehearse.error && rehearse.variables === persona.id ? (
+                            <CardFailure error={rehearse.error} fallback="Nothing was changed: a rehearsal writes no row and cannot air." />
+                        ) : undefined}
 
                         {/* Keyed on the persona it was actually run for rather than simply rendered
                             under whichever card is last: one result is held at a time, and a panel
@@ -219,7 +225,27 @@ export function PersonasPage() {
                 saving={create.isPending || update.isPending}
                 error={create.error ?? update.error ?? undefined}
             />
+
+            <PersonaDeleteModal
+                {...(deleting === undefined ? {} : { persona: deleting })}
+                opened={deleting !== undefined}
+                onClose={closeDelete}
+                // Closed only once it worked: a delete that failed leaves the dialog up holding the
+                // reason, where a dialog that closed anyway would report a loss that did not happen.
+                onConfirm={() => deleting && remove.mutate(deleting.id, { onSuccess: closeDelete })}
+                deleting={remove.isPending}
+                error={remove.error ?? undefined}
+            />
         </Stack>
+    );
+}
+
+/** One card's own bad news, in the place the button that caused it is. */
+function CardFailure({ error, fallback }: { error: unknown; fallback: string }) {
+    return (
+        <Text size="xs" c="red.4" mt="xs" ta="right">
+            {apiErrorMessage(error, fallback)}
+        </Text>
     );
 }
 

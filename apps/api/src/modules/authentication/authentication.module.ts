@@ -82,10 +82,19 @@ export const AuthenticationModule: ServerKitModule = {
 
         registry.register(DeadairJwtAuthenticationIssuer).useClass(DeadairJwtAuthenticationIssuer).asScoped();
 
+        // Checked here rather than in the scoped factory below, for `CryptoModule`'s reason: an
+        // unset key is `''`, which signs nothing and fails at whichever request first tries to mint
+        // a session, as a library error naming no variable. A session nobody can sign is not a
+        // degraded server, it is one nobody can log into.
+        const sessionKey = String(config.get('AUTHENTICATION_SESSION_JWT_PRIVATE_KEY', '')).trim();
+        if (sessionKey.length === 0) {
+            throw new Error('AUTHENTICATION_SESSION_JWT_PRIVATE_KEY is not set. Every session token is signed with it, so nobody could sign in.');
+        }
+
         registry
             .register(JwtProvider)
             .useFactory(container => {
-                return new JwtProvider(container.get(Logger), config.get('AUTHENTICATION_SESSION_JWT_PRIVATE_KEY', ''));
+                return new JwtProvider(container.get(Logger), sessionKey);
             })
             .asScoped();
 

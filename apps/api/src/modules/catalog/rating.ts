@@ -5,11 +5,18 @@ import { Rating } from './types/catalog.types.js';
  *
  * The wire says `liked` / `neutral` / `disliked`, because a console and an SDK read words. The
  * column says `1` / `0` / `-1`, and that is not an accident of history: the ORDERING is what
- * `CandidatesRepository.ratingsFor` resolves an effective rating with (`least(track, album,
- * artist)`, so a dislike anywhere wins) and what `weightOf` in `rotation.rules.ts` reads to give a
- * liked record twice the draw weight. Neither of those goes anywhere near an HTTP contract, so the
- * enum is a boundary spelling rather than a change of model, and it is mapped here so nothing else
- * has to know both.
+ * `CandidatesRepository.effectiveRating` collapses the three levels with, and what `weightOf` in
+ * `rotation.rules.ts` reads to give a liked record twice the draw weight. Neither of those goes
+ * anywhere near an HTTP contract, so the enum is a boundary spelling rather than a change of model,
+ * and it is mapped here so nothing else has to know both.
+ *
+ * It uses the ordering TWICE and in opposite directions, which is worth knowing before anyone
+ * "simplifies" it back: a `least()` of the three columns decides whether a dislike is present at all
+ * and vetoes outright if it is, and otherwise the `greatest()` carries, so the strongest LIKE wins.
+ * A plain `least()` is what that replaced, and it got the veto right while silently swallowing the
+ * other half — a liked song on an unrated record by an unrated artist came out `0`, so liking a
+ * record did nothing whatsoever. See that function for the argument; nothing outside the database
+ * reads an opinion as a number.
  */
 
 /** How the column spells each opinion. */

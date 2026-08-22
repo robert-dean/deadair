@@ -6,6 +6,7 @@
 // given model obeys them — that is what `llm.captureWrites` and the script history are for.
 
 import { describe, expect, it } from 'vitest';
+import type { SpeechCue } from '@deadair/plugin-sdk';
 
 import {
     breakPrompt,
@@ -63,24 +64,29 @@ describe('breakPrompt', () => {
         expect(rules).toMatch(/yours to spend on saying it like yourself/);
     });
 
-    // The station's only delivery control. `SpeechRequest` is text, a voice and a format, so nothing
-    // downstream can ask an engine for a reading and the marks in the words are the whole of it.
+    // The delivery control every engine has. `SpeechRequest` is text, a voice and a format, so
+    // nothing downstream can ask for a reading and the marks in the words are what carries it. A
+    // reaction is the other one, and only some engines perform it — see the block below.
     describe('punctuating for the delivery', () => {
         it('asks for it, and names what each mark does', () => {
             const rules = system(prompt({ kind: 'talkbreak', previous, next }));
 
-            expect(rules).toMatch(/Punctuation is your only stage direction/i);
+            expect(rules).toMatch(/Punctuate for the delivery/i);
             expect(rules).toMatch(/question mark lifts the line/i);
         });
 
         // Both are refusals rather than preferences, and both are about code that already exists:
-        // `sayInitialisms` spells out its list case-sensitively, and `tidyAnswer` strips a `*...*` or
-        // a `[...]` as a stage direction before the script is ever stored.
+        // `sayInitialisms` spells out its list case-sensitively, and `tidyAnswer` strips a `*...*` as
+        // a stage direction before the script is ever stored.
+        //
+        // It said "asterisks and brackets" until four bracketed spellings gained an engine behind
+        // them. The narrowing is deliberate and the reaction rule carries the exception, so the two
+        // sentences are true together — see the reaction cases below.
         it('rules out the two things a model reaches for instead', () => {
             const rules = system(prompt({ kind: 'talkbreak', previous, next }));
 
             expect(rules).toMatch(/Capitals do not sound like anything/i);
-            expect(rules).toMatch(/asterisks and brackets are stripped/i);
+            expect(rules).toMatch(/asterisks are stripped before the voice sees them/i);
         });
 
         // Shared rather than on a shape, which is the claim worth pinning: a bulletin is read aloud
@@ -89,8 +95,61 @@ describe('breakPrompt', () => {
             for (const shape of [TALK_BREAK_SHAPE, NEWS_SHAPE, WELCOME_SHAPE]) {
                 const rules = system(breakPrompt({ kind: 'talkbreak', previous, next }, {}, shape));
 
-                expect(rules, `${shape.job} was not asked to punctuate`).toMatch(/Punctuation is your only stage direction/i);
+                expect(rules, `${shape.job} was not asked to punctuate`).toMatch(/Punctuate for the delivery/i);
             }
+        });
+    });
+
+    // Something the presenter DOES rather than says. Called reactions here because `AnswerGuard.cues`
+    // already means the records either side of a break, which is what a radio presenter means by the
+    // word.
+    describe('the one thing that is not words', () => {
+        const laughs: SpeechCue[] = ['laugh', 'sigh'];
+
+        it('offers what the engine can perform, written the way it has to be written', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { reactions: laughs }));
+
+            expect(rules).toMatch(/\[laugh\], \[sigh\]/);
+            expect(rules).toMatch(/square brackets/i);
+        });
+
+        it('asks for at most one, and says most breaks want none', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { reactions: laughs }));
+
+            expect(rules).toMatch(/At most one in a break/i);
+            expect(rules).toMatch(/most breaks want none/i);
+        });
+
+        // A rule about a facility the model was never given is a line of prompt spent on nothing, and
+        // the same reason a break with no stories says nothing about stories.
+        it('says nothing at all when the engine can perform nothing', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }));
+
+            expect(rules).not.toMatch(/square brackets/i);
+        });
+
+        // The SHAPE has the veto and the engine only offers, which is `allowsLatitude`'s asymmetry
+        // exactly. A newsreader who sighs over a story has editorialised it.
+        it('is refused by a bulletin however capable the engine is', () => {
+            const rules = system(breakPrompt({ kind: 'news', stories: [{ headline: 'Bridge reopens.' }] }, { reactions: laughs }, NEWS_SHAPE));
+
+            expect(rules).not.toMatch(/square brackets/i);
+        });
+
+        it('is refused by a welcome too', () => {
+            const rules = system(breakPrompt({ kind: 'welcome' }, { reactions: laughs }, WELCOME_SHAPE));
+
+            expect(rules).not.toMatch(/square brackets/i);
+        });
+
+        // The punctuation rule shipped before any of this said brackets were stripped, which stopped
+        // being true for exactly four spellings. A prompt that contradicts itself is worse than
+        // either rule alone.
+        it('does not still tell the model its brackets will be stripped', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { reactions: laughs }));
+
+            expect(rules).toMatch(/asterisks are stripped before the voice sees them/i);
+            expect(rules).not.toMatch(/asterisks and brackets are stripped/i);
         });
     });
 
@@ -1050,6 +1109,45 @@ describe('readAnswer, against a persona', () => {
         const sheet = { ...pirate, avoid: ['buckle up'] };
 
         expect(readAnswer('Aye, matey — buckle up.', { persona: sheet })).toBeUndefined();
+    });
+});
+
+// Everything about what survives from a model's answer. The budget TRIMS rather than declines, which
+// is `overusedWords`' argument: the words are fine and only the notation is excessive, so refusing
+// would cost the station a good sentence over punctuation.
+describe('readAnswer, against the one thing that is not words', () => {
+    it('keeps a reaction the station performs', () => {
+        expect(readAnswer('That was Solid Air. [laugh] Still no idea.')).toBe('That was Solid Air. [laugh] Still no idea.');
+    });
+
+    it('still strips a stage direction, which is what the sparing is carved out of', () => {
+        // The failure that put the stripping there in the first place: `[warmly]` read out loud.
+        // Only four spellings have an engine behind them.
+        expect(readAnswer('[warmly] That was Solid Air.')).toBe('That was Solid Air.');
+    });
+
+    it('keeps only the first when the model got carried away', () => {
+        // The engine's own demo scripts run about one per sentence. On a 28-word median break that
+        // is a presenter performing continuously instead of talking.
+        expect(readAnswer('[sigh] Well. [laugh] Anyway. [gasp] Look.')).toBe('[sigh] Well. Anyway. Look.');
+    });
+
+    it('normalises the case, since the engine is given one spelling', () => {
+        expect(readAnswer('[LAUGH] That was Solid Air.')).toBe('[laugh] That was Solid Air.');
+    });
+
+    it('does not let a reaction spend one of the break’s words', () => {
+        // Small until it is the word that tips a good script over, and a break refused for length it
+        // did not have is exactly what the ceiling was measured to avoid.
+        const atTheCeiling = Array.from({ length: DEFAULT_MAX_WORDS }, (_unused, index) => `word${index}`).join(' ');
+
+        expect(readAnswer(`[laugh] ${atTheCeiling}`, { maxWords: DEFAULT_MAX_WORDS })).toBe(`[laugh] ${atTheCeiling}`);
+    });
+
+    it('does not let a reaction stand in for naming a record', () => {
+        // `namedRecordIn` would otherwise be handed a token no record can ever match, which is
+        // harmless here and would be a silent pass if the words were judged with notation in them.
+        expect(readAnswer('[laugh] Anyway, that is the hour.', { names: [{ title: 'Solid Air', artist: 'John Martyn' }] })).toBeUndefined();
     });
 });
 

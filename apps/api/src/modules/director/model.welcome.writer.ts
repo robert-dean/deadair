@@ -105,6 +105,11 @@ export class ModelWelcomeWriter extends BreakWriter {
                 // and the same argument does not reach a notebook — somebody tuning in has heard this
                 // station before, which is the whole premise of a note.
                 ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
+                // Passed and then declined by `WELCOME_SHAPE`, which does not set `allowsCues`. Handed
+                // over anyway so every model writer assembles its settings the same way: what a kind
+                // of break permits belongs on the shape, and a writer that pre-empted its own shape
+                // would put the same decision in two places.
+                ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
             },
             WELCOME_SHAPE,
         );

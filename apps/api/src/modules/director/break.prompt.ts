@@ -34,7 +34,7 @@
  * badly, and a rule about them would be a rule about nothing.
  */
 
-import { sentencesWithin, type LlmMessage } from '@deadair/plugin-sdk';
+import { sentencesWithin, SPEECH_CUES, withoutCues, type LlmMessage, type SpeechCue } from '@deadair/plugin-sdk';
 import {
     characterFault,
     latitudeOf,
@@ -179,6 +179,21 @@ export interface BreakPromptShape {
      * whatever room the character was given.
      */
     latitudeRules?: readonly string[];
+    /**
+     * Whether a performance cue may be written into this kind of break.
+     *
+     * Off unless a shape asks for it, and the shape has the last word exactly as it does over
+     * {@link BreakPromptShape.allowsLatitude}. A cue is the presenter being a person, so the ordinary
+     * link is where it belongs and a BULLETIN is where it plainly does not: a newsreader who sighs
+     * over a story has editorialised it, in a kind of break whose whole discipline is that it does
+     * not. A welcome is excluded on the narrower ground that it is the station's front door and is
+     * written before it is placed, which is one flag to reconsider once the talk break has been
+     * heard.
+     *
+     * Independent of latitude, and not a rung of it: a terse character may laugh and an unleashed one
+     * need not. The two compose because they are about different things.
+     */
+    allowsCues?: boolean;
 }
 
 /**
@@ -259,6 +274,9 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
         'Talk, do not announce. Naming the record is not the break, it is what the break hangs on: a reaction, an opinion, something it ' +
             'reminded you of. If your break would still make sense read out by anybody else, it is not yours yet.',
     ],
+    // A link between two records is the presenter being a person, which is exactly what a cue is for.
+    // See `allowsCues` for why the bulletin and the welcome are not.
+    allowsCues: true,
 };
 
 /** How the station wants this break to sound, and how long it may run. */
@@ -314,6 +332,27 @@ export interface PromptSettings {
      * surface bought for very little.
      */
     cleanLanguage?: boolean;
+    /**
+     * The things the presenter can do that are not words: a laugh, a sigh.
+     *
+     * Called REACTIONS here and `SpeechCue` everywhere else, which is the same rename {@link
+     * PromptSettings.notebook} makes and for the identical reason: "cue" already means something in
+     * this file. {@link AnswerGuard.cues} is the two records a break sits BETWEEN, which is what a
+     * radio presenter means by the word, and it is read by `misCuedIn` three lines from where this
+     * would be read. Two things with one name in one prompt builder is how a shape ends up
+     * withholding the wrong one.
+     *
+     * Resolved by the caller from the render side rather than read here, exactly as `persona` and
+     * `notebook` are, and for the same reason: one answer per break, so the rule the model is shown
+     * and the guard the answer is judged by cannot disagree about what was on offer.
+     *
+     * Empty or absent asks for nothing, which is the state of every station whose engine only reads
+     * words — and it leaves the prompt byte-identical to one built before any of this existed.
+     * **Offering one the engine cannot perform is the thing this must not do**, because the words go
+     * into audio that cannot be re-cut. The render path strips an unperformable one anyway, so the
+     * cost of getting it wrong here is a break that READS oddly rather than one that SOUNDS wrong.
+     */
+    reactions?: readonly SpeechCue[];
 }
 
 /** The half of a persona a prompt uses: who they are, and how they speak. */
@@ -343,6 +382,49 @@ const WORDS_PER_SECOND = 2.6;
  */
 const latitudeIn = (settings: PromptSettings, shape: BreakPromptShape): PersonaLatitude | undefined =>
     shape.allowsLatitude === true ? latitudeOf(settings.persona) : undefined;
+
+/**
+ * How many reactions one break may carry.
+ *
+ * One, and the number is the point rather than a starting position. The engine's own sample scripts
+ * put one in front of nearly every sentence, which is a demo aesthetic: on this station's 28-word
+ * median break it would be a presenter performing continuously instead of talking. One is a person
+ * reacting once; two is a bit.
+ */
+export const MAX_REACTIONS = 1;
+
+/**
+ * What this prompt may offer, which is the shape's permission and the engine's ability together.
+ *
+ * Both are vetoes and neither is a preference, so this is an intersection rather than a fallback: a
+ * kind of break that should not carry one is not talked into it by a capable engine, and a kind that
+ * may is not given one by an engine that cannot perform it.
+ */
+const offeredReactions = (settings: PromptSettings, shape: BreakPromptShape): readonly SpeechCue[] =>
+    shape.allowsCues === true ? (settings.reactions ?? []) : [];
+
+/**
+ * The reaction rule, or nothing at all when there is none to offer.
+ *
+ * Nothing rather than a rule saying "you may not laugh", which would spend a line of the prompt
+ * telling a model about a facility it was never given — the same reason a break with no stories says
+ * nothing about stories.
+ *
+ * The wording asks for restraint in the rule itself rather than leaving it to the guard, on the
+ * bargain every check in this file keeps: a script is only judged for something the prompt actually
+ * asked for. Here the guard trims rather than refuses, so the bargain is softer, but the rule still
+ * has to be the honest version of what is going to happen.
+ */
+function reactionRules(settings: PromptSettings, shape: BreakPromptShape): string[] {
+    const reactions = offeredReactions(settings, shape);
+    if (reactions.length === 0) return [];
+
+    const written = reactions.map(cue => `[${cue}]`).join(', ');
+    return [
+        `- You can do one thing that is not words: ${written}. Write it in square brackets exactly like that, at the point it happens, and it is performed rather than read out. ` +
+            'At most one in a break, and only where you would actually have done it. A presenter who laughs at everything is not funny, and most breaks want none at all.',
+    ];
+}
 
 /**
  * How long a break may run here, in words.
@@ -429,9 +511,28 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         //
         // The two prohibitions are not style. Capitals are worse than useless because
         // `sayInitialisms` matches its list case-SENSITIVELY, so a model shouting `US` meaning "us"
-        // is spelled out as two letters; asterisks and brackets never survive at all, since
-        // `tidyAnswer` strips them as stage directions before the script is even stored.
-        '- Punctuation is your only stage direction, so punctuate for the delivery: a question mark lifts the line, a comma or a dash is a breath, a full stop lands it. Capitals do not sound like anything, and asterisks and brackets are stripped before the voice sees them.',
+        // is spelled out as two letters; asterisks and anything else in brackets never survives at
+        // all, since `tidyAnswer` strips them as stage directions before the script is even stored.
+        //
+        // "Anything else" rather than "brackets" because the cue rule below carves exactly four
+        // spellings out of that. Said this way whether or not a cue is on offer: the sentence is
+        // true either way, and one that changed shape with the engine would be two rules to keep
+        // honest instead of one.
+        //
+        // It opened "punctuation is your only stage direction" until the rule below gave the model a
+        // second one. Both sentences were true separately and contradicted each other in the same
+        // list, which is the thing this prompt can least afford: a model reading two rules that
+        // disagree hedges, and hedging here means writing neither the punctuation nor the reaction.
+        '- Punctuate for the delivery, because the marks are how it gets read: a question mark lifts the line, a comma or a dash is a breath, a full stop lands it. Capitals do not sound like anything, and asterisks are stripped before the voice sees them.',
+        // Only where the SHAPE permits one and the ENGINE can perform it. Both halves are needed and
+        // they fail differently: without the first a bulletin sighs over a story, and without the
+        // second the station writes notation that either gets silently deleted or, on an engine that
+        // never claimed it, is read out as the word.
+        //
+        // The budget is stated as a rule and enforced in `readAnswer` rather than trusted, because
+        // the engine's own sample scripts run about one cue per sentence — a style a local model may
+        // well have been tuned on, and one that would be wall-to-wall on a 28-word break.
+        ...reactionRules(settings, shape),
         '- Do not greet the listener by name, promise anything you have not been told, or mention the time unless you are given it.',
         // Conditional and near the end, because it is the one rule here that is about the station's
         // own policy rather than about what a break IS. Both halves are needed: a model told only
@@ -1105,7 +1206,11 @@ export function misCuedIn(script: string, cues: BreakCues): boolean {
 
 /** A text as bare lower-case words, so a title and a script can be compared as speech, not as text. */
 const bareWords = (text: string): string =>
-    text
+    // A reaction comes out FIRST, or the brackets are stripped off it and `[laugh]` becomes the word
+    // "laugh" for all three callers. Each would be wrong in its own way: `overusedWords` would tell a
+    // station that laughs regularly it has a verbal tic, and the two matchers would find a word the
+    // presenter never said. This is the one place all three agree on what a word is.
+    withoutCues(text)
         .toLowerCase()
         .replace(/[‘’ʼ′]/g, "'")
         .replace(/[^a-z0-9']+/g, ' ')
@@ -1185,17 +1290,24 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     const script = fitToCeiling(tidied, guard);
     if (script === undefined) return undefined;
 
+    // Every check below judges the WORDS, so a reaction comes out first and the cued script is what
+    // is returned. It matters in three different ways and none of them is cosmetic: `runsLong`
+    // splits on whitespace, so `[laugh]` would spend one of a break's forty words; `overusedWords`
+    // counts the scripts a word appears in, so a station that laughs often would be told it has a
+    // verbal tic; and `namedRecordIn` would be handed a token no record can ever match.
+    const words = withoutCues(script);
+
     // A break about no record in particular. Checked BEFORE the character, because the two faults
     // want opposite things done about them and this one is the more basic: a script that named
     // nothing is wrong however well it is written, and reporting it as out-of-character would send
     // an operator to the persona page for a fault the prompt caused. See `namesNothing`.
-    if (namesNothing(script, guard)) return undefined;
+    if (namesNothing(words, guard)) return undefined;
 
     // A break that named a record it was shown and then put it on the wrong side of itself: "that
     // was" about the record still to come. Checked here, in the same position `writeDecline` checks
     // it, because these two orders have to stay the same story — the note on `tidyAnswer` says why.
     // See `misCuedIn` for how narrowly it refuses.
-    if (cuesWrongly(script, guard)) return undefined;
+    if (cuesWrongly(words, guard)) return undefined;
 
     // A correct sentence that is not this character speaking, which is the failure a persona is
     // asked for and the one a model handed a page of content rules actually makes — in flat plain
@@ -1203,7 +1315,7 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // wording the sheet forbids. Declined rather than re-drafted: the floor underneath speaks in
     // the same character, so the station gets an in-character line at once instead of paying for a
     // second generation to maybe get one.
-    if (faultIn(script, guard) !== undefined) return undefined;
+    if (faultIn(words, guard) !== undefined) return undefined;
 
     return script;
 }
@@ -1225,8 +1337,16 @@ function tidyAnswer(text: string): string | undefined {
     script = script.replace(/^\s*[A-Z][A-Za-z ]{0,20}:\s*(?=[A-Z"'“])/, '');
 
     // Stage directions, wherever they are: [warmly], (laughs), *sighs*.
-    script = script
-        .replace(/\[[^\]]*\]/g, ' ')
+    //
+    // A reaction the station actually performs is spared by name, and it is a CARVE-OUT of this rule
+    // rather than a relaxation of it: `[warmly]` still goes, because the failure that put this line
+    // here was a model's stage direction being read out loud, and only four spellings have an engine
+    // behind them. See `SPEECH_CUES`. Everything past the first is dropped too — see `MAX_REACTIONS`
+    // for why one, and note that it is a TRIM rather than a refusal, on `overusedWords`' argument:
+    // the words are fine and only the notation is excessive, so declining would cost the station the
+    // model's sentence over punctuation.
+    script = keepOneReaction(script)
+        .replace(/\[[^\]]*\]/g, match => (isReaction(match) ? match.toLowerCase() : ' '))
         .replace(/\*[^*]*\*/g, ' ')
         // A narrow list, and matched on the stem so "laughs" and "sighing" count. Parentheses are
         // deliberately NOT stripped wholesale: "(Don't Fear) The Reaper" is a title, and a
@@ -1241,6 +1361,26 @@ function tidyAnswer(text: string): string | undefined {
 
     script = script.replace(/\s{2,}/g, ' ').trim();
     return script.length === 0 ? undefined : script;
+}
+
+/** Whether a bracketed run is one of the four the station performs, however it was capitalised. */
+const isReaction = (bracketed: string): boolean => (SPEECH_CUES as readonly string[]).includes(bracketed.slice(1, -1).trim().toLowerCase());
+
+/**
+ * The same script with every reaction after the first taken out.
+ *
+ * The FIRST rather than the best, because there is no way to rank them and the earliest is the one
+ * the model committed to before it got carried away. Kept as a separate pass ahead of the strip so
+ * the two rules stay legible: this one is about how many, that one is about which.
+ */
+function keepOneReaction(script: string): string {
+    let kept = 0;
+
+    return script.replace(/\[[^\]]*\]/g, match => {
+        if (!isReaction(match)) return match;
+        kept += 1;
+        return kept <= MAX_REACTIONS ? match : ' ';
+    });
 }
 
 /**
@@ -1280,8 +1420,15 @@ function fitToCeiling(script: string, guard: AnswerGuard): string | undefined {
     return wordsIn(fitted) < ceiling * MIN_KEPT_SHARE ? undefined : fitted;
 }
 
-/** How long a script is, on the one definition the ceiling is counted in. */
-const wordsIn = (script: string): number => script.split(/\s+/).filter(Boolean).length;
+/**
+ * How long a script is, on the one definition the ceiling is counted in.
+ *
+ * A reaction is not a word. `[laugh]` is a whitespace-separated token and would otherwise spend one
+ * of a break's forty, which is small until it is the one that tips a good script over the ceiling —
+ * and a break refused for length it did not have is the exact failure the ceiling was measured to
+ * avoid. Counted here rather than at each caller so the trim and the refusal cannot disagree.
+ */
+const wordsIn = (script: string): number => withoutCues(script).split(/\s+/).filter(Boolean).length;
 
 /**
  * Whether a script was shown records and named none of them.

@@ -3,6 +3,7 @@
 // written must cost the station that break and nothing else.
 
 import { describe, expect, it, vi } from 'vitest';
+import type { SpeechCue } from '@deadair/plugin-sdk';
 
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
 import type { BreakStory } from '../../../src/modules/director/break.writer.js';
@@ -57,6 +58,8 @@ function harness(
         subject?: { key: string; label: string };
         /** What this broadcast has played, for the tests about the writer's memory of the show. */
         played?: readonly { title: string; artist: string }[];
+        /** What the installed engine can perform, for the tests about handing that to the writers. */
+        cues?: readonly SpeechCue[];
         /** What the station has already said this broadcast. */
         said?: readonly string[];
         /** Present and `undefined` for the off-air case, which falls back to the per-kind read. */
@@ -126,6 +129,10 @@ function harness(
     // Whether a broadcast is on at all. Present by default, because a break being written is
     // overwhelmingly a break on a station that is airing — the `undefined` case has its own test.
     const identity = { current: vi.fn(() => ('broadcastId' in options ? options.broadcastId : 'broadcast-1')) };
+    // What the installed engine can perform beyond reading. Nothing by default, which is the state of
+    // every station whose speech plugin only reads words and the one every other assertion here was
+    // written against.
+    const speech = { cues: vi.fn(async () => options.cues ?? []) };
 
     const job = new WriteBreakJob(
         lineups as never,
@@ -139,6 +146,7 @@ function harness(
         notes as never,
         plays as never,
         identity as never,
+        speech as never,
         activity as never,
         jobs as never,
         config as never,
@@ -147,7 +155,24 @@ function harness(
         logger as never,
     );
 
-    return { job, segments, lineups, requests, history, writers, enrichment, personas, notes, jobs, logger, activity, bulletin, plays, identity };
+    return {
+        job,
+        segments,
+        lineups,
+        requests,
+        history,
+        writers,
+        enrichment,
+        personas,
+        notes,
+        jobs,
+        logger,
+        activity,
+        bulletin,
+        plays,
+        identity,
+        speech,
+    };
 }
 
 describe('WriteBreakJob', () => {
@@ -332,6 +357,38 @@ describe('WriteBreakJob', () => {
 
         expect(segments.writeScript).toHaveBeenCalled();
         expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('hands the writers what the installed engine can perform', async () => {
+        // Read here rather than by any writer, so every binding asked for this break agrees about
+        // what was on offer — and so a station that changed engine between two breaks writes for the
+        // one that is actually going to speak.
+        const { job, writers } = harness({ lineup: await lineupWithBreak(), cues: ['laugh', 'sigh'] });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ reactions: ['laugh', 'sigh'] }));
+    });
+
+    it('says nothing about reactions for an engine that only reads words', async () => {
+        // Most stations, and the state every other assertion here was written against. The prompt is
+        // then byte-identical to one built before any of this existed.
+        const { job, writers } = harness({ lineup: await lineupWithBreak() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ reactions: expect.anything() }));
+    });
+
+    it('writes the break anyway when the engine cannot be asked', async () => {
+        // Best-effort like the notebook above it. A flourish is never worth a silent slot, and the
+        // render path strips an unperformable reaction on its own regardless.
+        const { job, segments, speech } = harness({ lineup: await lineupWithBreak() });
+        speech.cues.mockRejectedValueOnce(new Error('the engine is away'));
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalled();
     });
 
     it("speaks a planted break in the persona's voice, and leaves a hand-planned one alone", async () => {

@@ -163,6 +163,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // the notebook and rested what it took, so a writer that fetched its own would spend the
             // rotation a second time and show a different character to the guard than to the prompt.
             ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
+            // Carried across for the same reason, and the SHAPE is what decides whether any of it is
+            // offered: this writer passes what the engine can do, and `TALK_BREAK_SHAPE` is what says
+            // a link between two records is a place to do it.
+            ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
         };
         // Named rather than defaulted: what this binding writes is a link between two records, and a
         // writer that said nothing about its shape would silently get that whatever it was.

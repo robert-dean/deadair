@@ -1,4 +1,5 @@
 import { Container, Injectable } from 'injectkit';
+import type { SpeechCue } from '@deadair/plugin-sdk';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
@@ -11,6 +12,7 @@ import { PersonaNotesRepository } from '#modules/personas/persona.notes.reposito
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
+import { SpeechService } from '#modules/render/speech.service.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { BreakRequestRepository } from './break.request.repository.js';
@@ -102,6 +104,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly notes: PersonaNotesRepository,
         private readonly plays: PlayHistoryRepository,
         private readonly identity: StationIdentity,
+        private readonly speech: SpeechService,
         private readonly activity: ActivityRecorder,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
@@ -237,6 +240,11 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // here for a sharper one: the rotation belongs to whatever is actually going on air, and
             // a writer that fetched its own would spend it again on every binding that was asked.
             ...(await this.notebook(persona?.key)),
+            // What the engine that will speak this can do beyond reading. Read here for the notebook's
+            // reason and answered once, so every binding asked for this break agrees about what was on
+            // offer — and so a station that changed engine between two breaks writes for the one that
+            // is installed now.
+            ...(await this.reactions()),
             // What this break's words are worth at the one model slot. Absent for a planted break,
             // which is the gate's `air` default: it has a deadline like everything on air, and no
             // claim to jump the ones in front of it. A REQUESTED break is worth what its urgency
@@ -445,6 +453,28 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * Best-effort, like the facts and the broadcast's memory above it: a notebook that could not be
      * read costs the notebook and never the break.
      */
+    /**
+     * What the engine that will speak this break can do beyond reading words.
+     *
+     * Asked of the render side rather than assumed, because the answer belongs to whichever plugin is
+     * installed and, on at least one engine, to which model it currently holds. A break planned an
+     * hour ago and written now should be written for the engine that is going to say it.
+     *
+     * Best-effort like the notebook above, and the empty answer is the safe one twice over: a prompt
+     * that offers nothing simply reads as it did before any of this existed, and the render path
+     * removes an unperformable reaction on its own. So this can afford to be quiet, and does not
+     * warn — a station whose engine only reads words would otherwise log a line per break forever.
+     */
+    private async reactions(): Promise<{ reactions?: readonly SpeechCue[] }> {
+        try {
+            const cues = await this.speech.cues();
+            return cues.length === 0 ? {} : { reactions: cues };
+        } catch (error) {
+            this.logger.debug(`director: could not ask what the engine can perform (${errorText(error)})`);
+            return {};
+        }
+    }
+
     private async notebook(personaKey: string | undefined): Promise<{ notebook?: PersonaNotesForPrompt }> {
         if (personaKey === undefined) return {};
 

@@ -27,6 +27,7 @@
  * implementation's imports, exactly like {@link SetGenerator}.
  */
 
+import type { SpeechCue } from '@deadair/plugin-sdk';
 import type { GatePriority } from '#modules/shared/gate.priority.js';
 import type { Persona } from '#modules/personas/persona.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
@@ -233,6 +234,22 @@ export interface BreakWriteRequest {
      * phrasings and never reads a fact.
      */
     notebook?: PersonaNotesForPrompt;
+    /**
+     * The things the presenter can do that are not words, as the engine that will speak this allows.
+     *
+     * Read by the caller for {@link BreakWriteRequest.notebook}'s reason exactly: which engine is
+     * installed is a property of the moment, and a writer that asked the render side itself would be
+     * a pure function of something it went and fetched. It also keeps every binding in one hour
+     * agreeing about what was on offer.
+     *
+     * Called REACTIONS rather than cues throughout the director, because a cue in a radio station is
+     * the record either side of a break. See `PromptSettings.reactions`.
+     *
+     * Empty or absent for a station whose engine only reads words, which is most of them, and unread
+     * by every deterministic writer: a template is a phrasing an operator typed, and putting a laugh
+     * in one would be the station performing on a schedule.
+     */
+    reactions?: readonly SpeechCue[];
     /**
      * The last few things the station said, newest first.
      *

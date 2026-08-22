@@ -72,7 +72,7 @@ contract PluginLogEntry: {
 contract PluginLogPage: {
     pluginId: string(min=1, max=200)
     level: PluginLogLevel
-    entries: array(PluginLogEntry)
+    entries: array(PluginLogEntry) # Newest first, as the activity feed and the script history send. The download is the file as written, oldest first
 }
 
 contract PluginLogQuery: {

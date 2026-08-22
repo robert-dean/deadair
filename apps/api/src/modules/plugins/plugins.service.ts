@@ -499,6 +499,14 @@ export class PluginsService {
      * ones an operator most needs a log tail for, so this checks only that the
      * id is installed, not that it loaded.
      *
+     * Answered NEWEST FIRST, which is this API's own shape rather than the
+     * store's: a file is written oldest-first and read from the end, and what
+     * an operator opening this page wants is what just happened, at the top,
+     * without scrolling a panel of whatever was retained. It matches the
+     * activity feed and the script history, which send the same way. The
+     * DOWNLOAD is untouched and stays the file as written, because that is a
+     * log somebody greps rather than a page somebody reads.
+     *
      * @throws 404 unknown id.
      */
     async getPluginLogs(id: string, query: PluginLogQuery): Promise<PluginLogPage> {
@@ -507,6 +515,7 @@ export class PluginsService {
         const level = query.level ?? this.pluginLog.levelOf(id);
         const raw = await this.pluginLog.tail(id, { limit: query.limit, level });
         const entries: PluginLogEntry[] = raw.map(entry => ({ ts: entry.ts, level: toPluginLogLevel(entry.level), text: entry.text }));
+        entries.reverse();
         return { pluginId: id, level, entries };
     }
 

@@ -220,7 +220,9 @@ export type ConfigFieldDescriptor = z.infer<typeof ConfigFieldDescriptor>;
 export const PluginLogPage = z.strictObject({
     pluginId: z.string().min(1).max(200),
     level: PluginLogLevel,
-    entries: z.array(PluginLogEntry),
+    entries: z
+        .array(PluginLogEntry)
+        .describe('Newest first, as the activity feed and the script history send. The download is the file as written, oldest first'),
 });
 export type PluginLogPage = z.infer<typeof PluginLogPage>;
 

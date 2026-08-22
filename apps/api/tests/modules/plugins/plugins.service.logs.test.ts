@@ -326,6 +326,9 @@ describe('PluginsService: getPluginLogs default level filter', () => {
         { ts: '2026-08-04T00:00:03.000Z', level: 'ERROR', text: 'error line' },
     ];
 
+    /** The fixture's timestamps as the store hands them over: oldest first, as the file was written. */
+    const ORDERED_TIMESTAMPS = rawEntries.map(entry => entry.ts);
+
     /**
      * Wires the harness's stub `pluginLog` to a real filtering `tail` over
      * `rawEntries` and a mutable current level, so `levelOf`/`setLevel`
@@ -353,7 +356,7 @@ describe('PluginsService: getPluginLogs default level filter', () => {
 
         const page = await service.getPluginLogs(SPOTIFY_ID, {});
 
-        expect(page.entries.map(entry => entry.text)).toEqual(['warn line', 'error line']);
+        expect(page.entries.map(entry => entry.text)).toEqual(['error line', 'warn line']);
         expect(page.level).toBe('warn');
     });
 
@@ -371,8 +374,19 @@ describe('PluginsService: getPluginLogs default level filter', () => {
 
         const page = await service.getPluginLogs(SPOTIFY_ID, { level: 'debug' });
 
-        expect(page.entries.map(entry => entry.text)).toEqual(['debug line', 'info line', 'warn line', 'error line']);
+        expect(page.entries.map(entry => entry.text)).toEqual(['error line', 'warn line', 'info line', 'debug line']);
         expect(page.level).toBe('debug');
+    });
+
+    it('answers newest first, whichever way the store handed the lines over', async () => {
+        const { service, pluginLog } = makeFilteringHarness('debug');
+
+        const page = await service.getPluginLogs(SPOTIFY_ID, {});
+
+        // The store reads a file that is written oldest-first and hands it back that way; the page
+        // an operator opens puts what just happened at the top.
+        expect((await pluginLog.tail(SPOTIFY_ID, { level: 'debug' })).map(entry => entry.ts)).toEqual([...ORDERED_TIMESTAMPS]);
+        expect(page.entries.map(entry => entry.ts)).toEqual([...ORDERED_TIMESTAMPS].reverse());
     });
 
     it('the returned level field always matches the filter actually applied, in both branches', async () => {

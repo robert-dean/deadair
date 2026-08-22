@@ -18,6 +18,8 @@ import {
     type PromptSettings,
 } from '../../../src/modules/director/break.prompt.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
+import { NEWS_SHAPE } from '../../../src/modules/director/model.news.break.writer.js';
+import { WELCOME_SHAPE } from '../../../src/modules/director/model.welcome.writer.js';
 import { LATITUDE_INSTRUCTIONS, LATITUDE_LICENCE, LATITUDE_MAX_WORDS } from '../../../src/modules/personas/persona.sheet.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
@@ -58,6 +60,37 @@ describe('breakPrompt', () => {
 
         expect(rules).toMatch(/Make one point/);
         expect(rules).toMatch(/yours to spend on saying it like yourself/);
+    });
+
+    // The station's only delivery control. `SpeechRequest` is text, a voice and a format, so nothing
+    // downstream can ask an engine for a reading and the marks in the words are the whole of it.
+    describe('punctuating for the delivery', () => {
+        it('asks for it, and names what each mark does', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }));
+
+            expect(rules).toMatch(/Punctuation is your only stage direction/i);
+            expect(rules).toMatch(/question mark lifts the line/i);
+        });
+
+        // Both are refusals rather than preferences, and both are about code that already exists:
+        // `sayInitialisms` spells out its list case-sensitively, and `tidyAnswer` strips a `*...*` or
+        // a `[...]` as a stage direction before the script is ever stored.
+        it('rules out the two things a model reaches for instead', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }));
+
+            expect(rules).toMatch(/Capitals do not sound like anything/i);
+            expect(rules).toMatch(/asterisks and brackets are stripped/i);
+        });
+
+        // Shared rather than on a shape, which is the claim worth pinning: a bulletin is read aloud
+        // by the same engine as a link, so the one kind whose shape overrides the most still owes it.
+        it('is owed by every kind, including the bulletin and the welcome', () => {
+            for (const shape of [TALK_BREAK_SHAPE, NEWS_SHAPE, WELCOME_SHAPE]) {
+                const rules = system(breakPrompt({ kind: 'talkbreak', previous, next }, {}, shape));
+
+                expect(rules, `${shape.job} was not asked to punctuate`).toMatch(/Punctuation is your only stage direction/i);
+            }
+        });
     });
 
     it('shows the model both records it was given', () => {

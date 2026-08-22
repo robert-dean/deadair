@@ -420,6 +420,18 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         `- Keep it under ${maxWords} words, around ${seconds} seconds spoken.`,
         '- Write only the words to be spoken. No stage directions, no speaker labels, no quotation marks around the whole thing, no emoji.',
         '- Write numbers, times and symbols the way they should be read out loud.',
+        // Beside the two rules above, because all three are about what a script physically is rather
+        // than what it says. This one is the only delivery control the station has: `SpeechRequest`
+        // carries text, a voice and a format, so nothing between here and the engine can ask for a
+        // reading — the marks in the words ARE the reading. They survive intact, which is what makes
+        // this worth asking for: `transposeForSpeech` keeps `.,!?;:` through `settle`, turns an em or
+        // en dash into a comma (a real pause), and turns `…` into three dots.
+        //
+        // The two prohibitions are not style. Capitals are worse than useless because
+        // `sayInitialisms` matches its list case-SENSITIVELY, so a model shouting `US` meaning "us"
+        // is spelled out as two letters; asterisks and brackets never survive at all, since
+        // `tidyAnswer` strips them as stage directions before the script is even stored.
+        '- Punctuation is your only stage direction, so punctuate for the delivery: a question mark lifts the line, a comma or a dash is a breath, a full stop lands it. Capitals do not sound like anything, and asterisks and brackets are stripped before the voice sees them.',
         '- Do not greet the listener by name, promise anything you have not been told, or mention the time unless you are given it.',
         // Conditional and near the end, because it is the one rule here that is about the station's
         // own policy rather than about what a break IS. Both halves are needed: a model told only

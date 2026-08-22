@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActionIcon, Button, Card, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import { ActionIcon, Button, Card, Code, Divider, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 
 import { useGeneratePersona } from '../../api/personas.queries';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
+import { faultInTemplate, templateLines } from './template.vocabulary';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 
@@ -110,6 +111,8 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         </Card>
                     ) : undefined}
 
+                    <Section title="Who they are" />
+
                     <Group grow align="flex-start">
                         <TextInput label="Name" placeholder="Late-night companion" {...form.getInputProps('label')} />
                         <TextInput label="Key" description="A short slug, unique to this station." {...form.getInputProps('key')} />
@@ -169,6 +172,8 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         )}
                     </Group>
 
+                    <Section title="How they speak" />
+
                     <Textarea
                         label="How they speak"
                         description="The dialect, one rule per line. This applies to EVERY sentence, including the ones stating a plain fact."
@@ -184,6 +189,8 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         rows={4}
                         {...form.getInputProps('dictionMarkers')}
                     />
+
+                    <Section title="What they do and never do" />
 
                     <Textarea
                         label="In character"
@@ -250,6 +257,8 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         {...form.getInputProps('samples')}
                     />
 
+                    <Section title="What the station says when the model declines" />
+
                     <Textarea
                         label="Their own phrasings"
                         description="One per line, in the same syntax as the station's break phrasings. These are what the station says when the model declines, which is most breaks — so a character with none falls back to plain English."
@@ -257,6 +266,10 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         rows={6}
                         {...form.getInputProps('templates')}
                     />
+
+                    <TemplateFaults raw={form.values.templates} />
+
+                    <UnusedMarkers markers={form.values.dictionMarkers} samples={form.values.samples} />
 
                     <Group justify="space-between">
                         <Text c="dimmed" size="xs">
@@ -339,6 +352,74 @@ function GenerationNotes({ generated }: { generated: { droppedMarkers: string[];
                 )}
             </Stack>
         </ErrorAlert>
+    );
+}
+
+/** One divider with a name on it, so fourteen boxes read as four questions. */
+function Section({ title }: { title: string }) {
+    return <Divider my="xs" label={<Eyebrow>{title}</Eyebrow>} labelPosition="left" />;
+}
+
+/**
+ * What the station could not use in the phrasings box, line by line.
+ *
+ * Advisory and never blocking, deliberately: the API accepts any text, the vocabulary this is
+ * checked against is a copy, and a console that refused a save over its own copy would stop working
+ * the day the station learns a new placeholder. What it replaces is finding out by watching a
+ * character for an evening and wondering why one of its six lines never comes up.
+ *
+ * The same three checks the generator already makes about a line a MODEL wrote, which is the point:
+ * a line an operator typed was the only one nothing looked at.
+ */
+function TemplateFaults({ raw }: { raw: string }) {
+    const faults = templateLines(raw)
+        .map(line => ({ line, fault: faultInTemplate(line) }))
+        .filter((entry): entry is { line: string; fault: string } => entry.fault !== undefined);
+
+    if (faults.length === 0) return undefined;
+
+    return (
+        <ErrorAlert tone="warning" title={`The station would never pick ${faults.length === 1 ? 'one of these' : `${faults.length} of these`}`}>
+            <Stack gap="xxs">
+                {faults.map(({ line, fault }) => (
+                    <Text key={line} size="sm">
+                        <Code>{line.length > 80 ? `${line.slice(0, 80)}…` : line}</Code> {fault}.
+                    </Text>
+                ))}
+            </Stack>
+        </ErrorAlert>
+    );
+}
+
+/**
+ * Markers the character is never shown saying, which is a weaker claim than a fault.
+ *
+ * A marker is what `readAnswer` counts to decide a script is in character, and the sample lines are
+ * the model's evidence for how to use one — so a marker appearing in none of them is asking a model
+ * to produce a word it has only been told about. It is a note rather than a warning because it is
+ * frequently fine: an obvious word needs no example, and a sheet with no samples at all is making no
+ * claim either way, which is why nothing is said then.
+ */
+function UnusedMarkers({ markers, samples }: { markers: string; samples: string }) {
+    const written = samples.trim().toLowerCase();
+    if (written.length === 0) return undefined;
+
+    const unused = markers
+        .split('\n')
+        .map(line => line.trim())
+        .filter(marker => marker.length > 0)
+        // Plain substring, which is what a marker ending in an apostrophe wants anyway: the
+        // station's own check reads `in'` as a suffix, so finding it inside `talkin'` is a match
+        // there and here alike.
+        .filter(marker => !written.includes(marker.toLowerCase()));
+
+    if (unused.length === 0) return undefined;
+
+    return (
+        <Text size="xs" c="dimmed">
+            Nothing in the lines above uses {unused.join(', ')}. A break is refused for carrying none of these words, so it is worth showing the model
+            at least one of them in use.
+        </Text>
     );
 }
 

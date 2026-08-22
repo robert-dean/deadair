@@ -14,8 +14,13 @@ import type { RotatingLogStore } from './rotating.log.store.js';
  */
 let store: RotatingLogStore | undefined;
 
-/** Records the process-wide store built during server setup. */
-export function setLogStore(next: RotatingLogStore): void {
+/**
+ * Records the process-wide store built during server setup.
+ *
+ * `undefined` puts it back to never-having-been-set, which is for tests: this is module state and
+ * would otherwise leak one case's store into the next.
+ */
+export function setLogStore(next: RotatingLogStore | undefined): void {
     store = next;
 }
 

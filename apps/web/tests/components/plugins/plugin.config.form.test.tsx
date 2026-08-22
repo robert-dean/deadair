@@ -1,11 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
 import type { ConfigFieldDescriptor } from '@deadair/sdk';
 
 import { PluginConfigForm } from '../../../src/components/plugins/plugin.config.form';
 import { pluginDetail } from '../../utils/plugin.fixture';
-import { render, screen, waitFor } from '../../utils/render';
+import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const updatePluginConfiguration = vi.fn();
 const listTopics = vi.fn();
@@ -33,7 +32,7 @@ function submittedConfig(): Record<string, unknown> {
 }
 
 async function save() {
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Save configuration' }));
+    await setupUser().click(screen.getByRole('button', { name: 'Save configuration' }));
 }
 
 const SECRET_FIELD: ConfigFieldDescriptor = { key: 'clientSecret', label: 'Client secret', type: 'secret', required: true };
@@ -87,7 +86,7 @@ describe('PluginConfigForm', () => {
         updatePluginConfiguration.mockResolvedValue(plugin);
 
         render(<PluginConfigForm plugin={plugin} />);
-        await userEvent.setup().type(screen.getByLabelText('Client secret', { exact: false }), 'hunter2');
+        await setupUser().type(screen.getByLabelText('Client secret', { exact: false }), 'hunter2');
         await save();
 
         await waitFor(() => {
@@ -101,7 +100,7 @@ describe('PluginConfigForm', () => {
         updatePluginConfiguration.mockResolvedValue(plugin);
 
         render(<PluginConfigForm plugin={plugin} />);
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Clear the stored value' }));
+        await setupUser().click(screen.getByRole('button', { name: 'Clear the stored value' }));
 
         expect(screen.getByText('Will be removed when you save.')).toBeInTheDocument();
 
@@ -118,7 +117,7 @@ describe('PluginConfigForm', () => {
         const plugin = pluginDetail({ configFields: [SECRET_FIELD], secretsConfigured: { clientSecret: true } });
 
         render(<PluginConfigForm plugin={plugin} />);
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Clear the stored value' }));
+        await setupUser().click(screen.getByRole('button', { name: 'Clear the stored value' }));
         await save();
 
         // Clearing it would leave the plugin without a value its own schema demands, so the form
@@ -139,7 +138,7 @@ describe('PluginConfigForm', () => {
         render(<PluginConfigForm plugin={plugin} />);
         expect(screen.queryByLabelText('Proxy URL')).not.toBeInTheDocument();
 
-        await userEvent.setup().click(screen.getByLabelText('Use a proxy'));
+        await setupUser().click(screen.getByLabelText('Use a proxy'));
 
         expect(screen.getByLabelText('Proxy URL')).toBeInTheDocument();
     });
@@ -189,7 +188,7 @@ describe('PluginConfigForm', () => {
         it('draws a row per stored entry and submits what was typed into a new one', async () => {
             const plugin = withRows({ name: 'World', url: 'https://one.example.com/rss', category: 'world' });
             updatePluginConfiguration.mockResolvedValue(plugin);
-            const user = userEvent.setup();
+            const user = setupUser();
 
             render(<PluginConfigForm plugin={plugin} />);
 
@@ -214,7 +213,7 @@ describe('PluginConfigForm', () => {
         it('drops a row the operator removed, and one they added and left blank', async () => {
             const plugin = withRows({ name: 'World', url: 'https://one.example.com/rss' }, { name: 'Sport', url: 'https://two.example.net/rss' });
             updatePluginConfiguration.mockResolvedValue(plugin);
-            const user = userEvent.setup();
+            const user = setupUser();
 
             render(<PluginConfigForm plugin={plugin} />);
 
@@ -235,7 +234,7 @@ describe('PluginConfigForm', () => {
                 ],
             });
             const plugin = withRows({ name: 'World', url: 'https://one.example.com/rss' });
-            const user = userEvent.setup();
+            const user = setupUser();
 
             render(<PluginConfigForm plugin={plugin} />);
 
@@ -267,7 +266,7 @@ describe('PluginConfigForm', () => {
 
             expect(screen.getByDisplayValue('https://one.example.com/rss')).toBeInTheDocument();
 
-            await userEvent.setup().type(screen.getByLabelText('Address'), '/two');
+            await setupUser().type(screen.getByLabelText('Address'), '/two');
             await save();
 
             await waitFor(() => {
@@ -279,7 +278,7 @@ describe('PluginConfigForm', () => {
             const plugin = pluginDetail({ configFields: [{ ...FEEDS, required: true }] });
 
             render(<PluginConfigForm plugin={plugin} />);
-            await userEvent.setup().click(screen.getByRole('button', { name: 'Add' }));
+            await setupUser().click(screen.getByRole('button', { name: 'Add' }));
             await save();
 
             // A blank row is not an answer, which is the whole difference between this and a text

@@ -1,11 +1,22 @@
 import { afterEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 
 import '@testing-library/jest-dom/vitest';
 
 // Testing Library only self-registers cleanup when vitest runs with `globals: true`,
 // which this package does not, so renders would otherwise pile up in one document.
 afterEach(cleanup);
+
+// How long `findBy*` and `waitFor` keep retrying.
+//
+// Testing Library's own clock, and NOT the one `testTimeout` in vitest.config.ts sets — which is
+// why raising that alone did not make this suite reliable. The default is one second, so under a
+// full workspace run, where every package's tests are competing for the same cores, a query that
+// resolves in 20ms standalone can miss it. The failure that produces is the worst-reading kind: an
+// assertion saying an element is not in the document, about a page that renders it perfectly well.
+//
+// Retries are cheap and only the failing path pays the ceiling, so this is generous on purpose.
+configure({ asyncUtilTimeout: 10_000 });
 
 // jsdom implements neither of these, and Mantine components use both.
 Object.defineProperty(window, 'matchMedia', {

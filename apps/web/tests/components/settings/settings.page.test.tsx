@@ -4,12 +4,11 @@
 // card's settings, and neither is visible from the API side alone.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
 import type { StationSettings } from '@deadair/sdk';
 
 import { SettingsPage } from '../../../src/components/settings/settings.page';
-import { render, screen, waitFor } from '../../utils/render';
+import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const getSettings = vi.fn();
 const updateSettings = vi.fn();
@@ -90,7 +89,7 @@ describe('SettingsPage', () => {
         render(<SettingsPage />);
         await screen.findByLabelText('Minutes between breaks');
 
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Save rotation' }));
+        await setupUser().click(screen.getByRole('button', { name: 'Save rotation' }));
 
         await waitFor(() => {
             expect(updateSettings).toHaveBeenCalledTimes(1);
@@ -104,7 +103,7 @@ describe('SettingsPage', () => {
         getSettings.mockResolvedValue(settingsOf());
         updateSettings.mockResolvedValue(settingsOf());
         render(<SettingsPage />);
-        const user = userEvent.setup();
+        const user = setupUser();
         await user.clear(await screen.findByLabelText('Station name'));
         await user.type(screen.getByLabelText('Station name'), 'New FM');
 
@@ -136,7 +135,7 @@ describe('SettingsPage', () => {
         getSettings.mockResolvedValue(settingsOf());
         updateSettings.mockResolvedValue(settingsOf());
         render(<SettingsPage />);
-        const user = userEvent.setup();
+        const user = setupUser();
 
         const input = await screen.findByLabelText('Station name');
         expect(input).toHaveValue('Old FM');
@@ -166,7 +165,7 @@ describe('SettingsPage', () => {
         render(<SettingsPage />);
         await screen.findByLabelText('Station name');
 
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Save station' }));
+        await setupUser().click(screen.getByRole('button', { name: 'Save station' }));
 
         expect(await screen.findByText('That name is taken')).toBeInTheDocument();
     });
@@ -205,7 +204,7 @@ describe('SettingsPage', () => {
         render(<SettingsPage />);
         await screen.findByLabelText('What the station says');
 
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Save rotation' }));
+        await setupUser().click(screen.getByRole('button', { name: 'Save rotation' }));
 
         expect(updateSettings).toHaveBeenCalledWith({ values: { 'rotation.breakTemplates': 'That was {{previous.title}}.' } });
     });

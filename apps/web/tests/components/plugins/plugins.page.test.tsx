@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
 
 import { PluginsPage } from '../../../src/components/plugins/plugins.page';
 import { pluginSummary } from '../../utils/plugin.fixture';
-import { render, screen, waitFor } from '../../utils/render';
+import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const listPlugins = vi.fn();
 const rescanPlugins = vi.fn();
@@ -68,7 +67,7 @@ describe('PluginsPage', () => {
         rescanPlugins.mockRejectedValue(new SdkError(403, 'Forbidden', { statusCode: 403, message: 'Forbidden' }, new Headers()));
 
         render(<PluginsPage />);
-        await userEvent.setup().click(await screen.findByRole('button', { name: 'Rescan' }));
+        await setupUser().click(await screen.findByRole('button', { name: 'Rescan' }));
 
         expect(await screen.findByText('Rescanning the plugin directory is an administrator action.')).toBeInTheDocument();
     });
@@ -78,7 +77,7 @@ describe('PluginsPage', () => {
         disablePlugin.mockResolvedValue({ ...pluginSummary({ enabled: false, status: 'disabled' }), config: {} });
 
         render(<PluginsPage />);
-        await userEvent.setup().click(await screen.findByLabelText('Enable Spotify'));
+        await setupUser().click(await screen.findByLabelText('Enable Spotify'));
 
         await waitFor(() => {
             expect(screen.getByLabelText('Enable Spotify')).not.toBeChecked();

@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
 
 import { RootLayout } from '../../src/routes/__root';
 import { clearSession, isAuthenticated, setSession } from '../../src/auth/session.store';
-import { createTestQueryClient, render, screen, waitFor } from '../utils/render';
+import { createTestQueryClient, render, screen, setupUser, waitFor } from '../utils/render';
 
 const navigate = vi.fn().mockResolvedValue(undefined);
 const logout = vi.fn();
@@ -73,7 +72,7 @@ describe('RootLayout', () => {
         setSession('token-123', 3600);
         render(<RootLayout />);
 
-        await userEvent.setup().click(logoutButton());
+        await setupUser().click(logoutButton());
 
         await waitFor(() => {
             expect(navigate).toHaveBeenCalledWith({ to: '/login' });
@@ -87,7 +86,7 @@ describe('RootLayout', () => {
         setSession('token-123', 3600);
         render(<RootLayout />);
 
-        await userEvent.setup().click(logoutButton());
+        await setupUser().click(logoutButton());
 
         expect(await screen.findByText('Sign-out incomplete')).toBeInTheDocument();
         expect(screen.getByText(/Revoke exploded/)).toBeInTheDocument();
@@ -102,7 +101,7 @@ describe('RootLayout', () => {
         queryClient.setQueryData(['onboarding', 'requirements'], [{ key: 'admin.account' }]);
         render(<RootLayout />, { queryClient });
 
-        await userEvent.setup().click(logoutButton());
+        await setupUser().click(logoutButton());
 
         await waitFor(() => {
             expect(queryClient.getQueryData(['onboarding', 'requirements'])).toBeUndefined();
@@ -116,7 +115,7 @@ describe('RootLayout', () => {
         queryClient.setQueryData(['onboarding', 'requirements'], [{ key: 'admin.account' }]);
         render(<RootLayout />, { queryClient });
 
-        await userEvent.setup().click(logoutButton());
+        await setupUser().click(logoutButton());
 
         await waitFor(() => {
             expect(queryClient.getQueryData(['onboarding', 'requirements'])).toBeUndefined();
@@ -128,7 +127,7 @@ describe('RootLayout', () => {
         setSession('token-123', 3600);
         render(<RootLayout />);
 
-        const user = userEvent.setup();
+        const user = setupUser();
         await user.click(logoutButton());
         expect(await screen.findByText('Sign-out incomplete')).toBeInTheDocument();
 

@@ -3,10 +3,9 @@
 // `return`, which is a form that will not submit and will not say why.
 
 import { describe, expect, it, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
 
 import { ProductionForm } from '../../../src/components/productions/production.form';
-import { render, screen } from '../../utils/render';
+import { render, screen, setupUser } from '../../utils/render';
 
 vi.mock('../../../src/api/client', () => ({
     sdk: { personas: { listPersonas: () => Promise.resolve({ personas: [] }) } },
@@ -15,7 +14,7 @@ vi.mock('../../../src/api/client', () => ({
 const build = () => {
     const onSubmit = vi.fn();
     render(<ProductionForm pending={false} error={undefined} onSubmit={onSubmit} onCancel={vi.fn()} />);
-    return { onSubmit, user: userEvent.setup() };
+    return { onSubmit, user: setupUser() };
 };
 
 describe('ProductionForm', () => {

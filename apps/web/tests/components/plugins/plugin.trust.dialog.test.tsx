@@ -1,9 +1,8 @@
-import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PluginTrustDialog } from '../../../src/components/plugins/plugin.trust.dialog';
 import { pluginSummary } from '../../utils/plugin.fixture';
-import { render, screen } from '../../utils/render';
+import { render, screen, setupUser } from '../../utils/render';
 
 describe('PluginTrustDialog', () => {
     it('renders the plugin name and id', () => {
@@ -21,7 +20,7 @@ describe('PluginTrustDialog', () => {
         const plugin = pluginSummary();
 
         render(<PluginTrustDialog plugin={plugin} opened onCancel={onCancel} onConfirm={onConfirm} />);
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Cancel' }));
+        await setupUser().click(screen.getByRole('button', { name: 'Cancel' }));
 
         expect(onCancel).toHaveBeenCalledTimes(1);
         expect(onConfirm).not.toHaveBeenCalled();
@@ -33,7 +32,7 @@ describe('PluginTrustDialog', () => {
         const plugin = pluginSummary({ name: 'Spotify' });
 
         render(<PluginTrustDialog plugin={plugin} opened onCancel={onCancel} onConfirm={onConfirm} />);
-        await userEvent.setup().click(screen.getByRole('button', { name: 'Enable Spotify' }));
+        await setupUser().click(screen.getByRole('button', { name: 'Enable Spotify' }));
 
         expect(onConfirm).toHaveBeenCalledTimes(1);
     });

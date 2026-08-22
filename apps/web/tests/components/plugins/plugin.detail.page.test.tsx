@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
 
 import { PluginDetailPage } from '../../../src/components/plugins/plugin.detail.page';
 import { pluginDetail } from '../../utils/plugin.fixture';
-import { render, screen } from '../../utils/render';
+import { render, screen, setupUser } from '../../utils/render';
 
 const getPlugin = vi.fn();
 const testPluginConnection = vi.fn();
@@ -55,7 +54,7 @@ describe('PluginDetailPage', () => {
         testPluginConnection.mockResolvedValue({ ok: false, message: 'token expired' });
 
         render(<PluginDetailPage id="deadair.spotify" />);
-        await userEvent.setup().click(await screen.findByRole('button', { name: 'Test connection' }));
+        await setupUser().click(await screen.findByRole('button', { name: 'Test connection' }));
 
         expect(await screen.findByText('token expired')).toBeInTheDocument();
     });
@@ -65,7 +64,7 @@ describe('PluginDetailPage', () => {
         startPluginOAuthAuthorization.mockResolvedValue({ url: 'https://accounts.spotify.com/authorize?state=abc' });
 
         render(<PluginDetailPage id="deadair.spotify" />);
-        await userEvent.setup().click(await screen.findByRole('button', { name: 'Connect' }));
+        await setupUser().click(await screen.findByRole('button', { name: 'Connect' }));
 
         await vi.waitFor(() => {
             expect(assign).toHaveBeenCalledWith('https://accounts.spotify.com/authorize?state=abc');

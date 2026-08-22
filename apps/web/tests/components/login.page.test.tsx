@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
 
 import { LoginPage } from '../../src/components/login.page';
 import { clearSession, getSession } from '../../src/auth/session.store';
-import { render, screen } from '../utils/render';
+import { render, screen, setupUser } from '../utils/render';
 
 const requestToken = vi.fn();
 const navigate = vi.fn();
@@ -28,7 +27,7 @@ afterEach(() => {
 });
 
 async function fillAndSubmit(email: string, password: string) {
-    const user = userEvent.setup();
+    const user = setupUser();
     await user.type(screen.getByLabelText('Email'), email);
     await user.type(screen.getByLabelText('Password'), password);
     await user.click(screen.getByRole('button', { name: 'Sign in' }));

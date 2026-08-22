@@ -1,11 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
 import type { OnboardingRequirement } from '@deadair/sdk';
 
 import { AdminAccountStep } from '../../../../src/components/onboarding/steps/admin.account.step';
 import { queryKeys } from '../../../../src/api/query.keys';
-import { createTestQueryClient, render, screen, waitFor } from '../../../utils/render';
+import { createTestQueryClient, render, screen, setupUser, waitFor } from '../../../utils/render';
 
 const submitOnboardingRequirement = vi.fn();
 
@@ -28,7 +27,7 @@ function apiError(status: number, body: unknown): SdkError {
 }
 
 async function fillAndSubmit(email: string, password: string, confirmPassword: string) {
-    const user = userEvent.setup();
+    const user = setupUser();
     if (email) {
         await user.type(screen.getByLabelText('Email'), email);
     }

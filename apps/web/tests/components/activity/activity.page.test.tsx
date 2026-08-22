@@ -9,7 +9,7 @@ import { userEvent } from '@testing-library/user-event';
 import type { ActivityEntry } from '@deadair/sdk';
 
 import { ActivityPage } from '../../../src/components/activity/activity.page';
-import { render, screen } from '../../utils/render';
+import { render, screen, setupUser } from '../../utils/render';
 
 const entry = (over: Partial<ActivityEntry> = {}): ActivityEntry => ({
     id: 'evt-1',
@@ -116,7 +116,7 @@ describe('ActivityPage', () => {
 
     it('tells an empty station apart from an empty filter', async () => {
         feed.mockReturnValue(answer([]));
-        const user = userEvent.setup();
+        const user = setupUser();
 
         render(<ActivityPage />);
         expect(screen.getByText(/Nothing yet/)).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe('ActivityPage', () => {
         // The feed is paged, so a console that filtered what it held would answer "no faults" from
         // one page of a history that has plenty.
         feed.mockReturnValue(answer([entry()]));
-        const user = userEvent.setup();
+        const user = setupUser();
 
         render(<ActivityPage />);
         await user.click(screen.getByText('Breaks'));

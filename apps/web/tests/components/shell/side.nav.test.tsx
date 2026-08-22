@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
 
 import { SideNav } from '../../../src/components/shell/side.nav';
-import { render, screen } from '../../utils/render';
+import { render, screen, setupUser } from '../../utils/render';
 
 // The nav is exercised without a router: only `Link` is reached, and only to render an anchor.
 vi.mock('@tanstack/react-router', () => ({
@@ -91,7 +90,7 @@ describe('SideNav', () => {
         const onNavigate = vi.fn();
         render(<SideNav onNavigate={onNavigate} />);
 
-        await userEvent.setup().click(screen.getByRole('link', { name: 'Catalog' }));
+        await setupUser().click(screen.getByRole('link', { name: 'Catalog' }));
 
         expect(onNavigate).toHaveBeenCalled();
     });

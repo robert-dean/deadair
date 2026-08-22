@@ -1,11 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
 import type { OnboardingRequirement } from '@deadair/sdk';
 
 import { OnboardingWizard } from '../../../src/components/onboarding/onboarding.wizard';
 import { queryKeys } from '../../../src/api/query.keys';
-import { createTestQueryClient, render, screen, waitFor } from '../../utils/render';
+import { createTestQueryClient, render, screen, setupUser, waitFor } from '../../utils/render';
 
 const invalidate = vi.fn().mockResolvedValue(undefined);
 const submitOnboardingRequirement = vi.fn();
@@ -23,7 +22,7 @@ vi.mock('../../../src/api/client', () => ({
 }));
 
 async function completeAdminStep() {
-    const user = userEvent.setup();
+    const user = setupUser();
     await user.type(screen.getByLabelText('Email'), 'admin@example.com');
     await user.type(screen.getByLabelText('Password'), 'longenough1');
     await user.type(screen.getByLabelText('Confirm password'), 'longenough1');

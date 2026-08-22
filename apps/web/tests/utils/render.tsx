@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render as testingLibraryRender, type RenderResult } from '@testing-library/react';
+import userEvent, { type UserEvent } from '@testing-library/user-event';
 
 import { theme } from '../../src/theme';
 
@@ -40,6 +41,23 @@ export function render(ui: ReactNode, options: RenderOptions = {}): RenderResult
             </QueryClientProvider>
         ),
     });
+}
+
+/**
+ * A user for driving the page, set up the way this suite needs.
+ *
+ * `delay: null` types the whole string in one go instead of waiting between keystrokes. The default
+ * puts a real timer between characters, which is a fair model of a person and a bad one for a test:
+ * a form filled with two sentences spends most of a second doing nothing, and under a full-suite
+ * run that dead time is where a case crosses its timeout. Worse, the waits are where the keystrokes
+ * INTERLEAVE — a contended run produced `aAc hsihnoer tn oobnoed` from two sequential `type` calls,
+ * which is a scheduling artefact rather than anything a user could do.
+ *
+ * Nothing here is asserting that typing is paced, so there is nothing to lose by removing the pause.
+ * A test that genuinely wants per-keystroke behaviour should set up its own and say why.
+ */
+export function setupUser(): UserEvent {
+    return userEvent.setup({ delay: null });
 }
 
 export { screen, waitFor, within } from '@testing-library/react';

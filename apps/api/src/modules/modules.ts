@@ -39,27 +39,45 @@ import { withBoundedShutdown } from './shared/shutdown.guard.js';
 // is a list of modules, spread in place. Add your app's domain modules after
 // this chassis set.
 //
-// SHUTDOWN runs in this SAME order rather than in reverse, which is the one thing about this list
-// that surprises everybody, because a dependency order read forwards is a teardown order read
-// backwards. Two things follow from it, both of them load-bearing and both of them bugs that were
-// measured on this install rather than reasoned about:
+// SHUTDOWN runs in REVERSE registration order, so teardown mirrors setup: a module releases what it
+// holds while everything it depends on is still alive. That is the plain reading, and for nearly
+// every entry below it is the only thing to know — the position is a dependency order and teardown
+// now follows from it for free.
 //
-//   - Nothing that others depend on may close in its own position. `DataConnectionsModule` at the
-//     end is the whole of that today: the pools have to outlive every module that writes during its
-//     own teardown.
+// The one counter-intuitive consequence is at the TOP of the list rather than the bottom: a module
+// that must close LAST has to register FIRST. `LoggingModule` and `DataConnectionsModule` are the
+// two, and both are there for that reason alone — neither registers, starts or readies anything, so
+// sitting in front of `HealthModule` costs boot nothing. Two rules, both of them bugs measured on
+// this install rather than reasoned about:
+//
+//   - Nothing that others depend on may close in its own position. `DataConnectionsModule` is the
+//     whole of that today: the pools have to outlive every module that writes during its own
+//     teardown, which now means registering ahead of `DataModule` rather than behind everything.
 //   - No hook may cost the ones after it their teardown, or the process its exit. That is
-//     `withBoundedShutdown` at the bottom of this file.
+//     `withBoundedShutdown` at the bottom of this file, and the reversal did not change it: the
+//     loop still catches nothing and bounds nothing.
 const ordered: ServerKitModule[] = [
-    // First, and it depends on nothing: a probe asking whether this process is up
-    // while everything below is still starting wants the true answer rather than a
-    // 404 that reads as a wrong URL. It registers one singleton and starts nothing.
+    // First so it tears down LAST: its shutdown hook closes the process-level RotatingLogStore, and
+    // every other module's shutdown logging has to be flushed through FileTeeLogger before that
+    // happens — including the two lines DataConnectionsModule writes immediately before it. It has
+    // no setup of its own; the store is built in `setup.server.ts` before any container exists.
+    LoggingModule,
+    // Second so it tears down second-to-last, with only LoggingModule left after it. It registers
+    // nothing and starts nothing: it exists only to close the database and Redis once every module
+    // that writes during its own teardown has finished. With the close left in DataModule's own
+    // position the director's flush of the running order, which is a guarantee rather than a
+    // nicety, was lost on nine of the shutdowns in this install's log. See DataConnectionsModule.
+    DataConnectionsModule,
+    // First of the modules that actually register something, and it depends on nothing: a probe
+    // asking whether this process is up while everything below is still starting wants the true
+    // answer rather than a 404 that reads as a wrong URL. It registers one singleton and starts
+    // nothing.
     HealthModule,
     DataModule,
     CryptoModule,
     AuthenticationModule,
     PermissionsModule,
     PolicyModule,
-    JobsModule,
     // Before CatalogModule: catalog reads join `art_assets` so a row that has a
     // locally cached cover reports that instead of the upstream URL. Nothing
     // here reaches back into the catalog.
@@ -74,6 +92,17 @@ const ordered: ServerKitModule[] = [
     // Last: a plugin's host reaches into the chassis (data, crypto, logging),
     // so everything it depends on must already be registered.
     PluginsModule,
+    // After PluginsModule, and it is teardown that fixes the position: shutdown runs backwards, so
+    // registering here is what stops the workers consuming BEFORE PluginsModule disposes the plugin
+    // instances under them. It used to sit up beside PolicyModule, which bought the same guarantee
+    // while teardown ran forwards.
+    //
+    // Its ready() is strictly better here than it was there. The ready phase runs only once every
+    // module's start() has settled, so workers never dequeued against an empty PluginRegistry; but
+    // ready hooks still run in registration order, so from up there plugins were discovered and not
+    // yet INITIALIZED. From here they are both, which closes a gap jobs.module.ts had to argue was
+    // tolerable rather than absent.
+    JobsModule,
     // After PluginsModule: it resolves PluginRegistry and PluginInvoker, which
     // PluginsModule registers.
     PlaylistsModule,
@@ -191,23 +220,13 @@ const ordered: ServerKitModule[] = [
     // composes them and owns nothing, so nothing resolves it back — which is what makes the bottom
     // of the list a free position rather than a compromise.
     StationModule,
-    // Registers nothing and starts nothing: it exists to close the database and Redis at the END,
-    // because shutdown runs in this list's order and DataModule has to be at the front of it. With
-    // the close still up there, every module below tore down against a pool that had already gone —
-    // and the director's flush of the running order, which is a guarantee rather than a nicety, was
-    // lost on nine of the shutdowns in this install's log. See DataConnectionsModule.
-    DataConnectionsModule,
-    // Must stay last: its shutdown hook closes the process-level RotatingLogStore,
-    // and every other module's shutdown logging has to be flushed through
-    // FileTeeLogger before that happens — including the two lines directly above.
-    LoggingModule,
 ];
 
 /**
  * The list as ServerKit gets it: same modules, same order, with every teardown bounded.
  *
  * Applied here rather than inside each hook because the guarantee is about the LIST — no module may
- * cost the ones after it their teardown, and none may cost the process its exit. A module added
- * later gets it without knowing about it.
+ * cost the ones that tear down after it their own teardown, and none may cost the process its exit.
+ * A module added later gets it without knowing about it.
  */
 export const modules: ServerKitModule[] = ordered.map(module => withBoundedShutdown(module));

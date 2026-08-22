@@ -131,11 +131,13 @@ export const DataModule: ServerKitModule = {
 /**
  * Closing the pools, which is deliberately NOT part of {@link DataModule}.
  *
- * ServerKit walks one list for both directions, so shutdown runs in registration order — and
- * registration order is a DEPENDENCY order, which is exactly backwards for teardown. `DataModule`
- * has to be first, so its shutdown was first too: the database and Redis closed while every module
- * that depends on them was still running, and each of those then tore down against a pool that had
- * already gone.
+ * ServerKit walks one list for both directions, tearing down in REVERSE registration order, so a
+ * module closes while everything it depends on is still alive. That is the right default and it is
+ * wrong for exactly this one: `DataModule` has to REGISTER early, because everything resolves what
+ * it registers — and closing in its own position would make the pools among the LAST things to go
+ * under a forward walk, or among the first under a backward one. Either way the database and Redis
+ * shut while modules that depend on them were still tearing down, and each of those then ran against
+ * a pool that had already gone.
  *
  * That is not hypothetical. `DirectorService` writes the running order down on shutdown — the
  * guarantee is that a graceful stop flushes what memory holds — and it logged
@@ -143,9 +145,10 @@ export const DataModule: ServerKitModule = {
  * shutdowns in this install's log. The write was lost every one of those times, silently as far as
  * anything but that line was concerned.
  *
- * So the REGISTRATION stays first and the CLOSE moves to the end of the list, one place ahead of
- * `LoggingModule`, which still has to be last so this module's own two lines are flushed. Nothing
- * else changes: same container, same instances, same order for setup, start and ready.
+ * So the REGISTRATION of the pools stays where it is and the CLOSE is this separate module, put at
+ * the very TOP of the list so the backward walk reaches it last — one place inside `LoggingModule`,
+ * which is first for the same reason and so still flushes this module's own two lines. Nothing else
+ * changes: same container, same instances, same order for setup, start and ready.
  *
  * Anything else that must outlive the modules using it belongs here rather than in a shutdown hook
  * of its own — which is the general form of the bug above, and the reason this is a named seam

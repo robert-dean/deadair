@@ -6,17 +6,20 @@ import { errorText } from './error.text.js';
 /**
  * Keep one module's teardown from stranding every module after it.
  *
- * ServerKit runs the shutdown hooks in registration order, awaiting each one, and — unlike the
- * `ready` loop directly above it in the same file, which wraps every hook in a `try` — it catches
- * nothing and bounds nothing:
+ * ServerKit runs the shutdown hooks in reverse registration order, awaiting each one, and — unlike
+ * the `ready` loop directly above it in the same file, which wraps every hook in a `try` — it
+ * catches nothing and bounds nothing:
  *
  * ```js
- * for (const module of this.modules) {
+ * for (const module of [...this.modules].reverse()) {
  *     if (module.shutdown) { … await module.shutdown(this.container); }
  * }
  * this.logger.info('Server closed');
  * process.exit();
  * ```
+ *
+ * The direction changed in koa 3.0.5 and none of what follows did: the loop is as unguarded as it
+ * was, so this file is needed exactly as much.
  *
  * So a hook that throws or never settles takes three things with it. Every later module's hook
  * never runs, which for this app means the transport loop, the audience poll and the config watch
@@ -93,9 +96,9 @@ function expire(ms: number, token: symbol): { promise: Promise<symbol>; cancel: 
 /**
  * A logger, if there is still one to be had.
  *
- * `LoggingModule` is deliberately last precisely so it is not, and a container that cannot resolve
- * one is a state this must survive rather than report: the whole point here is that nothing in this
- * file may become the reason a shutdown does not finish.
+ * `LoggingModule` deliberately tears down last precisely so there may not be, and a container that
+ * cannot resolve one is a state this must survive rather than report: the whole point here is that
+ * nothing in this file may become the reason a shutdown does not finish.
  */
 function loggerFor(container: Container): Logger | undefined {
     try {

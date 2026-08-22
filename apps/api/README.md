@@ -10,7 +10,9 @@ Everything is assembled from **modules**. A module is a `ServerKitModule`: an ob
 `setup` / `start` / `ready` / `shutdown` hooks that registers its classes into the injectkit DI
 registry and, where it owns long-lived work, starts and stops it. The full, ordered list lives in
 [modules.ts](src/modules/modules.ts) and the order is meaningful (comments there explain each
-placement).
+placement). `setup` / `start` / `ready` walk the list forwards and `shutdown` walks it **backwards**,
+so a module tears down before the modules it depends on — and anything that must close LAST is
+registered FIRST.
 
 ---
 
@@ -90,7 +92,7 @@ Registered in the order below (see [modules.ts](src/modules/modules.ts)).
 | **Settings**   | [modules/settings](src/modules/settings)     | The `deadair.settings` key/value table. Deliberately thin right now: the music-provider surface that used to live here moved to the plugin config system, and the active provider is named by the `music.provider` setting key.                                                                                                                                                                                                                |
 | **Plugins**    | [modules/plugins](src/modules/plugins)       | The plugin subsystem — see below.                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Playlists**  | [modules/playlists](src/modules/playlists)   | A read-only, no-database view of what could be imported from a plugin: every catalog-capable plugin's playlists, aggregated, plus one plugin's playlist tracks on demand. Nothing is persisted; every answer is a live call through `PluginInvoker`, and a failing plugin degrades to a `CatalogSourceError` entry rather than failing the request. Registered after `PluginsModule` because it resolves `PluginRegistry` and `PluginInvoker`. |
-| **Logging**    | [src/logging](src/logging)                   | Owns the shutdown of the process-level `RotatingLogStore`. Must stay **last** in `modules.ts`: every other module's shutdown logging has to flush through `FileTeeLogger` before the store closes.                                                                                                                                                                                                                                             |
+| **Logging**    | [src/logging](src/logging)                   | Owns the shutdown of the process-level `RotatingLogStore`. Must stay **first** in `modules.ts` so it tears down **last**: every other module's shutdown logging has to flush through `FileTeeLogger` before the store closes.                                                                                                                                                                                                                                             |
 
 ### The plugin subsystem
 

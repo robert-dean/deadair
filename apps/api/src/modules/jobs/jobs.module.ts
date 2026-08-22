@@ -80,13 +80,18 @@ export const JobsModule: ServerKitModule = {
     // from the previous boot could dequeue against an empty registry and record
     // a failure that says nothing about the plugin.
     //
-    // Ready hooks still run in registration order, and this module precedes
-    // PluginsModule, so plugins are discovered but not yet INITIALIZED here. A
-    // job that calls into a plugin has to tolerate a non-active one regardless
-    // (a plugin can be disabled, quarantined or reinitializing at any moment),
-    // so that residual gap is the same case, not a new one. The position is
-    // fixed by shutdown, which also runs in registration order: workers must
-    // stop consuming before PluginsModule disposes the instances under them.
+    // Ready hooks run in registration order and this module now FOLLOWS
+    // PluginsModule, so plugins are both discovered and initialized by the time
+    // workers begin dequeuing. A job that calls into a plugin still has to
+    // tolerate a non-active one (a plugin can be disabled, quarantined or
+    // reinitializing at any moment), so nothing here depends on that — it just
+    // removes a gap this comment used to have to argue was tolerable.
+    //
+    // The position is fixed by shutdown, which runs in REVERSE registration
+    // order: registering after PluginsModule is what tears this down BEFORE it,
+    // so workers stop consuming before the plugin instances under them are
+    // disposed. It sat ahead of PluginsModule for as long as teardown ran
+    // forwards, which bought the same guarantee from the opposite side.
     ready: async (container: Container, signal: AbortSignal) => {
         if (signal.aborted) return;
         const jobRunner = container.get(JobRunner);

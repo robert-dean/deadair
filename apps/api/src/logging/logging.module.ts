@@ -10,14 +10,15 @@ import { errorText } from '#modules/shared/error.text.js';
  * The store is process-level infrastructure, not a plugins concern: it backs
  * `FileTeeLogger` for every module's own logging, not just plugin channels.
  * It used to be closed from `PluginsModule.shutdown`, but that made a
- * shutdown-order accident easy — any module registered after `PluginsModule`
+ * shutdown-order accident easy — any module tearing down after `PluginsModule`
  * that logs during its own shutdown would resurrect a stream nothing would
  * ever flush or close. `LoggingModule` has no `setup` of its own: the store
  * is built in `setup.server.ts` (before any container exists) and reached
  * here the same way `PluginsModule` reaches it, via `container.get`.
  *
- * Must be registered last in `modules.ts` so every other module's shutdown
- * logging is flushed before the store closes.
+ * Must be registered FIRST in `modules.ts` so every other module's shutdown
+ * logging is flushed before the store closes: teardown runs in reverse
+ * registration order, so first in the list is last to shut down.
  */
 export const LoggingModule: ServerKitModule = {
     name: 'Logging',

@@ -24,8 +24,19 @@ export const PLUGIN_VERSION = '0.0.1';
  */
 export const DEFAULT_BASE_URL = 'http://localhost:8004/v1';
 
-/** What the OpenAI-compatible layer calls the model. Accepted aliases exist; this is the plain one. */
-export const DEFAULT_MODEL = 'chatterbox';
+/**
+ * What goes in the request's `model`, and why it is a constant rather than a field.
+ *
+ * `OpenAISpeechRequest` marks `model` required and this server does not dispatch on
+ * it: one model is resident at a time, named by the server's OWN config
+ * (`config.model.repo_id`), swapped by `/restart_server`, and there is no endpoint
+ * that enumerates any others — no `/v1/models`, and `/api/model-info` describes what
+ * is loaded rather than what could be. So the field this used to be the default of
+ * was a box that looked like a choice, could not be filled from the server, and
+ * changed nothing whichever way it was filled. It is a note now, and
+ * `testConnection` is where the live answer comes from.
+ */
+export const REQUEST_MODEL = 'chatterbox';
 
 /**
  * A voice that exists on a stock install.
@@ -113,18 +124,31 @@ export const SPEAK_TIMEOUT_MS = 90_000;
 export const PROBE_TIMEOUT_MS = 5_000;
 
 /**
- * Formats this server will encode to, and what each one IS.
+ * Formats this plugin can hand the station, and what each one IS.
  *
  * The answer given in `SpeechHandle.mime` is what the station stores the audio
  * under and later serves, and both consumers of station audio go by that header
  * rather than by the bytes — so a wav announced as mpeg fails as silence rather
  * than as an error anybody sees.
+ *
+ * **The MIME is the half no server reports**, which is why this table stays a
+ * constant while the CHOICE offered in the form does not: `suggestConfigOptions`
+ * narrows it to what the operator's own server declares it will encode to, and the
+ * two meet as an intersection. A format the server takes and this table has no MIME
+ * for cannot be offered, because {@link configSchema} would refuse it on the way
+ * back in and the operator would be picking a save that fails.
+ *
+ * `flac` was here for as long as this file existed and is gone: the server's schema
+ * takes `wav | opus | mp3` and answers 422 to anything else, so it was a fourth
+ * choice in the dropdown that broke every break rendered under it. That is the
+ * failure the narrowing above exists to stop happening again to whichever entry is
+ * next, and dropping it is what keeps the STATIC list honest for a form drawn while
+ * the server is unreachable.
  */
 export const RESPONSE_FORMATS = {
     mp3: 'audio/mpeg',
     wav: 'audio/wav',
     opus: 'audio/ogg',
-    flac: 'audio/flac',
 } as const satisfies Record<string, string>;
 
 export type ResponseFormat = keyof typeof RESPONSE_FORMATS;
@@ -137,7 +161,6 @@ export const DEFAULT_UNLOAD_AFTER_RENDER = false;
 export const configSchema = z.object({
     baseUrl: z.string().min(1),
     apiKey: z.string().optional(),
-    model: z.string().optional(),
     format: z.enum(Object.keys(RESPONSE_FORMATS) as [ResponseFormat, ...ResponseFormat[]]).optional(),
     defaultVoice: z.string().optional(),
     unloadAfterRender: z.union([z.boolean(), z.string()]).optional(),
@@ -177,16 +200,20 @@ export const chatterboxManifest: PluginManifest = {
             help: 'Leave empty unless the server is behind something that wants one.',
         },
         {
-            key: 'model',
-            label: 'Model',
-            type: 'string',
-            default: DEFAULT_MODEL,
+            key: 'modelNote',
+            type: 'note',
+            label:
+                'There is no model to pick here: this server holds one at a time, named in its own configuration and swapped by restarting it, and the request carries a placeholder it ignores. ' +
+                'Test connection reports which model is loaded and what it is running on.',
         },
         {
             key: 'format',
             label: 'Audio format',
             type: 'select',
             default: DEFAULT_FORMAT,
+            // The static fallback, for a form drawn before the server has answered. What is
+            // actually offered is narrowed to the server's own declared set — see
+            // `RESPONSE_FORMATS` and `suggestConfigOptions`.
             options: (Object.keys(RESPONSE_FORMATS) as ResponseFormat[]).map(value => ({ value, label: value })),
             help: 'mp3 unless you have a reason. It is what the station stores and what the stream wants.',
         },

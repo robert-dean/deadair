@@ -13,17 +13,17 @@ import {
 } from '@deadair/plugin-sdk';
 import {
     DEFAULT_FORMAT,
-    DEFAULT_MODEL,
     DEFAULT_UNLOAD_AFTER_RENDER,
     DEFAULT_VOICE,
     PROBE_TIMEOUT_MS,
+    REQUEST_MODEL,
     RESPONSE_FORMATS,
     SPEAK_TIMEOUT_MS,
     chatterboxManifest,
     shippedUnlessMapped,
     type ResponseFormat,
 } from './chatterbox.manifest.js';
-import { ModelLifecycle } from './chatterbox.lifecycle.js';
+import { ModelLifecycle, type ModelInfo } from './chatterbox.lifecycle.js';
 import { VOICE_ENGINE_COLUMN, VOICES_FIELD, type VoiceMap, type VoiceMapping } from './chatterbox.voices.js';
 
 export { chatterboxManifest };
@@ -140,7 +140,6 @@ const whenFinished = (source: ReadableStream<Uint8Array>, onDone: () => void): R
 export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     private baseUrl = '';
     private apiKey?: string;
-    private model = DEFAULT_MODEL;
     private format: ResponseFormat = DEFAULT_FORMAT;
     private defaultVoice = DEFAULT_VOICE;
     private voices: VoiceMap = {};
@@ -150,7 +149,6 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
         this.baseUrl = configBaseUrl(config.baseUrl);
-        this.model = configString(config.model) ?? DEFAULT_MODEL;
         this.format = isResponseFormat(config.format) ? config.format : DEFAULT_FORMAT;
         this.defaultVoice = configString(config.defaultVoice) ?? DEFAULT_VOICE;
         // An empty table means the shipped map, exactly as an absent one does. See the same line in
@@ -180,7 +178,6 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
 
         this.host.logger.info('chatterbox ready', {
             baseUrl: this.baseUrl,
-            model: this.model,
             format: this.format,
             voices: Object.keys(this.voices).length,
             unloadAfterRender: this.unloadAfterRender,
@@ -196,12 +193,14 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         const body = await tryJsonBody<{ voices?: unknown[] }>(response);
         const count = Array.isArray(body?.voices) ? body.voices.length : undefined;
 
-        // Whether a model is RESIDENT is worth reporting here and nowhere else: it is the one
+        // WHICH model is resident is worth reporting here and nowhere else, and this is the only
+        // place it can be: the settings form is drawn from a static manifest, so the field that
+        // used to sit where the note now sits could never have shown it. It is also the one
         // question about this engine an operator cannot answer by looking, and a "connected but
         // holding nothing" server is about to make the next break pay for a load.
-        const loaded = (await this.lifecycle?.loaded()) ?? false;
+        const info = await this.lifecycle?.info();
         const voices = count === undefined ? '' : ` ${count} voices available.`;
-        return { ok: true, message: `Connected.${voices} ${loaded ? 'A model is loaded.' : 'No model is loaded; the next break will load one.'}` };
+        return { ok: true, message: `Connected.${voices} ${describeModel(info)}` };
     }
 
     /**
@@ -233,23 +232,40 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
      * is choosing between — so the option's VALUE is the file and its LABEL is
      * the name.
      *
+     * And the response formats, which is the newer half and the one that is not a
+     * convenience: the manifest's list is what this plugin can handle and the
+     * server's is what it will encode, and a choice offered from the first alone
+     * is a save that renders every break as a 422. See {@link fetchSupportedFormats}.
+     *
+     * The two are gathered INDEPENDENTLY. They are different endpoints and a build
+     * that serves one and not the other is an ordinary state, so a form losing its
+     * voices because the schema was not published — or the reverse — would be this
+     * method inventing a failure neither upstream reported.
+     *
      * Answers nothing rather than throwing when the server is unreachable: an
      * operator fixing a bad address needs the form.
      */
     async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
         if (this.baseUrl.length === 0) return {};
 
-        let voices: ConfigFieldOption[];
+        const suggestions: Record<string, ConfigFieldOption[]> = {};
+
+        const formats = await this.fetchSupportedFormats();
+        if (formats.length > 0) suggestions.format = formats;
+
+        let voices: ConfigFieldOption[] = [];
         try {
             voices = await this.fetchEngineVoices();
         } catch (error) {
             this.host.logger.debug('chatterbox could not suggest voices', { error: messageOf(error) });
-            return {};
         }
 
-        if (voices.length === 0) return {};
+        if (voices.length > 0) {
+            suggestions[`${VOICES_FIELD}.${VOICE_ENGINE_COLUMN}`] = voices;
+            suggestions.defaultVoice = voices;
+        }
 
-        return { [`${VOICES_FIELD}.${VOICE_ENGINE_COLUMN}`]: voices, defaultVoice: voices };
+        return suggestions;
     }
 
     async speak(request: SpeechRequest): Promise<SpeechHandle> {
@@ -273,7 +289,9 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...this.authHeaders() },
             body: JSON.stringify({
-                model: this.model,
+                // Required by the schema and ignored by the server, which holds one model at a
+                // time and chooses it itself. See `REQUEST_MODEL`.
+                model: REQUEST_MODEL,
                 input: text,
                 voice,
                 response_format: format,
@@ -308,6 +326,56 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     private releaseModel(): void {
         if (!this.unloadAfterRender) return;
         void this.lifecycle?.unload();
+    }
+
+    /**
+     * The response formats this server will actually encode to.
+     *
+     * **Read out of the server's own schema, because no endpoint answers the
+     * question.** The full surface was checked: `/api/model-info` describes the
+     * model, `/api/ui/initial-data` carries `audio_output.format` — which is the
+     * server's own DEFAULT for what it writes to disk, not the set a request may
+     * ask for — and neither `/v1/audio/voices` nor the model-management routes
+     * come near it. The OpenAPI document is the only place the accepted values are
+     * written down, and it is the same server writing them.
+     *
+     * The request schema is reached through the speech path's own `$ref` rather
+     * than by its generated name, because the name is the upstream's Python class
+     * and a rename there would silently take the narrowing off. The path is derived
+     * from the configured address for the same reason `serverRootOf` exists: the
+     * document's keys are server-root-relative and the `/v1` is the operator's.
+     *
+     * Intersected with {@link RESPONSE_FORMATS}, which is the half the server never
+     * reports — a format with no MIME cannot be stored, and `configSchema` would
+     * refuse it anyway, so offering it would offer a save that fails.
+     *
+     * Answers empty for anything that goes wrong, including a server built with its
+     * schema switched off. The manifest's own list stands in that case, which is
+     * why it is kept honest rather than generous.
+     */
+    private async fetchSupportedFormats(): Promise<ConfigFieldOption[]> {
+        const root = serverRootOf(this.baseUrl);
+        const speechPath = `${this.baseUrl.replace(/\/+$/, '')}/audio/speech`.slice(root.length);
+
+        try {
+            const response = await this.host.fetch(`${root}/openapi.json`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
+            if (!response.ok) {
+                await response.body?.cancel().catch(() => {});
+                return [];
+            }
+
+            const document = await tryJsonBody<OpenApiDocument>(response);
+            const reference = document?.paths?.[speechPath]?.post?.requestBody?.content?.['application/json']?.schema?.$ref;
+            const schemaName = typeof reference === 'string' ? reference.split('/').pop() : undefined;
+            const declared: unknown =
+                schemaName === undefined ? undefined : document?.components?.schemas?.[schemaName]?.properties?.response_format?.enum;
+            if (!Array.isArray(declared)) return [];
+
+            return declared.flatMap((entry: unknown) => (isResponseFormat(entry) ? [{ value: entry, label: entry }] : []));
+        } catch (error) {
+            this.host.logger.debug('chatterbox could not read the formats its server accepts', { error: messageOf(error) });
+            return [];
+        }
     }
 
     /** Every predefined clip this server holds, as a value and a name to show for it. */
@@ -374,6 +442,18 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     }
 }
 
+/**
+ * As much of an OpenAPI document as this plugin reads, and no more.
+ *
+ * Every level optional and nothing asserted: a schema document is a third party's
+ * output, so the only safe shape for it is one where every step down is allowed to
+ * be missing and the answer to a missing step is "no suggestion".
+ */
+interface OpenApiDocument {
+    paths?: Record<string, { post?: { requestBody?: { content?: Record<string, { schema?: { $ref?: unknown } }> } } }>;
+    components?: { schemas?: Record<string, { properties?: Record<string, { enum?: unknown }> }> };
+}
+
 /** The lifecycle module owns this rule; repeated here for the one call that is not its own. */
 const serverRootOf = (baseUrl: string): string => baseUrl.replace(/\/+$/, '').replace(/\/v\d+$/, '');
 
@@ -397,3 +477,22 @@ const describe = (mapping: VoiceMapping): string =>
 const specOf = (mapping: VoiceMapping): string => (mapping.speed === undefined ? mapping.engine : `${mapping.engine}@${mapping.speed}`);
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/**
+ * The model half of the connection message.
+ *
+ * Three outcomes rather than two, because a server that would not answer is not a
+ * server holding nothing: telling an operator "no model is loaded" about a readout
+ * that never came back is a confident sentence about the one thing they opened this
+ * dialog to find out. The class name is preferred over the type because it is the
+ * more specific of the two names the server offers, and the device is worth a
+ * clause on its own — a model that quietly landed on the CPU is every break late.
+ */
+const describeModel = (info: ModelInfo | undefined): string => {
+    if (info === undefined) return 'It would not say what model it is holding.';
+    if (!info.loaded) return 'No model is loaded; the next break will load one.';
+
+    const named = info.className ?? info.type;
+    const running = info.device === undefined ? '' : ` on ${info.device}`;
+    return named === undefined ? `A model is loaded${running}.` : `Loaded: ${named}${running}.`;
+};

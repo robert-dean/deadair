@@ -29,10 +29,28 @@ interface FakeHostOptions {
     speakStatus?: number;
     /** What `/api/model-info` reports, one per call; the last repeats. */
     loaded?: boolean[];
+    /** The rest of the model readout, for the connection message. */
+    modelInfo?: Record<string, unknown>;
     /** What the predefined-voice list answers with. */
     predefined?: unknown;
     predefinedStatus?: number;
+    /** Status for the OpenAI-shaped voice list, which is the fallback behind the named one. */
+    voicesStatus?: number;
+    /** What the server's schema declares `response_format` accepts. */
+    formats?: string[];
+    /** Status for `/openapi.json`. 404 is a server built with its schema switched off. */
+    openapiStatus?: number;
 }
+
+/** As much of a FastAPI schema document as the plugin reads, with the accepted formats in it. */
+const openApiDocument = (formats: string[]): unknown => ({
+    paths: {
+        '/v1/audio/speech': {
+            post: { requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/OpenAISpeechRequest' } } } } },
+        },
+    },
+    components: { schemas: { OpenAISpeechRequest: { properties: { response_format: { enum: formats } } } } },
+});
 
 function fakeHost(options: FakeHostOptions = {}) {
     const loadedAnswers = [...(options.loaded ?? [true])];
@@ -46,7 +64,13 @@ function fakeHost(options: FakeHostOptions = {}) {
             const ok = status >= 200 && status < 300;
             return new Response(ok ? streamOf(options.chunks ?? [audioChunk()]) : streamOf([Buffer.from('{"detail":"nope"}')]), { status });
         }
-        if (url.endsWith('/api/model-info')) return new Response(JSON.stringify({ loaded: next(loadedAnswers) }), { status: 200 });
+        if (url.endsWith('/api/model-info')) {
+            return new Response(JSON.stringify({ ...options.modelInfo, loaded: next(loadedAnswers) }), { status: 200 });
+        }
+        if (url.endsWith('/openapi.json')) {
+            const status = options.openapiStatus ?? 200;
+            return new Response(status === 200 ? JSON.stringify(openApiDocument(options.formats ?? ['wav', 'opus', 'mp3'])) : '{}', { status });
+        }
         if (url.endsWith('/restart_server')) return new Response('{}', { status: 200 });
         if (url.endsWith('/api/unload')) return new Response('{}', { status: 200 });
         if (url.endsWith('/get_predefined_voices')) {
@@ -54,7 +78,9 @@ function fakeHost(options: FakeHostOptions = {}) {
                 status: options.predefinedStatus ?? 200,
             });
         }
-        if (url.endsWith('/audio/voices')) return new Response(JSON.stringify({ voices: ['Michael.wav'] }), { status: 200 });
+        if (url.endsWith('/audio/voices')) {
+            return new Response(JSON.stringify({ voices: ['Michael.wav'] }), { status: options.voicesStatus ?? 200 });
+        }
 
         throw new Error(`unexpected url ${url}`);
     });
@@ -262,6 +288,47 @@ describe('ChatterboxPlugin.suggestConfigOptions', () => {
 
         await expect(plugin.suggestConfigOptions()).resolves.toEqual({});
     });
+
+    it('offers the formats the server says it accepts, not the ones this plugin knows about', async () => {
+        // No endpoint answers this; the accepted values are written down in the server's own
+        // schema and nowhere else. Offering the manifest's list instead is how `flac` sat in the
+        // dropdown answering 422 to every break rendered under it.
+        const { plugin } = await started({ formats: ['wav', 'mp3'] });
+
+        expect((await plugin.suggestConfigOptions()).format).toEqual([
+            { value: 'wav', label: 'wav' },
+            { value: 'mp3', label: 'mp3' },
+        ]);
+    });
+
+    it('drops a format it has no mime type for, because the station could not store one', async () => {
+        // The MIME is the half the server never reports, and `configSchema` would refuse the save
+        // anyway — so offering it would be offering a choice that cannot be kept.
+        const { plugin } = await started({ formats: ['mp3', 'aac'] });
+
+        expect((await plugin.suggestConfigOptions()).format).toEqual([{ value: 'mp3', label: 'mp3' }]);
+    });
+
+    it('leaves the format alone when the server publishes no schema', async () => {
+        // The manifest's own list stands, which is why it is kept honest rather than generous.
+        const { plugin } = await started({ openapiStatus: 404 });
+
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested.format).toBeUndefined();
+        expect(suggested['voices.engine']).toHaveLength(1);
+    });
+
+    it('still offers the formats when neither voice list can be read', async () => {
+        // Two different endpoints, gathered independently: one failing must not cost the form the
+        // other, because a build serving one and not the other is an ordinary state.
+        const { plugin } = await started({ predefinedStatus: 500, voicesStatus: 500 });
+
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested.format).toHaveLength(3);
+        expect(suggested['voices.engine']).toBeUndefined();
+    });
 });
 
 describe('ChatterboxPlugin.listVoices', () => {
@@ -293,6 +360,35 @@ describe('ChatterboxPlugin.testConnection', () => {
     it('says whether a model is resident, which is the thing an operator cannot see', async () => {
         expect((await (await started({ loaded: [true] })).plugin.testConnection()).message).toContain('A model is loaded');
         expect((await (await started({ loaded: [false] })).plugin.testConnection()).message).toContain('No model is loaded');
+    });
+
+    it('names the model and the device, because there is nowhere else that can', async () => {
+        // The settings form is drawn from a static manifest, so the note where the model field
+        // used to be cannot carry this. This message is the whole of the live readout.
+        const { plugin } = await started({ loaded: [true], modelInfo: { class_name: 'ChatterboxTurboTTS', type: 'turbo', device: 'cuda' } });
+
+        expect((await plugin.testConnection()).message).toContain('Loaded: ChatterboxTurboTTS on cuda.');
+    });
+
+    it('falls back to the type when the server names no class', async () => {
+        const { plugin } = await started({ loaded: [true], modelInfo: { type: 'turbo', device: 'cpu' } });
+
+        expect((await plugin.testConnection()).message).toContain('Loaded: turbo on cpu.');
+    });
+
+    it('does not claim there is no model when the server would not say', async () => {
+        // A readout that never came back is not a server holding nothing, and "no model is loaded"
+        // is a confident sentence about the one thing the operator opened this to find out.
+        const { plugin, host } = await started();
+        host.setFetchImpl(async (url: string) => {
+            if (url.endsWith('/api/model-info')) throw new Error('connection refused');
+            return new Response(JSON.stringify({ voices: ['Michael.wav'] }), { status: 200 });
+        });
+
+        const { message } = await plugin.testConnection();
+
+        expect(message).toContain('would not say');
+        expect(message).not.toContain('No model is loaded');
     });
 
     it('refuses without a server URL rather than guessing one', async () => {
@@ -332,8 +428,28 @@ describe('the manifest and the plugin agree', () => {
         const { chatterboxManifest } = await import('../src/chatterbox.manifest.js');
         const declared = new Set(chatterboxManifest.configFields?.map(field => field.key));
 
-        for (const key of ['baseUrl', 'apiKey', 'model', 'format', 'defaultVoice', 'voices', 'unloadAfterRender']) {
+        for (const key of ['baseUrl', 'apiKey', 'format', 'defaultVoice', 'voices', 'unloadAfterRender']) {
             expect(declared.has(key), `${key} is read but not declared`).toBe(true);
         }
+    });
+
+    it('asks for no model, because there is nothing to ask', async () => {
+        // One model at a time, named by the server's own config, with no endpoint listing any
+        // others. A field here would be a box that looks like a choice and changes nothing.
+        const { chatterboxManifest } = await import('../src/chatterbox.manifest.js');
+        const declared = chatterboxManifest.configFields ?? [];
+
+        expect(declared.find(field => field.key === 'model')).toBeUndefined();
+        expect(declared.find(field => field.key === 'modelNote')?.type).toBe('note');
+    });
+
+    it('offers no format it could not store', async () => {
+        // The static list is what a form drawn against an unreachable server shows, so it has to
+        // be the honest one: `flac` was in it and answered 422 on the engine's own schema.
+        const { chatterboxManifest, RESPONSE_FORMATS } = await import('../src/chatterbox.manifest.js');
+        const offered = chatterboxManifest.configFields?.find(field => field.key === 'format')?.options ?? [];
+
+        expect(offered.map(option => option.value)).toEqual(Object.keys(RESPONSE_FORMATS));
+        expect(offered.map(option => option.value)).not.toContain('flac');
     });
 });

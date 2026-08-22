@@ -52,6 +52,25 @@ export const LIFECYCLE_TIMEOUT_MS = 10_000;
 export const LOAD_TIMEOUT_MS = 60_000;
 export const LOAD_POLL_MS = 2_000;
 
+/**
+ * What the server says about the model it is holding.
+ *
+ * There is no model to CHOOSE on this engine — one is resident at a time and the
+ * server's own config names it — so this is a readout rather than a menu, and
+ * everything past `loaded` is decoration on a sentence for an operator. All of it
+ * optional, because a build that reports less should cost the message a clause
+ * rather than the answer.
+ */
+export interface ModelInfo {
+    loaded: boolean;
+    /** The build, as the server names it: `turbo`, `multilingual`. */
+    type?: string;
+    /** The implementing class, which is the more specific of the two names. */
+    className?: string;
+    /** `cuda`, `cpu`. Worth saying, because a model that quietly landed on the CPU is a slow break. */
+    device?: string;
+}
+
 /** What this plugin needs from the host to talk to the server. Narrow, so it can be faked whole. */
 export interface LifecycleDeps {
     /** The configured address, `/v1` and all. */
@@ -92,6 +111,19 @@ export class ModelLifecycle {
      * would send a synthesis at nothing.
      */
     async loaded(): Promise<boolean> {
+        return (await this.info())?.loaded === true;
+    }
+
+    /**
+     * Everything the server will say about its model, or nothing if it would not say.
+     *
+     * `undefined` is "could not read" and is deliberately not a `ModelInfo` with
+     * `loaded: false`: {@link loaded} folds the two together because for its two
+     * callers they mean the same next step, and the console's connection message
+     * must NOT — "no model is loaded" about a server that never answered is a
+     * confident wrong sentence about the one thing an operator came here to check.
+     */
+    async info(): Promise<ModelInfo | undefined> {
         try {
             const response = await this.deps.fetch(`${this.root}/api/model-info`, {
                 headers: this.deps.headers(),
@@ -99,13 +131,18 @@ export class ModelLifecycle {
             });
             if (!response.ok) {
                 await response.body?.cancel().catch(() => {});
-                return false;
+                return undefined;
             }
 
-            const body = (await response.json()) as { loaded?: unknown };
-            return body.loaded === true;
+            const body = (await response.json()) as Record<string, unknown>;
+            return {
+                loaded: body.loaded === true,
+                type: said(body.type),
+                className: said(body.class_name),
+                device: said(body.device),
+            };
         } catch {
-            return false;
+            return undefined;
         }
     }
 
@@ -198,6 +235,9 @@ export class ModelLifecycle {
         }
     }
 }
+
+/** A field of the model readout, if the server filled it in. Blank counts as absent. */
+const said = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
 
 const unavailable = (message: string): PluginError => new PluginError(`chatterbox: ${message}`).withCode('unavailable');
 

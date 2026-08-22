@@ -53,7 +53,6 @@ const consoleLogger = {
  */
 const config = {
     baseUrl: BASE_URL,
-    model: 'chatterbox',
     format: 'mp3',
     defaultVoice: 'Olivia.wav',
     unloadAfterRender: true,

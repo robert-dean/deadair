@@ -6,17 +6,16 @@ import { PgBoss } from 'pg-boss';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { JobMappings, jobClassOf } from './job.mappings.js';
 import { Logger } from '@maroonedsoftware/logger';
+import { resolveOwnerConnection } from '#modules/data/database.connection.js';
 
 export const JobsModule: ServerKitModule = {
     name: 'Jobs',
     setup: async (registry: Registry, config: AppConfig) => {
-        const dbConfig = {
-            host: config.get('DATABASE_HOST', ''),
-            port: config.get('DATABASE_PORT', 55432),
-            user: config.get('DATABASE_USER', ''),
-            password: config.get('DATABASE_PASSWORD', ''),
-            database: config.get('DATABASE_NAME', ''),
-        };
+        // The owner role, through the one function that decides connection identity. pg-boss owns
+        // its own schema and runs its own migrations, which is why it is the owner rather than the
+        // runtime role — and `resolveOwnerConnection`'s doc has named pg-boss as a caller since it
+        // was written, while this rebuilt the same five fields inline and was not one.
+        const dbConfig = resolveOwnerConnection(config);
 
         registry
             .register(PgBoss)

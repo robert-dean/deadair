@@ -557,13 +557,21 @@ is an American rock band` and were being spoken that way.
 
 **In plugin code, `undefined` means "not set". Never `null`.**
 
-**Module lifecycle order is load-bearing, and SHUTDOWN runs in REVERSE registration order.** The list in `apps/api/src/modules/modules.ts` is ordered deliberately and the comments there explain each placement. `PluginsModule` sits after everything its host reaches into, and `PlaylistsModule` after `PluginsModule`. Work the first request does not depend on belongs in `ready()`, after the socket is up, not in `start()`. ServerKit walks ONE list both ways, forwards to build and backwards to tear down, so a module releases what it holds while everything it depends on is still alive — which is what you want almost everywhere and means the position is simply a dependency order. **The counter-intuitive half is at the TOP of the list: a module that must close LAST registers FIRST.** `LoggingModule` is first so the log store closes after every other module's shutdown logging has flushed through `FileTeeLogger`, and `DataConnectionsModule` is second so the pools outlive every module that writes during its own teardown — `DataModule` has to register early because everything resolves what it registers, and closing in its own position is what once left every module tearing down against a destroyed driver, losing the director's flush of the running order, which is a guarantee rather than a nicety, on nine of the shutdowns in one log. Both are shutdown-only modules, so sitting ahead of `HealthModule` costs boot nothing. `JobsModule` sits after `PluginsModule` for the same reason read the other way: registering later is what stops the workers before the plugin instances under them are disposed. And **no hook may cost the others their teardown, or the process its exit**: the reversal did not touch this, the shutdown loop still catches nothing and bounds nothing, unlike the `ready` loop above it, so `withBoundedShutdown` wraps every hook at the list. A hook that hung left fourteen processes in that log still running their loops after being told to stop, one of them probing Liquidsoap for hours on a rotated secret. `apps/api/tests/modules/modules.test.ts` holds the whole ordering, and reads every assertion through a `tearsDownBefore` helper rather than through raw positions.
+**Module lifecycle order is load-bearing, and SHUTDOWN runs in REVERSE registration order.** The list in `apps/api/src/modules/modules.ts` is ordered deliberately and the comments there explain each placement. `PluginsModule` sits after everything its host reaches into, and `PlaylistsModule` after `PluginsModule`. Work the first request does not depend on belongs in `ready()`, after the socket is up, not in `start()`. ServerKit walks ONE list both ways, forwards to build and backwards to tear down, so a module releases what it holds while everything it depends on is still alive — which is what you want almost everywhere and means the position is simply a dependency order. **The counter-intuitive half is at the TOP of the list: a module that must close LAST registers FIRST.** `LoggingModule` is first so the log store closes after every other module's shutdown logging has flushed through `DeadairLogger`, and `DataConnectionsModule` is second so the pools outlive every module that writes during its own teardown — `DataModule` has to register early because everything resolves what it registers, and closing in its own position is what once left every module tearing down against a destroyed driver, losing the director's flush of the running order, which is a guarantee rather than a nicety, on nine of the shutdowns in one log. Both are shutdown-only modules, so sitting ahead of `HealthModule` costs boot nothing. `JobsModule` sits after `PluginsModule` for the same reason read the other way: registering later is what stops the workers before the plugin instances under them are disposed. And **no hook may cost the others their teardown, or the process its exit**: the reversal did not touch this, the shutdown loop still catches nothing and bounds nothing, unlike the `ready` loop above it, so `withBoundedShutdown` wraps every hook at the list. A hook that hung left fourteen processes in that log still running their loops after being told to stop, one of them probing Liquidsoap for hours on a rotated secret. `apps/api/tests/modules/modules.test.ts` holds the whole ordering, and reads every assertion through a `tearsDownBefore` helper rather than through raw positions.
 
 **Logging is process-level and predates DI.** `RotatingLogStore` is constructed in
 `setup.server.ts` before any container exists, published through `setLogStore`, and wrapped by
-`FileTeeLogger` so every module's lines land on stdout and in `logs/`. `PluginLog` tees plugin
+`DeadairLogger` so every module's lines land on stdout and in `logs/`. `PluginLog` tees plugin
 output to the app logger plus a per-plugin rotating file with its own verbosity gate. Malformed
-`LOG_MAX_*` values fail loudly at boot by design.
+`LOG_MAX_*` values fail loudly at boot by design, through `requiredNumber` in
+`modules/shared/setting.numbers.ts` — the numeric sibling of `settingIsOn` and there for the same
+reason, since **every layer of `AppConfig` holds strings and `get`'s overload widens its return from
+the DEFAULT**, so a set value arrives as text while TypeScript reports a number. This claim was in
+the tree for a long time before anything implemented it, and what an unvalidated `LOG_MAX_BYTES=2MB`
+actually produced was a store that threw on every append into a wrapper that cannot report one: a
+healthy-looking server with an empty logs directory. `LoggingModule` owns only the store's shutdown
+and reaches it through `getLogStore()` rather than the container, because the DI token is registered
+by `PluginsModule`, which tears down long before it.
 
 **`deadair.settings` is a layer of `AppConfig`, so reading a setting needs no scope.** `setup.server.ts`
 builds a boot snapshot (dotenv only, for the log store and the database credentials), then an
@@ -820,8 +828,11 @@ covering the track id and the expiry rather than the host. **Every fetched recor
 neither served from the cache nor filled it, which stopped being expressible once a record may not be
 committed until its audio is here — a station keeping nothing would have nothing ready and would never
 commit. A/B-ing a suspected bad file is done by deleting the file, since `locate` treats a row whose
-file is missing as a re-fetch and repairs the row. The bill is that `TRACKS_DIR` grows without bound;
-see `docs/todo/track-cache-eviction.md`. Four things are load-bearing: over the cap or under the floor
+file is missing as a re-fetch and repairs the row. `TRACKS_DIR` is bounded by
+`playout.trackCacheMaxBytes`, which defaults to 0 meaning no cap; `TrackAudioService.sweep()` runs
+every fifteen minutes off `SweepTrackCacheJob` and drops least-recently-served copies until it is
+under, never touching one that is protected or in flight, and clearing rows before files so a crash
+leaves an orphaned file rather than a row pointing at nothing. Four things are load-bearing: over the cap or under the floor
 **serves and stores nothing**, because a truncated record airing is worse than an item the player
 skips; every failure is a row with a doubling backoff rather than a throw; `attempts` counts
 CONSECUTIVE failures, which is why `recordSuccess` resets it (a record fetched forty times and refused
@@ -840,8 +851,9 @@ sets `track_sources.missing_at`, which every reader already excludes on, so one 
 binding out of rotation, binding selection, measurement and the running order. It is a BENCH, not a ban:
 `upsertTrackSource` clears the mark on every re-sighting, so the hourly `catalog.sync` un-benches a copy
 the provider still lists and it gets one more attempt. That is why the column is `missing_at` and not
-`playable`, which nothing clears and which would bench a record for good over an outage. Nothing evicts
-yet.
+`playable`, which nothing clears and which would bench a record for good over an outage. A benched
+copy is a separate question from an evicted one: eviction reclaims disk from a record that is still
+perfectly playable, and the sweep is careful never to take one the station is about to want.
 
 **The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
 short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on

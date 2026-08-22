@@ -58,7 +58,7 @@ import { withBoundedShutdown } from './shared/shutdown.guard.js';
 //     loop still catches nothing and bounds nothing.
 const ordered: ServerKitModule[] = [
     // First so it tears down LAST: its shutdown hook closes the process-level RotatingLogStore, and
-    // every other module's shutdown logging has to be flushed through FileTeeLogger before that
+    // every other module's shutdown logging has to be flushed through DeadairLogger before that
     // happens — including the two lines DataConnectionsModule writes immediately before it. It has
     // no setup of its own; the store is built in `setup.server.ts` before any container exists.
     LoggingModule,

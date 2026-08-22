@@ -86,7 +86,7 @@ const LINE_PATTERN = /^(\S+)\s+(\S+)\s+([\s\S]*)$/;
  * Kept as a plain union here for documentation purposes only: {@link
  * RotatingLogStore.append} accepts a plain `string`, because the app-wide
  * `Logger` interface from `@maroonedsoftware/logger` (piped in by
- * `FileTeeLogger`, package 02) has all five of these, while the
+ * `DeadairLogger`, package 02) has all five of these, while the
  * plugin-facing contract enum is the narrower `debug|info|warn|error`. That
  * narrowing is `PluginLog`'s job (package 06), not this store's.
  */

@@ -44,16 +44,27 @@ extensions.
 
 `setupServer()` ([src/server/setup.server.ts](src/server/setup.server.ts)):
 
-1. Builds one `AppConfig` snapshot from `AppConfigSourceDotenv` + `AppConfigResolverEnv`. There is
-   no DB-backed config source yet: everything is env at boot.
-2. Calls `scrubProcessEnv()`, which removes secret values from `process.env` now that module setups
-   read the snapshot instead. See [scrub.process.env.ts](src/server/scrub.process.env.ts) for what
-   this does and does not buy.
-3. Constructs the process-level `RotatingLogStore` (before any container exists) and publishes it
-   through `setLogStore`. A malformed `LOG_MAX_*` value fails loudly here rather than surfacing
-   later as a silently empty logs directory.
-4. Runs `serverBuilder.setup(config, new FileTeeLogger(...), modules)`, mounts middleware and
-   routers, then listens on `PORT`.
+1. Builds the **boot** snapshot from `AppConfigSourceDotenv` + `AppConfigResolverEnv`. Environment
+   only, and the only config there is until something can write logs: everything read off it is
+   infrastructure needed BEFORE a database can be reached — where to log, and how to connect.
+2. Constructs the process-level `RotatingLogStore` (before any container exists) and publishes it
+   through `setLogStore`. A malformed `LOG_MAX_*` value fails loudly here, naming the variable,
+   rather than surfacing later as a silently empty logs directory — see
+   [setting.numbers.ts](src/modules/shared/setting.numbers.ts).
+3. Builds the `DeadairLogger` over that store, so every module's lines land on stdout and in `logs/`.
+4. Builds the **real** config store: the same dotenv layer plus
+   [settings.config.source.ts](src/server/settings.config.source.ts) over `deadair.settings`, and
+   publishes it through `setConfigStore`. This is what makes `config.get('playout.airMode')` work
+   from a singleton with no DI scope, and it holds a `LISTEN` so a row edited by psql applies live.
+5. Calls `scrubProcessEnv()`, which removes secret values from `process.env` now that both snapshots
+   hold what they need. **After both builds, deliberately** — the settings source was handed
+   resolved literal credentials precisely so it survives this; one still resolving `${env:…}` would
+   connect once and fail every reload after, silently. See
+   [scrub.process.env.ts](src/server/scrub.process.env.ts).
+6. Runs `serverBuilder.setup(configStore.toLiveConfig(), logger, modules)` and mounts middleware and
+   routers. The config handed to modules is a live view, so every read resolves against the current
+   snapshot rather than a copy taken at boot.
+7. Listens on `PORT`, read from the boot snapshot.
 
 Modules that do I/O the first request doesn't depend on do it in `ready()`, after the socket is up:
 plugin `init` is the current example.
@@ -89,10 +100,10 @@ Registered in the order below (see [modules.ts](src/modules/modules.ts)).
 | -------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Catalog**    | [modules/catalog](src/modules/catalog)       | The local catalog: artists, albums and tracks, each a service over a Kysely repository, plus the ingest side under [ingest/](src/modules/catalog/ingest) (sync, resolution, placeholders). Reads join the display names in, exclude rows carrying `merged_into_id`, and order by name. Provider integration is not here — providers are plugins.                                                                                               |
 | **Onboarding** | [modules/onboarding](src/modules/onboarding) | First-run requirements. Currently one: if no platform admin exists, `admin.account` is returned and satisfying it registers the genesis admin through `AuthenticationRegistrationService`. Database creation and migration stay out of band via dbmate.                                                                                                                                                                                        |
-| **Settings**   | [modules/settings](src/modules/settings)     | The `deadair.settings` key/value table. Deliberately thin right now: the music-provider surface that used to live here moved to the plugin config system, and the active provider is named by the `music.provider` setting key.                                                                                                                                                                                                                |
+| **Settings**   | [modules/settings](src/modules/settings)     | The `deadair.settings` key/value table, declared as `ConfigField`s in `settings.registry.ts` so one console component renders both these and a plugin's. Also a layer of `AppConfig`, so a module reads a setting with no DI scope. The music-provider surface that used to live here moved to the plugin config system; there is no setting naming an active provider, and where a capability must pick one plugin the key is capability-scoped (`render.speechPluginId`, `llm.pluginId`, `analysis.pluginId`).                                                                                                                                                                                                                |
 | **Plugins**    | [modules/plugins](src/modules/plugins)       | The plugin subsystem — see below.                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Playlists**  | [modules/playlists](src/modules/playlists)   | A read-only, no-database view of what could be imported from a plugin: every catalog-capable plugin's playlists, aggregated, plus one plugin's playlist tracks on demand. Nothing is persisted; every answer is a live call through `PluginInvoker`, and a failing plugin degrades to a `CatalogSourceError` entry rather than failing the request. Registered after `PluginsModule` because it resolves `PluginRegistry` and `PluginInvoker`. |
-| **Logging**    | [src/logging](src/logging)                   | Owns the shutdown of the process-level `RotatingLogStore`. Must stay **first** in `modules.ts` so it tears down **last**: every other module's shutdown logging has to flush through `FileTeeLogger` before the store closes.                                                                                                                                                                                                                                             |
+| **Logging**    | [src/logging](src/logging)                   | Owns the shutdown of the process-level `RotatingLogStore`. Must stay **first** in `modules.ts` so it tears down **last**: every other module's shutdown logging has to flush through `DeadairLogger` before the store closes.                                                                                                                                                                                                                                             |
 
 ### The plugin subsystem
 
@@ -129,13 +140,15 @@ Never hand-edit a router.
 | `catalog`                 | `GET /catalog/artists`, `/catalog/artists/:id`, `/catalog/artists/:id/albums`, `/catalog/albums`, `/catalog/albums/:id`, `/catalog/albums/:id/tracks`, `/catalog/tracks`                                                                                                                                                                                                                                           |
 | `onboarding`              | `GET /onboarding`, `POST /onboarding`                                                                                                                                                                                                                                                                                                                                                                              |
 | `playlists`               | `GET /playlists`, `GET /playlists/:pluginId/:playlistId/tracks`                                                                                                                                                                                                                                                                                                                                                    |
-| `playout`                 | `GET /playout/status`, `POST /playout/playlist`, `/playout/skip`, `/playout/stop` (stand the station down: out of service, not merely paused). Internal, secret-gated, never in the SDK: `POST /playout/aired` (Liquidsoap's air confirmation) and `POST /playout/listener` (Icecast's `listener_add`/`listener_remove`, which a listener's own connection blocks on; see the audience gate in `stream/README.md`) |
+| `playout`                 | `GET /playout/status`, `POST /playout/playlist`, `/playout/start`, `/playout/skip`, `/playout/stop` (stand the station down: out of service, not merely paused), and `GET /playout/audio/:sourceId`, which is how the player fetches every record — one URL on this machine whether or not the bytes are here yet. Internal and secret-gated by the `/playout/bridge/` prefix, never in the SDK: `POST /playout/bridge/aired` (Liquidsoap's air confirmation) and `POST /playout/bridge/starve`. There is no listener hook: Icecast's `listener_add`/`listener_remove` are gone along with `listener.credential.middleware`, and the audience is read from the event feed and the stats poll instead — see the audience gate in `stream/README.md` |
 | `director`                | `GET /director/lineups`, `POST /director/lineups`, `GET`/`DELETE /director/lineups/:id`, `POST /director/lineups/:id/extend`, `/director/lineups/:id/shuffle`, `PATCH`/`DELETE /director/lineups/:id/items/:itemId`, `GET`/`POST /director/air`, `PATCH /director/air` (what puts the station on air: `audience` or `always`)                                                                                      |
 | `nowplaying`              | `GET /nowplaying`, deliberately public and transaction-exempt: it answers out of memory and says only what a listener can already hear, plus how many of them there are                                                                                                                                                                                                                                            |
 | `plugins`                 | `GET /plugins`, `/plugins/:id`, `POST /plugins/rescan`, `/plugins/:id/enable`, `/plugins/:id/disable`, `/plugins/:id/reload`, `/plugins/:id/test`, `PUT /plugins/:id/config`; logs at `GET /plugins/:id/logs`, `/plugins/:id/logs/download`, `PUT /plugins/:id/logs/level`; OAuth at `GET /plugins/:id/oauth/authorize`, `GET /plugins/:id/oauth/callback`, `DELETE /plugins/:id/oauth`                            |
 
-There is no healthcheck router registered here yet, though `/` and `/healthcheck` are already listed
-as transaction-exempt paths.
+**The table above is a partial list and is not kept in step with the tree** — it omits roughly half
+the registered routers. [routes.setup.ts](src/routes/routes.setup.ts) is the source of truth, and
+`health` is deliberately first in it, answering `/` and `/healthcheck` out of memory (both are
+transaction-exempt for that reason).
 
 ### Server middleware
 

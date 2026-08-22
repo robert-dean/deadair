@@ -19,8 +19,11 @@ import type { StationSettings, StationSettingsInput } from './types/settings.typ
  * side, which the config cannot be.
  *
  * The music-provider surface that used to live here moved to the plugin system:
- * providers are plugins, their config is the generic plugin config surface, and
- * the active one is named by the `music.provider` setting key.
+ * providers are plugins and their config is the generic plugin config surface.
+ * There is no setting naming an active provider — the catalog syncs from every
+ * enabled one, and where a capability genuinely has to pick a single plugin the
+ * key is capability-scoped (`render.speechPluginId`, `llm.pluginId`,
+ * `analysis.pluginId`) and resolved by `selectPlugin`.
  */
 @Injectable()
 export class SettingsService {

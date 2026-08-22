@@ -1,5 +1,5 @@
 import { JobNames } from '#src/modules/shared/job.names.js';
-import { Constructor, Injectable } from 'injectkit';
+import { Constructor } from 'injectkit';
 import { Duration } from 'luxon';
 import { Job } from '@maroonedsoftware/jobbroker';
 import type { PgBossJobRegistration } from '@maroonedsoftware/jobbroker/pgboss';

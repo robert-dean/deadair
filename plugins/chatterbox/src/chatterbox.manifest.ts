@@ -7,7 +7,9 @@ import {
     VOICE_NAME_COLUMN,
     VOICE_SPEED_COLUMN,
     VOICES_FIELD,
+    voiceMapOf,
     voiceRowsAreComplete,
+    type VoiceMap,
 } from './chatterbox.voices.js';
 
 export const PLUGIN_ID = 'deadair.chatterbox';
@@ -84,6 +86,21 @@ export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?
 export const DEFAULT_VOICES_JSON = JSON.stringify(DEFAULT_VOICE_ROWS);
 
 /**
+ * What the config holds, or the shipped rows when it maps nothing.
+ *
+ * The fallback is on the MAP rather than on the raw value, which is the whole of
+ * the fix: `"[]"`, `""`, `"not json"` and an absent key are four ways of saying
+ * the same thing, and only the last of them used to get the shipped voices. See
+ * the call site for why the console cannot leave a station in the never-opened
+ * state that distinction relied on.
+ */
+export const shippedUnlessMapped = (raw: unknown): VoiceMap => {
+    const configured = voiceMapOf(raw);
+
+    return Object.keys(configured).length > 0 ? configured : voiceMapOf(DEFAULT_VOICES_JSON);
+};
+
+/**
  * How long one synthesis may take.
  *
  * Bounds the request and its headers, not the audio. Generous even by the other
@@ -124,10 +141,7 @@ export const configSchema = z.object({
     format: z.enum(Object.keys(RESPONSE_FORMATS) as [ResponseFormat, ...ResponseFormat[]]).optional(),
     defaultVoice: z.string().optional(),
     unloadAfterRender: z.union([z.boolean(), z.string()]).optional(),
-    [VOICES_FIELD]: z
-        .string()
-        .optional()
-        .refine(voiceRowsAreComplete, { message: 'every voice needs both a station name and an engine voice' }),
+    [VOICES_FIELD]: z.string().optional().refine(voiceRowsAreComplete, { message: 'every voice needs both a station name and an engine voice' }),
 });
 
 export const chatterboxManifest: PluginManifest = {
@@ -191,7 +205,7 @@ export const chatterboxManifest: PluginManifest = {
             placeholder: 'No voices yet, so everything the station says uses the default.',
             help:
                 'The station asks for its own names and this says what each one sounds like here. A name is whatever you want to call a voice — a role like "host" or "newsreader", or a character — and it is what a persona points at. ' +
-                "The engine voice offers what this server reports; drop a new clip into its predefined-voice directory and refresh to see it.",
+                'The engine voice offers what this server reports; drop a new clip into its predefined-voice directory and refresh to see it.',
             columns: [
                 { key: VOICE_NAME_COLUMN, label: 'Station voice', type: 'string', required: true, placeholder: 'host' },
                 // Free text with suggestions rather than a closed select: an operator who has just

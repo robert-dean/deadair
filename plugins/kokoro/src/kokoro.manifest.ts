@@ -1,6 +1,16 @@
 import { PLUGIN_CAPABILITY_SPEECH, type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
-import { MAX_SPEED, MIN_SPEED, VOICE_ENGINE_COLUMN, VOICE_NAME_COLUMN, VOICE_SPEED_COLUMN, VOICES_FIELD, voiceRowsAreComplete } from './kokoro.voices.js';
+import {
+    MAX_SPEED,
+    MIN_SPEED,
+    VOICE_ENGINE_COLUMN,
+    VOICE_NAME_COLUMN,
+    VOICE_SPEED_COLUMN,
+    VOICES_FIELD,
+    voiceMapOf,
+    voiceRowsAreComplete,
+    type VoiceMap,
+} from './kokoro.voices.js';
 
 export const PLUGIN_ID = 'deadair.kokoro';
 export const PLUGIN_VERSION = '0.0.1';
@@ -92,6 +102,21 @@ export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?
 export const DEFAULT_VOICES_JSON = JSON.stringify(DEFAULT_VOICE_ROWS);
 
 /**
+ * What the config holds, or the shipped rows when it maps nothing.
+ *
+ * The fallback is on the MAP rather than on the raw value, which is the whole of
+ * the fix: `"[]"`, `""`, `"not json"` and an absent key are four ways of saying
+ * the same thing, and only the last of them used to get the shipped voices. See
+ * the call site for why the console cannot leave a station in the never-opened
+ * state that distinction relied on.
+ */
+export const shippedUnlessMapped = (raw: unknown): VoiceMap => {
+    const configured = voiceMapOf(raw);
+
+    return Object.keys(configured).length > 0 ? configured : voiceMapOf(DEFAULT_VOICES_JSON);
+};
+
+/**
  * How long one synthesis may take.
  *
  * This bounds the request and its headers only, not the audio, which arrives
@@ -139,10 +164,7 @@ export const configSchema = z.object({
     model: z.string().optional(),
     format: z.enum(Object.keys(RESPONSE_FORMATS) as [ResponseFormat, ...ResponseFormat[]]).optional(),
     defaultVoice: z.string().optional(),
-    [VOICES_FIELD]: z
-        .string()
-        .optional()
-        .refine(voiceRowsAreComplete, { message: 'every voice needs both a station name and an engine voice' }),
+    [VOICES_FIELD]: z.string().optional().refine(voiceRowsAreComplete, { message: 'every voice needs both a station name and an engine voice' }),
 });
 
 export const kokoroManifest: PluginManifest = {

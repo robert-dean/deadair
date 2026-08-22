@@ -170,7 +170,9 @@ describe('KokoroPlugin.speak', () => {
     });
 
     it('falls back to the default voice for a name it has no mapping for, and says so', async () => {
-        const { plugin, calls, host } = await started({ config: { voices: voiceRows({ name: 'host', engine: 'af_bella' }), defaultVoice: 'af_heart' } });
+        const { plugin, calls, host } = await started({
+            config: { voices: voiceRows({ name: 'host', engine: 'af_bella' }), defaultVoice: 'af_heart' },
+        });
 
         const handle = await plugin.speak({ text: 'hello', voice: 'renamed-persona' });
 
@@ -178,6 +180,32 @@ describe('KokoroPlugin.speak', () => {
         // one that goes silent because a persona was renamed is not.
         expect(speechRequest(calls).voice).toBe('af_heart');
         expect(host.logger.warn).toHaveBeenCalled();
+        await handle.audio.cancel();
+    });
+
+    it('reads the shipped map when the config maps nothing, however it says so', async () => {
+        // The four ways a station arrives with no rows, and they are one fact. Only the absent key
+        // used to get the shipped voices, which made an ordinary save on this form — the console
+        // submits every declared field — the way to collapse twenty characters onto one.
+        for (const voices of [undefined, '[]', '   ', 'not json at all']) {
+            const { plugin, calls } = await started({ config: voices === undefined ? {} : { voices } });
+
+            const handle = await plugin.speak({ text: 'hello', voice: 'newsreader' });
+
+            expect(speechRequest(calls).voice).toBe('bf_emma');
+            await handle.audio.cancel();
+        }
+    });
+
+    it('keeps the operator to their own map once they have filled one in', async () => {
+        // The other half: rows that exist REPLACE the shipped ones rather than layering over them,
+        // so a station mapping one voice has exactly one voice mapped and the rest fall to the
+        // default. Otherwise clearing a row would silently restore the shipped pick behind it.
+        const { plugin, calls } = await started({ config: { voices: voiceRows({ name: 'host', engine: 'af_bella' }), defaultVoice: 'af_heart' } });
+
+        const handle = await plugin.speak({ text: 'hello', voice: 'newsreader' });
+
+        expect(speechRequest(calls).voice).toBe('af_heart');
         await handle.audio.cancel();
     });
 

@@ -15,14 +15,14 @@ import {
     DEFAULT_FORMAT,
     DEFAULT_MODEL,
     DEFAULT_VOICE,
-    DEFAULT_VOICES_JSON,
     PROBE_TIMEOUT_MS,
     RESPONSE_FORMATS,
     SPEAK_TIMEOUT_MS,
     kokoroManifest,
+    shippedUnlessMapped,
     type ResponseFormat,
 } from './kokoro.manifest.js';
-import { VOICE_ENGINE_COLUMN, VOICES_FIELD, voiceMapOf, type VoiceMap, type VoiceMapping } from './kokoro.voices.js';
+import { VOICE_ENGINE_COLUMN, VOICES_FIELD, type VoiceMap, type VoiceMapping } from './kokoro.voices.js';
 
 export { kokoroManifest };
 
@@ -92,12 +92,15 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
         this.model = configString(config.model) ?? DEFAULT_MODEL;
         this.format = isResponseFormat(config.format) ? config.format : DEFAULT_FORMAT;
         this.defaultVoice = configString(config.defaultVoice) ?? DEFAULT_VOICE;
-        // A station that has never opened this form gets the shipped map; one that HAS gets exactly
-        // what it saved, including an empty table. That asymmetry is deliberate and is the opposite
-        // call to `rotation.breakTemplates`, where clearing the box restores the station's own
-        // phrasings — because clearing THAT produces a silent DJ and clearing this produces a
-        // station that speaks in one voice, which is a thing an operator may legitimately want.
-        this.voices = voiceMapOf(config[VOICES_FIELD] ?? DEFAULT_VOICES_JSON);
+        // An EMPTY table means the shipped map, exactly as an absent one does. This read `?? ` for
+        // as long as it existed, on the argument that a station clearing the box wants one voice
+        // where a station clearing `rotation.breakTemplates` would want the station's phrasings
+        // back — a real distinction the console cannot express: it submits every declared field on
+        // every save, so a `list` nobody has touched is stored as "[]" the moment an operator
+        // changes the server URL beside it. Never-opened was therefore the only way to keep the
+        // rows and an ordinary save the way to lose them, silently. Measured on this station: a
+        // chatterbox row holding `"voices":"[]"` collapsed nineteen characters onto one voice.
+        this.voices = shippedUnlessMapped(config[VOICES_FIELD]);
         this.apiKey = await this.host.secrets.get('apiKey');
 
         this.host.logger.info('kokoro ready', {
@@ -246,7 +249,12 @@ export class KokoroPlugin extends Plugin implements SpeechPluginInstance {
                 .withUpstreamStatus(response.status);
         }
 
-        this.host.logger.debug('kokoro speaking', { voice, format, chars: text.length, ...(mapping.speed === undefined ? {} : { speed: mapping.speed }) });
+        this.host.logger.debug('kokoro speaking', {
+            voice,
+            format,
+            chars: text.length,
+            ...(mapping.speed === undefined ? {} : { speed: mapping.speed }),
+        });
 
         return { mime: RESPONSE_FORMATS[format], audio: response.body.pipeThrough(withPlausibilityCheck(voice)) };
     }

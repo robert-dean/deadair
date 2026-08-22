@@ -16,15 +16,15 @@ import {
     DEFAULT_MODEL,
     DEFAULT_UNLOAD_AFTER_RENDER,
     DEFAULT_VOICE,
-    DEFAULT_VOICES_JSON,
     PROBE_TIMEOUT_MS,
     RESPONSE_FORMATS,
     SPEAK_TIMEOUT_MS,
     chatterboxManifest,
+    shippedUnlessMapped,
     type ResponseFormat,
 } from './chatterbox.manifest.js';
 import { ModelLifecycle } from './chatterbox.lifecycle.js';
-import { VOICE_ENGINE_COLUMN, VOICES_FIELD, voiceMapOf, type VoiceMap, type VoiceMapping } from './chatterbox.voices.js';
+import { VOICE_ENGINE_COLUMN, VOICES_FIELD, type VoiceMap, type VoiceMapping } from './chatterbox.voices.js';
 
 export { chatterboxManifest };
 
@@ -153,9 +153,10 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         this.model = configString(config.model) ?? DEFAULT_MODEL;
         this.format = isResponseFormat(config.format) ? config.format : DEFAULT_FORMAT;
         this.defaultVoice = configString(config.defaultVoice) ?? DEFAULT_VOICE;
-        // A station that has never opened this form gets the shipped map; one that HAS gets what
-        // it saved, including an empty table. See the same line in the other speech plugin.
-        this.voices = voiceMapOf(config[VOICES_FIELD] ?? DEFAULT_VOICES_JSON);
+        // An empty table means the shipped map, exactly as an absent one does. See the same line in
+        // the other speech plugin for why never-opened is not a state the console can keep a station
+        // in, and for the row on THIS engine that proved it.
+        this.voices = shippedUnlessMapped(config[VOICES_FIELD]);
         this.unloadAfterRender = isOn(config.unloadAfterRender);
         this.apiKey = await this.host.secrets.get('apiKey');
 

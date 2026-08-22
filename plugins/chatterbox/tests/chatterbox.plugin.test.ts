@@ -140,6 +140,32 @@ describe('ChatterboxPlugin.speak', () => {
         expect(speechRequest(calls).voice).toBe('Olivia.wav');
         expect(host.logger.warn).toHaveBeenCalled();
     });
+
+    it('reads the shipped map when the config maps nothing, however it says so', async () => {
+        // Measured on the live station, which is why this is here rather than only next door: the
+        // stored row held `"voices":"[]"` and every character fell to a `defaultVoice` of `Axel` —
+        // a bare name where the clips are filenames, so the server answered 404 and every break
+        // went to the floor. An empty table is an unfilled one, not an instruction.
+        for (const voices of [undefined, '[]', '   ', 'not json at all']) {
+            const { plugin, calls } = await started({ config: voices === undefined ? {} : { voices } });
+
+            const handle = await plugin.speak({ text: 'hello', voice: 'newsreader' });
+            await drain(handle.audio);
+
+            expect(speechRequest(calls).voice).toBe('Abigail.wav');
+        }
+    });
+
+    it('keeps the operator to their own map once they have filled one in', async () => {
+        const { plugin, calls } = await started({
+            config: { voices: voiceRows({ name: 'host', engine: 'Olivia.wav' }), defaultVoice: 'Miles.wav' },
+        });
+
+        const handle = await plugin.speak({ text: 'hello', voice: 'newsreader' });
+        await drain(handle.audio);
+
+        expect(speechRequest(calls).voice).toBe('Miles.wav');
+    });
 });
 
 describe('freeing the GPU between breaks', () => {

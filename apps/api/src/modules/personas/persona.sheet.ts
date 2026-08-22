@@ -198,11 +198,12 @@ export interface PersonaSheet {
      * ## It changes the instruction and never the ceiling
      *
      * The trap here, stated because the fix somebody will reach for is exactly wrong: `readAnswer`'s
-     * word ceiling DECLINES a long script rather than trimming it, so lowering `maxWords` to match a
-     * terse character would refuse the median break and hand every one of theirs to the phrasings.
-     * A station would look like it had no model at all, which is the failure a persona is supposed to
-     * survive rather than cause. So this is an instruction and nothing checks it, exactly like "make
-     * one point" beside it in the rules.
+     * word ceiling is a CUT rather than an ask, so lowering `maxWords` to match a terse character
+     * would silently shorten the median break to whatever whole sentences fit the smaller number —
+     * and a character asked for less does not merely say less of the same thing, it says a different
+     * thing. Half of every break of theirs would be an opening clause the model meant to build on.
+     * So this is an instruction and nothing checks it, exactly like "make one point" beside it in the
+     * rules.
      *
      * ## The rung above the default exists now, and it is {@link PersonaSheet.latitude}
      *
@@ -231,7 +232,9 @@ export interface PersonaSheet {
      *   `rotation.advisory` has already left the presenter free to swear.
      * - **It switches off no refusal.** {@link characterFault}'s three prohibitions, the
      *   dialect check and the named-nothing check all still decline to the floor. What a rung buys is
-     *   the station ASKING for more, never accepting worse.
+     *   the station ASKING for more, never accepting worse. Note the one thing it does change in
+     *   passing: the ceiling now cuts an over-long answer back to its last whole sentence, so a rung
+     *   moves where that cut falls rather than whether a long break survives at all.
      */
     latitude?: PersonaLatitude;
     /** Lines in their own voice. The few-shot examples, and what a console previews them with. */

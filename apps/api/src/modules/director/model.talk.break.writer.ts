@@ -76,8 +76,9 @@ export const BUDGET_MS = 120_000;
  *
  * So this is sized for the THINKING plus the answer, not the answer alone. Forty words is about
  * sixty tokens of that; the rest is headroom for reasoning at low effort. It is not the thing that
- * stops a rambling break being aired: `readAnswer`'s word ceiling does that, and it still declines
- * anything past it. This only stops the station PAYING for an essay it would refuse to read.
+ * stops a rambling break being aired: `readAnswer`'s word ceiling does that, cutting an over-long
+ * answer back to its last whole sentence. This only stops the station PAYING for an essay of which it
+ * would air the first forty words.
  */
 export const MAX_OUTPUT_TOKENS = 800;
 

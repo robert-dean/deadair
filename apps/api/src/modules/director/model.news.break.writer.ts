@@ -58,8 +58,10 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
  * is the same failure again a fortnight later. What bounds a bulletin's length is the prompt asking
  * for a sentence a story, and this is only the backstop under it.
  *
- * `readAnswer` still DECLINES anything past it rather than cutting, so a model that turned the news
- * into an essay loses the slot to the floor, which reads it in twenty seconds and is never wrong.
+ * Past it, `readAnswer` cuts at the last whole sentence that fits, which for a bulletin means the
+ * last complete STORY rather than a hard stop in the middle of one — and a bulletin that reported two
+ * stories and did not hand back is worth more than the floor's, which reports headlines only. What
+ * still loses the slot is a single sentence longer than this, which cannot be cut anywhere.
  */
 export const NEWS_MAX_WORDS = 300;
 

@@ -34,7 +34,7 @@
  * badly, and a rule about them would be a rule about nothing.
  */
 
-import type { LlmMessage } from '@deadair/plugin-sdk';
+import { sentencesWithin, type LlmMessage } from '@deadair/plugin-sdk';
 import {
     characterFault,
     latitudeOf,
@@ -1176,13 +1176,14 @@ export interface AnswerGuard {
  * writer having declined — and the floor underneath then says something correct instead.
  */
 export function readAnswer(text: string, guard: AnswerGuard = {}): string | undefined {
-    const script = tidyAnswer(text);
-    if (script === undefined) return undefined;
+    const tidied = tidyAnswer(text);
+    if (tidied === undefined) return undefined;
 
-    // A ceiling rather than a trim: cutting a script mid-sentence is a worse thing to air than the
-    // floor's correct line, and a model that has run long has usually misunderstood the job rather
-    // than merely overshot.
-    if (runsLong(script, guard)) return undefined;
+    // The ceiling, which CUTS at a sentence and declines only what cannot be cut at one. Everything
+    // below judges what comes back from this rather than what the model sent, because the fitted
+    // script is the one that airs and judging the other would be judging words nobody will hear.
+    const script = fitToCeiling(tidied, guard);
+    if (script === undefined) return undefined;
 
     // A break about no record in particular. Checked BEFORE the character, because the two faults
     // want opposite things done about them and this one is the more basic: a script that named
@@ -1242,8 +1243,45 @@ function tidyAnswer(text: string): string | undefined {
     return script.length === 0 ? undefined : script;
 }
 
-/** Whether a tidied script is past the guard's ceiling. */
-const runsLong = (script: string, guard: AnswerGuard): boolean => script.split(/\s+/).length > (guard.maxWords ?? DEFAULT_MAX_WORDS);
+/**
+ * How much of a run-long script is worth keeping before it stops being one.
+ *
+ * A trim keeps the words in FRONT of the overrun, which is the whole argument for trimming at all:
+ * the model made its point and then kept talking. Where the first sentence is most of the ceiling on
+ * its own that reading no longer holds — what survives is an opening clause rather than a break, and
+ * the floor's own phrasing says something whole instead. Half is a judgement rather than a
+ * measurement; every trim this was built from kept between 86 and 91 words of a hundred.
+ */
+const MIN_KEPT_SHARE = 0.5;
+
+/**
+ * A tidied script cut to the guard's ceiling at a sentence boundary, or nothing.
+ *
+ * A cut rather than a refusal, which is a reversal and was measured rather than reasoned: of the six
+ * answers this station has ever refused for length, every one made its point and then padded, and
+ * every one of the tails thrown away was of the "make of that what you will" kind. So what the
+ * ceiling used to discard was the good eighty words in front of the padding.
+ *
+ * The original argument survives in what this still refuses. Cutting a script MID-SENTENCE is worse
+ * to air than the floor's correct line, so a single sentence that runs past the ceiling on its own is
+ * declined exactly as before — `sentencesWithin` has no word-cut fallback for that reason — and so is
+ * a trim so short it is no longer the break the model wrote. What is gone is only the claim that a
+ * long answer means a misunderstood job.
+ */
+function fitToCeiling(script: string, guard: AnswerGuard): string | undefined {
+    const ceiling = guard.maxWords ?? DEFAULT_MAX_WORDS;
+    // The ordinary case, and it has to be answered before the share floor below: a break the model
+    // kept to twelve words was never trimmed and must not be refused for being short.
+    if (wordsIn(script) <= ceiling) return script;
+
+    const fitted = sentencesWithin(script, ceiling);
+    if (fitted === undefined) return undefined;
+
+    return wordsIn(fitted) < ceiling * MIN_KEPT_SHARE ? undefined : fitted;
+}
+
+/** How long a script is, on the one definition the ceiling is counted in. */
+const wordsIn = (script: string): number => script.split(/\s+/).filter(Boolean).length;
 
 /**
  * Whether a script was shown records and named none of them.
@@ -1287,7 +1325,8 @@ export function faultIn(script: string, guard: AnswerGuard): CharacterFault | un
  */
 const FAULT_REASONS: Record<WriteFault, string> = {
     'nothing-said': 'the model answered with nothing the station could say',
-    'ran-long': 'the model wrote past the word ceiling, and a script cut mid-sentence is worse than the phrasing underneath it',
+    'ran-long':
+        'the model wrote past the word ceiling with nothing whole to keep short of it, and a script cut mid-sentence is worse than the phrasing underneath it',
     'named-nothing': 'the model wrote a break about neither of the records it was shown, so a listener could not tell what was playing',
     'cued-wrong': 'the model announced a record on the wrong side of the break, telling a listener something had played when it had not',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
@@ -1322,9 +1361,16 @@ export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-n
 export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFault; reason: string } | undefined {
     const reasoned = (fault: WriteFault) => ({ fault, reason: FAULT_REASONS[fault] });
 
-    const speakable = tidyAnswer(text);
-    if (speakable === undefined) return reasoned('nothing-said');
-    if (runsLong(speakable, guard)) return reasoned('ran-long');
+    const tidied = tidyAnswer(text);
+    if (tidied === undefined) return reasoned('nothing-said');
+
+    // The same cut in the same position, and everything below reads what came back from it. A trim
+    // is not a decline, so a script this shortens goes on to be judged like any other — which is the
+    // half that keeps the two functions one story: `readAnswer` airs the fitted words, so those are
+    // the words this has to be able to refuse.
+    const speakable = fitToCeiling(tidied, guard);
+    if (speakable === undefined) return reasoned('ran-long');
+
     if (namesNothing(speakable, guard)) return reasoned('named-nothing');
     // After naming and before character, which is where it belongs in the narrative this order is:
     // a break that named nothing has not got as far as cueing anything wrongly, and a break that

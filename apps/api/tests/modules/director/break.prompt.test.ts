@@ -684,7 +684,7 @@ describe('breakPrompt', () => {
     // whole design is which TURN each half lands in: a trait is who the presenter is, a saying is
     // what the presenter did, and putting them in one place makes a fact about last Tuesday part of
     // the character or the character a detail of this hour.
-    describe("what a character has accumulated", () => {
+    describe('what a character has accumulated', () => {
         const pirate = { style: 'a pirate captain who runs a radio station', diction: ['drop your Gs'] };
         const notebook = {
             trait: ['has taken to calling the listener a shipmate'],
@@ -1103,9 +1103,9 @@ describe('readAnswer', () => {
         expect(readAnswer('[silence]')).toBeUndefined();
     });
 
-    it('declines an answer that ran long rather than cutting it mid-sentence', () => {
-        // A cut script is a worse thing to air than the floor's correct line, and a model that has
-        // run this long has usually misunderstood the job rather than merely overshot.
+    it('declines an answer that ran long with nothing whole to keep short of the ceiling', () => {
+        // One unbroken sentence, which is the case the ceiling still refuses: the only cut available
+        // is mid-clause, and that is a worse thing to air than the floor's correct line.
         const rambling = Array.from({ length: DEFAULT_MAX_WORDS + 5 }, () => 'word').join(' ');
 
         expect(readAnswer(rambling)).toBeUndefined();
@@ -1115,6 +1115,50 @@ describe('readAnswer', () => {
         const exact = Array.from({ length: DEFAULT_MAX_WORDS }, () => 'word').join(' ');
 
         expect(readAnswer(exact)).toBe(exact);
+    });
+});
+
+/**
+ * The ceiling as a CUT, which is a reversal and was measured rather than reasoned: of the six answers
+ * this station ever refused for length, every one had made its point and then padded, so what the old
+ * rule threw away was the eighty good words in front of "make of that what you will".
+ */
+describe('readAnswer, past the ceiling', () => {
+    /** One sentence of exactly `words` words, beginning with a capital so a boundary is findable. */
+    const sentence = (index: number, words: number): string => `Sentence ${index} ${Array.from({ length: words - 3 }, () => 'word').join(' ')} here.`;
+
+    const rambled = [1, 2, 3, 4, 5].map(index => sentence(index, 10)).join(' ');
+    const kept = [1, 2, 3, 4].map(index => sentence(index, 10)).join(' ');
+
+    it('cuts back to the last whole sentence that fits', () => {
+        expect(readAnswer(rambled)).toBe(kept);
+    });
+
+    it('reports nothing refused about an answer it merely cut', () => {
+        expect(writeDecline(rambled, {})).toBeUndefined();
+    });
+
+    it('cuts at the ceiling the writer built rather than the default', () => {
+        expect(readAnswer(rambled, { maxWords: DEFAULT_MAX_WORDS * 2 })).toBe(rambled);
+    });
+
+    // A trim keeps the words in FRONT of the overrun, which only reads as the break the model wrote
+    // while there is a break left. An opening clause is worth less than the floor's whole sentence.
+    it('declines a trim so short it is no longer the break the model wrote', () => {
+        const frontloaded = `${sentence(1, 5)} ${sentence(2, 60)}`;
+
+        expect(readAnswer(frontloaded)).toBeUndefined();
+        expect(writeDecline(frontloaded, {})?.fault).toBe('ran-long');
+    });
+
+    // The half that keeps the cut honest: what airs is the fitted script, so the fitted script is
+    // what the rest of the guard has to judge. A break whose only record was in the tail named none.
+    it('judges the words it will actually air, not the ones the model sent', () => {
+        const madhouse = { title: 'Madhouse', artist: 'Anthrax' };
+        const named = `${[1, 2, 3, 4].map(index => sentence(index, 10)).join(' ')} That was Madhouse, from Anthrax.`;
+
+        expect(readAnswer(named, { names: [madhouse] })).toBeUndefined();
+        expect(writeDecline(named, { names: [madhouse] })?.fault).toBe('named-nothing');
     });
 });
 

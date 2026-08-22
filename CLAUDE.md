@@ -354,9 +354,14 @@ and reaches three places at once — the word ceiling (`LATITUDE_MAX_WORDS`), th
 swapped rather than appended because a model told both hedges), and at the top rung the content
 licence (`LATITUDE_LICENCE`). They compose, since a terse character can be unfiltered, and a ceiling
 nobody reaches costs nothing. Four things are load-bearing. **The two ceilings come from one
-`maxWordsFor` call** — what the model is TOLD and what `readAnswer` refuses at live in different
-files, and a character asked for seventy words and judged at forty has every break declined for doing
-as it was told, silently, with the floor writing the lot. **The SHAPE has the veto and the sheet only
+`maxWordsFor` call** — what the model is TOLD and what `readAnswer` cuts at live in different
+files, and a character asked for seventy words and judged at forty has every break truncated for doing
+as it was told, silently. **The ceiling CUTS rather than refuses**, at the last whole sentence that
+fits, and declines only what cannot be cut at one (a single over-long sentence, or a trim shorter than
+half the ceiling): measured on the six answers this station ever refused for length, every one had
+made its point and then padded, so what the old rule discarded was the good eighty words in front of
+"make of that what you will". A trim reaches `script_history.reason` on a row whose outcome is
+`written`, which is what keeps it from being a silent edit. **The SHAPE has the veto and the sheet only
 offers** (`allowsLatitude`, on for the talk break alone), because a bulletin's accuracy is not a
 character choice. **It narrows within station policy and never widens it**: the licence shares its
 slot with the broadcast-clean rule and loses to it, so an `unleashed` persona on a clean station

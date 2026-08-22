@@ -439,6 +439,23 @@ export class SegmentRepository extends DataRepository {
     }
 
     /**
+     * Which kinds the shelf holds anything airable of.
+     *
+     * {@link listReady}'s question asked of every kind at once, and it exists because the console
+     * has to answer it for a band whose kind nothing can WRITE: an operator who dropped sponsor
+     * spots in the inbox has a working `sponsor` band, and one who has not does not, and those two
+     * look identical until something reads the library.
+     *
+     * `distinct` in SQL rather than a set built here, for `listReady`'s own reason: the library may
+     * be thousands of half-rendered talk breaks, and the answer is a handful of words either way.
+     */
+    async readyKinds(): Promise<string[]> {
+        const rows = await this.db.selectFrom('deadair.segments').select('kind').distinct().where('state', '=', 'ready').execute();
+
+        return rows.map(row => row.kind);
+    }
+
+    /**
      * The last few things the station said of one kind, newest first.
      *
      * What a writer reads to avoid repeating itself. Deliberately every state rather than only

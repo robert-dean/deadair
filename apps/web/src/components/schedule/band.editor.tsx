@@ -24,6 +24,12 @@ import { clockToMinutes, minutesToClock } from './schedule.day';
  * the station already knows how to produce and takes anything else typed over them. A closed picker
  * here would be the console quietly removing a capability the API has.
  *
+ * **The list is the station's own answer** rather than five words written here, which is what makes
+ * that paragraph true: a `sponsor` a station has recordings of is offered and a `sponsor` it does
+ * not is not, and neither is a guess. `welcome` is filtered back out — it is genuinely producible,
+ * and a greeting is asked for when somebody tunes in rather than at a time, so a band is the one
+ * place it does not belong.
+ *
  * ## The subject picker is only drawn when the kind HAS subjects
  *
  * A news band can be about a category and a talk break cannot be about anything, so the row appears
@@ -36,7 +42,7 @@ import { clockToMinutes, minutesToClock } from './schedule.day';
  * and the breaks already planted stay where they are. The running order is the memory, which is what
  * makes editing this safe while the station is on air.
  */
-export function BandEditor({ target, onClose, onSubmit, onDelete, saving, deleting, error }: Props) {
+export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving, deleting, error }: Props) {
     const opened = target !== undefined;
     const band = target?.kind === 'edit' ? target.band : undefined;
     const topics = useTopics();
@@ -79,7 +85,13 @@ export function BandEditor({ target, onClose, onSubmit, onDelete, saving, deleti
 
                     <Group gap="xs" align="flex-start" wrap="wrap">
                         <Word>Say a</Word>
-                        <Autocomplete aria-label="Sort of break" data={KINDS} placeholder="news" w={160} {...form.getInputProps('kind')} />
+                        <Autocomplete
+                            aria-label="Sort of break"
+                            data={kinds.filter(kind => kind !== WELCOME_KIND)}
+                            placeholder="news"
+                            w={160}
+                            {...form.getInputProps('kind')}
+                        />
                         <Select
                             aria-label="How often"
                             data={[
@@ -177,13 +189,12 @@ export function BandEditor({ target, onClose, onSubmit, onDelete, saving, deleti
 }
 
 /**
- * The sorts of break a station usually schedules.
+ * The one kind the station can produce and a band should never ask for.
  *
- * Suggestions rather than the set: `welcome` is deliberately absent because a greeting is asked for
- * when somebody tunes in rather than at a time, and anything an operator has recordings of belongs
- * here whether or not this list has heard of it.
+ * A greeting is asked for when somebody tunes in, so a rule that fires at half past whether or not
+ * anybody arrived is a welcome to nobody. See the note above.
  */
-const KINDS = ['news', 'talkbreak', 'ident', 'sponsor', 'podcast'];
+const WELCOME_KIND = 'welcome';
 
 /** One word of the sentence, sitting on the same baseline as the fields around it. */
 function Word({ children }: { children: ReactNode }) {
@@ -202,6 +213,8 @@ export type BandTarget = { kind: 'edit'; band: ClockBand } | { kind: 'new'; posi
 
 interface Props {
     target?: BandTarget;
+    /** What the station can actually make, as the suggestion list. Anything else may still be typed. */
+    kinds: readonly string[];
     onClose: () => void;
     onSubmit: (draft: ClockBandInput) => void;
     onDelete: (id: string) => void;

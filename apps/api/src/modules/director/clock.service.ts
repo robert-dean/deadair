@@ -1,5 +1,10 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ClockBandRepository } from './clock.band.repository.js';
+import { BreakWriterRegistry } from './break.writer.registry.js';
+import { productionKinds } from '#modules/productions/production.scheduler.js';
+import { SegmentRepository } from '#modules/render/segment.repository.js';
+import { SpeechService } from '#modules/render/speech.service.js';
 import { TopicRepository } from '#modules/topics/topic.repository.js';
 import type { ClockBand as StoredBand, ClockBandDraft, ClockBandRecord } from './clock.bands.js';
 import type { ClockBand, ClockBandInput, ClockBandList } from './types/clock.types.js';
@@ -19,6 +24,14 @@ import type { ClockBand, ClockBandInput, ClockBandList } from './types/clock.typ
  * caller handed back only the row it named would be holding a list it has to refetch anyway, which
  * is the call the schedule and the personas already made.
  *
+ * ## The answer carries what the station can PRODUCE, as well as what it has asked for
+ *
+ * A band's kind is free text, so a clock can name a sort of break nothing on this station can make:
+ * a `weather` band before the plugin exists, a `sponsor` band before the recordings are dropped in.
+ * The planner already handles it (the slot is claimed and then passed over) and says so once per
+ * pass in a log line, which is nowhere an operator looks. `producibleKinds` puts the same fact on
+ * the page that edits the rule. See {@link producibleKinds} for why it must agree with the planner.
+ *
  * ## Nothing here tells the director anything
  *
  * A band is read on the next commit pass, off the table, so there is no invalidation to send and
@@ -31,10 +44,22 @@ export class ClockService {
     constructor(
         private readonly bands: ClockBandRepository,
         private readonly topics: TopicRepository,
+        private readonly writers: BreakWriterRegistry,
+        private readonly speech: SpeechService,
+        private readonly segments: SegmentRepository,
+        private readonly config: AppConfig,
     ) {}
 
     async list(): Promise<ClockBandList> {
-        return { bands: (await this.bands.list()).map(forTheWire) };
+        return {
+            bands: (await this.bands.list()).map(forTheWire),
+            producibleKinds: producibleKinds({
+                writable: this.writers.kinds(),
+                hasVoice: this.speech.speaker() !== undefined,
+                recorded: await this.segments.readyKinds(),
+                produced: [...productionKinds(this.config)],
+            }),
+        };
     }
 
     async create(input: ClockBandInput): Promise<ClockBandList> {
@@ -74,6 +99,42 @@ export class ClockService {
 
         return { ...shape, ...(await subjectFor(this.topics, input)), position: input.position, enabled: input.enabled };
     }
+}
+
+/**
+ * What the station is currently able to make a break out of.
+ *
+ * **This has to give the same answer `BreakPlanner.fillBand` does**, which is why the two clauses
+ * are its two branches in its own order: something that can WRITE the kind and a voice to speak it
+ * in, or a recording of that kind on the shelf. A console that disagreed with the planner would be
+ * reporting the opposite of what the station does, which is worse than reporting nothing.
+ *
+ * The voice gates the writable half rather than sitting beside it, because a script nothing can
+ * speak is a break that is planted, written, and then skipped at every slot it is ever given. The
+ * shelf is unaffected: those recordings are already audio.
+ *
+ * Production kinds are the third clause and belong to nobody's writer. A `podcast` band is honoured
+ * by `ProductionScheduler`, which reads the same bands hours ahead of their slots, so leaving it out
+ * would have the console call the one kind with the most work behind it unproducible.
+ *
+ * Sorted, so the console's suggestion list does not reshuffle between reads for no reason.
+ */
+export function producibleKinds(station: StationCapability): string[] {
+    const kinds = new Set([...(station.hasVoice ? station.writable : []), ...station.recorded, ...station.produced]);
+
+    return [...kinds].sort((left, right) => left.localeCompare(right));
+}
+
+/** The three ways a station can make a break, as {@link producibleKinds} weighs them. */
+export interface StationCapability {
+    /** Kinds something knows how to write, whether or not there is anything to speak them. */
+    writable: readonly string[];
+    /** Whether a speech plugin is installed and chosen. */
+    hasVoice: boolean;
+    /** Kinds the segment library holds `ready` audio of. */
+    recorded: readonly string[];
+    /** Kinds made as episodes rather than at a boundary. See `render.productionKinds`. */
+    produced: readonly string[];
 }
 
 /**

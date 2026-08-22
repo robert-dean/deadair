@@ -85,10 +85,20 @@ export type ClockBandInput = z.infer<typeof ClockBandInput>;
  */
 export const ClockBandList = z.strictObject({
     bands: z.array(ClockBand),
+    producibleKinds: z
+        .array(z.string().min(1).max(100))
+        .describe(
+            'Which sorts of break this station can actually make right now: one it can write and speak, one it has recordings of, or one it produces as an episode. A band naming anything else claims its boundary and then passes over it',
+        ),
 });
 export type ClockBandList = z.infer<typeof ClockBandList>;
 
 export const ClockBandListInput = z.strictObject({
     bands: z.array(ClockBandInput),
+    producibleKinds: z
+        .array(z.string().min(1).max(100))
+        .describe(
+            'Which sorts of break this station can actually make right now: one it can write and speak, one it has recordings of, or one it produces as an episode. A band naming anything else claims its boundary and then passes over it',
+        ),
 });
 export type ClockBandListInput = z.infer<typeof ClockBandListInput>;

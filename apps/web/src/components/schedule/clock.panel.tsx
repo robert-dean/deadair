@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActionIcon, Badge, Button, Card, Group, Stack, Table, Text } from '@mantine/core';
+import { ActionIcon, Badge, Button, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowDown, IconArrowUp, IconPlus } from '@tabler/icons-react';
 import type { ClockBand, ClockBandInput } from '@deadair/sdk';
 
 import { useClockBands, useCreateClockBand, useDeleteClockBand, useUpdateClockBand } from '../../api/clock.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
+import { severityColor } from '../shared/status';
 import { BandEditor, type BandTarget } from './band.editor';
 
 /**
@@ -41,6 +42,11 @@ export function ClockPanel() {
     const [editing, setEditing] = useState<BandTarget | undefined>(undefined);
 
     const bands = clock.data?.bands ?? [];
+    // What the station can actually make right now. Read through {@link canProduce} rather than
+    // directly, because an empty set and an unanswered query are the same value and only one of
+    // them means anything.
+    const producible = new Set(clock.data?.producibleKinds ?? []);
+    const canProduce = (kind: string) => clock.data === undefined || producible.has(kind);
 
     const close = () => {
         setEditing(undefined);
@@ -136,11 +142,25 @@ export function ClockPanel() {
                                             {band.topicLabel === undefined ? '' : ` · ${band.topicLabel}`}
                                         </Text>
                                     </Table.Td>
-                                    <Table.Td w={90}>
-                                        {band.enabled ? undefined : (
+                                    <Table.Td w={170}>
+                                        {/* A rule switched off says nothing about whether the
+                                            station could honour it, so only one of these is ever
+                                            worth drawing: what an operator does about a band that
+                                            is off is turn it on. */}
+                                        {!band.enabled ? (
                                             <Badge size="xs" variant="light" color="gray">
                                                 Off
                                             </Badge>
+                                        ) : canProduce(band.kind) ? undefined : (
+                                            <Tooltip
+                                                multiline
+                                                maw={320}
+                                                label={`Nothing on this station can make a ${band.kind}. The slot is claimed and then passed over, so the station plays on rather than saying anything.`}
+                                            >
+                                                <Badge size="xs" variant="light" color={severityColor.notice}>
+                                                    nothing can produce this
+                                                </Badge>
+                                            </Tooltip>
                                         )}
                                     </Table.Td>
                                     <Table.Td w={80}>
@@ -183,6 +203,7 @@ export function ClockPanel() {
                 // one it was opened with. Same spelling as the slot editor's `keyOf` next door.
                 key={editing === undefined ? 'closed' : editing.kind === 'edit' ? editing.band.id : `new:${editing.position}`}
                 {...(editing === undefined ? {} : { target: editing })}
+                kinds={clock.data?.producibleKinds ?? []}
                 onClose={close}
                 onSubmit={submit}
                 onDelete={id => remove.mutate(id, { onSuccess: close })}

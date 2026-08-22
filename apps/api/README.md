@@ -143,7 +143,17 @@ Redis blip fails open rather than 429-ing the whole API), credentialed CORS agai
 `SPA_BASE_URL` / `APP_BASE_URL` origins, authentication, audit context, authorization context, and
 the refresh-cookie hook.
 
-Two of those carry most of the weight:
+Three of those carry most of the weight:
+
+- **[rate.limit](src/server/middleware/rate.limit.middleware.ts)** is ours rather than ServerKit's,
+  and the difference is only the key. ServerKit's uses `ctx.ip`, which behind nginx is the edge —
+  one bucket for every browser at once, so a burst from one console page spends everyone's budget.
+  Set `TRUST_PROXY=true` (dotenv, off by default) and the key comes from `X-Real-IP`, or the LAST
+  hop of `X-Forwarded-For` where the edge does not set one; the last, because nginx appends and the
+  first entry is whatever the client wrote. Turning it on is a statement that nothing that matters
+  can reach the API around the proxy, since a forwarded header from a direct caller is a free bucket
+  per address they invent. Liquidsoap is a direct caller by design (see `playout.urls.ts`) and keeps
+  its own peer address either way.
 
 - **[audit.context](src/server/middleware/audit.context.middleware.ts)** opens the per-request
   transaction, sets the `app.actor_*` GUCs on it, and overrides the scoped `Kysely` and pg-boss

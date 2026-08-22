@@ -1,13 +1,6 @@
 import { Container } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import {
-    errorMiddleware,
-    serverKitContextMiddleware,
-    corsMiddleware,
-    rateLimiterMiddleware,
-    authenticationMiddleware,
-    ServerKitMiddleware,
-} from '@maroonedsoftware/koa';
+import { errorMiddleware, serverKitContextMiddleware, corsMiddleware, authenticationMiddleware, ServerKitMiddleware } from '@maroonedsoftware/koa';
 import { RateLimiterMemory, RateLimiterRedis } from 'rate-limiter-flexible';
 import { Redis } from 'ioredis';
 import { auditContextMiddleware } from './middleware/audit.context.middleware.js';
@@ -15,6 +8,7 @@ import { authorizationContextMiddleware } from './middleware/authorization.conte
 import { refreshCookieMiddleware } from './middleware/refresh.cookie.middleware.js';
 import { conditionalGetMiddleware } from './middleware/conditional.get.middleware.js';
 import { bridgeSecretMiddleware } from './middleware/bridge.secret.middleware.js';
+import { rateLimitMiddleware } from './middleware/rate.limit.middleware.js';
 
 export const setupMiddleware = (container: Container) => {
     const middlewares: ServerKitMiddleware[] = [];
@@ -23,9 +17,9 @@ export const setupMiddleware = (container: Container) => {
     const config = container.get(AppConfig);
 
     // The Redis client runs with enableOfflineQueue:false, so a Redis outage makes consume()
-    // reject — and rateLimiterMiddleware turns any rejection into a 429, taking the whole API
-    // down as "rate limited" during a blip. The in-memory insuranceLimiter lets rate limiting
-    // fall back to per-instance memory when Redis is unreachable (fail-open, not fail-closed).
+    // reject — and the middleware turns any rejection into a 429, taking the whole API down as
+    // "rate limited" during a blip. The in-memory insuranceLimiter lets rate limiting fall back
+    // to per-instance memory when Redis is unreachable (fail-open, not fail-closed).
     const rateLimiter = new RateLimiterRedis({
         storeClient: redis,
         points: 100,
@@ -38,7 +32,10 @@ export const setupMiddleware = (container: Container) => {
 
     middlewares.push(errorMiddleware());
     middlewares.push(serverKitContextMiddleware(container));
-    middlewares.push(rateLimiterMiddleware(rateLimiter));
+    // Ours rather than ServerKit's, for one reason: it keys on the real caller instead of on
+    // `ctx.ip`, which behind nginx is the edge and therefore one bucket for every client at once.
+    // See the middleware for why the trust is opted into and why it is not `app.proxy`.
+    middlewares.push(rateLimitMiddleware(rateLimiter, config));
     // The web SDK sends every request with `credentials: 'include'` (to carry the httpOnly refresh
     // cookie cross-origin), so the API must answer with `Access-Control-Allow-Credentials: true` —
     // a credentialed response missing that header is blocked by the browser, which surfaced as

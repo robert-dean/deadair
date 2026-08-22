@@ -37,7 +37,18 @@
  * knows where a lexicon comes from.
  */
 
+import { SPEECH_CUES } from '@deadair/plugin-sdk';
+
 import { applyPronunciations, type Pronunciation } from './pronunciation.lexicon.js';
+
+/**
+ * The decoration {@link settle} drops, with a performance cue held out of it.
+ *
+ * The cue alternative comes FIRST, which is the whole trick: a regular expression takes the earliest
+ * alternative that matches at a position, so `[laugh]` is claimed as a cue before the bare `[` in the
+ * character class can claim it. Reverse them and every cue loses its opening bracket.
+ */
+const SPARE_CUES = new RegExp(`\\[(${SPEECH_CUES.join('|')})\\]|[*_\`^<>{}[\\]=+@#&$%]`, 'gi');
 
 /**
  * One script, as it should be handed to an engine.
@@ -308,8 +319,20 @@ function settle(text: string): string {
             .replace(/#DOLLARS#/g, ' dollars')
             // Separators.
             .replace(/[/\\|~]+/g, ' ')
-            // Decoration, including the symbols the passes above have already had their say about.
-            .replace(/[*_`^<>{}[\]=+@#&$%]/g, '')
+            // Decoration, including the symbols the passes above have already had their say about,
+            // with a performance cue spared by name. One alternation rather than a drop followed by
+            // a repair, because every repair needs a sentinel and every sentinel made of these
+            // characters is itself in the drop-list: parking `[laugh]` as `#CUELAUGH#` leaves
+            // `CUELAUGH` once the hashes go, and putting the brackets back around a bare `CUE(\w+)`
+            // then turns the word RESCUED into `RES[d]`. Matching what to KEEP has no such gap.
+            //
+            // Whether the engine can perform one is settled before this runs: `SpeechService.sayable`
+            // has already removed every cue the chosen plugin did not claim, so anything still here
+            // is going to an engine that asked for it. See `SPEECH_CUES`.
+            // The capture is what says WHICH alternative fired, and testing the match text instead is
+            // the trap: a lone `[` is decoration, matches the character class, and starts with the
+            // same character a cue does.
+            .replace(SPARE_CUES, (_match, cue: string | undefined) => (cue === undefined ? '' : `[${cue.toLowerCase()}]`))
             .replace(/\s+/g, ' ')
             // A space that a removal left in front of its punctuation.
             .replace(/\s+([.,!?;:])/g, '$1')

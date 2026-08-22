@@ -425,6 +425,56 @@ describe('ChatterboxPlugin.testConnection', () => {
         expect((await plugin.testConnection()).message).toContain('Loaded: turbo on cpu.');
     });
 
+    // Which cues this engine performs belongs to the LOADED MODEL, not to the server or the plugin,
+    // which is the whole reason this is a live query rather than a manifest flag. Every case here is
+    // about answering NOTHING when the claim would be unsafe: a cue the station believes in and the
+    // engine cannot do is the word "laugh" read out on air.
+    describe('the cues it can perform', () => {
+        const turbo = { supports_paralinguistic_tags: true, available_paralinguistic_tags: ['laugh', 'chuckle', 'sigh', 'gasp', 'cough'] };
+
+        it('narrows the engine vocabulary to the station one', async () => {
+            // The engine offers more than the station names, `cough` among them, and the station's
+            // four are the ones a radio host actually does. The intersection is what may be asked for.
+            const { plugin } = await started({ loaded: [true], modelInfo: turbo });
+
+            expect(await plugin.listCues()).toEqual(['laugh', 'chuckle', 'sigh', 'gasp']);
+        });
+
+        it('answers nothing for a model that does not do them', async () => {
+            const { plugin } = await started({ loaded: [true], modelInfo: { supports_paralinguistic_tags: false, class_name: 'ChatterboxTTS' } });
+
+            expect(await plugin.listCues()).toEqual([]);
+        });
+
+        it('answers nothing for a build that claims them and names none', async () => {
+            // The flag and the list are not redundant. A build that says yes and lists nothing
+            // performs nothing, so the two are intersected rather than either one trusted alone.
+            const { plugin } = await started({ loaded: [true], modelInfo: { supports_paralinguistic_tags: true, available_paralinguistic_tags: [] } });
+
+            expect(await plugin.listCues()).toEqual([]);
+        });
+
+        it('answers nothing when the server could not be asked', async () => {
+            // Asked on the path that WRITES a break. An unreachable engine should cost the station a
+            // plain script rather than the script.
+            const { plugin, host } = await started();
+            host.setFetchImpl(async () => {
+                throw new Error('connection refused');
+            });
+
+            expect(await plugin.listCues()).toEqual([]);
+        });
+
+        it('reads a tag the server spelled in another case', async () => {
+            const { plugin } = await started({
+                loaded: [true],
+                modelInfo: { supports_paralinguistic_tags: true, available_paralinguistic_tags: ['Laugh', 'SIGH'] },
+            });
+
+            expect(await plugin.listCues()).toEqual(['laugh', 'sigh']);
+        });
+    });
+
     it('does not claim there is no model when the server would not say', async () => {
         // A readout that never came back is not a server holding nothing, and "no model is loaded"
         // is a confident sentence about the one thing the operator opened this to find out.

@@ -159,3 +159,47 @@ describe('transposeForSpeech: settling', () => {
         expect(say('That was Fleetwood Mac, and this is the news.')).toBe('That was Fleetwood Mac, and this is the news.');
     });
 });
+
+// A cue reaching here has already been cleared: `SpeechService.sayable` removed every one the chosen
+// engine did not claim, so this file's only job is not to destroy what is left. That is harder than
+// it sounds, because the drop-list two lines above it exists to eat exactly this shape.
+describe('transposeForSpeech: performance cues', () => {
+    it('leaves a cue intact, brackets and all', () => {
+        expect(say('That was Nick Drake. [laugh] No idea what follows that.')).toBe('That was Nick Drake. [laugh] No idea what follows that.');
+    });
+
+    it('still drops every other bracket, which is what the sparing is carved out of', () => {
+        // The brackets and not the word, which is this file's long-standing division of labour: it
+        // handles what a string can be PRONOUNCED as, and removing a stage direction wholesale is
+        // `readAnswer`'s job one step upstream. What matters here is that `[warmly]` does not come
+        // out looking like notation an engine should act on.
+        expect(say('[warmly] Hello there.')).toBe('warmly Hello there.');
+    });
+
+    it('spares a lone bracket no more than it did before', () => {
+        expect(say('A [ stray bracket.')).toBe('A stray bracket.');
+    });
+
+    // The bug the one-alternation form was chosen to avoid. A sentinel like `#CUELAUGH#` loses its
+    // hashes to the drop-list, and putting the brackets back around a bare `CUE(\w+)` rewrites any
+    // capitalised word containing those three letters.
+    it('does not mangle a capitalised word that happens to contain CUE', () => {
+        expect(say('RESCUED from the bargain bin.')).toBe('RESCUED from the bargain bin.');
+    });
+
+    it('normalises the case a cue was written in, since the engine is given one spelling', () => {
+        expect(say('[LAUGH] Right then.')).toBe('[laugh] Right then.');
+    });
+
+    it('keeps a cue through the passes that rewrite what is around it', () => {
+        expect(say('[sigh] Sade & friends, 1984.', [{ written: 'Sade', spoken: 'Shar-day' }])).toBe(
+            '[sigh] Shar-day and friends, nineteen eighty-four.',
+        );
+    });
+
+    // Not a fault, and pinned rather than discovered: a line ending in `]` does not match the
+    // sentence-final test in `joinLines`, so it gains the full stop every other line would.
+    it('punctuates a line that ends on a cue like any other line', () => {
+        expect(say('Here we go [laugh]\nAnd we are back.')).toBe('Here we go [laugh]. And we are back.');
+    });
+});

@@ -5,7 +5,7 @@
 // recording something that was never said.
 
 import { describe, expect, it, vi } from 'vitest';
-import type { SpeechRequest } from '@deadair/plugin-sdk';
+import type { SpeechCue, SpeechRequest } from '@deadair/plugin-sdk';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import { SpeechService } from '../../../src/modules/render/speech.service.js';
@@ -18,8 +18,13 @@ import type { SegmentStore } from '../../../src/modules/render/segment.store.js'
 import type { SpeechGate } from '../../../src/modules/render/speech.gate.js';
 import type { VoiceSampleStore } from '../../../src/modules/render/voice.sample.store.js';
 
-/** An engine that answers with a byte of audio and remembers what it was asked to say. */
-function harness(entries: readonly Pronunciation[] = []) {
+/**
+ * An engine that answers with a byte of audio and remembers what it was asked to say.
+ *
+ * `cues` is what this engine CLAIMS it can perform; absent means it does not implement the method at
+ * all, which is most plugins and is the shape that has to keep working untouched.
+ */
+function harness(entries: readonly Pronunciation[] = [], cues?: readonly SpeechCue[]) {
     const asked: SpeechRequest[] = [];
 
     const speak = vi.fn(async (request: SpeechRequest) => {
@@ -27,7 +32,8 @@ function harness(entries: readonly Pronunciation[] = []) {
         return { mime: 'audio/mpeg', audio: new ReadableStream<Uint8Array>({ start: controller => controller.close() }) };
     });
 
-    const plugin = { record: { id: 'deadair.kokoro' }, instance: { speak }, listsVoices: false } as unknown as SpeechPlugin;
+    const instance = cues === undefined ? { speak } : { speak, listCues: vi.fn(async () => cues) };
+    const plugin = { record: { id: 'deadair.kokoro' }, instance, listsVoices: false, listsCues: cues !== undefined } as unknown as SpeechPlugin;
 
     const registry = { list: vi.fn(() => []) } as unknown as PluginRegistry;
     const invoker = { invoke: vi.fn(async (_id: string, _name: string, run: () => Promise<unknown>) => await run()) } as unknown as PluginInvoker;
@@ -80,6 +86,66 @@ describe('SpeechService.speakWith', () => {
         await service.speakWith(plugin, { text: 'Here is Sade again.' });
 
         expect(lexicon.active).toHaveBeenCalledTimes(2);
+    });
+});
+
+// The property that makes a performance cue safe to write into a script at all: the RENDER path
+// decides whether one survives, not the writer. A break written while Chatterbox was the speaker and
+// rendered after the operator switched to Kokoro has to lose its cue, because written and rendered
+// are different moments and only one of them knows which engine is about to be handed the words.
+describe('SpeechService.speakWith: performance cues', () => {
+    it('takes a cue out for an engine that does not claim it', async () => {
+        const { service, plugin, asked } = harness([], []);
+
+        await service.speakWith(plugin, { text: 'That was Nick Drake. [laugh] No idea what follows.' });
+
+        expect(asked[0]?.text).toBe('That was Nick Drake. No idea what follows.');
+    });
+
+    it('takes a cue out for an engine that does not implement the method at all', async () => {
+        // Absent means none, which is what lets every existing speech plugin stay untouched.
+        const { service, plugin, asked } = harness();
+
+        await service.speakWith(plugin, { text: 'That was Nick Drake. [laugh] No idea what follows.' });
+
+        expect(asked[0]?.text).toBe('That was Nick Drake. No idea what follows.');
+    });
+
+    it('leaves a cue in for an engine that claims it', async () => {
+        const { service, plugin, asked } = harness([], ['laugh']);
+
+        await service.speakWith(plugin, { text: 'That was Nick Drake. [laugh] No idea what follows.' });
+
+        expect(asked[0]?.text).toBe('That was Nick Drake. [laugh] No idea what follows.');
+    });
+
+    it('keeps only the cues that engine claimed, not all of them', async () => {
+        const { service, plugin, asked } = harness([], ['laugh']);
+
+        await service.speakWith(plugin, { text: '[sigh] Well. [laugh] Anyway.' });
+
+        expect(asked[0]?.text).toBe('Well. [laugh] Anyway.');
+    });
+
+    it('records the cue in what it says was spoken, because that is what went out', async () => {
+        const { service, plugin } = harness([], ['laugh']);
+
+        const audio = await service.speakWith(plugin, { text: '[laugh] Right then.' });
+
+        expect(audio.spokenText).toBe('[laugh] Right then.');
+    });
+
+    it('does not let a plugin that throws cost the render', async () => {
+        // A cue is a flourish. An engine that could not be asked whether it does them should cost a
+        // plainer break rather than the break.
+        const { service, plugin, asked } = harness([], []);
+        (plugin.instance as { listCues: unknown }).listCues = vi.fn(async () => {
+            throw new Error('connection refused');
+        });
+
+        await service.speakWith(plugin, { text: '[laugh] Still fine.' });
+
+        expect(asked[0]?.text).toBe('Still fine.');
     });
 });
 

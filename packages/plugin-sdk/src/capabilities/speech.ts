@@ -33,6 +33,68 @@
 
 import type { PluginLifecycle } from '../plugin.lifecycle.js';
 
+/**
+ * The things a presenter DOES that are not words, as the station names them.
+ *
+ * A cue rides inside {@link SpeechRequest.text} rather than beside it, written
+ * `[laugh]`, which is why nothing in this interface carries one. That is not a
+ * shortcut: a laugh happens at a place in a sentence, and a field would have to
+ * invent a way to say where.
+ *
+ * The vocabulary is the STATION's and mapping it is yours, exactly as for
+ * {@link SpeechVoice}. A laugh is something a presenter does; whether your engine
+ * spells it `[laugh]`, `<laugh>` or not at all is engine business, and the host
+ * never learns which. Four rather than every expressive marker anyone has shipped,
+ * because this is the set a radio host actually performs between two records: a
+ * cough or a sniff reads as illness rather than as delivery.
+ *
+ * **Answer {@link SpeechPluginInstance.listCues} honestly and the rest is free.**
+ * The host strips every cue you do not claim before it calls {@link
+ * SpeechPluginInstance.speak}, so a plugin that implements nothing here never sees
+ * one, and the failure where an engine READS the word "laugh" out loud cannot
+ * happen. Claiming one you cannot perform is the only way to break that.
+ */
+export const SPEECH_CUES = ['laugh', 'chuckle', 'sigh', 'gasp'] as const;
+
+/** One of {@link SPEECH_CUES}. */
+export type SpeechCue = (typeof SPEECH_CUES)[number];
+
+/** Every cue written into a script, in the order they appear, with repeats. */
+export function cuesIn(text: string): SpeechCue[] {
+    return [...text.matchAll(cuePattern())].map(match => match[1]!.toLowerCase() as SpeechCue);
+}
+
+/**
+ * The same text with cues removed, or with only some of them kept.
+ *
+ * `keep` is the set to LEAVE, so the default of none is "take them all out" — the
+ * safe direction, and the one an engine that has never heard of a cue wants. A
+ * removal closes the space it leaves behind, because `word [laugh] word` would
+ * otherwise render with a double space that {@link SPEECH_CUES}' own consumers
+ * would have to know to tidy.
+ *
+ * Only the four are touched. Anything else in brackets is somebody else's problem
+ * and stays exactly as it arrived: this is not a bracket stripper.
+ */
+export function withoutCues(text: string, keep: Iterable<SpeechCue> = []): string {
+    const kept = new Set<string>([...keep]);
+
+    return text
+        .replace(cuePattern(), (match, cue: string) => (kept.has(cue.toLowerCase()) ? match : ' '))
+        .replace(/[^\S\n]{2,}/g, ' ')
+        .replace(/[^\S\n]+([.,!?;:])/g, '$1')
+        .trim();
+}
+
+/**
+ * A fresh matcher every call, because a `g` flag carries `lastIndex` between them.
+ *
+ * All four are single words, so this is a plain alternation with no ordering to get
+ * right. A multi-word cue would need the longest form first, which is the rule
+ * `applyPronunciations` keeps one layer up.
+ */
+const cuePattern = (): RegExp => new RegExp(`\\[(${SPEECH_CUES.join('|')})\\]`, 'gi');
+
 /** One thing to say. */
 export interface SpeechRequest {
     /**
@@ -140,4 +202,26 @@ export interface SpeechPluginInstance extends PluginLifecycle {
      * be and should not have to describe it. Absent is normal, not broken.
      */
     listVoices?(): Promise<SpeechVoice[]>;
+
+    /**
+     * Which of {@link SPEECH_CUES} this plugin can perform RIGHT NOW.
+     *
+     * Optional, and absent means none: an engine that only reads words is the
+     * ordinary case and should not have to say so. That default is what makes this
+     * safe to add — the host strips what you do not claim, so silence costs a
+     * plugin nothing and risks nothing.
+     *
+     * **Answer from what the engine currently IS, not from what this plugin was
+     * built against.** On the engine this was written for, cues belong to the
+     * loaded MODEL rather than to the server, so swapping the model takes them away
+     * with no plugin change involved — which is exactly the case a manifest flag
+     * would get wrong, and it would get it wrong by having the station perform to
+     * an engine that reads the word out.
+     *
+     * Called on the path that writes a break as well as the one that speaks it, so
+     * keep it cheap and answer empty rather than throwing when the engine cannot be
+     * reached: a station that cannot ask should write a script with no cues in it,
+     * not fail to write one.
+     */
+    listCues?(): Promise<readonly SpeechCue[]>;
 }

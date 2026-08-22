@@ -3,9 +3,11 @@ import {
     configString,
     Plugin,
     PluginError,
+    SPEECH_CUES,
     tryJsonBody,
     type ConfigFieldOption,
     type PluginConnectionResult,
+    type SpeechCue,
     type SpeechHandle,
     type SpeechPluginInstance,
     type SpeechRequest,
@@ -235,6 +237,34 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
 
         const fallback: VoiceMapping = { engine: this.defaultVoice };
         return [{ id: '', label: 'Default', description: describe(fallback), spec: specOf(fallback) }, ...mapped];
+    }
+
+    /**
+     * Which performance cues this server can do, right now.
+     *
+     * The intersection of the station's four with what the LOADED model names, which is the only
+     * honest answer: this engine's tags belong to the model rather than to the build, so the same
+     * server answers differently after `/restart_server` swaps one in. A manifest flag would have
+     * been wrong on exactly the station that switched models, and wrong in the direction where the
+     * engine reads the word "laugh" out loud.
+     *
+     * The engine's vocabulary is wider than the station's — it also offers a cough, a sniff and a
+     * throat clear — so this narrows rather than translates. It happens that both spell a cue the
+     * same way, which is why {@link speak} passes the text through untouched; a future engine that
+     * spells them differently would rewrite them there and change nothing here.
+     *
+     * Answers empty rather than throwing, for the reason {@link fetchSupportedFormats} does: this is
+     * asked on the path that WRITES a break, and a server that cannot be reached should cost the
+     * station a plain script rather than the script.
+     */
+    async listCues(): Promise<readonly SpeechCue[]> {
+        if (this.lifecycle === undefined) return [];
+
+        const info = await this.lifecycle.info();
+        if (info === undefined || !info.supportsCues) return [];
+
+        const named = new Set(info.availableTags);
+        return SPEECH_CUES.filter(cue => named.has(cue));
     }
 
     /**

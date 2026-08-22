@@ -1,6 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { PluginError, type SpeechHandle, type SpeechRequest, type SpeechVoice } from '@deadair/plugin-sdk';
+import { PluginError, withoutCues, type SpeechCue, type SpeechHandle, type SpeechRequest, type SpeechVoice } from '@deadair/plugin-sdk';
 import { asSpeechPlugin, type SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -173,7 +173,7 @@ export class SpeechService {
      */
     async speakWith(plugin: SpeechPlugin, request: SpeechRequest, options: SpeechGateOptions = {}): Promise<SpokenAudio> {
         const pluginId = plugin.record.id;
-        const spokenText = await this.sayable(request.text);
+        const spokenText = await this.sayable(request.text, plugin);
 
         // The gate wraps the drain as well as the request, because the engine is producing audio
         // for the whole of it. Acquired HERE rather than in `speak`, which delegates to this: two
@@ -220,7 +220,7 @@ export class SpeechService {
     ): Promise<SegmentExtension> {
         // Read before the gate is taken, as `speakWith` does: the lexicon is a query, and a query
         // made while holding the one speech slot is a query every other caller waits behind.
-        const spokenText = await this.sayable(request.text);
+        const spokenText = await this.sayable(request.text, plugin);
 
         return await this.gate.hold(
             async () => {
@@ -262,11 +262,49 @@ export class SpeechService {
      * A row cannot be malformed, which is most of what moving the lexicon out of a text box bought:
      * there is nothing here to warn about any more, because an entry either exists or it does not.
      */
-    private async sayable(text: string): Promise<string> {
-        const spoken = transposeForSpeech(text, await this.pronunciations.active());
+    private async sayable(text: string, plugin: SpeechPlugin): Promise<string> {
+        // BEFORE the transposition, because a cue is notation rather than words: leaving one in for
+        // `transposeForSpeech` to walk past means every pass there has to know about brackets it
+        // does not own, and one of them (`settle`) already had an opinion about them.
+        const performable = withoutCues(text, await this.cuesFor(plugin));
+
+        const spoken = transposeForSpeech(performable, await this.pronunciations.active());
         if (spoken !== text.trim()) this.logger.debug('render: transposed a script for the engine', { written: text, spoken });
 
         return spoken;
+    }
+
+    /**
+     * Which performance cues the chosen engine can do, for a writer deciding what to ask for.
+     *
+     * Answers nothing for a station with no speaker at all, which is an ordinary state rather than a
+     * fault — the same one `speaker()` reports — and it is the right answer here for a second reason:
+     * a break written while nothing can speak should carry no notation for whatever gets installed
+     * later.
+     */
+    async cues(): Promise<readonly SpeechCue[]> {
+        const plugin = this.speaker();
+        return plugin === undefined ? [] : await this.cuesFor(plugin);
+    }
+
+    /**
+     * The same question against a plugin the caller already has.
+     *
+     * Never throws. A cue is a flourish, and an engine that could not be asked whether it does them
+     * must cost the station a plainer break rather than the break — which is why this swallows and
+     * says so at debug rather than letting `PluginInvoker`'s error out to a render that was going
+     * fine. Not implementing the method is silence rather than a log line, because that is most
+     * plugins and it is not news.
+     */
+    private async cuesFor(plugin: SpeechPlugin): Promise<readonly SpeechCue[]> {
+        if (!plugin.listsCues) return [];
+
+        try {
+            return await this.pluginInvoker.invoke(plugin.record.id, 'speech.listCues', async () => (await plugin.instance.listCues?.()) ?? []);
+        } catch (error) {
+            this.logger.debug('render: could not ask which cues this engine performs', { plugin: plugin.record.id, error });
+            return [];
+        }
     }
 
     /** One `speak`, through the invoker on the long budget an engine actually needs. */

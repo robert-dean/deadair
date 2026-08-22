@@ -69,6 +69,22 @@ export interface ModelInfo {
     className?: string;
     /** `cuda`, `cpu`. Worth saying, because a model that quietly landed on the CPU is a slow break. */
     device?: string;
+    /**
+     * Whether this build performs paralinguistic tags at all.
+     *
+     * A property of the LOADED model rather than of the server: the turbo build does them and the
+     * others do not, so swapping the model takes them away with nothing else changing. That is why
+     * nothing caches this into a manifest flag.
+     */
+    supportsCues: boolean;
+    /**
+     * The tags it names, verbatim and lowercased, as the ENGINE spells them.
+     *
+     * Its own vocabulary rather than the station's, and wider: it holds `cough`, `sniff` and
+     * `clear throat` too. Narrowing to what a station will actually ask for happens where the two
+     * meet, in `listCues`.
+     */
+    availableTags: readonly string[];
 }
 
 /** What this plugin needs from the host to talk to the server. Narrow, so it can be faked whole. */
@@ -140,6 +156,12 @@ export class ModelLifecycle {
                 type: said(body.type),
                 className: said(body.class_name),
                 device: said(body.device),
+                // Both halves are read, and the pair is not redundant: the flag is the server's own
+                // answer to "can this build do them at all" and the list is which. A build that says
+                // yes and names nothing performs nothing, so the caller intersects rather than
+                // trusting either alone.
+                supportsCues: body.supports_paralinguistic_tags === true,
+                availableTags: namedTags(body.available_paralinguistic_tags),
             };
         } catch {
             return undefined;
@@ -238,6 +260,16 @@ export class ModelLifecycle {
 
 /** A field of the model readout, if the server filled it in. Blank counts as absent. */
 const said = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
+
+/**
+ * The tag list off the readout, as lowercased names, and empty for anything else.
+ *
+ * Lowercased here rather than at the comparison because this is the boundary: a server that starts
+ * answering `Laugh` should cost nothing downstream, and a case fold applied at every read is one
+ * that eventually gets forgotten at one of them.
+ */
+const namedTags = (value: unknown): readonly string[] =>
+    Array.isArray(value) ? value.flatMap(entry => (typeof entry === 'string' && entry.trim().length > 0 ? [entry.trim().toLowerCase()] : [])) : [];
 
 const unavailable = (message: string): PluginError => new PluginError(`chatterbox: ${message}`).withCode('unavailable');
 

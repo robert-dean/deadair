@@ -443,6 +443,14 @@ export interface SpeechPlugin {
     instance: SpeechPluginInstance;
     /** Whether `listVoices` is there to call. Optional in the SDK, so absent is normal, not broken. */
     listsVoices: boolean;
+    /**
+     * Whether `listCues` is there to call.
+     *
+     * A flag about the METHOD only. Whether the engine can actually perform a cue today is a
+     * question for the method itself, because on at least one engine it depends on which model is
+     * loaded — so a plugin that answers here can still answer with nothing, and that is not a fault.
+     */
+    listsCues: boolean;
 }
 
 /** {@link implementsCatalog}'s rule, applied to the `speech` capability. */
@@ -453,6 +461,9 @@ export const implementsSpeech = (manifest: PluginManifest | undefined, instance:
 
 /** Whether this plugin can describe the voices it offers, for a console that has to draw a list. */
 export const implementsVoiceListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listVoices === 'function';
+
+/** Whether this plugin can say which performance cues it does. Absent means none, which is the safe default. */
+export const implementsCueListing = (instance: unknown): boolean => typeof (instance as Record<string, unknown>).listCues === 'function';
 
 /**
  * The speech-capable view of a record, or `undefined` when it is not one.
@@ -467,7 +478,13 @@ export const asSpeechPlugin = (record: PluginRecord): SpeechPlugin | undefined =
     if (!implementsSpeech(record.manifest, record.instance)) return undefined;
 
     const instance = record.instance as SpeechPluginInstance;
-    return { record, manifest: record.manifest, instance, listsVoices: implementsVoiceListing(instance) };
+    return {
+        record,
+        manifest: record.manifest,
+        instance,
+        listsVoices: implementsVoiceListing(instance),
+        listsCues: implementsCueListing(instance),
+    };
 };
 
 /**

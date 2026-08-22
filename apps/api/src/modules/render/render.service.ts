@@ -14,6 +14,7 @@ import type {
     ScriptHistoryQuery,
     ScriptHistorySummary,
     ScriptHistorySummaryQuery,
+    SpeechPreviewRequest,
     ScriptPromptMessage,
     SegmentCreate,
     SegmentList,
@@ -76,6 +77,17 @@ const CACHE_CONTROL = 'public, max-age=86400';
  * from that header rather than from the bytes, so it is the difference between a wav that plays and
  * one that silently does not. See the note on `SEGMENT_CONTENT_TYPES`.
  */
+/**
+ * A preview's bytes, with no cache headers.
+ *
+ * The sample route carries an ETag because a browser will re-ask for the same URL; this one is a
+ * POST whose answer nothing re-asks for, and the cache that matters is the file the key found.
+ */
+export interface SpeechPreviewResponse {
+    contentType: (typeof SEGMENT_CONTENT_TYPES)[SegmentExtension];
+    body: Buffer;
+}
+
 export interface SegmentAudioResponse {
     contentType: SegmentContentType;
     body: Buffer;
@@ -301,14 +313,45 @@ export class RenderService {
      * rather than about the voice asked for, which is why neither is a 404.
      */
     async getVoiceSample(voiceId: string): Promise<SegmentAudioResponse> {
+        const { bytes, ext, key } = await this.renderSample(voiceId, SAMPLE_TEXT);
+        return sampleResponse(bytes, key, ext);
+    }
+
+    /**
+     * The caller's own words in one voice, so a script can be heard before anything airs it.
+     *
+     * The sample route above with the text parameterized, and everything that matters falls out of
+     * being exactly that: the words go through the pronunciation lexicon on the way in, so a preview
+     * is what the station would actually SAY rather than what was typed; the render queues behind
+     * every break the station is about to air; and the audio lands in the samples store, which has no
+     * segment row, so nothing here can be planted or named by a lineup.
+     *
+     * No cache headers, unlike the sample: a POST answer is not something a browser will hand back
+     * on its own, and the cache that matters is the file the key already found.
+     *
+     * @throws 503 when nothing can speak or the engine is busy, 502 when it refused.
+     */
+    async previewSpeech(request: SpeechPreviewRequest): Promise<SpeechPreviewResponse> {
+        const { bytes, ext } = await this.renderSample(request.voice ?? '', request.text);
+        return { contentType: SEGMENT_CONTENT_TYPES[ext], body: bytes };
+    }
+
+    /**
+     * One line spoken in one voice, from the store if it is there and from the engine if it is not.
+     *
+     * Shared by the two routes above rather than copied into both, because every decision in here is
+     * about the station rather than about which of them asked: what to do when nothing can speak,
+     * how long to wait for a busy engine, which failure is the engine's and which is the queue's.
+     */
+    private async renderSample(voiceId: string, text: string): Promise<{ bytes: Buffer; ext: SegmentExtension; key: string }> {
         const plugin = this.speech.speaker();
         if (plugin === undefined) throw httpError(503).withDetails({ message: this.speech.explainSpeaker() });
 
-        const key = this.samples.keyFor(plugin.record.id, voiceId, await this.voiceSpec(plugin, voiceId));
+        const key = this.samples.keyFor(plugin.record.id, voiceId, await this.voiceSpec(plugin, voiceId), text);
 
         for (const ext of this.samples.extensions) {
             const cached = await this.samples.read(key, ext);
-            if (cached !== undefined) return sampleResponse(cached, key, ext);
+            if (cached !== undefined) return { bytes: cached, ext, key };
         }
 
         let ext: SegmentExtension;
@@ -320,7 +363,7 @@ export class RenderService {
                 key,
                 this.samples,
                 {
-                    text: SAMPLE_TEXT,
+                    text,
                     ...(voiceId.length === 0 ? {} : { voice: voiceId }),
                 },
                 // A preview is the one caller here with somebody waiting on it, and the only one
@@ -346,7 +389,7 @@ export class RenderService {
         if (bytes === undefined) throw httpError(502).withDetails({ message: 'the sample was rendered and then could not be read back' });
 
         this.logger.info('render: rendered a voice sample', { plugin: plugin.record.id, voice: voiceId, ext });
-        return sampleResponse(bytes, key, ext);
+        return { bytes, ext, key };
     }
 
     /**

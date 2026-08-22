@@ -14,6 +14,7 @@ import {
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
+    SpeechPreviewRequest,
     VoiceList,
 } from '../modules/render/types/render.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
@@ -134,8 +135,24 @@ RenderRouter.get('/voices/:voiceId/sample', requirePolicy({ policy: 'platform.vi
 });
 
 /**
+ * Speaks the caller's words in one voice, so a break can be heard before it is written for air
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L173)
+ */
+RenderRouter.post('/voices/preview', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, SpeechPreviewRequest);
+
+    const service = ctx.container.get(RenderService);
+    const result: { contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4'; body: Buffer } =
+        await service.previewSpeech(body);
+
+    ctx.status = 200;
+    ctx.type = result.contentType;
+    ctx.body = result.body;
+});
+
+/**
  * The audio of one segment
- * from [render.ck](file://./../../data/contracts/render/render.ck#L168)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L198)
  * anonymous access, no security required
  */
 RenderRouter.get('/segments/:id/audio', async ctx => {
@@ -162,7 +179,7 @@ RenderRouter.get('/segments/:id/audio', async ctx => {
 
 /**
  * The station's lexicon: what it says, what has been proposed to it, and what it has turned down
- * from [render.ck](file://./../../data/contracts/render/render.ck#L209)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L239)
  */
 RenderRouter.get('/pronunciations', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, PronunciationQuery.strict());
@@ -177,7 +194,7 @@ RenderRouter.get('/pronunciations', requirePolicy({ policy: 'platform.view' }), 
 
 /**
  * Adds one the operator typed. It is said from the next render on
- * from [render.ck](file://./../../data/contracts/render/render.ck#L219)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L249)
  */
 RenderRouter.post('/pronunciations', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PronunciationWrite);
@@ -192,7 +209,7 @@ RenderRouter.post('/pronunciations', requirePolicy({ policy: 'platform.manage' }
 
 /**
  * Rewrites one entry's words, whoever proposed it
- * from [render.ck](file://./../../data/contracts/render/render.ck#L240)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L270)
  */
 RenderRouter.put('/pronunciations/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -214,7 +231,7 @@ RenderRouter.put('/pronunciations/:id', requirePolicy({ policy: 'platform.manage
 
 /**
  * Removes an entry outright. Turning a PROPOSAL down is a state rather than a deletion, because a deleted one comes back on the next pass
- * from [render.ck](file://./../../data/contracts/render/render.ck#L255)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L285)
  */
 RenderRouter.delete('/pronunciations/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -234,7 +251,7 @@ RenderRouter.delete('/pronunciations/:id', requirePolicy({ policy: 'platform.man
 
 /**
  * Accepts a proposal, turns one down, or takes an entry out of use without losing what it said
- * from [render.ck](file://./../../data/contracts/render/render.ck#L273)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L303)
  */
 RenderRouter.put('/pronunciations/:id/state', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

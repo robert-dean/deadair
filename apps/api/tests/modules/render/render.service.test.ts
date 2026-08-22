@@ -1,5 +1,6 @@
 import { IsHttpError } from '@maroonedsoftware/errors';
 import { describe, expect, it, vi } from 'vitest';
+import { PluginError } from '@deadair/plugin-sdk';
 import type { SpeechVoice } from '@deadair/plugin-sdk';
 
 import { RenderService } from '../../../src/modules/render/render.service.js';
@@ -82,7 +83,10 @@ const service = (options: ServiceOptions = {}) => {
     });
 
     const samples = {
-        keyFor: (pluginId: string, voiceId: string, spec?: string) => `key:${pluginId}:${voiceId}${spec === undefined ? '' : `:${spec}`}`,
+        // The text rides the key exactly as the real store puts it there, so a case can tell one
+        // script's file from another's — which is the whole of what a speech preview caches on.
+        keyFor: (pluginId: string, voiceId: string, spec?: string, text: string = SAMPLE_TEXT) =>
+            `key:${pluginId}:${voiceId}${spec === undefined ? '' : `:${spec}`}${text === SAMPLE_TEXT ? '' : `:${text}`}`,
         extensions: ['mp3', 'wav'],
         read: sampleRead,
     };
@@ -364,6 +368,93 @@ describe('RenderService.getVoiceSample', () => {
 
         // Not a 404: the voice asked for is fine, the station is not.
         expect(await status(render.getVoiceSample('host'))).toBe(502);
+    });
+});
+
+describe('RenderService.previewSpeech', () => {
+    it('speaks the words it was given, in the voice it was given', async () => {
+        const { service: render, speakAs, sampleRead } = service();
+        sampleRead.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValue(Buffer.from('spoken'));
+
+        const response = await render.previewSpeech({ text: 'Still here, still listening.', voice: 'host' });
+
+        expect(speakAs).toHaveBeenCalledWith(
+            SPEAKER,
+            'key:deadair.kokoro:host:Still here, still listening.',
+            expect.anything(),
+            { text: 'Still here, still listening.', voice: 'host' },
+            // Behind every break the station is about to air, and giving up rather than waiting
+            // forever: there is an operator on the other end and a show on the other.
+            { maxWaitMs: expect.any(Number), priority: 'preview' },
+        );
+        expect(response.contentType).toBe('audio/mpeg');
+        expect(response.body).toEqual(Buffer.from('spoken'));
+    });
+
+    it('asks for the plugin default when no voice is named, rather than for a voice called nothing', async () => {
+        const { service: render, speakAs, sampleRead } = service();
+        sampleRead.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValue(Buffer.from('spoken'));
+
+        await render.previewSpeech({ text: 'One line.' });
+
+        expect(speakAs).toHaveBeenCalledWith(SPEAKER, expect.any(String), expect.anything(), { text: 'One line.' }, expect.anything());
+    });
+
+    it('serves a hit without asking the engine again, so replaying one line is free', async () => {
+        const { service: render, speakAs } = service({ sample: Buffer.from('already rendered') });
+
+        const response = await render.previewSpeech({ text: 'One line.', voice: 'host' });
+
+        expect(speakAs).not.toHaveBeenCalled();
+        expect(response.body).toEqual(Buffer.from('already rendered'));
+    });
+
+    it('keys two scripts in one voice as two files', async () => {
+        const { service: render, speakAs, sampleRead } = service();
+        sampleRead.mockResolvedValue(undefined);
+
+        await render.previewSpeech({ text: 'One line.', voice: 'host' }).catch(() => undefined);
+        await render.previewSpeech({ text: 'A different line.', voice: 'host' }).catch(() => undefined);
+
+        const keys = (speakAs.mock.calls as unknown as unknown[][]).map(call => call[1]);
+        expect(keys).toHaveLength(2);
+        expect(keys[0]).not.toBe(keys[1]);
+    });
+
+    it('answers 503 when nothing can speak, because that is the station and not the words', async () => {
+        const { service: render } = service({ speaker: null });
+
+        expect(await status(render.previewSpeech({ text: 'One line.' }))).toBe(503);
+    });
+
+    it('answers 503 when the engine is busy, which comes right on its own', async () => {
+        const busy = new PluginError('the speech gate is busy').withCode('timeout');
+        const { service: render, sampleRead } = service({
+            speakAs: () => Promise.reject(busy),
+        });
+        sampleRead.mockResolvedValue(undefined);
+
+        expect(await status(render.previewSpeech({ text: 'One line.' }))).toBe(503);
+    });
+
+    it('answers 502 when the engine refused, which does not', async () => {
+        const { service: render, sampleRead } = service({
+            speakAs: () => Promise.reject(new Error('the engine said no')),
+        });
+        sampleRead.mockResolvedValue(undefined);
+
+        expect(await status(render.previewSpeech({ text: 'One line.' }))).toBe(502);
+    });
+
+    // A preview leaves no ETag and asks for none: nothing re-fetches a POST, and the cache that
+    // matters is the file the key already found.
+    it('carries no cache headers', async () => {
+        const { service: render } = service({ sample: Buffer.from('already rendered') });
+
+        expect(await render.previewSpeech({ text: 'One line.' })).toEqual({
+            contentType: 'audio/mpeg',
+            body: Buffer.from('already rendered'),
+        });
     });
 });
 

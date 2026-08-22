@@ -13,6 +13,7 @@ import type {
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
+    SpeechPreviewRequest,
     VoiceList,
 } from './types/render.types.js';
 
@@ -113,6 +114,24 @@ export class RenderClient {
                     headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
                 };
         }
+    }
+
+    /**
+     * @name Preview speech
+     * @description Speaks the caller's words in one voice, so a break can be heard before it is written for air
+     */
+    async previewSpeech(
+        body: SpeechPreviewRequest,
+    ): Promise<{ contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4'; data: Blob }> {
+        const result = await this.fetch(`/voices/preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return {
+            contentType: readContentType(result) as 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4',
+            data: await result.blob(),
+        };
     }
 
     /**

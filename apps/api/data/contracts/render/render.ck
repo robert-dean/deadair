@@ -161,6 +161,36 @@ operation /voices/{voiceId}/sample: {
     }
 }
 
+# A rehearsal, heard. The sample route above with the caller's own words in place of the fixed line:
+# rendered through the same store, so it has no row in `deadair.segments` and cannot be planted or
+# named by a lineup, and cached under a key that includes the text, so replaying one line is free.
+#
+# A POST rather than a GET because it can spend a synthesis and a script does not belong in a URL,
+# where it would land in every access log between here and the browser. `platform.manage` for the
+# first of those reasons: this is an operator action that costs somebody's compute, like planning a
+# segment.
+operation /voices/preview: {
+    post: { # Speaks the caller's words in one voice, so a break can be heard before it is written for air
+        name: Preview speech
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.previewSpeech
+        request: {
+            application/json: SpeechPreviewRequest
+        }
+        response: {
+            200: {
+                audio/mpeg: binary
+                audio/wav: binary
+                audio/ogg: binary
+                audio/flac: binary
+                audio/mp4: binary
+            }
+        }
+    }
+}
+
 operation /segments/{id}/audio: {
     params: {
         id: uuid

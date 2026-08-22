@@ -1,6 +1,8 @@
-import { Card, Group, Stack, Text } from '@mantine/core';
+import { ActionIcon, Card, Group, Stack, Text } from '@mantine/core';
 import type { PersonaRehearsal, PersonaRehearsalAttempt } from '@deadair/sdk';
 
+import { fetchSpeechPreview } from '../../api/voices.queries';
+import { useVoicePreview } from '../voices/voice.preview';
 import { Eyebrow } from '../shared/eyebrow';
 import { StatusLamp } from '../shared/status.lamp';
 import { type StatusTone } from '../shared/status';
@@ -14,17 +16,50 @@ import { type StatusTone } from '../shared/status';
  *
  * Nothing here is a fault. A decline is the arrangement working and an empty answer is the station
  * telling the truth about a busy minute, so the strongest tone on this panel is `standby`.
+ *
+ * ## A script that won can be HEARD
+ *
+ * What a character sounds like is the thing being judged, and reading a break off a screen is not
+ * that: the diction that reads as overdone on the page is frequently the half that works out loud,
+ * and the rhythm never survives the eye at all. The preview renders through the sample store, so it
+ * has no segment row and cannot be planted or aired — the same guarantee a voice sample has, for the
+ * same reason. It is a button rather than something automatic because it spends a synthesis and
+ * queues behind every break the station is about to put to air.
  */
-export function PersonaRehearsalPanel({ rehearsal }: { rehearsal: PersonaRehearsal }) {
+export function PersonaRehearsalPanel({ rehearsal, voice }: { rehearsal: PersonaRehearsal; voice?: string }) {
+    const preview = useVoicePreview();
+    const spoken = rehearsal.script;
+
     return (
         <Card withBorder mt="sm" padding="sm">
             <Stack gap="sm">
                 <Group justify="space-between" gap="xs" wrap="nowrap">
-                    <Eyebrow>Rehearsal</Eyebrow>
+                    <Group gap="xs" wrap="nowrap">
+                        <Eyebrow>Rehearsal</Eyebrow>
+                        {/* Only what actually won: the attempts below include the ones that came to
+                            nothing, and an empty script has nothing to say out loud. */}
+                        {spoken ? (
+                            <ActionIcon
+                                variant="subtle"
+                                size="sm"
+                                loading={preview.isLoading(spoken)}
+                                aria-label="Hear this break"
+                                onClick={() => preview.play(spoken, () => fetchSpeechPreview(spoken, voice), 'That break could not be spoken.')}
+                            >
+                                {preview.isPlaying(spoken) ? '❚❚' : '▶'}
+                            </ActionIcon>
+                        ) : undefined}
+                    </Group>
                     <Text size="xs" c="dimmed" ta="right">
                         between {rehearsal.previous} and {rehearsal.next}
                     </Text>
                 </Group>
+
+                {spoken && preview.failureFor(spoken) ? (
+                    <Text size="xs" c="red.4">
+                        {preview.failureFor(spoken)}
+                    </Text>
+                ) : undefined}
 
                 {rehearsal.attempts.map((attempt, index) => (
                     <Attempt key={`${attempt.writer}-${index}`} attempt={attempt} />

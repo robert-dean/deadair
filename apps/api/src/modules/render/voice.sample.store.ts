@@ -60,15 +60,23 @@ export class VoiceSampleStore extends ContentStore<SegmentExtension> {
      * - the plugin's own `SpeechVoice.spec`, which is what the id currently MEANS. Opaque here on
      *   purpose — the host does not know what an engine voice or a speed or a reference clip is, and
      *   does not need to in order to notice that the string changed;
-     * - the {@link SAMPLE_TEXT}, so that line can be edited without leaving every station holding
-     *   samples of words it no longer uses.
+     * - the TEXT, which is {@link SAMPLE_TEXT} for a voice preview and the caller's own words for a
+     *   speech preview. Having the line in the key is what lets that line be edited without leaving
+     *   every station holding samples of words it no longer uses, and it is what keeps two different
+     *   scripts in one voice as two files rather than one.
      *
      * A plugin that publishes no `spec` keys exactly as this did before it existed, which is right
-     * for an engine whose voices cannot be reconfigured.
+     * for an engine whose voices cannot be reconfigured. The text defaults to the sample line, so
+     * every existing caller keys byte-identically to before it was a parameter and the samples this
+     * station already holds are still hits.
+     *
+     * Nothing evicts from this store. That is affordable because the text is capped at the contract
+     * and one preview is a few hundred kilobytes, minted only by an operator's own click, and the
+     * same words in the same voice re-key to the file already there.
      */
-    keyFor(pluginId: string, voiceId: string, spec?: string): string {
+    keyFor(pluginId: string, voiceId: string, spec?: string, text: string = SAMPLE_TEXT): string {
         return createHash('sha256')
-            .update(`${pluginId}\n${voiceId}\n${spec ?? ''}\n${SAMPLE_TEXT}`)
+            .update(`${pluginId}\n${voiceId}\n${spec ?? ''}\n${text}`)
             .digest('hex');
     }
 }

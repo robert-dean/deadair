@@ -97,6 +97,11 @@ contract ScriptHistoryPage: {
     nextBefore?: string(min=1, max=200) # The cursor for the page after this one, absent once the history has been read to its end
 }
 
+contract SpeechPreviewRequest: { # Words to hear before anything has aired them
+    text: string(min=1, max=2000) # What to say. Far under a segment's 20000 because this is one break heard once, and the cap is what bounds a cache keyed on the words themselves
+    voice?: string(max=100) # A station voice name, as a segment's `voice`. Absent uses the plugin's own default
+}
+
 contract ScriptHistorySummaryQuery: { # The window the counts cover
     hours?: int(min=1, max=168) # How far back to count. Defaults to 24, and a week at most, because past that the nightly sweep may already have taken the rows and the count would quietly be of what survived rather than of what happened
 }

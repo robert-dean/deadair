@@ -296,7 +296,9 @@ export function PersonasPage() {
                             under whichever card is last: one result is held at a time, and a panel
                             that stayed put while a different persona was rehearsed would attribute
                             one character's words to another. */}
-                        {rehearse.data?.personaId === persona.id ? <PersonaRehearsalPanel rehearsal={rehearse.data} /> : undefined}
+                        {rehearse.data?.personaId === persona.id ? (
+                            <PersonaRehearsalPanel rehearsal={rehearse.data} {...(persona.voice === undefined ? {} : { voice: persona.voice })} />
+                        ) : undefined}
 
                         {notebook === persona.id ? <PersonaNotesPanel personaId={persona.id} /> : undefined}
                     </Card>

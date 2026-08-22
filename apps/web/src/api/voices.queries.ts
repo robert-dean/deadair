@@ -35,3 +35,21 @@ export async function fetchVoiceSample(voiceId: string): Promise<string> {
 
     return URL.createObjectURL(result.data);
 }
+
+/**
+ * Speak the caller's own words and hand back an object URL to play them with.
+ *
+ * The blob rationale of {@link fetchVoiceSample} exactly: the console holds its bearer token in
+ * memory and an `<audio src>` sends no Authorization header, so the bytes come through the SDK.
+ *
+ * Unlike the sample, this route declares only a 200 — there is no conditional-GET middleware on a
+ * POST and so no status to branch on. A failure arrives as a thrown error, which is what the caller
+ * wants anyway.
+ *
+ * The caller owns the URL and must `revokeObjectURL` it. `useVoicePreview` does.
+ */
+export async function fetchSpeechPreview(text: string, voice?: string): Promise<string> {
+    const result = await sdk.render.previewSpeech({ text, ...(voice === undefined ? {} : { voice }) });
+
+    return URL.createObjectURL(result.data);
+}

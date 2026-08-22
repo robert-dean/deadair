@@ -59,6 +59,24 @@ describe('VoiceSampleStore.keyFor', () => {
         expect(store.keyFor('deadair.kokoro', 'host')).toBe(store.keyFor('deadair.kokoro', 'host', undefined));
     });
 
+    it('keys a caller that names no text exactly as it did before the text was a parameter', () => {
+        // What makes this a safe parameter to add: every sample this station already holds is still
+        // a hit, because the digest input for a defaulted call is unchanged.
+        expect(store.keyFor('deadair.kokoro', 'host', 'af_heart')).toBe(store.keyFor('deadair.kokoro', 'host', 'af_heart', SAMPLE_TEXT));
+    });
+
+    it('separates two scripts in one voice, which is what makes a speech preview cacheable at all', () => {
+        expect(store.keyFor('deadair.kokoro', 'host', 'af_heart', 'One thing.')).not.toBe(
+            store.keyFor('deadair.kokoro', 'host', 'af_heart', 'Another thing.'),
+        );
+    });
+
+    it('separates one script in two voices', () => {
+        expect(store.keyFor('deadair.kokoro', 'host', 'af_heart', 'One thing.')).not.toBe(
+            store.keyFor('deadair.kokoro', 'newsreader', 'af_heart', 'One thing.'),
+        );
+    });
+
     it('is a checksum, so ContentStore path safety applies unchanged', () => {
         // Derived rather than composed, which is what stops a plugin id with a slash in it becoming
         // a directory traversal.

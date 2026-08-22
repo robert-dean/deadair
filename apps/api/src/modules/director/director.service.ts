@@ -1112,6 +1112,10 @@ export class DirectorService {
         // Before the old order is let go of, because it is the only thing that knows an episode was
         // sitting in it. See {@link releaseUnheardProductions}.
         await this.releaseUnheardProductions(this.lineup);
+        // Same reason, one step further: the outgoing items are the only record of which breaks were
+        // planted into a programme that is about to stop existing. Captured here because `this.lineup`
+        // is overwritten below and `replaceFrom` — unlike `replacePlanned` — hands nothing back.
+        const outgoing = this.lineup?.all() ?? [];
 
         // Retract FIRST, then rebuild. What the player is holding belongs to the programme
         // coming off, and leaving it there would air a few records of it behind the new one.
@@ -1131,6 +1135,16 @@ export class DirectorService {
         // `air.on` event a few lines below: a broadcast starting is itself part of the broadcast.
         this.identity.began(lineup.broadcastId);
         this.rundown.attach(lineup);
+        // After the new order is in place, because that is what `retireSegments` reads to decide
+        // whether a break is still wanted somewhere — and none of the outgoing ones can be, which is
+        // the whole difference between this and the edit paths. Without it a changeover left every
+        // unwritten break of the programme it replaced sitting `planned` for good: `WriteBreakJob`
+        // reads absent-from-the-order as EARLY rather than gone and returns without claiming, and
+        // `BreakPlanner.ripen` only ever walks the current order, so nothing offered them again and
+        // nothing failed them. They stayed in the console's library looking like breaks still to
+        // come. This is not the operator's takeover only — every scheduled changeover comes through
+        // here, so a station on a daypart schedule accumulated them indefinitely.
+        await this.retireSegments(lineup, outgoing, 'the programme changed before this break could air');
         await this.persist();
         // A whole programme's worth of records at once, and an imported provider playlist is the
         // case that needs it most: nothing ever extends one, so without this its first enrichment

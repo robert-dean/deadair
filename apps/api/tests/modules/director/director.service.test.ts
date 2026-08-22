@@ -1358,6 +1358,49 @@ describe('DirectorService going on air', () => {
         expect(director.status().name).toBe('Something else');
     });
 
+    // The ordinary break's version of the production repair below, and it was missing for as long
+    // as the repair existed. A changeover drops the whole order, and `WriteBreakJob` reads a segment
+    // absent from the order as EARLY rather than gone — so an unwritten break of the outgoing
+    // programme was offered again by nothing and failed by nothing, and sat `planned` for good in a
+    // library that showed it as still to come. Every scheduled changeover comes through here.
+    it('retires the unaired breaks of the programme it replaces', async () => {
+        const { director, lineup, segmentStub, seed } = build({
+            items: ['a', 'b'],
+            segments: [{ id: 'talk-1', kind: 'talk', state: 'planned', label: 'Talk break', source: 'render' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertSegment('talk-1', lineup.size());
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'The next show', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x'), track('y')],
+        });
+
+        expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('programme changed'), 'planned');
+    });
+
+    // The same exclusion the edit paths make: an ident is material off the shelf, so a programme
+    // ending is not a reason to write it off.
+    it('leaves a ready ident of the outgoing programme alone', async () => {
+        const { director, lineup, segmentStub, seed } = build({
+            items: ['a', 'b'],
+            segments: [{ id: 'ident-1', kind: 'ident', state: 'ready', label: 'Ident', source: 'library' }],
+        });
+        await seed();
+        await director.start();
+        lineup.insertSegment('ident-1', lineup.size());
+
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'The next show', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x')],
+        });
+
+        expect(segmentStub.markFailed).not.toHaveBeenCalled();
+    });
+
     // `injectProductions` marks an episode `aired` the moment it puts the beats in, and with
     // COMMIT_LEAD at one they then sit `planned` for a long time. A changeover lets the whole order
     // object go, so three hours of model time used to vanish with it — and nothing re-injected it,

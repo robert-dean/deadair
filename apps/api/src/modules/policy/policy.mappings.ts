@@ -1,12 +1,10 @@
 import { AuthRecentFactorPolicy, AuthRecentFactorPolicyContext } from './policies/auth.recent.factor.policy.js';
-import { AuthMfaSatisfiedPolicy } from './policies/auth.mfa.satisfied.policy.js';
 import { Constructor } from 'injectkit';
 import { Policy, PolicyResult } from '@maroonedsoftware/policies';
 import {
     AuthenticationPolicyNames,
     AuthMfaRequiredPolicyContext,
     AuthMfaSatisfiedPolicyContext,
-    DefaultMfaRequiredPolicy,
     EmailAllowedPolicy,
     EmailAllowedPolicyContext,
     OAuth2ProfileAllowedPolicy,
@@ -24,7 +22,7 @@ import {
     SupportVerificationAllowedPolicy,
     SupportVerificationAllowedPolicyContext,
 } from '@maroonedsoftware/authentication';
-import { AlwaysAllowPolicy, AlwaysDenyPolicy } from '@maroonedsoftware/policies';
+import { AlwaysAllowPolicy } from '@maroonedsoftware/policies';
 import { AuthenticationSession } from '@maroonedsoftware/authentication';
 import { Injectable } from 'injectkit';
 import { PLATFORM_NAMESPACE, rolesGrant } from '#modules/permissions/platform.roles.js';
@@ -89,6 +87,25 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPol
     'auth.factor.oidc.profile.allowed': OidcProfileAllowedPolicy,
     'auth.factor.oauth2.profile.allowed': OAuth2ProfileAllowedPolicy,
     'auth.session.recent.factor': AuthRecentFactorPolicy,
+    // **Second factors are deliberately off, and these two are how.** One operator, one install, no
+    // remote access — a station whose console is on the same machine as the mixer does not want to
+    // be handed a code every time it reloads a plugin. Written down because a stub is otherwise
+    // indistinguishable from unfinished wiring, and the real policy is sitting one directory away
+    // in `policies/auth.mfa.satisfied.policy.ts` looking like it should be here.
+    //
+    // What each one currently costs, since they are not equivalent:
+    //
+    // `mfa.required` IS evaluated on every sign-in — `AuthenticationService` asks
+    // `MfaOrchestrator.issueOrChallenge`, which mints a challenge only when the policy DENIES. So
+    // allowing it makes the whole `mfa_challenge_id` path unreachable and every primary factor mint
+    // a full session. Mapping `DefaultMfaRequiredPolicy` here would switch that path on for any
+    // actor holding a viable second factor; the routes and contracts for it already exist.
+    //
+    // `mfa.satisfied` is evaluated by NOTHING today. It is the koa package's DEFAULT_POLICY, used
+    // only for a bare `requirePolicy()`, and every one of this app's ~107 call sites names its
+    // policy explicitly. Wiring `AuthMfaSatisfiedPolicy` in would therefore change no behaviour
+    // until a contract omitted its security block — which is exactly the trap
+    // `authentication.ck` already warns about, since an omitted block is not public.
     'auth.session.mfa.required': AlwaysAllowPolicy,
     'auth.session.mfa.satisfied': AlwaysAllowPolicy,
     'auth.recovery.allowed': RecoveryAllowedPolicy,

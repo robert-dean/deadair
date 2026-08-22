@@ -371,6 +371,34 @@ describe('RenderService.getVoiceSample', () => {
     });
 });
 
+describe('RenderService.getDefaultVoiceSample', () => {
+    // The row an operator is most likely to press first answered 404 for as long as the voices page
+    // existed, because the id of the plugin's own default is the empty string and `/voices//sample`
+    // is not that route with a blank id — it is a URL matching nothing. The service never had the
+    // problem; only the path could not say it.
+    it('asks the plugin for its own default rather than for a voice called nothing', async () => {
+        const { service: render, speakAs, sampleRead } = service();
+        sampleRead.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined).mockResolvedValue(Buffer.from('spoken'));
+
+        const response = await render.getDefaultVoiceSample();
+
+        expect(speakAs).toHaveBeenCalledWith(SPEAKER, expect.any(String), expect.anything(), { text: SAMPLE_TEXT }, expect.anything());
+        expect(response.body).toEqual(Buffer.from('spoken'));
+    });
+
+    it('is the same sample the empty voice id has always keyed, so nothing re-renders', async () => {
+        const { service: render } = service({ sample: Buffer.from('already rendered') });
+
+        expect((await render.getDefaultVoiceSample()).headers.etag).toBe((await render.getVoiceSample('')).headers.etag);
+    });
+
+    it('is not the same sample as any named voice', async () => {
+        const { service: render } = service({ sample: Buffer.from('already rendered') });
+
+        expect((await render.getDefaultVoiceSample()).headers.etag).not.toBe((await render.getVoiceSample('host')).headers.etag);
+    });
+});
+
 describe('RenderService.previewSpeech', () => {
     it('speaks the words it was given, in the voice it was given', async () => {
         const { service: render, speakAs, sampleRead } = service();

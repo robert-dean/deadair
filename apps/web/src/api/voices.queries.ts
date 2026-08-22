@@ -25,13 +25,18 @@ export function useVoices(enabled: boolean) {
  * until it is revoked or the document goes away.
  */
 export async function fetchVoiceSample(voiceId: string): Promise<string> {
-    const result = await sdk.render.getVoiceSample(voiceId);
+    // The plugin's own default answers to the empty string, which no path segment can carry — so it
+    // has a route of its own rather than a blank id in this one. Branching here rather than at the
+    // three call sites, because which URL a voice lives at is this file's business and none of
+    // theirs: a voice is a voice to a play button.
+    const result = voiceId.length === 0 ? await sdk.render.getDefaultVoiceSample() : await sdk.render.getVoiceSample(voiceId);
 
     // The route documents a 304 because the conditional-GET middleware can produce one, and the
     // generated client types it as an arm of the union. This caller never sends a validator, so
     // there is nothing for the server to match and nothing cached to fall back on if it somehow
     // did — which makes an empty answer a real failure rather than a case to handle silently.
-    if (result.status !== 200) throw new Error(`the sample for "${voiceId}" came back with no audio (${result.status})`);
+    if (result.status !== 200)
+        throw new Error(`the sample for "${voiceId === '' ? 'the default voice' : voiceId}" came back with no audio (${result.status})`);
 
     return URL.createObjectURL(result.data);
 }

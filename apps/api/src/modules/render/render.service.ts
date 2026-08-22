@@ -318,6 +318,18 @@ export class RenderService {
     }
 
     /**
+     * The same line in whichever voice the plugin falls back to.
+     *
+     * Its own route because the id of that voice is the empty string, which no path segment can
+     * carry: what a console asking for it built was `/voices//sample`, a URL matching nothing. The
+     * service has always handled the id fine — an empty one is dropped rather than passed on, so the
+     * plugin is asked for its own default — and only the route could not say it.
+     */
+    async getDefaultVoiceSample(): Promise<SegmentAudioResponse> {
+        return await this.getVoiceSample('');
+    }
+
+    /**
      * The caller's own words in one voice, so a script can be heard before anything airs it.
      *
      * The sample route above with the text parameterized, and everything that matters falls out of

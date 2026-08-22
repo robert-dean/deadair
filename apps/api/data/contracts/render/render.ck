@@ -125,6 +125,40 @@ operation /voices: {
     }
 }
 
+# The same sample, for the voice the plugin uses when nothing names one.
+#
+# A route of its own because the id of that voice is the EMPTY STRING — that is what an absent
+# `segments.voice` means and what the plugin's own list calls `Default` — and a path segment cannot
+# be empty: `/voices//sample` is not the sample route with a blank id, it is a URL that matches
+# nothing, which is why the one row on the voices page an operator is most likely to press first
+# answered 404 for as long as the page has existed.
+#
+# A reserved word in the path was the alternative and was rejected: a station voice is whatever the
+# operator called it in the plugin's own table, so any word this reserved could be one they had
+# already used.
+operation /voices/sample: {
+    get: { # A short line spoken in whichever voice the plugin falls back to
+        name: Get default voice sample
+        service: RenderService.getDefaultVoiceSample
+        response: {
+            200: {
+                audio/mpeg: binary
+                audio/wav: binary
+                audio/ogg: binary
+                audio/flac: binary
+                audio/mp4: binary
+                headers: {
+                    cache-control?: string
+                    etag?: string
+                }
+            }
+            # As the route below, and produced the same way: by the conditional-GET middleware from
+            # the ETag rather than by the service.
+            304:
+        }
+    }
+}
+
 # A preview, never something that can air: samples live in their own store, have no row in
 # `deadair.segments`, and so cannot be planted by the break planner or named by a lineup.
 #

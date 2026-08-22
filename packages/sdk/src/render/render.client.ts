@@ -85,6 +85,36 @@ export class RenderClient {
     }
 
     /**
+     * @name Get default voice sample
+     * @description A short line spoken in whichever voice the plugin falls back to
+     */
+    async getDefaultVoiceSample(): Promise<
+        | {
+              status: 200;
+              contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
+              data: Blob;
+              headers: { cacheControl?: string; etag?: string };
+          }
+        | { status: 304 }
+    > {
+        const result = await this.fetch(`/voices/sample`, {
+            method: 'GET',
+            expectStatuses: [304],
+        });
+        switch (result.status) {
+            case 304:
+                return { status: 304 };
+            default:
+                return {
+                    status: 200,
+                    contentType: readContentType(result) as 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4',
+                    data: await result.blob(),
+                    headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
+                };
+        }
+    }
+
+    /**
      * @name Get voice sample
      * @description A short line spoken in one voice, so an operator can hear it before choosing it
      */

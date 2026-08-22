@@ -445,6 +445,13 @@ behaviour rather than to a guess.
   `llm.breakWriter` is the only switch. That is right for one model and one floor; an operator who
   wants the templates ABOVE the model on some shows wants a setting, and the registry would take one
   without changing shape.
+- **Nothing says whether a break was any good. Added 2026-08-22**, and scoped in
+  [break-ratings.md](break-ratings.md). `script_history` records what was written, who wrote it, what
+  it cost and why it declined, and every one of those is a fact about the attempt rather than a
+  judgement of it. The only automatic judgement is `characterFault`, which is the station's own rubric
+  and is gameable in the way `overusedWords` already documents. The operator's opinion is the missing
+  column, and it is worth having on the FLOOR's phrasings as much as on the model's: which of
+  `rotation.breakTemplates` actually land is a question nobody can currently answer.
 - **A break still cannot be re-written.** A `failed` segment is not re-claimable for writing, on the
   grounds that the usual reason nothing could be written is that there was nothing true to say. An
   operator who edits their phrasings and wants last night's failures retried has no button for it.

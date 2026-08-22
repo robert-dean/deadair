@@ -115,6 +115,21 @@ whether a note is a FACT the character stated ("said the drummer plays left-hand
 the character itself, and whether the operator can see and edit them — the first is a station being
 consistent, the second is a station writing its own sheet, and the second is a much bigger idea.
 
+**Both were decided on 2026-08-22, and the answer to the first is BOTH, split by kind.** A `said` note
+records something the character actually put on air and carries the script as its evidence, so it goes
+active unattended; a `trait` note is an inference about who the character is becoming and arrives as
+`suggested`, which answers the second question in the only way that keeps the sheet the operator's own.
+That is `deadair.pronunciations`' shape exactly — a confident derivation goes live, an uncertain one
+proposes, and `rejected` is a state rather than a deletion so the next pass cannot re-propose it
+forever. Notes come from the station's own history and nothing else; a searched source is a different
+threat posture and is not this.
+
+**The one thing it needs that does not exist is an opinion.** A note distilled from a break the
+operator disliked is the character reinforcing what did not land, and nothing anywhere records that a
+break was bad — the automatic signal is `characterFault`, which is the station's own rubric. So the
+distil selection is written with the predicate that skips a disliked break named in a comment, and
+[break-ratings.md](break-ratings.md) is the table that makes it a clause.
+
 This is also the whole of the raw list's `have the talk shows keep a history so it can grow
 organically`: a show that remembers is a persona that remembers, and building it twice would give the
 station two characters with the same name.

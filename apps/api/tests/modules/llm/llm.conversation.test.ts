@@ -451,3 +451,97 @@ describe('the gate', () => {
         expect(gate.generating()).toBe(false);
     });
 });
+
+// The slot is taken back by aborting the holder's signal, and for a conversation that meant nothing
+// until now: the loop only looked at the signal BETWEEN steps, so a refill preempted while the model
+// was mid-sentence kept the slot until the model chose to stop. On the station's own host that is
+// minutes, and the break that preempted it waits ten seconds and goes to the floor — which is the
+// failure preemption exists to prevent, surviving inside the mechanism meant to fix it.
+describe('preemption', () => {
+    /** A plugin whose generation never ends on its own, which is what a slow model looks like. */
+    function endlessPlugin() {
+        let cancelled = false;
+
+        const record = {
+            id: 'deadair.llm',
+            dir: '/plugins/llm',
+            status: 'active',
+            manifest: { capabilities: ['llm'] },
+            instance: {
+                generate: vi.fn(async () => ({
+                    text: new ReadableStream<string>({
+                        // Paced, because a real generation arrives over the network and every read
+                        // yields to the event loop. A stream that is always ready would spin the
+                        // drain on microtasks and starve the very abort it is being raced against —
+                        // which is a property of the test double, not of a model.
+                        async pull(controller) {
+                            await new Promise(resolve => setTimeout(resolve, 5));
+                            controller.enqueue('and another thing ');
+                        },
+                        cancel() {
+                            cancelled = true;
+                        },
+                    }),
+                    // Never settles unless the stream is cancelled, exactly as a real generation's
+                    // promises behave: they are fed by the same request the stream is.
+                    result: new Promise<LlmResult>(() => undefined),
+                })),
+                listModels: async () => [{ id: 'the-model', label: 'the-model', tools: true }],
+            },
+        } as unknown as PluginRecord;
+
+        return { record, cancelled: () => cancelled };
+    }
+
+    it('comes back promptly when the model is taken away mid-generation', async () => {
+        const { record, cancelled } = endlessPlugin();
+        const { service, gate } = serviceFor(record);
+
+        const conversing = service.converse(ask(), { priority: 'background' });
+        // Let the generation get under way before anything asks for the slot.
+        await new Promise(resolve => setImmediate(resolve));
+
+        // What a break arriving does: outranks a refill, so the gate aborts the holder.
+        const broke = gate.hold(async () => 'the break got in', { priority: 'air' });
+
+        const result = await conversing;
+
+        expect(result.preempted).toBe(true);
+        // The plugin was actually told, rather than the host merely giving up on it.
+        expect(cancelled()).toBe(true);
+        await expect(broke).resolves.toBe('the break got in');
+    });
+
+    it('hands the slot on rather than holding it until the model finishes', async () => {
+        const { record } = endlessPlugin();
+        const { service, gate } = serviceFor(record);
+
+        const conversing = service.converse(ask(), { priority: 'background' });
+        await new Promise(resolve => setImmediate(resolve));
+
+        let ranSecond = false;
+        const second = gate.hold(
+            async () => {
+                ranSecond = true;
+                return 'done';
+            },
+            { priority: 'air' },
+        );
+
+        await conversing;
+        await second;
+
+        expect(ranSecond).toBe(true);
+        expect(gate.generating()).toBe(false);
+    });
+
+    it('says nothing about being preempted when the model answered normally', async () => {
+        const { record } = scriptedPlugin([{ text: 'that was Roygbiv' }]);
+        const { service } = serviceFor(record);
+
+        const result = await service.converse(ask());
+
+        expect(result.preempted).toBe(false);
+        expect(result.text).toBe('that was Roygbiv');
+    });
+});

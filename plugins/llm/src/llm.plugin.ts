@@ -305,14 +305,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     private async resultOf(stream: ReturnType<typeof streamText>, controller: AbortController): Promise<LlmResult> {
         let settled;
         try {
-            settled = await Promise.all([
-                stream.text,
-                stream.reasoningText,
-                stream.content,
-                stream.toolCalls,
-                stream.usage,
-                stream.finishReason,
-            ]);
+            settled = await Promise.all([stream.text, stream.reasoningText, stream.content, stream.toolCalls, stream.usage, stream.finishReason]);
         } catch (error) {
             // A generation the host stopped is not a fault, and every one of the promises above
             // rejects when the request is aborted. Reported as `unavailable` rather than passed on

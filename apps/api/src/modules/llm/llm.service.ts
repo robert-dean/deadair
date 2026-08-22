@@ -499,7 +499,27 @@ export class LlmService {
             // called one is not being cut off and has nothing to be told.
             if (lastStep && toolCallsMade > 0) messages.push({ role: 'user', content: FINAL_TURN });
 
-            const result = await this.generateOnce(plugin, { ...request, messages, ...(offered === undefined ? {} : { tools: offered }) });
+            let result: LlmResult;
+            try {
+                result = await this.generateOnce(plugin, { ...request, messages, ...(offered === undefined ? {} : { tools: offered }) }, signal);
+            } catch (error) {
+                // Preempted WHILE the model was speaking, which is the case the check further down
+                // cannot reach: that one sits between two steps, and this is a generation abandoned
+                // part-way through. The slot is what was being taken back, so coming back promptly
+                // with nothing is the whole point — waiting for the words in order to return them
+                // would hand the break that preempted this exactly the delay it preempted to avoid.
+                if (!signal.aborted) throw error;
+
+                this.logger.info('llm: a conversation was preempted mid-generation', {
+                    plugin: plugin.record.id,
+                    step,
+                    searches: toolCallsMade,
+                });
+                // No text, because there is none: what the model had said so far belongs to a
+                // generation nobody drained. `preempted` is how the caller tells this apart from a
+                // model that genuinely had nothing to say — see {@link LlmConversation.preempted}.
+                return { text: '', toolCalls: [], usage, toolCallsMade, transcript: messages, finishReason: 'length', preempted: true };
+            }
             addUsage(usage, result.usage);
 
             // The last step was asked for words, so words are what it gets to be. A model that asks
@@ -591,13 +611,21 @@ export class LlmService {
      *
      * Private and ungated on purpose: its only caller is already holding the slot, and going through
      * `gate.run` from inside `gate.hold` would be a caller queueing behind itself.
+     *
+     * `signal` is the gate's, and passing it is what makes preemption mean anything here. The
+     * timeout above bounds STARTING the generation and stops there, deliberately — a generation
+     * legitimately outlives the call that returned its handle — so without a signal on the drain the
+     * only bound on the words themselves is the model's own willingness to stop. That is minutes on
+     * a slow host, and it is minutes during which the caller holds the one slot a break with a
+     * ten-second patience is queued for. Cancelling reaches the plugin's own abort; see
+     * `LlmHandle.text`.
      */
-    private async generateOnce(plugin: LlmPlugin, request: LlmRequest): Promise<LlmResult> {
+    private async generateOnce(plugin: LlmPlugin, request: LlmRequest, signal?: AbortSignal): Promise<LlmResult> {
         const handle = await this.pluginInvoker.invoke(plugin.record.id, 'llm.generate', async () => plugin.instance.generate(request), {
             timeoutMs: START_TIMEOUT_MS,
         });
 
-        return await collectGeneration(handle);
+        return await collectGeneration(handle, signal);
     }
 
     /**

@@ -82,7 +82,10 @@ describe('withCancel', () => {
 
     it('cancels the source as well, so the branch it wraps is released', async () => {
         let sourceCancelled = false;
-        const reader = withCancel(endless(() => (sourceCancelled = true)), () => undefined).getReader();
+        const reader = withCancel(
+            endless(() => (sourceCancelled = true)),
+            () => undefined,
+        ).getReader();
         await reader.read();
 
         await reader.cancel();

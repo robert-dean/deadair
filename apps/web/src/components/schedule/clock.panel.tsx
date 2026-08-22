@@ -95,7 +95,8 @@ export function ClockPanel() {
                         <Eyebrow>Format clock</Eyebrow>
                         <Text size="sm" c="dimmed" maw={620}>
                             What the station says inside an hour, whatever it is playing. A band takes the first boundary at or after its time, so
-                            nothing is ever cut off mid-record. Where two rules want one boundary, the higher one takes it.
+                            nothing is ever cut off mid-record. Where two rules want one boundary, the higher one takes it. The clock belongs to the
+                            station rather than to a broadcast, so every show follows it and an edit here changes all of them.
                         </Text>
                     </Stack>
                     <Button
@@ -157,7 +158,11 @@ export function ClockPanel() {
                                                 maw={320}
                                                 label={`Nothing on this station can make a ${band.kind}. The slot is claimed and then passed over, so the station plays on rather than saying anything.`}
                                             >
-                                                <Badge size="xs" variant="light" color={severityColor.notice}>
+                                                {/* `tt="none"` because the badge carries a
+                                                    sentence rather than a one-word state, and
+                                                    Mantine's uppercase default made it wide enough
+                                                    to be truncated to "NOTHING CAN PRODUCE T…". */}
+                                                <Badge size="xs" variant="light" color={severityColor.notice} tt="none">
                                                     nothing can produce this
                                                 </Badge>
                                             </Tooltip>
@@ -215,8 +220,13 @@ export function ClockPanel() {
     );
 }
 
-/** When this band fires, as the sentence its editor wrote. */
-function whenOf(band: ClockBand): string {
+/**
+ * When this band fires, as the sentence its editor wrote.
+ *
+ * Exported for the on-air page's summary of the same clock. Two spellings of ":30" is how one page
+ * and the next start describing one rule differently.
+ */
+export function whenOf(band: ClockBand): string {
     if (band.at === 'interval') return `every ${Math.round((band.everyMs ?? 0) / 60_000)}m`;
 
     const minute = String(band.minute ?? 0).padStart(2, '0');

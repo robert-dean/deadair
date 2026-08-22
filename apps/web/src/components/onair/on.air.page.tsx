@@ -10,6 +10,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { StatusLamp } from '../shared/status.lamp';
 import { SilenceDiagnosisPanel } from '../playout/silence.diagnosis.panel';
 import { BriefTheStation } from './brief.the.station';
+import { ClockOnAir } from './clock.on.air';
 import { HostOnAir } from './host.on.air';
 import { ReplanTheRest } from './replan.the.rest';
 import { StationOrderTable } from './station.order.table';
@@ -216,6 +217,13 @@ export function OnAirPage() {
                 to this box. Briefing the station is a command like Shuffle or Stop, available
                 whenever the operator wants it, and it says which of the two things it is doing. */}
             {loaded ? <BriefTheStation replacing={items.length > 0} /> : undefined}
+
+            {/* Beside it because they are the two halves of what a show IS: the box above says what
+                this broadcast plays, and this says what the station says while it does. It belongs
+                to the station rather than to the broadcast, which is the one thing on this page
+                that is not a broadcast action, and it says so. Drawn with nothing on air too: an
+                operator setting a station up for the first time is exactly who has an empty clock. */}
+            {loaded ? <ClockOnAir /> : undefined}
 
             {/* The other way on, and it stays in the empty state: pointing an operator at a
                 playlist is an answer to having nothing on, where an operator who already has a

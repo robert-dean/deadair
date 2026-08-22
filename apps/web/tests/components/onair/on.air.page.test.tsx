@@ -33,7 +33,11 @@ vi.mock('../../../src/api/client', () => ({
             shuffleTheRunningOrder: () => shuffleTheRunningOrder(),
             extendTheRunningOrder: (...args: unknown[]) => extendTheRunningOrder(...args),
             replanTheRunningOrder: (...args: unknown[]) => replanTheRunningOrder(...args),
+            // The format clock rides this page now, behind a fold. Its own cases are in
+            // `clock.on.air.test.tsx`; what it needs here is only to not throw.
+            listClockBands: () => Promise.resolve({ bands: [], producibleKinds: [] }),
         },
+        topics: { listTopics: () => Promise.resolve({ topics: [] }) },
         playout: { stopPlayout: () => stopPlayout(), startPlayout: () => startPlayout(), getPlayoutStatus: () => getPlayoutStatus() },
         catalog: { rateTrack: (...args: unknown[]) => rateTrack(...args) },
     },

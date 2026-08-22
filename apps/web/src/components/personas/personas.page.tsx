@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Group, Stack, Text } from '@mantine/core';
+import { Badge, Button, Card, CloseButton, Group, Stack, Text, TextInput } from '@mantine/core';
 import type { Persona, PersonaInput } from '@deadair/sdk';
 
 import {
@@ -52,6 +52,10 @@ export function PersonasPage() {
     // Which character a delete is being asked about. Holding the persona rather than its id, so the
     // dialog can name what it is about to take without looking it back up.
     const [deleting, setDeleting] = useState<Persona | undefined>(undefined);
+    // A sieve over a list already in hand, so it is state rather than a search param and there is
+    // nothing to debounce: no request rides it, and a URL naming a filter over a client-side list
+    // would be a link to somebody else's half-typed word.
+    const [filter, setFilter] = useState('');
 
     const close = () => {
         setEditing(undefined);
@@ -69,6 +73,9 @@ export function PersonasPage() {
         if (editing === null) create.mutate(draft, done);
         else if (editing !== undefined) update.mutate({ id: editing.id, body: draft }, done);
     };
+
+    const all = personas.data?.personas ?? [];
+    const shown = matching(ordered(all), filter);
 
     return (
         <Stack gap="lg">
@@ -118,8 +125,25 @@ export function PersonasPage() {
                 </EmptyState>
             ) : undefined}
 
+            {/* Only once the roster is long enough to be worth sieving. A search box over six cards
+                is a control that costs more attention than it saves. */}
+            {all.length > FILTER_FROM ? (
+                <TextInput
+                    value={filter}
+                    onChange={event => setFilter(event.currentTarget.value)}
+                    placeholder="Find a character"
+                    aria-label="Find a character"
+                    maw={360}
+                    rightSection={filter.length > 0 ? <CloseButton size="sm" onClick={() => setFilter('')} aria-label="Clear the filter" /> : undefined}
+                />
+            ) : undefined}
+
+            {all.length > 0 && shown.length === 0 ? (
+                <EmptyState>No character here matches that. Clear the box to see the whole roster again.</EmptyState>
+            ) : undefined}
+
             <Stack gap="sm">
-                {(personas.data?.personas ?? []).map(persona => (
+                {shown.map(persona => (
                     <Card key={persona.id}>
                         <Group justify="space-between" align="flex-start" wrap="nowrap">
                             <Stack gap="xxs" style={{ minWidth: 0 }}>
@@ -139,9 +163,7 @@ export function PersonasPage() {
                                 <Text size="sm" c="dimmed">
                                     {persona.style}
                                 </Text>
-                                <Text size="xs" c="dimmed">
-                                    {summarise(persona)}
-                                </Text>
+                                <PersonaSummary persona={persona} />
                             </Stack>
                             <Group gap="xs" wrap="nowrap">
                                 {persona.active ? undefined : (
@@ -240,6 +262,18 @@ export function PersonasPage() {
     );
 }
 
+/** What a character is missing, or nothing at all when it is missing nothing. */
+function PersonaSummary({ persona }: { persona: Persona }) {
+    const summary = summarise(persona);
+    if (summary === undefined) return undefined;
+
+    return (
+        <Text size="xs" c="dimmed">
+            {summary}
+        </Text>
+    );
+}
+
 /** One card's own bad news, in the place the button that caused it is. */
 function CardFailure({ error, fallback }: { error: unknown; fallback: string }) {
     return (
@@ -249,23 +283,53 @@ function CardFailure({ error, fallback }: { error: unknown; fallback: string }) 
     );
 }
 
+/** Below this many characters, a filter box is a control that costs more attention than it saves. */
+const FILTER_FROM = 6;
+
 /**
- * The one line under a persona that says what it actually carries.
+ * The roster, with whoever the station falls back to at the top.
  *
- * Counts rather than contents: a card showing six quirks is a card nobody scans, and the two facts
- * an operator wants at a glance are whether this character can survive the model declining (its own
- * phrasings) and whether it is checked for staying in character (its markers).
+ * Server order otherwise, and a stable sort, because the order personas were written in is the only
+ * other thing an operator has to find one by. The station's own host being fourteen cards down was
+ * the list saying nothing about which card matters.
  */
-function summarise(persona: Persona): string {
+function ordered(personas: Persona[]): Persona[] {
+    return [...personas].sort((left, right) => Number(right.active) - Number(left.active));
+}
+
+/** Everything a character can be looked up by: what it is called, what it is, and who it says it is. */
+function matching(personas: Persona[], filter: string): Persona[] {
+    const term = filter.trim().toLowerCase();
+    if (term.length === 0) return personas;
+
+    return personas.filter(persona =>
+        [persona.label, persona.key, persona.style, persona.djName ?? ''].some(field => field.toLowerCase().includes(term)),
+    );
+}
+
+/**
+ * The one line under a persona, which says something only when there is something to say.
+ *
+ * It used to state three facts about every character — its phrasings, its markers, its voice —
+ * which on a roster of seeds is the same sentence fourteen times over, and a line that reads
+ * identically on every card is a line nobody reads on any of them. So each half is now printed only
+ * when it DEVIATES from a character that is fully equipped, and a card with nothing wrong carries no
+ * summary at all.
+ *
+ * All three deviations are ordinary states rather than faults, which is why this is dimmed text and
+ * not a warning: a character with no phrasings of its own still gets the station's, and one with no
+ * markers is simply not checked. What they have in common is that each is a thing an operator
+ * would otherwise discover by putting the character on air.
+ */
+function summarise(persona: Persona): string | undefined {
     const parts: string[] = [];
 
     const phrasings = (persona.templates ?? '').split('\n').filter(line => line.trim().length > 0).length;
-    parts.push(phrasings > 0 ? `${phrasings} of its own phrasings` : "the station's phrasings");
+    if (phrasings === 0) parts.push("no phrasings of its own, so it falls back to the station's when the model declines");
 
-    const markers = persona.dictionMarkers?.length ?? 0;
-    parts.push(markers > 0 ? `checked against ${markers} words` : 'not checked for character');
+    if ((persona.dictionMarkers?.length ?? 0) === 0) parts.push('not checked for staying in character');
 
-    parts.push(persona.voice ? `spoken as ${persona.voice}` : 'the default voice');
+    if (!persona.voice) parts.push("speaks in the plugin's default voice");
 
-    return parts.join(' · ');
+    return parts.length === 0 ? undefined : parts.join(' · ');
 }

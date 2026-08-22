@@ -195,7 +195,18 @@ export class BreakWriterRegistry {
             };
         }
 
-        return { writer: writer.name, outcome: 'written', written, durationMs: took(), ...kept };
+        // The reason rides a WRITTEN attempt as well, where the writer has one. On this branch it can
+        // only be something the station did to the answer rather than a refusal — a script cut back to
+        // its last whole sentence — and it belongs on the row for the reason every other reason does:
+        // an edit that exists only in a log line is one nobody will ever count. See `WriteDetail.reason`.
+        return {
+            writer: writer.name,
+            outcome: 'written',
+            written,
+            durationMs: took(),
+            ...(detail?.reason === undefined ? {} : { reason: detail.reason }),
+            ...kept,
+        };
     }
 }
 

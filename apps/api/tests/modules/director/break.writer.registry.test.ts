@@ -160,6 +160,24 @@ describe('BreakWriterRegistry', () => {
             expect(result.written?.script).toBe('the floor');
         });
 
+        // The same field on the other branch, and the only thing that can be on it there: something
+        // the station DID to an answer it kept, which is a break cut back to its last whole sentence.
+        // An edit that lives only in a log line is one nobody will ever count.
+        it('keeps a winning writer’s own reason, for an answer it cut rather than refused', async () => {
+            class Trimming extends StubWriter {
+                detailOfLastWrite() {
+                    return { reason: 'the model wrote 29 words past the word ceiling' };
+                }
+            }
+            const registry = new BreakWriterRegistry([new Trimming('talkbreak', 'model', words('the cut break'))], logger() as never);
+
+            const result = await registry.write({ kind: 'talkbreak' });
+
+            expect(result.attempts[0]?.outcome).toBe('written');
+            expect(result.attempts[0]?.reason).toBe('the model wrote 29 words past the word ceiling');
+            expect(result.written?.script).toBe('the cut break');
+        });
+
         it('still explains a decline from a writer that offered no reason of its own', async () => {
             const result = await stacked(nothing).write({ kind: 'talkbreak' });
 

@@ -160,6 +160,41 @@ describe('ModelTalkBreakWriter', () => {
         });
     });
 
+    // A cut is an EDIT the station made to something a listener then heard, and one that exists only
+    // in a log line is one nobody will ever count. `raw` answers this too, but only while
+    // `llm.captureWrites` is on, which is an evening of prompt tuning rather than the ordinary state.
+    describe('an answer it cut rather than refused', () => {
+        const padded = [
+            'That was Solid Air, from John Martyn.',
+            `Sentence two ${Array.from({ length: 17 }, () => 'word').join(' ')} here.`,
+            `Sentence three ${Array.from({ length: 17 }, () => 'word').join(' ')} here.`,
+        ].join(' ');
+
+        it('airs the whole sentences that fit', async () => {
+            const { writer } = build({ answer: padded });
+
+            const written = await writer.write({ kind: TALK_BREAK_KIND, previous, next });
+
+            expect(written?.script).toBe(padded.split(' Sentence three')[0]);
+        });
+
+        it('says on the row what it took off, so a trim can be counted rather than found', async () => {
+            const { writer } = build({ answer: padded });
+
+            await writer.write({ kind: TALK_BREAK_KIND, previous, next });
+
+            expect(writer.detailOfLastWrite()?.reason).toMatch(/past the word ceiling/i);
+        });
+
+        it('says nothing at all about an answer that needed no cutting', async () => {
+            const { writer } = build();
+
+            await writer.write({ kind: TALK_BREAK_KIND, previous, next });
+
+            expect(writer.detailOfLastWrite()?.reason).toBeUndefined();
+        });
+    });
+
     describe('declines rather than airing what came back', () => {
         it('when the model rambled past the ceiling', async () => {
             const { writer } = build({ answer: Array.from({ length: 80 }, () => 'word').join(' ') });

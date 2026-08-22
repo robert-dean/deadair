@@ -5,7 +5,16 @@ import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, maxWordsFor, readAnswer, TALK_BREAK_SHAPE, writeDecline, type AnswerGuard, type PromptSettings } from './break.prompt.js';
+import {
+    breakPrompt,
+    maxWordsFor,
+    readAnswer,
+    TALK_BREAK_SHAPE,
+    writeDecline,
+    writeTrim,
+    type AnswerGuard,
+    type PromptSettings,
+} from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
@@ -242,6 +251,15 @@ export class ModelTalkBreakWriter extends BreakWriter {
                 { finish: result.finishReason, words, tokens: result.usage?.outputTokens, persona: request.persona?.key, fault: declined?.fault },
             );
             return undefined;
+        }
+
+        // A break the station CUT rather than refused. Re-derived through `writeTrim` rather than
+        // measured here, so the row and the log carry a number this writer did not invent, and put on
+        // the detail so it reaches `script_history.reason` on a row whose outcome is `written`.
+        const trimmed = writeTrim(result.text, guard);
+        if (trimmed !== undefined) {
+            this.lastDetail = { ...this.lastDetail, reason: trimmed.reason };
+            this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, persona: request.persona?.key });
         }
 
         const claimsTime = timeClaimIn(script, request.clock, request.dayPart);

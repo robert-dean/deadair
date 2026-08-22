@@ -15,6 +15,7 @@ import {
     readAnswer,
     TALK_BREAK_SHAPE,
     writeDecline,
+    writeTrim,
     type PromptSettings,
 } from '../../../src/modules/director/break.prompt.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
@@ -1159,6 +1160,22 @@ describe('readAnswer, past the ceiling', () => {
 
         expect(readAnswer(named, { names: [madhouse] })).toBeUndefined();
         expect(writeDecline(named, { names: [madhouse] })?.fault).toBe('named-nothing');
+    });
+
+    describe('writeTrim', () => {
+        it('counts what was kept and what came off', () => {
+            expect(writeTrim(rambled, {})).toMatchObject({ kept: 40, dropped: 10 });
+            expect(writeTrim(rambled, {})?.reason).toMatch(/10 words past the word ceiling/);
+        });
+
+        it('says nothing about an answer that was left alone', () => {
+            expect(writeTrim('That was Solid Air, from John Martyn.', {})).toBeUndefined();
+        });
+
+        // A decline is not a trim. That break never aired, and `writeDecline` has the whole story.
+        it('says nothing about an answer that was refused', () => {
+            expect(writeTrim(Array.from({ length: DEFAULT_MAX_WORDS + 5 }, () => 'word').join(' '), {})).toBeUndefined();
+        });
     });
 });
 

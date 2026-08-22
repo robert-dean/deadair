@@ -1382,6 +1382,36 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     return fault === undefined ? undefined : reasoned(fault);
 }
 
+/**
+ * What the station CUT off an answer it kept, or `undefined` when it kept the lot.
+ *
+ * The sibling of {@link writeDecline} and derived the same way — from the raw text, through the same
+ * two steps, in the same order — because the alternative is a writer measuring the difference between
+ * what it sent and what came back and reporting a number this file did not produce.
+ *
+ * It exists at all because a trim is an EDIT the station made to something a listener then heard, and
+ * an edit nothing records is indistinguishable from a model that writes to length. `raw` answers this
+ * too, but only while `llm.captureWrites` is on, which is an evening of prompt tuning rather than the
+ * ordinary state. A decline is not a trim: this answers `undefined` for one, because that break never
+ * aired and {@link writeDecline} has the whole story about it.
+ */
+export function writeTrim(text: string, guard: AnswerGuard): { kept: number; dropped: number; reason: string } | undefined {
+    const tidied = tidyAnswer(text);
+    if (tidied === undefined) return undefined;
+
+    const fitted = fitToCeiling(tidied, guard);
+    if (fitted === undefined || fitted === tidied) return undefined;
+
+    const kept = wordsIn(fitted);
+    const dropped = wordsIn(tidied) - kept;
+
+    return {
+        kept,
+        dropped,
+        reason: `the model wrote ${dropped} words past the word ceiling, so the break was cut back to its last whole sentence`,
+    };
+}
+
 /** Drop a pair of marks that wraps the entire text, and only then. */
 function stripWrapping(text: string, open: string, close: string): string {
     if (!text.startsWith(open) || !text.endsWith(close) || text.length < 2) return text;

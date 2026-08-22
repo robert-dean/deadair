@@ -5,7 +5,7 @@ import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, readAnswer, writeDecline, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
+import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
@@ -232,6 +232,14 @@ export class ModelNewsBreakWriter extends BreakWriter {
                 fault: declined?.fault,
             });
             return undefined;
+        }
+
+        // A bulletin cut back to its last whole STORY, which is what a sentence boundary is here. See
+        // `writeTrim`, and `NEWS_MAX_WORDS` for why a cut bulletin is worth more than the floor's.
+        const trimmed = writeTrim(result.text, guard);
+        if (trimmed !== undefined) {
+            this.lastDetail = { ...this.lastDetail, reason: trimmed.reason };
+            this.logger.info(`director: ${trimmed.reason}`, { kept: trimmed.kept, dropped: trimmed.dropped, stories: request.stories?.length });
         }
 
         const claimsTime = timeClaimIn(script, request.clock, request.dayPart);

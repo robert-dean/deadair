@@ -7,6 +7,8 @@ import type {
     PronunciationWrite,
     ScriptHistoryPage,
     ScriptHistoryQuery,
+    ScriptHistorySummary,
+    ScriptHistorySummaryQuery,
     Segment,
     SegmentCreate,
     SegmentList,
@@ -58,6 +60,18 @@ export class RenderClient {
             method: 'GET',
         });
         return await parseJson<ScriptHistoryPage>(result);
+    }
+
+    /**
+     * @name Read script summary
+     * @description Write attempts by outcome, per presenter, over a recent window
+     */
+    async readScriptSummary(query?: ScriptHistorySummaryQuery): Promise<ScriptHistorySummary> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/scripts/summary${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<ScriptHistorySummary>(result);
     }
 
     /**

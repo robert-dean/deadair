@@ -12,6 +12,8 @@ import type {
     ScriptAttempt,
     ScriptHistoryPage,
     ScriptHistoryQuery,
+    ScriptHistorySummary,
+    ScriptHistorySummaryQuery,
     ScriptPromptMessage,
     SegmentCreate,
     SegmentList,
@@ -38,6 +40,15 @@ const DEFAULT_KIND = 'talkbreak';
 
 /** What a page of script history holds when the console does not say. A screenful and a bit. */
 const DEFAULT_HISTORY_LIMIT = 50;
+
+/**
+ * How far back the roster's counts reach when nobody says.
+ *
+ * A day, because what the summary answers is "how is this character doing on air", and the shortest
+ * honest answer to that spans a night as well as an afternoon: a station whose model declines every
+ * break after midnight looks healthy on any window that stops before it.
+ */
+const DEFAULT_SUMMARY_HOURS = 24;
 
 /**
  * How long a voice preview waits for the speech engine before saying the station is busy.
@@ -113,6 +124,23 @@ export class RenderService {
             attempts: page.map(toAttempt),
             ...(more && last !== undefined ? { nextBefore: encodeScriptCursor(last) } : {}),
         };
+    }
+
+    /**
+     * What each presenter has attempted lately, counted by outcome.
+     *
+     * The same rows `readScriptHistory` pages through, asked the one question a roster has: not what
+     * a character said but whether what it says is reaching air. A run of declines with the floor
+     * writing underneath is a sheet nothing can satisfy, and it is invisible from the character's
+     * own page, where every card looks exactly as it did the day it was written.
+     *
+     * Echoes the window it counted, so a console labels the numbers it draws rather than assuming
+     * the default it did not send.
+     */
+    async readScriptSummary(query: ScriptHistorySummaryQuery): Promise<ScriptHistorySummary> {
+        const hours = query.hours ?? DEFAULT_SUMMARY_HOURS;
+
+        return { hours, rows: await this.history.outcomeCountsSince(hours) };
     }
 
     /**

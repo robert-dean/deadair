@@ -129,8 +129,20 @@ export const queryKeys = {
      * would leave a half-filtered list on screen while the new first page loaded.
      */
     scripts: {
-        history: (filter: { kind?: string; writer?: string; outcome?: string; segmentId?: string }) =>
-            ['scripts', 'history', filter.kind ?? 'all', filter.writer ?? 'all', filter.outcome ?? 'all', filter.segmentId ?? 'all'] as const,
+        // Every filter is part of the key, including the two that arrive from a link: a key missing
+        // one is two different questions sharing one answer, and what that looks like is one
+        // character's breaks drawn under another character's heading.
+        history: (filter: { kind?: string; writer?: string; outcome?: string; segmentId?: string; personaKey?: string }) =>
+            [
+                'scripts',
+                'history',
+                filter.kind ?? 'all',
+                filter.writer ?? 'all',
+                filter.outcome ?? 'all',
+                filter.segmentId ?? 'all',
+                filter.personaKey ?? 'all',
+            ] as const,
+        summary: (hours: number) => ['scripts', 'summary', hours] as const,
     },
     /**
      * The station's programming, as opposed to `playout`, which is what the player was actually

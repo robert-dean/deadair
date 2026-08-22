@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActionIcon, Anchor, Badge, Button, Card, CloseButton, Group, Stack, Text, TextInput } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
-import type { Persona, PersonaInput, Voice } from '@deadair/sdk';
+import type { Persona, PersonaInput, ScriptHistorySummaryRow, Voice } from '@deadair/sdk';
 
 import {
     useCreatePersona,
@@ -13,12 +13,14 @@ import {
     useUpdatePersona,
 } from '../../api/personas.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { SUMMARY_HOURS, useScriptSummary } from '../../api/scripts.queries';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { toneColor } from '../shared/status';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
 import { PersonaNotesPanel } from './persona.notes';
@@ -48,6 +50,9 @@ export function PersonasPage() {
     // What the keys on these cards actually sound like, and one player shared by all of them.
     const voices = useVoices(true);
     const preview = useVoicePreview();
+    // How each of them is doing on air. One call for the whole roster, since the question is asked
+    // about a list and a card each would open this page with nineteen requests.
+    const summary = useScriptSummary();
 
     // `undefined` is closed; a persona is editing that one; `null` is a new one. The one place in
     // this app where null earns its keep: "no editor" and "an editor with nothing in it" are
@@ -206,6 +211,8 @@ export function PersonasPage() {
                                     </Group>
                                 ) : undefined}
 
+                                <PersonaRecord counts={countsFor(persona.key, summary.data?.rows)} />
+
                                 {/* In the card's own column rather than the row of buttons, because
                                     it goes somewhere rather than doing something — and because six
                                     actions in that row is one more than fits. Keyed on the
@@ -319,6 +326,42 @@ export function PersonasPage() {
                 error={remove.error ?? undefined}
             />
         </Stack>
+    );
+}
+
+/** This character's attempts in the window, or nothing when it has made none. */
+function countsFor(key: string, rows: ScriptHistorySummaryRow[] | undefined): ScriptHistorySummaryRow | undefined {
+    return rows?.find(row => row.personaKey === key);
+}
+
+/**
+ * How a character is doing on air, which is the one thing about it no sheet can say.
+ *
+ * A decline is drawn in the same dimmed text as everything else, deliberately: it is the writer
+ * registry working, and painting it as a fault would teach an operator to go looking for a break
+ * that was covered for exactly as designed. What IS worth a colour is `failed`, where something
+ * threw — and only when there is one, so a healthy character carries no red at all.
+ *
+ * A character with no attempts says nothing rather than "0 written". It has not been on air lately,
+ * which the row's own absence already says, and three zeroes read as a fault that has not happened.
+ */
+function PersonaRecord({ counts }: { counts?: ScriptHistorySummaryRow }) {
+    if (counts === undefined) return undefined;
+
+    return (
+        <Group gap="xxs" wrap="nowrap">
+            <Text size="xs" c="dimmed" className="da-num">
+                {counts.written} written · {counts.declined} declined
+            </Text>
+            {counts.failed > 0 ? (
+                <Text size="xs" c={toneColor.fault} className="da-num">
+                    · {counts.failed} failed
+                </Text>
+            ) : undefined}
+            <Text size="xs" c="dimmed">
+                in {SUMMARY_HOURS}h
+            </Text>
+        </Group>
     );
 }
 

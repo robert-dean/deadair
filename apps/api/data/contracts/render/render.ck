@@ -89,6 +89,30 @@ operation /scripts: {
     }
 }
 
+# The roster's view of the same table `/scripts` pages through: every write attempt in a recent
+# window, counted by outcome per presenter.
+#
+# It lives beside the history rather than with the personas because this is the render module's
+# table and a personas-area service reaching into it would invert who owns the rows. What reads it
+# is a page about characters; what holds it is the record of what was written.
+#
+# One row per persona that ATTEMPTED anything, plus one keyless row for the attempts made while
+# nobody was presenting, which is an ordinary state — leaving it out would make these counts
+# irreconcilable with the page next door. A persona that has written nothing has no row at all,
+# because the table cannot report what is not in it, and the console already holds the roster.
+operation /scripts/summary: {
+    get: { # Write attempts by outcome, per presenter, over a recent window
+        name: Read script summary
+        service: RenderService.readScriptSummary
+        query: ScriptHistorySummaryQuery
+        response: {
+            200: {
+                application/json: ScriptHistorySummary
+            }
+        }
+    }
+}
+
 operation /voices: {
     get: { # The voices the station can be asked to speak in
         name: List voices

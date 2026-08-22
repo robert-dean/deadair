@@ -97,6 +97,22 @@ contract ScriptHistoryPage: {
     nextBefore?: string(min=1, max=200) # The cursor for the page after this one, absent once the history has been read to its end
 }
 
+contract ScriptHistorySummaryQuery: { # The window the counts cover
+    hours?: int(min=1, max=168) # How far back to count. Defaults to 24, and a week at most, because past that the nightly sweep may already have taken the rows and the count would quietly be of what survived rather than of what happened
+}
+
+contract ScriptHistorySummaryRow: { # One presenter's attempts in the window
+    personaKey?: string(max=100) # Absent means nobody was presenting, which is an ordinary state rather than a gap in the data
+    written: int(min=0)
+    declined: int(min=0) # A decline is the writer registry working: the model had nothing to say and the floor covered for it
+    failed: int(min=0)
+}
+
+contract ScriptHistorySummary: { # What each presenter has written lately, and over how long
+    hours: int(min=1, max=168) # The window actually counted, echoed so a console can label the numbers it draws
+    rows: array(ScriptHistorySummaryRow)
+}
+
 contract SegmentScanResult: { # What one pass over the inbox did
     scanned: int(min=0) # Audio files seen, whether or not they were already known
     imported: int(min=0) # Segments the station did not have before this pass

@@ -93,8 +93,30 @@ export interface ScriptPromptMessage {
 }
 
 /**
+ * The window the counts cover
+ * generated from [ScriptHistorySummaryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L100)
+ */
+export interface ScriptHistorySummaryQuery {
+    /** How far back to count. Defaults to 24, and a week at most, because past that the nightly sweep may already have taken the rows and the count would quietly be of what survived rather than of what happened */
+    hours?: number;
+}
+
+/**
+ * One presenter's attempts in the window
+ * generated from [ScriptHistorySummaryRow](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L104)
+ */
+export interface ScriptHistorySummaryRow {
+    /** Absent means nobody was presenting, which is an ordinary state rather than a gap in the data */
+    personaKey?: string;
+    written: number;
+    /** A decline is the writer registry working: the model had nothing to say and the floor covered for it */
+    declined: number;
+    failed: number;
+}
+
+/**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L100)
+ * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L116)
  */
 export interface SegmentScanResult {
     /** Audio files seen, whether or not they were already known */
@@ -107,7 +129,7 @@ export interface SegmentScanResult {
 
 /**
  * One name the station says differently from how it is written
- * generated from [Pronunciation](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L106)
+ * generated from [Pronunciation](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L122)
  */
 export interface Pronunciation {
     id: string;
@@ -131,7 +153,7 @@ export interface Pronunciation {
 
 /**
  * A name and how to say it
- * generated from [PronunciationWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L123)
+ * generated from [PronunciationWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L139)
  */
 export interface PronunciationWrite {
     written: string;
@@ -141,7 +163,7 @@ export interface PronunciationWrite {
 
 /**
  * Accepting a proposal, turning one down, or taking an entry out of use without losing it
- * generated from [PronunciationStateWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L128)
+ * generated from [PronunciationStateWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L144)
  */
 export interface PronunciationStateWrite {
     state: 'active' | 'suggested' | 'rejected';
@@ -149,7 +171,7 @@ export interface PronunciationStateWrite {
 
 /**
  * Which part of the lexicon to read
- * generated from [PronunciationQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L132)
+ * generated from [PronunciationQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L148)
  */
 export interface PronunciationQuery {
     /** Absent is all of it */
@@ -230,8 +252,18 @@ export interface ScriptAttempt {
 }
 
 /**
+ * What each presenter has written lately, and over how long
+ * generated from [ScriptHistorySummary](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L111)
+ */
+export interface ScriptHistorySummary {
+    /** The window actually counted, echoed so a console can label the numbers it draws */
+    hours: number;
+    rows: ScriptHistorySummaryRow[];
+}
+
+/**
  * The station's lexicon, oldest first
- * generated from [PronunciationList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L119)
+ * generated from [PronunciationList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L135)
  */
 export interface PronunciationList {
     pronunciations: Pronunciation[];

@@ -100,6 +100,19 @@ export interface ScriptHistoryPageQuery {
     segmentId?: string;
 }
 
+/**
+ * One presenter's attempts in a window, counted by outcome.
+ *
+ * `personaKey` is absent for the attempts made while nobody was presenting, which is an ordinary
+ * state and its own bucket rather than a hole in the data.
+ */
+export interface ScriptOutcomeCounts {
+    personaKey?: string;
+    written: number;
+    declined: number;
+    failed: number;
+}
+
 /** The cursor for the row after this one. */
 export const encodeScriptCursor = (entry: ScriptHistoryEntry): string => `${entry.at.toISO()}|${entry.id}`;
 
@@ -379,6 +392,51 @@ export class ScriptHistoryRepository extends DataRepository {
 
         const rows = await statement.execute();
         return rows.map(row => toEntry(row as ScriptHistoryRow));
+    }
+
+    /**
+     * What each presenter has attempted lately, counted by outcome.
+     *
+     * One scan with three conditional counts rather than three queries, which is the shape
+     * `TracksRepository` already uses for its own state tallies: the answer is per persona and per
+     * outcome, and asking three times would read the same window three times to slice it.
+     *
+     * A row with no `persona_key` is kept as its own bucket rather than dropped, because the
+     * attempts made while nobody was presenting are real writing the station did — a summary that
+     * silently omitted them would not add up against the page that lists the rows themselves.
+     *
+     * The window is compared against the DATABASE's clock and floored to whole hours, exactly as
+     * {@link pruneOlderThanDays} is and for the same reason: an app host whose clock has drifted
+     * must not be able to count a different window than the one the rows were written in.
+     *
+     * `0` or less answers nothing without asking, guarded here rather than only at the caller: the
+     * contract's own minimum is a claim about a request, and this is a claim about the statement.
+     */
+    async outcomeCountsSince(hours: number): Promise<ScriptOutcomeCounts[]> {
+        if (hours <= 0) return [];
+
+        const rows = await this.db
+            .selectFrom('deadair.scriptHistory')
+            .select(eb => [
+                'personaKey',
+                eb.fn.count<string>(eb.case().when('outcome', '=', 'written').then(1).end()).as('written'),
+                eb.fn.count<string>(eb.case().when('outcome', '=', 'declined').then(1).end()).as('declined'),
+                eb.fn.count<string>(eb.case().when('outcome', '=', 'failed').then(1).end()).as('failed'),
+            ])
+            .where('stationKey', '=', this.identity.stationKey)
+            .where('createdAt', '>=', sql<DateTime>`now() - ${sql.lit(`${Math.floor(hours)} hours`)}::interval`)
+            .groupBy('personaKey')
+            .orderBy('personaKey')
+            .execute();
+
+        return rows.map(row => ({
+            // `== null` because a Kysely read answers `undefined` for a SQL NULL while the generated
+            // types call it `T | null`, so neither identity check alone catches the keyless bucket.
+            ...(row.personaKey == null ? {} : { personaKey: row.personaKey }),
+            written: Number(row.written),
+            declined: Number(row.declined),
+            failed: Number(row.failed),
+        }));
     }
 
     /**

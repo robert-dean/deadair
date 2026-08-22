@@ -48,6 +48,8 @@ interface ServiceOptions {
     speakAs?: () => Promise<string>;
     /** What the history answers with. Absent leaves `page()` a stub that throws when it is called. */
     attempts?: unknown[];
+    /** What the summary answers with. Absent leaves the counts a stub that throws when called. */
+    counts?: unknown[];
 }
 
 const service = (options: ServiceOptions = {}) => {
@@ -74,6 +76,11 @@ const service = (options: ServiceOptions = {}) => {
         return options.attempts;
     });
 
+    const outcomeCountsSince = vi.fn(async () => {
+        if (options.counts === undefined) throw new Error('this suite does not read the script summary');
+        return options.counts;
+    });
+
     const samples = {
         keyFor: (pluginId: string, voiceId: string, spec?: string) => `key:${pluginId}:${voiceId}${spec === undefined ? '' : `:${spec}`}`,
         extensions: ['mp3', 'wav'],
@@ -93,7 +100,7 @@ const service = (options: ServiceOptions = {}) => {
             // Script history is a read most of this suite never makes, so it stays a stub rather
             // than a fake unless a case hands over `attempts`: a page() nobody calls that throws is
             // a better failure than one that answers plausibly.
-            { page } as never,
+            { page, outcomeCountsSince } as never,
             // The lexicon is only reached through SpeechService, which this suite fakes whole, so
             // the repository itself is never called on any path here.
             {} as never,
@@ -108,6 +115,7 @@ const service = (options: ServiceOptions = {}) => {
         sampleRead,
         voices,
         page,
+        outcomeCountsSince,
     };
 };
 
@@ -356,6 +364,43 @@ describe('RenderService.getVoiceSample', () => {
 
         // Not a 404: the voice asked for is fine, the station is not.
         expect(await status(render.getVoiceSample('host'))).toBe(502);
+    });
+});
+
+describe('RenderService.readScriptSummary', () => {
+    // The window is the whole meaning of the numbers: "5 declined" over an hour and over a week are
+    // opposite readings, so a default that did not reach the repository would count something other
+    // than what the console says it is drawing.
+    it('counts a day when the caller names no window', async () => {
+        const { service: render, outcomeCountsSince } = service({ counts: [] });
+
+        await render.readScriptSummary({});
+
+        expect(outcomeCountsSince).toHaveBeenCalledWith(24);
+    });
+
+    it('counts the window the caller named', async () => {
+        const { service: render, outcomeCountsSince } = service({ counts: [] });
+
+        await render.readScriptSummary({ hours: 72 });
+
+        expect(outcomeCountsSince).toHaveBeenCalledWith(72);
+    });
+
+    // Echoed rather than left to the caller's memory: a console that assumed the default it did not
+    // send would label the numbers with a window nobody counted.
+    it('says which window it counted', async () => {
+        const { service: render } = service({ counts: [] });
+
+        await expect(render.readScriptSummary({})).resolves.toEqual({ hours: 24, rows: [] });
+        await expect(render.readScriptSummary({ hours: 6 })).resolves.toEqual({ hours: 6, rows: [] });
+    });
+
+    it('answers with the rows as the repository counted them', async () => {
+        const rows = [{ personaKey: 'pirate', written: 3, declined: 1, failed: 0 }];
+        const { service: render } = service({ counts: rows });
+
+        await expect(render.readScriptSummary({})).resolves.toEqual({ hours: 24, rows });
     });
 });
 

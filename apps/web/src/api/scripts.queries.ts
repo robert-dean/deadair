@@ -1,4 +1,4 @@
-import { infiniteQueryOptions, useInfiniteQuery } from '@tanstack/react-query';
+import { infiniteQueryOptions, queryOptions, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { ScriptOutcome } from '@deadair/sdk';
 
 import { sdk } from './client';
@@ -65,4 +65,32 @@ export function scriptHistoryOptions(filter: ScriptFilter) {
 /** Everything the station has written, newest first. */
 export function useScriptHistory(filter: ScriptFilter, enabled: boolean) {
     return useInfiniteQuery({ ...scriptHistoryOptions(filter), enabled });
+}
+
+/**
+ * How long the roster's counts stay fresh.
+ *
+ * Longer than the history's poll and not polled at all: this is a shape rather than a feed, and it
+ * moves by one when a break is written. An operator watching a character's record change live is
+ * reading the history itself, which is a click away and does poll.
+ */
+const SUMMARY_STALE_TIME = 60_000;
+
+/** A day, matching what the API counts when nobody says otherwise. */
+export const SUMMARY_HOURS = 24;
+
+/**
+ * What each character has attempted lately, counted by outcome.
+ *
+ * One call for the whole roster rather than one per card, because the question is asked about a list
+ * and a page of nineteen characters would otherwise open with nineteen requests.
+ */
+export const scriptSummaryOptions = queryOptions({
+    queryKey: queryKeys.scripts.summary(SUMMARY_HOURS),
+    queryFn: () => sdk.render.readScriptSummary({ hours: SUMMARY_HOURS }),
+    staleTime: SUMMARY_STALE_TIME,
+});
+
+export function useScriptSummary() {
+    return useQuery(scriptSummaryOptions);
 }

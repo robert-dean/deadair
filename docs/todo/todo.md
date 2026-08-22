@@ -68,7 +68,11 @@ points at that file. Checked against the tree on 2026-08-11.
 - [x] plugin system for sources, renderers, streamers, enrichment, discovery, breaks? — built, as
       capabilities: `catalog`, `stream`, `enrichment`, `speech`, `llm`, `analysis`. See
       `packages/plugin-sdk/README.md`. Breaks are host-side and stay that way
-- [ ] integrate with HA, similar?
+- [ ] integrate with HA, similar? — the seam either way is a station API something outside this tree
+      can drive, which the contracts already generate a typed client for. `comparable-stations.md`
+      notes the adjacent version of it (an MCP surface, split into unauthenticated reads and admin
+      actions) and that choosing which verbs an outside agent may reach is `service-actors.md`'s
+      question wearing a different hat
 - [ ] daily snapshot from calendar integration?
 - [ ] have the talk shows (like conspiracy) keep a history so it can grow organically — this is
       `persona memory` above wearing a different hat, and `personas.md` §2 says so: a show that

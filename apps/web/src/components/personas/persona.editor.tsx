@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Button, Card, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import { ActionIcon, Button, Card, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 
 import { useGeneratePersona } from '../../api/personas.queries';
-import { useVoices } from '../../api/voices.queries';
+import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
+import { useVoicePreview } from '../voices/voice.preview';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 
@@ -38,6 +39,7 @@ import { Eyebrow } from '../shared/eyebrow';
 export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, error }: Props) {
     const voices = useVoices(opened);
     const generate = useGeneratePersona();
+    const preview = useVoicePreview();
     const [description, setDescription] = useState('');
 
     const form = useForm<FormValues>({
@@ -134,6 +136,28 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                                 data={voiceOptions}
                                 clearable
                                 searchable
+                                // A voice is chosen by ear or not at all: a list of station names is
+                                // a list of words this station made up, and nothing in it says what
+                                // any of them sound like. The button previews whatever is selected.
+                                rightSection={
+                                    form.values.voice ? (
+                                        <ActionIcon
+                                            variant="subtle"
+                                            size="sm"
+                                            loading={preview.isLoading(form.values.voice)}
+                                            aria-label="Play a sample of this voice"
+                                            onClick={() =>
+                                                preview.play(
+                                                    form.values.voice,
+                                                    () => fetchVoiceSample(form.values.voice),
+                                                    'That voice could not be previewed.',
+                                                )
+                                            }
+                                        >
+                                            {preview.isPlaying(form.values.voice) ? '❚❚' : '▶'}
+                                        </ActionIcon>
+                                    ) : undefined
+                                }
                                 {...form.getInputProps('voice')}
                             />
                         ) : (

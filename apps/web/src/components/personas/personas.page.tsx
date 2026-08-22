@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Badge, Button, Card, CloseButton, Group, Stack, Text, TextInput } from '@mantine/core';
-import type { Persona, PersonaInput } from '@deadair/sdk';
+import { ActionIcon, Badge, Button, Card, CloseButton, Group, Stack, Text, TextInput } from '@mantine/core';
+import type { Persona, PersonaInput, Voice } from '@deadair/sdk';
 
 import {
     useCreatePersona,
@@ -12,6 +12,8 @@ import {
     useUpdatePersona,
 } from '../../api/personas.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
+import { useVoicePreview } from '../voices/voice.preview';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
@@ -42,6 +44,9 @@ export function PersonasPage() {
     const putOnAir = usePutPersonaOnAir();
     const restore = useRestorePersonas();
     const rehearse = useRehearsePersona();
+    // What the keys on these cards actually sound like, and one player shared by all of them.
+    const voices = useVoices(true);
+    const preview = useVoicePreview();
 
     // `undefined` is closed; a persona is editing that one; `null` is a new one. The one place in
     // this app where null earns its keep: "no editor" and "an editor with nothing in it" are
@@ -139,7 +144,9 @@ export function PersonasPage() {
                     placeholder="Find a character"
                     aria-label="Find a character"
                     maw={360}
-                    rightSection={filter.length > 0 ? <CloseButton size="sm" onClick={() => setFilter('')} aria-label="Clear the filter" /> : undefined}
+                    rightSection={
+                        filter.length > 0 ? <CloseButton size="sm" onClick={() => setFilter('')} aria-label="Clear the filter" /> : undefined
+                    }
                 />
             ) : undefined}
 
@@ -169,6 +176,40 @@ export function PersonasPage() {
                                     {persona.style}
                                 </Text>
                                 <PersonaSummary persona={persona} />
+
+                                {persona.voice ? (
+                                    <Group gap="xxs" wrap="nowrap">
+                                        <Text size="xs" c="dimmed">
+                                            {/* Both halves: the slot is what the editor and the
+                                                voices page call it, and what it maps to is the only
+                                                part saying anything about the sound. A station with
+                                                no speech plugin gets the slot alone, which is all
+                                                anything knows then. */}
+                                            speaks as {describeVoice(persona.voice, voices.data?.voices)}
+                                        </Text>
+                                        <ActionIcon
+                                            variant="subtle"
+                                            size="xs"
+                                            loading={preview.isLoading(persona.voice)}
+                                            aria-label={`Play a sample of the voice ${persona.label} speaks in`}
+                                            onClick={() =>
+                                                preview.play(
+                                                    persona.voice!,
+                                                    () => fetchVoiceSample(persona.voice!),
+                                                    'That voice could not be previewed.',
+                                                )
+                                            }
+                                        >
+                                            {preview.isPlaying(persona.voice) ? '❚❚' : '▶'}
+                                        </ActionIcon>
+                                    </Group>
+                                ) : undefined}
+
+                                {persona.voice && preview.failureFor(persona.voice) ? (
+                                    <Text size="xs" c="red.4">
+                                        {preview.failureFor(persona.voice)}
+                                    </Text>
+                                ) : undefined}
                             </Stack>
                             <Group gap="xs" wrap="nowrap">
                                 {persona.active ? undefined : (
@@ -286,6 +327,18 @@ function CardFailure({ error, fallback }: { error: unknown; fallback: string }) 
             {apiErrorMessage(error, fallback)}
         </Text>
     );
+}
+
+/**
+ * A voice as something an operator can hear in their head, or as the word they typed.
+ *
+ * The station voice id is a name this station chose and the engine has never heard of, so on its own
+ * it says nothing about the sound. The plugin's description is what does — and it is absent exactly
+ * when nothing can speak, which is when the key is all there is.
+ */
+function describeVoice(voiceId: string, voices: Voice[] | undefined): string {
+    const voice = voices?.find(candidate => candidate.id === voiceId);
+    return voice?.description === undefined ? voiceId : `${voiceId}, ${voice.description}`;
 }
 
 /** Below this many characters, a filter box is a control that costs more attention than it saves. */

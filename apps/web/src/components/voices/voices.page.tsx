@@ -1,13 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
 import { ActionIcon, Alert, Anchor, Card, Group, Stack, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import type { Persona } from '@deadair/sdk';
 
+import { usePersonas } from '../../api/personas.queries';
 import { fetchVoiceSample, voicesOptions } from '../../api/voices.queries';
-import { apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { useVoicePreview } from './voice.preview';
+
+/**
+ * The station voice the news is read in, whoever is presenting.
+ *
+ * A slot name here is a persona key everywhere else, which is the one exception: no character is
+ * called this and every station has it, because a bulletin is read in its own voice.
+ */
+const NEWSREADER = 'newsreader';
 
 /**
  * The voices the station can speak in, each with a preview.
@@ -25,66 +34,19 @@ import { PageSkeleton } from '../shared/page.skeleton';
  * What a station voice maps to lives in the speech plugin's own config, which is the only thing
  * that knows its engine's vocabulary. This page can show that a voice is wrong and could not fix it
  * — so it links to the plugin rather than leaving an operator to find the settings form themselves.
+ *
+ * ## Who speaks in it is the other half of what a slot IS
+ *
+ * The ids here are persona keys, which is a design decision (one vocabulary rather than two and a
+ * mapping between them) and is invisible from this page: a row called `videoage` reads as a word
+ * somebody chose rather than as a character on the page next door. So the personas are joined in and
+ * each row says who speaks in it. It costs nothing — the list is cached and the shell reads it on
+ * every page carrying a transport bar.
  */
 export function VoicesPage() {
     const voices = useQuery(voicesOptions);
-
-    // Which voice is loading, and which is playing. Two pieces of state rather than one, because the
-    // first render of a voice waits on a synthesis and the operator should see that it is working.
-    const [loading, setLoading] = useState<string | undefined>();
-    const [playing, setPlaying] = useState<string | undefined>();
-    // Keyed by voice, so a failure sits on the row that failed. A page-level alert for a per-row
-    // button puts the reason somewhere the operator is not looking.
-    const [failed, setFailed] = useState<{ voiceId: string; message: string } | undefined>();
-
-    const audio = useRef<HTMLAudioElement | undefined>(undefined);
-    const objectUrl = useRef<string | undefined>(undefined);
-
-    /** An object URL pins its blob until it is revoked, so every one this page mints is released. */
-    const release = () => {
-        if (objectUrl.current !== undefined) URL.revokeObjectURL(objectUrl.current);
-        objectUrl.current = undefined;
-    };
-
-    useEffect(() => {
-        return () => {
-            audio.current?.pause();
-            release();
-        };
-    }, []);
-
-    const play = async (voiceId: string) => {
-        // The button draws itself as a pause while this voice is playing, so it has to pause. It
-        // used to fall through to the fetch below, which stopped the audio and started the same
-        // sample again from the top — a restart wearing a pause button's clothes.
-        if (playing === voiceId) {
-            audio.current?.pause();
-            setPlaying(undefined);
-            return;
-        }
-
-        audio.current?.pause();
-        release();
-        setFailed(undefined);
-        setPlaying(undefined);
-        setLoading(voiceId);
-
-        try {
-            const url = await fetchVoiceSample(voiceId);
-            objectUrl.current = url;
-
-            const element = new Audio(url);
-            element.addEventListener('ended', () => setPlaying(undefined), { once: true });
-            audio.current = element;
-
-            await element.play();
-            setPlaying(voiceId);
-        } catch (failure) {
-            setFailed({ voiceId, message: apiErrorMessage(failure, 'That voice could not be previewed.') });
-        } finally {
-            setLoading(undefined);
-        }
-    };
+    const personas = usePersonas();
+    const preview = useVoicePreview();
 
     const pluginId = voices.data?.pluginId;
 
@@ -129,11 +91,16 @@ export function VoicesPage() {
                     <Card key={voice.id} padding="sm" radius="md">
                         <Group justify="space-between" wrap="nowrap">
                             <Stack gap="xxxs">
-                                <Text fw={500}>{voice.label}</Text>
+                                <Group gap="xs" wrap="nowrap">
+                                    <Text fw={500}>{voice.label}</Text>
+                                    <Text size="xs" c="dimmed">
+                                        {spokenBy(voice.id, personas.data?.personas)}
+                                    </Text>
+                                </Group>
                                 {/* The wait is explained where it happens rather than in a footnote
                                     at the bottom of the page, which is read long before or long
                                     after the moment it describes. */}
-                                {loading === voice.id ? (
+                                {preview.isLoading(voice.id) ? (
                                     <Text c="dimmed" size="xs">
                                         Speaking it for the first time, which takes a moment. After that it is cached.
                                     </Text>
@@ -146,19 +113,17 @@ export function VoicesPage() {
                             <ActionIcon
                                 variant="default"
                                 size="lg"
-                                loading={loading === voice.id}
-                                aria-label={playing === voice.id ? `Pause the sample of ${voice.label}` : `Play a sample of ${voice.label}`}
-                                onClick={() => {
-                                    void play(voice.id);
-                                }}
+                                loading={preview.isLoading(voice.id)}
+                                aria-label={preview.isPlaying(voice.id) ? `Pause the sample of ${voice.label}` : `Play a sample of ${voice.label}`}
+                                onClick={() => preview.play(voice.id, () => fetchVoiceSample(voice.id), 'That voice could not be previewed.')}
                             >
-                                {playing === voice.id ? '❚❚' : '▶'}
+                                {preview.isPlaying(voice.id) ? '❚❚' : '▶'}
                             </ActionIcon>
                         </Group>
 
-                        {failed?.voiceId === voice.id ? (
+                        {preview.failureFor(voice.id) ? (
                             <Text size="xs" c="red.4" mt="xs">
-                                {failed.message}
+                                {preview.failureFor(voice.id)}
                             </Text>
                         ) : undefined}
                     </Card>
@@ -176,4 +141,19 @@ export function VoicesPage() {
             ) : undefined}
         </Stack>
     );
+}
+
+/**
+ * What this slot is for, said in the station's own terms.
+ *
+ * A slot nothing uses says nothing rather than "unused": the mapping is what a station voice IS, and
+ * a row that exists is already the operator saying they want it available. Naming it as spare would
+ * read as something to tidy up.
+ */
+function spokenBy(voiceId: string, personas: Persona[] | undefined): string {
+    if (voiceId === NEWSREADER) return 'the news';
+    if (voiceId.length === 0 || personas === undefined) return '';
+
+    const speakers = personas.filter(persona => persona.voice === voiceId).map(persona => persona.label);
+    return speakers.length === 0 ? '' : speakers.join(', ');
 }

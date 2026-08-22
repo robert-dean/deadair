@@ -121,10 +121,75 @@ export const PersonaDraftView = z.strictObject({
 export type PersonaDraftView = z.infer<typeof PersonaDraftView>;
 
 /**
+ * One thing this character has accumulated that its sheet does not hold. Two kinds and they are two
+ * different claims: `said` records something it actually put on air and carries the script as its
+ * evidence, so it is a record and goes straight into use; `trait` infers who the character is
+ * becoming, which nothing can verify, so a model's arrives `suggested` and the operator is the check
+ * generated from [PersonaNote](file://./../../../../data/contracts/personas/personas.types.ck#L69)
+ */
+export const PersonaNote = z.strictObject({
+    id: z.string().min(1).max(100),
+    kind: z
+        .enum(['said', 'trait'])
+        .describe("`said` is what this character did, rendered beside the show's memory. `trait` is who it has become, rendered beside the sheet"),
+    note: z.string().min(1).max(500).describe('One sentence, because it shares a system turn with the grounding rules'),
+    state: z
+        .enum(['active', 'suggested', 'rejected'])
+        .describe('`active` is carried into breaks. `rejected` outlives the pass that proposed it, or the same scripts propose it again forever'),
+    origin: z.enum(['operator', 'model']).describe("Who says so. `model` is the distil pass reading this character's own history back"),
+    sourceScriptId: z
+        .string()
+        .max(100)
+        .optional()
+        .describe('The attempt this was drawn from, while that row still exists. The nightly sweep takes it and the quote below stays'),
+    sourceQuote: z
+        .string()
+        .max(2000)
+        .optional()
+        .describe(
+            'The words that support it, as the station said them. What an operator actually accepts or rejects on, and required of anything a model wrote',
+        ),
+    lastUsedAt: z
+        .string()
+        .max(40)
+        .optional()
+        .describe('When it was last carried into a break. Absent means never, which is what puts it at the front of the rotation'),
+    createdAt: z.string().min(1).max(40),
+});
+export type PersonaNote = z.infer<typeof PersonaNote>;
+
+export const PersonaNoteInput = z.strictObject({
+    kind: z
+        .enum(['said', 'trait'])
+        .describe("`said` is what this character did, rendered beside the show's memory. `trait` is who it has become, rendered beside the sheet"),
+    note: z.string().min(1).max(500).describe('One sentence, because it shares a system turn with the grounding rules'),
+});
+export type PersonaNoteInput = z.infer<typeof PersonaNoteInput>;
+
+/**
+ * A note an operator is writing by hand. Always active and always theirs; a proposal is something only the distil pass creates
+ * generated from [PersonaNoteWrite](file://./../../../../data/contracts/personas/personas.types.ck#L86)
+ */
+export const PersonaNoteWrite = z.strictObject({
+    kind: z.enum(['said', 'trait']),
+    note: z.string().min(1).max(500),
+});
+export type PersonaNoteWrite = z.infer<typeof PersonaNoteWrite>;
+
+/**
+ * Accepting a proposal, turning one down, or taking a note out of use without losing it
+ * generated from [PersonaNoteState](file://./../../../../data/contracts/personas/personas.types.ck#L91)
+ */
+export const PersonaNoteState = z.strictObject({
+    state: z.enum(['active', 'suggested', 'rejected']),
+});
+export type PersonaNoteState = z.infer<typeof PersonaNoteState>;
+
+/**
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L68)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L98)
  */
 export const PersonaRehearsalAttempt = z.strictObject({
     writer: z.string().min(1).max(100).describe('Which binding was asked, as `segments.writer` would record it'),
@@ -174,8 +239,24 @@ export const GeneratedPersona = z.strictObject({
 export type GeneratedPersona = z.infer<typeof GeneratedPersona>;
 
 /**
+ * One character's whole notebook, oldest first, in every state
+ * generated from [PersonaNoteList](file://./../../../../data/contracts/personas/personas.types.ck#L81)
+ */
+export const PersonaNoteList = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    notes: z.array(PersonaNote),
+});
+export type PersonaNoteList = z.infer<typeof PersonaNoteList>;
+
+export const PersonaNoteListInput = z.strictObject({
+    personaId: z.string().min(1).max(100),
+    notes: z.array(PersonaNoteInput),
+});
+export type PersonaNoteListInput = z.infer<typeof PersonaNoteListInput>;
+
+/**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L77)
+ * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L107)
  */
 export const PersonaRehearsal = z.strictObject({
     personaId: z.string().min(1).max(100),

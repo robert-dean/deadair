@@ -102,10 +102,60 @@ export interface PersonaDraftView {
 }
 
 /**
+ * One thing this character has accumulated that its sheet does not hold. Two kinds and they are two
+ * different claims: `said` records something it actually put on air and carries the script as its
+ * evidence, so it is a record and goes straight into use; `trait` infers who the character is
+ * becoming, which nothing can verify, so a model's arrives `suggested` and the operator is the check
+ * generated from [PersonaNote](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L69)
+ */
+export interface PersonaNote {
+    id: string;
+    /** `said` is what this character did, rendered beside the show's memory. `trait` is who it has become, rendered beside the sheet */
+    kind: 'said' | 'trait';
+    /** One sentence, because it shares a system turn with the grounding rules */
+    note: string;
+    /** `active` is carried into breaks. `rejected` outlives the pass that proposed it, or the same scripts propose it again forever */
+    state: 'active' | 'suggested' | 'rejected';
+    /** Who says so. `model` is the distil pass reading this character's own history back */
+    origin: 'operator' | 'model';
+    /** The attempt this was drawn from, while that row still exists. The nightly sweep takes it and the quote below stays */
+    sourceScriptId?: string;
+    /** The words that support it, as the station said them. What an operator actually accepts or rejects on, and required of anything a model wrote */
+    sourceQuote?: string;
+    /** When it was last carried into a break. Absent means never, which is what puts it at the front of the rotation */
+    lastUsedAt?: string;
+    createdAt: string;
+}
+
+export interface PersonaNoteInput {
+    /** `said` is what this character did, rendered beside the show's memory. `trait` is who it has become, rendered beside the sheet */
+    kind: 'said' | 'trait';
+    /** One sentence, because it shares a system turn with the grounding rules */
+    note: string;
+}
+
+/**
+ * A note an operator is writing by hand. Always active and always theirs; a proposal is something only the distil pass creates
+ * generated from [PersonaNoteWrite](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L86)
+ */
+export interface PersonaNoteWrite {
+    kind: 'said' | 'trait';
+    note: string;
+}
+
+/**
+ * Accepting a proposal, turning one down, or taking a note out of use without losing it
+ * generated from [PersonaNoteState](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L91)
+ */
+export interface PersonaNoteState {
+    state: 'active' | 'suggested' | 'rejected';
+}
+
+/**
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L68)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L98)
  */
 export interface PersonaRehearsalAttempt {
     /** Which binding was asked, as `segments.writer` would record it */
@@ -144,8 +194,22 @@ export interface GeneratedPersona {
 }
 
 /**
+ * One character's whole notebook, oldest first, in every state
+ * generated from [PersonaNoteList](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L81)
+ */
+export interface PersonaNoteList {
+    personaId: string;
+    notes: PersonaNote[];
+}
+
+export interface PersonaNoteListInput {
+    personaId: string;
+    notes: PersonaNoteInput[];
+}
+
+/**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L77)
+ * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L107)
  */
 export interface PersonaRehearsal {
     personaId: string;

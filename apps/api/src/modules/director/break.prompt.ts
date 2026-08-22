@@ -49,6 +49,7 @@ import {
     type PersonaLatitude,
     type PersonaSheet,
 } from '#modules/personas/persona.sheet.js';
+import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 
 /**
@@ -132,6 +133,27 @@ export interface BreakPromptShape {
      * that reports facts.
      */
     showsFacts?: boolean;
+    /**
+     * Whether this character's NOTEBOOK reaches the prompt: what it has settled into, and what it has
+     * said on this station before.
+     *
+     * On unless a shape says otherwise, and off for a BULLETIN — which is {@link showsFacts}' exact
+     * argument transplanted, because it is exactly the same hazard one source further out. A model
+     * asked to report the news and handed a list of material will find a way to read the material
+     * out, and a sentence this character said about a record last fortnight is worse in a bulletin
+     * than a discography note, because nothing about it is even trying to be true today.
+     *
+     * It withholds BOTH halves rather than only the sayings. The sheet still goes, so the bulletin
+     * still sounds like the station's own presenter; what is withheld is the accumulated extra, on
+     * the same ground `NEWS_SHAPE` already passes `dialect: 'optional'` — a bulletin is the one kind
+     * where being in character is not the job.
+     *
+     * A WELCOME keeps it, which is the one place this parts company with
+     * {@link BreakPromptShape.showsPlayed}. That is off for a welcome because an arriving listener
+     * heard none of this show, and the argument stops there: somebody tuning in has heard this
+     * STATION before, which is the entire premise of a note.
+     */
+    showsNotebook?: boolean;
     /**
      * Whether a persona's {@link PersonaSheet.latitude} is offered on this kind of break.
      *
@@ -253,6 +275,24 @@ export interface PromptSettings {
      * is the state every fresh install is in until it picks one.
      */
     persona?: PersonaCharacter;
+    /**
+     * What this character has accumulated, from `deadair.persona_notes`.
+     *
+     * Called a NOTEBOOK here and not "notes", which is not fussiness: in this file "the notes" has
+     * meant a record's enrichment facts since the day the facts arrived, it means that in three
+     * rules the model is actually sent, and two things with one name in one prompt builder is how a
+     * shape ends up withholding the wrong one.
+     *
+     * Two lists rather than one because they are rendered in two different turns, and that split is
+     * the design rather than a formatting choice. A `trait` is who the presenter IS, so it sits in
+     * the system turn with the sheet; a `said` is what the presenter DID, so it sits in the user turn
+     * with the show's own memory. Put both in one place and either a fact about last Tuesday becomes
+     * part of the character or the character becomes a detail of this hour.
+     *
+     * Absent, or empty, leaves the prompt byte-identical to one built with no notebook at all, which
+     * is `personaLines`' own guarantee held one level up.
+     */
+    notebook?: PersonaNotesForPrompt;
     /** The ceiling, in words. See {@link DEFAULT_MAX_WORDS}. */
     maxWords?: number;
     /**
@@ -360,6 +400,11 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         // The sheet sits between the role and the rules, which leaves the grounding discipline in
         // the recency position it has always had.
         ...(persona === undefined ? [] : personaLines(persona)),
+        // Immediately after the sheet, and inside the same block, because a trait IS a sheet line —
+        // one this character grew into rather than one its author typed. Gated on the persona as
+        // well as on the shape: a note about a character nobody is presenting has nothing to attach
+        // to, and a station that dropped its persona should read exactly as it did before.
+        ...(persona === undefined || shape.showsNotebook === false ? [] : traitLines(settings.notebook)),
         // Beside the sheet's own brevity line, which is the last thing `personaLines` renders, and
         // for the same reason it is last there: how much of itself a character says belongs with the
         // word ceiling rather than among the facets of a voice. This is that instruction pointed the
@@ -561,6 +606,28 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // What this character has said before tonight, which is the half of a presenter's memory that
+    // outlives the broadcast. Placed ahead of the recent scripts rather than after them, because the
+    // two are read very differently and running them together would confuse both: this one is
+    // material that may be built on, and the one below is a shape to avoid.
+    //
+    // OFFERED, in the same words the played list is, and for the reason measured there: handed a
+    // list, a model gets through the list. What this is for is a break that can say "I have been on
+    // about this record for a fortnight", which is a thing only a station with a memory can say — and
+    // a break that works one in because it was shown one is the failure it is trying to buy its way
+    // out of.
+    const said = shape.showsNotebook === false ? [] : (settings.notebook?.said ?? []);
+    if (said.length > 0) {
+        parts.push(
+            [
+                'Things you have said on this station before, which a regular listener may remember:',
+                ...said.map(note => `- ${note}`),
+                'These are yours to build on, not a list to get through. Pick one up only if this moment gives you a reason to. ' +
+                    'You do not have to mention any of them.',
+            ].join('\n'),
+        );
+    }
+
     if (request.recent && request.recent.length > 0) {
         parts.push(
             ['You said these recently. Do not reuse their opening or their shape:', ...request.recent.map(script => `- ${script}`)].join('\n'),
@@ -722,6 +789,27 @@ function openingOf(script: string): string | undefined {
     const clause = script.trim().split(/[,;:.!?—–]/, 1)[0] ?? '';
     const words = clause.trim().split(/\s+/).filter(Boolean).slice(0, OPENING_WORDS);
     return words.length === 0 ? undefined : words.join(' ');
+}
+
+/**
+ * The traits this character has grown into, as system-prompt lines.
+ *
+ * Rendered in `personaLines`' own register — a clause list under one heading, not a bulleted table —
+ * because these sit inside the sheet's block and a change of shape halfway through it would read as
+ * a change of subject. Empty in, empty out, which is what keeps a prompt with no notebook identical
+ * to one built before the notebook existed.
+ *
+ * Named as things the character HAS DONE rather than as instructions, deliberately. A trait is an
+ * observation the station made about itself and the sheet above it is already a list of rules; a
+ * second imperative list would compete with the first, and what a model does with two sets of orders
+ * is hedge between them. This is the same reason a persona REPLACES the role sentence rather than
+ * queueing behind it.
+ */
+function traitLines(notes: PersonaNotesForPrompt | undefined): string[] {
+    const traits = (notes?.trait ?? []).map(trait => trait.trim()).filter(trait => trait.length > 0);
+    if (traits.length === 0) return [];
+
+    return [`Things you have settled into on this station: ${traits.join(' ')}`];
 }
 
 /**

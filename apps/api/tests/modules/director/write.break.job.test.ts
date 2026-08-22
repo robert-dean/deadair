@@ -47,6 +47,8 @@ function harness(
         factsThrow?: boolean;
         /** The persona on air, for the one test about handing it to the writers. */
         persona?: Persona;
+        /** What that character has accumulated, for the tests about carrying and resting it. */
+        notebook?: { trait: readonly string[]; said: readonly string[] };
         /** The request this break was made for, for the one test about handing its context over. */
         request?: StoredBreakRequest;
         /** What a bulletin has to report, for the one test about handing the stories over. */
@@ -96,6 +98,13 @@ function harness(
     // Who the station is right now. `undefined` unless a test asks otherwise, because a station
     // that has chosen no persona is the state every assertion below was written against.
     const personas = { presenting: vi.fn(async () => options.persona) };
+    // What that character has accumulated. Empty unless a test asks otherwise, and never read at all
+    // for a station presenting as nobody — which is what the `personaKey === undefined` guard buys
+    // and what most assertions here were written against.
+    const notes = {
+        forPrompt: vi.fn(async () => ({ notes: options.notebook ?? { trait: [], said: [] }, ids: options.notebook === undefined ? [] : ['n1'] })),
+        markUsed: vi.fn(async () => {}),
+    };
     const jobs = { send: vi.fn(async () => {}) };
     const config = { get: vi.fn((_: string, fallback: string) => fallback) };
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
@@ -127,6 +136,7 @@ function harness(
         enrichment as never,
         bulletin as never,
         personas as never,
+        notes as never,
         plays as never,
         identity as never,
         activity as never,
@@ -137,7 +147,7 @@ function harness(
         logger as never,
     );
 
-    return { job, segments, lineups, requests, history, writers, enrichment, personas, jobs, logger, activity, bulletin, plays, identity };
+    return { job, segments, lineups, requests, history, writers, enrichment, personas, notes, jobs, logger, activity, bulletin, plays, identity };
 }
 
 describe('WriteBreakJob', () => {
@@ -282,6 +292,46 @@ describe('WriteBreakJob', () => {
         await job.run({ segmentId: 'seg-1' });
 
         expect(personas.presenting).toHaveBeenCalledWith('p-tonight');
+    });
+
+    it("hands the writers this character's notebook, and rests what it took", async () => {
+        // Rested HERE rather than inside a writer, so the rotation belongs to the moment: a model
+        // that declined and a floor that could not read a note either way have between them still
+        // used this character's turn, which is the only reading that makes the cooldown mean
+        // anything.
+        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', active: true } as Persona;
+        const notebook = { trait: ['has taken to calling the listener a shipmate'], said: ['called Booker T. the tightest band alive'] };
+        const { job, writers, notes } = harness({ lineup: await lineupWithBreak(), persona, notebook });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(notes.forPrompt).toHaveBeenCalledWith('pirate');
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ notebook }));
+        expect(notes.markUsed).toHaveBeenCalledWith(['n1']);
+    });
+
+    it('reads no notebook at all for a station presenting as nobody', async () => {
+        // The state every fresh install is in, and the one every other assertion here was written
+        // against: no persona means no key to look one up by, so the read never happens.
+        const { job, writers, notes } = harness({ lineup: await lineupWithBreak() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(notes.forPrompt).not.toHaveBeenCalled();
+        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ notebook: expect.anything() }));
+    });
+
+    it('writes the break anyway when the notebook cannot be read', async () => {
+        // Best-effort, exactly like the facts and the broadcast's memory beside it. Nothing about a
+        // notebook is worth a silent slot.
+        const persona = { id: 'p-1', key: 'pirate', label: 'Pirate captain', style: 'a pirate captain', active: true } as Persona;
+        const { job, segments, notes, logger } = harness({ lineup: await lineupWithBreak(), persona });
+        notes.forPrompt.mockRejectedValueOnce(new Error('the database is away'));
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalled();
+        expect(logger.warn).toHaveBeenCalled();
     });
 
     it("speaks a planted break in the persona's voice, and leaves a hand-planned one alone", async () => {

@@ -77,6 +77,8 @@ export const queryKeys = {
      */
     personas: {
         list: () => ['personas', 'list'] as const,
+        /** One character's notebook. Keyed per persona, since a panel only ever draws the one it is open under. */
+        notes: (id: string) => ['personas', 'notes', id] as const,
     },
     schedule: {
         /** The station's day. One key: every write answers with the whole grid, since a slot's span is its neighbour's start. */

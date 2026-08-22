@@ -16,6 +16,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PersonaEditor } from './persona.editor';
+import { PersonaNotesPanel } from './persona.notes';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
 
 /**
@@ -43,6 +44,9 @@ export function PersonasPage() {
     // this app where null earns its keep: "no editor" and "an editor with nothing in it" are
     // genuinely different states.
     const [editing, setEditing] = useState<Persona | null | undefined>(undefined);
+    // Which character's notebook is open, or none. One at a time, because the panel fetches per
+    // persona and a page of nineteen open notebooks is nineteen requests nobody asked for.
+    const [notebook, setNotebook] = useState<string | undefined>(undefined);
 
     const close = () => {
         setEditing(undefined);
@@ -169,6 +173,15 @@ export function PersonasPage() {
                                 >
                                     Rehearse
                                 </Button>
+                                {/* One at a time: the panel fetches per character, and every open
+                                    notebook is a request nobody asked for. */}
+                                <Button
+                                    variant="subtle"
+                                    size="compact-sm"
+                                    onClick={() => setNotebook(current => (current === persona.id ? undefined : persona.id))}
+                                >
+                                    {notebook === persona.id ? 'Hide notebook' : 'Notebook'}
+                                </Button>
                                 <Button variant="subtle" size="compact-sm" onClick={() => setEditing(persona)}>
                                     Edit
                                 </Button>
@@ -189,6 +202,8 @@ export function PersonasPage() {
                             that stayed put while a different persona was rehearsed would attribute
                             one character's words to another. */}
                         {rehearse.data?.personaId === persona.id ? <PersonaRehearsalPanel rehearsal={rehearse.data} /> : undefined}
+
+                        {notebook === persona.id ? <PersonaNotesPanel personaId={persona.id} /> : undefined}
                     </Card>
                 ))}
             </Stack>

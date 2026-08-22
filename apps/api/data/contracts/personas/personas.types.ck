@@ -62,6 +62,36 @@ contract GeneratedPersona: {
     droppedTemplates: array(string(min=1, max=500)) # Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings
 }
 
+# One thing this character has accumulated that its sheet does not hold. Two kinds and they are two
+# different claims: `said` records something it actually put on air and carries the script as its
+# evidence, so it is a record and goes straight into use; `trait` infers who the character is
+# becoming, which nothing can verify, so a model's arrives `suggested` and the operator is the check
+contract PersonaNote: {
+    id: readonly string(min=1, max=100)
+    kind: enum(said, trait) # `said` is what this character did, rendered beside the show's memory. `trait` is who it has become, rendered beside the sheet
+    note: string(min=1, max=500) # One sentence, because it shares a system turn with the grounding rules
+    state: readonly enum(active, suggested, rejected) # `active` is carried into breaks. `rejected` outlives the pass that proposed it, or the same scripts propose it again forever
+    origin: readonly enum(operator, model) # Who says so. `model` is the distil pass reading this character's own history back
+    sourceScriptId?: readonly string(max=100) # The attempt this was drawn from, while that row still exists. The nightly sweep takes it and the quote below stays
+    sourceQuote?: readonly string(max=2000) # The words that support it, as the station said them. What an operator actually accepts or rejects on, and required of anything a model wrote
+    lastUsedAt?: readonly string(max=40) # When it was last carried into a break. Absent means never, which is what puts it at the front of the rotation
+    createdAt: readonly string(min=1, max=40)
+}
+
+contract PersonaNoteList: { # One character's whole notebook, oldest first, in every state
+    personaId: string(min=1, max=100)
+    notes: array(PersonaNote)
+}
+
+contract PersonaNoteWrite: { # A note an operator is writing by hand. Always active and always theirs; a proposal is something only the distil pass creates
+    kind: enum(said, trait)
+    note: string(min=1, max=500)
+}
+
+contract PersonaNoteState: { # Accepting a proposal, turning one down, or taking a note out of use without losing it
+    state: enum(active, suggested, rejected)
+}
+
 # One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
 # model that declined and a floor that covered for it are two facts, and the second on its own reads
 # as a station that never had a model configured

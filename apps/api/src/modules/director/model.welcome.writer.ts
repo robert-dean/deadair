@@ -100,6 +100,11 @@ export class ModelWelcomeWriter extends BreakWriter {
                 dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
                 cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                 ...(request.persona === undefined ? {} : { persona: request.persona }),
+                // Carried across like the persona. Note the SHAPE decides what a welcome does with
+                // it: `showsPlayed` is off here because an arriving listener heard none of the show,
+                // and the same argument does not reach a notebook — somebody tuning in has heard this
+                // station before, which is the whole premise of a note.
+                ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
             },
             WELCOME_SHAPE,
         );

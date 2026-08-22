@@ -8,6 +8,7 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import type { BreakTrack } from '#modules/director/break.writer.js';
 import type { PersonaRehearsal, PersonaRehearsalAttempt } from './types/personas.types.js';
 import { PersonaRepository } from './persona.repository.js';
+import { PersonaNotesRepository } from './persona.notes.repository.js';
 
 /**
  * Hear a persona before putting it on air.
@@ -23,10 +24,16 @@ import { PersonaRepository } from './persona.repository.js';
  *
  * ## It cannot air, and holds nothing that could put it on air
  *
- * No segment row, no `script_history`, no request. The service has the writer registry and the
- * persona repository and that is all, so "a rehearsal cannot be planted" is a fact about what it can
- * reach rather than a rule somebody has to keep remembering. The voice sample route next door is the
- * same shape for the same reason.
+ * No segment row, no `script_history`, no request. The service has the writer registry, the persona
+ * repository and the notebook, and that is all, so "a rehearsal cannot be planted" is a fact about
+ * what it can reach rather than a rule somebody has to keep remembering. The voice sample route next
+ * door is the same shape for the same reason.
+ *
+ * The notebook is the one thing here that could leave a mark, and does not: {@link forPrompt} reads
+ * and {@link markUsed} rests, they are two calls, and this makes only the first. So a rehearsal hears
+ * the character exactly as it stands without moving the rotation under the next real break — which
+ * is also what keeps two readings a minute apart comparable, on the same argument as the fixed pair
+ * of records below.
  *
  * ## It takes the one model slot, and losing the race is a legitimate answer
  *
@@ -56,6 +63,7 @@ export const REHEARSAL_NEXT: BreakTrack = { title: 'Ain’t No Sunshine', artist
 export class PersonaRehearsalService {
     constructor(
         private readonly personas: PersonaRepository,
+        private readonly notes: PersonaNotesRepository,
         private readonly writers: BreakWriterRegistry,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -72,12 +80,19 @@ export class PersonaRehearsalService {
         const persona = await this.personas.find(id);
         if (persona === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
 
+        // Read and NOT rested, which is the whole reason the repository splits the two. A rehearsal
+        // exists to let an operator hear the character as it currently stands, so it has to carry the
+        // notebook; and it must not spend the rotation, or clicking the button would hand the next
+        // real break this character's second-best six lines.
+        const { notes } = await this.notes.forPrompt(persona.key);
+
         const result = await this.writers.write({
             kind: TALK_BREAK_KIND,
             previous: REHEARSAL_PREVIOUS,
             next: REHEARSAL_NEXT,
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             persona,
+            notebook: notes,
             // Empty rather than the last few real scripts, and that is what keeps a reading
             // repeatable. `recent` is what makes a signature phrase SPENT, so a rehearsal carrying
             // the station's actual history would decline a script for repeating something the

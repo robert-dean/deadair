@@ -79,6 +79,11 @@ export const NEWS_SHAPE: BreakPromptShape = {
     // break where being wrong is worst. Both of the false discography claims this station has put on
     // air arrived exactly that way; see `BreakPromptShape.showsFacts`.
     showsFacts: false,
+    // The same call one source further out, and for the same reason: a model reporting the news and
+    // handed a list of the character's own past sayings will read one out, and it is worse than a
+    // discography note because nothing about it is even trying to be true today. The sheet still
+    // goes, so this still sounds like the station's presenter; what is withheld is the accumulation.
+    showsNotebook: false,
     opening: request =>
         // What it is ABOUT, when a band asked for one. Said in the opening rather than as a rule
         // because it changes what the bulletin IS rather than constraining how it is written — and

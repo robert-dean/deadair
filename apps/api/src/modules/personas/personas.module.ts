@@ -2,6 +2,8 @@ import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { PersonaRepository } from './persona.repository.js';
+import { PersonaNotesRepository } from './persona.notes.repository.js';
+import { PersonaNotesService } from './persona.notes.service.js';
 import { PersonaRehearsalService } from './persona.rehearsal.service.js';
 import { PersonasService } from './personas.service.js';
 import { inScope } from '#modules/shared/scoped.work.js';
@@ -26,7 +28,9 @@ export const PersonasModule: ServerKitModule = {
         // Scoped, like every other repository: per-request on the request path, per-run inside the
         // scope the boot seed opens.
         registry.register(PersonaRepository).useClass(PersonaRepository).asScoped();
+        registry.register(PersonaNotesRepository).useClass(PersonaNotesRepository).asScoped();
         registry.register(PersonasService).useClass(PersonasService).asScoped();
+        registry.register(PersonaNotesService).useClass(PersonaNotesService).asScoped();
         // Scoped like the two above, and it resolves `BreakWriterRegistry` out of the director's
         // registrations at REQUEST time — which is why this module being registered before that one
         // costs nothing. The list is a lifecycle order (start, ready, shutdown), not a resolution

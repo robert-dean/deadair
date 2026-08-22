@@ -149,6 +149,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // the next one rather than after a restart.
             cleanLanguage: speaksClean(advisoryPolicy(this.config)),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
+            // Carried across rather than read here, for the reason the persona is: the caller read
+            // the notebook and rested what it took, so a writer that fetched its own would spend the
+            // rotation a second time and show a different character to the guard than to the prompt.
+            ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
         };
         // Named rather than defaulted: what this binding writes is a link between two records, and a
         // writer that said nothing about its shape would silently get that whatever it was.

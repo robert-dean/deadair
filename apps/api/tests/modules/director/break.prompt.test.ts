@@ -647,6 +647,66 @@ describe('breakPrompt', () => {
         });
     });
 
+    // The notebook is the half of a character that was not there when its sheet was written, and the
+    // whole design is which TURN each half lands in: a trait is who the presenter is, a saying is
+    // what the presenter did, and putting them in one place makes a fact about last Tuesday part of
+    // the character or the character a detail of this hour.
+    describe("what a character has accumulated", () => {
+        const pirate = { style: 'a pirate captain who runs a radio station', diction: ['drop your Gs'] };
+        const notebook = {
+            trait: ['has taken to calling the listener a shipmate'],
+            said: ['called Booker T. the tightest band alive'],
+        };
+
+        it('puts a trait in the system turn, with the sheet', () => {
+            const messages = prompt({ kind: 'talkbreak', previous, next }, { persona: pirate, notebook });
+
+            expect(system(messages)).toContain('has taken to calling the listener a shipmate');
+            expect(user(messages)).not.toContain('shipmate');
+        });
+
+        it('puts a saying in the user turn, and says plainly that it is optional', () => {
+            // The played list's own wording, and for the measured reason: handed a list, a model gets
+            // through the list. What this is for is a break that CAN refer back, not one that must.
+            const messages = prompt({ kind: 'talkbreak', previous, next }, { persona: pirate, notebook });
+
+            expect(user(messages)).toContain('called Booker T. the tightest band alive');
+            expect(user(messages)).toMatch(/do not have to mention any of them/i);
+            expect(system(messages)).not.toContain('Booker T.');
+        });
+
+        it('leaves the prompt untouched for a character with an empty notebook', () => {
+            // `personaLines`' own guarantee held one level up: a station that has accumulated nothing
+            // must read exactly as it did before any of this existed.
+            const bare = prompt({ kind: 'talkbreak', previous, next }, { persona: pirate });
+            const empty = prompt({ kind: 'talkbreak', previous, next }, { persona: pirate, notebook: { trait: [], said: [] } });
+
+            expect(empty).toEqual(bare);
+        });
+
+        it('says nothing at all for a station presenting as nobody', () => {
+            // A note about a character no one is presenting has nothing to attach to, and the trait
+            // line claims a history the station is not currently speaking from.
+            const messages = prompt({ kind: 'talkbreak', previous, next }, { notebook });
+
+            expect(system(messages)).not.toContain('shipmate');
+        });
+
+        it('withholds both halves from a bulletin', () => {
+            // `showsFacts`' argument one source further out: a model reporting the news and handed a
+            // list of the character's own past sayings will read one out, and it is worse than a
+            // discography note because nothing about it is even trying to be true today.
+            const bulletin = { job: 'You read the news.', showsPrevious: false, showsNotebook: false };
+            const messages = breakPrompt({ kind: 'news', next }, { persona: pirate, notebook }, bulletin);
+
+            expect(system(messages)).not.toContain('shipmate');
+            expect(user(messages)).not.toContain('Booker T.');
+            // The SHEET still goes, so a bulletin still sounds like this station's presenter. What is
+            // withheld is the accumulation, not the character.
+            expect(system(messages)).toContain('drop your Gs');
+        });
+    });
+
     describe('a kind bringing its own shape', () => {
         const greeting = {
             job: 'You greet somebody who has just tuned in.',

@@ -7,6 +7,8 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { EnrichmentReadService } from '#modules/enrichment/enrichment.read.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
+import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
+import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
@@ -97,6 +99,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly enrichment: EnrichmentReadService,
         private readonly bulletin: BulletinSource,
         private readonly personas: PersonaRepository,
+        private readonly notes: PersonaNotesRepository,
         private readonly plays: PlayHistoryRepository,
         private readonly identity: StationIdentity,
         private readonly activity: ActivityRecorder,
@@ -230,6 +233,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // different half of it. Read per break, so an operator putting a different persona on
             // air hears it on the next one rather than after a restart.
             ...(persona === undefined ? {} : { persona }),
+            // What this character has accumulated, read here for the persona's own reason and rested
+            // here for a sharper one: the rotation belongs to whatever is actually going on air, and
+            // a writer that fetched its own would spend it again on every binding that was asked.
+            ...(await this.notebook(persona?.key)),
             // What this break's words are worth at the one model slot. Absent for a planted break,
             // which is the gate's `air` default: it has a deadline like everything on air, and no
             // claim to jump the ones in front of it. A REQUESTED break is worth what its urgency
@@ -419,6 +426,37 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             }
         } catch (error) {
             this.logger.warn(`director: could not read what the station knows about these records (${errorText(error)})`);
+        }
+    }
+
+    /**
+     * What this character has settled into, and what it has said on this station before.
+     *
+     * Empty for a station presenting as nobody, which is an ordinary state and the one every fresh
+     * install is in.
+     *
+     * The notes are RESTED here, at selection, which is the same inaccuracy `chooseFacts` buys and
+     * bought against the same alternative: a break dropped before its slot has still spent its notes,
+     * and the only way to do better is a second writer of `last_used_at` that can disagree with this
+     * one. What it buys is that the rotation belongs to the moment rather than to whichever binding
+     * happened to be asked — a model that declined and a floor that could not read a note either way
+     * have between them still used this character's turn.
+     *
+     * Best-effort, like the facts and the broadcast's memory above it: a notebook that could not be
+     * read costs the notebook and never the break.
+     */
+    private async notebook(personaKey: string | undefined): Promise<{ notebook?: PersonaNotesForPrompt }> {
+        if (personaKey === undefined) return {};
+
+        try {
+            const { notes, ids } = await this.notes.forPrompt(personaKey);
+            if (ids.length === 0) return {};
+
+            await this.notes.markUsed(ids);
+            return { notebook: notes };
+        } catch (error) {
+            this.logger.warn(`director: could not read what this character has accumulated (${errorText(error)})`);
+            return {};
         }
     }
 

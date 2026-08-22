@@ -309,6 +309,28 @@ export interface DeadairPermissionsRelationTuples {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairPersonaNotePasses {
+  personaKey: string;
+  ranAt: Generated<DateTime>;
+  readThrough: DateTime | null;
+  stationKey: Generated<string>;
+}
+
+export interface DeadairPersonaNotes {
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  kind: "said" | "trait";
+  lastUsedAt: DateTime | null;
+  note: string;
+  origin: "operator" | "model";
+  personaKey: string;
+  sourceQuote: string | null;
+  sourceScriptId: string | null;
+  state: "active" | "suggested" | "rejected";
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairPersonas {
   active: Generated<boolean>;
   avoid: Generated<Json>;
@@ -700,6 +722,8 @@ export interface DB {
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;
+  "deadair.personaNotePasses": DeadairPersonaNotePasses;
+  "deadair.personaNotes": DeadairPersonaNotes;
   "deadair.personas": DeadairPersonas;
   "deadair.playHistory": DeadairPlayHistory;
   "deadair.playlists": DeadairPlaylists;

@@ -29,6 +29,7 @@
 
 import type { GatePriority } from '#modules/shared/gate.priority.js';
 import type { Persona } from '#modules/personas/persona.js';
+import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { BreakContext } from './break.request.js';
 import type { RoughTime } from './clock.words.js';
 
@@ -215,6 +216,23 @@ export interface BreakWriteRequest {
      * per-writer projection of it.
      */
     persona?: Persona;
+    /**
+     * What this character has accumulated beyond its sheet, already capped and rotated.
+     *
+     * Read by the caller and handed over whole for {@link BreakWriteRequest.persona}'s reason: a
+     * writer stays a pure function of what it was told, and which notes came round this time is a
+     * property of the moment rather than something each binding should decide for itself. The caller
+     * also RESTS what it took, so a writer that fetched its own would spend the rotation twice.
+     *
+     * A notebook rather than "notes", because in `break.prompt.ts` the notes are a record's
+     * enrichment facts and have been since the facts arrived.
+     *
+     * Absent for a character with an empty notebook, and unread by every deterministic writer, which
+     * is not an oversight: a template has nowhere to put a sentence like this. So a station with no
+     * model keeps its notebook and never says anything out of it, exactly as the floor keeps its
+     * phrasings and never reads a fact.
+     */
+    notebook?: PersonaNotesForPrompt;
     /**
      * The last few things the station said, newest first.
      *

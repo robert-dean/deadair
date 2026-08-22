@@ -1,5 +1,13 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { GeneratedPersona, PersonaInput, PersonaList, PersonaRehearsal } from '@deadair/sdk';
+import type {
+    GeneratedPersona,
+    PersonaInput,
+    PersonaList,
+    PersonaNoteList,
+    PersonaNoteState,
+    PersonaNoteWrite,
+    PersonaRehearsal,
+} from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -70,6 +78,57 @@ export const useRehearsePersona = () =>
     useMutation<PersonaRehearsal, Error, string>({
         mutationFn: (id: string) => sdk.personas.rehearsePersona(id),
     });
+
+/**
+ * One character's notebook: what it has settled into, and what it has said before.
+ *
+ * Fetched only when a panel is open, because most of the time nobody is looking at one and it is a
+ * per-character read rather than part of the list. Same staleness as the list above, and for the same
+ * reason: nothing moves these except an operator and the nightly pass.
+ */
+export function usePersonaNotes(id: string | undefined) {
+    return useQuery({
+        queryKey: queryKeys.personas.notes(id ?? ''),
+        queryFn: () => sdk.personas.listPersonaNotes(id!),
+        staleTime: PERSONAS_STALE_TIME,
+        enabled: id !== undefined,
+    });
+}
+
+/**
+ * Every notebook write, sharing one success path.
+ *
+ * The API answers each with the whole notebook for the same reason the persona routes answer with the
+ * whole list: accepting a proposal moves a row between two sections of one panel, so a caller handed
+ * back the row it named is holding a list it has to refetch to draw.
+ */
+function useNoteWrite<TArgs extends { id: string }>(mutationFn: (args: TArgs) => Promise<PersonaNoteList>) {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn,
+        onSuccess: (notes: PersonaNoteList) => {
+            queryClient.setQueryData(queryKeys.personas.notes(notes.personaId), notes);
+        },
+    });
+}
+
+export const useWritePersonaNote = () => useNoteWrite(({ id, body }: { id: string; body: PersonaNoteWrite }) => sdk.personas.writePersonaNote(id, body));
+
+export const useUpdatePersonaNote = () =>
+    useNoteWrite(({ id, noteId, body }: { id: string; noteId: string; body: PersonaNoteWrite }) => sdk.personas.updatePersonaNote(id, noteId, body));
+
+export const useDeletePersonaNote = () => useNoteWrite(({ id, noteId }: { id: string; noteId: string }) => sdk.personas.deletePersonaNote(id, noteId));
+
+/**
+ * Accept a proposal, turn one down, or rest an active note.
+ *
+ * Turning one down is deliberately NOT a delete: `rejected` outlives the pass that proposed it, and a
+ * deleted proposal comes back on the next run, forever.
+ */
+export const useSetPersonaNoteState = () =>
+    useNoteWrite(({ id, noteId, state }: { id: string; noteId: string; state: PersonaNoteState['state'] }) =>
+        sdk.personas.setPersonaNoteState(id, noteId, { state }),
+    );
 
 /**
  * Turn a description into a persona.

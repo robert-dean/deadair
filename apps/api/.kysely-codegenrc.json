@@ -45,7 +45,10 @@
             "deadair.clock_bands.at": "'clock' | 'interval'",
             "deadair.pronunciations.state": "'active' | 'suggested' | 'rejected'",
             "deadair.pronunciations.origin": "'operator' | 'gloss'",
-            "deadair.pronunciations.subject_kind": "'track' | 'album' | 'artist' | null"
+            "deadair.pronunciations.subject_kind": "'track' | 'album' | 'artist' | null",
+            "deadair.persona_notes.kind": "'said' | 'trait'",
+            "deadair.persona_notes.state": "'active' | 'suggested' | 'rejected'",
+            "deadair.persona_notes.origin": "'operator' | 'model'"
         }
     },
     "partitions": false,

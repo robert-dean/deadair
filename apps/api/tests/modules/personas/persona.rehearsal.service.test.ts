@@ -21,6 +21,18 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
     ...over,
 });
 
+/**
+ * The notebook as the service sees it.
+ *
+ * `markUsed` is here so a test can assert it was NOT called: reading the notebook is what makes a
+ * rehearsal sound like the character, and resting it would move the rotation under the next real
+ * break — the same class of thing as `recent` being empty.
+ */
+const notebook = (notes: { trait: string[]; said: string[] } = { trait: [], said: [] }) => ({
+    forPrompt: vi.fn(async () => ({ notes, ids: notes.trait.length + notes.said.length === 0 ? [] : ['n1'] })),
+    markUsed: vi.fn(),
+});
+
 const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() });
 const config = (title = 'Dead Air') => ({ get: (_: string, fallback: string) => (title === '' ? fallback : title) });
 
@@ -55,7 +67,7 @@ describe('PersonaRehearsalService', () => {
     it('rehearses the persona NAMED, never the one on air', async () => {
         const personas = { find: vi.fn(async () => persona()), active: vi.fn(), presenting: vi.fn() };
         const writers = registry(twoAttempts);
-        const service = new PersonaRehearsalService(personas as never, writers as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(personas as never, notebook() as never, writers as never, config() as never, logger() as never);
 
         await service.rehearse('p1');
 
@@ -70,7 +82,7 @@ describe('PersonaRehearsalService', () => {
     it('runs against fixed invented records and no history, so two readings can be compared', async () => {
         const personas = { find: vi.fn(async () => persona()) };
         const writers = registry(twoAttempts);
-        const service = new PersonaRehearsalService(personas as never, writers as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(personas as never, notebook() as never, writers as never, config() as never, logger() as never);
 
         await service.rehearse('p1');
         await service.rehearse('p1');
@@ -93,16 +105,33 @@ describe('PersonaRehearsalService', () => {
     it('asks for the model as a preview, so the station outranks it', async () => {
         const personas = { find: vi.fn(async () => persona()) };
         const writers = registry(twoAttempts);
-        const service = new PersonaRehearsalService(personas as never, writers as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(personas as never, notebook() as never, writers as never, config() as never, logger() as never);
 
         await service.rehearse('p1');
 
         expect(writers.seen[0]?.priority).toBe('preview');
     });
 
+    // The notebook is the one thing a rehearsal reads that it could also CHANGE, and the split
+    // between the two repository calls is the whole reason it does not. An operator clicking rehearse
+    // three times must not hand the next real break this character's fourth-choice lines.
+    it('carries the notebook and rests none of it', async () => {
+        const personas = { find: vi.fn(async () => persona()) };
+        const notes = notebook({ trait: ['has taken to calling the listener a shipmate'], said: ['called Booker T. the tightest band alive'] });
+        const writers = registry(twoAttempts);
+        const service = new PersonaRehearsalService(personas as never, notes as never, writers as never, config() as never, logger() as never);
+
+        await service.rehearse('p1');
+
+        expect(notes.forPrompt).toHaveBeenCalledWith('pirate');
+        expect(writers.seen[0]?.notebook?.trait).toEqual(['has taken to calling the listener a shipmate']);
+        expect(writers.seen[0]?.notebook?.said).toEqual(['called Booker T. the tightest band alive']);
+        expect(notes.markUsed).not.toHaveBeenCalled();
+    });
+
     it('reports the decline AND the floor underneath it, not only the winner', async () => {
         const personas = { find: vi.fn(async () => persona()) };
-        const service = new PersonaRehearsalService(personas as never, registry(declinedThenFloor) as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(personas as never, notebook() as never, registry(declinedThenFloor) as never, config() as never, logger() as never);
 
         const result = await service.rehearse('p1');
 
@@ -122,8 +151,7 @@ describe('PersonaRehearsalService', () => {
 
     it('answers with a reason and no words when every writer had nothing', async () => {
         const personas = { find: vi.fn(async () => persona()) };
-        const service = new PersonaRehearsalService(
-            personas as never,
+        const service = new PersonaRehearsalService(personas as never, notebook() as never,
             registry({
                 attempts: [{ writer: 'model', outcome: 'failed', reason: 'the station is busy', durationMs: 10_000 }],
                 reason: 'nothing wrote this talkbreak',
@@ -145,7 +173,7 @@ describe('PersonaRehearsalService', () => {
     it('is a 404 for a persona this station does not have', async () => {
         const personas = { find: vi.fn(async () => undefined) };
         const writers = registry(twoAttempts);
-        const service = new PersonaRehearsalService(personas as never, writers as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(personas as never, notebook() as never, writers as never, config() as never, logger() as never);
 
         await expect(service.rehearse('nope')).rejects.toThrow();
         // And nothing was spent on the model slot finding that out.

@@ -1,6 +1,16 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { GeneratedPersona, Persona, PersonaInput, PersonaList, PersonaRehearsal, PersonaRequest } from './types/personas.types.js';
+import type {
+    GeneratedPersona,
+    Persona,
+    PersonaInput,
+    PersonaList,
+    PersonaNoteList,
+    PersonaNoteState,
+    PersonaNoteWrite,
+    PersonaRehearsal,
+    PersonaRequest,
+} from './types/personas.types.js';
 
 export class PersonasClient {
     constructor(private fetch: SdkFetch) {}
@@ -78,6 +88,63 @@ export class PersonasClient {
     async putPersonaOnAir(id: string): Promise<PersonaList> {
         const result = await this.fetch(`/personas/${encodeURIComponent(id)}/active`, { method: 'PUT' });
         return await parseJson<PersonaList>(result);
+    }
+
+    /**
+     * @name List persona notes
+     * @description Everything this character has accumulated, oldest first, in every state
+     */
+    async listPersonaNotes(id: string): Promise<PersonaNoteList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/notes`, { method: 'GET' });
+        return await parseJson<PersonaNoteList>(result);
+    }
+
+    /**
+     * @name Write persona note
+     * @description Writes a note by hand. An operator's own note is active from the moment it exists; only the distil pass proposes
+     */
+    async writePersonaNote(id: string, body: PersonaNoteWrite): Promise<PersonaNoteList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/notes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaNoteList>(result);
+    }
+
+    /**
+     * @name Update persona note
+     * @description Rewrites one note's words, whoever wrote it. Editing what the station proposed is most of the point of the panel
+     */
+    async updatePersonaNote(id: string, noteId: string, body: PersonaNoteWrite): Promise<PersonaNoteList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/notes/${encodeURIComponent(noteId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaNoteList>(result);
+    }
+
+    /**
+     * @name Delete persona note
+     * @description Removes a note outright. Turning down a PROPOSAL is a state rather than this, or the next pass writes it again
+     */
+    async deletePersonaNote(id: string, noteId: string): Promise<PersonaNoteList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/notes/${encodeURIComponent(noteId)}`, { method: 'DELETE' });
+        return await parseJson<PersonaNoteList>(result);
+    }
+
+    /**
+     * @name Set persona note state
+     * @description Accepts a proposal, turns one down, or rests an active note. Mirrors the lexicon's own state route
+     */
+    async setPersonaNoteState(id: string, noteId: string, body: PersonaNoteState): Promise<PersonaNoteList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/notes/${encodeURIComponent(noteId)}/state`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaNoteList>(result);
     }
 
     /**

@@ -5,6 +5,7 @@ options {
     services: {
         PersonasService: "#src/modules/personas/personas.service.js"
         PersonaRehearsalService: "#src/modules/personas/persona.rehearsal.service.js"
+        PersonaNotesService: "#src/modules/personas/persona.notes.service.js"
     }
     security: {
         # The floor for this file is the WRITE end, unlike settings beside it, because this file is
@@ -118,6 +119,91 @@ operation /personas/{id}/active: {
         response: {
             200: {
                 application/json: PersonaList
+            }
+        }
+    }
+}
+
+# What this character has accumulated beyond its sheet.
+#
+# Every mutation answers the whole notebook, on this file's own rule one level down: accepting a
+# proposal moves one row between two sections of the same panel, and a caller handed back only the row
+# it named holds a list it has to refetch anyway.
+#
+# The READ is `platform.view` like the persona list beside it, because a notebook is part of reading
+# the station. Everything else inherits the file's `platform.manage` floor.
+operation /personas/{id}/notes: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    get: { # Everything this character has accumulated, oldest first, in every state
+        name: List persona notes
+        service: PersonaNotesService.list
+        security: {
+            policy: platform.view
+        }
+        response: {
+            200: {
+                application/json: PersonaNoteList
+            }
+        }
+    }
+    post: { # Writes a note by hand. An operator's own note is active from the moment it exists; only the distil pass proposes
+        name: Write persona note
+        service: PersonaNotesService.create
+        request: {
+            application/json: PersonaNoteWrite
+        }
+        response: {
+            201: {
+                application/json: PersonaNoteList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/notes/{noteId}: {
+    params: {
+        id: string(min=1, max=100)
+        noteId: string(min=1, max=100)
+    }
+    put: { # Rewrites one note's words, whoever wrote it. Editing what the station proposed is most of the point of the panel
+        name: Update persona note
+        service: PersonaNotesService.update
+        request: {
+            application/json: PersonaNoteWrite
+        }
+        response: {
+            200: {
+                application/json: PersonaNoteList
+            }
+        }
+    }
+    delete: { # Removes a note outright. Turning down a PROPOSAL is a state rather than this, or the next pass writes it again
+        name: Delete persona note
+        service: PersonaNotesService.remove
+        response: {
+            200: {
+                application/json: PersonaNoteList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/notes/{noteId}/state: {
+    params: {
+        id: string(min=1, max=100)
+        noteId: string(min=1, max=100)
+    }
+    put: { # Accepts a proposal, turns one down, or rests an active note. Mirrors the lexicon's own state route
+        name: Set persona note state
+        service: PersonaNotesService.setState
+        request: {
+            application/json: PersonaNoteState
+        }
+        response: {
+            200: {
+                application/json: PersonaNoteList
             }
         }
     }

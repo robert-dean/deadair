@@ -3,6 +3,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { readdir, readFile, rm, stat } from 'node:fs/promises';
 import { join, resolve, sep } from 'node:path';
 import { createStream, type RotatingFileStream } from 'rotating-file-stream';
+import { numberFrom } from '#modules/shared/setting.numbers.js';
 
 /**
  * Hard ceiling on {@link RotatingLogStoreOptions.maxLineBytes}.
@@ -153,11 +154,15 @@ export class RotatingLogStore {
 
     constructor(options: RotatingLogStoreOptions) {
         this.root = options.root;
-        this.maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
-        this.maxFiles = options.maxFiles ?? DEFAULT_MAX_FILES;
-        this.maxValueChars = options.maxValueChars ?? DEFAULT_MAX_VALUE_CHARS;
+        // Coerced rather than trusted, even though the one production caller now validates: this is
+        // constructed directly by five smoke scripts and every test, and the way it fails on a
+        // string is not a throw but silent nonsense — `${'2MB'}B` as a size, and a `>` below that
+        // compares lexically. Cheap here, and it makes the type true rather than merely declared.
+        this.maxBytes = numberFrom(options.maxBytes, DEFAULT_MAX_BYTES);
+        this.maxFiles = numberFrom(options.maxFiles, DEFAULT_MAX_FILES);
+        this.maxValueChars = numberFrom(options.maxValueChars, DEFAULT_MAX_VALUE_CHARS);
 
-        const requestedMaxLineBytes = options.maxLineBytes ?? DEFAULT_MAX_LINE_BYTES;
+        const requestedMaxLineBytes = numberFrom(options.maxLineBytes, DEFAULT_MAX_LINE_BYTES);
         if (requestedMaxLineBytes > MAX_LINE_BYTES_CEILING) {
             console.warn(
                 `[RotatingLogStore] maxLineBytes (${requestedMaxLineBytes}) exceeds the ` +

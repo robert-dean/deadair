@@ -11,6 +11,7 @@ import { scrubProcessEnv } from './scrub.process.env.js';
 import { DeadairLogger } from '#src/logging/deadair.logger.js';
 import { RotatingLogStore } from '#src/logging/rotating.log.store.js';
 import { setLogStore } from '#src/logging/log.store.js';
+import { requiredNumber } from '#modules/shared/setting.numbers.js';
 
 export const setupServer = async () => {
     const serverBuilder = new ServerKitServerBuilder();
@@ -26,15 +27,21 @@ export const setupServer = async () => {
         .addResolver(new AppConfigResolverEnv())
         .buildSnapshot();
 
-    // A present-but-malformed LOG_MAX_* value (e.g. `LOG_MAX_BYTES=2MB`) must fail loudly here,
-    // at boot, naming the offending variable and value — not flow through as NaN and surface
-    // later as a silently empty logs directory. See log.env.ts for why.
+    // Read through `requiredNumber`, so a present-but-malformed value (`LOG_MAX_BYTES=2MB`) stops
+    // the process here, naming the variable and what it was set to.
+    //
+    // These arrive as STRINGS however numeric they look — every AppConfig layer holds text — and
+    // the typing hides it, because the default widens the return to `number`. Passed straight
+    // through, `'2MB'` became the size `'2MBB'`, `createStream` threw on the first append, and
+    // `append`'s never-throw wrapper turned that into one `console.warn` per line: a server that
+    // looked healthy with an empty logs directory, which is the outcome this comment has always
+    // said must not happen. It pointed at a `log.env.ts` that was never written.
     const logStore = new RotatingLogStore({
         root: boot.get('LOGS_DIR', './logs'),
-        maxBytes: boot.get('LOG_MAX_BYTES', 2 * 1024 * 1024),
-        maxFiles: boot.get('LOG_MAX_FILES', 3),
-        maxValueChars: boot.get('LOG_MAX_VALUE_CHARS', 512),
-        maxLineBytes: boot.get('LOG_MAX_LINE_BYTES', 8 * 1024),
+        maxBytes: requiredNumber(boot, 'LOG_MAX_BYTES', 2 * 1024 * 1024),
+        maxFiles: requiredNumber(boot, 'LOG_MAX_FILES', 3),
+        maxValueChars: requiredNumber(boot, 'LOG_MAX_VALUE_CHARS', 512),
+        maxLineBytes: requiredNumber(boot, 'LOG_MAX_LINE_BYTES', 8 * 1024),
     });
     setLogStore(logStore);
 

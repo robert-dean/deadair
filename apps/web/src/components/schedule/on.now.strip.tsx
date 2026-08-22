@@ -145,8 +145,9 @@ function Ahead({
  * The hours no block claims.
  *
  * Its own cell rather than an empty one, because a gap is an ordinary state and the station is not
- * silent through it — it plays the sustaining source, which is a setting rather than a block and so
- * has nothing on the grid to point at.
+ * silent through it — it plays the sustaining source, which is not a block and so has nothing on the
+ * grid to point at. What it IS set to is the panel under the grid, which is near enough to this to
+ * need no link.
  */
 function Sustaining({ next, now }: { next?: ScheduleOccurrence; now: string }) {
     return (

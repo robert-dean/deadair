@@ -14,6 +14,7 @@ import { OnNowStrip } from './on.now.strip';
 import { colorOf, weekdayOf } from './schedule.day';
 import { blockEdit, minutesOf, type DraggedBlock, type SlotEdit } from './schedule.edits';
 import { SlotEditor, type EditorTarget } from './slot.editor';
+import { SustainingPanel } from './sustaining.panel';
 
 /**
  * The station's day, drawn as the timetable it is.
@@ -53,6 +54,15 @@ import { SlotEditor, type EditorTarget } from './slot.editor';
  *
  * Saving a slot takes effect when it next comes round, and the record playing at a boundary always
  * finishes. That is the invariant the schedule lives inside rather than a limitation of the page.
+ *
+ * ## The hours nothing claims are edited here too
+ *
+ * A gap is an ordinary state rather than a fault, and what plays through one is the sustaining
+ * source — a playlist or a brief and a period, with no times and no days, which is a slot with the
+ * when-half taken off. It is stored as station settings and was drawn on the settings page for as
+ * long as that was true of it, which put the answer to "what plays in the white space on this grid"
+ * on a card about rotation rules two pages away. `SustainingPanel` is it, behind a fold under the
+ * grid.
  *
  * ## A bulletin is not a slot
  *
@@ -173,7 +183,7 @@ export function SchedulePage() {
                 description={
                     <Text c="dimmed" size="sm">
                         What the station plays at each stretch of the day, on its own clock. Blocks may leave gaps, and the hours nothing covers play
-                        whatever the station is set to sustain on. Changing a block takes effect when it next comes round, and the record playing at a
+                        the sustaining source set under the grid. Changing a block takes effect when it next comes round, and the record playing at a
                         boundary always finishes.
                     </Text>
                 }
@@ -238,6 +248,10 @@ export function SchedulePage() {
                     </Text>
                 </Stack>
             )}
+
+            {/* The hours no block claims, directly under the grid that draws them empty: this is
+                still what the station PLAYS, where the format clock below is what it says. */}
+            <SustainingPanel />
 
             {/* The other half of "what happens when", under the grid rather than beside it: a band
                 is a rule about every hour and has no place on a week. */}
@@ -307,9 +321,9 @@ function newSlotAt(slotStart: string): EditorTarget {
  * conclude nothing was saved.
  */
 function caption(slotCount: number): string {
-    if (slotCount === 0) return 'Nothing is scheduled, so the station plays whatever it is set to sustain on.';
+    if (slotCount === 0) return 'Nothing is scheduled, so the station plays the sustaining source set below.';
 
-    return 'A repeating week: every block runs on the days it is set to, so these dates show the pattern rather than one-off programming. The hours nothing covers play the sustaining source.';
+    return 'A repeating week: every block runs on the days it is set to, so these dates show the pattern rather than one-off programming. The hours nothing covers play the sustaining source set below.';
 }
 
 /**

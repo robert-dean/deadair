@@ -36,20 +36,27 @@ interface FakeHostOptions {
     predefinedStatus?: number;
     /** Status for the OpenAI-shaped voice list, which is the fallback behind the named one. */
     voicesStatus?: number;
-    /** What the server's schema declares `response_format` accepts. */
+    /** What the server's schema declares `output_format` accepts. */
     formats?: string[];
     /** Status for `/openapi.json`. 404 is a server built with its schema switched off. */
     openapiStatus?: number;
 }
 
-/** As much of a FastAPI schema document as the plugin reads, with the accepted formats in it. */
+/**
+ * As much of a FastAPI schema document as the plugin reads, with the accepted formats in it.
+ *
+ * The `anyOf` around the enum is the real shape and not padding: `output_format` is optional on the
+ * native endpoint, so it generates as a union with `null` where the OpenAI arm's `response_format`
+ * was a bare enum. A reader that only understands the bare form answers nothing here and the form
+ * silently falls back to the manifest's superset, which is a save the server then refuses.
+ */
 const openApiDocument = (formats: string[]): unknown => ({
     paths: {
-        '/v1/audio/speech': {
-            post: { requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/OpenAISpeechRequest' } } } } },
+        '/tts': {
+            post: { requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/CustomTTSRequest' } } } } },
         },
     },
-    components: { schemas: { OpenAISpeechRequest: { properties: { response_format: { enum: formats } } } } },
+    components: { schemas: { CustomTTSRequest: { properties: { output_format: { anyOf: [{ enum: formats }, { type: 'null' }] } } } } },
 });
 
 function fakeHost(options: FakeHostOptions = {}) {
@@ -59,7 +66,7 @@ function fakeHost(options: FakeHostOptions = {}) {
     const host: FakePluginHost = createFakePluginHost();
 
     host.setFetchImpl(async (url: string): Promise<Response> => {
-        if (url.endsWith('/audio/speech')) {
+        if (url.endsWith('/tts')) {
             const status = options.speakStatus ?? 200;
             const ok = status >= 200 && status < 300;
             return new Response(ok ? streamOf(options.chunks ?? [audioChunk()]) : streamOf([Buffer.from('{"detail":"nope"}')]), { status });
@@ -100,7 +107,7 @@ async function started(options: FakeHostOptions = {}) {
 /** Every url this plugin reached, in order, as a short name. */
 const reached = (calls: RecordedFetchCall[]): string[] =>
     calls.map(call => {
-        if (call.url.endsWith('/audio/speech')) return 'speak';
+        if (call.url.endsWith('/tts')) return 'speak';
         if (call.url.endsWith('/api/model-info')) return 'info';
         if (call.url.endsWith('/restart_server')) return 'load';
         if (call.url.endsWith('/api/unload')) return 'unload';
@@ -108,7 +115,7 @@ const reached = (calls: RecordedFetchCall[]): string[] =>
     });
 
 const speechRequest = (calls: RecordedFetchCall[]): Record<string, unknown> => {
-    const call = calls.find(candidate => candidate.url.endsWith('/audio/speech'));
+    const call = calls.find(candidate => candidate.url.endsWith('/tts'));
     return JSON.parse(call?.body ?? '{}') as Record<string, unknown>;
 };
 
@@ -153,8 +160,50 @@ describe('ChatterboxPlugin.speak', () => {
         const handle = await plugin.speak({ text: 'hello', voice: 'newsreader' });
         await drain(handle.audio);
 
-        expect(speechRequest(calls).voice).toBe('Michael.wav');
-        expect(speechRequest(calls).speed).toBe(0.9);
+        expect(speechRequest(calls).predefined_voice_id).toBe('Michael.wav');
+        expect(speechRequest(calls).speed_factor).toBe(0.9);
+    });
+
+    // The endpoint this now posts to is the one carrying the engine's expressiveness dials, and
+    // reaching them is the whole reason for being here. Sending one is a separate decision with a
+    // contract change behind it — a dial belongs either on a voice or on a request, and moving the
+    // transport must not answer that by accident. So the absence is pinned rather than assumed.
+    it('sends no expressiveness dial, because where one belongs is not decided here', async () => {
+        const { plugin, calls } = await started({
+            config: { voices: voiceRows({ name: 'host', engine: 'Olivia.wav' }) },
+        });
+
+        const handle = await plugin.speak({ text: 'hello', voice: 'host' });
+        await drain(handle.audio);
+
+        const body = speechRequest(calls);
+        for (const dial of ['exaggeration', 'cfg_weight', 'temperature', 'seed']) {
+            expect(body, `${dial} reached the engine`).not.toHaveProperty(dial);
+        }
+    });
+
+    // A predefined clip, never an uploaded reference. `clone` is a second way to name a voice and
+    // belongs beside the clip in the mapping table if it is ever wanted.
+    it('asks for a predefined clip rather than a cloned reference', async () => {
+        const { plugin, calls } = await started();
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+
+        expect(speechRequest(calls).voice_mode).toBe('predefined');
+        expect(speechRequest(calls)).not.toHaveProperty('reference_audio_filename');
+    });
+
+    // The streaming arm always answers WAV whatever `output_format` said, and the body is handed
+    // back as a stream either way, so asking for it would trade the operator's format for nothing.
+    it('does not ask the server to stream, so the chosen format survives', async () => {
+        const { plugin, calls } = await started({ config: { format: 'opus' } });
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+
+        expect(speechRequest(calls).stream).toBe(false);
+        expect(speechRequest(calls).output_format).toBe('opus');
     });
 
     it('falls back to the default clip for a name it has no mapping for, and says so', async () => {
@@ -163,7 +212,7 @@ describe('ChatterboxPlugin.speak', () => {
         const handle = await plugin.speak({ text: 'hello', voice: 'renamed-persona' });
         await drain(handle.audio);
 
-        expect(speechRequest(calls).voice).toBe('Olivia.wav');
+        expect(speechRequest(calls).predefined_voice_id).toBe('Olivia.wav');
         expect(host.logger.warn).toHaveBeenCalled();
     });
 
@@ -178,7 +227,7 @@ describe('ChatterboxPlugin.speak', () => {
             const handle = await plugin.speak({ text: 'hello', voice: 'newsreader' });
             await drain(handle.audio);
 
-            expect(speechRequest(calls).voice).toBe('Abigail.wav');
+            expect(speechRequest(calls).predefined_voice_id).toBe('Abigail.wav');
         }
     });
 
@@ -190,7 +239,7 @@ describe('ChatterboxPlugin.speak', () => {
         const handle = await plugin.speak({ text: 'hello', voice: 'newsreader' });
         await drain(handle.audio);
 
-        expect(speechRequest(calls).voice).toBe('Miles.wav');
+        expect(speechRequest(calls).predefined_voice_id).toBe('Miles.wav');
     });
 });
 

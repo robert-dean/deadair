@@ -16,7 +16,6 @@ import {
     DEFAULT_UNLOAD_AFTER_RENDER,
     DEFAULT_VOICE,
     PROBE_TIMEOUT_MS,
-    REQUEST_MODEL,
     RESPONSE_FORMATS,
     SPEAK_TIMEOUT_MS,
     chatterboxManifest,
@@ -132,10 +131,26 @@ const whenFinished = (source: ReadableStream<Uint8Array>, onDone: () => void): R
  * this engine does not reload itself after an unload and the previous render may
  * have been the thing that unloaded it.
  *
- * This is the OpenAI-compatible path only. The engine's own `/tts` adds voice
- * cloning and expressiveness dials, which are the capabilities that most
- * distinguish it, and they are deliberately left for later: the lifecycle work
- * above is what any integration needs and is worth having on its own.
+ * ## Synthesis goes through the engine's own `/tts`
+ *
+ * It went through the OpenAI-compatible `/audio/speech` first, which was the right
+ * order — the lifecycle work above is what any integration needs — but that shape
+ * is the plainest thing an engine can expose and this one is not a plain engine.
+ * `/tts` is where it keeps `exaggeration`, `cfg_weight`, `temperature` and `seed`,
+ * which are the controls that most distinguish it and the only route the station
+ * has to a delivery rather than a voice.
+ *
+ * **None of those four is sent, deliberately.** This is the transport standing
+ * where they are reachable, not the feature: whether a dial belongs on a voice
+ * (a character is consistently intense) or on a REQUEST (one break shouts and the
+ * next is hushed) is a decision with a contract change behind it, and moving the
+ * endpoint should not smuggle in an answer. Anything added here owes
+ * `SpeechVoice.spec` a thought first — it keys the cached voice preview, so a knob
+ * that changes the rendering and not the key plays the old voice back.
+ *
+ * The other half of `/tts` is `voice_mode: 'clone'`, which reads a reference WAV
+ * the operator uploaded. Also not taken: it is a second way to name a voice, and
+ * it belongs in the mapping table beside the clip rather than in this call.
  */
 export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     private baseUrl = '';
@@ -285,17 +300,27 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         const mapping = this.resolveVoice(request.voice);
         const voice = mapping.engine;
 
-        const response = await this.host.fetch(`${this.baseUrl}/audio/speech`, {
+        const response = await this.host.fetch(`${serverRootOf(this.baseUrl)}/tts`, {
             method: 'POST',
             headers: { 'content-type': 'application/json', ...this.authHeaders() },
             body: JSON.stringify({
-                // Required by the schema and ignored by the server, which holds one model at a
-                // time and chooses it itself. See `REQUEST_MODEL`.
-                model: REQUEST_MODEL,
-                input: text,
-                voice,
-                response_format: format,
-                ...(mapping.speed === undefined ? {} : { speed: mapping.speed }),
+                text,
+                // A predefined clip rather than an upload. `clone` takes a reference WAV the operator
+                // has pushed to the server, which is a second way to name a voice and belongs with
+                // the mapping table if it is ever wanted, not here.
+                voice_mode: 'predefined',
+                predefined_voice_id: voice,
+                output_format: format,
+                // The streaming arm ignores `output_format` and always answers WAV, and this plugin
+                // hands the response body back either way, so the audio is already in flight without
+                // it. Asking for it would trade the operator's chosen format for nothing.
+                stream: false,
+                // The operator's own column, under this endpoint's name for it. Measured on the
+                // running server: 4.120s at 1.0 against 4.950s at 0.8, which is the same
+                // post-synthesis stretch the OpenAI-shaped `speed` performed, with the same smearing.
+                // Sent anyway, because `DEFAULT_VOICE_ROWS` no longer ships one and the field's help
+                // now says what it costs, so a speed in the table is somebody asking for it.
+                ...(mapping.speed === undefined ? {} : { speed_factor: mapping.speed }),
             }),
             timeoutMs: SPEAK_TIMEOUT_MS,
         });
@@ -341,9 +366,11 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
      *
      * The request schema is reached through the speech path's own `$ref` rather
      * than by its generated name, because the name is the upstream's Python class
-     * and a rename there would silently take the narrowing off. The path is derived
-     * from the configured address for the same reason `serverRootOf` exists: the
-     * document's keys are server-root-relative and the `/v1` is the operator's.
+     * and a rename there would silently take the narrowing off. It reads the path
+     * `speak` actually posts to, which is the point of asking at all: a document
+     * that describes one endpoint is no evidence about another, and the two here
+     * genuinely differ (`response_format` on the OpenAI arm, `output_format` on
+     * this one).
      *
      * Intersected with {@link RESPONSE_FORMATS}, which is the half the server never
      * reports — a format with no MIME cannot be stored, and `configSchema` would
@@ -355,7 +382,9 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
      */
     private async fetchSupportedFormats(): Promise<ConfigFieldOption[]> {
         const root = serverRootOf(this.baseUrl);
-        const speechPath = `${this.baseUrl.replace(/\/+$/, '')}/audio/speech`.slice(root.length);
+        // Server-root-relative, which is what the document's keys are, and the same literal `speak`
+        // builds its URL from.
+        const speechPath = '/tts';
 
         try {
             const response = await this.host.fetch(`${root}/openapi.json`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
@@ -367,9 +396,8 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
             const document = await tryJsonBody<OpenApiDocument>(response);
             const reference = document?.paths?.[speechPath]?.post?.requestBody?.content?.['application/json']?.schema?.$ref;
             const schemaName = typeof reference === 'string' ? reference.split('/').pop() : undefined;
-            const declared: unknown =
-                schemaName === undefined ? undefined : document?.components?.schemas?.[schemaName]?.properties?.response_format?.enum;
-            if (!Array.isArray(declared)) return [];
+            const declared = schemaName === undefined ? undefined : enumOf(document?.components?.schemas?.[schemaName]?.properties?.output_format);
+            if (declared === undefined) return [];
 
             return declared.flatMap((entry: unknown) => (isResponseFormat(entry) ? [{ value: entry, label: entry }] : []));
         } catch (error) {
@@ -451,8 +479,37 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
  */
 interface OpenApiDocument {
     paths?: Record<string, { post?: { requestBody?: { content?: Record<string, { schema?: { $ref?: unknown } }> } } }>;
-    components?: { schemas?: Record<string, { properties?: Record<string, { enum?: unknown }> }> };
+    components?: { schemas?: Record<string, { properties?: Record<string, JsonSchemaProperty | undefined> }> };
 }
+
+/** One property of a request schema, as much of it as {@link enumOf} walks. */
+interface JsonSchemaProperty {
+    enum?: unknown;
+    anyOf?: readonly JsonSchemaProperty[];
+}
+
+/**
+ * A property's allowed values, whether or not it is wrapped in a nullable union.
+ *
+ * The wrapper is why this is a function rather than a property read. An optional field on this
+ * server's native schema is generated as `anyOf: [{enum: [...]}, {type: 'null'}]`, where the OpenAI
+ * arm's equivalent is a bare `enum` — so the reader that worked against one answers `undefined`
+ * against the other, and the failure is silent in the worst way: the form falls back to the
+ * manifest's own list, which is a superset, and the operator saves a format the server refuses.
+ *
+ * One level of `anyOf` and no deeper, because that is the shape a nullable field generates and
+ * chasing an arbitrary schema graph here would be building a validator for one dropdown.
+ */
+const enumOf = (property: JsonSchemaProperty | undefined): unknown[] | undefined => {
+    if (property === undefined) return undefined;
+    if (Array.isArray(property.enum)) return property.enum;
+
+    for (const branch of property.anyOf ?? []) {
+        if (Array.isArray(branch.enum)) return branch.enum;
+    }
+
+    return undefined;
+};
 
 /** The lifecycle module owns this rule; repeated here for the one call that is not its own. */
 const serverRootOf = (baseUrl: string): string => baseUrl.replace(/\/+$/, '').replace(/\/v\d+$/, '');

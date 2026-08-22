@@ -25,20 +25,6 @@ export const PLUGIN_VERSION = '0.0.1';
 export const DEFAULT_BASE_URL = 'http://localhost:8004/v1';
 
 /**
- * What goes in the request's `model`, and why it is a constant rather than a field.
- *
- * `OpenAISpeechRequest` marks `model` required and this server does not dispatch on
- * it: one model is resident at a time, named by the server's OWN config
- * (`config.model.repo_id`), swapped by `/restart_server`, and there is no endpoint
- * that enumerates any others — no `/v1/models`, and `/api/model-info` describes what
- * is loaded rather than what could be. So the field this used to be the default of
- * was a box that looked like a choice, could not be filled from the server, and
- * changed nothing whichever way it was filled. It is a note now, and
- * `testConnection` is where the live answer comes from.
- */
-export const REQUEST_MODEL = 'chatterbox';
-
-/**
  * A voice that exists on a stock install.
  *
  * A FILENAME, which is the thing to know about this engine's voices: they are
@@ -214,7 +200,7 @@ export const chatterboxManifest: PluginManifest = {
             type: 'url',
             required: true,
             default: DEFAULT_BASE_URL,
-            help: 'The OpenAI-compatible root, ending in /v1. Model management lives one level above it and is derived from this.',
+            help: 'The OpenAI-compatible root, ending in /v1. Synthesis and model management both live one level above it and are derived from this.',
         },
         {
             key: 'apiKey',
@@ -226,7 +212,7 @@ export const chatterboxManifest: PluginManifest = {
             key: 'modelNote',
             type: 'note',
             label:
-                'There is no model to pick here: this server holds one at a time, named in its own configuration and swapped by restarting it, and the request carries a placeholder it ignores. ' +
+                'There is no model to pick here: this server holds one at a time, named in its own configuration and swapped by restarting it, and the synthesis request does not name one at all. ' +
                 'Test connection reports which model is loaded and what it is running on.',
         },
         {

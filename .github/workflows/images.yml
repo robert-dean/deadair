@@ -1,0 +1,96 @@
+name: Images
+
+on:
+    workflow_call:
+        inputs:
+            push:
+                description: Publish the images, rather than only proving they build.
+                type: boolean
+                default: false
+
+permissions:
+    contents: read
+
+env:
+    IMAGE: deadair/deadair
+
+jobs:
+    image:
+        runs-on: ubuntu-latest
+        timeout-minutes: 90
+        strategy:
+            # One variant failing should not hide the state of the others.
+            fail-fast: false
+            matrix:
+                include:
+                    # The station and nothing under it: the operator brings a database, a cache
+                    # and a speech server of their own.
+                    - variant: slim
+                      args: |
+                          WITH_TTS=0
+                          WITH_DB=0
+                    # The default. A speech server is bundled because a station with no voice is
+                    # not a station; the database and cache are still the operator's.
+                    - variant: latest
+                      args: |
+                          WITH_TTS=1
+                          WITH_DB=0
+                    # Everything, for a host with nothing on it.
+                    - variant: full
+                      args: |
+                          WITH_TTS=1
+                          WITH_DB=1
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Set up Buildx
+              uses: docker/setup-buildx-action@v4
+
+            # A release that cannot publish should still say whether the image builds, rather than
+            # failing at the login step and reporting nothing about the thing it was testing.
+            - name: Check for registry credentials
+              id: credentials
+              env:
+                  USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+              run: |
+                  if [ -n "$USERNAME" ]; then
+                      echo 'present=true' >> "$GITHUB_OUTPUT"
+                  else
+                      echo 'present=false' >> "$GITHUB_OUTPUT"
+                      echo "::warning::No registry credentials (DOCKERHUB_USERNAME / DOCKERHUB_TOKEN); building without publishing."
+                  fi
+
+            - name: Log in to the registry
+              if: inputs.push && steps.credentials.outputs.present == 'true'
+              uses: docker/login-action@v4
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            # `latest` is the default variant, so it carries the bare sha tag as well; the other
+            # two prefix theirs, because a sha alone would not say which station it was.
+            - name: Work out the tags
+              id: tags
+              run: |
+                  if [ "${{ matrix.variant }}" = "latest" ]; then
+                      echo "value=${IMAGE}:latest,${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "value=${IMAGE}:${{ matrix.variant }},${IMAGE}:${{ matrix.variant }}-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Build${{ inputs.push && ' and push' || '' }}
+              uses: docker/build-push-action@v7
+              with:
+                  context: .
+                  push: ${{ inputs.push && steps.credentials.outputs.present == 'true' }}
+                  platforms: linux/amd64
+                  build-args: ${{ matrix.args }}
+                  tags: ${{ steps.tags.outputs.value }}
+                  # Per variant, because they diverge only in their last layers and a shared
+                  # scope would have three jobs writing over each other's manifest.
+                  cache-from: type=gha,scope=image-${{ matrix.variant }}
+                  cache-to: type=gha,mode=max,scope=image-${{ matrix.variant }}

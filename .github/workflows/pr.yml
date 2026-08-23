@@ -1,0 +1,19 @@
+name: Pull Request
+
+on:
+    pull_request:
+
+permissions:
+    contents: read
+
+jobs:
+    build:
+        uses: ./.github/workflows/build.yml
+        secrets: inherit
+
+    # Built and thrown away. A Dockerfile that has stopped building is worth knowing about
+    # before it is merged, not on the release that needed it.
+    images:
+        uses: ./.github/workflows/images.yml
+        with:
+            push: false

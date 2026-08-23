@@ -1,0 +1,27 @@
+name: Release
+
+on:
+    push:
+        branches:
+            - main
+
+# One release at a time, and never cancelled: a run interrupted between two variants
+# leaves the registry holding half a release with nothing saying so.
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+
+jobs:
+    build:
+        uses: ./.github/workflows/build.yml
+        secrets: inherit
+
+    images:
+        needs: [build]
+        uses: ./.github/workflows/images.yml
+        with:
+            push: true
+        secrets: inherit

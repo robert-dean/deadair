@@ -48,8 +48,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@maroonedsoftware/appconfig':
-        specifier: ^2.4.6
-        version: 2.4.6(pg@8.22.0)(yaml@2.9.0)
+        specifier: ^2.5.0
+        version: 2.5.0(pg@8.22.0)(yaml@2.9.0)
       '@maroonedsoftware/authentication':
         specifier: ^4.30.6
         version: 4.30.6(ioredis@6.0.0)
@@ -69,8 +69,8 @@ importers:
         specifier: ^1.11.5
         version: 1.11.5(pg-boss@12.27.0)
       '@maroonedsoftware/koa':
-        specifier: ^3.0.8
-        version: 3.0.8(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)
+        specifier: ^3.0.9
+        version: 3.0.9(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)
       '@maroonedsoftware/kysely':
         specifier: ^0.7.8
         version: 0.7.8
@@ -1147,8 +1147,8 @@ packages:
       react: ^19.2.0
       react-dom: ^19.2.0
 
-  '@maroonedsoftware/appconfig@2.4.6':
-    resolution: {integrity: sha512-o9N8emSQ1ra4lCBDwd64nPKL3wBQiSeZwtgJ7V/z/iabFaUkhijF8lGYIqnZPruSLMOq1izQOQf23BokMgWsnA==}
+  '@maroonedsoftware/appconfig@2.5.0':
+    resolution: {integrity: sha512-w//AoI3GLNIDZiSH5SMw+XCmSWPjIxBNcELoHCJFTqPwJbHDvCQiSQ9LWUxEUXLvjCw3rLCDXjEIC6Ck6KOWVw==}
     engines: {node: '>=22'}
     peerDependencies:
       '@aws-sdk/client-secrets-manager': ^3.1057.0
@@ -1199,8 +1199,8 @@ packages:
       pg-boss:
         optional: true
 
-  '@maroonedsoftware/koa@3.0.8':
-    resolution: {integrity: sha512-O2bGVE/HNhWnFil0v8Z1L7FdC6BATRpoW4ugZCBTElTuvW+P7CQpV8r7M3VQnlpREhmCW01mb4D3HaYlsStC5A==}
+  '@maroonedsoftware/koa@3.0.9':
+    resolution: {integrity: sha512-QOLwA96mVIZ0TIwLtzPUvIZace+jumqK06TMDkI/QRsyGa9KMlP5HJTeekzR0nF5gN5C0KchmRW6u04ehBdnLQ==}
     engines: {node: '>=22'}
     peerDependencies:
       '@koa/cors': ^5.0.0
@@ -5299,7 +5299,7 @@ snapshots:
       react-dom: 19.2.8(react@19.2.8)
       rrule: 2.8.1
 
-  '@maroonedsoftware/appconfig@2.4.6(pg@8.22.0)(yaml@2.9.0)':
+  '@maroonedsoftware/appconfig@2.5.0(pg@8.22.0)(yaml@2.9.0)':
     dependencies:
       '@maroonedsoftware/errors': 1.8.5
       '@maroonedsoftware/logger': 1.1.8
@@ -5365,12 +5365,12 @@ snapshots:
     optionalDependencies:
       pg-boss: 12.27.0
 
-  '@maroonedsoftware/koa@3.0.8(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)':
+  '@maroonedsoftware/koa@3.0.9(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)':
     dependencies:
       '@hapi/bourne': 4.0.1
       '@koa/cors': 5.0.0
       '@koa/router': 15.7.0(koa@3.2.1)
-      '@maroonedsoftware/appconfig': 2.4.6(pg@8.22.0)(yaml@2.9.0)
+      '@maroonedsoftware/appconfig': 2.5.0(pg@8.22.0)(yaml@2.9.0)
       '@maroonedsoftware/authentication': 4.30.6(ioredis@6.0.0)
       '@maroonedsoftware/errors': 1.8.5
       '@maroonedsoftware/logger': 1.1.8

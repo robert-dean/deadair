@@ -1,6 +1,5 @@
 import { ConsoleLogger } from '@maroonedsoftware/logger';
-import { AppConfigBuilder, AppConfigResolverEnv, AppConfigSourceDotenv } from '@maroonedsoftware/appconfig';
-import { AppConfigSourceEnv } from './env.config.source.js';
+import { AppConfigBuilder, AppConfigResolverEnv, AppConfigSourceDotenv, AppConfigSourceEnv } from '@maroonedsoftware/appconfig';
 import { settingsConfigSource } from './settings.config.source.js';
 import { setConfigStore } from './config.store.js';
 import { setupMiddleware } from './setup.middleware.js';
@@ -23,7 +22,7 @@ export const setupServer = async () => {
     // rather than two, because the snapshot is taken when it is constructed and `scrubProcessEnv`
     // runs after both: a second one built later would be built out of an environment with the
     // secrets already removed from it.
-    const environment = new AppConfigSourceEnv();
+    const environment = new AppConfigSourceEnv({ groupSeparator: '__' });
 
     // The boot config: environment only, and the only one available until there is somewhere to
     // write logs. Everything read off it here is infrastructure the app needs BEFORE it can reach

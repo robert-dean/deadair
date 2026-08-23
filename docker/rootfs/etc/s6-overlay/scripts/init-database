@@ -49,6 +49,24 @@ CONFIG
 # while it is: the station is starting at the same time.
 s6-setuidgid deadair "$PGBIN/pg_ctl" --pgdata="$CLUSTER" --wait --options="-c listen_addresses=" start >&2
 s6-setuidgid deadair "$PGBIN/createdb" --host=/run/postgresql --username="${DATABASE_USER:-deadair}" "${DATABASE_NAME:-deadair}" >&2
+
+# Postgres resolves an unqualified name against `"$user", public`, so a role that happens to be
+# named after a schema silently owns every unqualified reference the moment that schema exists.
+# The role here is `deadair` and so is the station's schema, which broke migrating a cluster this
+# image had just created: dbmate made its bookkeeping table in `public`, because at that moment
+# nothing else existed, then applied the migration that creates the `deadair` schema — and the
+# very next statement, recording what it had just done, resolved to a table in a schema that had
+# come into existence half a second earlier and was empty. It applied the first migration forever
+# and never got past it.
+#
+# Said explicitly rather than worked around, because the alternative is every client of this
+# cluster resolving names differently from every client of a cluster the operator brought, over a
+# difference nobody would think to look at. The station's own queries name their schema and do not
+# care either way.
+s6-setuidgid deadair "$PGBIN/psql" --host=/run/postgresql --username="${DATABASE_USER:-deadair}" \
+    --dbname="${DATABASE_NAME:-deadair}" --set=ON_ERROR_STOP=1 \
+    --command="ALTER ROLE \"${DATABASE_USER:-deadair}\" SET search_path TO public" >&2
+
 s6-setuidgid deadair "$PGBIN/pg_ctl" --pgdata="$CLUSTER" --wait stop >&2
 
 echo "init-database: cluster ready"

@@ -52,8 +52,14 @@ jobs:
 
             # A release that cannot publish should still say whether the image builds, rather than
             # failing at the login step and reporting nothing about the thing it was testing.
+            #
+            # Only asked on a run that means to publish. A pull request is not given the
+            # credentials at all — deliberately, since one from a fork must never see them — so
+            # asking there would warn about their absence on every pull request forever, about a
+            # run that was never going to push anything.
             - name: Check for registry credentials
               id: credentials
+              if: inputs.push
               env:
                   USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
               run: |
@@ -90,7 +96,13 @@ jobs:
                   platforms: linux/amd64
                   build-args: ${{ matrix.args }}
                   tags: ${{ steps.tags.outputs.value }}
-                  # Per variant, because they diverge only in their last layers and a shared
-                  # scope would have three jobs writing over each other's manifest.
-                  cache-from: type=gha,scope=image-${{ matrix.variant }}
-                  cache-to: type=gha,mode=max,scope=image-${{ matrix.variant }}
+                  # The cache lives in the registry beside the images rather than in the Actions
+                  # cache, which holds ten gigabytes for the whole repository — less than these
+                  # three variants together, so they would spend every run evicting each other and
+                  # rebuilding what they evicted. Per variant, because they diverge only in their
+                  # last layers and one scope would have three jobs writing over each other.
+                  cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache-${{ matrix.variant }}
+                  # Only a run that can log in can write it. A pull request reads the cache the
+                  # last release left and publishes nothing, which is the whole shape of this
+                  # workflow one level down.
+                  cache-to: ${{ (inputs.push && steps.credentials.outputs.present == 'true') && format('type=registry,ref={0}:buildcache-{1},mode=max', env.IMAGE, matrix.variant) || '' }}

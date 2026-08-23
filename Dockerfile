@@ -65,6 +65,12 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
     pnpm install --prod --frozen-lockfile --ignore-scripts \
  && rm -rf apps/web node_modules/.cache .turbo
 
+# The prune above removes the dev half, and with it the only thing putting each plugin's PEER
+# dependencies on disk. They are peers on purpose — a plugin must reach the host's copy of the SDK
+# and of the schema library rather than carry its own — so they are linked into the workspace root
+# here, where a shared dependency belongs and where Node looks last on its way up from a plugin.
+RUN node docker/link-peers.mjs
+
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # The track shim.
 # ─────────────────────────────────────────────────────────────────────────────────────────────

@@ -12,6 +12,18 @@ cd /opt/tts || exit 1
 PYTHONPATH=/opt/tts:/opt/tts/api
 export PYTHONPATH
 
+# Where its weights and its voices are. The defaults are ABSOLUTE and name the path this tree had
+# in the image it came from — `/app`, which here is the station's own workspace, owned by root and
+# holding something else entirely. So the server came up, tried to make a directory inside it, was
+# refused, and took the whole container down with it.
+#
+# Set here rather than in the image's environment because every variable this container is started
+# with is a layer of the station's configuration now: these are one service's settings and have no
+# business being visible as the station's.
+MODEL_DIR=/opt/tts/api/src/models
+VOICES_DIR=/opt/tts/api/src/voices/v1_0
+export MODEL_DIR VOICES_DIR
+
 # Loopback: the voice is the station's, not something the network is offered.
 exec s6-setuidgid deadair /opt/tts/.venv/bin/python -m uvicorn api.src.main:app \
     --host 127.0.0.1 --port "${TTS_PORT:-8880}"

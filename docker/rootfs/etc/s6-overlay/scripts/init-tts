@@ -1,24 +1,34 @@
 #!/bin/sh -e
-# The voices the speech server can read in.
+# What the speech server reads in: its voices, and the weights underneath them.
 #
-# They ship inside the server's own tree, which is part of the image and therefore replaced on
-# every update. An operator who adds a voice puts it somewhere that survives that, so the shipped
-# ones are seeded out to the volume once and the tree points back at them — which is the same
+# Both ship inside the server's own tree, which is part of the image and therefore replaced on
+# every update. An operator who adds a voice puts it somewhere that survives that, and the weights
+# are a few hundred megabytes that should not be fetched again because the station was upgraded.
+# So each is seeded out to the volume once and the tree points back at it — which is the same
 # arrangement the separate-containers deployment used, for the same reason.
 
 DATA="${DATA_DIR:-/data}"
-SHIPPED=/opt/tts/api/src/voices/v1_0
-KEPT="$DATA/voices"
 
 [ -d /opt/tts ] || exit 0
 
-mkdir -p "$KEPT"
+# Move a directory out to the volume and leave a link behind it. Never clobbering: a voice the
+# operator replaced by hand stays replaced, and weights already fetched are not fetched again.
+keep() {
+    shipped="$1"
+    kept="$2"
 
-# Never clobbering: a voice the operator replaced by hand stays replaced.
-if [ -d "$SHIPPED" ] && [ ! -L "$SHIPPED" ]; then
-    cp -rn "$SHIPPED"/. "$KEPT"/ 2>/dev/null || true
-    rm -rf "$SHIPPED"
-fi
+    mkdir -p "$kept" "$(dirname "$shipped")"
 
-[ -L "$SHIPPED" ] || ln -sfn "$KEPT" "$SHIPPED"
-chown -R 99:100 "$KEPT" 2>/dev/null || true
+    if [ -d "$shipped" ] && [ ! -L "$shipped" ]; then
+        cp -rn "$shipped"/. "$kept"/ 2>/dev/null || true
+        rm -rf "$shipped"
+    fi
+
+    [ -L "$shipped" ] || ln -sfn "$kept" "$shipped"
+    chown -R 99:100 "$kept" 2>/dev/null || true
+}
+
+keep /opt/tts/api/src/voices/v1_0 "$DATA/voices"
+# The weights are fetched on first use when the image ships none, so this may be an empty
+# directory the server fills in later. It still has to be the volume's rather than the image's.
+keep /opt/tts/api/src/models "$DATA/tts-models"

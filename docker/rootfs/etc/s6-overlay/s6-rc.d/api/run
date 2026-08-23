@@ -2,6 +2,9 @@
 # The station itself.
 exec 2>&1
 cd /app/apps/api || exit 1
+
+# shellcheck source=/dev/null
+. /etc/s6-overlay/scripts/database-env
 # Compiled output rather than source: the `#src/*` specifiers it emits are answered by this
 # package's own imports map, which points at `dist/` unless asked for the development condition.
 exec s6-setuidgid deadair node dist/index.js

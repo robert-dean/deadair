@@ -5,12 +5,16 @@
 # QUIETLY here (the settings layer answers empty rather than failing), which is the worst way for
 # this to go wrong. So it happens once, out here, loudly, before the API is allowed to start.
 
+# shellcheck source=/dev/null
+. /etc/s6-overlay/scripts/database-env
+
 if [ -z "${DATABASE_HOST:-}" ] || [ -z "${DATABASE_USER:-}" ] || [ -z "${DATABASE_NAME:-}" ]; then
     cat >&2 <<'MESSAGE'
 deadair: no database.
 
 This image needs DATABASE_HOST, DATABASE_PORT, DATABASE_USER, DATABASE_PASSWORD and
-DATABASE_NAME, and REDIS_HOST and REDIS_PORT beside them.
+DATABASE_NAME, and REDIS_HOST and REDIS_PORT beside them. The `full` tag of this image
+brings its own instead, if you would rather not run them yourself.
 MESSAGE
     exit 1
 fi

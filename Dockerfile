@@ -9,6 +9,12 @@
 # services and a network, and the places this runs (a home server's app catalogue) are built around
 # one image with one volume.
 #
+# Three variants, from two build arguments:
+#
+#   slim    WITH_TTS=0 WITH_DB=0   the station. Bring a database, a cache and a voice.
+#   latest  WITH_TTS=1 WITH_DB=0   the default. A voice is included; the database is yours.
+#   full    WITH_TTS=1 WITH_DB=1   everything, for a host with nothing on it.
+#
 # The base is the Liquidsoap image rather than a bare Debian one, because Liquidsoap is the one
 # component here that is genuinely hard to install and easy to install WRONGLY — its codec set is
 # what the station's audio chain is. It is Debian trixie, which is what makes everything else
@@ -17,6 +23,7 @@
 # publish for it.
 
 ARG WITH_TTS=1
+ARG WITH_DB=0
 ARG NODE_VERSION=26.7.0
 ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG GO_LIBRESPOT_VERSION=v0.7.4
@@ -96,6 +103,7 @@ USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
 ARG WITH_TTS
+ARG WITH_DB
 ARG NODE_VERSION
 ARG S6_OVERLAY_VERSION
 ARG DBMATE_VERSION
@@ -223,6 +231,20 @@ RUN --mount=from=tts,target=/mnt/tts set -eux; \
         cp -a /mnt/tts/app /opt/tts; \
     fi
 
+# A database and a cache, for the variant meant to land on a host with nothing on it. Postgres
+# comes from its own archive rather than Debian's, so the version here is the version the station
+# is developed against instead of whichever one this base happens to carry.
+RUN set -eux; \
+    if [ "${WITH_DB}" = "1" ]; then \
+        . /etc/os-release; \
+        curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg; \
+        echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+            > /etc/apt/sources.list.d/pgdg.list; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends postgresql-17 redis-server; \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
+
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 # The mount proxy, shared verbatim with the compose edge rather than copied into a second file
 # that could drift from it.
@@ -238,7 +260,8 @@ RUN set -eux; \
     chmod +x /etc/s6-overlay/scripts/* /etc/s6-overlay/s6-rc.d/*/run; \
     mkdir -p /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
     chown 99:100 /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
-    if [ "${WITH_TTS}" = "1" ]; then chown -R 99:100 /opt/tts; else rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/tts /etc/s6-overlay/user-bundles.d/user/contents.d/init-tts; fi
+    if [ "${WITH_TTS}" = "1" ]; then chown -R 99:100 /opt/tts; else rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/tts /etc/s6-overlay/user-bundles.d/user/contents.d/init-tts; fi; \
+    if [ "${WITH_DB}" != "1" ]; then rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/postgres /etc/s6-overlay/user-bundles.d/user/contents.d/redis /etc/s6-overlay/user-bundles.d/user/contents.d/init-database; fi
 # Deliberately no chown over /app: the station reads its own code and writes none of it, and
 # re-owning a tree that size would copy every file in it into another layer.
 
@@ -270,6 +293,7 @@ ENV NODE_ENV=production \
     LOG_FILE=/data/streamlogs/liquidsoap.log \
     TRUST_PROXY=true \
     MIGRATE_ON_BOOT=true \
+    WITH_DB=${WITH_DB} \
     S6_KEEP_ENV=1 \
     S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
     S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0

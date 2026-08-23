@@ -1,0 +1,15 @@
+# Sourced, not run.
+#
+# On the variant that brings its own database and cache, they are on loopback and the operator
+# should not have to say so. Everything stays overridable: a `full` image pointed at a database
+# elsewhere is a legitimate thing to want, and only the values nobody set are filled in here.
+if [ "${WITH_DB:-0}" = "1" ]; then
+    DATABASE_HOST="${DATABASE_HOST:-127.0.0.1}"
+    DATABASE_PORT="${DATABASE_PORT:-5432}"
+    DATABASE_USER="${DATABASE_USER:-deadair}"
+    DATABASE_PASSWORD="${DATABASE_PASSWORD:-deadair}"
+    DATABASE_NAME="${DATABASE_NAME:-deadair}"
+    REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
+    REDIS_PORT="${REDIS_PORT:-6379}"
+    export DATABASE_HOST DATABASE_PORT DATABASE_USER DATABASE_PASSWORD DATABASE_NAME REDIS_HOST REDIS_PORT
+fi

@@ -1,0 +1,14 @@
+#!/bin/sh
+# Sessions and the refresh-token families live here rather than in the database, which is why a
+# station that loses this store signs everybody out and loses nothing else.
+exec 2>&1
+
+DATA="${DATA_DIR:-/data}"
+
+# Saved to disk on the same argument: losing it costs a sign-in, so the default snapshotting is
+# worth its cost and no more than that.
+exec s6-setuidgid deadair redis-server \
+    --bind 127.0.0.1 \
+    --dir "$DATA/redis" \
+    --save 300 10 \
+    --appendonly no

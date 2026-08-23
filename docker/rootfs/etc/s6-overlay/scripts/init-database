@@ -1,0 +1,54 @@
+#!/bin/sh -e
+# The database this variant brings with it, on the first boot it has never been started.
+#
+# Everything here is skipped once the cluster exists, so this is a first-boot script that runs on
+# every boot and does nothing on all but one of them.
+
+DATA="${DATA_DIR:-/data}"
+CLUSTER="$DATA/db"
+PGBIN=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)
+
+[ -n "$PGBIN" ] || { echo "init-database: no server found in this image" >&2; exit 1; }
+
+mkdir -p "$CLUSTER" "$DATA/redis" /run/postgresql
+chown 99:100 "$CLUSTER" "$DATA/redis" /run/postgresql
+chmod 0700 "$CLUSTER"
+
+if [ -s "$CLUSTER/PG_VERSION" ]; then
+    exit 0
+fi
+
+echo "init-database: no cluster yet; creating one"
+
+password="${DATABASE_PASSWORD:-deadair}"
+printf '%s' "$password" > /tmp/pgpass
+chown 99:100 /tmp/pgpass
+chmod 0600 /tmp/pgpass
+
+# Passwords hashed rather than stored: this cluster only ever answers on loopback, but a password
+# written in the clear into a volume an operator backs up is a password that leaves the machine.
+s6-setuidgid deadair "$PGBIN/initdb" \
+    --pgdata="$CLUSTER" \
+    --username="${DATABASE_USER:-deadair}" \
+    --auth-local=trust \
+    --auth-host=scram-sha-256 \
+    --pwfile=/tmp/pgpass \
+    --encoding=UTF8 >&2
+
+rm -f /tmp/pgpass
+
+# Loopback only, and said here rather than left to the shipped config: this database belongs to
+# this container and the port it listens on is not the network's business.
+cat >> "$CLUSTER/postgresql.conf" <<'CONFIG'
+
+# deadair
+listen_addresses = '127.0.0.1'
+CONFIG
+
+# The cluster has to be up for a moment to be given its database, and it must not be reachable
+# while it is: the station is starting at the same time.
+s6-setuidgid deadair "$PGBIN/pg_ctl" --pgdata="$CLUSTER" --wait --options="-c listen_addresses=" start >&2
+s6-setuidgid deadair "$PGBIN/createdb" --host=/run/postgresql --username="${DATABASE_USER:-deadair}" "${DATABASE_NAME:-deadair}" >&2
+s6-setuidgid deadair "$PGBIN/pg_ctl" --pgdata="$CLUSTER" --wait stop >&2
+
+echo "init-database: cluster ready"

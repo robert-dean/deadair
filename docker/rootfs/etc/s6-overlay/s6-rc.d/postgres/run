@@ -1,0 +1,8 @@
+#!/bin/sh
+# The database, for the variant that brings its own.
+exec 2>&1
+
+DATA="${DATA_DIR:-/data}"
+PGBIN=$(ls -d /usr/lib/postgresql/*/bin 2>/dev/null | sort -V | tail -1)
+
+exec s6-setuidgid deadair "$PGBIN/postgres" -D "$DATA/db"

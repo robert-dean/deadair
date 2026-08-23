@@ -53,7 +53,7 @@
         Type="Variable" Display="always" Required="true" Mask="true"></Config>
 
     <Config Name="Session key" Target="AUTHENTICATION_SESSION_JWT_PRIVATE_KEY" Default="" Mode=""
-        Description="Signs sessions, RS256, so it must be an RSA key. Generate once with: openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 — losing it signs everybody out and nothing worse."
+        Description="Signs sessions, RS256, so it must be an RSA key. Generate one with: openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0 — a key is several lines and this field is one, so base64 it and paste that. Losing it signs everybody out and nothing worse."
         Type="Variable" Display="always" Required="true" Mask="true"></Config>
 
     <Config Name="Database host" Target="DATABASE_HOST" Default="" Mode=""

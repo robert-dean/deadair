@@ -6,11 +6,11 @@ in front of that port carries the station too.
 
 ## Which tag
 
-| Tag | Brings | Bring your own |
-| --- | --- | --- |
-| `deadair/deadair:latest` | a voice | PostgreSQL, Redis |
-| `deadair/deadair:full` | a voice, PostgreSQL, Redis | nothing |
-| `deadair/deadair:slim` | — | PostgreSQL, Redis, a speech server |
+| Tag                      | Brings                     | Bring your own                     |
+| ------------------------ | -------------------------- | ---------------------------------- |
+| `deadair/deadair:latest` | a voice                    | PostgreSQL, Redis                  |
+| `deadair/deadair:full`   | a voice, PostgreSQL, Redis | nothing                            |
+| `deadair/deadair:slim`   | —                          | PostgreSQL, Redis, a speech server |
 
 `full` is the one to start with if the machine has nothing on it. `latest` is the one to run if
 the machine already has a database you keep backups of, which is the better place for this
@@ -31,11 +31,18 @@ to be hex: the station reads it as hex bytes, so a base64 key of the same length
 different and much weaker key than you meant to generate.
 
 ```bash
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0
 ```
 
 That is `AUTHENTICATION_SESSION_JWT_PRIVATE_KEY`, and it signs sessions. It must be RSA, because
 sessions are signed RS256. Losing it signs everybody out and costs nothing else.
+
+The `base64` is there because a key is several lines and nearly every field you might paste one
+into holds a single line — a container template's variable box, an environment file, a secrets
+form. The station accepts the key three ways (the PEM as it comes out, the PEM with its line
+breaks written as `\n`, or base64-ed onto one line), so if you already have one in another shape
+it will work; base64 is simply the shape that survives everything. On macOS the flag is `base64`
+with no `-w0`.
 
 If you are not using the `full` tag, you also need a PostgreSQL database that already exists (the
 station creates its own schema inside it, not the database itself) and a Redis to put sessions in.

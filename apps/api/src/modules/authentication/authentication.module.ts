@@ -66,6 +66,7 @@ import { ActorsRepository } from './repositories/actors.repository.js';
 import { ResponseCookieJar } from './response.cookie.jar.js';
 import { RequestCookieJar } from './request.cookie.jar.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { readSessionKey } from './session.key.js';
 
 let otpDevBypassEnabled = false;
 
@@ -86,7 +87,7 @@ export const AuthenticationModule: ServerKitModule = {
         // unset key is `''`, which signs nothing and fails at whichever request first tries to mint
         // a session, as a library error naming no variable. A session nobody can sign is not a
         // degraded server, it is one nobody can log into.
-        const sessionKey = String(config.get('AUTHENTICATION_SESSION_JWT_PRIVATE_KEY', '')).trim();
+        const sessionKey = readSessionKey(String(config.get('AUTHENTICATION_SESSION_JWT_PRIVATE_KEY', '')));
         if (sessionKey.length === 0) {
             throw new Error('AUTHENTICATION_SESSION_JWT_PRIVATE_KEY is not set. Every session token is signed with it, so nobody could sign in.');
         }

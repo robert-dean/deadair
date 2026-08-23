@@ -23,7 +23,9 @@ plugins/*             bundled plugins: spotify, navidrome, musicbrainz, lastfm, 
                       voice), llm, analyzer (the adapter over the measurement sidecar)
 analysis/             the measurement sidecar: a Python service that decodes a record and answers
                       with its cue points and its loudness. No decoding happens in Node
-stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends
+stream/, nginx/, docker-compose*.yml   Icecast, Liquidsoap and friends (DEV)
+Dockerfile, docker/               the production image: the whole station in one container
+deploy/, unraid/                  how somebody else installs it
 ```
 
 Current `apps/api` modules: `data`, `crypto`, `authentication`, `permissions`, `policy`, `jobs`,
@@ -1031,6 +1033,33 @@ existed; shared code lives in `src/modules/shared`. Local imports carry `.js` ex
 **Formatting and toolchain:** 4-space indent, single quotes, semicolons, print width 150, `arrowParens: avoid`. Node 26+, TypeScript 6, pnpm + Turborepo. `pnpm test` / `pnpm lint` / `pnpm build` run through turbo; per package, `pnpm --filter @deadair/api test`. Tests live in each package's top-level `tests/`, mirroring `src/`.
 
 **Neither `tests/` nor `scripts/` is built, and both are type-checked.** `pnpm --filter @deadair/api typecheck` is `typecheck:tests` (`tsconfig.tests.json`) then `typecheck:scripts` (`scripts/tsconfig.json`), and both widen `rootDir` to the workspace root — `rootDir` is a rule about where EMIT inputs may live and there is none, while pinning it rejects a boundary fixture from `packages/plugin-sdk/tests` and `verify.speech.ts` importing the kokoro plugin, both of which are deliberate. Neither folder is in the build tsconfig, so `tsc` still compiles only shippable code. This is not decoration: vitest transpiles without checking types and the scripts had no runner at all, so both folders had silently stopped compiling against the code they cover — four of five smoke scripts at once.
+
+**Production is ONE container, and what it gives up is the container boundary rather than the
+process one.** `Dockerfile` builds the whole station — API, console, audio chain, stream server,
+track shim, measurement sidecar, and on two of three variants a speech server, on one of them a
+database — supervised by s6, service definitions in `docker/rootfs`. Nothing was folded into Node
+to make it fit; the sidecar is still a separate process because decoding still does not happen in
+Node. Development is unchanged and still the compose stack, which is why the two must not drift:
+an image both worlds share (nginx, the speech server) is pinned to ONE version written in both
+places. Six things are load-bearing. **The base is the audio chain's own image**, because that is
+the component that is hard to install correctly and it is Debian trixie, which is what lets the
+stream server be copied out of an image built on the same release — Icecast 2.5 is not in Debian
+and building it wants a library newer than trixie ships, and 2.4 costs `/admin/eventfeed`, which
+is how the station knows anybody is listening. **The parts still address each other by their
+compose names**, resolved to this container in `/etc/hosts` by the boot script, so every code
+default, every rendered config and the edge's own proxy lines are the same strings in both worlds
+— the alternative was a second set saying loopback that has to be kept in step with the first.
+`PLAYOUT_BASE_URL` is the one exception and must be set, since its default names both the wrong
+host and the wrong port. **The API runs its compiled `dist`**, which is what the conditional
+imports map bought. **The config watch restarts the two services whose config changed** rather
+than stopping the container, which is the same mechanism doing less damage. **Migrations run at
+boot** and wait for the database rather than depending on it, so one rule covers a bundled
+database and an operator's slower one. And **everything the station keeps is under `/data`**, so a
+backup is one directory; the runtime user is 99:100 to match what a home server's app share is
+owned by, so there is no ownership step. Images are built and published by
+`.github/workflows/`, three variants from two build args, and `codegen` is never run there for the
+reason it is never run anywhere automated: its outputs are committed and regenerating them needs a
+live database.
 
 ## Multi-package work
 

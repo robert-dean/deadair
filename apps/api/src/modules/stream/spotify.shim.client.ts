@@ -153,9 +153,9 @@ export class SpotifyShimClient {
      * wrong for their deployment. It is the wrong name for what it now means, and it goes once
      * nothing sets it.
      *
-     * The default is right for a host-run app, since 3679 is published on localhost; an app in the
-     * compose network sets `SPOTIFY_SHIM_CONTROL_URL` explicitly, which `docker-compose.prod.yml`
-     * already does.
+     * The default is right for a host-run app, since 3679 is published on localhost, and right in
+     * the production image, where the shim is a process in the same container. It is wrong only
+     * for an app reaching a shim in a sibling container, which sets `SPOTIFY_SHIM_CONTROL_URL`.
      */
     private baseUrl(): string {
         const configured = this.config.get('SPOTIFY_SHIM_CONTROL_URL', '') || this.config.get('SPOTIFY_SHIM_URL', DEFAULT_SHIM_BASE_URL);

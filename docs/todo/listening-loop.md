@@ -55,9 +55,10 @@ for what it settles and for the three things it makes live.
 
 The problem it closed: Icecast binds `127.0.0.1:8000`, and the comment beside it says the edge or
 tunnel fronts it with HTTPS terminating there ([docker-compose.yml](../../docker-compose.yml)). No
-compose file defines such a tunnel, and `docker-compose.prod.yml` repeats the same expectation for
-nginx. That comment described an intended deployment rather than one that existed, and it was the
-whole of why the station was a desk toy. **It is now accurate, and the deployment it describes lives
+compose file defines such a tunnel, and the production deployment repeats the same expectation for
+the edge in front of it — today that is the one port the production image publishes
+([deploy/README.md](../../deploy/README.md)). That comment described an intended deployment rather
+than one that existed, and it was the whole of why the station was a desk toy. **It is now accurate, and the deployment it describes lives
 in the operator's Cloudflare account rather than in a compose file.** Anything that reads those
 comments as a plan should read them as a description.
 

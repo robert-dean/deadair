@@ -32,6 +32,29 @@ import { errorText } from '#modules/shared/error.text.js';
 const STATS_TIMEOUT_MS = 1500;
 
 /**
+ * How long a refusal from the admin endpoint stands before it is worth asking again.
+ *
+ * A 404 is a statement about the SERVER — it does not have this endpoint, and will not
+ * grow one while it runs — so it is remembered for good. A 401 is a statement about
+ * RIGHT NOW: the two ends disagree about a password, which is a thing that changes
+ * without this process being told. So it expires.
+ *
+ * The case that made this necessary is every station's first boot. Icecast comes up on
+ * the shipped default configuration, the station mints its own credentials and renders
+ * them, and the watcher restarts Icecast to adopt them — but by then this poll has been
+ * refused once and settled on the deprecated endpoint, which keeps answering forever and
+ * so is never reconsidered. What that costs is the event feed, which attaches only when
+ * the poll resolves an admin endpoint: the station spends the rest of its life reading
+ * its audience from a once-a-minute poll rather than being told, which is the difference
+ * between noticing a listener in milliseconds and noticing them in a minute, and nothing
+ * about it looks broken.
+ *
+ * Five minutes because the cost is one request to a local socket, and the operator who
+ * has deliberately closed `/admin/` to this role pays exactly that and nothing else.
+ */
+const ADMIN_RETRY_MS = 5 * 60_000;
+
+/**
  * The endpoints that carry the stats document, in preference order.
  *
  * 2.5's first, so an upgraded station moves off the deprecated endpoint the
@@ -39,6 +62,9 @@ const STATS_TIMEOUT_MS = 1500;
  * that does not have it answers 401 or 404 in a millisecond on a local socket,
  * and the answer is cached (see {@link IcecastStatsClient.resolved}), so a 2.4
  * install pays that probe once per re-probe and not once per poll.
+ *
+ * The two refusals are not remembered alike: a 404 stands for the life of the
+ * process and a 401 expires, for the reason on {@link ADMIN_RETRY_MS}.
  */
 export const STATS_PATHS = ['/admin/publicstats.json', '/status-json.xsl'] as const;
 
@@ -167,6 +193,8 @@ export class IcecastStatsClient {
     private reportedMissing = false;
     /** The same discipline for "the admin endpoint refused us". See {@link noteRefusal}. */
     private reportedDenied = false;
+    /** When the admin endpoint last refused us, so that the refusal can expire. See {@link ADMIN_RETRY_MS}. */
+    private deniedAt?: number;
     /** Told when the endpoint changes. See {@link onResolved}. */
     private readonly resolvedListeners = new Set<() => void>();
 
@@ -195,6 +223,7 @@ export class IcecastStatsClient {
         // this one is refused too.
         this.resolved = undefined;
         this.reportedDenied = false;
+        this.deniedAt = undefined;
     }
 
     /** The mount being watched, for a caller that has to name it in a log line. */
@@ -279,10 +308,31 @@ export class IcecastStatsClient {
 
     /** The endpoint that last answered first, then the rest. */
     private endpoints(): StatsEndpoint[] {
-        const override = overrideEndpoints(this.config.get('ICECAST_STATS_URL', ''));
-        if (override) return resolvedFirst(override, this.resolved);
+        // With a refusal due to be retested, the preference is dropped for this one pass, which
+        // puts the admin endpoint back at the front where it starts. Nothing is forgotten: if it
+        // refuses again the deprecated endpoint answers immediately after it, exactly as it did
+        // the first time, and `resolved` is left standing meanwhile so a caller asking what this
+        // client is talking to is never told "nothing" in the middle of a poll.
+        const preference = this.adminRetryDue() ? undefined : this.resolved;
 
-        return statsEndpoints(statsCandidates(this.host, this.port), this.resolved);
+        const override = overrideEndpoints(this.config.get('ICECAST_STATS_URL', ''));
+        if (override) return resolvedFirst(override, preference);
+
+        return statsEndpoints(statsCandidates(this.host, this.port), preference);
+    }
+
+    /**
+     * Whether a refusal from the admin endpoint has stood long enough to be worth testing again.
+     *
+     * Only where the poll has settled on something OTHER than an admin endpoint, which is the
+     * state being escaped from. A station already reading the admin endpoint has nothing to
+     * retry, and one that was refused and has nothing answering at all is covered by the reprobe
+     * that failure does anyway.
+     */
+    private adminRetryDue(): boolean {
+        if (this.deniedAt === undefined || !this.resolved || isAdminEndpoint(this.resolved.path)) return false;
+
+        return Date.now() - this.deniedAt >= ADMIN_RETRY_MS;
     }
 
     /**
@@ -296,6 +346,12 @@ export class IcecastStatsClient {
         const changed = this.resolved?.base !== endpoint.base || this.resolved.path !== endpoint.path;
         this.resolved = endpoint;
         this.reportedMissing = false;
+        // Getting in clears the refusal rather than merely stopping the retry, so that being
+        // refused again later is news again and gets said again.
+        if (isAdminEndpoint(endpoint.path)) {
+            this.deniedAt = undefined;
+            this.reportedDenied = false;
+        }
         if (!changed) return;
 
         this.logger.info(`icecast: reading the audience from ${endpoint.base}${endpoint.path}`);
@@ -349,9 +405,16 @@ export class IcecastStatsClient {
      * allowed to read it. The poll falls through to the deprecated endpoint and
      * keeps working, so the only cost is that nobody would ever know why the
      * station is still on the old one — hence the line, said once per resolve.
+     *
+     * The stamp is taken on every refusal rather than only the first, so that a retest
+     * that is refused again starts the clock over instead of asking every poll from
+     * then on.
      */
     private noteRefusal(endpoint: StatsEndpoint, status: number): void {
-        if (!isAdminEndpoint(endpoint.path) || (status !== 401 && status !== 403) || this.reportedDenied) return;
+        if (!isAdminEndpoint(endpoint.path) || (status !== 401 && status !== 403)) return;
+
+        this.deniedAt = Date.now();
+        if (this.reportedDenied) return;
 
         this.reportedDenied = true;
         this.logger.info(

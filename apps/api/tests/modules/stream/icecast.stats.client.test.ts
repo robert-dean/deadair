@@ -337,6 +337,106 @@ describe('IcecastStatsClient', () => {
         expect(urls(calls).filter(url => url.endsWith('/status-json.xsl'))).toHaveLength(3);
     });
 
+    // A 404 is a statement about the server and a 401 is a statement about right now, so only
+    // one of them is remembered for good. The case is every station's first boot: Icecast comes
+    // up on the shipped configuration, the station renders its own credentials, and the restart
+    // that adopts them happens after this poll has already settled on the deprecated endpoint.
+    describe('a refused admin endpoint', () => {
+        const ADMIN = 'http://127.0.0.1:8000/admin/publicstats.json';
+        const DEPRECATED = 'http://127.0.0.1:8000/status-json.xsl';
+
+        /** Move the clock rather than the poll: the retry is a duration, not a number of reads. */
+        async function pollAfter(stats: IcecastStatsClient, elapsedMs: number) {
+            vi.useFakeTimers();
+            try {
+                vi.setSystemTime(Date.now() + elapsedMs);
+                return await stats.listeners();
+            } finally {
+                vi.useRealTimers();
+            }
+        }
+
+        it('is asked again once the refusal has stood long enough', async () => {
+            const answers: Record<string, unknown> = { [ADMIN]: 401, [DEPRECATED]: document(5) };
+            const calls = stubFetch(answers);
+            const stats = client('wrong');
+
+            await expect(stats.listeners()).resolves.toBe(5);
+            // Every poll in between reads the endpoint that answers and asks nothing else.
+            await stats.listeners();
+            expect(urls(calls).filter(url => url === ADMIN)).toHaveLength(1);
+
+            // The password the station rendered has been adopted by now.
+            answers[ADMIN] = document(9);
+            await expect(pollAfter(stats, 5 * 60_000)).resolves.toBe(9);
+            expect(urls(calls).filter(url => url === ADMIN)).toHaveLength(2);
+
+            // And having got in, it stays: the deprecated endpoint is not asked again.
+            await expect(stats.listeners()).resolves.toBe(9);
+            expect(urls(calls).filter(url => url === DEPRECATED)).toHaveLength(2);
+        });
+
+        it('starts the clock over when the retest is refused too', async () => {
+            const calls = stubFetch({ [ADMIN]: 401, [DEPRECATED]: document(5) });
+            const stats = client('wrong');
+
+            await stats.listeners();
+            await pollAfter(stats, 5 * 60_000);
+            expect(urls(calls).filter(url => url === ADMIN)).toHaveLength(2);
+
+            // Still refused, so the next poll is not another attempt — it waits its turn again.
+            await stats.listeners();
+            expect(urls(calls).filter(url => url === ADMIN)).toHaveLength(2);
+        });
+
+        it('tells the feed to attach when the retest gets in', async () => {
+            const answers: Record<string, unknown> = { [ADMIN]: 401, [DEPRECATED]: document(1) };
+            stubFetch(answers);
+            const stats = client('wrong');
+            const resolved = vi.fn();
+            stats.onResolved(resolved);
+
+            await stats.listeners();
+            expect(stats.adminApi()).toBeUndefined();
+
+            answers[ADMIN] = document(1);
+            await pollAfter(stats, 5 * 60_000);
+
+            expect(resolved).toHaveBeenCalled();
+            expect(stats.adminApi()).toEqual({ base: 'http://127.0.0.1:8000', password: 'wrong' });
+        });
+
+        // The other half of the rule, and the one the retry must not swallow: a 2.4 server is
+        // still 2.4 five minutes later, so asking it again buys nothing and would go on buying
+        // nothing for the life of the process.
+        it('does not retry an endpoint the server does not have, however long it stands', async () => {
+            const calls = stubFetch({ [DEPRECATED]: document(2) });
+            const stats = client();
+
+            await expect(stats.listeners()).resolves.toBe(2);
+            await expect(pollAfter(stats, 60 * 60_000)).resolves.toBe(2);
+
+            expect(urls(calls).filter(url => url === ADMIN)).toHaveLength(1);
+        });
+
+        it('says so again when a server that let it in later refuses it', async () => {
+            const answers: Record<string, unknown> = { [ADMIN]: document(1), [DEPRECATED]: document(1) };
+            stubFetch(answers);
+            const stats = client('hunter2');
+
+            await stats.listeners();
+            const said = () =>
+                (logger.info as unknown as ReturnType<typeof vi.fn>).mock.calls
+                    .flat()
+                    .filter(line => String(line).includes('refused the admin password'));
+            expect(said()).toHaveLength(0);
+
+            answers[ADMIN] = 401;
+            await stats.listeners();
+            expect(said()).toHaveLength(1);
+        });
+    });
+
     it('does not settle on JSON that is not a stats document', async () => {
         // A proxy's error body, or an SPA's index, answering 200 on one of the paths.
         // Settling there would read zero listeners forever and take the station off air.

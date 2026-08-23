@@ -6,13 +6,13 @@
 // far from its cause — a password broken by quoting, a mount name mangled by XML
 // escaping, a skipped render leaving the station on last week's config.
 
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { writeStreamConfig, type StreamPlayoutConfig } from '../../../src/modules/stream/stream.config.js';
+import { parseFileMode, writeStreamConfig, type StreamPlayoutConfig } from '../../../src/modules/stream/stream.config.js';
 import type { StreamSettings } from '../../../src/modules/stream/stream.settings.js';
 
 /**
@@ -94,6 +94,65 @@ function parseEnv(contents: string): Map<string, string> {
     }
     return values;
 }
+
+describe('parseFileMode', () => {
+    it('reads an octal mode, with or without its leading zero', () => {
+        expect(parseFileMode('0640')).toBe(0o640);
+        expect(parseFileMode('640')).toBe(0o640);
+        expect(parseFileMode(' 0600 ')).toBe(0o600);
+    });
+
+    it('is undefined for anything that is not one', () => {
+        // `0640` read as decimal is a mode nobody meant, and an empty or misspelt value has to be
+        // distinguishable from a real one so the caller can say the setting did not take.
+        expect(parseFileMode('')).toBeUndefined();
+        expect(parseFileMode('rw-r-----')).toBeUndefined();
+        expect(parseFileMode('0899')).toBeUndefined();
+        expect(parseFileMode('06400')).toBeUndefined();
+    });
+});
+
+describe('writeStreamConfig, on the mode of what it renders', () => {
+    const modeOf = (path: string) => statSync(path).mode & 0o777;
+
+    it('leaves the files readable by everything on the volume by default', () => {
+        // The default has to serve the deployment where the parts are separate containers under
+        // uids this project does not choose.
+        const { assetsDir, configDir } = dirs();
+
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        expect(modeOf(join(configDir, 'icecast.xml'))).toBe(0o644);
+        expect(modeOf(join(configDir, 'radio.env'))).toBe(0o644);
+    });
+
+    it('writes them narrow when the deployment asks for it', () => {
+        const { assetsDir, configDir } = dirs();
+
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir, configMode: 0o640 });
+
+        expect(modeOf(join(configDir, 'icecast.xml'))).toBe(0o640);
+        expect(modeOf(join(configDir, 'radio.env'))).toBe(0o640);
+    });
+
+    // The case that would otherwise leave a station holding the old permissions for good: moving
+    // to a deployment that can be narrower changes no setting, so the content is identical and the
+    // write is skipped — which is exactly what makes the skip safe for everything else.
+    it('narrows a file it has already written, without rewriting it', () => {
+        const { assetsDir, configDir } = dirs();
+        const args = { settings: settings(), playout: playout(), assetsDir, configDir };
+
+        writeStreamConfig(args);
+        const first = statSync(join(configDir, 'icecast.xml')).mtimeMs;
+
+        writeStreamConfig({ ...args, configMode: 0o640 });
+
+        expect(modeOf(join(configDir, 'icecast.xml'))).toBe(0o640);
+        // The mtime is what the staleness check compares a container's start time against, so a
+        // permission change must not read as a config the containers have yet to adopt.
+        expect(statSync(join(configDir, 'icecast.xml')).mtimeMs).toBe(first);
+    });
+});
 
 describe('writeStreamConfig', () => {
     it('renders both files and reports success', () => {

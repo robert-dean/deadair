@@ -291,6 +291,12 @@ ENV NODE_ENV=production \
     PLUGINS_DIR=/data/plugins \
     STREAM_ASSETS_DIR=/app/stream \
     STREAM_CONFIG_DIR=/data/streamconfig \
+    # Everything that reads the rendered config here is the station's own user, so the passwords
+    # in it are not world-readable. The default is looser because it has to serve a deployment
+    # where the parts are separate containers under uids this project does not choose. Icecast
+    # says it may refuse a world-readable config in a future version, so this is also what stops
+    # that being a station that will not start one day.
+    STREAM_CONFIG_MODE=0640 \
     STREAM_MUSIC_DIR=/data/music \
     ANALYSIS_PORT=9321 \
     TTS_PORT=8880 \

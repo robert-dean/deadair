@@ -5,7 +5,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { CONTROL_TTL_S, PLAYOUT_LEAD } from '#modules/playout/liquidsoap.control.js';
 import { playoutAiredUrl, playoutStarveUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
-import { defaultStreamAssetsDir, defaultStreamConfigDir, writeStreamConfig, type StreamPlayoutConfig } from './stream.config.js';
+import { defaultStreamAssetsDir, defaultStreamConfigDir, parseFileMode, writeStreamConfig, type StreamPlayoutConfig } from './stream.config.js';
 import { ensureStreamSecrets, resolveStreamSettings, type StreamSettings } from './stream.settings.js';
 import { StreamConfigWatch } from './stream.staleness.js';
 
@@ -105,6 +105,24 @@ export class StreamService {
      * and deliberately: see that class for why the app reports this rather than
      * fixing it.
      */
+    /**
+     * The mode to leave the rendered config with, or `undefined` to take the default.
+     *
+     * A value that is not a mode is REPORTED rather than taken as unset, because the whole
+     * reason anybody sets this is to make a file holding passwords less readable, and
+     * silently leaving it as it was would tell them they had.
+     */
+    private configMode(): number | undefined {
+        const raw = String(this.config.get('STREAM_CONFIG_MODE', '')).trim();
+        if (!raw) return undefined;
+
+        const mode = parseFileMode(raw);
+        if (mode === undefined) {
+            this.logger.warn(`stream: STREAM_CONFIG_MODE is not an octal file mode (${raw}); the rendered config keeps the default permissions`);
+        }
+        return mode;
+    }
+
     async materialize(): Promise<boolean> {
         try {
             const settings = await this.settings();
@@ -115,6 +133,7 @@ export class StreamService {
                 configDir: this.config.get('STREAM_CONFIG_DIR', defaultStreamConfigDir()),
                 musicDir: this.config.get('STREAM_MUSIC_DIR', DEFAULT_MUSIC_DIR),
                 harborPort: this.config.get('STREAM_HARBOR_PORT', DEFAULT_HARBOR_PORT),
+                configMode: this.configMode(),
                 log: message => this.logger.info(`stream: ${message}`),
             });
 

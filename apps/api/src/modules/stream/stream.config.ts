@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { StreamSettings } from './stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -191,7 +191,7 @@ export function stampOf(content: string): string {
  * the same volume genuinely can. Reusing one name per process also means a crash
  * mid-write leaves one stale file rather than one per attempt.
  */
-function writeIfChanged(path: string, content: string, stamp = stampOf(content)): RenderedFile {
+function writeIfChanged(path: string, content: string, mode: number, stamp = stampOf(content)): RenderedFile {
     let existing: string | undefined;
     try {
         existing = readFileSync(path, 'utf8');
@@ -204,13 +204,34 @@ function writeIfChanged(path: string, content: string, stamp = stampOf(content))
         // the OS temp dir would be a cross-device rename, which fails outright on some
         // hosts and degrades to a copy on others — putting back the window this closes.
         const temporary = `${path}.${process.pid}.tmp`;
-        // 0644: these hold secrets, but they live on a private volume shared with trusted
-        // containers whose uids differ, so they have to be readable by them.
-        writeFileSync(temporary, content, { mode: 0o644 });
+        writeFileSync(temporary, content, { mode });
         renameSync(temporary, path);
+    } else if ((statSync(path).mode & 0o777) !== mode) {
+        // The content is what it should be and the permissions are not, which is what a
+        // station moving between deployments looks like: nothing about the settings changed,
+        // so the branch above will never run again and the old mode would stand for good.
+        // `chmod` moves ctime and leaves mtime alone, so this cannot be mistaken for a render
+        // by the staleness check that watches this file.
+        chmodSync(path, mode);
     }
 
     return { path, stamp, changedAt: statSync(path).mtimeMs };
+}
+
+/**
+ * A file mode written as octal, or `undefined` when it is not one.
+ *
+ * Octal because that is how anyone writing one thinks of it, and because `0640` read as
+ * decimal is a mode nobody meant. Every layer of the config holds strings, so this arrives
+ * as text however numeric it looks — and a value that is not a mode is answered as
+ * `undefined` rather than as the default, so the caller can say so instead of quietly
+ * leaving a file more readable than the operator asked for.
+ */
+export function parseFileMode(raw: string): number | undefined {
+    const trimmed = raw.trim();
+    if (!/^0?[0-7]{3}$/.test(trimmed)) return undefined;
+
+    return parseInt(trimmed, 8);
 }
 
 export interface WriteStreamConfigArgs {
@@ -223,6 +244,18 @@ export interface WriteStreamConfigArgs {
     /** Harbor port, which must match the port published in docker-compose.yml. */
     harborPort?: string;
     adminEmail?: string;
+    /**
+     * The mode the rendered files are left with. Defaults to `0o644`.
+     *
+     * They hold the stream's passwords, so the mode anyone would pick is the narrow one —
+     * but who has to READ them is a property of the deployment rather than of the station.
+     * Where the parts run as separate containers they share only the volume, and the uid
+     * each one runs as is decided by an image this project does not build; where they run
+     * as one, they are all the same user and nothing outside it needs the file at all. So
+     * the default is the permissive one that works everywhere, and the deployment that can
+     * prove it is narrower says so.
+     */
+    configMode?: number;
     log?: (message: string) => void;
 }
 
@@ -240,6 +273,7 @@ export function writeStreamConfig({
     musicDir = '/music',
     harborPort = '8005',
     adminEmail = 'admin@localhost',
+    configMode = 0o644,
     log = () => {},
 }: WriteStreamConfigArgs): StreamConfigRender | undefined {
     const { sourcePassword, adminPassword } = settings;
@@ -341,12 +375,12 @@ export function writeStreamConfig({
     try {
         mkdirSync(configDir, { recursive: true });
         render = {
-            icecast: writeIfChanged(join(configDir, 'icecast.xml'), icecastXml),
+            icecast: writeIfChanged(join(configDir, 'icecast.xml'), icecastXml, configMode),
             // The body's stamp, not the file's: this is the value the file CARRIES and the
             // value Liquidsoap reports back, and the comparison is between those two. A
             // render whose recorded stamp was the hash of the whole file would never match
             // the running container, however fresh it was.
-            radio: writeIfChanged(join(configDir, 'radio.env'), radioEnv, radioStamp),
+            radio: writeIfChanged(join(configDir, 'radio.env'), radioEnv, configMode, radioStamp),
         };
     } catch (error) {
         log(`could not write to ${configDir} (${errorText(error)}); skipping`);

@@ -2,7 +2,8 @@
 
 **Written:** 2026-08-10, when the stats poll learned to read either generation's endpoint.
 **Updated:** 2026-08-10, when the container moved to 2.5.0 and the two shapes below were measured
-against it rather than inferred.
+against it rather than inferred. **2026-08-23**, when a refused admin password stopped being
+permanent and the config file's permissions became a deployment setting.
 **State of the tree:** `docker-compose.yml` runs `libretime/icecast:2.5.0`. The app reads
 `/admin/publicstats.json` and follows `/admin/eventfeed` on it, and still reads `/status-json.xsl`
 on a 2.4 server. The upgrade is DONE; what is left is the smaller list at the end.
@@ -23,7 +24,14 @@ non-security tickets accepted for it.
   re-probe, not one per poll. It refuses to settle on JSON that is not a stats document, because
   probing several paths means a proxy's error document can answer 200 on one of them.
 - The admin endpoint is read as `admin:<stream.adminPassword>`, HTTP basic, and `status-json.xsl`
-  never is. A 401 or 403 there is logged once and falls through.
+  never is. A 401 or 403 there is logged once and falls through — and, since 2026-08-23, EXPIRES:
+  a 404 says this server does not have the endpoint and is remembered for the life of the process,
+  while a 401 says the two ends disagree about a password right now, which is the ordinary state of
+  a first boot. Icecast comes up on the shipped configuration, the station renders its own
+  credentials, and the restart that adopts them lands after the poll has already settled on the
+  deprecated endpoint — which answers forever, so nothing ever reconsidered it and the feed never
+  attached. Measured on a fresh install: no feed at all before, and attached six minutes after boot
+  with no restart after. See `ADMIN_RETRY_MS`.
 - `IcecastEventFeed` reads `/admin/eventfeed` (SSE) and hands whole listener counts to
   `AudienceWatch.report()`. It connects **only** when the stats poll resolved the admin endpoint, so
   against a 2.4 server it never opens a socket, and it attaches on the poll that discovers a 2.5 one.
@@ -118,6 +126,23 @@ the password regardless for the feed. Left as a note so nobody re-derives it.
 **2. A digest pin.** The image is pinned by version only, and the publisher rebuilds tags in place
 when base packages move. `docker inspect --format='{{index .RepoDigests 0}}' libretime/icecast:2.5.0`
 gives the digest if that ever matters more than tracking their rebuilds.
+
+**3. Narrowing the rendered config where the parts are separate containers.** 2.5 logs
+`util_test_file_modes … has world read permission. This might be insecure. Future versions of
+Icecast may reject this file` over the `icecast.xml` the app renders, which carries the source,
+relay and admin passwords. As of 2026-08-23 the mode is a setting rather than a constant —
+`STREAM_CONFIG_MODE`, read in `StreamService.configMode` and applied by `writeIfChanged`, which
+also `chmod`s a file whose content has not changed so tightening one does not wait on a render
+that will never come. The single-container image sets `0640`, because every process that reads
+that file there is the station's own user. **The default stays `0644` because nothing has measured
+what the compose stack needs**: the stream containers mount the volume and nothing else, the uid
+each runs as is chosen by an image this project does not build, and `stream/icecast.xml.tmpl`
+declares no `<changeowner>`, so whether Icecast reads that file as root (which ignores the mode
+entirely) or as a `icecast` user (which would lose access at `0640`) is a question about somebody
+else's entrypoint. The work is one measurement — `docker compose exec icecast id`, same for
+liquidsoap — and then either `STREAM_CONFIG_MODE=0640` in `docker-compose.yml` beside the two
+services, or a note here saying why it cannot be. Worth doing before the version that carries out
+the threat: a station that will not start is a worse day than a warning nobody reads.
 
 ## One thing that moves if a plugin ever needs it
 

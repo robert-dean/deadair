@@ -49,11 +49,11 @@
         Type="Variable" Display="always" Required="true" Mask="false"></Config>
 
     <Config Name="Secret key" Target="KMS_LOCAL_ROOT_KEY" Default="" Mode=""
-        Description="Encrypts every credential the station stores, including your music provider's. Generate once with: openssl rand -base64 32 — then keep it. Losing it means entering all of them again."
+        Description="Encrypts every credential the station stores, including your music provider's. Generate once with: openssl rand -hex 32 — it must be hex, and keep it. Losing it means entering all of them again."
         Type="Variable" Display="always" Required="true" Mask="true"></Config>
 
     <Config Name="Session key" Target="AUTHENTICATION_SESSION_JWT_PRIVATE_KEY" Default="" Mode=""
-        Description="Signs sessions. Generate once with: openssl genpkey -algorithm ed25519 — losing it signs everybody out and nothing worse."
+        Description="Signs sessions, RS256, so it must be an RSA key. Generate once with: openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 — losing it signs everybody out and nothing worse."
         Type="Variable" Display="always" Required="true" Mask="true"></Config>
 
     <Config Name="Database host" Target="DATABASE_HOST" Default="" Mode=""

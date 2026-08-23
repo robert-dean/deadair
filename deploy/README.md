@@ -22,18 +22,20 @@ it; the voice is the one part of this that genuinely wants one.
 Two secrets, generated once and kept:
 
 ```bash
-openssl rand -base64 32
+openssl rand -hex 32
 ```
 
 That is `KMS_LOCAL_ROOT_KEY`, and it encrypts every credential the station stores — your music
-provider's tokens, the stream's own passwords. Losing it means entering all of them again.
+provider's tokens, the stream's own passwords. Losing it means entering all of them again. It has
+to be hex: the station reads it as hex bytes, so a base64 key of the same length is quietly a
+different and much weaker key than you meant to generate.
 
 ```bash
-openssl genpkey -algorithm ed25519
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048
 ```
 
-That is `AUTHENTICATION_SESSION_JWT_PRIVATE_KEY`, and it signs sessions. Losing it signs everybody
-out and costs nothing else.
+That is `AUTHENTICATION_SESSION_JWT_PRIVATE_KEY`, and it signs sessions. It must be RSA, because
+sessions are signed RS256. Losing it signs everybody out and costs nothing else.
 
 If you are not using the `full` tag, you also need a PostgreSQL database that already exists (the
 station creates its own schema inside it, not the database itself) and a Redis to put sessions in.

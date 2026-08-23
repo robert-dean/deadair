@@ -4,7 +4,12 @@ import { ServerKitMiddleware } from '@maroonedsoftware/koa';
 import { httpError } from '@maroonedsoftware/errors';
 import { RateLimiterRes, type RateLimiterAbstract } from 'rate-limiter-flexible';
 import { DateTime } from 'luxon';
-import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { headerValue, trustsProxy } from '#modules/shared/request.trust.js';
+
+// Re-exported because this is where the switch was first read and where its bucket-per-invented-
+// address argument is written down; the constant itself moved so the cookie's `secure` decision
+// could not end up trusting a different edge from the limiter's.
+export { TRUST_PROXY_KEY, TRUST_PROXY_DEFAULT } from '#modules/shared/request.trust.js';
 
 /**
  * The rate limiter, keyed on who actually called rather than on who handed the
@@ -34,14 +39,11 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
  * bucket per address they care to invent, which is the limiter switched off
  * while still appearing to run. So `TRUST_PROXY` is off unless an operator says
  * their edge is real, and turning it on is a statement that the API port is not
- * reachable around the proxy by anyone who matters.
+ * reachable around the proxy by anyone who matters. The switch itself lives in
+ * `#modules/shared/request.trust.js`, because a second reader has arrived: a
+ * refresh cookie choosing whether to be `secure` is asking the same question about
+ * the same edge, and two switches could answer it differently.
  */
-
-/** The dotenv key. Infrastructure rather than a station setting, so it is not in `settings.registry.ts`. */
-export const TRUST_PROXY_KEY = 'TRUST_PROXY';
-
-/** Off, because the safe default for a claim is not believing it. */
-export const TRUST_PROXY_DEFAULT = false;
 
 /**
  * Which end of `X-Forwarded-For` is the caller, and why it is the last one.
@@ -77,14 +79,6 @@ export function clientAddress(ctx: Pick<Context, 'ip' | 'req'>, trustProxy: bool
     return hops.at(-1) ?? ctx.ip;
 }
 
-/** One header, whichever way Node presented it, or nothing when it is absent or blank. */
-function headerValue(ctx: Pick<Context, 'req'>, name: string): string | undefined {
-    const raw = ctx.req.headers[name];
-    const value = (Array.isArray(raw) ? raw[0] : raw)?.trim();
-
-    return value === undefined || value.length === 0 ? undefined : value;
-}
-
 /**
  * The same 429 ServerKit's own middleware answers with, headers included.
  *
@@ -99,7 +93,7 @@ function headerValue(ctx: Pick<Context, 'req'>, name: string): string | undefine
  */
 export const rateLimitMiddleware = (limiter: RateLimiterAbstract, config: AppConfig): ServerKitMiddleware => {
     return async (ctx, next) => {
-        const trustProxy = settingIsOn(config, TRUST_PROXY_KEY, TRUST_PROXY_DEFAULT);
+        const trustProxy = trustsProxy(config);
 
         try {
             await limiter.consume(clientAddress(ctx, trustProxy));

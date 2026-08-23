@@ -173,7 +173,15 @@ Three of those carry most of the weight:
   first entry is whatever the client wrote. Turning it on is a statement that nothing that matters
   can reach the API around the proxy, since a forwarded header from a direct caller is a free bucket
   per address they invent. Liquidsoap is a direct caller by design (see `playout.urls.ts`) and keeps
-  its own peer address either way.
+  its own peer address either way. The switch itself lives in
+  [request.trust.ts](src/modules/shared/request.trust.ts), because the refresh cookie reads it too:
+  whether to mark itself `secure` is the same question about the same edge, and the answer is taken
+  from `X-Forwarded-Proto` (leftmost hop, the browser's own) rather than from `NODE_ENV`. It was the
+  environment for as long as it existed, which is a claim about the build and not about the
+  connection — and the bundled image serves over plain HTTP, so the cookie jar refused the `secure`
+  cookie outright. Both writes of that cookie are error paths (clear a dead token after a 401), so
+  the refusal turned every expired session into a 500 that also failed to clear the cookie, which the
+  browser then presented again forever.
 
 - **[audit.context](src/server/middleware/audit.context.middleware.ts)** opens the per-request
   transaction, sets the `app.actor_*` GUCs on it (a prepared seam — nothing reads them yet), and

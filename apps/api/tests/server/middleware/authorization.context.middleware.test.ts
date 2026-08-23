@@ -9,6 +9,8 @@ import { AuthenticationSessionService, invalidAuthenticationSession } from '@mar
 import { IsHttpError } from '@maroonedsoftware/errors';
 import { ErrorCodes } from '@deadair/error-codes';
 
+import { AppConfig } from '@maroonedsoftware/appconfig';
+
 import { ActorsRepository } from '../../../src/modules/authentication/repositories/actors.repository.js';
 import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
 import { DeadairPermissionsTupleRepository } from '../../../src/modules/permissions/permissions.repository.js';
@@ -39,12 +41,17 @@ const harness = (options: { path?: string; actorExists?: boolean; relations?: st
         [AuthenticationSessionService, { deleteSession }],
         [PermissionsService, {}],
         [DeadairPermissionsTupleRepository, { listRelationsForSubjectOnObject: vi.fn().mockResolvedValue(options.relations ?? []) }],
+        // Clearing the dead cookie reads TRUST_PROXY to decide whether this request's scheme can
+        // be taken off a forwarded header. A layer answers with strings; nothing here sets one.
+        [AppConfig, { get: (_key: string, fallback: unknown) => fallback }],
     ]);
 
     const ctx = {
         path: options.path ?? '/plugins/rescan',
         requestId: 'req-1',
         ipAddress: '203.0.113.1',
+        secure: false,
+        req: { headers: {} },
         request: { headers: {} },
         cookies: { set: cookieSet, get: vi.fn() },
         authenticationSession: {

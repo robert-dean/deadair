@@ -16,7 +16,6 @@
             "#src/*": ["../src/*"],
             "#routes/*": ["../src/routes/*"],
             "#modules/*": ["../src/modules/*"],
-            "#shared/*": ["../src/shared/*"],
             "#vendors/*": ["../src/modules/vendors/*"]
         }
     },

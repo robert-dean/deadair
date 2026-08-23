@@ -11,8 +11,7 @@
         "paths": {
             "#src/*": ["./src/*"],
             "#routes/*": ["./src/routes/*"],
-            "#modules/*": ["./src/modules/*"],
-            "#shared/*": ["./src/shared/*"]
+            "#modules/*": ["./src/modules/*"]
         }
     },
     "include": ["./src/**/*"],

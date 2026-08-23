@@ -8,15 +8,14 @@ const src = (path: string): string => fileURLToPath(new URL(`./src/${path}`, imp
 export default defineConfig({
     resolve: {
         // Mirrors tsconfig.json's "paths": tsc only type-checks these, it never
-        // rewrites the emitted specifiers, so the runtime needs its own mapping.
-        // `@swc-node/register` (used by the `dev` script) resolves these via
-        // tsconfig natively; vitest's esbuild-based transform does not, so it is
-        // spelled out here instead.
+        // rewrites the emitted specifiers. At runtime package.json#imports maps
+        // them (to `dist/` by default, to `src/` under the `development`
+        // condition); vitest's esbuild-based transform reads neither, so the
+        // mapping is spelled out here as well.
         alias: [
             { find: '#src', replacement: src('') },
             { find: '#routes', replacement: src('routes') },
             { find: '#modules', replacement: src('modules') },
-            { find: '#shared', replacement: src('shared') },
         ],
     },
     test: {

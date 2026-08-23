@@ -3,8 +3,23 @@
     "private": true,
     "type": "module",
     "main": "index.ts",
+    "imports": {
+        "#src/*": {
+            "development": "./src/*",
+            "default": "./dist/*"
+        },
+        "#routes/*": {
+            "development": "./src/routes/*",
+            "default": "./dist/routes/*"
+        },
+        "#modules/*": {
+            "development": "./src/modules/*",
+            "default": "./dist/modules/*"
+        }
+    },
     "scripts": {
         "dev": "NODE_ENV=development node scripts/dev.watch.mjs",
+        "start": "node dist/index.js",
         "build": "NODE_OPTIONS=--max_old_space_size=8192 tsc",
         "build:data": "echo 'build:data orchestrated by turbo (migrate:up -> build:datatypes)'",
         "codegen": "echo 'codegen orchestrated by turbo (build:data + build:contracts + build:permissions)'",

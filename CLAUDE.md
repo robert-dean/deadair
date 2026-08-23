@@ -1015,10 +1015,18 @@ a nav or back link uses `renderRoot={props => <Link to="..." {...props} />}` and
 link pointing at a route that never existed; and columns of figures carry `.da-num`, because a
 playhead in proportional digits makes the whole row twitch on every tick.
 
-**Import aliases** are `#src/*`, `#routes/*`, `#modules/*`, declared as `paths` in
-`apps/api/tsconfig.json` (there is no `imports` field in `apps/api/package.json`; docs that say
-otherwise are stale). `#shared/*` is declared but points at a `src/shared` that does not exist:
-shared code lives in `src/modules/shared`. Local imports carry `.js` extensions.
+**Import aliases** are `#src/*`, `#routes/*`, `#modules/*`, and they are declared THREE times
+because three different things resolve them, none of which can read the others. `paths` in
+`apps/api/tsconfig.json` type-checks them and nothing more: `tsc` never rewrites an emitted
+specifier, so `dist/` still asks for `#src/...`. `apps/api/package.json#imports` is what answers
+that at RUNTIME, and it is conditional — `dist/` by default, which is the whole reason `node
+dist/index.js` works in a production image, and `src/` under the `development` condition, which
+`scripts/dev.watch.mjs` asks for with `--conditions=development` so a stale `dist/` can never be
+preferred over the file just saved. `vitest.config.ts` spells the same mapping out a third time,
+since its esbuild transform reads neither. Measured: the dev loader's own resolver satisfies these
+through tsconfig before the imports field is consulted, so the condition flag is a belt-and-braces
+guarantee rather than the mechanism. `#shared/*` is gone — it pointed at a `src/shared` that never
+existed; shared code lives in `src/modules/shared`. Local imports carry `.js` extensions.
 
 **Formatting and toolchain:** 4-space indent, single quotes, semicolons, print width 150, `arrowParens: avoid`. Node 26+, TypeScript 6, pnpm + Turborepo. `pnpm test` / `pnpm lint` / `pnpm build` run through turbo; per package, `pnpm --filter @deadair/api test`. Tests live in each package's top-level `tests/`, mirroring `src/`.
 

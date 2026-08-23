@@ -34,11 +34,16 @@ scripts/            rollbackall.sh, enum-override sync, and the *.smoke.ts tools
 tests/              vitest suites, mirroring src/
 ```
 
-Import aliases are declared as `paths` in [tsconfig.json](tsconfig.json) (not `package.json#imports`)
-and mirrored for the runtime in [vitest.config.ts](vitest.config.ts): `#src/*`, `#routes/*`,
-`#modules/*`, `#shared/*`. Note that `#shared/*` maps to `src/shared`, which does not exist — shared
-types live under `src/modules/shared` and are imported by relative path. Local imports carry `.js`
-extensions.
+Import aliases are `#src/*`, `#routes/*` and `#modules/*`, and they are declared in three places
+because three different things resolve them. [tsconfig.json](tsconfig.json)'s `paths` is what
+type-checks them, and `tsc` never rewrites the emitted specifier, so a compiled `dist/` still asks
+for `#src/...`. `package.json#imports` is what answers that at runtime: it maps each alias to
+`dist/` by DEFAULT, which is what makes `node dist/index.js` work in a production image, and to
+`src/` under the `development` condition, which is why [dev.watch.mjs](scripts/dev.watch.mjs) passes
+`--conditions=development` — without it the dev server would prefer a stale `dist/` over the file
+just saved. [vitest.config.ts](vitest.config.ts) spells the same mapping out a third time because
+its esbuild transform reads neither of the other two. Shared types live under `src/modules/shared`
+and are imported by relative path. Local imports carry `.js` extensions.
 
 ### Boot sequence
 

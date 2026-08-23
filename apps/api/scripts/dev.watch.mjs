@@ -27,6 +27,10 @@ const NODE_ARGS = [
     '--inspect',
     '--no-warnings',
     '--no-deprecation',
+    // The `#` aliases resolve two ways: package.json#imports maps them to `dist/` by default so a
+    // production `node dist/index.js` works, and to `src/` under the `development` condition. Dev
+    // must ask for that condition or a stale dist would be preferred over the file just edited.
+    '--conditions=development',
     '--import',
     '@swc-node/register/esm-register',
     '--enable-source-maps',

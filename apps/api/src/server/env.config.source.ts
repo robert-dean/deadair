@@ -3,6 +3,12 @@ import { nestKeys, type AppConfigSource } from '@maroonedsoftware/appconfig';
 /**
  * The process environment, as a configuration layer.
  *
+ * TEMPORARY. This has been ported upstream as `AppConfigSourceEnv` in
+ * `@maroonedsoftware/appconfig`, since the hole it fills is every containerized app's rather than
+ * this one's. When a release carrying it is published, delete this file and import the class
+ * instead — the upstream constructor takes an options object (`{ groupSeparator: '__' }`) where
+ * this one takes the separator positionally, and is otherwise the same.
+ *
  * `AppConfigSourceDotenv` reads a FILE and populates `process.env` from it; nothing in the
  * pipeline reads the other way, so before this existed a variable set by the operator — the only
  * way anything is configured in a container, where there is no `.env` to write — reached dbmate

@@ -197,37 +197,30 @@ RUN set -eux; \
 
 COPY --from=icecast /usr/bin/icecast /usr/bin/icecast
 COPY --from=icecast /usr/share/icecast/ /usr/share/icecast/
-COPY --from=shim /out/deadair-shim /usr/local/bin/deadair-shim
 
-# The measurement sidecar: its own interpreter environment, its own pinned requirements. Only the
-# four modules the service actually imports, which is a rule its own image learned the hard way —
-# a missing one is a crash loop, not a build failure.
-COPY analysis/requirements.txt /opt/analysis/requirements.txt
-RUN python3 -m venv /opt/analysis/venv \
- && /opt/analysis/venv/bin/pip install --no-cache-dir -r /opt/analysis/requirements.txt
-COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/app.py /opt/analysis/
+# One user for everything the station runs, numbered to match the ownership a home server gives
+# the share this container's volume comes from — so `/data` is writable with no chown ceremony
+# and no PUID indirection. It is created HERE, above the two heavy stages below, so each of them
+# can set ownership on the tree it lays down instead of a later pass re-owning it: an overlay
+# chown rewrites every file it touches into a new layer, so `chown -R` over a tree this size is
+# a second copy of it in the published image.
+RUN set -eux; \
+    groupadd --gid 100 --non-unique deadair 2>/dev/null || true; \
+    useradd --uid 99 --gid 100 --non-unique --no-create-home --home-dir /data --shell /usr/sbin/nologin deadair 2>/dev/null || true; \
+    mkdir -p /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
+    chown 99:100 /data /var/log/icecast /var/cache/nginx /var/log/nginx
 
-# The station's own tree, in the shape the plugin loader expects to find: pnpm-workspace.yaml at
-# the root is the marker it walks up to, and `plugins/<name>/dist` is where it looks next.
-COPY --from=workspace /app/pnpm-workspace.yaml /app/package.json /app/
-COPY --from=workspace /app/node_modules /app/node_modules
-COPY --from=workspace /app/packages /app/packages
-COPY --from=workspace /app/plugins /app/plugins
-COPY --from=workspace /app/apps/api /app/apps/api
-# The console, served by nginx rather than by the API. The API has no static middleware and is not
-# growing one: the edge in front of it already has to exist for the stream.
-COPY --from=workspace /web /srv/web
-
-# What the app renders its stream config FROM. Only the template: `station-id.mp3` and the script
-# are the audio chain's, not the app's, and the app reads nothing else here.
-COPY stream/icecast.xml.tmpl /app/stream/
-# `/radio` and not somewhere tidier because `radio.liq` names `/radio/station-id.mp3` outright —
-# the one path in the audio chain that is not configurable, since the ident is the thing it falls
-# back to when everything else has failed and a missing fallback is silence.
-COPY stream/radio.liq stream/station-id.mp3 /radio/
-# What the stream runs on until the app has rendered the operator's own settings.
-COPY stream/radio.default.env /defaults/radio.env
-COPY stream/icecast.default.xml /defaults/icecast.xml
+# What the speech server needs from apt, kept OUT of the copy below rather than fused into it.
+# `cp -a` preserves every timestamp and mode, so the copy is byte-identical from one build to the
+# next and the registry skips it on push; an `apt-get` in the same command writes dpkg state and
+# logs whose contents differ every time, which would give that whole gigabyte a new digest on
+# every release. Same layer, two very different kinds of bytes.
+RUN set -eux; \
+    if [ "${WITH_TTS}" = "1" ]; then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends espeak-ng espeak-ng-data libsndfile1; \
+        rm -rf /var/lib/apt/lists/*; \
+    fi
 
 # The speech server, if this variant has one: its tree, and the interpreter its environment was
 # built against, which lives under /usr/local and does not collide with anything already there.
@@ -235,11 +228,9 @@ COPY stream/icecast.default.xml /defaults/icecast.xml
 # beside it are the expensive part and rebuilding would only move the same files around.
 RUN --mount=from=tts,target=/mnt/tts set -eux; \
     if [ "${WITH_TTS}" = "1" ]; then \
-        apt-get update; \
-        apt-get install -y --no-install-recommends espeak-ng espeak-ng-data libsndfile1; \
-        rm -rf /var/lib/apt/lists/*; \
         cp -a /mnt/tts/usr/local/. /usr/local/; \
         cp -a /mnt/tts/app /opt/tts; \
+        chown -R 99:100 /opt/tts; \
     fi
 
 # A database and a cache, for the variant meant to land on a host with nothing on it. Postgres
@@ -256,23 +247,66 @@ RUN set -eux; \
         rm -rf /var/lib/apt/lists/*; \
     fi
 
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Everything below here comes out of this repository, and so changes on an ordinary commit.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# A layer's digest covers the layers beneath it, so anything sitting under a changed layer is
+# rebuilt whether or not its own content moved — and a rebuilt layer is one the registry has to
+# accept and every operator has to fetch again. The speech server and the database were under the
+# station's own tree for as long as this file existed, which is why an API-only release re-pushed
+# a gigabyte of weights and pulled it back down on the other side. Nothing that the station's
+# source can invalidate may sit above them: keep this line where it is, and add below it.
+
+# Below the fence with the rest of the repository, small though it is: it is built out of
+# `stream/spotify-shim`, so it is the station's own source however little of it there is.
+COPY --from=shim /out/deadair-shim /usr/local/bin/deadair-shim
+
+# The measurement sidecar: its own interpreter environment, its own pinned requirements. Only the
+# four modules the service actually imports, which is a rule its own image learned the hard way —
+# a missing one is a crash loop, not a build failure. The environment is keyed to the pins alone
+# and the service's own code lands after it, so editing `measure.py` reinstalls nothing.
+COPY analysis/requirements.txt /opt/analysis/requirements.txt
+RUN python3 -m venv /opt/analysis/venv \
+ && /opt/analysis/venv/bin/pip install --no-cache-dir -r /opt/analysis/requirements.txt
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/app.py /opt/analysis/
+
+# What the app renders its stream config FROM. Only the template: `station-id.mp3` and the script
+# are the audio chain's, not the app's, and the app reads nothing else here.
+COPY stream/icecast.xml.tmpl /app/stream/
+# `/radio` and not somewhere tidier because `radio.liq` names `/radio/station-id.mp3` outright —
+# the one path in the audio chain that is not configurable, since the ident is the thing it falls
+# back to when everything else has failed and a missing fallback is silence.
+COPY stream/radio.liq stream/station-id.mp3 /radio/
+# What the stream runs on until the app has rendered the operator's own settings.
+COPY stream/radio.default.env /defaults/radio.env
+COPY stream/icecast.default.xml /defaults/icecast.xml
+
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 # The mount proxy, shared verbatim with the compose edge rather than copied into a second file
 # that could drift from it.
 COPY nginx/snippets /etc/nginx/snippets
 COPY docker/rootfs /
 
-# One user for everything the station runs, numbered to match the ownership a home server gives
-# the share this container's volume comes from — so `/data` is writable with no chown ceremony
-# and no PUID indirection.
+# The supervisor's own tree, made runnable and cut down to the services this variant has. Both
+# halves need `docker/rootfs` to be on disk, which is what keeps this below the copy rather than
+# up with the user it belongs to; it is a handful of small files either way.
 RUN set -eux; \
-    groupadd --gid 100 --non-unique deadair 2>/dev/null || true; \
-    useradd --uid 99 --gid 100 --non-unique --no-create-home --home-dir /data --shell /usr/sbin/nologin deadair 2>/dev/null || true; \
     chmod +x /etc/s6-overlay/scripts/* /etc/s6-overlay/s6-rc.d/*/run; \
-    mkdir -p /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
-    chown 99:100 /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
-    if [ "${WITH_TTS}" = "1" ]; then chown -R 99:100 /opt/tts; else rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/tts /etc/s6-overlay/user-bundles.d/user/contents.d/init-tts; fi; \
+    if [ "${WITH_TTS}" != "1" ]; then rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/tts /etc/s6-overlay/user-bundles.d/user/contents.d/init-tts; fi; \
     if [ "${WITH_DB}" != "1" ]; then rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/postgres /etc/s6-overlay/user-bundles.d/user/contents.d/redis /etc/s6-overlay/user-bundles.d/user/contents.d/init-database; fi
+
+# The station's own tree, in the shape the plugin loader expects to find: pnpm-workspace.yaml at
+# the root is the marker it walks up to, and `plugins/<name>/dist` is where it looks next. Last of
+# all, and split by how often each part moves: `node_modules` is the biggest and turns over only
+# with the lockfile, `apps/api` is the smallest and turns over with every commit.
+COPY --from=workspace /app/pnpm-workspace.yaml /app/package.json /app/
+COPY --from=workspace /app/node_modules /app/node_modules
+COPY --from=workspace /app/packages /app/packages
+COPY --from=workspace /app/plugins /app/plugins
+COPY --from=workspace /app/apps/api /app/apps/api
+# The console, served by nginx rather than by the API. The API has no static middleware and is not
+# growing one: the edge in front of it already has to exist for the stream.
+COPY --from=workspace /web /srv/web
 # Deliberately no chown over /app: the station reads its own code and writes none of it, and
 # re-owning a tree that size would copy every file in it into another layer.
 

@@ -1041,7 +1041,7 @@ database — supervised by s6, service definitions in `docker/rootfs`. Nothing w
 to make it fit; the sidecar is still a separate process because decoding still does not happen in
 Node. Development is unchanged and still the compose stack, which is why the two must not drift:
 an image both worlds share (nginx, the speech server) is pinned to ONE version written in both
-places. Six things are load-bearing. **The base is the audio chain's own image**, because that is
+places. Seven things are load-bearing. **The base is the audio chain's own image**, because that is
 the component that is hard to install correctly and it is Debian trixie, which is what lets the
 stream server be copied out of an image built on the same release — Icecast 2.5 is not in Debian
 and building it wants a library newer than trixie ships, and 2.4 costs `/admin/eventfeed`, which
@@ -1056,7 +1056,17 @@ than stopping the container, which is the same mechanism doing less damage. **Mi
 boot** and wait for the database rather than depending on it, so one rule covers a bundled
 database and an operator's slower one. And **everything the station keeps is under `/data`**, so a
 backup is one directory; the runtime user is 99:100 to match what a home server's app share is
-owned by, so there is no ownership step. Images are built and published by
+owned by, so there is no ownership step. And **nothing derived from this repository may sit above
+the fence comment in the final stage**, which is the newest of the seven and the one an ordinary
+edit undoes without noticing: a layer's digest covers everything beneath it, so a `COPY` of the
+station's own tree placed above the speech server gives that gigabyte of weights a new digest on
+every commit, and an API-only release re-pushes it and every operator re-pulls it. That is what
+the file did for as long as it existed. Two smaller rules hold the same line — an `apt-get` is
+never fused into the same `RUN` as a large `cp -a`, because the copy is byte-identical from one
+build to the next and the dpkg state beside it is not, so fusing them costs the whole layer its
+determinism; and a heavy tree is owned by the `RUN` that lays it down rather than by a later
+`chown -R`, since an overlay chown rewrites every file it touches into a second copy of the tree
+(the file said this about `/app` while doing it to `/opt/tts`). Images are built and published by
 `.github/workflows/`, three variants from two build args, and `codegen` is never run there for the
 reason it is never run anywhere automated: its outputs are committed and regenerating them needs a
 live database.

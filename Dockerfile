@@ -30,6 +30,36 @@ ARG GO_LIBRESPOT_VERSION=v0.7.4
 ARG DBMATE_VERSION=v2.35.0
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────
+# The manifests, and nothing else.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# An install is a function of the lockfile and the manifests. Handing it the whole tree made it a
+# function of every file in the repository instead, so a one-line change to a route reinstalled
+# the world — the layer under the install had a new digest, so the install beneath it did too.
+# This stage exists to answer that: it takes the whole context and throws away everything that is
+# not a manifest, and its OUTPUT is unchanged by an ordinary commit, so the install downstream of
+# it stays cached. The copy is cheap; it is the install that is not.
+FROM node:26-trixie-slim AS manifests
+WORKDIR /src
+COPY . .
+# The member list is the WORKSPACE'S OWN GLOBS rather than a list of paths, on `link-peers.mjs`'s
+# rule: a package added later is covered without anybody remembering this stage. One level deep,
+# which is what `pnpm-workspace.yaml` says and is also what keeps the fixture plugins under
+# `apps/api/tests` out of it — they are not members, and editing one should not cost an install.
+# A fourth glob added there and not here fails at the install below, loudly, rather than shipping.
+#
+# `-p` so an unchanged manifest keeps its timestamp: BuildKit hashes content rather than mtime, so
+# this is belt-and-braces rather than the mechanism, but the whole point of this stage is an output
+# that does not move and there is no reason to leave that resting on one implementation detail.
+RUN set -eux; \
+    mkdir -p /manifests; \
+    cp -p package.json pnpm-lock.yaml pnpm-workspace.yaml /manifests/; \
+    for member in apps/* packages/* plugins/*; do \
+        [ -f "$member/package.json" ] || continue; \
+        mkdir -p "/manifests/$member"; \
+        cp -p "$member/package.json" "/manifests/$member/"; \
+    done
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
 # The workspace: the API, the console, the plugins.
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 # Trixie to match the runtime, because a prod dependency with a native binding is compiled here
@@ -42,10 +72,20 @@ FROM node:26-trixie-slim AS workspace
 RUN npm install -g corepack@latest && corepack enable
 
 WORKDIR /app
-COPY . .
 
+COPY --from=manifests /manifests/ ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
     pnpm install --frozen-lockfile
+
+# The source, over the top of the install. Nothing here disturbs it: `node_modules` is in
+# `.dockerignore` at every level, so the context carries none and this copy overwrites none —
+# neither the store at the root nor the symlink farm pnpm left inside each member. The manifests
+# land a second time with identical content, which is the price of not enumerating them twice.
+#
+# No workspace package declares an `install`, `prepare` or `prepack` script, which is what makes
+# installing before the source is present safe at all. One that grows a `prepare` needing its own
+# source would have to be installed after this copy instead.
+COPY . .
 
 # Never `codegen` here. The contract routers, the permission types and the Kysely types are
 # committed, and regenerating them needs a live database — an image build that reached for one

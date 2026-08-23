@@ -1066,7 +1066,14 @@ never fused into the same `RUN` as a large `cp -a`, because the copy is byte-ide
 build to the next and the dpkg state beside it is not, so fusing them costs the whole layer its
 determinism; and a heavy tree is owned by the `RUN` that lays it down rather than by a later
 `chown -R`, since an overlay chown rewrites every file it touches into a second copy of the tree
-(the file said this about `/app` while doing it to `/opt/tts`). Images are built and published by
+(the file said this about `/app` while doing it to `/opt/tts`). The same argument one stage up is
+why the `manifests` stage exists: an install is a function of the lockfile, so the builder copies
+the manifests alone, installs, and copies the source over the top — its member list is
+`pnpm-workspace.yaml`'s own globs rather than a list of paths, so a package added later is covered
+and a fixture manifest under `apps/api/tests` is not. **No workspace package may declare an
+`install`, `prepare` or `prepack` script**, which is the one thing that makes installing before
+the source is there safe; one that needs its own source at install time has to be installed after
+the source copy instead. Images are built and published by
 `.github/workflows/`, three variants from two build args, and `codegen` is never run there for the
 reason it is never run anywhere automated: its outputs are committed and regenerating them needs a
 live database.

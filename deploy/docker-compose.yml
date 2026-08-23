@@ -1,0 +1,38 @@
+# deadair, in production, on a host that is not Unraid.
+#
+# One container: the API, the console, the stream chain, the measurement sidecar and — depending
+# on which variant you pull — a speech server, a database and a cache. Copy `.env.example` to
+# `.env`, fill it in, and:
+#
+#     docker compose up -d
+#
+# The Unraid path is the app template under `unraid/`, which asks for the same values in a form.
+# Both point at the same image and the same `/data` volume, so nothing here is Unraid-specific
+# and nothing there is a second way of configuring the station.
+
+services:
+    deadair:
+        # `latest` bundles a speech server and expects an external database and cache.
+        # `full` brings its own database and cache too; `slim` brings neither those nor a voice.
+        image: deadair/deadair:${VARIANT:-latest}
+        container_name: deadair
+        restart: unless-stopped
+        env_file:
+            - .env
+        ports:
+            # The one way in. It serves the console, proxies the API under /api, and carries the
+            # stream itself at /live.mp3, so a tunnel or reverse proxy in front needs this port
+            # and no other.
+            - '${HTTP_PORT:-8080}:80'
+        volumes:
+            # Everything the station keeps: the library's audio, rendered speech, logs, the
+            # stream's own config and state, operator-installed plugins, and — on `full` — the
+            # database itself. One directory, so a backup is one directory.
+            - ${DATA_DIR:-./data}:/data
+        healthcheck:
+            # The image declares its own; this only shortens the interval to something an
+            # operator watching a first boot can stand.
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 120s

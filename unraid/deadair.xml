@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<Container version="2">
+    <Name>deadair</Name>
+    <Repository>deadair/deadair:latest</Repository>
+    <Registry>https://hub.docker.com/r/deadair/deadair</Registry>
+    <Network>bridge</Network>
+    <Privileged>false</Privileged>
+    <Support>https://github.com/robert-dean/deadair/issues</Support>
+    <Project>https://github.com/robert-dean/deadair</Project>
+    <Overview>
+        An AI radio station: it picks the records, writes what the presenter says between them,
+        speaks it, and streams the result.
+
+        Everything is in this one container — the station, its console, the audio chain and the
+        stream server. Pick the tag that matches what your server already runs:
+
+        deadair/deadair:latest — a voice is included; point it at your own PostgreSQL and Redis.
+        deadair/deadair:full — brings its own database and cache as well. Nothing else needed.
+        deadair/deadair:slim — no voice either; for pointing at a speech server on another machine.
+
+        Everything it keeps lives under one path, so backing it up is backing up one share.
+
+        First run: open the console on the WebUI port and sign in. The database schema is applied
+        automatically. The stream is served by this same container at /live.mp3, so whatever you
+        put in front of the WebUI port (a reverse proxy or a tunnel) carries the station too.
+    </Overview>
+    <Category>MediaApp:Music MediaServer:Music</Category>
+    <WebUI>http://[IP]:[PORT:80]/</WebUI>
+    <Icon>https://raw.githubusercontent.com/robert-dean/deadair/main/apps/web/public/logo-mark.png</Icon>
+    <ExtraParams></ExtraParams>
+    <PostArgs></PostArgs>
+    <DonateText></DonateText>
+    <DonateLink></DonateLink>
+
+    <Config Name="WebUI" Target="80" Default="8080" Mode="tcp"
+        Description="The console, the API and the stream, all on this one port."
+        Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+
+    <Config Name="Data" Target="/data" Default="/mnt/user/appdata/deadair" Mode="rw"
+        Description="Everything the station keeps: its library's audio, the speech it renders, logs, the stream's own configuration and state, and — on the full tag — the database. Back this up."
+        Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/deadair</Config>
+
+    <Config Name="Public address" Target="APP_BASE_URL" Default="" Mode=""
+        Description="The address a browser actually reaches this station at, including https:// — used to build sign-in redirects, so a wrong value here means a sign-in that lands nowhere."
+        Type="Variable" Display="always" Required="true" Mask="false"></Config>
+
+    <Config Name="Console address" Target="SPA_BASE_URL" Default="" Mode=""
+        Description="Normally the same as the public address, because one port serves both."
+        Type="Variable" Display="always" Required="true" Mask="false"></Config>
+
+    <Config Name="Secret key" Target="KMS_LOCAL_ROOT_KEY" Default="" Mode=""
+        Description="Encrypts every credential the station stores, including your music provider's. Generate once with: openssl rand -base64 32 — then keep it. Losing it means entering all of them again."
+        Type="Variable" Display="always" Required="true" Mask="true"></Config>
+
+    <Config Name="Session key" Target="AUTHENTICATION_SESSION_JWT_PRIVATE_KEY" Default="" Mode=""
+        Description="Signs sessions. Generate once with: openssl genpkey -algorithm ed25519 — losing it signs everybody out and nothing worse."
+        Type="Variable" Display="always" Required="true" Mask="true"></Config>
+
+    <Config Name="Database host" Target="DATABASE_HOST" Default="" Mode=""
+        Description="Your PostgreSQL server. Leave every database and cache field blank on the full tag, which runs its own."
+        Type="Variable" Display="always" Required="false" Mask="false"></Config>
+
+    <Config Name="Database port" Target="DATABASE_PORT" Default="5432" Mode=""
+        Description="" Type="Variable" Display="always" Required="false" Mask="false">5432</Config>
+
+    <Config Name="Database name" Target="DATABASE_NAME" Default="deadair" Mode=""
+        Description="Must already exist; the station creates its own schema inside it, not the database itself."
+        Type="Variable" Display="always" Required="false" Mask="false">deadair</Config>
+
+    <Config Name="Database user" Target="DATABASE_USER" Default="" Mode=""
+        Description="Owns the schema: the station applies its migrations as this user at every start."
+        Type="Variable" Display="always" Required="false" Mask="false"></Config>
+
+    <Config Name="Database password" Target="DATABASE_PASSWORD" Default="" Mode=""
+        Description="" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+
+    <Config Name="Cache host" Target="REDIS_HOST" Default="" Mode=""
+        Description="Your Redis server. Sessions live here rather than in the database, so losing it signs everybody out and costs nothing else."
+        Type="Variable" Display="always" Required="false" Mask="false"></Config>
+
+    <Config Name="Cache port" Target="REDIS_PORT" Default="6379" Mode=""
+        Description="" Type="Variable" Display="always" Required="false" Mask="false">6379</Config>
+
+    <Config Name="Sign-in client id" Target="GOOGLE_OIDC_CLIENT_ID" Default="" Mode=""
+        Description="Optional. Without this the station signs you in with a one-time code instead."
+        Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+
+    <Config Name="Sign-in client secret" Target="GOOGLE_OIDC_CLIENT_SECRET" Default="" Mode=""
+        Description="Optional." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+
+    <Config Name="Apply migrations at start" Target="MIGRATE_ON_BOOT" Default="true" Mode=""
+        Description="Leave on unless you apply the schema yourself. An out-of-date schema otherwise degrades quietly rather than failing."
+        Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+</Container>

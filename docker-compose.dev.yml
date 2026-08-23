@@ -6,7 +6,9 @@
 # all share http://localhost:8080 and there's no cross-origin cookie handling.
 services:
     nginx:
-        image: nginx:1.27-alpine
+        # The same version the production image runs, so the edge dev is tested
+        # against is the edge that ships.
+        image: nginx:1.30-alpine
         container_name: deadair-nginx
         restart: unless-stopped
         ports:

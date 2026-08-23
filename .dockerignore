@@ -1,10 +1,11 @@
+# Everything built is built inside the image, so nothing built outside it should ride along:
+# a `dist/` from the host is a different architecture's idea of the same code.
 **/node_modules
 **/dist
 **/.turbo
 .docvol
 .git
+.github
 .tanstack
 **/.env
 **/*.log
-apps/web/dist
-apps/api/public/spa

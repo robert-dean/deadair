@@ -1,5 +1,6 @@
 import { ConsoleLogger } from '@maroonedsoftware/logger';
 import { AppConfigBuilder, AppConfigResolverEnv, AppConfigSourceDotenv } from '@maroonedsoftware/appconfig';
+import { AppConfigSourceEnv } from './env.config.source.js';
 import { settingsConfigSource } from './settings.config.source.js';
 import { setConfigStore } from './config.store.js';
 import { setupMiddleware } from './setup.middleware.js';
@@ -18,12 +19,24 @@ export const setupServer = async () => {
 
     Settings.defaultZone = 'utc';
 
+    // The process environment, snapshotted once and shared by both builds below. One instance
+    // rather than two, because the snapshot is taken when it is constructed and `scrubProcessEnv`
+    // runs after both: a second one built later would be built out of an environment with the
+    // secrets already removed from it.
+    const environment = new AppConfigSourceEnv();
+
     // The boot config: environment only, and the only one available until there is somewhere to
     // write logs. Everything read off it here is infrastructure the app needs BEFORE it can reach
     // a database — where to log, and how to connect — which is exactly the line between what
-    // belongs in `.env` and what belongs in `deadair.settings`.
+    // belongs in the environment and what belongs in `deadair.settings`.
+    //
+    // Both layers are here because there are two ways to set one of these: a `.env` file, which is
+    // how a developer does it, and the process environment, which is the only way a container can.
+    // The environment wins, on the ordinary rule that the more specific and more recent statement
+    // of a value is the one meant.
     const boot = await new AppConfigBuilder()
         .addSource(new AppConfigSourceDotenv(undefined, { groupSeparator: '__' }))
+        .addSource(environment)
         .addResolver(new AppConfigResolverEnv())
         .buildSnapshot();
 
@@ -58,6 +71,7 @@ export const setupServer = async () => {
     // a settings table that does not exist yet.
     const configStore = await new AppConfigBuilder()
         .addSource(new AppConfigSourceDotenv(undefined, { groupSeparator: '__' }))
+        .addSource(environment)
         .addSource(settingsConfigSource(boot, logger))
         .addResolver(new AppConfigResolverEnv())
         .buildStore(logger);

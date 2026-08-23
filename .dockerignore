@@ -9,3 +9,10 @@
 .tanstack
 **/.env
 **/*.log
+
+# The running station's own state, which is the developer's library and logs rather than anything
+# the image should contain. Without these the build context is whatever music is on this machine.
+**/media
+**/logs
+stream/music/*
+!stream/music/.gitkeep

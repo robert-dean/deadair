@@ -56,6 +56,11 @@ RUN pnpm exec turbo run build --filter=@deadair/api --filter=@deadair/web --filt
 # one: it rewrites the tree into a self-contained directory, and bundled plugins are discovered by
 # WALKING UP to the directory holding pnpm-workspace.yaml and then reading `plugins/<name>/dist`,
 # so a layout that is no longer a workspace is a layout with no plugins in it.
+# The console is finished the moment it is built — it is static files, and nothing downstream of
+# here is going to compile it again. So it is moved out of the workspace BEFORE the prune below,
+# which deletes the tree it was sitting in.
+RUN mkdir -p /web && cp -a apps/web/dist/. /web/
+
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
     pnpm install --prod --frozen-lockfile --ignore-scripts \
  && rm -rf apps/web node_modules/.cache .turbo
@@ -205,7 +210,7 @@ COPY --from=workspace /app/plugins /app/plugins
 COPY --from=workspace /app/apps/api /app/apps/api
 # The console, served by nginx rather than by the API. The API has no static middleware and is not
 # growing one: the edge in front of it already has to exist for the stream.
-COPY --from=workspace /app/apps/web/dist /srv/web
+COPY --from=workspace /web /srv/web
 
 # What the app renders its stream config FROM. Only the template: `station-id.mp3` and the script
 # are the audio chain's, not the app's, and the app reads nothing else here.
@@ -281,8 +286,6 @@ ENV NODE_ENV=production \
     STREAM_ASSETS_DIR=/app/stream \
     STREAM_CONFIG_DIR=/data/streamconfig \
     STREAM_MUSIC_DIR=/data/music \
-    SHIM_CREDENTIALS=/data/streamstate/spotify-credentials.json \
-    SHIM_LOG_DIR=/data/streamlogs \
     ANALYSIS_PORT=9321 \
     TTS_PORT=8880 \
     USE_GPU=false \

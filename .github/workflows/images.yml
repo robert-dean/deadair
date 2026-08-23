@@ -47,6 +47,21 @@ jobs:
               with:
                   persist-credentials: false
 
+            # A hosted runner arrives with an Android SDK, a .NET installation and a tool cache
+            # holding several language runtimes, none of which this job touches: it checks out a
+            # repository and hands a Dockerfile to a daemon. They are worth about twenty gigabytes,
+            # and without them gone the two variants carrying a speech server fill the disk — far
+            # enough that the runner could not write its own log, which is why that failure arrived
+            # as a job with no output rather than as an error.
+            #
+            # `df` on both sides because the next person to run out of room should be able to see
+            # how much this actually bought on the day it stopped being enough.
+            - name: Make room for the image
+              run: |
+                  df -h /
+                  sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/share/swift /opt/hostedtoolcache || true
+                  df -h /
+
             - name: Set up Buildx
               uses: docker/setup-buildx-action@v4
 

@@ -1,0 +1,24 @@
+#!/bin/sh -e
+# The voices the speech server can read in.
+#
+# They ship inside the server's own tree, which is part of the image and therefore replaced on
+# every update. An operator who adds a voice puts it somewhere that survives that, so the shipped
+# ones are seeded out to the volume once and the tree points back at them — which is the same
+# arrangement the separate-containers deployment used, for the same reason.
+
+DATA="${DATA_DIR:-/data}"
+SHIPPED=/opt/tts/api/src/voices/v1_0
+KEPT="$DATA/voices"
+
+[ -d /opt/tts ] || exit 0
+
+mkdir -p "$KEPT"
+
+# Never clobbering: a voice the operator replaced by hand stays replaced.
+if [ -d "$SHIPPED" ] && [ ! -L "$SHIPPED" ]; then
+    cp -rn "$SHIPPED"/. "$KEPT"/ 2>/dev/null || true
+    rm -rf "$SHIPPED"
+fi
+
+[ -L "$SHIPPED" ] || ln -sfn "$KEPT" "$SHIPPED"
+chown -R 99:100 "$KEPT" 2>/dev/null || true

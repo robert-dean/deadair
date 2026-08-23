@@ -1,0 +1,17 @@
+#!/bin/sh
+# The station's voice.
+exec 2>&1
+cd /opt/tts || exit 1
+
+# Its own interpreter and its own environment, kept apart from the measurement sidecar's: they
+# want different Pythons and neither should be able to break the other by being upgraded.
+#
+# Invoked as `python -m` rather than through the environment's own `uvicorn` script, because that
+# script's first line names the path this tree had in the image it came from, and it is not that
+# path here.
+PYTHONPATH=/opt/tts:/opt/tts/api
+export PYTHONPATH
+
+# Loopback: the voice is the station's, not something the network is offered.
+exec s6-setuidgid deadair /opt/tts/.venv/bin/python -m uvicorn api.src.main:app \
+    --host 127.0.0.1 --port "${TTS_PORT:-8880}"

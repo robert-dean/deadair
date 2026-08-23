@@ -16,6 +16,7 @@
 # Debian, and building it needs a libigloo newer than trixie's own), and nginx and Node both
 # publish for it.
 
+ARG WITH_TTS=1
 ARG NODE_VERSION=26.7.0
 ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG GO_LIBRESPOT_VERSION=v0.7.4
@@ -74,6 +75,19 @@ RUN cd /src && CGO_ENABLED=0 go build -v -o /out/deadair-shim ./cmd/deadair-shim
 FROM libretime/icecast:2.5.0 AS icecast
 
 # ─────────────────────────────────────────────────────────────────────────────────────────────
+# The station's voice, when this variant has one.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# A speech server is a Python environment plus a few hundred megabytes of weights, which is why
+# it is a variant rather than a fixture: a station pointed at a voice on a machine with a graphics
+# card should not also carry one it will never run. The empty case is a real stage because a
+# Dockerfile has no conditional COPY — but the copy below is a mount rather than a COPY, and an
+# empty stage mounts as an empty directory instead of failing on a path that is not there.
+FROM ghcr.io/remsky/kokoro-fastapi-cpu:latest AS tts-1
+FROM scratch AS tts-0
+ARG WITH_TTS
+FROM tts-${WITH_TTS} AS tts
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
 # The station.
 # ─────────────────────────────────────────────────────────────────────────────────────────────
 FROM savonet/liquidsoap:v2.4.5
@@ -81,6 +95,7 @@ FROM savonet/liquidsoap:v2.4.5
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
 
+ARG WITH_TTS
 ARG NODE_VERSION
 ARG S6_OVERLAY_VERSION
 ARG DBMATE_VERSION
@@ -195,6 +210,19 @@ COPY stream/radio.liq stream/station-id.mp3 /radio/
 COPY stream/radio.default.env /defaults/radio.env
 COPY stream/icecast.default.xml /defaults/icecast.xml
 
+# The speech server, if this variant has one: its tree, and the interpreter its environment was
+# built against, which lives under /usr/local and does not collide with anything already there.
+# The environment is left where the tree puts it rather than being rebuilt, because the weights
+# beside it are the expensive part and rebuilding would only move the same files around.
+RUN --mount=from=tts,target=/mnt/tts set -eux; \
+    if [ "${WITH_TTS}" = "1" ]; then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends espeak-ng espeak-ng-data libsndfile1; \
+        rm -rf /var/lib/apt/lists/*; \
+        cp -a /mnt/tts/usr/local/. /usr/local/; \
+        cp -a /mnt/tts/app /opt/tts; \
+    fi
+
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 # The mount proxy, shared verbatim with the compose edge rather than copied into a second file
 # that could drift from it.
@@ -209,7 +237,8 @@ RUN set -eux; \
     useradd --uid 99 --gid 100 --non-unique --no-create-home --home-dir /data --shell /usr/sbin/nologin deadair 2>/dev/null || true; \
     chmod +x /etc/s6-overlay/scripts/* /etc/s6-overlay/s6-rc.d/*/run; \
     mkdir -p /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
-    chown 99:100 /data /var/log/icecast /var/cache/nginx /var/log/nginx
+    chown 99:100 /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
+    if [ "${WITH_TTS}" = "1" ]; then chown -R 99:100 /opt/tts; else rm -f /etc/s6-overlay/user-bundles.d/user/contents.d/tts /etc/s6-overlay/user-bundles.d/user/contents.d/init-tts; fi
 # Deliberately no chown over /app: the station reads its own code and writes none of it, and
 # re-owning a tree that size would copy every file in it into another layer.
 
@@ -232,6 +261,12 @@ ENV NODE_ENV=production \
     SHIM_CREDENTIALS=/data/streamstate/spotify-credentials.json \
     SHIM_LOG_DIR=/data/streamlogs \
     ANALYSIS_PORT=9321 \
+    TTS_PORT=8880 \
+    USE_GPU=false \
+    DEVICE=cpu \
+    PHONEMIZER_ESPEAK_PATH=/usr/bin \
+    PHONEMIZER_ESPEAK_DATA=/usr/share/espeak-ng-data \
+    ESPEAK_DATA_PATH=/usr/share/espeak-ng-data \
     LOG_FILE=/data/streamlogs/liquidsoap.log \
     TRUST_PROXY=true \
     MIGRATE_ON_BOOT=true \

@@ -12,9 +12,20 @@ set -a
 . "$config"
 set +a
 
-# Not in the rendered file, because it is a property of this image's layout rather than of the
-# station's settings.
+# Not in the rendered file, because these are properties of this image's layout rather than of
+# the station's settings.
 LOG_FILE="${LOG_FILE:-/data/streamlogs/liquidsoap.log}"
 export LOG_FILE
+
+# Somewhere to keep the compiled script. The default is the HOME of whoever is running, which in
+# the image this base ships is root — and here this runs as the station's user, so every start
+# said it could not read root's cache and then compiled the whole script again. It goes on the
+# volume rather than in the image because the point of it is to survive a restart.
+HOME=/data/streamstate
+export HOME
+# Made here rather than left to Liquidsoap: this line runs as root, so the directory has to be
+# handed to the user the line below drops to.
+mkdir -p "$HOME/.cache"
+chown 99:100 "$HOME" "$HOME/.cache" 2>/dev/null || true
 
 exec s6-setuidgid deadair liquidsoap /radio/radio.liq

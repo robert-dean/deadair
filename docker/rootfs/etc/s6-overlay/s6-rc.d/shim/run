@@ -1,0 +1,23 @@
+#!/bin/sh
+# The track shim: what turns a provider's stream into something the audio chain can fetch.
+exec 2>&1
+
+# The same file the audio chain reads, because the two share the secrets that let them talk to
+# the station and to each other.
+config=/data/streamconfig/radio.env
+[ -f "$config" ] || config=/defaults/radio.env
+
+set -a
+# shellcheck disable=SC1090
+. "$config"
+set +a
+
+# The session it opens is worth keeping across a restart: re-authorizing is a browser visit an
+# operator has to make by hand.
+SHIM_CREDENTIALS="${SHIM_CREDENTIALS:-/data/streamstate/spotify-credentials.json}"
+SHIM_LOG_DIR="${SHIM_LOG_DIR:-/data/streamlogs}"
+export SHIM_CREDENTIALS SHIM_LOG_DIR
+
+# Supervised directly. The restart loop and the log file the compose deployment wrapped this in
+# are both things the supervisor already does, and doing them twice hides the exit code.
+exec s6-setuidgid deadair deadair-shim

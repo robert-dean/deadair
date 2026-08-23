@@ -1,0 +1,51 @@
+#!/bin/sh -e
+# The schema, before anything reads it.
+#
+# The station does not migrate itself at boot and should not: an out-of-date schema degrades
+# QUIETLY here (the settings layer answers empty rather than failing), which is the worst way for
+# this to go wrong. So it happens once, out here, loudly, before the API is allowed to start.
+
+if [ -z "${DATABASE_HOST:-}" ] || [ -z "${DATABASE_USER:-}" ] || [ -z "${DATABASE_NAME:-}" ]; then
+    cat >&2 <<'MESSAGE'
+deadair: no database.
+
+This image needs DATABASE_HOST, DATABASE_PORT, DATABASE_USER, DATABASE_PASSWORD and
+DATABASE_NAME, and REDIS_HOST and REDIS_PORT beside them.
+MESSAGE
+    exit 1
+fi
+
+case "${MIGRATE_ON_BOOT:-true}" in
+    false | 0 | no | off)
+        echo "migrate: MIGRATE_ON_BOOT is off; the schema is yours to apply" >&2
+        exit 0
+        ;;
+esac
+
+# Composed here rather than asked for as a URL, because everything else about this station's
+# database is five separate variables and a sixth spelling of the same facts is a way for them to
+# disagree. The password is percent-encoded: a password is allowed to contain the characters that
+# end a URL's authority, and one that does would otherwise produce a connection string that parses
+# cleanly into the wrong host.
+encoded_password=$(
+    DATABASE_PASSWORD="${DATABASE_PASSWORD:-}" node -e \
+        'process.stdout.write(encodeURIComponent(process.env.DATABASE_PASSWORD ?? ""))'
+)
+
+export DATABASE_URL="postgres://${DATABASE_USER}:${encoded_password}@${DATABASE_HOST}:${DATABASE_PORT:-5432}/${DATABASE_NAME}?sslmode=${DATABASE_SSLMODE:-disable}"
+
+cd /app/apps/api
+
+# The database may still be starting, in the same container or elsewhere on the network. Wait
+# rather than fail: a station that gives up because its database was four seconds behind it is a
+# station that needs an operator to restart it for no reason.
+attempt=1
+until dbmate -d ./data/migrations --no-dump-schema up; do
+    if [ "$attempt" -ge 30 ]; then
+        echo "migrate: the database did not answer after $attempt attempts; giving up" >&2
+        exit 1
+    fi
+    echo "migrate: no answer yet (attempt $attempt); waiting" >&2
+    attempt=$((attempt + 1))
+    sleep 2
+done

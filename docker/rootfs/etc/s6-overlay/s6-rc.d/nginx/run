@@ -1,0 +1,6 @@
+#!/bin/sh
+# The edge: the console, the API under /api, and the stream mount.
+exec 2>&1
+# Master as root because it binds port 80; its workers drop to the station's own user, which is
+# what the `user` line in the config says.
+exec nginx -g 'daemon off;'

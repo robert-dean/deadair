@@ -1,0 +1,20 @@
+#!/bin/sh
+# The audio chain: what plays, what ducks under what, and what is handed to the stream.
+exec 2>&1
+
+# Every setting reaches Liquidsoap through this file and no other way — there is no command line
+# and no second source. The app writes it; until the app has, the committed defaults stand.
+config=/data/streamconfig/radio.env
+[ -f "$config" ] || config=/defaults/radio.env
+
+set -a
+# shellcheck disable=SC1090
+. "$config"
+set +a
+
+# Not in the rendered file, because it is a property of this image's layout rather than of the
+# station's settings.
+LOG_FILE="${LOG_FILE:-/data/streamlogs/liquidsoap.log}"
+export LOG_FILE
+
+exec s6-setuidgid deadair liquidsoap /radio/radio.liq

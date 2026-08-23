@@ -1,46 +1,258 @@
 # syntax=docker/dockerfile:1
+# deadair, as one container.
 #
-# Single image that runs the Koa API and serves the built React SPA from the same
-# origin. The API mounts its routers under `/api` and falls back to the SPA's
-# index.html for every other GET (see apps/api/src/server/middleware/spa.middleware.ts).
+# A radio station is not one process and never was: something decodes, something encodes,
+# something serves the stream, something writes the words. What this image gives up is the
+# CONTAINER boundary between them, not the process boundary — every piece below is still its own
+# process under its own supervisor, and nothing was folded into Node to make it fit. The reason to
+# give it up is that an operator installing a station should install a station, not assemble six
+# services and a network, and the places this runs (a home server's app catalogue) are built around
+# one image with one volume.
 #
-# The API is executed through @swc-node/register (the same way `pnpm dev` runs it),
-# which transpiles the TypeScript source on the fly and honours the package.json
-# `#src/*` subpath imports — avoiding a separate tsc/dist alias-rewrite step.
+# The base is the Liquidsoap image rather than a bare Debian one, because Liquidsoap is the one
+# component here that is genuinely hard to install and easy to install WRONGLY — its codec set is
+# what the station's audio chain is. It is Debian trixie, which is what makes everything else
+# below cheap: Icecast 2.5 can be copied out of an image built on the same release (2.5 is not in
+# Debian, and building it needs a libigloo newer than trixie's own), and nginx and Node both
+# publish for it.
 
-# ── Builder: install deps, build the SDK + SPA ──────────────────────────────────
-FROM node:26-slim AS builder
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
-RUN corepack enable
+ARG NODE_VERSION=26.7.0
+ARG S6_OVERLAY_VERSION=3.2.3.2
+ARG GO_LIBRESPOT_VERSION=v0.7.4
+ARG DBMATE_VERSION=v2.35.0
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# The workspace: the API, the console, the plugins.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Trixie to match the runtime, because a prod dependency with a native binding is compiled here
+# and loaded there.
+FROM node:26-trixie-slim AS workspace
+
+# pnpm comes from npm rather than from corepack: Node 25 and later do not ship a corepack binary
+# at all, so `corepack enable` is a command that is not there. Installed this way it still reads
+# the repo's own `packageManager` pin, so the version is the lockfile's rather than this line's.
+RUN npm install -g corepack@latest && corepack enable
+
 WORKDIR /app
-
 COPY . .
-RUN pnpm install --frozen-lockfile
-# Build the SDK (the SPA imports its dist) then the SPA bundle.
-RUN pnpm --filter @deadair/sdk build \
-    && pnpm --filter @app/web build \
-    && mkdir -p apps/api/public/spa \
-    && cp -r apps/web/dist/. apps/api/public/spa/
 
-# ── Runtime ─────────────────────────────────────────────────────────────────────
-FROM node:26-slim AS runtime
-ENV NODE_ENV=production
-ENV PNPM_HOME=/pnpm
-ENV PATH=$PNPM_HOME:$PATH
-RUN corepack enable
-WORKDIR /app
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
+    pnpm install --frozen-lockfile
 
-# Carry over the installed workspace (pnpm's node_modules symlinks are relative,
-# so copying the whole tree preserves them) plus the staged SPA build.
-COPY --from=builder /app /app
+# Never `codegen` here. The contract routers, the permission types and the Kysely types are
+# committed, and regenerating them needs a live database — an image build that reached for one
+# would be a build that cannot run without the thing it is being built to bring up.
+RUN pnpm exec turbo run build --filter=@deadair/api --filter=@deadair/web --filter='./plugins/*'
 
-# Where spa.middleware.ts looks for the built SPA.
-ENV WEB_DIST_DIR=/app/apps/api/public/spa
-ENV PORT=3000
-EXPOSE 3000
+# Strip the dev half in place. `pnpm deploy` would be the tidier-looking answer and is the wrong
+# one: it rewrites the tree into a self-contained directory, and bundled plugins are discovered by
+# WALKING UP to the directory holding pnpm-workspace.yaml and then reading `plugins/<name>/dist`,
+# so a layout that is no longer a workspace is a layout with no plugins in it.
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
+    pnpm install --prod --frozen-lockfile --ignore-scripts \
+ && rm -rf apps/web node_modules/.cache .turbo
 
-WORKDIR /app/apps/api
-# Runtime config (DATABASE_*, REDIS_*, KMS/JWT secrets, APP_BASE_URL, …) is supplied
-# via the environment / an env file at `docker run` time — see docker-compose.yml.
-CMD ["node", "--no-warnings", "--no-deprecation", "--import", "@swc-node/register/esm-register", "./src/index.ts"]
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# The track shim.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+FROM golang:1-trixie AS shim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/*
+ARG GO_LIBRESPOT_VERSION
+RUN git clone --depth 1 --branch "${GO_LIBRESPOT_VERSION}" https://github.com/devgianlu/go-librespot /src
+COPY stream/spotify-shim/*.go /src/cmd/deadair-shim/
+RUN cd /src && CGO_ENABLED=0 go build -v -o /out/deadair-shim ./cmd/deadair-shim
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# Icecast 2.5, taken from an image that already built it.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# 2.5 rather than Debian's 2.4 because `/admin/eventfeed` is where the audience count comes from:
+# on 2.4 the station falls back to a once-a-minute poll, and both edges of "somebody is listening"
+# arrive up to a minute late — which for a station that only airs while somebody is there is the
+# difference between tuning in and waiting.
+FROM libretime/icecast:2.5.0 AS icecast
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# The station.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+FROM savonet/liquidsoap:v2.4.5
+
+USER root
+ENV DEBIAN_FRONTEND=noninteractive
+
+ARG NODE_VERSION
+ARG S6_OVERLAY_VERSION
+ARG DBMATE_VERSION
+
+# Everything apt provides, in one layer.
+#
+#   xz-utils         unpacking the supervisor and Node, neither of which apt has
+#   ffmpeg           the measurement sidecar shells out to it; nothing here decodes in Node
+#   python3          the sidecar itself
+#   libigloo0t64     Icecast 2.5 links it and trixie's own is older than 2.5 requires, so this
+#                    one comes from backports; without it the binary copied in below will not run
+#   nginx            from upstream, which is the same version dev's edge runs
+RUN set -eux; \
+    echo 'deb http://deb.debian.org/debian trixie-backports main' > /etc/apt/sources.list.d/trixie-backports.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates curl gnupg xz-utils; \
+    curl -fsSL https://nginx.org/keys/nginx_signing.key | gpg --dearmor -o /usr/share/keyrings/nginx-archive-keyring.gpg; \
+    . /etc/os-release; \
+    echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] https://nginx.org/packages/debian ${VERSION_CODENAME} nginx" \
+        > /etc/apt/sources.list.d/nginx.list; \
+    printf 'Package: *\nPin: origin nginx.org\nPin: release o=nginx\nPin-Priority: 900\n' > /etc/apt/preferences.d/99nginx; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ffmpeg \
+        nginx \
+        python3 python3-venv \
+        media-types \
+        libcurl4 libogg0 libspeex1 libssl3t64 libtheora0 libvorbis0a libxml2 libxslt1.1 librhash1; \
+    apt-get install -y --no-install-recommends -t trixie-backports libigloo0t64; \
+    rm -rf /var/lib/apt/lists/*
+
+# Node, verified the way the official image verifies it rather than trusted from a repository.
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in amd64) narch='x64';; arm64) narch='arm64';; *) echo "unsupported architecture: $arch" >&2; exit 1;; esac; \
+    export GNUPGHOME="$(mktemp -d)"; \
+    for key in \
+        5BE8A3F6C8A5C01D106C0AD820B1A390B168D356 \
+        DD792F5973C6DE52C432CBDAC77ABFA00DDBF2B7 \
+        CC68F5A3106FF448322E48ED27F5E38D5B0A215F \
+        8FCCA13FEF1D0C2E91008E09770F7A9A5AE15600 \
+        890C08DB8579162FEE0DF9DB8BEAB4DFCF555EF4 \
+        C82FA3AE1CBEDC6BE46B9360C43CEC45C17AB93C \
+        108F52B48DB57BB0CC439B2997B01419BD92F80A \
+        A363A499291CBBC940DD62E41F10027AF002F8B0 \
+        655F3B5C1FB3FA8D1A0CA6BDE4A7D232B936D2FD \
+    ; do \
+        gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "$key" \
+        || gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$key"; \
+    done; \
+    cd /tmp; \
+    curl -fsSLO --compressed "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${narch}.tar.xz"; \
+    curl -fsSLO --compressed "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt.asc"; \
+    gpg --batch --decrypt --output SHASUMS256.txt SHASUMS256.txt.asc; \
+    gpgconf --kill all; \
+    grep " node-v${NODE_VERSION}-linux-${narch}.tar.xz\$" SHASUMS256.txt | sha256sum -c -; \
+    tar -xJf "node-v${NODE_VERSION}-linux-${narch}.tar.xz" -C /usr/local --strip-components=1 --no-same-owner; \
+    rm -rf "$GNUPGHOME" /tmp/node-v* /tmp/SHASUMS256.txt*; \
+    node --version
+
+# The supervisor. Two tarballs: the scripts, then the binaries for this architecture.
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in amd64) sarch='x86_64';; arm64) sarch='aarch64';; *) echo "unsupported architecture: $arch" >&2; exit 1;; esac; \
+    cd /tmp; \
+    curl -fsSLO "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz"; \
+    curl -fsSLO "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${sarch}.tar.xz"; \
+    tar -C / -Jxpf "s6-overlay-noarch.tar.xz"; \
+    tar -C / -Jxpf "s6-overlay-${sarch}.tar.xz"; \
+    rm -f /tmp/s6-overlay-*.tar.xz
+
+# Migrations run at boot, and the tool that applies them is a dev dependency that the production
+# install above has just removed. The released binary is the substitute, and it depends on nothing.
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    curl -fsSL -o /usr/local/bin/dbmate \
+        "https://github.com/amacneil/dbmate/releases/download/${DBMATE_VERSION}/dbmate-linux-${arch}"; \
+    chmod 0755 /usr/local/bin/dbmate; \
+    dbmate --version
+
+COPY --from=icecast /usr/bin/icecast /usr/bin/icecast
+COPY --from=icecast /usr/share/icecast/ /usr/share/icecast/
+COPY --from=shim /out/deadair-shim /usr/local/bin/deadair-shim
+
+# The measurement sidecar: its own interpreter environment, its own pinned requirements. Only the
+# four modules the service actually imports, which is a rule its own image learned the hard way —
+# a missing one is a crash loop, not a build failure.
+COPY analysis/requirements.txt /opt/analysis/requirements.txt
+RUN python3 -m venv /opt/analysis/venv \
+ && /opt/analysis/venv/bin/pip install --no-cache-dir -r /opt/analysis/requirements.txt
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/app.py /opt/analysis/
+
+# The station's own tree, in the shape the plugin loader expects to find: pnpm-workspace.yaml at
+# the root is the marker it walks up to, and `plugins/<name>/dist` is where it looks next.
+COPY --from=workspace /app/pnpm-workspace.yaml /app/package.json /app/
+COPY --from=workspace /app/node_modules /app/node_modules
+COPY --from=workspace /app/packages /app/packages
+COPY --from=workspace /app/plugins /app/plugins
+COPY --from=workspace /app/apps/api /app/apps/api
+# The console, served by nginx rather than by the API. The API has no static middleware and is not
+# growing one: the edge in front of it already has to exist for the stream.
+COPY --from=workspace /app/apps/web/dist /srv/web
+
+# What the app renders its stream config FROM. Only the template: `station-id.mp3` and the script
+# are the audio chain's, not the app's, and the app reads nothing else here.
+COPY stream/icecast.xml.tmpl /app/stream/
+# `/radio` and not somewhere tidier because `radio.liq` names `/radio/station-id.mp3` outright —
+# the one path in the audio chain that is not configurable, since the ident is the thing it falls
+# back to when everything else has failed and a missing fallback is silence.
+COPY stream/radio.liq stream/station-id.mp3 /radio/
+# What the stream runs on until the app has rendered the operator's own settings.
+COPY stream/radio.default.env /defaults/radio.env
+COPY stream/icecast.default.xml /defaults/icecast.xml
+
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+# The mount proxy, shared verbatim with the compose edge rather than copied into a second file
+# that could drift from it.
+COPY nginx/snippets /etc/nginx/snippets
+COPY docker/rootfs /
+
+# One user for everything the station runs, numbered to match the ownership a home server gives
+# the share this container's volume comes from — so `/data` is writable with no chown ceremony
+# and no PUID indirection.
+RUN set -eux; \
+    groupadd --gid 100 --non-unique deadair 2>/dev/null || true; \
+    useradd --uid 99 --gid 100 --non-unique --no-create-home --home-dir /data --shell /usr/sbin/nologin deadair 2>/dev/null || true; \
+    chmod +x /etc/s6-overlay/scripts/* /etc/s6-overlay/s6-rc.d/*/run; \
+    mkdir -p /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
+    chown 99:100 /data /var/log/icecast /var/cache/nginx /var/log/nginx
+# Deliberately no chown over /app: the station reads its own code and writes none of it, and
+# re-owning a tree that size would copy every file in it into another layer.
+
+# Everything the station keeps is under one directory, because a backup an operator will actually
+# take is one directory. The paths below are absolute rather than the code's cwd-relative
+# defaults, which resolve against `/app/apps/api` and would scatter state through the image.
+ENV NODE_ENV=production \
+    PORT=3000 \
+    DATA_DIR=/data \
+    LOGS_DIR=/data/logs \
+    ART_DIR=/data/media/art \
+    TRACKS_DIR=/data/media/tracks \
+    SEGMENT_DIR=/data/media/segments \
+    SEGMENT_LIBRARY_DIR=/data/media/segments/inbox \
+    VOICE_SAMPLE_DIR=/data/media/voice-samples \
+    PLUGINS_DIR=/data/plugins \
+    STREAM_ASSETS_DIR=/app/stream \
+    STREAM_CONFIG_DIR=/data/streamconfig \
+    STREAM_MUSIC_DIR=/data/music \
+    SHIM_CREDENTIALS=/data/streamstate/spotify-credentials.json \
+    SHIM_LOG_DIR=/data/streamlogs \
+    ANALYSIS_PORT=9321 \
+    LOG_FILE=/data/streamlogs/liquidsoap.log \
+    TRUST_PROXY=true \
+    MIGRATE_ON_BOOT=true \
+    S6_KEEP_ENV=1 \
+    S6_BEHAVIOUR_IF_STAGE2_FAILS=2 \
+    S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
+
+# What the audio chain calls back on when a record has aired or its queue has run dry. Its own
+# default names a host that exists only when the app runs outside the containers, so it has to be
+# said here: nothing in the station fails as quietly as a callback nobody receives.
+ENV PLAYOUT_BASE_URL=http://app:3000/playout
+
+# The one address the station is reached at: the console, the API under /api, and the stream
+# itself. Everything else here talks to everything else over loopback.
+EXPOSE 80
+
+VOLUME ["/data"]
+
+# Liveness only, and deliberately: it answers from memory with no database behind it, so a station
+# whose provider is down or whose library is empty is still a station that is up.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
+    CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+
+ENTRYPOINT ["/init"]

@@ -1,0 +1,11 @@
+#!/bin/sh
+# The server the stream is published to.
+exec 2>&1
+
+# The config the app renders, or the committed one until it has. A cold station has never had a
+# database to read its stream settings out of, so the fallback is not a safety net — it is how the
+# first boot works at all. `config-watch` is what notices the real one arriving.
+config=/data/streamconfig/icecast.xml
+[ -f "$config" ] || config=/defaults/icecast.xml
+
+exec s6-setuidgid deadair icecast -c "$config"

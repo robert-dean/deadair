@@ -1,0 +1,47 @@
+#!/bin/sh -e
+# First thing at boot: make the volume look like a station, and make the station's own names
+# resolve to itself.
+
+DATA="${DATA_DIR:-/data}"
+
+# One directory per thing the station keeps. Created rather than assumed, because the volume an
+# operator mounts is an empty directory on the first boot and every one of these is written to
+# before anything reads it back.
+for dir in \
+    "$DATA/logs" \
+    "$DATA/media/art" \
+    "$DATA/media/tracks" \
+    "$DATA/media/segments/inbox" \
+    "$DATA/media/voice-samples" \
+    "$DATA/plugins" \
+    "$DATA/streamconfig" \
+    "$DATA/streamlogs" \
+    "$DATA/streamstate" \
+    "$DATA/music" \
+    "$DATA/voices" \
+; do
+    mkdir -p "$dir"
+    # The directories themselves, on every boot, because the volume comes from the host and the
+    # host may have made it as somebody else. Deliberately NOT recursive: what is under
+    # `media/tracks` is a library, and walking it at every boot to re-assert ownership the app
+    # already wrote would make starting the station a function of how much music it holds.
+    chown 99:100 "$dir" 2>/dev/null \
+        || echo "init-station: cannot take ownership of $dir; if the station cannot write, chown $DATA to 99:100 on the host" >&2
+done
+chown 99:100 "$DATA" 2>/dev/null || true
+
+# The station is several processes that have always addressed each other by name, because they
+# have always been separate containers. In one container those names have nowhere to resolve — so
+# they are resolved here, to this container, and every default, every rendered config and the
+# edge's own proxy lines keep working unchanged. The alternative was a second set of values that
+# says 127.0.0.1 everywhere and has to be kept in step with the first; this way there is one set.
+#
+# Appended rather than written: the file is the runtime's, and the entries above ours are the
+# container's own identity.
+for name in app icecast liquidsoap analysis kokoro; do
+    grep -qE "^127\.0\.0\.1[[:space:]]+.*[[:space:]]${name}([[:space:]]|\$)" /etc/hosts && continue
+    echo "127.0.0.1 ${name}" >> /etc/hosts 2>/dev/null || {
+        echo "init-station: /etc/hosts is not writable; the station cannot resolve its own parts by name" >&2
+        exit 1
+    }
+done

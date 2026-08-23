@@ -1,0 +1,58 @@
+#!/bin/sh
+# Neither the stream server nor the audio chain re-reads its config, so something has to notice
+# when the app has written a new one and restart the two that care.
+#
+# In the compose deployment this stopped the container and let the restart policy bring it back,
+# because there the container WAS the process. Here the supervisor is one level up and can restart
+# exactly the two services whose config changed, which is the same mechanism doing less damage:
+# a stream password rotating no longer takes the whole station down with it.
+#
+# It polls. That is not laziness — file-change events do not cross a bind mount reliably, which
+# is exactly what /data is, and the cost of being five seconds late to a config change nobody is
+# watching is nothing.
+exec 2>&1
+
+interval="${CONFIG_WATCH_INTERVAL_S:-5}"
+case "$interval" in
+    '' | 0)
+        echo "config-watch: disabled; a re-rendered config is adopted when this container restarts"
+        # A service that exits is a service the supervisor restarts. Sleep instead, doing nothing.
+        exec sleep infinity
+        ;;
+esac
+
+mtime() { stat -c %Y "$1" 2>/dev/null || true; }
+
+icecast_config=/data/streamconfig/icecast.xml
+radio_config=/data/streamconfig/radio.env
+
+# What was true when the services below us started. A file appearing for the first time is a
+# change like any other: on a cold station it is THE change, the one where the settings the
+# operator entered replace the committed defaults.
+icecast_seen=$(mtime "$icecast_config")
+radio_seen=$(mtime "$radio_config")
+
+echo "config-watch: watching every ${interval}s"
+
+while sleep "$interval"; do
+    icecast_now=$(mtime "$icecast_config")
+    radio_now=$(mtime "$radio_config")
+
+    # Only act once the file has stopped moving: the app writes by rename, and a restart raced
+    # against a half-written config is a station that reads the wrong one and stays wrong.
+    if [ "$icecast_now" != "$icecast_seen" ] && [ "$icecast_now" = "$icecast_previous" ]; then
+        echo "config-watch: the stream server's config changed; restarting it"
+        icecast_seen="$icecast_now"
+        s6-svc -ruwr /run/service/icecast || echo "config-watch: could not restart the stream server" >&2
+    fi
+
+    if [ "$radio_now" != "$radio_seen" ] && [ "$radio_now" = "$radio_previous" ]; then
+        echo "config-watch: the audio chain's config changed; restarting it"
+        radio_seen="$radio_now"
+        s6-svc -ruwr /run/service/liquidsoap || echo "config-watch: could not restart the audio chain" >&2
+        s6-svc -ruwr /run/service/shim || echo "config-watch: could not restart the track shim" >&2
+    fi
+
+    icecast_previous="$icecast_now"
+    radio_previous="$radio_now"
+done

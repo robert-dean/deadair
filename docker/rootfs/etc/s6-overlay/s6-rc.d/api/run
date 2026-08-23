@@ -1,0 +1,7 @@
+#!/bin/sh
+# The station itself.
+exec 2>&1
+cd /app/apps/api || exit 1
+# Compiled output rather than source: the `#src/*` specifiers it emits are answered by this
+# package's own imports map, which points at `dist/` unless asked for the development condition.
+exec s6-setuidgid deadair node dist/index.js

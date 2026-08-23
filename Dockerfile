@@ -357,8 +357,11 @@ ENV NODE_ENV=production \
     PORT=3000 \
     DATA_DIR=/data \
     LOGS_DIR=/data/logs \
+    # The record cache is deliberately absent from this list: it is the one directory an operator
+    # may want on another disk entirely, so it is resolved at start from whether `/tracks` was
+    # mounted. See `scripts/storage-env`, and note that setting TRACKS_DIR here would take that
+    # choice away by making it look as though somebody had already made it.
     ART_DIR=/data/media/art \
-    TRACKS_DIR=/data/media/tracks \
     SEGMENT_DIR=/data/media/segments \
     SEGMENT_LIBRARY_DIR=/data/media/segments/inbox \
     VOICE_SAMPLE_DIR=/data/media/voice-samples \

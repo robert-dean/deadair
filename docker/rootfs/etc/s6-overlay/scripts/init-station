@@ -10,7 +10,6 @@ DATA="${DATA_DIR:-/data}"
 for dir in \
     "$DATA/logs" \
     "$DATA/media/art" \
-    "$DATA/media/tracks" \
     "$DATA/media/segments/inbox" \
     "$DATA/media/voice-samples" \
     "$DATA/plugins" \
@@ -29,6 +28,19 @@ for dir in \
         || echo "init-station: cannot take ownership of $dir; if the station cannot write, chown $DATA to 99:100 on the host" >&2
 done
 chown 99:100 "$DATA" 2>/dev/null || true
+
+# The record cache, wherever it is going to be. `/tracks` only when something is really mounted
+# there: creating it otherwise would put the library inside the container's own filesystem, which
+# is the state this whole arrangement exists to avoid. Neither is recursive, for the reason above —
+# what is under it is a library, and re-asserting ownership across it at every boot would make
+# starting the station a function of how much music it holds.
+if awk '$2 == "/tracks" { found = 1 } END { exit !found }' /proc/mounts 2>/dev/null; then
+    chown 99:100 /tracks 2>/dev/null \
+        || echo "init-station: cannot take ownership of /tracks; if the station cannot cache records, chown that share to 99:100 on the host" >&2
+else
+    mkdir -p "$DATA/media/tracks"
+    chown 99:100 "$DATA/media/tracks" 2>/dev/null || true
+fi
 
 # The station is several processes that have always addressed each other by name, because they
 # have always been separate containers. In one container those names have nowhere to resolve — so

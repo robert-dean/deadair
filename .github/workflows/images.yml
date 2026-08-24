@@ -66,10 +66,23 @@ jobs:
             #
             # `df` on both sides because the next person to run out of room should be able to see
             # how much this actually bought on the day it stopped being enough.
+            #
+            # It is skipped for `slim`, which carries neither a speech server nor a database and
+            # was never the variant that filled the disk — a minute and a half of deleting things
+            # to make room for an image that already fits.
+            #
+            # The paths go in parallel rather than as one `rm -rf`. The list is unchanged and
+            # deliberately so: this step is the only thing standing between the big variants and a
+            # failure that arrives as a job with no output, so the way to make it cheaper is to
+            # spend less WALL CLOCK on the same deletions, never to delete less of them.
             - name: Make room for the image
+              if: matrix.variant != 'slim'
               run: |
                   df -h /
-                  sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/share/swift /opt/hostedtoolcache || true
+                  for path in /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/share/swift /opt/hostedtoolcache; do
+                      sudo rm -rf "$path" &
+                  done
+                  wait
                   df -h /
 
             - name: Set up Buildx

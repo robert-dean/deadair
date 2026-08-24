@@ -155,7 +155,12 @@ FROM libretime/icecast:2.5.0 AS icecast
 # card should not also carry one it will never run. The empty case is a real stage because a
 # Dockerfile has no conditional COPY — but the copy below is a mount rather than a COPY, and an
 # empty stage mounts as an empty directory instead of failing on a path that is not there.
-FROM ghcr.io/remsky/kokoro-fastapi-cpu:latest AS tts-1
+# Pinned by DIGEST, with the tag left beside it to say what the digest is. A floating tag here is
+# not the ordinary staleness trade: this is the layer the fence below exists to hold still, so the
+# day upstream pushes a new `latest` the voice is rebuilt, re-pushed, and re-pulled by every
+# operator — for a change nobody in this repository made and nothing in this repository records.
+# Measured at 63 seconds just to resolve and fetch on each release. Bump it deliberately.
+FROM ghcr.io/remsky/kokoro-fastapi-cpu:latest@sha256:28d6f0b6e4df369559012578299d201b855a08fac466f616653edd1f08c5370a AS tts-1
 FROM scratch AS tts-0
 ARG WITH_TTS
 FROM tts-${WITH_TTS} AS tts

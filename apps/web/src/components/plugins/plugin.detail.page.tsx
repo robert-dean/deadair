@@ -11,7 +11,8 @@ import { PluginConfigForm } from './plugin.config.form';
 import { PluginLogsCard } from './plugin.logs.card';
 import { PluginOAuthCard } from './plugin.oauth.card';
 import { PluginPermissionsCard } from './plugin.permissions.card';
-import { hasConfigForm, hasOAuth, PluginStatusLamp, statusOf } from './plugin.status';
+import { feedsTrackFetcher, hasConfigForm, hasOAuth, PluginStatusLamp, statusOf } from './plugin.status';
+import { StreamAuthorizationCard } from './stream.authorization.card';
 
 export interface PluginDetailPageProps {
     id: string;
@@ -170,6 +171,10 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
             </Card>
 
             {hasOAuth(detail) ? <PluginOAuthCard plugin={detail} /> : undefined}
+
+            {/* Below the connection card deliberately: these are two credentials in a sequence, and
+                this is the second one. */}
+            {feedsTrackFetcher(detail) ? <StreamAuthorizationCard plugin={detail} /> : undefined}
 
             <PluginLogsCard plugin={detail} />
         </Stack>

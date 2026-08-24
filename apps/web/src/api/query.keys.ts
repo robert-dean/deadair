@@ -64,6 +64,13 @@ export const queryKeys = {
         list: () => ['voices', 'list'] as const,
     },
     /**
+     * What the station's track fetcher holds by way of a Spotify login. One key: it is one reading
+     * of one process, and both writes answer in terms of it.
+     */
+    stream: {
+        authorization: () => ['stream', 'authorization'] as const,
+    },
+    /**
      * How the station says a word. One key, like the voices above: every write answers with the
      * whole lexicon, since accepting a proposal moves one row between two sections of one page.
      */

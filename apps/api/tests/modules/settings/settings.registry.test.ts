@@ -9,6 +9,13 @@ import { AIR_MODE_KEY, AIR_MODES, DEFAULT_AIR_MODE, parseAirMode } from '../../.
 import { STREAM_DEFAULTS, STREAM_KEYS, STREAM_SECRET_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { SUSTAINING_KEYS } from '../../../src/modules/schedule/schedule.service.js';
 import { findDescriptor, isSecretField, SETTING_DESCRIPTORS, SETTING_GROUPS } from '../../../src/modules/settings/settings.registry.js';
+import {
+    ANALYSIS_CONCURRENCY_KEY,
+    ANALYSIS_LOCAL_PACE_KEY,
+    ANALYSIS_PROVIDER_PACE_KEY,
+    resolveAnalysisConcurrency,
+    resolveAnalysisPaceMs,
+} from '../../../src/modules/analysis/analysis.settings.js';
 
 describe('the settings registry', () => {
     it('declares every key exactly once', () => {
@@ -75,6 +82,32 @@ describe('the settings registry', () => {
         expect(findDescriptor(AIR_MODE_KEY)!.default).toBe(DEFAULT_AIR_MODE);
         expect(findDescriptor(STREAM_KEYS.title)!.default).toBe(STREAM_DEFAULTS.title);
         expect(findDescriptor(STREAM_KEYS.mount)!.default).toBe(STREAM_DEFAULTS.mount);
+    });
+
+    it('declares the range its own resolver clamps to', () => {
+        // Same failure as the defaults above, one field along: a console that accepts a figure the
+        // resolver then clamps away shows the operator a number the walk is not running on. The
+        // ends are checked by asking the resolver, rather than by comparing to the constants, so
+        // this fails if either side moves.
+        const descriptor = findDescriptor(ANALYSIS_CONCURRENCY_KEY)!;
+
+        expect(resolveAnalysisConcurrency(descriptor.min)).toBe(descriptor.min);
+        expect(resolveAnalysisConcurrency(descriptor.max)).toBe(descriptor.max);
+        expect(resolveAnalysisConcurrency(descriptor.max! + 1)).toBe(descriptor.max);
+        expect(resolveAnalysisConcurrency(descriptor.min! - 1)).toBe(descriptor.min);
+    });
+
+    it('bounds both analysis pauses at the ceiling the resolver enforces', () => {
+        // A pace is clamped rather than rejected downstream for the same reason concurrency is, so
+        // the same disagreement is available: a console taking a day-long pause between tracks and
+        // a walk quietly using ten minutes.
+        for (const key of [ANALYSIS_PROVIDER_PACE_KEY, ANALYSIS_LOCAL_PACE_KEY]) {
+            const descriptor = findDescriptor(key)!;
+
+            expect(descriptor.min, key).toBe(0);
+            expect(resolveAnalysisPaceMs(descriptor.max, 0), key).toBe(descriptor.max);
+            expect(resolveAnalysisPaceMs(descriptor.max! + 1, 0), key).toBe(descriptor.max);
+        }
     });
 
     it('does not know about a key nobody declared', () => {

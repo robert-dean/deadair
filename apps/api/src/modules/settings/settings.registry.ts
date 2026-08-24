@@ -35,6 +35,8 @@ import {
     DEFAULT_ANALYSIS_CONCURRENCY,
     DEFAULT_ANALYSIS_LOCAL_PACE_MS,
     DEFAULT_ANALYSIS_PROVIDER_PACE_MS,
+    MAX_ANALYSIS_CONCURRENCY,
+    MAX_ANALYSIS_PACE_MS,
 } from '#modules/analysis/analysis.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
@@ -620,7 +622,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Tracks measured at once',
         type: 'number',
         default: DEFAULT_ANALYSIS_CONCURRENCY,
-        help: "Raise this only alongside the analyzer's own worker count: above it the extra requests just queue there, below it its cores sit idle. Neither side can work the other out, because the analyzer may not be on this machine.",
+        // The same bounds `resolveAnalysisConcurrency` clamps a stored row to, shared for the reason
+        // every default in this file is shared: two numbers that can disagree eventually do, and
+        // here the disagreement would be a console that accepts a figure the walk then ignores.
+        min: 1,
+        max: MAX_ANALYSIS_CONCURRENCY,
+        help: "How many measurements the walk keeps in flight. The analyzer's own ceiling is the other half: above it the extra requests wait there and spend their timeout waiting, so raise this towards what the connection test on the analyzer plugin says it will measure at once, and no further.",
     },
     {
         group: 'analysis',
@@ -628,6 +635,8 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Pause after a downloaded track (ms)',
         type: 'number',
         default: DEFAULT_ANALYSIS_PROVIDER_PACE_MS,
+        min: 0,
+        max: MAX_ANALYSIS_PACE_MS,
         help: "Measuring a track the station does not already hold is a full download through the same account it plays on, and a burst of them can trip a provider's own rate limit. This is the gap the walk leaves after one of those before starting the next.",
     },
     {
@@ -636,6 +645,8 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Pause after an already-local track (ms)',
         type: 'number',
         default: DEFAULT_ANALYSIS_LOCAL_PACE_MS,
+        min: 0,
+        max: MAX_ANALYSIS_PACE_MS,
         help: 'A record the station has already kept costs no provider request to measure, so this can be far shorter than the download pause above — but it is not free: it is still disk and decode time on whatever machine is running the analyzer. Set to 0 to measure the local half of the library flat out.',
     },
 

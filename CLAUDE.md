@@ -1030,7 +1030,14 @@ through tsconfig before the imports field is consulted, so the condition flag is
 guarantee rather than the mechanism. `#shared/*` is gone — it pointed at a `src/shared` that never
 existed; shared code lives in `src/modules/shared`. Local imports carry `.js` extensions.
 
-**Formatting and toolchain:** 4-space indent, single quotes, semicolons, print width 150, `arrowParens: avoid`. Node 26+, TypeScript 6, pnpm + Turborepo. `pnpm test` / `pnpm lint` / `pnpm build` run through turbo; per package, `pnpm --filter @deadair/api test`. Tests live in each package's top-level `tests/`, mirroring `src/`.
+**Formatting and toolchain:** 4-space indent, single quotes, semicolons, print width 150, `arrowParens: avoid`. Node 26+, TypeScript 6, pnpm + Turborepo. `pnpm test` / `pnpm lint` / `pnpm build` run through turbo; per package, `pnpm --filter @deadair/api test`. Tests live in each package's top-level `tests/`, mirroring `src/`. **CI does not run them through
+turbo**: `vitest.config.ts` at the root names every package's own config as a PROJECT, so one
+`vitest run --shard=k/4` sees all 310 files and four jobs split them. The reason is that turbo pays
+one vitest STARTUP per package and the startups are the cost, not the assertions — `apps/api` alone
+is 3736 tests in 18 seconds against the other fourteen packages' half as many in 55. Nothing about
+running tests BY HAND changed: the root config replaces no package's config, so `pnpm test` through
+turbo and `pnpm --filter <pkg> test` both behave exactly as before, and a new package with tests is
+picked up by adding its own `vitest.config.ts` as usual.
 
 **Neither `tests/` nor `scripts/` is built, and both are type-checked.** `pnpm --filter @deadair/api typecheck` is `typecheck:tests` (`tsconfig.tests.json`) then `typecheck:scripts` (`scripts/tsconfig.json`), and both widen `rootDir` to the workspace root — `rootDir` is a rule about where EMIT inputs may live and there is none, while pinning it rejects a boundary fixture from `packages/plugin-sdk/tests` and `verify.speech.ts` importing the kokoro plugin, both of which are deliberate. Neither folder is in the build tsconfig, so `tsc` still compiles only shippable code. This is not decoration: vitest transpiles without checking types and the scripts had no runner at all, so both folders had silently stopped compiling against the code they cover — four of five smoke scripts at once.
 

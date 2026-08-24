@@ -9,6 +9,10 @@ permissions:
     contents: read
 
 jobs:
+    # Compiling and testing are two jobs now, and they run side by side. `build` is the type check
+    # — `apps/api`'s build task IS `tsc` — and it is also the only writer of the task cache. The
+    # tests below do not wait on it: they compile what they need themselves, out of the same cache,
+    # which costs a little duplicated work and saves the whole of this job's minute on the clock.
     build:
         runs-on: ubuntu-latest
         timeout-minutes: 20
@@ -17,7 +21,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v7
               with:
-                  # Don't leave the token in .git/config for the install and test steps.
+                  # Don't leave the token in .git/config for the install and build steps.
                   persist-credentials: false
 
             # pnpm comes from this action rather than corepack: Node 25 and later no longer
@@ -34,26 +38,18 @@ jobs:
 
             # Turbo hashes each task's inputs and files the result under that hash, so what this
             # restores is per-PACKAGE rather than all-or-nothing: a commit touching `apps/api`
-            # replays the build and the test of every package it did not touch, and re-runs only
-            # the ones it did. Both tasks are cacheable — `test` declares no outputs, so what is
-            # replayed there is the run's own verdict, which is exactly as trustworthy as turbo's
-            # hashing of the inputs that produced it.
+            # replays the build of every package it did not touch and recompiles only the ones it
+            # did. The key carries the commit so every run writes a fresh entry, and the prefix
+            # restore-key is the whole mechanism — an exact key can never hit on a commit that has
+            # not been built before, so without the prefix this would restore nothing, ever.
             #
-            # Which half this pays for is worth knowing before expecting much of it. Measured on
-            # the run that prompted it: build 1m01s, test 3m03s, of a job lasting 4m38s. So the
-            # saving is mostly in the TESTS, and it is largest for a commit that leaves `apps/api`
-            # alone — that one package is 3736 of the assertions, and a commit touching it still
-            # pays for them however well everything around it replays. The cache is not the answer
-            # to that one; splitting the run is, and has not been done.
+            # THIS JOB IS THE ONLY WRITER. The test shards restore the same cache read-only, so
+            # five jobs do not race to save the same key and lose four of the writes to a warning.
             #
-            # The key carries the commit so every run writes a fresh entry, and the prefix
-            # restore-key is the whole mechanism: it makes the PREVIOUS run's entry the starting
-            # point, since an exact key can never hit on a commit that has not been built before.
-            #
-            # This shares the repository's ten gigabytes with the pnpm store above it and nothing
-            # else, which is only true because the IMAGE cache was deliberately put in the
-            # registry instead — three variants of this station do not fit in ten gigabytes
-            # alongside anything. That is what leaves room for this. Keep it that way.
+            # It shares the repository's ten gigabytes with the pnpm store above it and nothing
+            # else, which is only true because the IMAGE cache was deliberately put in the registry
+            # instead — three variants of this station do not fit in ten gigabytes alongside
+            # anything. That is what leaves room for this. Keep it that way.
             - name: Restore the task cache
               uses: actions/cache@v4
               with:
@@ -69,18 +65,80 @@ jobs:
             - name: Build
               run: pnpm build
 
-            - name: Test
-              run: pnpm test
-
             # Every run saves an entry holding what it restored PLUS what it added, so left alone
             # this grows by a full build per commit and spends the repository's cache budget on
             # results nothing will ask for again. A week is well past the point where a task's
             # inputs are still current, and an entry deleted too eagerly costs one rebuild rather
-            # than a wrong answer. `always()` because a run whose tests failed still cached every
-            # build that came before them, and that is worth keeping and worth pruning.
+            # than a wrong answer. `always()` because a run that failed still cached whatever it
+            # got through first, and that is worth keeping and worth pruning.
             #
             # It runs as an ordinary step so it lands before the cache action's own post step,
             # which is what actually writes the entry.
             - name: Age out stale task results
               if: always()
               run: find .turbo/cache -type f -mtime +7 -delete 2>/dev/null || true
+
+    # The suite, split four ways.
+    #
+    # It is split at the ROOT rather than per package, and which way round that goes is the whole
+    # point. Run through turbo the suite pays one vitest STARTUP per package, and the startups are
+    # the cost, not the assertions: measured locally, `apps/api` alone is 3736 tests in 18 seconds
+    # while the fourteen smaller packages are half as many tests in 55. Sharding the big suite
+    # would have split the cheap half and left the expensive one alone. One root run sees all 310
+    # files at once, shares a transform cache and a single worker pool across them, and `--shard`
+    # then cuts that whole thing into four — which is also why this does not run through
+    # `turbo run test` and gets no task caching. On a two-core runner the pool it stops
+    # oversubscribing is worth more than the replays it gives up.
+    #
+    # `vitest.config.ts` at the root is what makes one run possible; it names each package's own
+    # config as a project rather than replacing it, so nothing about running one package's tests
+    # by hand has changed. Verified before relying on it: the root run is 310 files and 5329
+    # assertions, which is exactly the sum of the thirteen per-package reports it replaces, and the
+    # four shards come to 78 + 78 + 77 + 77 — the same 310, so no file is dropped or run twice.
+    test:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        strategy:
+            # A shard failing should not hide the state of the other three.
+            fail-fast: false
+            matrix:
+                shard: [1, 2, 3, 4]
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v6
+
+            - name: Setup Node
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 26
+                  cache: pnpm
+
+            # Read-only, and deliberately not `needs: build`. Waiting for the compile would put its
+            # whole minute back on the clock, which is the thing splitting these jobs was for; the
+            # previous release's entry is a good enough starting point, and anything this commit
+            # actually changed is recompiled here in parallel rather than once in series.
+            - name: Restore the task cache
+              uses: actions/cache/restore@v4
+              with:
+                  path: .turbo/cache
+                  key: turbo-${{ runner.os }}-${{ github.sha }}
+                  restore-keys: turbo-${{ runner.os }}-
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            # The tests import their own sources, but they import their DEPENDENCIES through each
+            # package's exports, which point at `dist`. So the workspace has to be built first even
+            # though nothing here type-checks it — that is the job above.
+            - name: Build
+              run: pnpm build
+
+            - name: Test
+              run: pnpm exec vitest run --shard=${{ matrix.shard }}/4

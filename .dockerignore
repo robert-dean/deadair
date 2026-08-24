@@ -16,3 +16,8 @@
 **/logs
 stream/music/*
 !stream/music/.gitkeep
+
+# The tests, which the image has no way to run and no reason to hold. Every package keeps them in
+# a top-level `tests/` beside `src/`, and every build tsconfig includes `src` alone, so this costs
+# the build nothing and stops a test-only commit from invalidating the workspace copy.
+**/tests

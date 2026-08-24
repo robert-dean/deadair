@@ -77,15 +77,30 @@ COPY --from=manifests /manifests/ ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
     pnpm install --frozen-lockfile
 
-# The source, over the top of the install. Nothing here disturbs it: `node_modules` is in
-# `.dockerignore` at every level, so the context carries none and this copy overwrites none —
-# neither the store at the root nor the symlink farm pnpm left inside each member. The manifests
-# land a second time with identical content, which is the price of not enumerating them twice.
+# The source, over the top of the install — and ONLY the source the build actually reads. This was
+# `COPY . .`, which made a JavaScript rebuild a function of every file in the repository: editing
+# `docker/rootfs`, an nginx snippet or this Dockerfile invalidated the copy, and turbo then rebuilt
+# all fifteen packages from nothing. Measured on the release that prompted this — `0 cached, 15
+# total`, ninety-three seconds — for a commit that touched no TypeScript whatsoever.
+#
+# What the build reads is the members, `turbo.json`, and `link-peers.mjs` for the step further
+# down. Every tsconfig extends a workspace package rather than a file at the root, and every build
+# script is `tsc`, `tsup` or `vite` reading its own directory, so there is nothing else to bring.
+# `tests/` is excluded at the ignore file, because the build tsconfigs include `src` alone and an
+# image that never runs a test should not be rebuilt by one.
+#
+# Nothing here disturbs the install above: `node_modules` is in `.dockerignore` at every level, so
+# the context carries none and these copies overwrite none — neither the store at the root nor the
+# symlink farm pnpm left inside each member.
 #
 # No workspace package declares an `install`, `prepare` or `prepack` script, which is what makes
 # installing before the source is present safe at all. One that grows a `prepare` needing its own
-# source would have to be installed after this copy instead.
-COPY . .
+# source would have to be installed after these copies instead.
+COPY turbo.json ./
+COPY docker/link-peers.mjs ./docker/
+COPY packages ./packages
+COPY plugins ./plugins
+COPY apps ./apps
 
 # Never `codegen` here. The contract routers, the permission types and the Kysely types are
 # committed, and regenerating them needs a live database — an image build that reached for one

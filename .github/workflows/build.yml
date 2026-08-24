@@ -32,6 +32,35 @@ jobs:
                   node-version: 26
                   cache: pnpm
 
+            # Turbo hashes each task's inputs and files the result under that hash, so what this
+            # restores is per-PACKAGE rather than all-or-nothing: a commit touching `apps/api`
+            # replays the build and the test of every package it did not touch, and re-runs only
+            # the ones it did. Both tasks are cacheable — `test` declares no outputs, so what is
+            # replayed there is the run's own verdict, which is exactly as trustworthy as turbo's
+            # hashing of the inputs that produced it.
+            #
+            # Which half this pays for is worth knowing before expecting much of it. Measured on
+            # the run that prompted it: build 1m01s, test 3m03s, of a job lasting 4m38s. So the
+            # saving is mostly in the TESTS, and it is largest for a commit that leaves `apps/api`
+            # alone — that one package is 3736 of the assertions, and a commit touching it still
+            # pays for them however well everything around it replays. The cache is not the answer
+            # to that one; splitting the run is, and has not been done.
+            #
+            # The key carries the commit so every run writes a fresh entry, and the prefix
+            # restore-key is the whole mechanism: it makes the PREVIOUS run's entry the starting
+            # point, since an exact key can never hit on a commit that has not been built before.
+            #
+            # This shares the repository's ten gigabytes with the pnpm store above it and nothing
+            # else, which is only true because the IMAGE cache was deliberately put in the
+            # registry instead — three variants of this station do not fit in ten gigabytes
+            # alongside anything. That is what leaves room for this. Keep it that way.
+            - name: Restore the task cache
+              uses: actions/cache@v4
+              with:
+                  path: .turbo/cache
+                  key: turbo-${{ runner.os }}-${{ github.sha }}
+                  restore-keys: turbo-${{ runner.os }}-
+
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
@@ -42,3 +71,16 @@ jobs:
 
             - name: Test
               run: pnpm test
+
+            # Every run saves an entry holding what it restored PLUS what it added, so left alone
+            # this grows by a full build per commit and spends the repository's cache budget on
+            # results nothing will ask for again. A week is well past the point where a task's
+            # inputs are still current, and an entry deleted too eagerly costs one rebuild rather
+            # than a wrong answer. `always()` because a run whose tests failed still cached every
+            # build that came before them, and that is worth keeping and worth pruning.
+            #
+            # It runs as an ordinary step so it lands before the cache action's own post step,
+            # which is what actually writes the entry.
+            - name: Age out stale task results
+              if: always()
+              run: find .turbo/cache -type f -mtime +7 -delete 2>/dev/null || true

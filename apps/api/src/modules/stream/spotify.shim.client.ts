@@ -53,6 +53,96 @@ export const TRACK_URL_TTL_MS = 30 * 60_000;
  */
 export const SESSION_PUSH_TIMEOUT_MS = 2_000;
 
+/**
+ * How long the fetcher's own state may take to read.
+ *
+ * As short as the push beside it, and for a related reason: this is read on the way to composing an
+ * answer for the console, and a shim that is not answering is itself the finding rather than
+ * something to wait on.
+ */
+export const AUTHORIZATION_READ_TIMEOUT_MS = 2_000;
+
+/** Starting an authorization mints a URL and reaches nobody, so this bounds only the hop itself. */
+export const AUTHORIZATION_START_TIMEOUT_MS = 5_000;
+
+/**
+ * How long FINISHING an authorization may take, which is a different order of thing.
+ *
+ * Behind it is a token exchange with Spotify and then a full login, which is several round trips —
+ * the shim bounds the pair at its own `fetchTimeout` of 90s. This has to outlast that, or the app
+ * gives up on an authorization that then succeeds, and the operator is told it failed while the
+ * station quietly starts working.
+ */
+export const AUTHORIZATION_FINISH_TIMEOUT_MS = 100_000;
+
+/**
+ * What the fetcher holds by way of a Spotify login.
+ *
+ * `authorized` is the fetcher's OWN stored authorization, which is the only kind login5 accepts, and
+ * it is the field to read first when nothing plays: false here with a healthy plugin above it is a
+ * station that lists playlists perfectly and cannot fetch a single record.
+ */
+export interface FetcherAuthorizationState {
+    /** Whether the fetcher answered at all. False makes every field below it a default rather than a reading. */
+    reachable: boolean;
+    /** Whether this install has a stream half at all. False means there is nothing yet to authorize. */
+    configured: boolean;
+    /** Whether the fetcher holds its own stored authorization. */
+    authorized: boolean;
+    /** Whether a Spotify session is live right now. */
+    session: boolean;
+    /** The last reason a login was refused. Present is not the same as fatal: a session may have recovered since. */
+    loginError?: string;
+    /** An authorization already started and not yet finished, so an operator who lost the URL can be given it back. */
+    pendingUrl?: string;
+    /**
+     * The address Spotify will return the browser to, as the fetcher itself computes it.
+     *
+     * Reported rather than derived here, because it comes from the fetcher's own listen address and
+     * a console telling an operator which page is expected to fail to load must not be guessing.
+     */
+    callbackUrl?: string;
+}
+
+/**
+ * What an authorization failure can be, as a status this app is willing to answer with.
+ *
+ * A closed set rather than whatever the fetcher said, because the fetcher's codes are about the
+ * fetcher and these are about the station: its 404 means "no login secret here", which relayed
+ * verbatim would tell an operator the route does not exist. See {@link refusalFor}.
+ */
+export type FetcherRefusalStatus = 400 | 502 | 503;
+
+/** A failure the operator is owed a sentence about, carrying the status that says what to do next. */
+export interface FetcherRefusal {
+    ok: false;
+    status: FetcherRefusalStatus;
+    message: string;
+}
+
+export type FetcherResult<T> = { ok: true; value: T } | FetcherRefusal;
+
+/**
+ * The fetcher's own failure, as something the station can answer with.
+ *
+ * Only 400 survives as itself, and it is the one that matters: it means the ATTEMPT cannot succeed —
+ * nothing pending, a URL left to go stale, a callback from some other authorization — so the operator
+ * starts again and it works. Everything else resolves to "not the operator's move".
+ *
+ * The two that are translated rather than passed on are both about this app rather than about
+ * Spotify. A 404 is the fetcher saying it holds no login secret, and a 401 is it holding a different
+ * one from ours; relayed as they stand, the first reads as a missing route and the second as the
+ * operator's session being rejected. Both are the stream half of the install not being set up, which
+ * is what `503` says here and what the unseeded-secret branch above already answers.
+ */
+function refusalFor(status: number, message: string): FetcherRefusal {
+    if (status === 400) return { ok: false, status: 400, message: message || 'the fetcher refused the authorization' };
+    if (status === 404 || status === 401) {
+        return { ok: false, status: 503, message: 'the app and the track fetcher do not agree on a login secret, so the stream half of this install is not set up' };
+    }
+    return { ok: false, status: 502, message: message || `the track fetcher answered ${status}` };
+}
+
 @Injectable()
 export class SpotifyShimClient {
     /** Signs track URLs. The same secret gating Liquidsoap's `/control/*`. */
@@ -135,6 +225,104 @@ export class SpotifyShimClient {
                 error: errorText(error),
             });
         }
+    }
+
+    /**
+     * What the fetcher says about its own Spotify login.
+     *
+     * Never throws, because every one of its failures is a state the console has to draw rather than
+     * an error to raise: a shim that is not answering, a shim that has never been authorized, and a
+     * shim whose stored login is being refused are three different things an operator does three
+     * different things about, and only the first of them looks like a fault in this app.
+     *
+     * `reachable` is what keeps the other fields honest. Without it a shim that is simply down reads
+     * as one that was never authorized, which is a sentence telling the operator to go and do
+     * something that will not work.
+     */
+    async authorization(): Promise<FetcherAuthorizationState> {
+        if (!this.shimSecret) {
+            // Not seeded is not the same as not authorized: until the stream half of the install has
+            // run, there is nothing here to authorize and nothing to say about it.
+            return { reachable: false, configured: false, authorized: false, session: false };
+        }
+
+        try {
+            const response = await fetch(`${this.baseUrl()}/health`, { signal: AbortSignal.timeout(AUTHORIZATION_READ_TIMEOUT_MS) });
+            if (!response.ok) return { reachable: false, configured: true, authorized: false, session: false };
+
+            const health = (await response.json()) as {
+                session?: boolean;
+                storedLogin?: boolean;
+                loginError?: string;
+                authorizeUrl?: string;
+                callbackUrl?: string;
+            };
+            return {
+                reachable: true,
+                configured: true,
+                // The STORED login is the one login5 accepts. A live session without one is a shim
+                // running on a pushed token, which is the state this whole surface exists for.
+                authorized: health.storedLogin === true,
+                session: health.session === true,
+                loginError: health.loginError,
+                pendingUrl: health.authorizeUrl,
+                callbackUrl: health.callbackUrl,
+            };
+        } catch (error) {
+            this.logger.warn("stream: could not read the track fetcher's authorization", { error: errorText(error) });
+            return { reachable: false, configured: true, authorized: false, session: false };
+        }
+    }
+
+    /** Start the fetcher's one-time authorization, and hand back the URL the operator has to open. */
+    async beginAuthorization(): Promise<FetcherResult<{ authorizeUrl: string; expiresInMs: number }>> {
+        return this.control('/authorize', undefined, AUTHORIZATION_START_TIMEOUT_MS);
+    }
+
+    /**
+     * Finish an authorization from the address the operator pasted.
+     *
+     * The URL is relayed WHOLE rather than taken apart here, because the shim already has the one
+     * parser for it and two readings of the same address is one of them being wrong eventually.
+     */
+    async completeAuthorization(redirectUrl: string): Promise<FetcherResult<{ username: string }>> {
+        return this.control('/authorize/complete', { redirectUrl }, AUTHORIZATION_FINISH_TIMEOUT_MS);
+    }
+
+    /**
+     * The shape both authorization writes share: post, and report what came back.
+     *
+     * Reports rather than throws, and the difference from {@link SpotifyShimClient.pushSession} is
+     * the caller: a push happens on the way to resolving a track and must never cost the item, while
+     * these two happen because an operator pressed a button and are owed an answer. The shim's own
+     * status is carried through, because it means something specific — 400 is this attempt and 502
+     * is Spotify — and re-deriving that from a message would put the shim's wording in this file.
+     */
+    private async control<T>(path: string, body: unknown, timeoutMs: number): Promise<FetcherResult<T>> {
+        if (!this.shimSecret) {
+            return { ok: false, status: 503, message: 'the track fetcher has no login secret, so the stream half of this install has not been set up yet' };
+        }
+
+        let response: Response;
+        try {
+            response = await fetch(`${this.baseUrl()}${path}`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json', 'x-spotify-login-secret': this.shimSecret },
+                body: JSON.stringify(body ?? {}),
+                signal: AbortSignal.timeout(timeoutMs),
+            });
+        } catch (error) {
+            this.logger.warn('stream: could not reach the track fetcher', { path, error: errorText(error) });
+            return { ok: false, status: 503, message: 'the track fetcher is not answering' };
+        }
+
+        if (!response.ok) {
+            // Plain text, because that is what the shim answers with on every failure path.
+            const message = (await response.text().catch(() => '')).trim();
+            return refusalFor(response.status, message);
+        }
+
+        return { ok: true, value: (await response.json()) as T };
     }
 
     /**

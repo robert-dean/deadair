@@ -193,3 +193,100 @@ describe('SpotifyShimClient', () => {
         }
     });
 });
+
+// The authorization surface: what an operator is told about a fetcher that cannot fetch.
+//
+// The distinction every test here turns on is that a fetcher which is DOWN and a fetcher which was
+// never AUTHORIZED are two states with two different things to do about them, and only one of them
+// is worth sending somebody to a Spotify consent screen for. Reading them as one is what this
+// station spent a day doing: a healthy plugin listing playlists above an audio path 502ing on every
+// record, with nothing anywhere saying which half was wrong.
+describe('the track fetcher authorization', () => {
+    const healthy = (body: Record<string, unknown>) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+
+    it('reads a stored login as authorized, and a live session alone as not', async () => {
+        // A session with no STORED login is the fetcher running on the token the app pushes it,
+        // which Spotify's login refuses. So `session` is not the question; `storedLogin` is.
+        const { client } = clientWith({}, healthy({ ok: true, session: true, storedLogin: false, loginError: 'INVALID_CREDENTIALS' }));
+
+        const state = await client.authorization();
+
+        expect(state.reachable).toBe(true);
+        expect(state.authorized).toBe(false);
+        expect(state.session).toBe(true);
+        expect(state.loginError).toContain('INVALID_CREDENTIALS');
+    });
+
+    it('reports a fetcher that is not answering as unreachable rather than as unauthorized', async () => {
+        const { client } = clientWith({}, new Error('ECONNREFUSED'));
+
+        const state = await client.authorization();
+
+        // Both false, and only the first is a reading. Told apart, because "authorize Spotify" is
+        // useless advice to somebody whose fetcher is not running.
+        expect(state.reachable).toBe(false);
+        expect(state.authorized).toBe(false);
+    });
+
+    it('reports an install with no stream half as unconfigured without reaching for the network', async () => {
+        const { fetchMock } = clientWith();
+        const client = new SpotifyShimClient(configWith(), loggerStub());
+        client.useSecrets(VECTOR.secret, '');
+
+        const state = await client.authorization();
+
+        expect(state.configured).toBe(false);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('carries the callback address the fetcher computed rather than guessing at one', async () => {
+        // It comes off the fetcher's own listen address, so nothing here can derive it — and the
+        // console uses it to say which page is expected to fail to load.
+        const { client } = clientWith({}, healthy({ ok: true, session: false, storedLogin: true, callbackUrl: 'http://127.0.0.1:14000/login' }));
+
+        expect((await client.authorization()).callbackUrl).toBe('http://127.0.0.1:14000/login');
+    });
+
+    it('keeps a refused attempt as 400, because that is the one the operator can fix', async () => {
+        // Nothing pending, a stale URL, a callback from another authorization: start again and it
+        // works. Everything else is not the operator's move.
+        const { client } = clientWith({}, new Response('no authorization is pending', { status: 400 }));
+
+        const result = await client.completeAuthorization('http://127.0.0.1:3679/login?code=a&state=b');
+
+        expect(result).toEqual({ ok: false, status: 400, message: 'no authorization is pending' });
+    });
+
+    it('turns a secret the fetcher does not share into a setup fault, not a missing route', async () => {
+        // The fetcher answers 404 when it holds no login secret and 401 when it holds a different
+        // one. Relayed as they stand, those read as "no such route" and "your session was rejected",
+        // and neither is what is wrong.
+        for (const status of [401, 404]) {
+            const { client } = clientWith({}, new Response('denied', { status }));
+
+            expect(await client.beginAuthorization()).toEqual({
+                ok: false,
+                status: 503,
+                message: expect.stringContaining('do not agree on a login secret'),
+            });
+        }
+    });
+
+    it('reads a fetcher that cannot be reached at all as 503 rather than as Spotify failing', async () => {
+        const { client } = clientWith({}, new Error('ECONNREFUSED'));
+
+        expect(await client.beginAuthorization()).toEqual({ ok: false, status: 503, message: 'the track fetcher is not answering' });
+    });
+
+    it('relays the pasted address whole, because the fetcher owns the one parser for it', async () => {
+        const { client, fetchMock } = clientWith({}, healthy({ username: 'station' }));
+        const pasted = 'http://127.0.0.1:3679/login?code=the-code&state=the-state';
+
+        await client.completeAuthorization(pasted);
+
+        const [url, init] = fetchMock.mock.calls[0]!;
+        expect(url).toBe(`${DEFAULT_SHIM_BASE_URL}/authorize/complete`);
+        expect(JSON.parse(String(init?.body))).toEqual({ redirectUrl: pasted });
+        expect((init?.headers as Record<string, string>)['x-spotify-login-secret']).toBe('shim-secret');
+    });
+});

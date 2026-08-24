@@ -19,6 +19,7 @@ import { ScheduleClient } from './schedule/schedule.client.js';
 import { SettingsClient } from './settings/settings.client.js';
 import { StationClient } from './station/station.client.js';
 import { StorageClient } from './storage/storage.client.js';
+import { StreamClient } from './stream/stream.client.js';
 import { TopicsClient } from './topics/topics.client.js';
 
 export class DeadairSdk {
@@ -41,6 +42,7 @@ export class DeadairSdk {
     readonly settings: SettingsClient;
     readonly station: StationClient;
     readonly storage: StorageClient;
+    readonly stream: StreamClient;
     readonly topics: TopicsClient;
 
     constructor(options: SdkOptions) {
@@ -64,6 +66,7 @@ export class DeadairSdk {
         this.settings = new SettingsClient(sdkFetch);
         this.station = new StationClient(sdkFetch);
         this.storage = new StorageClient(sdkFetch);
+        this.stream = new StreamClient(sdkFetch);
         this.topics = new TopicsClient(sdkFetch);
     }
 }

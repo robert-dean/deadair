@@ -1,13 +1,21 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
+import { httpError } from '@maroonedsoftware/errors';
 import { Logger } from '@maroonedsoftware/logger';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { CONTROL_TTL_S, PLAYOUT_LEAD } from '#modules/playout/liquidsoap.control.js';
 import { playoutAiredUrl, playoutStarveUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
 import { defaultStreamAssetsDir, defaultStreamConfigDir, parseFileMode, writeStreamConfig, type StreamPlayoutConfig } from './stream.config.js';
 import { ensureStreamSecrets, resolveStreamSettings, type StreamSettings } from './stream.settings.js';
+import { SpotifyShimClient, type FetcherResult } from './spotify.shim.client.js';
 import { StreamConfigWatch } from './stream.staleness.js';
+import type {
+    FetcherAuthorization,
+    FetcherAuthorizationFinished,
+    FetcherAuthorizationInput,
+    FetcherAuthorizationStart,
+} from './types/stream.types.js';
 
 /**
  * How a break sounds: whether the DJ talks over the music or between tracks, how
@@ -76,12 +84,61 @@ export class StreamService {
         // it back: this service writes files, and judging who has adopted them is a
         // singleton's job that outlives the request scope this one lives in.
         private readonly staleness: StreamConfigWatch,
+        // The track fetcher's control surface. A singleton, injected here rather than reached for,
+        // because the three authorization routes are the only place in the app where an OPERATOR
+        // talks to it — everywhere else it is spoken to on the way to resolving a record.
+        private readonly fetcher: SpotifyShimClient,
         private readonly logger: Logger,
     ) {}
 
     /** The resolved settings, secrets decrypted. */
     settings(): StreamSettings {
         return resolveStreamSettings(this.config, this.encryption);
+    }
+
+    /**
+     * What the track fetcher holds by way of a Spotify login.
+     *
+     * A pass-through, and deliberately: the client already answers in exactly these terms and every
+     * failure it can have is a STATE rather than an error, so there is nothing here to translate. The
+     * two facts worth keeping straight are that `authorized` is the fetcher's own stored credential
+     * — the only kind Spotify's login accepts — and that `reachable` is what stops a fetcher which is
+     * merely down being reported as one nobody has authorized.
+     */
+    async readAuthorization(): Promise<FetcherAuthorization> {
+        return this.fetcher.authorization();
+    }
+
+    /** Start the fetcher's one-time authorization and answer with the URL the operator has to open. */
+    async startAuthorization(): Promise<FetcherAuthorizationStart> {
+        return this.answer(await this.fetcher.beginAuthorization());
+    }
+
+    /**
+     * Finish an authorization from the address the operator's browser ended up at.
+     *
+     * The address goes over WHOLE. It is taken apart by the fetcher, which already owns the one
+     * parser for it, so this route stays a relay rather than becoming a second reading of the same
+     * thing that can disagree with the first.
+     */
+    async finishAuthorization(input: FetcherAuthorizationInput): Promise<FetcherAuthorizationFinished> {
+        return this.answer(await this.fetcher.completeAuthorization(input.redirectUrl));
+    }
+
+    /**
+     * The fetcher's own answer, or its own refusal as an HTTP error.
+     *
+     * The status is carried through rather than flattened, because the fetcher already drew the line
+     * that matters: 400 is this attempt (nothing pending, a stale URL, a callback from somewhere
+     * else) and 502 is Spotify. An operator deciding whether pressing the button again is worth
+     * anything is deciding exactly between those two, so collapsing them here would throw away the
+     * only part of the answer they can act on.
+     */
+    private answer<T>(result: FetcherResult<T>): T {
+        if (result.ok) return result.value;
+
+        this.logger.warn('stream: the track fetcher refused an authorization', { status: result.status, message: result.message });
+        throw httpError(result.status).withDetails({ message: result.message });
     }
 
     /**

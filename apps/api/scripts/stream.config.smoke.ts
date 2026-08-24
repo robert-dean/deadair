@@ -31,6 +31,7 @@ import { defaultStreamConfigDir } from '../src/modules/stream/stream.config.js';
 import { StreamService } from '../src/modules/stream/stream.service.js';
 import { StreamConfigWatch } from '../src/modules/stream/stream.staleness.js';
 import { IcecastStatsClient } from '../src/modules/stream/icecast.stats.client.js';
+import { SpotifyShimClient } from '../src/modules/stream/spotify.shim.client.js';
 
 const quiet = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as unknown as Logger;
 // No prefix of its own: `StreamService` already writes `stream: …` into every line it logs.
@@ -66,7 +67,11 @@ const encryption = new EncryptionProvider(Buffer.from(boot.get('KMS_LOCAL_ROOT_K
 // constructor argument rather than an optional one because the app has exactly one and a
 // second would be a second answer to disagree with; this process just gives it a real one.
 const staleness = new StreamConfigWatch(new IcecastStatsClient(config, quiet), quiet);
-const stream = new StreamService(new SettingsRepository(db), encryption, config, staleness, loud);
+// The track fetcher is a constructor argument for the authorization routes and is untouched by
+// anything below: this script renders config files. It is given a real one with no secrets pushed
+// into it, which is a client that answers "not set up" to everything and reaches nothing.
+const fetcher = new SpotifyShimClient(config, quiet);
+const stream = new StreamService(new SettingsRepository(db), encryption, config, staleness, fetcher, loud);
 
 if (await stream.ensureSecrets()) {
     // The same reload `StreamModule.ready` does, for the same reason and only on the same

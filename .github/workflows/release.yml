@@ -32,13 +32,21 @@ jobs:
         secrets: inherit
 
     # A registry-side retag: `imagetools create` copies a manifest between tags in the registry,
-    # so nothing is pulled, rebuilt or pushed and this takes seconds. The repository name comes
-    # from the images workflow rather than being written here as well, because two copies of it
-    # is two things that can disagree about where the station was published.
+    # so nothing is pulled, rebuilt or pushed and this takes seconds.
+    #
+    # The repository is written out here rather than read from the images workflow as an output,
+    # which is what it was and which does not work: the registry USERNAME is a secret and is a
+    # substring of the image name, so Actions refuses to pass the value on ("Skip output 'image'
+    # since it may contain secret") and the job receives an empty string. Two copies of a constant
+    # is the lesser problem, and it is not a silent one — a name that drifts from the images
+    # workflow's names a tag that was never pushed, and `imagetools` fails on the spot.
     promote:
         needs: [build, images]
         runs-on: ubuntu-latest
         timeout-minutes: 10
+        env:
+            # Keep in step with `env.IMAGE` in images.yml.
+            IMAGE: deadair/deadair
         steps:
             - name: Log in to the registry
               uses: docker/login-action@v4
@@ -47,11 +55,8 @@ jobs:
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
             - name: Move the mutable tags onto this commit
-              env:
-                  IMAGE: ${{ needs.images.outputs.image }}
               run: |
                   set -eux
-                  test -n "$IMAGE"
                   docker buildx imagetools create --tag "${IMAGE}:latest" "${IMAGE}:${GITHUB_SHA}"
                   docker buildx imagetools create --tag "${IMAGE}:slim" "${IMAGE}:slim-${GITHUB_SHA}"
                   docker buildx imagetools create --tag "${IMAGE}:full" "${IMAGE}:full-${GITHUB_SHA}"

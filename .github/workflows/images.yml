@@ -7,26 +7,18 @@ on:
                 description: Publish the images, rather than only proving they build.
                 type: boolean
                 default: false
-        outputs:
-            image:
-                description: >
-                    The repository the variants were published to, so a caller can move a tag
-                    onto them without naming it a second time and letting the two drift.
-                value: ${{ jobs.image.outputs.image }}
-
 permissions:
     contents: read
 
 env:
+    # A caller that needs this — `promote` in release.yml — has to write it out again. Publishing
+    # it as a workflow output was tried and cannot work: the registry username is a secret and is
+    # a substring of this, so Actions drops the output rather than leaking it.
     IMAGE: deadair/deadair
 
 jobs:
     image:
         runs-on: ubuntu-latest
-        outputs:
-            # Every variant writes the same value, so last-writer-wins across the matrix is not a
-            # race — it is three jobs agreeing.
-            image: ${{ steps.tags.outputs.image }}
         timeout-minutes: 90
         strategy:
             # One variant failing should not hide the state of the others.
@@ -127,7 +119,6 @@ jobs:
             - name: Work out the tags
               id: tags
               run: |
-                  echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
                   if [ "${{ matrix.variant }}" = "latest" ]; then
                       echo "value=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
                   else

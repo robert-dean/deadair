@@ -42,12 +42,14 @@ describe('brokenClaim', () => {
 
     it('breaks once the time it named has passed', () => {
         // Half-open at the end: `until` itself is already too late.
-        expect(brokenClaim({ claimsTime: window }, undefined, window.until)).toEqual({ kind: 'time', ...window });
-        expect(brokenClaim({ claimsTime: window }, undefined, window.until + 1)).toEqual({ kind: 'time', ...window });
+        expect(brokenClaim({ claimsTime: window }, undefined, window.until)).toEqual({ kind: 'time', ...window, when: 'late' });
+        expect(brokenClaim({ claimsTime: window }, undefined, window.until + 1)).toEqual({ kind: 'time', ...window, when: 'late' });
     });
 
     it('breaks for a break written for a moment that has not arrived', () => {
-        expect(brokenClaim({ claimsTime: window }, undefined, window.from - 1)).toEqual({ kind: 'time', ...window });
+        // `early` rather than a bare time fault, and the distinction is the whole of why the field
+        // exists: the hand-over drops both, and the rewrite must act on `late` alone.
+        expect(brokenClaim({ claimsTime: window }, undefined, window.from - 1)).toEqual({ kind: 'time', ...window, when: 'early' });
     });
 
     it('reports the record before the clock when both are wrong', () => {

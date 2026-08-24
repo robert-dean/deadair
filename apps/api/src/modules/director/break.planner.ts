@@ -3,7 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
-import { brokenClaim } from './break.claims.js';
+import { brokenClaim, type BrokenClaim } from './break.claims.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { isAnchored, nextOccurrence, type ClockBand, type ClockBandSubject } from './clock.bands.js';
 import { ClockBandRepository } from './clock.band.repository.js';
@@ -209,6 +209,15 @@ export interface RipenResult {
 
 /** A pass with no segments in its window at all, which is most of them. */
 const NOTHING_RIPENED: RipenResult = { offered: 0, rewritten: [], released: [], rerendered: [] };
+
+/**
+ * Whether a broken claim is one a rewrite would actually repair.
+ *
+ * Everything is, except a time claim that has not arrived yet: those words are not wrong, they are
+ * early, and the second attempt would derive the same phrasing from the same `airsAt` and land in
+ * the same place. See the note in `break.claims.ts` for what acting on it cost the news.
+ */
+const worthRewriting = (broken: BrokenClaim | undefined): boolean => broken !== undefined && !(broken.kind === 'time' && broken.when === 'early');
 
 /**
  * How many times the station will ask for the audio of one break before letting it go.
@@ -770,6 +779,11 @@ export class BreakPlanner {
      * at EVERY one of them: idents come from a shared library and the same row is legitimately at
      * three slots in an hour, so judging it at the first position would condemn a break that is
      * correct at the other two.
+     *
+     * The one verdict this does NOT act on is a time claim that has not arrived yet, which is the
+     * ordinary state of every break written ahead of its own window and the one fault a rewrite
+     * cannot repair — it would re-derive the same phrasing from the same `airsAt`. Read the note in
+     * `break.claims.ts` before removing this: acting on it looped, and the loop spent the news.
      */
     private staleClaims(lineup: StationLineup, window: readonly StationLineupItem[], segments: Map<string, Segment>): Set<string> {
         const now = Date.now();
@@ -785,7 +799,7 @@ export class BreakPlanner {
             // them here keeps the ordinary pass free of any question at all.
             if (segment === undefined || (segment.claimsItemId === undefined && segment.claimsTime === undefined)) continue;
 
-            const stale = brokenClaim(segment, lineup.nextTrackAfter(item.id)?.id, now) !== undefined;
+            const stale = worthRewriting(brokenClaim(segment, lineup.nextTrackAfter(item.id)?.id, now));
             verdicts.set(item.segmentId, (verdicts.get(item.segmentId) ?? true) && stale);
         }
 

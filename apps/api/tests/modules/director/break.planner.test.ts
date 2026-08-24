@@ -841,6 +841,22 @@ describe('BreakPlanner.ripen', () => {
             expect((await built.planner.ripen(lineup)).rewritten).toEqual([segmentId]);
         });
 
+        it('leaves alone a break written for a window that has not come round yet', async () => {
+            // The failure this is the guard for: `WRITE_AHEAD` is eight items and a phrasing is
+            // seven minutes wide, so a break planted on a clock band is stamped for a window half an
+            // hour out and looks "broken" on every single pass until its slot arrives. A rewrite
+            // cannot fix it — the words come from the same `airsAt` — so it would loop, and for a
+            // bulletin each turn of that loop spends three headlines out of the read log.
+            const { built, lineup, segmentId } = await written();
+            const segment = built.known.get(segmentId)!;
+            const { claimsItemId, ...rest } = segment;
+            built.known.set(segmentId, { ...rest, claimsTime: { from: Date.now() + 1_800_000, until: Date.now() + 2_220_000 } });
+
+            expect((await built.planner.ripen(lineup)).rewritten).toEqual([]);
+            // And it keeps its words: nothing about it is wrong yet.
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'written' });
+        });
+
         it('will not touch a break somebody is in the middle of rendering', async () => {
             // The state guard lives in the repository, because a row moved underneath a job finishes
             // into a state its caller no longer owns.

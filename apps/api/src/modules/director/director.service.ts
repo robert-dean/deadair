@@ -2293,16 +2293,24 @@ export class DirectorService {
             }
 
             if (broken?.kind === 'time') {
+                // Both directions are equally fatal here and only the sentence differs: a break
+                // reaching its slot EARLY names a time that has not come round, which is as wrong
+                // to a listener as one that has been overtaken. The rewrite treats the two
+                // differently and this deliberately does not — see `break.claims.ts`.
                 this.logger.info('director: dropping a break whose words are no longer true of the time', {
                     segment: item.segmentId,
+                    when: broken.when,
                     from: new Date(broken.from).toISOString(),
                     until: new Date(broken.until).toISOString(),
                 });
                 void this.activity.record({
                     module: 'director',
                     kind: 'break.claimStale',
-                    detail: 'A break was dropped because the time it named has passed.',
-                    data: { segmentId: item.segmentId, from: broken.from, until: broken.until },
+                    detail:
+                        broken.when === 'late'
+                            ? 'A break was dropped because the time it named has passed.'
+                            : 'A break was dropped because it reached its slot before the time it named came round.',
+                    data: { segmentId: item.segmentId, when: broken.when, from: broken.from, until: broken.until },
                 });
                 skipped.push(item.id);
                 continue;

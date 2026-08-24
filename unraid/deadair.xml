@@ -23,6 +23,12 @@
         First run: open the console on the WebUI port and sign in. The database schema is applied
         automatically. The stream is served by this same container at /live.mp3, so whatever you
         put in front of the WebUI port (a reverse proxy or a tunnel) carries the station too.
+
+        On Spotify there are TWO authorizations on the plugin page, and the station needs both.
+        The connection lets the plugin read your library; the playback authorization below it lets
+        the station fetch the audio. With only the first, your playlists list perfectly and nothing
+        ever plays. The page Spotify sends your browser to will not load — that is expected, not a
+        failure — so copy that address out of the bar and paste it back into the console.
     </Overview>
     <Category>MediaApp:Music MediaServer:Music</Category>
     <WebUI>http://[IP]:[PORT:80]/</WebUI>

@@ -862,6 +862,29 @@ the provider still lists and it gets one more attempt. That is why the column is
 copy is a separate question from an evicted one: eviction reclaims disk from a record that is still
 perfectly playable, and the sweep is careful never to take one the station is about to want.
 
+**The track fetcher's own login is a SECOND credential, and its callback is loopback-only.** The
+plugin's OAuth link answers the Web API and cannot fetch a record: an access token is minted FOR a
+client, the client token the shim presents is the streaming client's, and login5 validates one
+against the other, so a token from the operator's own Spotify app is refused however valid each half
+is (measured: 208 accesspoint authentications, every login5 exchange refused, the same token
+answering the Web API throughout). The shim therefore authorizes ITSELF once and keeps the
+accesspoint's credential blob — `storedLogin: false` on `GET :3679/health` IS the diagnosis, and the
+symptom is a station that lists playlists perfectly while every record 502s and gets benched. The
+redirect is `http://127.0.0.1:<port>/login` and **cannot be moved**, because the client id is one
+this project does not own and cannot register redirect URIs on; loopback with any port is the whole
+of the grant. That address is reachable from the operator's browser only where the shim's port is
+published on the machine they are sitting at, which is the compose stack and **not** the production
+container, whose one published port is the edge's. So the browser landing on a page that cannot load
+is the EXPECTED outcome on a real install, and the authorization is finished by relaying the address
+instead: `POST /authorize/complete` on the shim, the three `/stream/authorization` routes on the app,
+and a console card that says the page will fail before it does. Two things are load-bearing. The
+address is parsed by the SHIM and nowhere else, because two readings of one callback is one of them
+being wrong eventually. And **a fetcher that is DOWN and one that was never AUTHORIZED must never be
+drawn as one state** — both are "no audio" and only the second is fixed by a consent screen — which
+is why `FetcherAuthorizationState.reachable` exists beside `authorized`, why the attention item is
+raised only for a fetcher that actually answered, and why that item is a `failure` sitting above the
+benched copies and failing fetches it causes.
+
 **The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
 short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on
 its reconcile only while `Rundown.hasProgramme()` **and** `AudienceWatch.gateOpen()`. So a crashed,

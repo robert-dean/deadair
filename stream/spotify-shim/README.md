@@ -57,14 +57,15 @@ docker compose exec -T liquidsoap sh -c 'set -a; . /streamconfig/radio.env; dead
 
 (And in zsh, do not capture that into a variable called `path` — it is bound to `$PATH`.)
 
-Five endpoints:
+Six endpoints:
 
 ```
-GET  /health         → {"ok":true,"session":false,"storedLogin":true,"loginError":"…"}
-POST /authorize      ← start this shim's own one-time Spotify authorization
-GET  /login?code=    ← where Spotify returns the operator's browser
-POST /session        ← the app hands over a Spotify login (the fallback)
-GET  /track/{id}?t=  → the track as audio/ogg
+GET  /health              → {"ok":true,"session":false,"storedLogin":true,"loginError":"…"}
+POST /authorize           ← start this shim's own one-time Spotify authorization
+GET  /login?code=         ← where Spotify returns the operator's browser
+POST /authorize/complete  ← that same callback, relayed by something that is not that browser
+POST /session             ← the app hands over a Spotify login (the fallback)
+GET  /track/{id}?t=       → the track as audio/ogg
 ```
 
 `storedLogin` is the one to read first. `false` means this shim has never been authorized and is
@@ -116,6 +117,32 @@ lands back on this shim, which finishes the exchange, logs in, and writes the re
 restarts, rebuilds and schema resets, because it is the one piece of stream state the app does not
 own.
 
+**The browser can only land back here where this port is published to the machine the operator is
+sitting at**, which is the compose stack and nothing else. The redirect is
+`http://127.0.0.1:<port>/login` and it cannot be moved: the client id is the streaming client's,
+which this project does not own and cannot register redirect URIs on, so loopback with any port is
+the whole of what Spotify grants it. Pointing it at a station's public address is not an option that
+exists.
+
+So on the production container — one published port, and it is the edge's — the operator approves,
+lands on a page that cannot load, and the authorization is stranded one step from done. That is what
+`POST /authorize/complete` is for. It takes the callback from something that is not that browser:
+
+```bash
+curl -sX POST -H "X-Spotify-Login-Secret: $SPOTIFY_SHIM_SECRET" \
+    -H 'content-type: application/json' \
+    -d '{"redirectUrl":"http://127.0.0.1:3679/login?code=…&state=…"}' \
+    http://127.0.0.1:3679/authorize/complete
+```
+
+The exchange is unchanged — `state` still ties the callback to the authorization this shim started,
+and the same fifteen-minute TTL applies — so this is a second door onto it rather than a way round
+it. The whole pasted address is accepted, as is the bare query string with or without its `?`.
+
+The app relays this for the console, which is where an operator actually does it: the plugin page
+walks through opening the URL, warns that the page will not load before it happens, and takes the
+address back. Nobody should need the curl above.
+
 **Why this exists rather than the app's token.** An access token is minted *for* a client. The
 client token this shim presents is minted for the streaming client id, and login5 validates the
 accesspoint's stored credentials against the client its client token belongs to. A token from the
@@ -145,6 +172,12 @@ station had before, kept so that authorizing is a step forward rather than a cut
 which is what an operator who lost the URL wants. A URL goes stale after 15 minutes. The callback
 carries a `state` this shim generated and checks, so a stray hit on the published port cannot
 complete somebody else's authorization.
+
+Both callback routes tell two kinds of failure apart, and the relay puts a status on the difference.
+Nothing pending, a stale URL, a callback from another authorization and a redirect carrying no code
+are all **400**: the attempt cannot succeed and starting again fixes it. The exchange itself failing,
+or the login after it, is **502**: Spotify or the network, and pressing the button again is not the
+answer to it.
 
 ## Build (standalone)
 

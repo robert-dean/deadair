@@ -188,6 +188,22 @@ export interface ConfigField {
      */
     unit?: ConfigFieldUnit;
 
+    /**
+     * The smallest and largest a `number` may be, inclusive. Ignored on every other type.
+     *
+     * A range the field is DECLARED with rather than one the reader clamps to, which is the whole
+     * point: a resolver that clamps answers a legal number for an illegal one, so the station runs
+     * on something the console never showed and the operator never chose. Declared here, the console
+     * refuses it in front of them and the station's own settings route refuses it again for anything
+     * that did not come through a console.
+     *
+     * A plugin's config is NOT validated against these — the host stores what it is handed and a
+     * plugin's own schema is what judges it — so for a plugin these are a hint to the form. For a
+     * station setting they are enforced, in `serializeSetting`.
+     */
+    min?: number;
+    max?: number;
+
     /** Ghost text inside the input. */
     placeholder?: string;
 
@@ -246,6 +262,8 @@ export const configFieldSchema = z.object({
     required: z.boolean().optional(),
     default: z.union([z.string(), z.number(), z.boolean()]).optional(),
     unit: configFieldUnitSchema.optional(),
+    min: z.number().optional(),
+    max: z.number().optional(),
     placeholder: z.string().optional(),
     help: z.string().optional(),
     options: z.array(configFieldOptionSchema).optional(),

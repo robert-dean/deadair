@@ -527,7 +527,18 @@ export function ConfigFieldsForm({
                 return field.unit === 'bytes' ? (
                     <BytesField key={field.key} common={common} field={field} inputProps={form.getInputProps(name)} />
                 ) : (
-                    <NumberInput key={field.key} {...common} placeholder={field.placeholder} {...form.getInputProps(name)} />
+                    // The declared range, which Mantine clamps to on blur. Clamping is right HERE
+                    // and wrong on the server for the same reason: here the number changes in front
+                    // of the person who typed it, so nothing is stored that they did not see. The
+                    // route refuses instead, because by then nobody is looking.
+                    <NumberInput
+                        key={field.key}
+                        {...common}
+                        min={field.min}
+                        max={field.max}
+                        placeholder={field.placeholder}
+                        {...form.getInputProps(name)}
+                    />
                 );
             // Stored and submitted exactly like a `string`, so nothing outside this line knows it
             // is different. What it buys is that a setting somebody WRITES — a list of phrasings, a
@@ -796,7 +807,11 @@ function BytesField({ field, inputProps, common }: BytesFieldProps) {
             {...common}
             {...rest}
             suffix=" GB"
-            min={0}
+            // A declared range is in BYTES like the value it bounds, so it is converted here along
+            // with everything else this control converts. Zero stays the floor when none is
+            // declared, because "no limit" is stored as 0 rather than as an absent row.
+            min={field.min === undefined ? 0 : field.min / BYTES_PER_GB}
+            max={field.max === undefined ? undefined : field.max / BYTES_PER_GB}
             step={1}
             decimalScale={2}
             placeholder={field.placeholder ?? 'No limit'}

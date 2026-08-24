@@ -40,6 +40,8 @@ contract ConfigFieldDescriptor: {
     required?: boolean
     default?: string | number | boolean
     unit?: ConfigFieldUnit # `number` only, and ignored elsewhere
+    min?: number # `number` only: the smallest value that will be accepted, inclusive
+    max?: number # `number` only: the largest value that will be accepted, inclusive
     placeholder?: string(max=400)
     help?: string(max=2000)
     options?: array(ConfigFieldOption)

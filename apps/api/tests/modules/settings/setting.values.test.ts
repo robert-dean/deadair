@@ -118,6 +118,29 @@ describe('serializeSetting', () => {
         expect(serializeSetting(descriptor({}), ' /live.mp3\n')).toEqual({ value: '/live.mp3' });
     });
 
+    it('refuses a number outside its declared range rather than clamping it', () => {
+        // Clamping is what the module resolvers do, reading a row that is already stored. This is
+        // somebody typing one, and a clamp here stores a number they did not ask for and then shows
+        // it back as though they had.
+        const field = descriptor({ type: 'number', label: 'Tracks measured at once', min: 1, max: 32 });
+
+        expect(serializeSetting(field, 40)).toEqual({ rejected: { key: 'test.key', message: '"Tracks measured at once" cannot be higher than 32' } });
+        expect(serializeSetting(field, 0)).toEqual({ rejected: { key: 'test.key', message: '"Tracks measured at once" cannot be lower than 1' } });
+    });
+
+    it('accepts both ends of the range, which are values and not walls', () => {
+        const field = descriptor({ type: 'number', min: 1, max: 32 });
+
+        expect(serializeSetting(field, 1)).toEqual({ value: '1' });
+        expect(serializeSetting(field, 32)).toEqual({ value: '32' });
+    });
+
+    it('bounds a number on the end that is declared when only one is', () => {
+        // A pace has a floor of zero and a ceiling; a count usually has a floor and no ceiling.
+        expect(serializeSetting(descriptor({ type: 'number', min: 0 }), 900_000)).toEqual({ value: '900000' });
+        expect('rejected' in serializeSetting(descriptor({ type: 'number', min: 0 }), -1)).toBe(true);
+    });
+
     it('names the field in the sentence it rejects with', () => {
         const result = serializeSetting(descriptor({ type: 'number', label: 'Bitrate (kbps)' }), 'loud');
 

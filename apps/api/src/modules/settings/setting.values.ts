@@ -67,6 +67,16 @@ export function serializeSetting(descriptor: SettingDescriptor, submitted: unkno
         case 'number': {
             const parsed = typeof submitted === 'number' ? submitted : Number(String(submitted).trim());
             if (!Number.isFinite(parsed)) return reject(`"${descriptor.label}" takes a number`);
+
+            // Refused rather than clamped, which is the opposite call to the one the resolvers make
+            // and deliberately so: `resolveAnalysisConcurrency` clamps because a setting that
+            // refuses to load stops a walk entirely, and it is reading a row that is already
+            // stored. This is the moment somebody is TYPING one, and clamping here would store a
+            // number they did not ask for and then show it back to them as though they had.
+            const { min, max } = descriptor;
+            if (min !== undefined && parsed < min) return reject(`"${descriptor.label}" cannot be lower than ${min}`);
+            if (max !== undefined && parsed > max) return reject(`"${descriptor.label}" cannot be higher than ${max}`);
+
             return { value: String(parsed) };
         }
 

@@ -19,9 +19,39 @@ jobs:
         uses: ./.github/workflows/build.yml
         secrets: inherit
 
+    # Deliberately NOT `needs: [build]`. It was, and the cost was the whole of the build job on
+    # the critical path of every release — four minutes thirty-nine on the run that prompted this,
+    # against a total of fourteen forty-five, for work the image build does not consume. What the
+    # dependency actually protected was the MUTABLE tags, not the images, so that is what still
+    # waits: this publishes the commit sha alone and `promote` moves `latest`, `slim` and `full`
+    # once the tests have passed. An immutable tag nobody pulls by name is free if they do not.
     images:
-        needs: [build]
         uses: ./.github/workflows/images.yml
         with:
             push: true
         secrets: inherit
+
+    # A registry-side retag: `imagetools create` copies a manifest between tags in the registry,
+    # so nothing is pulled, rebuilt or pushed and this takes seconds. The repository name comes
+    # from the images workflow rather than being written here as well, because two copies of it
+    # is two things that can disagree about where the station was published.
+    promote:
+        needs: [build, images]
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        steps:
+            - name: Log in to the registry
+              uses: docker/login-action@v4
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - name: Move the mutable tags onto this commit
+              env:
+                  IMAGE: ${{ needs.images.outputs.image }}
+              run: |
+                  set -eux
+                  test -n "$IMAGE"
+                  docker buildx imagetools create --tag "${IMAGE}:latest" "${IMAGE}:${GITHUB_SHA}"
+                  docker buildx imagetools create --tag "${IMAGE}:slim" "${IMAGE}:slim-${GITHUB_SHA}"
+                  docker buildx imagetools create --tag "${IMAGE}:full" "${IMAGE}:full-${GITHUB_SHA}"

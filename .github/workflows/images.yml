@@ -7,6 +7,12 @@ on:
                 description: Publish the images, rather than only proving they build.
                 type: boolean
                 default: false
+        outputs:
+            image:
+                description: >
+                    The repository the variants were published to, so a caller can move a tag
+                    onto them without naming it a second time and letting the two drift.
+                value: ${{ jobs.image.outputs.image }}
 
 permissions:
     contents: read
@@ -17,6 +23,10 @@ env:
 jobs:
     image:
         runs-on: ubuntu-latest
+        outputs:
+            # Every variant writes the same value, so last-writer-wins across the matrix is not a
+            # race — it is three jobs agreeing.
+            image: ${{ steps.tags.outputs.image }}
         timeout-minutes: 90
         strategy:
             # One variant failing should not hide the state of the others.
@@ -93,15 +103,22 @@ jobs:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-            # `latest` is the default variant, so it carries the bare sha tag as well; the other
-            # two prefix theirs, because a sha alone would not say which station it was.
+            # Only the COMMIT tag is published here, and the mutable one (`latest`, `slim`, `full`)
+            # is moved onto it later by whoever called this workflow, once the tests have passed.
+            # That split is what lets this job run beside the build instead of behind it: a tag
+            # nobody pulls by name costs nothing if the tests then fail, where waiting for them
+            # cost four and a half minutes on every release.
+            #
+            # `latest` is the default variant, so its commit tag is the bare sha; the other two
+            # prefix theirs, because a sha alone would not say which station it was.
             - name: Work out the tags
               id: tags
               run: |
+                  echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
                   if [ "${{ matrix.variant }}" = "latest" ]; then
-                      echo "value=${IMAGE}:latest,${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+                      echo "value=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
                   else
-                      echo "value=${IMAGE}:${{ matrix.variant }},${IMAGE}:${{ matrix.variant }}-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+                      echo "value=${IMAGE}:${{ matrix.variant }}-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
                   fi
 
             - name: Build${{ inputs.push && ' and push' || '' }}

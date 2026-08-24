@@ -1073,10 +1073,18 @@ the manifests alone, installs, and copies the source over the top — its member
 and a fixture manifest under `apps/api/tests` is not. **No workspace package may declare an
 `install`, `prepare` or `prepack` script**, which is the one thing that makes installing before
 the source is there safe; one that needs its own source at install time has to be installed after
-the source copy instead. Images are built and published by
+the source copy instead. The copy over the top is the MEMBERS, `turbo.json` and `link-peers.mjs`
+and nothing else, for the fence's own reason one stage out: it was `COPY . .`, which made a
+JavaScript rebuild a function of every file in the tree, so editing an nginx snippet rebuilt all
+fifteen packages from nothing. Images are built and published by
 `.github/workflows/`, three variants from two build args, and `codegen` is never run there for the
 reason it is never run anywhere automated: its outputs are committed and regenerating them needs a
-live database.
+live database. **The variants publish under the COMMIT SHA and the mutable tags are moved onto
+them afterwards** (`promote`, a registry-side `imagetools` retag), which is what lets the image
+jobs run beside the tests rather than behind them: what the old `needs: [build]` protected was
+never the images but `latest`, `slim` and `full`, and those still wait. The speech base is pinned
+by digest for the fence's reason again — a moving tag there rebuilds and re-pushes the voice for a
+change nobody here made.
 
 ## Multi-package work
 

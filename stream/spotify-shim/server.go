@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -16,11 +18,12 @@ import (
 // The HTTP half: one track per request, so Liquidsoap's request.queue can fetch a Spotify track
 // the same way it fetches a pre-signed Subsonic URL.
 //
-//	GET  /health        → {"ok":true,"session":false,"storedLogin":true,"loginError":"..."}
-//	POST /authorize     ← start this shim's own one-time Spotify authorization
-//	GET  /login?code=   ← where Spotify sends the operator's browser back (see authorize.go)
-//	POST /session       ← the app hands over a Spotify login (the fallback path)
-//	GET  /track/{id}?t= → the track as audio/ogg
+//	GET  /health              → {"ok":true,"session":false,"storedLogin":true,"loginError":"..."}
+//	POST /authorize           ← start this shim's own one-time Spotify authorization
+//	GET  /login?code=         ← where Spotify sends the operator's browser back (see authorize.go)
+//	POST /authorize/complete  ← the same callback, relayed by something that is not that browser
+//	POST /session             ← the app hands over a Spotify login (the fallback path)
+//	GET  /track/{id}?t=       → the track as audio/ogg
 //
 // Liquidsoap curl-downloads a queued item with NO headers from us, which is why the authorization
 // rides in the query string. Same constraint the app's rendered-segment route already works
@@ -56,6 +59,10 @@ func (s *server) routes() *http.ServeMux {
 	// other control routes are gated on: a redirect from Spotify sends no headers of ours. What
 	// stands in for it is the `state` this shim generated, checked in authorizer.complete.
 	mux.HandleFunc("GET "+authorizeCallbackPath, s.handleAuthorizeCallback)
+	// The same callback for a browser that could not deliver it. Gated on the login secret, which
+	// the GET above cannot be and this one must be: the browser's own request is authenticated by
+	// the `state` it carries, and a relay is a caller we can hold to a higher bar for free.
+	mux.HandleFunc("POST /authorize/complete", s.handleAuthorizeComplete)
 	mux.HandleFunc("POST /session", s.handleSession)
 	mux.HandleFunc("GET /track/{id}", s.handleTrack)
 	// HEAD needs its OWN pattern. Go's router matches HEAD against a "GET" pattern, so without
@@ -86,6 +93,12 @@ func (s *server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	}
 	if url := s.auth.pendingURL(); url != "" {
 		body["authorizeUrl"] = url
+	}
+	// The address the browser will be sent to, which on most deployments is one it cannot load. Said
+	// here because this process is the only thing that knows it — it is derived from the listen
+	// address — and a console warning an operator which page is expected to fail must not guess.
+	if url := s.auth.callbackURL(); url != "" {
+		body["callbackUrl"] = url
 	}
 	writeJSON(w, body)
 }
@@ -158,6 +171,112 @@ func (s *server) handleAuthorizeCallback(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	_, _ = fmt.Fprintf(w, "Authorized as %s. This station can fetch its own tracks now; you can close this tab.\n", username)
+}
+
+// The body of POST /authorize/complete: the callback the operator's browser could not deliver.
+//
+// `redirectUrl` is the whole address, pasted out of the browser's own bar, and is the field the
+// console actually sends. `code`/`state` are the same thing already taken apart, for a caller that
+// has them separately. Parsed HERE rather than by each caller, because there is exactly one right
+// way to read that URL and copies of it would drift.
+type authorizationCompletion struct {
+	RedirectURL string `json:"redirectUrl"`
+	Code        string `json:"code"`
+	State       string `json:"state"`
+}
+
+// Finish an authorization on behalf of a browser that could not reach this shim.
+//
+// ## Why this exists
+//
+// The redirect is `http://127.0.0.1:<port>/login` and cannot be moved: the client id is the
+// streaming client's, which this project does not own and cannot register redirect URIs on, and
+// loopback-with-any-port is the whole of what Spotify grants it. That address is reachable from the
+// operator's browser only when the shim's port is published on the machine they are sitting at,
+// which is true of the development compose stack and false of the production container, where one
+// port is published and it is the edge's.
+//
+// So on every deployment but one, the operator approves in Spotify, lands on a page that cannot
+// load, and the authorization is stranded one step from done. What this route does is let them hand
+// the address over anyway. The exchange itself is unchanged, `state` still ties the callback to the
+// authorization this shim started, and the fifteen-minute TTL still applies.
+func (s *server) handleAuthorizeComplete(w http.ResponseWriter, r *http.Request) {
+	if s.shimSecret == "" {
+		http.Error(w, "no login secret configured", http.StatusNotFound)
+		return
+	}
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Spotify-Login-Secret")), []byte(s.shimSecret)) != 1 {
+		s.log.Warnf("rejected a relayed authorization: the login secret did not match")
+		http.Error(w, "denied", http.StatusUnauthorized)
+		return
+	}
+
+	var body authorizationCompletion
+	// Capped like the session push beside it, and for the same reason.
+	if err := json.NewDecoder(io.LimitReader(r.Body, 8<<10)).Decode(&body); err != nil {
+		s.log.WithError(err).Warnf("rejected a malformed relayed authorization")
+		http.Error(w, "malformed body", http.StatusBadRequest)
+		return
+	}
+
+	code, state := body.Code, body.State
+	if trimmed := strings.TrimSpace(body.RedirectURL); trimmed != "" {
+		query, err := callbackQuery(trimmed)
+		if err != nil {
+			http.Error(w, "that does not look like the address Spotify sent the browser to", http.StatusBadRequest)
+			return
+		}
+		// Spotify reports a refusal in the redirect rather than by failing it, so the operator has
+		// pasted a perfectly well-formed URL that says no. Reported as itself: the alternative is
+		// "Spotify sent no authorization code back", which reads as our fault.
+		if refusal := query.Get("error"); refusal != "" {
+			s.log.Warnf("the operator's Spotify authorization was refused: %s", refusal)
+			http.Error(w, fmt.Sprintf("Spotify refused the authorization: %s", refusal), http.StatusBadRequest)
+			return
+		}
+		code, state = query.Get("code"), query.Get("state")
+	}
+
+	// Its own timeout, for the reason the browser's callback has one: the exchange is followed by a
+	// full login, and the caller giving up must not take the authorization with it.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), s.fetchTimeout)
+	defer cancel()
+
+	username, err := s.auth.complete(ctx, code, state)
+	if err != nil {
+		// 400 for the attempt, 502 for Spotify. The caller shows one of these to an operator who has
+		// to decide whether pressing the button again is worth anything, and only one of them is.
+		status := http.StatusBadGateway
+		var refusal authorizationRefused
+		if errors.As(err, &refusal) {
+			status = http.StatusBadRequest
+		}
+		s.log.WithError(err).Errorf("failed completing a relayed Spotify authorization")
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	writeJSON(w, map[string]any{"username": username})
+}
+
+// The query parameters off a pasted callback address.
+//
+// Generous about what it accepts, because what is being pasted is whatever the operator managed to
+// select out of a browser that failed to load the page: the whole URL, the query string with its
+// `?`, or the query string bare. All three carry the same two values, and refusing two of them
+// would be refusing the operator for how far along the address bar they started dragging.
+func callbackQuery(pasted string) (url.Values, error) {
+	parsed, err := url.Parse(pasted)
+	if err != nil {
+		return nil, err
+	}
+	if parsed.RawQuery != "" {
+		return parsed.Query(), nil
+	}
+	// No `?` in it at all, so this is either a bare query string or something that is not a callback.
+	// `ParseQuery` tells those apart: the second has no `=` to find.
+	return url.ParseQuery(pasted)
 }
 
 // The body of POST /session: the login the app lends this shim.

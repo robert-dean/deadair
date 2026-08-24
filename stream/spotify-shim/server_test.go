@@ -346,3 +346,117 @@ func TestFailuresAboutTheTrackAreToldFromFailuresAboutTheConnection(t *testing.T
 		}
 	}
 }
+
+// ── POST /authorize/complete ─────────────────────────────────────────────────
+
+// A server with an authorization already started, so the callback below has something to match
+// against. `begin` reaches nothing: it mints a state and a verifier and formats a URL.
+func authorizingServer(t *testing.T) (*server, string) {
+	t.Helper()
+	auth := &authorizer{redirectURL: "http://127.0.0.1:3679/login", log: &librespot.NullLogger{}}
+	srv := &server{log: &librespot.NullLogger{}, secret: secret, shimSecret: shimSecret, auth: auth}
+
+	started, err := auth.begin()
+	if err != nil {
+		t.Fatalf("begin failed: %v", err)
+	}
+	parsed, err := url.Parse(started)
+	if err != nil {
+		t.Fatalf("begin returned an unparseable url: %v", err)
+	}
+	return srv, parsed.Query().Get("state")
+}
+
+func completing(body string) *http.Request {
+	req := httptest.NewRequest("POST", "/authorize/complete", strings.NewReader(body))
+	req.Header.Set("X-Spotify-Login-Secret", shimSecret)
+	return req
+}
+
+// This route decides whose account the station fetches as, exactly as POST /session does, so it
+// stands behind the same secret. The GET callback beside it cannot — a redirect from Spotify sends
+// no headers of ours — which is the whole reason to hold this one to the higher bar.
+func TestRelayedAuthorizationRequiresTheSecret(t *testing.T) {
+	srv, _ := authorizingServer(t)
+
+	req := httptest.NewRequest("POST", "/authorize/complete", strings.NewReader(`{"redirectUrl":"http://127.0.0.1:3679/login?code=x&state=y"}`))
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, req)
+
+	if rec.Result().StatusCode != http.StatusUnauthorized {
+		t.Fatalf("an unauthenticated relay answered %d, want 401", rec.Result().StatusCode)
+	}
+}
+
+// `state` is what ties a callback to the authorization this shim started, and it is checked before
+// the code is spent. A relay does not weaken that: pasting somebody else's callback must fail here
+// exactly as delivering it to the GET would.
+func TestARelayedCallbackFromAnotherAuthorizationIsRefused(t *testing.T) {
+	srv, _ := authorizingServer(t)
+
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, completing(`{"redirectUrl":"http://127.0.0.1:3679/login?code=abc&state=notthestate"}`))
+
+	if rec.Result().StatusCode != http.StatusBadRequest {
+		t.Fatalf("a mismatched state answered %d, want 400", rec.Result().StatusCode)
+	}
+}
+
+// Spotify reports a refusal IN the redirect rather than by failing it, so what the operator pastes
+// is a perfectly well-formed URL that says no. It has to be reported as itself: read as a missing
+// code — which is the other way this can go — it reads as the station's fault instead of as a
+// choice the operator made in the consent screen.
+func TestASpotifyRefusalIsReportedRatherThanReadAsAMissingCode(t *testing.T) {
+	srv, _ := authorizingServer(t)
+
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, completing(`{"redirectUrl":"http://127.0.0.1:3679/login?error=access_denied&state=whatever"}`))
+
+	if rec.Result().StatusCode != http.StatusBadRequest {
+		t.Fatalf("a refused authorization answered %d, want 400", rec.Result().StatusCode)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "access_denied") {
+		t.Fatalf("the refusal does not name Spotify's own reason: %q", body)
+	}
+}
+
+// 400 is the attempt and 502 is Spotify, and the caller shows one of them to an operator deciding
+// whether pressing the button again is worth anything. A callback with the right state and no code
+// is the attempt: nothing about the station or the network is wrong.
+func TestAnAttemptThatCannotSucceedIsToldFromSpotifyFailing(t *testing.T) {
+	srv, state := authorizingServer(t)
+
+	rec := httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, completing(`{"redirectUrl":"http://127.0.0.1:3679/login?state=`+state+`"}`))
+
+	if rec.Result().StatusCode != http.StatusBadRequest {
+		t.Fatalf("a codeless callback answered %d, want 400", rec.Result().StatusCode)
+	}
+
+	// And a second relay now has nothing pending to match, because completing takes the pending
+	// authorization whether or not it succeeds. Also a 400, and for the same reason.
+	rec = httptest.NewRecorder()
+	srv.routes().ServeHTTP(rec, completing(`{"redirectUrl":"http://127.0.0.1:3679/login?code=abc&state=`+state+`"}`))
+	if rec.Result().StatusCode != http.StatusBadRequest {
+		t.Fatalf("a relay with nothing pending answered %d, want 400", rec.Result().StatusCode)
+	}
+}
+
+// What the operator pastes is whatever they managed to select out of a browser that failed to load
+// the page. All three of these carry the same two values, and refusing two of them would be
+// refusing the operator for how far along the address bar they started dragging.
+func TestEveryShapeOfAPastedCallbackIsAccepted(t *testing.T) {
+	for _, pasted := range []string{
+		"http://127.0.0.1:3679/login?code=the-code&state=the-state",
+		"?code=the-code&state=the-state",
+		"code=the-code&state=the-state",
+	} {
+		query, err := callbackQuery(pasted)
+		if err != nil {
+			t.Fatalf("callbackQuery(%q) failed: %v", pasted, err)
+		}
+		if query.Get("code") != "the-code" || query.Get("state") != "the-state" {
+			t.Fatalf("callbackQuery(%q) read %q/%q", pasted, query.Get("code"), query.Get("state"))
+		}
+	}
+}

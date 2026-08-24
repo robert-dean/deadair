@@ -142,6 +142,18 @@ func (a *authorizer) begin() (string, error) {
 	return url, nil
 }
 
+// Where Spotify will send the browser, for the health probe.
+//
+// Reported because the app cannot derive it: this is computed from the shim's own listen address
+// (or `SHIM_CALLBACK_URL`), and a console telling an operator which page is expected to fail to load
+// must not be guessing at it. Nil-tolerant for the same reason as the two below.
+func (a *authorizer) callbackURL() string {
+	if a == nil {
+		return ""
+	}
+	return a.redirectURL
+}
+
 // The URL of an authorization still waiting to be completed, for the health probe.
 //
 // Nil-tolerant for the same reason as storedLogin.present: a health probe must not depend on how
@@ -158,6 +170,26 @@ func (a *authorizer) pendingURL() string {
 	return a.pending.url
 }
 
+// The half of a failed authorization that is about THIS ATTEMPT rather than about Spotify.
+//
+// Nothing pending, a URL left to go stale, a callback from some other authorization, a redirect
+// carrying no code: every one of them is fixed by starting again, and none of them says anything is
+// wrong with the station or the network. The exchange itself failing, or the login after it, is the
+// opposite kind of news and pressing the button again is not the answer to it.
+//
+// It exists because the caller that most needs the difference is no longer a browser reading a
+// sentence. The app relays a callback on the operator's behalf (see the server's
+// `/authorize/complete`) and has to choose a status code for it, and choosing that by matching on
+// the wording of the errors below would make every one of these sentences load-bearing.
+type authorizationRefused struct{ err error }
+
+func (a authorizationRefused) Error() string { return a.err.Error() }
+func (a authorizationRefused) Unwrap() error { return a.err }
+
+func refused(format string, args ...any) error {
+	return authorizationRefused{err: fmt.Errorf(format, args...)}
+}
+
 // Finish an authorization: exchange the code, log in on it, and keep what the accesspoint gives back.
 //
 // The session it builds is installed as the live one, so the station can play the moment this
@@ -171,19 +203,19 @@ func (a *authorizer) complete(ctx context.Context, code, state string) (string, 
 	a.mu.Unlock()
 
 	if pending == nil {
-		return "", fmt.Errorf("no authorization is pending; start one with POST /authorize")
+		return "", refused("no authorization is pending; start one with POST /authorize")
 	}
 	if time.Since(pending.startedAt) > authorizePendingTTL {
-		return "", fmt.Errorf("this authorization expired after %s; start another with POST /authorize", authorizePendingTTL)
+		return "", refused("this authorization expired after %s; start another with POST /authorize", authorizePendingTTL)
 	}
 	// Constant-time, and checked before the code is spent: this handler is reachable by anything
 	// that can hit the published port, and `state` is the only thing tying a callback to the
 	// authorization this shim actually started.
 	if subtle.ConstantTimeCompare([]byte(state), []byte(pending.state)) != 1 {
-		return "", fmt.Errorf("this callback does not match the authorization that was started")
+		return "", refused("this callback does not match the authorization that was started")
 	}
 	if code == "" {
-		return "", fmt.Errorf("Spotify sent no authorization code back")
+		return "", refused("Spotify sent no authorization code back")
 	}
 
 	// Through this shim's own client, so the exchange inherits the timeout everything else here

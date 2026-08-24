@@ -35,13 +35,17 @@ permissive too, or it will not be pinned.
 Cheap. Does no work, decodes nothing.
 
 ```json
-{ "status": "ok", "schemaVersion": 1, "analyzer": "deadair-analysis/0.1.0" }
+{ "status": "ok", "schemaVersion": 1, "analyzer": "deadair-analysis/0.1.0", "maxConcurrent": 4 }
 ```
 
 Two callers, two purposes. The plugin's connection test uses it so the console can say "not
 reachable" before any track is queued. And it is where an operator sees a **schema mismatch**: an
 analyzer answering a version the host does not know is a configuration error worth reporting, not a
 reason to write rows nothing can read.
+
+`maxConcurrent` is the decode ceiling — see `ANALYSIS_WORKERS` below. It is reported rather than
+enforced on the caller: the station repeats it on the connection test so that asking for more than
+this is visible, since the alternative is a walk that got no faster and nothing anywhere saying why.
 
 ### `POST /analyze`
 
@@ -218,18 +222,27 @@ ffmpeg -nostdin -hide_banner -i track.mp3 -filter_complex ebur128=peak=true -f n
 
 | Env | Default | What |
 | --- | --- | --- |
-| `ANALYSIS_WORKERS` | `1` | how many tracks decode at once |
+| `ANALYSIS_WORKERS` | `min(4, cores)` | the MOST that may decode at once |
 | `ANALYSIS_PORT` | `9321` | listen port |
 | `ANALYSIS_MAX_SECONDS` | `1800` | refuse audio longer than this |
 | `ANALYSIS_MAX_BYTES` | `512M` | refuse a download larger than this |
 | `ANALYSIS_FETCH_TIMEOUT_S` | `180` | how long to wait on the audio fetch |
 
-`ANALYSIS_WORKERS` and the station's own `analysis.concurrency` setting are two knobs that have to be
-tuned together and **neither can compute the other**. This service owns the CPU, so it sizes the pool;
-the station owns the walk, so it decides how many requests are in flight. Deriving one from the other
-would need the app to know this container's hardware, which it cannot — an operator may point
-`baseUrl` at a machine with a GPU and thirty-two cores. In-flight above the pool size only queues
-here; below it leaves cores idle.
+`ANALYSIS_WORKERS` is a **ceiling, not an operating value**. How many tracks actually decode at once
+is the station's own `analysis.concurrency`, because the walk is the station's and it is the number an
+operator can change from a console; this is the most of this machine the walk may ever have.
+
+The split is what lets one knob do the job. The station still cannot compute this — an operator may
+point `baseUrl` at a machine with thirty-two cores or at a Raspberry Pi — so the machine keeps a veto,
+but a veto expressed as a ceiling costs nothing until it is reached. Expressed as the operating value,
+which is what this was, it silently discarded every increase the console made and looked exactly like
+a setting that does not work.
+
+The default is `min(4, cores)`, and the bound is memory rather than CPU: a decode holds the whole
+record as float32 at 48 kHz, so a five-minute track is ~115 MB resident before `to_mono` copies it,
+plus the downloaded file and ffmpeg's own buffer. Set it lower to lend the walk less of a machine that
+is also running the station. Requests above it wait here, and they spend their own timeout waiting, so
+a ceiling well below `analysis.concurrency` costs measurements rather than merely slowing them.
 
 ## Running it
 

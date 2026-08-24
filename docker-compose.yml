@@ -96,16 +96,15 @@ services:
         image: deadair-analysis
         container_name: deadair-analysis
         restart: unless-stopped
-        environment:
-            # How many tracks decode at once. Its counterpart is the station's
-            # `analysis.concurrency` setting, and NEITHER CAN COMPUTE THE OTHER: this
-            # container owns the CPU so it sizes the pool, the station owns the walk so
-            # it decides how many requests are in flight. Deriving one from the other
-            # would need the app to know this machine's hardware, which it cannot —
-            # baseUrl may point somewhere else entirely. Raising one without the other
-            # does nothing: in-flight above the pool only queues here, below it leaves
-            # cores idle.
-            ANALYSIS_WORKERS: '1'
+        # ANALYSIS_WORKERS is deliberately not set. It is the MOST this container will
+        # decode at once, not how many it decodes at once — the station's
+        # `analysis.concurrency` is the live number and the only knob an operator turns
+        # — and unset takes a hardware-derived ceiling. Set it only to lend the walk
+        # less of this machine than that; below the station's setting it is a veto and
+        # the extra requests wait here.
+        #
+        # It was pinned to '1', which made it the operating value and silently
+        # discarded every increase the console made.
         ports:
             # localhost only. Nothing outside needs it, and it will fetch any URL it is
             # handed, so it is not something to expose.

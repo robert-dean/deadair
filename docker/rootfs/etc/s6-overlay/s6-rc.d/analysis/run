@@ -3,8 +3,9 @@
 exec 2>&1
 cd /opt/analysis || exit 1
 
-# One worker, always. The operator's concurrency limit is a semaphore INSIDE this process, so a
-# second worker would quietly double the number of decodes the machine is asked to do at once.
+# One worker, always. The decode ceiling is a semaphore INSIDE this process, so a second worker
+# would quietly double the number of decodes the machine is asked to do at once. How many actually
+# run is the station's own `analysis.concurrency`, under that ceiling.
 # Loopback only: nothing outside this container has any business measuring records.
 exec s6-setuidgid deadair /opt/analysis/venv/bin/uvicorn app:app \
     --host 127.0.0.1 --port "${ANALYSIS_PORT:-9321}" --workers 1

@@ -32,16 +32,25 @@ from tags import gain_tags
 
 ANALYZER = "deadair-analysis/0.1.0"
 
-# How many tracks decode at once. One by default because this is CPU-bound and
-# an operator who has not thought about it should not have their machine taken
-# over by a background walk.
+# The MOST this machine will ever decode at once, which is not the same thing as
+# how many it decodes at once. The station's `analysis.concurrency` is the live
+# number and it is the only knob an operator turns; this is the ceiling under
+# which that number is free to move.
 #
-# Its counterpart is the station's `analysis.concurrency`, and NEITHER CAN
-# COMPUTE THE OTHER: this service owns the CPU so it sizes the pool, the station
-# owns the walk so it decides how many requests are in flight. Deriving one from
-# the other would need the app to know this container's hardware, which it
-# cannot -- `baseUrl` may point at a different machine entirely.
-WORKERS = max(1, int(os.environ.get("ANALYSIS_WORKERS", "1")))
+# The split is what makes the two settable from one place. The station cannot
+# compute this -- `baseUrl` may name a machine with thirty-two cores or a
+# Raspberry Pi -- so the machine keeps a veto; but expressed as a ceiling rather
+# than as the operating value, a veto costs nothing until it is reached, where a
+# pool pinned at 1 silently discarded every increase the console made and looked
+# exactly like a setting that does not work.
+#
+# Four rather than the core count, and the reason is memory rather than CPU: a
+# decode holds the whole record as float32 at the reference rate, so a
+# five-minute track is ~115 MB resident before `to_mono` copies it, plus the
+# downloaded file and ffmpeg's own buffer. On a sixteen-core box that would be
+# several gigabytes of a machine that is usually also running Postgres, the app
+# and the station.
+WORKERS = max(1, int(os.environ.get("ANALYSIS_WORKERS", str(min(4, os.cpu_count() or 1)))))
 
 PORT = int(os.environ.get("ANALYSIS_PORT", "9321"))
 
@@ -69,9 +78,12 @@ MAX_BYTES = int(os.environ.get("ANALYSIS_MAX_BYTES", str(512 * 1024 * 1024)))
 
 app = FastAPI(title="deadair analysis")
 
-# Bounded, and the semaphore is what actually bounds it -- FastAPI would happily
-# accept a hundred concurrent requests and hand them all to the pool's queue,
-# which turns a concurrency limit into a memory limit instead.
+# Bounded at the ceiling, and the semaphore is what actually bounds it -- FastAPI
+# would happily accept a hundred concurrent requests and hand them all to the
+# pool's queue, which turns a concurrency limit into a memory limit instead. A
+# caller asking for fewer than this simply opens fewer requests; a caller asking
+# for more waits here, which is the veto being exercised rather than a queue
+# anybody wants.
 _pool = ThreadPoolExecutor(max_workers=WORKERS, thread_name_prefix="analyze")
 _slots = asyncio.Semaphore(WORKERS)
 
@@ -378,7 +390,12 @@ def _loudness_of(samples: np.ndarray) -> dict:
 
 @app.get("/health")
 async def health() -> dict:
-    return {"status": "ok", "schemaVersion": SCHEMA_VERSION, "analyzer": ANALYZER, "workers": WORKERS}
+    # `maxConcurrent` is the CEILING and not a current reading, which is why it is
+    # named for what it bounds rather than for the pool that implements it. The
+    # station reports it on its connection test, so an operator who asks for more
+    # than this is told here rather than finding out from a walk that got no
+    # faster. See WORKERS.
+    return {"status": "ok", "schemaVersion": SCHEMA_VERSION, "analyzer": ANALYZER, "maxConcurrent": WORKERS}
 
 
 @app.post("/analyze")

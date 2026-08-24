@@ -17,6 +17,8 @@ export { analyzerManifest };
 interface AnalyzeResponse {
     schemaVersion?: number;
     analyzer?: string;
+    /** `/health` only: the most this analyzer will decode at once. See {@link AnalyzerPlugin.testConnection}. */
+    maxConcurrent?: number;
     complete?: boolean;
     durationMs?: number;
     data?: Record<string, unknown>;
@@ -81,6 +83,14 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider {
         const version = body?.schemaVersion;
         const analyzer = typeof body?.analyzer === 'string' ? body.analyzer : 'an analyzer';
 
+        // What the analyzer will allow at once, so that asking the station for more
+        // than this is visible HERE rather than as a walk that got no faster with
+        // nothing anywhere saying why. Reported and never enforced: the ceiling
+        // belongs to that machine, and an analyzer that does not answer with one is
+        // a valid analyzer — README.md is the contract and this field is new to it.
+        const ceiling =
+            typeof body?.maxConcurrent === 'number' && body.maxConcurrent > 0 ? ` It will measure up to ${body.maxConcurrent} at once.` : '';
+
         // A version mismatch is reported here rather than at analysis time,
         // because this is the one moment an operator is looking at the answer. A
         // newer analyzer is not refused — the host stores what it is told and its
@@ -89,11 +99,11 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider {
         if (typeof version === 'number' && version !== ANALYSIS_SCHEMA_VERSION) {
             return {
                 ok: true,
-                message: `Connected to ${analyzer}, which measures schema v${version} where this station reads v${ANALYSIS_SCHEMA_VERSION}. Measurements may be stored and then ignored.`,
+                message: `Connected to ${analyzer}, which measures schema v${version} where this station reads v${ANALYSIS_SCHEMA_VERSION}. Measurements may be stored and then ignored.${ceiling}`,
             };
         }
 
-        return { ok: true, message: `Connected to ${analyzer}.` };
+        return { ok: true, message: `Connected to ${analyzer}.${ceiling}` };
     }
 
     async analyzeTrack(ref: AnalysisRef): Promise<TrackAnalysis> {

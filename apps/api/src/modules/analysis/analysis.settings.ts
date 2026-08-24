@@ -84,14 +84,15 @@ export function explainDefaultAnalyzer(chosen: AnalysisPlugin, candidates: reado
 /**
  * How many measurements to keep in flight, from whatever the setting says.
  *
- * **This is only half of a pair, and the other half is not here.** The analyzer
- * sizes its own worker pool from its own environment, because it owns the CPU;
- * this decides how many requests the walk opens, because the walk is ours.
- * Neither can compute the other: doing so would need the app to know the
- * analyzer's hardware, and `baseUrl` may name a machine with thirty-two cores
- * and a GPU or a Raspberry Pi. Raising this above the analyzer's pool only
- * queues requests there; leaving it below leaves cores idle. They are tuned
- * together or not at all.
+ * **This is the live number, and the analyzer's `ANALYSIS_WORKERS` is the
+ * ceiling over it.** That split is what makes this one knob rather than half of
+ * a pair: the analyzer still sizes what its own machine may ever spend, because
+ * the app cannot know that hardware — `baseUrl` may name thirty-two cores and a
+ * GPU or a Raspberry Pi — but a ceiling costs nothing until it is reached, where
+ * a pool pinned AT the operating value discarded every increase made here in
+ * silence. Asking for more than the ceiling still only queues at the analyzer,
+ * and a queued request spends its own timeout waiting, so the connection test
+ * reports what the analyzer will allow.
  *
  * Clamped rather than validated-and-rejected, because a setting that refuses to
  * load stops the walk entirely, and the walk falling back to something sane is

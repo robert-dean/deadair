@@ -188,6 +188,25 @@ describe('AnalyzerPlugin.testConnection', () => {
         expect(result.message).toMatch(/stored and then ignored/);
     });
 
+    it('repeats the decode ceiling, so asking the station for more than it is visible here', async () => {
+        const { plugin } = await started({
+            health: { body: { status: 'ok', schemaVersion: 1, analyzer: 'deadair-analysis/0.1.0', maxConcurrent: 4 } },
+        });
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(true);
+        expect(result.message).toContain('up to 4 at once');
+    });
+
+    it('says nothing about a ceiling an analyzer did not report, since anything answering these two endpoints is one', async () => {
+        // The default health body in `fakeHost` carries no `maxConcurrent`: the field is newer than
+        // the contract, and inventing a number for an analyzer that named none would be a claim.
+        const { plugin } = await started();
+        const result = await plugin.testConnection();
+
+        expect(result.message).not.toMatch(/at once/);
+    });
+
     it('says so when there is no URL set at all', async () => {
         const { plugin } = await started({ config: { baseUrl: '' } });
         expect(await plugin.testConnection()).toEqual({ ok: false, message: 'No analyzer URL set.' });

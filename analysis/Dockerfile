@@ -45,5 +45,5 @@ EXPOSE 9321
 # One uvicorn worker regardless of ANALYSIS_WORKERS: the concurrency that
 # matters is the decode pool inside the process, which app.py sizes and bounds
 # with a semaphore. A second uvicorn worker would be a second pool with no
-# knowledge of the first, so the limit an operator set would silently double.
+# knowledge of the first, so the ceiling an operator set would silently double.
 CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${ANALYSIS_PORT}"]

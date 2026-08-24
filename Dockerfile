@@ -357,14 +357,13 @@ ENV NODE_ENV=production \
     PORT=3000 \
     DATA_DIR=/data \
     LOGS_DIR=/data/logs \
-    # The record cache is deliberately absent from this list: it is the one directory an operator
-    # may want on another disk entirely, so it is resolved at start from whether `/tracks` was
-    # mounted. See `scripts/storage-env`, and note that setting TRACKS_DIR here would take that
-    # choice away by making it look as though somebody had already made it.
-    ART_DIR=/data/media/art \
-    SEGMENT_DIR=/data/media/segments \
-    SEGMENT_LIBRARY_DIR=/data/media/segments/inbox \
-    VOICE_SAMPLE_DIR=/data/media/voice-samples \
+    # The derived half — the record cache, art, rendered speech, voice previews — is deliberately
+    # absent from this list. It is what an operator may want on another disk, so it is resolved at
+    # start from whether `/media` was mounted (see `scripts/storage-env`); naming those paths here
+    # would take the choice away by making it look as though somebody had already made it. The
+    # inbox is not part of it: what an operator recorded themselves is authored, and belongs with
+    # the half that gets backed up.
+    SEGMENT_LIBRARY_DIR=/data/inbox \
     PLUGINS_DIR=/data/plugins \
     STREAM_ASSETS_DIR=/app/stream \
     STREAM_CONFIG_DIR=/data/streamconfig \

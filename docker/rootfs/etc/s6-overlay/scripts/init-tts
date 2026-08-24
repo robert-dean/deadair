@@ -9,6 +9,12 @@
 
 DATA="${DATA_DIR:-/data}"
 
+# The weights are derived — fetched from somebody else's server, reproducible by asking again — so
+# they go with the rest of the derived half rather than beside the settings. The voices do not:
+# the shipped ones are replaceable, but an operator who adds a clip of their own has authored it.
+# shellcheck source=/dev/null
+. /etc/s6-overlay/scripts/storage-env
+
 [ -d /opt/tts ] || exit 0
 
 # Move a directory out to the volume and leave a link behind it. Never clobbering: a voice the
@@ -31,4 +37,4 @@ keep() {
 keep /opt/tts/api/src/voices/v1_0 "$DATA/voices"
 # The weights are fetched on first use when the image ships none, so this may be an empty
 # directory the server fills in later. It still has to be the volume's rather than the image's.
-keep /opt/tts/api/src/models "$DATA/tts-models"
+keep /opt/tts/api/src/models "$DEADAIR_MEDIA/tts-models"

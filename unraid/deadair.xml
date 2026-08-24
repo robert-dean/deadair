@@ -37,11 +37,11 @@
         Type="Port" Display="always" Required="true" Mask="false">8080</Config>
 
     <Config Name="Data" Target="/data" Default="/mnt/user/appdata/deadair" Mode="rw"
-        Description="What the station is: its settings, presenters, schedule, pronunciations and ratings, the speech it renders, your own recordings, logs, the stream's configuration — and, on the full tag, the database. Small, and the thing to back up."
+        Description="What the station IS: its settings, presenters, schedule, pronunciations and ratings, installed plugins, the stream's own credentials, the audio you recorded yourself, logs — and, on the full tag, the database holding most of it. Small, authored, and the thing to back up. Belongs on the cache pool."
         Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/deadair</Config>
 
-    <Config Name="Record cache" Target="/tracks" Default="" Mode="rw"
-        Description="Optional, and only about size. Records are downloaded before they air and kept, so this grows to roughly the size of the library you play — put it on the array rather than on the cache pool, and leave it out of your backups, since every file in it can be fetched again. Leave this blank and it lives under Data instead, which is fine until the library is large."
+    <Config Name="Media" Target="/media" Default="" Mode="rw"
+        Description="Optional, and only about size. What the station HOLDS rather than what it is: records downloaded before they air, cover art, the speech it rendered, voice previews, the speech model's weights. All of it can be produced again by running the station, and it grows to roughly the size of the library you play — so put it on the array and leave it out of your backups. Blank keeps it under Data, which is fine until the library gets big."
         Type="Path" Display="always" Required="false" Mask="false"></Config>
 
     <Config Name="Public address" Target="APP_BASE_URL" Default="" Mode=""

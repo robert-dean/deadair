@@ -29,13 +29,14 @@ services:
             # rendered speech, logs, the stream's own config and state, installed plugins, and —
             # on `full` — the database. Small, authored, and the thing to back up.
             - ${DATA_DIR:-./data}:/data
-            # What the station merely HOLDS: records fetched from a provider before they air.
-            # This grows to the size of the library you play, and every file in it can be fetched
-            # again, so it usually wants a different disk and no backup at all. Uncomment to give
-            # it one — the station goes by whether this path is really mounted rather than by a
-            # second setting, so there is nothing to keep in agreement, and leaving it commented
-            # keeps the cache under `/data` where it has always been.
-            # - /srv/bulk/deadair-records:/tracks
+            # What the station merely HOLDS: records fetched before they air, art, rendered
+            # speech, voice previews, the speech model's weights. All derived, all reproducible by
+            # running the station again, and it grows to the size of the library you play — so it
+            # usually wants a different disk and no backup at all. Uncomment to give it one. The
+            # station goes by whether this path is really mounted rather than by a second setting,
+            # so there is nothing to keep in agreement, and leaving it commented keeps everything
+            # under `/data` where it has always been.
+            # - /srv/bulk/deadair-media:/media
         healthcheck:
             # The image declares its own; this only shortens the interval to something an
             # operator watching a first boot can stand.

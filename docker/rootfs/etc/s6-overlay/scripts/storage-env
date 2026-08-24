@@ -1,26 +1,35 @@
 # Sourced, not run.
 #
-# Where the record cache goes, which is the one thing the station keeps that is both large and
-# worth nothing.
+# The station keeps two kinds of thing, and they want different disks.
 #
-# Everything else under the volume is small and was authored: the settings, the presenters, the
-# schedule, the operator's own recordings, and on one variant the database. The cached audio is
-# neither — it is a copy of records a provider will hand over again, it grows to the size of the
-# library, and losing it costs a download. Those two want different disks and usually different
-# backup policies, so a server with fast storage for one and bulk storage for the other should be
-# able to say so.
+# One is what the station IS: its settings, presenters, schedule, pronunciations and ratings, the
+# plugins somebody installed, the stream's own credentials, the recordings an operator made
+# themselves, and — on one variant — the database holding most of that. It is small, it was
+# authored, and it is the entire reason to take a backup.
 #
-# It is decided by whether `/tracks` was actually mounted rather than by a second setting, because
-# a path and a variable that have to agree are a pair that can disagree — and the way they
-# disagree here is the worst one available: the station writes its whole library into the
-# container's own filesystem, which on a home server means quietly filling the disk image every
-# container on the machine shares. Unmounted, the cache stays on the volume where it has always
-# been.
-if [ -z "${TRACKS_DIR:-}" ]; then
-    if awk '$2 == "/tracks" { found = 1 } END { exit !found }' /proc/mounts 2>/dev/null; then
-        TRACKS_DIR=/tracks
-    else
-        TRACKS_DIR="${DATA_DIR:-/data}/media/tracks"
-    fi
-    export TRACKS_DIR
+# The other is what the station merely HOLDS: records fetched from a provider before they air,
+# cover art, the speech it rendered, voice previews, the speech model's weights. All of it is
+# derived from something else and every file can be produced again by running the station. It
+# grows to the size of the library actually played, which is the only part of this that ever fills
+# a disk.
+#
+# Mount something at `/media` and the second kind goes there. What decides it is whether that path
+# is really a mount rather than a setting an operator also has to change: a path and a variable
+# that must agree can disagree, and the way they would disagree here is the expensive one — the
+# station writing a whole library into the container's own filesystem, which on a home server
+# means quietly filling the disk image every container shares. Unmounted, everything stays under
+# the data directory exactly where it has always been.
+#
+# Each variable is still individually overridable, for the operator who wants one of these five
+# somewhere else entirely; only the ones nobody set are filled in here.
+if awk '$2 == "/media" { found = 1 } END { exit !found }' /proc/mounts 2>/dev/null; then
+    DEADAIR_MEDIA=/media
+else
+    DEADAIR_MEDIA="${DATA_DIR:-/data}/media"
 fi
+
+TRACKS_DIR="${TRACKS_DIR:-$DEADAIR_MEDIA/tracks}"
+ART_DIR="${ART_DIR:-$DEADAIR_MEDIA/art}"
+SEGMENT_DIR="${SEGMENT_DIR:-$DEADAIR_MEDIA/segments}"
+VOICE_SAMPLE_DIR="${VOICE_SAMPLE_DIR:-$DEADAIR_MEDIA/voice-samples}"
+export DEADAIR_MEDIA TRACKS_DIR ART_DIR SEGMENT_DIR VOICE_SAMPLE_DIR

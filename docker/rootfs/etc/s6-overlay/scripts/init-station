@@ -4,20 +4,27 @@
 
 DATA="${DATA_DIR:-/data}"
 
+# Where the derived half goes: `/media` when something is mounted there, and under the data
+# directory when nothing is. See the script for why it is a mount rather than a setting.
+# shellcheck source=/dev/null
+. /etc/s6-overlay/scripts/storage-env
+
 # One directory per thing the station keeps. Created rather than assumed, because the volume an
 # operator mounts is an empty directory on the first boot and every one of these is written to
 # before anything reads it back.
 for dir in \
     "$DATA/logs" \
-    "$DATA/media/art" \
-    "$DATA/media/segments/inbox" \
-    "$DATA/media/voice-samples" \
+    "$DATA/inbox" \
     "$DATA/plugins" \
     "$DATA/streamconfig" \
     "$DATA/streamlogs" \
     "$DATA/streamstate" \
     "$DATA/music" \
     "$DATA/voices" \
+    "$ART_DIR" \
+    "$SEGMENT_DIR" \
+    "$VOICE_SAMPLE_DIR" \
+    "$TRACKS_DIR" \
 ; do
     mkdir -p "$dir"
     # The directories themselves, on every boot, because the volume comes from the host and the
@@ -28,19 +35,10 @@ for dir in \
         || echo "init-station: cannot take ownership of $dir; if the station cannot write, chown $DATA to 99:100 on the host" >&2
 done
 chown 99:100 "$DATA" 2>/dev/null || true
-
-# The record cache, wherever it is going to be. `/tracks` only when something is really mounted
-# there: creating it otherwise would put the library inside the container's own filesystem, which
-# is the state this whole arrangement exists to avoid. Neither is recursive, for the reason above —
-# what is under it is a library, and re-asserting ownership across it at every boot would make
-# starting the station a function of how much music it holds.
-if awk '$2 == "/tracks" { found = 1 } END { exit !found }' /proc/mounts 2>/dev/null; then
-    chown 99:100 /tracks 2>/dev/null \
-        || echo "init-station: cannot take ownership of /tracks; if the station cannot cache records, chown that share to 99:100 on the host" >&2
-else
-    mkdir -p "$DATA/media/tracks"
-    chown 99:100 "$DATA/media/tracks" 2>/dev/null || true
-fi
+# The root of the derived half too, when it is a mount of its own — the loop above took the
+# directories inside it and not the share they sit on.
+[ "$DEADAIR_MEDIA" = "/media" ] && { chown 99:100 /media 2>/dev/null \
+    || echo "init-station: cannot take ownership of /media; if the station cannot cache records, chown that share to 99:100 on the host" >&2; }
 
 # The station is several processes that have always addressed each other by name, because they
 # have always been separate containers. In one container those names have nowhere to resolve — so

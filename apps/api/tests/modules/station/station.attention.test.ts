@@ -107,6 +107,36 @@ describe('attention', () => {
         expect(codes).toEqual(['noProgramme', 'unavailableItems', 'plugin.failed', 'benchedCopies']);
     });
 
+    // The reason this item exists at all. A fetcher with no login of its own produces benched copies,
+    // failing fetches and records dropped from the running order, and every one of those points at
+    // the catalog page, where the records are individually fine and nothing explains anything.
+    it('puts an unauthorized fetcher above the symptoms it causes', () => {
+        const codes = attention(
+            facts({
+                unauthorizedFetcher: { pluginId: 'deadair.spotify', pluginName: 'Spotify' },
+                benched: 16,
+                failing: 31,
+                unavailableItems: 16,
+            }),
+        ).map(item => item.code);
+
+        expect(codes).toEqual(['fetcherNotAuthorized', 'unavailableItems', 'benchedCopies', 'failingFetches']);
+    });
+
+    it('routes an unauthorized fetcher at the plugin page that can fix it', () => {
+        const [item] = attention(facts({ unauthorizedFetcher: { pluginId: 'deadair.spotify', pluginName: 'Spotify' } }));
+
+        expect(item).toMatchObject({ code: 'fetcherNotAuthorized', severity: 'failure', route: '/plugins/deadair.spotify' });
+        // It has to say which credential this is, because the operator has already connected one.
+        expect(item?.detail).toContain('separate one-time authorization');
+    });
+
+    it('says nothing about a fetcher on a station that has no fact about one', () => {
+        // Undefined covers an authorized fetcher, a fetcher that did not answer, and a station whose
+        // records come from somewhere that has none. None of the three is something to go and do.
+        expect(attention(facts()).map(item => item.code)).toEqual([]);
+    });
+
     it('names the plugin rather than counting them', () => {
         // A station runs a handful, and which one it is IS the whole of what an operator needs. The
         // route goes to that plugin's own page, not to the list.

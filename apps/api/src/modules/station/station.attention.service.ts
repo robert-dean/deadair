@@ -1,11 +1,12 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
+import { ANALYSIS_SCHEMA_VERSION, PLUGIN_CAPABILITY_STREAM } from '@deadair/plugin-sdk';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { PlayoutService } from '#modules/playout/playout.service.js';
 import { PluginsService } from '#modules/plugins/plugins.service.js';
-import { attention, type AttentionFacts, type BrokenPlugin } from './station.attention.js';
+import { SpotifyShimClient } from '#modules/stream/spotify.shim.client.js';
+import { attention, type AttentionFacts, type BrokenPlugin, type UnauthorizedFetcher } from './station.attention.js';
 import type { StationAttention } from './types/station.types.js';
 
 /**
@@ -36,15 +37,16 @@ export class StationAttentionService {
         private readonly director: DirectorConsoleService,
         private readonly tracks: TracksRepository,
         private readonly plugins: PluginsService,
+        private readonly fetcher: SpotifyShimClient,
         private readonly logger: Logger,
     ) {}
 
     async read(): Promise<StationAttention> {
-        const [silence, counts, unavailableItems, brokenPlugins] = await Promise.all([
+        const [silence, counts, unavailableItems, plugins] = await Promise.all([
             this.silence(),
             this.counts(),
             this.unavailableItems(),
-            this.brokenPlugins(),
+            this.pluginFacts(),
         ]);
 
         const facts: AttentionFacts = {
@@ -53,10 +55,37 @@ export class StationAttentionService {
             failing: counts.failing,
             tracks: counts.total,
             unavailableItems,
-            brokenPlugins,
+            brokenPlugins: plugins.broken,
+            // Sequenced after the plugin list rather than gathered with the four above, because the
+            // question only exists if a plugin that feeds the fetcher is switched on. A station
+            // whose records come from somewhere else would otherwise be told to authorize a fetcher
+            // it never uses, which is precisely the wrong entry that teaches an operator to skim.
+            unauthorizedFetcher: await this.unauthorizedFetcher(plugins.fetches),
         };
 
         return { items: attention(facts) };
+    }
+
+    /**
+     * Whether the track fetcher is running without a login of its own.
+     *
+     * Reported for exactly one reading — it ANSWERED, and it holds nothing — and `undefined` for
+     * every other, including a fetcher that did not answer at all. That case is a different fault
+     * with a different fix, and an authorization is useless advice for it.
+     */
+    private async unauthorizedFetcher(plugin: FetcherPlugin | undefined): Promise<UnauthorizedFetcher | undefined> {
+        if (plugin === undefined) return undefined;
+
+        // Never throws by construction, but caught with the rest of them: this list is the worst
+        // place for one unhappy reader to take the whole answer down.
+        try {
+            const state = await this.fetcher.authorization();
+            if (!state.reachable || state.authorized) return undefined;
+            return { pluginId: plugin.id, pluginName: plugin.name };
+        } catch (error) {
+            this.logger.warn(`station: the track fetcher's authorization could not be read (${message(error)})`);
+            return undefined;
+        }
     }
 
     /**
@@ -106,22 +135,38 @@ export class StationAttentionService {
     }
 
     /**
-     * Plugins an operator switched on that are not running.
+     * The two things the plugin list is asked for, off ONE read of it.
      *
-     * `enabled` is the whole filter. A `discovered` plugin nobody turned on is not a problem, and a
-     * `disabled` one is a decision — reporting either would be reporting the operator's own choices
-     * back to them as faults.
+     * Which plugins are broken, and whether any of them feeds the station's track fetcher. Together
+     * rather than as two methods, because they are two questions about one list and reading it twice
+     * would be two answers that can disagree about which plugins are installed.
+     *
+     * `enabled` is the whole filter for both. A `discovered` plugin nobody turned on is not a
+     * problem, and a `disabled` one is a decision — reporting either would be reporting the
+     * operator's own choices back to them as faults.
      */
-    private async brokenPlugins(): Promise<BrokenPlugin[]> {
+    private async pluginFacts(): Promise<{ broken: BrokenPlugin[]; fetches: FetcherPlugin | undefined }> {
         try {
-            return (await this.plugins.listPlugins())
-                .filter(plugin => plugin.enabled && (plugin.status === 'misconfigured' || plugin.status === 'failed'))
-                .map(plugin => ({ id: plugin.id, name: plugin.name, status: plugin.status as BrokenPlugin['status'] }));
+            const installed = (await this.plugins.listPlugins()).filter(plugin => plugin.enabled);
+            const fetches = installed.find(plugin => plugin.capabilities.includes(PLUGIN_CAPABILITY_STREAM));
+
+            return {
+                broken: installed
+                    .filter(plugin => plugin.status === 'misconfigured' || plugin.status === 'failed')
+                    .map(plugin => ({ id: plugin.id, name: plugin.name, status: plugin.status as BrokenPlugin['status'] })),
+                fetches: fetches && { id: fetches.id, name: fetches.name },
+            };
         } catch (error) {
             this.logger.warn(`station: the plugin list could not be read (${message(error)})`);
-            return [];
+            return { broken: [], fetches: undefined };
         }
     }
+}
+
+/** A plugin whose records the station's own track fetcher turns into audio. */
+interface FetcherPlugin {
+    id: string;
+    name: string;
 }
 
 const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));

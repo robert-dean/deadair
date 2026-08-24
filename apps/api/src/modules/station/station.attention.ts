@@ -73,6 +73,14 @@ export interface AttentionFacts {
     unavailableItems: number;
     /** Plugins an operator has enabled that are not running. */
     brokenPlugins: readonly BrokenPlugin[];
+    /**
+     * The station's track fetcher, where it is running and holds no authorization of its own.
+     *
+     * `undefined` in every other case, including the ordinary one: a station whose fetcher is
+     * authorized, whose records come from somewhere that does not use one, or whose fetcher did not
+     * answer, all have nothing to say here.
+     */
+    unauthorizedFetcher?: UnauthorizedFetcher;
 }
 
 export interface BrokenPlugin {
@@ -80,6 +88,20 @@ export interface BrokenPlugin {
     name: string;
     /** `misconfigured` is a plugin waiting on a value; `failed` is one that threw on the way up. */
     status: 'misconfigured' | 'failed';
+}
+
+/**
+ * A track fetcher that is running and has never been authorized.
+ *
+ * Only that one state, and only when the fetcher actually ANSWERED. A fetcher that is down and one
+ * that was never authorized are both "no audio" and only the second is fixed by an authorization, so
+ * reporting them as one would be advice that does not work — and the same file that argues a list
+ * must be right about everything on it cannot then guess at this.
+ */
+export interface UnauthorizedFetcher {
+    /** The plugin whose records it fetches, so the line can route at the page that fixes it. */
+    pluginId: string;
+    pluginName: string;
 }
 
 /**
@@ -148,18 +170,41 @@ function air(facts: AttentionFacts): AttentionItem[] {
 
 /** What the station is fed by: the plugins an operator switched on. */
 function supply(facts: AttentionFacts): AttentionItem[] {
+    const items: AttentionItem[] = [];
+
+    // A `failure`, which is what puts it above the benched copies and the failing fetches in the
+    // library section. That ordering is the point rather than a nicety: those two are this one's
+    // SYMPTOMS, and an operator reading them first goes to the catalog page to look at records that
+    // are individually fine. Nothing there could ever have told them what was wrong.
+    if (facts.unauthorizedFetcher) {
+        const { pluginId, pluginName } = facts.unauthorizedFetcher;
+        items.push({
+            code: 'fetcherNotAuthorized',
+            severity: 'failure',
+            title: 'The station is not authorized to fetch audio',
+            detail:
+                `${pluginName} is connected and can read your library, but the station's track fetcher holds no login of its own, ` +
+                'so every record is dropped for want of audio. This is a separate one-time authorization, done on the plugin page.',
+            route: `/plugins/${pluginId}`,
+        });
+    }
+
     // One line per plugin rather than one carrying a count, because the whole of what an operator
     // needs is WHICH one, and a station runs a handful of them rather than hundreds.
-    return facts.brokenPlugins.map(plugin => ({
+    items.push(
+        ...facts.brokenPlugins.map(plugin => ({
         code: `plugin.${plugin.status}`,
         severity: 'warning' as const,
         title: `${plugin.name} is not running`,
         detail:
             plugin.status === 'misconfigured'
                 ? `It is switched on and waiting on its configuration, so anything the station asks of it fails until that is filled in.`
-                : `It is switched on and failed to start, so anything the station asks of it fails until it comes up.`,
-        route: `/plugins/${plugin.id}`,
-    }));
+                    : `It is switched on and failed to start, so anything the station asks of it fails until it comes up.`,
+            route: `/plugins/${plugin.id}`,
+        })),
+    );
+
+    return items;
 }
 
 /** The library everything else draws on. */

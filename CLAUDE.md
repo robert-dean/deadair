@@ -620,7 +620,13 @@ lets one console component render both a plugin's settings and the station's. `G
 are the operator surface; a `secret` is reported as a configured-boolean and never as a value. The
 registry is not where a setting is READ — each module keeps its typed resolver (`resolveStreamSettings`,
 `parseAirMode`, `stationRules`) and shares the registry's defaults so the two cannot disagree. A row
-nobody declared is left alone rather than deleted. Still constants, deliberately: the four mixer
+nobody declared is left alone rather than deleted. **A `number` shares its RANGE for the same reason
+it shares its default, and the two sides of that range answer differently on purpose**: the resolver
+CLAMPS, because it is reading a row that is already stored and a setting that refuses to load stops
+the walk behind it, while `serializeSetting` REFUSES, because that is somebody typing one and a clamp
+there stores a figure they did not ask for and shows it back as though they had. The console clamps
+too, where the number visibly changes in front of them. Undeclared bounds were how
+`analysis.concurrency` accepted 400 and ran at 32. Still constants, deliberately: the four mixer
 knobs, because the real work there is a Liquidsoap restart (`docs/todo/mixer-settings-in-db.md`).
 
 **A capability with several plugins and no setting picks the FIRST, and says so.** `selectPlugin`

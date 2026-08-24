@@ -746,17 +746,25 @@ never ship UI.
 | `string`      | free text                                            |
 | `url`         | free text, validated as a URL                        |
 | `secret`      | write-only, encrypted, read via `host.secrets.get()` |
-| `number`      | numeric input                                        |
+| `number`      | numeric input, bounded by `min` / `max` if declared  |
 | `boolean`     | toggle                                               |
 | `select`      | one of `options`                                     |
 | `multiselect` | any number of `options`, stored as a JSON array      |
 | `note`        | not an input; static help text in the form           |
 
-Use `dependsOn` to hide a field until another one is filled in. Use
-`configSchema` for anything the form cannot express: the host parses the
-operator's submission with it before storing, so by the time `onLoad()` runs
-your config is already valid. Read a `multiselect` back with
+Use `dependsOn` to hide a field until another one is filled in. Use `min` and
+`max` on a `number` to say what it will take, which the form bounds the input to.
+Use `configSchema` for anything the form cannot express: the host parses the
+operator's submission with it before storing, so by the time `onLoad()` runs your
+config is already valid. Read a `multiselect` back with
 `parseMultiSelect(config.myField)`.
+
+Note what `min`/`max` are and are not for a plugin. The host stores what it is
+handed and **your `configSchema` is what judges it**, so these bound the control
+rather than the value: they belong on a field whose range is a fact about your
+upstream, and they do not replace a schema. (The station's own settings use the
+same descriptor and do enforce them, because the settings route is their only
+writer.)
 
 ### Choices your server decides
 

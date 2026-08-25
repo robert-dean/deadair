@@ -135,13 +135,32 @@ export const LATITUDE_MAX_WORDS: Record<PersonaLatitude, number> = {
  * never widen it. See `break.prompt.ts`, where it shares a slot with the broadcast-clean rule and
  * loses to it.
  *
- * The second sentence is the same fence `persona.defaults.ts` puts in `avoid` and `quirks` on the two
- * seeds this rung exists for, said once here so it holds for a character an operator wrote in a
- * hurry. It is an instruction to a model and not an enforcement, exactly as that fence is.
+ * ## It decides the REGISTER, and the sheet decides the TARGET
+ *
+ * This used to end "— never about the person listening", which was the same fence
+ * `persona.defaults.ts` puts in `avoid` and `quirks` on the seeds this rung exists for, said once
+ * here so it held for a character an operator wrote in a hurry. It is gone, and what it cost is
+ * worth recording so it is not put back without the argument.
+ *
+ * What made it untenable is that a SHEET may legitimately point a character at the listener — the
+ * shipped `wisecrack` is aimed at their taste in music, because an operator aimed it there — and a
+ * prompt carrying both that quirk and a licence forbidding it in as many words is two rules that
+ * disagree. A model reading two rules that disagree hedges, which is the failure this whole file is
+ * written against: it would have produced neither the character nor the restraint.
+ *
+ * So the licence now says only what the extra room is FOR, and the sheet says who it is pointed at.
+ * The remaining sentence still names the record, the industry and the presenter, which is a steer
+ * rather than a prohibition: a character whose own sheet adds the listener is adding to that list
+ * rather than contradicting it.
+ *
+ * **Nothing enforces a target, and nothing ever did.** The old clause was an instruction to a model
+ * exactly as the seeds' fences are, so what changed is which instruction gets sent, not what the
+ * station is able to refuse. An operator giving a character the top rung is choosing this; the
+ * standing grounding rules underneath are what no sheet can loosen.
  */
 export const LATITUDE_LICENCE =
     'Nothing is off limits in how you say it: swear if you would swear, be as rude about the music as you actually are, and do not ' +
-    'soften a line to make it comfortable. Be rude about the record, the industry and yourself — never about the person listening.';
+    'soften a line to make it comfortable. Be rude about the record, the industry and yourself.';
 
 /**
  * The rung this sheet carries, or `undefined` for the station's ordinary discipline.

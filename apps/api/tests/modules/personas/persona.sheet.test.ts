@@ -487,9 +487,14 @@ describe('latitude', () => {
         expect(characterFault({ latitude: 'unleashed' }, 'Anything at all.')).toBeUndefined();
     });
 
-    it('points the licence at the record and away from the listener', () => {
-        // The same fence `persona.defaults.ts` puts in the two seeds' own sheets, said once here so
-        // it holds for a character an operator wrote in a hurry.
-        expect(LATITUDE_LICENCE).toMatch(/never about the person listening/i);
+    // It said "never about the person listening" for as long as it existed, and that came out: a
+    // sheet may legitimately point a character at the listener — the shipped `wisecrack` is — and a
+    // prompt carrying both that quirk and a licence forbidding it is two rules that disagree, which
+    // a model resolves by hedging between them. The licence decides the register; the sheet decides
+    // the target. See `LATITUDE_LICENCE`.
+    it('licences the register and names a target without forbidding one', () => {
+        expect(LATITUDE_LICENCE).toMatch(/swear if you would swear/i);
+        expect(LATITUDE_LICENCE).toMatch(/rude about the record, the industry and yourself/i);
+        expect(LATITUDE_LICENCE).not.toMatch(/never about the person listening/i);
     });
 });

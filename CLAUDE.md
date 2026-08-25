@@ -400,9 +400,14 @@ character choice. **It narrows within station policy and never widens it**: the 
 slot with the broadcast-clean rule and loses to it, so an `unleashed` persona on a clean station
 talks clean. And **it switches off no refusal** — `mustNameRecord`, the three prohibitions and the
 dialect check all still decline to the floor, which is why the "name a record" rule is repeated
-verbatim in both rule sets rather than dropped along with "make one point". The two seeds that carry
-one are `shockjock` (`unleashed`) and `conspiracy` (`loose`), the two whose fence
-`persona.defaults.ts` already argues, and that fence is an instruction rather than an enforcement.
+verbatim in both rule sets rather than dropped along with "make one point". Six seeds carry one and
+`persona.defaults.ts` names them; the fence that decides what a character is POINTED at lives in each
+sheet's own `quirks` and `avoid` rather than in the licence, and is an instruction rather than an
+enforcement. **The licence decides the register and the sheet decides the target**, which is a split
+rather than a phrasing: it used to end "never about the person listening", and that came out because
+a sheet may legitimately aim a character at the listener (the shipped `wisecrack` does) and a prompt
+carrying both the quirk and the prohibition is two rules that disagree, which a model resolves by
+hedging into neither.
 
 **Asking for less overshot in exactly one place, and the correction is the load-bearing half now.**
 The rule read "naming them is the least useful thing you can do with your one point", and a model

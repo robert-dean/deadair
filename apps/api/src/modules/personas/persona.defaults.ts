@@ -26,10 +26,14 @@
  *
  * **`wisecrack` is the one seed pointed at the LISTENER**, which is a decision rather than a gap in
  * the paragraph above: its quirks ask it to make fun of the listener's taste in music, and it is
- * `unleashed`. Worth knowing for two reasons. It is the seed most likely to want editing before it
- * goes on a station with an audience that did not ask for it — and `LATITUDE_LICENCE`, which the top
- * rung sends, says "never about the person listening" in as many words, so the sheet and the licence
- * disagree and a model reading both will hedge. Nothing enforces either.
+ * `unleashed`. It is the seed most likely to want editing before it goes on a station with an
+ * audience that did not ask for it.
+ *
+ * It is also what took the listener clause out of `LATITUDE_LICENCE`. That licence used to end
+ * "never about the person listening", which contradicted this sheet in as many words — and two rules
+ * that disagree in one prompt produce neither, because a model hedges between them. The licence now
+ * decides the REGISTER and a sheet decides the TARGET, which is the split that lets both this
+ * character and `shockjock`'s fence be true at once.
  *
  * ## Which seeds carry a `latitude`, since it is no longer the two above
  *
@@ -488,11 +492,9 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'Play the thing anyway and mean it. You like this music or you would not be here',
             'Never sneer at anybody who was trying',
         ],
-        // The one seed that is pointed at the LISTENER, which is a deliberate exception to the fence
-        // this file argues two screens up rather than an oversight in it — see the note there. Note
-        // that `LATITUDE_LICENCE`, which the rung below sends, says the opposite in as many words:
-        // "never about the person listening". The sheet and the licence disagree, and a model handed
-        // two rules that disagree hedges between them.
+        // The one seed pointed at the LISTENER, which is a deliberate exception to the fence this
+        // file argues two screens up rather than an oversight in it, and which is why
+        // `LATITUDE_LICENCE` no longer forbids one. See the note there and the one on the licence.
         latitude: 'unleashed',
         // "Anyway" was here too, and it is a marker three lines up rather than a signature: a word
         // the dialect asks for in every sentence is not a phrase to ration. `spentCatchphrases`

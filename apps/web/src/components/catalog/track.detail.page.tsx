@@ -7,6 +7,7 @@ import { catalogTrackEnrichmentOptions, catalogTrackOptions, useRateTrack } from
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
+import { formatMomentMinute } from '../shared/feed.moment';
 import { formatBytes } from '../shared/format.bytes';
 import { formatDuration } from '../shared/format.duration';
 import { PageHeader } from '../shared/page.header';
@@ -19,13 +20,7 @@ import { RatingControl } from './rating.control';
 import { TrackClearMenu } from './track.clear.menu';
 
 /** A moment, to the minute. These are all "when did this last happen" rather than dates on a calendar. */
-const MOMENT = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-
-const moment = (iso: string | undefined): string => {
-    if (iso === undefined || iso === '') return '—';
-    const date = new Date(iso);
-    return Number.isNaN(date.getTime()) ? '—' : MOMENT.format(date);
-};
+const moment = (iso: string | undefined): string => formatMomentMinute(iso, { fallback: '—' });
 
 /**
  * What one copy of a record is doing, as a tone and a word.

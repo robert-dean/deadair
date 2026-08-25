@@ -7,6 +7,15 @@ const STAMP = new Intl.DateTimeFormat(undefined, {
     hour12: true,
 });
 const FULL = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'medium' });
+const MINUTE = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const MINUTE_WITH_WEEKDAY = new Intl.DateTimeFormat(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+});
+const TIME_OF_DAY = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
 /**
  * When something happened: the date and the wall-clock time to the second, in the operator's own
@@ -39,6 +48,33 @@ export function formatMomentStamp(iso: string | undefined): string {
 export function formatMomentFull(iso: string | undefined): string {
     const date = parse(iso);
     return date === undefined ? '' : FULL.format(date);
+}
+
+/**
+ * When something happened, to the minute.
+ *
+ * The third precision this console needs and the one three pages had each built for themselves: a
+ * catalog page saying when a copy was last fetched, a production saying when it is due, both to the
+ * minute because seconds are noise on a question measured in hours. `weekday` is for a moment far
+ * enough ahead that the date alone does not place it.
+ *
+ * The `fallback` is a parameter rather than the empty string these helpers otherwise return, because
+ * these read inside sentences and inside table cells, where a blank is a cell that looks broken. The
+ * callers that want an em dash ask for one.
+ */
+export function formatMomentMinute(iso: string | undefined, options?: { weekday?: boolean; fallback?: string }): string {
+    const date = parse(iso);
+    if (date === undefined) return options?.fallback ?? '';
+
+    return options?.weekday === true ? MINUTE_WITH_WEEKDAY.format(date) : MINUTE.format(date);
+}
+
+/**
+ * The wall-clock time alone, for a reading taken so recently that the date is today by construction.
+ */
+export function formatTimeOfDay(iso: string | undefined, fallback = ''): string {
+    const date = parse(iso);
+    return date === undefined ? fallback : TIME_OF_DAY.format(date);
 }
 
 function parse(iso: string | undefined): Date | undefined {

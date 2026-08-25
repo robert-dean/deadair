@@ -3,6 +3,7 @@ import type { StorageStore } from '@deadair/sdk';
 
 import { useStorage } from '../../api/storage.queries';
 import { ErrorAlert } from '../shared/error.alert';
+import { formatTimeOfDay } from '../shared/feed.moment';
 import { formatBytes } from '../shared/format.bytes';
 
 /**
@@ -75,7 +76,7 @@ export function StorageCard() {
                         </Table>
 
                         <Text size="xs" c="dimmed">
-                            Read {new Date(storage.data.readAt).toLocaleTimeString()}. Walking the directories is real work, so this is a reading
+                            Read {formatTimeOfDay(storage.data.readAt)}. Walking the directories is real work, so this is a reading
                             rather than a live figure. Nothing here is deleted automatically: a file no row claims and a record whose file has gone
                             are both reported and left alone.
                         </Text>
@@ -87,9 +88,11 @@ export function StorageCard() {
 }
 
 function StoreRow({ store }: { store: StorageStore }) {
-    // Only the record cache has a limit today, and only while an operator has set one.
-    const capped = store.capBytes !== undefined && store.capBytes > 0;
-    const used = capped ? Math.min(100, Math.round((store.bytes / store.capBytes!) * 100)) : 0;
+    // Only the record cache has a limit today, and only while an operator has set one. Bound to a
+    // local so the guard narrows it, rather than asserting past a check that already answered.
+    const cap = store.capBytes;
+    const capped = cap !== undefined && cap > 0;
+    const used = capped ? Math.min(100, Math.round((store.bytes / cap) * 100)) : 0;
 
     return (
         <Table.Tr>

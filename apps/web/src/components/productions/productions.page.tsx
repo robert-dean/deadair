@@ -5,6 +5,7 @@ import type { Production } from '@deadair/sdk';
 import { useCancelProduction, useProductions, useRequestProduction } from '../../api/productions.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
+import { formatMomentMinute } from '../shared/feed.moment';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { toneColor, type StatusTone } from '../shared/status';
@@ -101,18 +102,10 @@ function cast(production: Production): string {
 }
 
 /**
- * When a scheduled production is due, to the minute.
- *
- * The same shape the catalog's detail page uses, and it has to be built here rather than taken from
- * a `DateTime`: the SDK hands the console an ISO string, because `apps/web` carries no luxon and the
- * JSON-safe boundary specifies strings.
+ * When a scheduled production is due, to the minute, and carrying its weekday because a production
+ * can be commissioned days out.
  */
-const MOMENT = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-
-const moment = (iso: string): string => {
-    const at = new Date(iso);
-    return Number.isNaN(at.getTime()) ? '—' : MOMENT.format(at);
-};
+const moment = (iso: string): string => formatMomentMinute(iso, { weekday: true, fallback: '—' });
 
 /** One production, and how far along it is. */
 function ProductionCard({ production, stopping, onCancel }: { production: Production; stopping: boolean; onCancel: () => void }) {

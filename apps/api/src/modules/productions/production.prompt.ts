@@ -34,6 +34,7 @@
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import type { Persona } from '#modules/personas/persona.js';
 import { personaLines } from '#modules/personas/persona.sheet.js';
+import type { CastMember } from './production.cast.js';
 import type { OutlineBeat, ProductionOutline } from './production.js';
 
 /** How many words of the previous beat are handed over as the run-in. */
@@ -52,6 +53,16 @@ export interface OutlineRequest {
     /** Anything the production was handed to cover, in order. Indexes into this are what a beat names. */
     items?: readonly string[];
     station?: string;
+    /**
+     * Who is on the programme and which of them has each beat, already decided.
+     *
+     * Stated rather than asked for, exactly as the beat count is. The outline's job is to plan
+     * CONTENT that fits the person who has to say it — a caller's beat is something a listener would
+     * ring in about, and the host's is a question or an answer to one — and it cannot do that
+     * without being told. What it must not do is choose, which is why there is no `lead` in the
+     * shape it answers with any more.
+     */
+    speakers?: readonly { ordinal: number; who: CastMember }[];
 }
 
 /** What one beat is written from. */
@@ -128,16 +139,22 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
         // be repetitive rather than a plan for a programme.
         '- Runners are threads of SUBJECT that come back through the programme: an idea, a question, a running argument. Two or three at most. They are never a phrase to repeat, a catchphrase, or a way of speaking.',
         '- Do not write any of the script. This is a plan.',
+        ...(dialogueRules(request.speakers) ?? []),
         '',
         'Answer with JSON only, in this shape:',
         '{"throughline": "...", "runners": ["..."], "beats": [{"title": "...", "angle": "...", "itemIndexes": [0], "setup": "...", "payoff": "..."}]}',
         'Every field except "title" is optional. Use "itemIndexes" only for items you were actually given.',
+        // Said in as many words, because a model handed a cast and a JSON shape will add a field to
+        // the shape to hold it. Who speaks is already decided and a beat that named somebody else
+        // would be drafted as one character and spoken in another's voice.
+        ...(request.speakers === undefined || request.speakers.length === 0 ? [] : ['Do not add a field for who speaks. That is already decided.']),
     ].join('\n');
 
     const user = [
         `The programme is called "${request.title}".`,
         ...(request.brief === undefined ? [] : ['', `What was asked for: ${request.brief}`]),
         ...(request.station === undefined ? [] : ['', `It goes out on ${request.station}.`]),
+        ...speakerLines(request.speakers),
         ...(request.items === undefined || request.items.length === 0
             ? ['', 'You have been given no source material, so the content is yours to invent. Keep it to what you actually know.']
             : ['', 'Cover these, by index:', ...request.items.map((item, index) => `${index}. ${item}`)]),
@@ -278,6 +295,41 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
 export function runInFrom(script: string, words = TAIL_WORDS): string {
     const all = script.trim().split(/\s+/).filter(Boolean);
     return all.slice(Math.max(0, all.length - words)).join(' ');
+}
+
+/**
+ * The extra rules a conversation needs, or nothing at all for one voice.
+ *
+ * Nothing rather than a paragraph explaining that there is nobody on the phone, which is the same
+ * bargain every prompt in this tree keeps: a model is told about the facility it has, and a
+ * monologue's outline prompt stays byte-identical to the one built before callers existed.
+ */
+function dialogueRules(speakers: OutlineRequest['speakers']): string[] | undefined {
+    if (speakers === undefined || speakers.length === 0) return undefined;
+
+    return [
+        '- This is a conversation, not a talk. Each beat is one TURN by the person named against it below.',
+        "- A caller's turn is what somebody who rang the station would actually say: their own experience, their own opinion, their own question.",
+        "- The host's turns are the ones that introduce them, ask them something, and answer what they said.",
+        '- Plan the turns so each one has something to react to. A turn that could have been said first is a turn nobody is listening to.',
+    ];
+}
+
+/** Who has which beat, as the user turn states it. */
+function speakerLines(speakers: OutlineRequest['speakers']): string[] {
+    if (speakers === undefined || speakers.length === 0) return [];
+
+    return [
+        '',
+        'Who speaks each beat, which is already decided:',
+        ...speakers.map(({ ordinal, who }) => `${ordinal + 1}. ${describe(who)}`),
+    ];
+}
+
+/** One cast member as the prompt names them: what they are, and what they are called. */
+function describe(who: CastMember): string {
+    const role = who.role === 'caller' ? 'a listener who has phoned in' : 'the presenter';
+    return who.name === undefined ? role : `${who.name}, ${role}`;
 }
 
 /** One line of the beat map: what it is, and whether it is done, current, or still to come. */

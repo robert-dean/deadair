@@ -60,18 +60,23 @@ describe('priorityForSlot', () => {
 
 describe('coerceOutlineBeat', () => {
     it('takes a title and the shape around it', () => {
-        const beat = coerceOutlineBeat(
-            { title: 'The 808 arrives', angle: 'nobody wanted it', lead: 'HOST', setup: 'mention the price', payoff: 'the price again' },
-            3,
-        );
+        const beat = coerceOutlineBeat({ title: 'The 808 arrives', angle: 'nobody wanted it', setup: 'mention the price', payoff: 'the price again' }, 3);
 
         expect(beat).toEqual({
             title: 'The 808 arrives',
             angle: 'nobody wanted it',
-            lead: 'HOST',
             setup: 'mention the price',
             payoff: 'the price again',
         });
+    });
+
+    it('drops a speaker the model named, because that is not the model to choose', () => {
+        // The outline is TOLD who has each turn and answers with content. A `lead` that came back
+        // anyway is the model disagreeing with the cast, and the cast is the half that gets
+        // rendered — so it never reaches the row.
+        const beat = coerceOutlineBeat({ title: 'The 808 arrives', lead: 'Dale' }, 3);
+
+        expect(beat).toEqual({ title: 'The 808 arrives' });
     });
 
     it('drops a beat with no title rather than inventing one', () => {

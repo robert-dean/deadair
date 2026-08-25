@@ -452,6 +452,7 @@ export interface DeadairProductions {
   brief: string | null;
   broadcastId: string | null;
   cancelledAt: DateTime | null;
+  casting: Json | null;
   createdAt: Generated<DateTime>;
   error: string | null;
   id: Generated<string>;
@@ -465,7 +466,6 @@ export interface DeadairProductions {
   targetMs: number;
   title: string;
   updatedAt: Generated<DateTime>;
-  voices: Json | null;
   writingMode: Generated<"quick" | "outlined" | "polished">;
 }
 

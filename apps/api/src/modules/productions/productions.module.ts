@@ -1,5 +1,6 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { ProductionCaster } from './production.caster.js';
 import { ProductionRepository } from './production.repository.js';
 import { ProductionScheduler } from './production.scheduler.js';
 import { ProductionsService } from './productions.service.js';
@@ -31,6 +32,9 @@ export const ProductionsModule: ServerKitModule = {
         // the pass is already running on every track boundary and the scheduler is one indexed read
         // on most of them.
         registry.register(ProductionScheduler).useClass(ProductionScheduler).asScoped();
+        // Scoped for the same reason: it reads the personas table and the segments, both through
+        // scoped repositories, inside whatever scope the pass job opened.
+        registry.register(ProductionCaster).useClass(ProductionCaster).asScoped();
 
         // `ProduceProductionJob` is deliberately NOT registered here. `JobsModule` walks
         // `job.mappings.ts` and registers every job class in it, so a module that also registers its

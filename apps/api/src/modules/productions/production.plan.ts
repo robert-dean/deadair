@@ -21,6 +21,22 @@
  * are spread across the beats afterwards, which is the right way round: more items than beats groups
  * neighbours, and more beats than items gives one subject several beats that the outline then takes
  * different angles on.
+ *
+ * ## There are TWO bands, because a turn is not a beat
+ *
+ * The band above is a MONOLOGUE band and its floor is argued as "below 150 a beat is a headline read
+ * out" — which is true of somebody talking uninterrupted and false of somebody answering a question.
+ * A conversational turn is thirty to a hundred words; at 150 every turn is a speech, and a phone-in
+ * written that way is two people reading statements at each other.
+ *
+ * So {@link TURN_BAND} exists beside it and a production is planned in whichever one its CAST calls
+ * for. Nothing else about the arithmetic changes: the count still comes from the budget, the
+ * remainder is still spread across the earliest ones, and the model still decides none of it.
+ *
+ * The one extra rule a dialogue has is that its turn count is kept ODD. The format is that the host
+ * opens and the host closes (`production.cast.ts`), and an even count makes those two rules collide
+ * on the last turn — so the shape is decided here, where every other question about shape is
+ * decided, rather than papered over where the speakers are assigned.
  */
 
 /** How fast the station is assumed to speak, for turning a duration into a word budget. */
@@ -35,6 +51,26 @@ export const WORDS_PER_MINUTE = 160;
 export const MIN_WORDS = 150;
 export const TARGET_WORDS = 200;
 export const MAX_WORDS = 260;
+
+/** A band, as the three numbers every part of this file works from. */
+export interface WordBand {
+    min: number;
+    target: number;
+    max: number;
+}
+
+/** What somebody talking uninterrupted is written in. The station's original and only band. */
+export const MONOLOGUE_BAND: WordBand = { min: MIN_WORDS, target: TARGET_WORDS, max: MAX_WORDS };
+
+/**
+ * What one turn of a conversation is written in.
+ *
+ * Shorter than a beat by design and by a long way. Forty is about fifteen seconds, which is a real
+ * answer; a hundred and ten is about forty, which is as long as anybody holds the floor on a
+ * phone-in before the host comes back. The ceiling matters more than the floor here: a turn that
+ * runs long does not read as a generous answer, it reads as somebody who cannot be interrupted.
+ */
+export const TURN_BAND: WordBand = { min: 40, target: 70, max: 110 };
 
 /**
  * A ceiling on beats, so a feature-length production cannot fan out into hundreds of model calls.
@@ -58,6 +94,13 @@ export const MAX_EXPECTED_WORDS = 320;
 export interface BeatShape {
     ordinal: number;
     words: number;
+    /**
+     * Who says it, as an index into `productions.casting`.
+     *
+     * Absent for a production with no cast, which is every one the station made before callers: the
+     * presenter says all of it, and the beat prompt falls back to whoever is presenting.
+     */
+    speaker?: number;
 }
 
 /** What the whole production is divided into. */
@@ -71,8 +114,8 @@ export interface ProductionShape {
  * Floored at something sayable, so a production commissioned for a few seconds is a very short
  * production rather than one with a budget of zero.
  */
-export function wordBudget(targetMs: number, wordsPerMinute = WORDS_PER_MINUTE): number {
-    return Math.max(MIN_WORDS, Math.floor((targetMs / 60_000) * wordsPerMinute));
+export function wordBudget(targetMs: number, wordsPerMinute = WORDS_PER_MINUTE, band: WordBand = MONOLOGUE_BAND): number {
+    return Math.max(band.min, Math.floor((targetMs / 60_000) * wordsPerMinute));
 }
 
 /**
@@ -84,12 +127,26 @@ export function wordBudget(targetMs: number, wordsPerMinute = WORDS_PER_MINUTE):
  * in between. The aim is then clamped into that range, so a budget that divides awkwardly lands on
  * whichever end of the band is closer rather than outside it.
  */
-export function beatCount(words: number): number {
-    const fewest = Math.max(1, Math.ceil(words / MAX_WORDS));
-    const most = Math.max(1, Math.floor(words / MIN_WORDS));
-    const aim = Math.max(1, Math.round(words / TARGET_WORDS));
+export function beatCount(words: number, band: WordBand = MONOLOGUE_BAND): number {
+    const fewest = Math.max(1, Math.ceil(words / band.max));
+    const most = Math.max(1, Math.floor(words / band.min));
+    const aim = Math.max(1, Math.round(words / band.target));
 
     return Math.min(MAX_BEATS, Math.max(fewest, Math.min(most, aim)));
+}
+
+/** What a production is being planned as. */
+export interface PlanOptions {
+    /**
+     * Somebody is on the phone, so this is turns rather than beats.
+     *
+     * Derived from the CAST rather than passed around as a mode: a production with a caller in it is
+     * a dialogue, and one without is not. See `production.cast.ts`.
+     */
+    dialogue?: boolean;
+    /** Who speaks each turn, as indexes into the cast. Shorter than the plan is padded with the first. */
+    speakers?: readonly number[];
+    wordsPerMinute?: number;
 }
 
 /**
@@ -98,18 +155,35 @@ export function beatCount(words: number): number {
  * The budget is split evenly, with the remainder spread one word at a time across the earliest beats
  * rather than dumped on the last one — which would leave the final beat measurably longer than every
  * other and, at the ceiling, outside the band the check judges it against.
+ *
+ * A dialogue is planned in {@link TURN_BAND} and its count is forced ODD, which is what lets the host
+ * both open and close without two of its turns landing next to each other.
  */
-export function planProduction(targetMs: number, wordsPerMinute = WORDS_PER_MINUTE): ProductionShape {
-    const words = wordBudget(targetMs, wordsPerMinute);
-    const count = beatCount(words);
+export function planProduction(targetMs: number, options: PlanOptions = {}): ProductionShape {
+    const band = options.dialogue === true ? TURN_BAND : MONOLOGUE_BAND;
+    const words = wordBudget(targetMs, options.wordsPerMinute ?? WORDS_PER_MINUTE, band);
+    const count = options.dialogue === true ? oddly(beatCount(words, band)) : beatCount(words, band);
 
     const each = Math.floor(words / count);
     const spare = words - each * count;
 
     return {
-        beats: Array.from({ length: count }, (_, ordinal) => ({ ordinal, words: each + (ordinal < spare ? 1 : 0) })),
+        beats: Array.from({ length: count }, (_, ordinal) => ({
+            ordinal,
+            words: each + (ordinal < spare ? 1 : 0),
+            ...(options.speakers === undefined ? {} : { speaker: options.speakers[ordinal] ?? 0 }),
+        })),
     };
 }
+
+/**
+ * The nearest odd count at or below this one, floored at one.
+ *
+ * DOWN rather than up, so a dialogue never runs past the length it was commissioned for: the budget
+ * is a duration somebody chose, and one turn short of it is a shorter programme where one turn over
+ * is a slot that overruns.
+ */
+const oddly = (count: number): number => (count % 2 === 1 ? count : Math.max(1, count - 1));
 
 /**
  * What a beat is actually judged against, as against what it was asked for.

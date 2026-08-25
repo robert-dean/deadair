@@ -65,10 +65,10 @@ try {
     console.log('productions');
 
     // ── what goes in comes back ───────────────────────────────────────────────
-    const opened = await open({ brief: 'the history of the TR-808', voices: ['host'] });
+    const opened = await open({ brief: 'the history of the TR-808' });
     check(opened.state === 'planned', 'a production opens `planned`, which is what the first pass claims out of');
     check(opened.brief === 'the history of the TR-808', 'the brief comes back as it went in');
-    check(opened.voices?.[0] === 'host', 'the voices come back as a list');
+    check(opened.casting === undefined, 'nobody is cast at commission: the roster can change in the hours before the first pass runs');
     check(opened.scheduledFor === undefined, 'an unscheduled production reads as undefined rather than null');
     check(opened.writingMode === 'outlined', 'the writing mode comes back');
 
@@ -84,13 +84,18 @@ try {
 
     // ── the row is the checkpoint ─────────────────────────────────────────────
     const shape = planProduction(opened.targetMs);
-    const saved = await productions.saveOutline(opened.id, { runners: ['the price'], beats: [{ title: 'One' }] }, shape, 'drafting');
+    const saved = await productions.saveOutline(opened.id, { runners: ['the price'], beats: [{ title: 'One' }] }, shape, 'drafting', [
+        { role: 'host', personaKey: 'classic', voice: 'classic' },
+        { role: 'caller', personaKey: 'theorist', name: 'Dale', voice: 'theorist' },
+    ]);
     check(saved, 'the outline pass writes its answer and moves the production on');
 
     const reread = await productions.findById(opened.id);
     check(reread?.state === 'drafting', 'a restart reads back which pass finished, which is the whole of resuming');
     check(reread?.outline?.beats[0]?.title === 'One', 'the outline comes back off the row');
     check(reread?.plan?.beats.length === shape.beats.length, 'the computed plan comes back beside it');
+    check(reread?.casting?.[1]?.name === 'Dale', 'the cast comes back off the row, which is what a beat is rendered from');
+    check(reread?.casting?.[1]?.role === 'caller', 'and it still says who was the caller');
 
     const staleOutline = await productions.saveOutline(opened.id, { runners: [], beats: [{ title: 'Two' }] }, shape, 'drafting');
     check(!staleOutline, 'a pass that no longer owns the production cannot write an outline over it');

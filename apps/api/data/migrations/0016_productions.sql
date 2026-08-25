@@ -60,15 +60,16 @@ create table deadair.productions (
     -- Who presents it. Null falls back to the station's active persona at the moment a pass runs,
     -- through `PersonaRepository.presenting`, which is the one place that precedence lives.
     persona_id uuid references deadair.personas (id) on delete set null,
-    -- Who speaks, as station-level voice ids the speech plugin maps in its own config.
+    -- Who speaks, one entry per member: the presenter, and whoever was cast to phone in.
     --
-    -- One entry today, because this ships single-voice. It is a LIST rather than a column because
-    -- the thing it becomes is a cast, and the alternative — a `voice` column now and a table later —
-    -- is a migration plus a rewrite of everything that reads it. Callers and multi-voice hand-off are
-    -- deliberately not built here; this is the shape they arrive into.
+    -- This was `voices`, a list of station voice ids and nothing else, held open for the cast it was
+    -- always going to become. It is that now — each member carries the persona it is, the name it
+    -- goes by on air and the voice that says it — and it is written once, by the first pass, rather
+    -- than resolved per beat: the roster can change under a production that takes hours to make, and
+    -- a programme whose caller changed identity half way through is not a programme.
     --
     -- Not named `cast`: that is a reserved word in SQL and would need quoting at every use.
-    voices jsonb,
+    casting jsonb,
     -- How many passes the operator wants spent on it, defaulted from `render.productionWritingMode`.
     --
     -- Constrained here rather than left open, unlike `kind`: a mode names a pass CHAIN that

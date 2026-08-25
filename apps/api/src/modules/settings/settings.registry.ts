@@ -50,7 +50,7 @@ import {
 } from '#modules/analysis/analysis.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
-import { DEFAULT_TARGET_MINUTES, DEFAULT_WRITING_MODE, PRODUCTION_KEYS } from '#modules/productions/production.settings.js';
+import { DEFAULT_DIALOGUE_KINDS, DEFAULT_TARGET_MINUTES, DEFAULT_WRITING_MODE, PRODUCTION_KEYS } from '#modules/productions/production.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
 
@@ -527,6 +527,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_TARGET_MINUTES,
         help: 'The default length, which decides how many beats it has and how long each one is. Nothing about the timing is left to the model: asked to decide for itself it gives one subject one beat, which at ten minutes is a single beat asked to carry more words than any one answer contains.',
+    },
+    {
+        group: 'render',
+        key: PRODUCTION_KEYS.dialogueKinds,
+        label: 'Which productions have callers',
+        type: 'string',
+        default: DEFAULT_DIALOGUE_KINDS,
+        help: 'Kinds of production that put somebody on the phone, separated by commas. One of these is written as a conversation instead of a talk: the presenter opens, a caller answers, the presenter comes back, and each turn is spoken in its own voice. Who rings in is drawn from the callers on the personas page, least recently heard first, and a station with none simply makes the programme with one voice.',
     },
 
     // ── llm ────────────────────────────────────────────────────────────────────

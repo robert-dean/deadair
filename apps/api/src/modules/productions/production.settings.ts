@@ -1,8 +1,13 @@
 /**
  * What an operator decides about productions, before they ask for one.
  *
- * Two knobs and no more, deliberately. Everything else about a production is either its own (the
- * brief, the length, who presents it) or arithmetic the station does not ask anybody about.
+ * Few knobs, deliberately. Everything else about a production is either its own (the brief, the
+ * length, who presents it) or arithmetic the station does not ask anybody about.
+ *
+ * This said "two knobs and no more" while there were two. The third is which KINDS of production
+ * have somebody phone in, and it earns its place for the reason `render.productionKinds` does one
+ * file over: `segments.kind` is free text by design, so which of those kinds is a conversation
+ * cannot be a constant without a code change per station.
  */
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
@@ -13,7 +18,34 @@ import { isWritingMode } from './production.passes.js';
 export const PRODUCTION_KEYS = {
     writingMode: 'render.productionWritingMode',
     targetMinutes: 'render.productionMinutes',
+    dialogueKinds: 'render.dialogueKinds',
 } as const;
+
+/**
+ * The kinds that put somebody on the phone, unless the station says otherwise.
+ *
+ * `callin` alone: a podcast is one voice thinking out loud and a phone-in is two people talking, and
+ * a station that wants callers in its podcast says so here rather than getting them by default in a
+ * form nobody designed for them.
+ */
+export const DEFAULT_DIALOGUE_KINDS = 'callin';
+
+/**
+ * The kinds this station makes as conversations, as a set.
+ *
+ * Parsed exactly like `productionKinds`, and separate from it on purpose: whether a kind is a
+ * PRODUCTION and whether it is a DIALOGUE are two questions, and a station wanting a documentary
+ * strand with callers in it should not have to choose between them.
+ */
+export function dialogueKinds(config: AppConfig): Set<string> {
+    return new Set(
+        config
+            .get(PRODUCTION_KEYS.dialogueKinds, DEFAULT_DIALOGUE_KINDS)
+            .split(',')
+            .map(kind => kind.trim().toLowerCase())
+            .filter(kind => kind.length > 0),
+    );
+}
 
 /**
  * How many passes a production gets when nobody said.

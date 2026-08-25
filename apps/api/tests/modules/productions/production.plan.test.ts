@@ -13,7 +13,9 @@ import {
     MIN_WORDS,
     planProduction,
     spreadItems,
+    TURN_BAND,
     wordBudget,
+    WORDS_PER_MINUTE,
 } from '../../../src/modules/productions/production.plan.js';
 
 const minutes = (count: number) => count * 60_000;
@@ -152,5 +154,55 @@ describe('spreadItems', () => {
 
     it('answers nothing for no beats, rather than dividing by zero', () => {
         expect(spreadItems(['a'], 0)).toEqual([]);
+    });
+});
+
+// A conversation is planned in a different band, and the reason the band exists at all is that the
+// monologue floor of 150 words is a SPEECH when somebody is answering a question.
+describe('planning a dialogue', () => {
+    it('writes turns rather than beats, so nobody makes a speech', () => {
+        const turns = planProduction(minutes(3), { dialogue: true }).beats;
+        const monologue = planProduction(minutes(3)).beats;
+
+        expect(turns.length).toBeGreaterThan(monologue.length);
+        for (const turn of turns) expect(turn.words).toBeLessThanOrEqual(TURN_BAND.max);
+    });
+
+    it('keeps the turn count odd, so the host can both open and close', () => {
+        // The format is host, caller, host, …, host. An even count makes those two rules collide on
+        // the last turn, so the shape is decided here rather than papered over where speakers are
+        // assigned.
+        for (const length of [2, 3, 4, 5, 8, 12]) {
+            expect(planProduction(minutes(length), { dialogue: true }).beats.length % 2).toBe(1);
+        }
+    });
+
+    it('rounds the count DOWN, so a programme never runs past the slot it was given', () => {
+        // One turn short of the budget is a shorter programme; one turn over is a slot that
+        // overruns, and a production is a block inside somebody's running order.
+        const budget = wordBudget(minutes(3), WORDS_PER_MINUTE, TURN_BAND);
+        const spoken = planProduction(minutes(3), { dialogue: true }).beats.reduce((total, beat) => total + beat.words, 0);
+
+        expect(spoken).toBeLessThanOrEqual(budget);
+    });
+
+    it('carries who says each turn, when it was told', () => {
+        const plan = planProduction(minutes(3), { dialogue: true, speakers: [0, 1, 0, 1, 0] });
+
+        expect(plan.beats.slice(0, 3).map(beat => beat.speaker)).toEqual([0, 1, 0]);
+    });
+
+    it('gives an unnamed turn to the first of the cast rather than nobody', () => {
+        // A speaker list shorter than the plan is the arithmetic disagreeing with itself, and the
+        // presenter is the safe answer: every production the station made before callers was theirs.
+        const plan = planProduction(minutes(3), { dialogue: true, speakers: [0, 1] });
+
+        expect(plan.beats.every(beat => beat.speaker !== undefined)).toBe(true);
+        expect(plan.beats[plan.beats.length - 1]?.speaker).toBe(0);
+    });
+
+    it('leaves a monologue exactly as it was, which is what a station with no callers still gets', () => {
+        expect(planProduction(minutes(10))).toEqual(planProduction(minutes(10), { dialogue: false }));
+        expect(planProduction(minutes(10)).beats.every(beat => beat.speaker === undefined)).toBe(true);
     });
 });

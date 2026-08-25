@@ -456,6 +456,38 @@ export class SegmentRepository extends DataRepository {
     }
 
     /**
+     * When each of these characters was last written into a segment, as epoch millis.
+     *
+     * What a rotation needs and nothing more: a character absent from the answer has never spoken,
+     * which is what puts a newly written caller at the FRONT of the queue rather than the back.
+     *
+     * Read off the segments rather than kept in a column of its own, on the rule this tree applies
+     * everywhere: the row already records who a segment was written as, and a second store of the
+     * same fact is a second thing that can disagree. Every state counts, including a beat that was
+     * written and never aired — a character the station has just spent a programme on has been
+     * heard from recently whatever happened to the audio, and the alternative is casting them again
+     * on the next one.
+     */
+    async lastSpokenBy(personaIds: readonly string[]): Promise<Map<string, number>> {
+        if (personaIds.length === 0) return new Map();
+
+        const rows = await this.db
+            .selectFrom('deadair.segments')
+            .select(({ fn }) => ['personaId', fn.max('createdAt').as('at')])
+            .where('personaId', 'in', [...personaIds])
+            .groupBy('personaId')
+            .execute();
+
+        return new Map(
+            rows.flatMap(row => {
+                const at = row.at as unknown as Date | { toMillis(): number } | null;
+                if (row.personaId == null || at == null) return [];
+                return [[row.personaId, at instanceof Date ? at.getTime() : at.toMillis()] as [string, number]];
+            }),
+        );
+    }
+
+    /**
      * The last few things the station said of one kind, newest first.
      *
      * What a writer reads to avoid repeating itself. Deliberately every state rather than only

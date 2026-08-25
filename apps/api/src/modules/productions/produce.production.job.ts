@@ -12,6 +12,8 @@ import { SegmentRepository, type Segment } from '#modules/render/segment.reposit
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { checkBeat, correctionNote } from './production.checks.js';
+import { isDialogue, speakerOrder, type ProductionCast } from './production.cast.js';
+import { ProductionCaster } from './production.caster.js';
 import { planProduction } from './production.plan.js';
 import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
 import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan } from './production.js';
@@ -110,6 +112,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         private readonly productions: ProductionRepository,
         private readonly segments: SegmentRepository,
         private readonly personas: PersonaRepository,
+        private readonly caster: ProductionCaster,
         private readonly llm: LlmService,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
@@ -193,7 +196,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const claimed = await this.productions.claim(production.id, 'planned', 'outlining');
         if (claimed === undefined) return false;
 
-        const plan = planProduction(claimed.targetMs);
+        const { plan, casting } = await this.shape(claimed);
 
         const answer = await this.llm.converse(
             {
@@ -205,7 +208,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     wordsPerBeat: plan.beats[0]?.words ?? 0,
                     // No persona: the outline decides what the programme is ABOUT, and the beats
                     // decide who is saying it. See `outlinePrompt` for what handing it the sheet
-                    // actually produced.
+                    // actually produced. The CAST is a different thing and is sent — who has each
+                    // turn is already decided, and content planned without knowing that is content
+                    // the wrong person has to say.
+                    ...(isDialogue(casting) ? { speakers: plan.beats.map(beat => ({ ordinal: beat.ordinal, who: casting[beat.speaker ?? 0]! })) } : {}),
                     station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
                 }),
                 maxOutputTokens: OUTLINE_OUTPUT_TOKENS,
@@ -224,10 +230,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             this.logger.info('productions: the model gave no usable outline, so the beats will be drafted from the brief', {
                 production: claimed.id,
             });
-            return await this.productions.savePlan(claimed.id, plan, 'outlining', 'drafting');
+            return await this.productions.savePlan(claimed.id, plan, 'outlining', 'drafting', casting);
         }
 
-        return await this.productions.saveOutline(claimed.id, outline, plan, 'drafting');
+        return await this.productions.saveOutline(claimed.id, outline, plan, 'drafting', casting);
     }
 
     /**
@@ -242,9 +248,11 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const claimed = await this.productions.claim(production.id, from, 'drafting');
         if (claimed === undefined) return false;
 
-        // A `quick` production has no outline pass, so it arrives here with no plan either.
-        const plan: ProductionPlan = claimed.plan ?? planProduction(claimed.targetMs);
-        if (claimed.plan === undefined) await this.productions.savePlan(claimed.id, plan, 'drafting', 'drafting');
+        // A `quick` production has no outline pass, so it arrives here with neither a plan nor a
+        // cast and both are decided now.
+        const shaped = claimed.plan === undefined ? await this.shape(claimed) : { plan: claimed.plan, casting: claimed.casting };
+        const plan: ProductionPlan = shaped.plan;
+        if (claimed.plan === undefined) await this.productions.savePlan(claimed.id, plan, 'drafting', 'drafting', shaped.casting);
 
         const persona = await this.personas.presenting(claimed.personaId);
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
@@ -421,6 +429,35 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         for (const beat of beats) await this.jobs.send('render.segment', { segmentId: beat.id });
 
         this.logger.info('productions: a production is written and its beats are being spoken', { production: productionId, beats: beats.length });
+    }
+
+    /**
+     * How long this production is, how it is divided, and who says each part.
+     *
+     * One step because the three answers depend on each other in a ring that has to be broken
+     * somewhere: how many turns there are decides how many callers are worth casting, and whether
+     * anybody was cast decides which word band the turns are planned in. It is broken by planning
+     * TWICE — once to find out roughly how many parts there are, and again once the cast is known —
+     * which costs two pieces of arithmetic and no round trips.
+     *
+     * The alternative was letting the caster ask for the roster and the planner ask for the cast,
+     * which is the same ring with a database read inside it.
+     */
+    private async shape(production: Production): Promise<{ plan: ProductionPlan; casting: ProductionCast }> {
+        const rough = planProduction(production.targetMs);
+        const casting = await this.caster.cast(production, rough.beats.length);
+        const dialogue = isDialogue(casting);
+
+        // A monologue is planned exactly as it always was, so a station that casts nobody gets the
+        // production it got before any of this: same band, same count, same word budgets.
+        if (!dialogue) return { plan: rough, casting };
+
+        // Twice, because the turn count is what the speakers are assigned across and the count comes
+        // from the dialogue band rather than the monologue one it was just estimated in.
+        const turns = planProduction(production.targetMs, { dialogue: true }).beats.length;
+        const plan = planProduction(production.targetMs, { dialogue: true, speakers: speakerOrder(casting, turns) });
+
+        return { plan, casting };
     }
 
     /**

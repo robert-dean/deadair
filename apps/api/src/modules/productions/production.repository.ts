@@ -4,6 +4,7 @@ import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { toJsonb } from '#modules/data/jsonb.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
+import { coerceCast, type ProductionCast } from './production.cast.js';
 import { isSettled, type Production, type ProductionOutline, type ProductionPlan, type ProductionState, type WritingMode } from './production.js';
 import { isWritingMode } from './production.passes.js';
 
@@ -48,7 +49,6 @@ export class ProductionRepository extends DataRepository {
         writingMode: WritingMode;
         brief?: string;
         personaId?: string;
-        voices?: readonly string[];
         scheduledFor?: number;
         actorId?: string;
     }): Promise<Production> {
@@ -66,7 +66,10 @@ export class ProductionRepository extends DataRepository {
                 writingMode: input.writingMode,
                 brief: input.brief ?? null,
                 personaId: input.personaId ?? null,
-                voices: input.voices === undefined ? null : toJsonb([...input.voices]),
+                // Nobody is cast at commission. A production is read ahead by up to three hours and
+                // the roster can change in between, so who is on it is decided by the first pass
+                // that actually runs. See `ProductionCaster`.
+                casting: null,
                 scheduledFor: input.scheduledFor === undefined ? null : instant(input.scheduledFor),
                 actorId: input.actorId ?? null,
             })
@@ -109,10 +112,15 @@ export class ProductionRepository extends DataRepository {
      * since been cancelled, failed, or been carried on by something else never has an outline
      * written over it by a pass that no longer owns it.
      */
-    async saveOutline(id: string, outline: ProductionOutline, plan: ProductionPlan, to: ProductionState): Promise<boolean> {
+    async saveOutline(id: string, outline: ProductionOutline, plan: ProductionPlan, to: ProductionState, casting?: ProductionCast): Promise<boolean> {
         const row = await this.db
             .updateTable('deadair.productions')
-            .set({ outline: toJsonb(outline), plan: toJsonb(plan), state: to })
+            .set({
+                outline: toJsonb(outline),
+                plan: toJsonb(plan),
+                state: to,
+                ...(casting === undefined ? {} : { casting: toJsonb([...casting]) }),
+            })
             .where('id', '=', id)
             .where('state', '=', 'outlining')
             .returning('id')
@@ -121,11 +129,17 @@ export class ProductionRepository extends DataRepository {
         return row !== undefined;
     }
 
-    /** The computed shape, for a mode with no outline pass to carry it. */
-    async savePlan(id: string, plan: ProductionPlan, from: ProductionState, to: ProductionState): Promise<boolean> {
+    /**
+     * The computed shape, and who is in it.
+     *
+     * Both together, because they are decided together and by the same pass: the turn count comes
+     * from the band the CAST calls for, so a plan stored without the cast that shaped it would be a
+     * row nobody could read back correctly.
+     */
+    async savePlan(id: string, plan: ProductionPlan, from: ProductionState, to: ProductionState, casting?: ProductionCast): Promise<boolean> {
         const row = await this.db
             .updateTable('deadair.productions')
-            .set({ plan: toJsonb(plan), state: to })
+            .set({ plan: toJsonb(plan), state: to, ...(casting === undefined ? {} : { casting: toJsonb([...casting]) }) })
             .where('id', '=', id)
             .where('state', '=', from)
             .returning('id')
@@ -279,7 +293,7 @@ function toProduction(row: Record<string, unknown>): Production {
         title: String(row.title),
         ...(row.brief == null ? {} : { brief: String(row.brief) }),
         ...(row.personaId == null ? {} : { personaId: String(row.personaId) }),
-        ...(row.voices == null ? {} : { voices: row.voices as string[] }),
+        ...(coerceCast(row.casting) === undefined ? {} : { casting: coerceCast(row.casting)! }),
         // Fallen back rather than trusted: the column is constrained, but a row edited by hand out of
         // band would otherwise reach the pass chain as a mode nothing knows how to run.
         writingMode: isWritingMode(mode) ? mode : 'outlined',

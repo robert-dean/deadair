@@ -11,6 +11,7 @@
  */
 
 import type { GatePriority } from '#modules/shared/gate.priority.js';
+import type { ProductionCast } from './production.cast.js';
 
 /** How far along making one is. Mirrors the check constraint in migration 0016. */
 export type ProductionState = 'planned' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'ready' | 'aired' | 'failed' | 'cancelled';
@@ -58,8 +59,10 @@ export interface OutlineBeat {
      * one beat may cover several related items.
      */
     itemIndexes?: number[];
-    /** Who drives this beat, as a name from the production's voices. Unused while the cast is one. */
-    lead?: string;
+    // There was a `lead` here, for an outline that named its own speaker. It is gone: who says a
+    // beat is the station's arithmetic (`BeatPlan.speaker`), for the same reason how LONG a beat is
+    // never came from the model. A model that named somebody the production was not given would be a
+    // beat drafted as one character and spoken in another's voice, silently.
     /** Something planted here for a later beat to pay off. */
     setup?: string;
     /** A callback landing an earlier beat's setup. */
@@ -88,6 +91,14 @@ export interface BeatPlan {
     ordinal: number;
     /** About how many spoken words it should be. A target, and `production.checks.ts` judges against it. */
     words: number;
+    /**
+     * Who says it, as an index into {@link Production.casting}.
+     *
+     * Absent means whoever is presenting, which is every production the station made before it could
+     * cast anybody. This is where `OutlineBeat.lead` went: the station decides, and the outline is
+     * told.
+     */
+    speaker?: number;
 }
 
 /** The computed shape: how many beats, and how long each. */
@@ -104,7 +115,8 @@ export interface Production {
     title: string;
     brief?: string;
     personaId?: string;
-    voices?: readonly string[];
+    /** Who is in it, decided once by the first pass. Absent for a production made before it was cast. */
+    casting?: ProductionCast;
     writingMode: WritingMode;
     targetMs: number;
     plan?: ProductionPlan;
@@ -160,10 +172,12 @@ export function coerceOutlineBeat(raw: Record<string, unknown>, itemCount: numbe
 
     const indexes = [...new Set(itemIndexList(raw).filter(index => Number.isInteger(index) && index >= 0 && index < itemCount))];
 
+    // A `lead` in the answer is dropped rather than read. The outline is TOLD who has each beat, so
+    // one naming somebody else is the model disagreeing with the cast — and the cast is the half
+    // that gets rendered.
     return {
         title,
         ...maybe('angle', text(raw.angle)),
-        ...maybe('lead', text(raw.lead)),
         ...maybe('setup', text(raw.setup)),
         ...maybe('payoff', text(raw.payoff)),
         ...(indexes.length === 0 ? {} : { itemIndexes: indexes }),

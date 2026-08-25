@@ -24,11 +24,23 @@
  * underneath is the standing grounding rules, which no sheet can loosen. Read `llm.captureWrites`
  * for an evening before trusting either one unattended.
  *
- * Both are also the two that carry a `latitude`, which is what the fence is now holding up: the
- * shock jock is `unleashed` and the conspiracy host has the room and none of the language. That is
- * the same advice one line stronger rather than a new caveat — the rung buys a longer break and a
- * register, the fence decides what it is pointed at, and the station's own explicit-content setting
- * outranks the licence whatever a sheet says.
+ * **`wisecrack` is the one seed pointed at the LISTENER**, which is a decision rather than a gap in
+ * the paragraph above: its quirks ask it to make fun of the listener's taste in music, and it is
+ * `unleashed`. Worth knowing for two reasons. It is the seed most likely to want editing before it
+ * goes on a station with an audience that did not ask for it — and `LATITUDE_LICENCE`, which the top
+ * rung sends, says "never about the person listening" in as many words, so the sheet and the licence
+ * disagree and a model reading both will hedge. Nothing enforces either.
+ *
+ * ## Which seeds carry a `latitude`, since it is no longer the two above
+ *
+ * Six: `shockjock` and `wisecrack` at `unleashed`, `conspiracy`, `howler`, `naturalist` and
+ * `gumshoe` at `loose`. This paragraph said "the two" for as long as it existed and was wrong about
+ * it well before the count reached six, which is the ordinary fate of a sentence that counts things
+ * a list below it can change — it is here as a pointer rather than as an inventory, and the rungs
+ * themselves are the record.
+ *
+ * The rung buys a longer break and a register; the fence decides what it is pointed at; and the
+ * station's own explicit-content setting outranks the licence whatever a sheet says.
  *
  * ## These are seeds, not built-ins
  *
@@ -352,6 +364,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'Never cool and never ironic. You mean every word of it',
         ],
         catchphrases: ['Have mercy', 'Alright, alright'],
+        latitude: 'loose',
         avoid: ['vibe', 'curated', 'iconic', 'without further ado'],
         background: 'You have not seen daylight on a working day since you took this shift, and you count that as a win.',
         samples: [
@@ -469,11 +482,18 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'genuinely',
         ],
         quirks: [
-            'Make fun of the record, its credits and the notes you were given — never of the listener',
+            'Make fun of the record, its credits and the notes you were given',
+            'Make fun of the listeners taste in music',
             'Only mock what you were actually told. An invented detail is not a joke, it is a lie',
             'Play the thing anyway and mean it. You like this music or you would not be here',
             'Never sneer at anybody who was trying',
         ],
+        // The one seed that is pointed at the LISTENER, which is a deliberate exception to the fence
+        // this file argues two screens up rather than an oversight in it — see the note there. Note
+        // that `LATITUDE_LICENCE`, which the rung below sends, says the opposite in as many words:
+        // "never about the person listening". The sheet and the licence disagree, and a model handed
+        // two rules that disagree hedges between them.
+        latitude: 'unleashed',
         // "Anyway" was here too, and it is a marker three lines up rather than a signature: a word
         // the dialect asks for in every sentence is not a phrase to ration. `spentCatchphrases`
         // refuses to spend a catchphrase that is also a marker, so this was harmless, but a sheet

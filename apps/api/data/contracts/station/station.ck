@@ -4,6 +4,7 @@ options {
     }
     services: {
         StationAttentionService: "#src/modules/station/station.attention.service.js"
+        StationCheckupService: "#src/modules/station/station.checkup.service.js"
     }
     security: {
         # Reads only, so the floor is the read gate every console page sits on. Nothing in this area
@@ -27,6 +28,29 @@ operation /station/attention: {
         response: {
             200: {
                 application/json: StationAttention
+            }
+        }
+    }
+}
+
+# The machinery, for the page that assembles a check-up.
+#
+# It adds no probing of its own: every number here is already being kept in memory or in a table, and
+# this is the reader that was missing. What it deliberately does NOT do is duplicate the four facts
+# the console already polls for other reasons — the silence verdict, the audience, the plugin
+# statuses and the disk — because a second composition of those is a second thing to disagree with
+# the first.
+#
+# `/health` is not the place for any of this and stays as it is: a probe that consults subsystems
+# reports a station with an unreachable stream as a dead API, and a restart is the one repair that
+# cannot help.
+operation /station/checkup: {
+    get: { # The loops the station runs and how much of the library it has looked at
+        name: Read station checkup
+        service: StationCheckupService.read
+        response: {
+            200: {
+                application/json: StationCheckup
             }
         }
     }

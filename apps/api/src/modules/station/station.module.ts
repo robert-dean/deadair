@@ -1,11 +1,12 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { StationAttentionService } from './station.attention.service.js';
+import { StationCheckupService } from './station.checkup.service.js';
 
 /**
  * The station about itself, composed across everything else.
  *
- * One route today: what needs somebody. It owns no table, writes nothing and starts nothing — the
+ * Two routes: what needs somebody, and the machinery underneath it. It owns no table, writes nothing and starts nothing — the
  * whole of it is that facts an operator needs together are scattered across the five pages that own
  * them, and an operator has to already be on a page to find out that page has something wrong on it.
  *
@@ -28,5 +29,8 @@ export const StationModule: ServerKitModule = {
         // Scoped, like every other request-path service: it opens no loop and holds nothing between
         // requests, and the repositories under it are scoped already.
         registry.register(StationAttentionService).useClass(StationAttentionService).asScoped();
+        // Scoped for the same reason, even though the heartbeat map it reads is a singleton: what
+        // makes a service scoped here is the repositories under it, not the facts it reports.
+        registry.register(StationCheckupService).useClass(StationCheckupService).asScoped();
     },
 };

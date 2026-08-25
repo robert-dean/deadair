@@ -10,28 +10,43 @@
 import { describe, expect, it } from 'vitest';
 
 import { SEED_PERSONAS } from '../../../src/modules/personas/persona.defaults.js';
+import { SEED_CALLERS } from '../../../src/modules/personas/caller.defaults.js';
 import { DEFAULT_VOICE_ROWS as KOKORO_ROWS } from '../../../../../plugins/kokoro/src/kokoro.manifest.js';
 import { DEFAULT_VOICE_ROWS as CHATTERBOX_ROWS } from '../../../../../plugins/chatterbox/src/chatterbox.manifest.js';
 
 /** The one slot in a shipped map that is not a persona. See `docs/todo/personas.md` §1. */
 const ROLE_SLOTS = ['newsreader'];
 
+// Everybody who has a sheet, which is what a shipped map has to cover. The callers are a separate
+// seed list and the same rule applies to them twice over: a caller with no row of its own reads in
+// the engine's default voice, which on a production is the presenter's own voice answering itself.
+const SEED_CHARACTERS = [...SEED_PERSONAS, ...SEED_CALLERS];
+
 const engines = [
     { name: 'kokoro', rows: KOKORO_ROWS },
     { name: 'chatterbox', rows: CHATTERBOX_ROWS },
 ];
 
-describe('the seeded personas', () => {
+describe('the seeded characters', () => {
     it('each name a voice, because a roster that all sounds the same is the failure this fixed', () => {
-        const silent = SEED_PERSONAS.filter(persona => persona.voice === undefined).map(persona => persona.key);
+        const silent = SEED_CHARACTERS.filter(persona => persona.voice === undefined).map(persona => persona.key);
 
         expect(silent).toEqual([]);
     });
 
     it('name their own key, so there is one list to keep straight rather than two', () => {
-        const mismatched = SEED_PERSONAS.filter(persona => persona.voice !== persona.key).map(persona => persona.key);
+        const mismatched = SEED_CHARACTERS.filter(persona => persona.voice !== persona.key).map(persona => persona.key);
 
         expect(mismatched).toEqual([]);
+    });
+
+    it('are hosts and callers, and a caller is never seeded on air', () => {
+        // The seeded active persona is the classic host, and `PersonaRepository.seed` picks it by
+        // key — so a caller could only end up active through a key collision, which is exactly the
+        // sort of thing a second seed list makes possible. The database refuses it as well.
+        expect(SEED_CALLERS.every(caller => caller.kind === 'caller')).toBe(true);
+        expect(SEED_PERSONAS.every(host => host.kind === 'host')).toBe(true);
+        expect(SEED_CHARACTERS.map(persona => persona.key)).toHaveLength(new Set(SEED_CHARACTERS.map(persona => persona.key)).size);
     });
 });
 
@@ -40,7 +55,7 @@ describe.each(engines)('the $name voice map', ({ rows }) => {
         // The one that actually bites. A persona added without a row here is a character that
         // silently reads in the default voice on this engine.
         const named = new Set(rows.map(row => row.name));
-        const missing = SEED_PERSONAS.filter(persona => persona.voice !== undefined && !named.has(persona.voice)).map(persona => persona.key);
+        const missing = SEED_CHARACTERS.filter(persona => persona.voice !== undefined && !named.has(persona.voice)).map(persona => persona.key);
 
         expect(missing).toEqual([]);
     });
@@ -48,7 +63,7 @@ describe.each(engines)('the $name voice map', ({ rows }) => {
     it('has no row for a persona that no longer exists', () => {
         // The other direction, which costs nothing on air and is worth catching anyway: a renamed
         // persona leaves an orphan behind, and an orphan is indistinguishable from a role slot.
-        const keys = new Set<string>([...SEED_PERSONAS.map(persona => persona.key), ...ROLE_SLOTS]);
+        const keys = new Set<string>([...SEED_CHARACTERS.map(persona => persona.key), ...ROLE_SLOTS]);
         const orphans = rows.map(row => row.name).filter(name => !keys.has(name));
 
         expect(orphans).toEqual([]);

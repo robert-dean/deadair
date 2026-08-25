@@ -118,6 +118,7 @@ describe('ModelTalkBreakWriter', () => {
         const shockJock = {
             id: 'p1',
             key: 'shockjock',
+            kind: 'host' as const,
             label: 'The shock jock',
             style: 'a shock jock',
             latitude: 'loose' as const,

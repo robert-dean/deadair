@@ -3,7 +3,7 @@ import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { isPersonaBrevity, isPersonaLatitude, isPersonaStorytelling } from './persona.sheet.js';
-import type { Persona, PersonaDraft } from './persona.js';
+import { DEFAULT_PERSONA_KIND, isPersonaKind, type Persona, type PersonaDraft } from './persona.js';
 
 /**
  * The personas an operator has written, and which of them is on air.
@@ -46,6 +46,27 @@ export class PersonaRepository extends DataRepository {
             .selectFrom('deadair.personas')
             .selectAll()
             .where('stationKey', '=', this.station.stationKey)
+            .orderBy('createdAt', 'asc')
+            .orderBy('key', 'asc')
+            .execute();
+
+        return rows.map(toPersona);
+    }
+
+    /**
+     * The characters a production may cast: everyone who phones in, and nobody who presents.
+     *
+     * Its own read rather than a filter over {@link list} in the caller, because who may be cast is
+     * a rule rather than a preference — a production that cast the station's own host as a caller
+     * would have the presenter ring themselves up. Ordered like {@link list} so a station with no
+     * history of casting anybody still draws them in a stable order.
+     */
+    async castable(): Promise<Persona[]> {
+        const rows = await this.db
+            .selectFrom('deadair.personas')
+            .selectAll()
+            .where('stationKey', '=', this.station.stationKey)
+            .where('kind', '=', 'caller')
             .orderBy('createdAt', 'asc')
             .orderBy('key', 'asc')
             .execute();
@@ -235,6 +256,7 @@ export class PersonaRepository extends DataRepository {
 function columnsOf(draft: PersonaDraft) {
     return {
         key: draft.key,
+        kind: draft.kind,
         label: draft.label,
         style: draft.style,
         djName: draft.djName ?? null,
@@ -272,6 +294,7 @@ function stringsIn(value: unknown): string[] | undefined {
 function toPersona(row: {
     id: string;
     key: string;
+    kind: string;
     label: string;
     style: string;
     active: boolean;
@@ -297,6 +320,11 @@ function toPersona(row: {
     return {
         id: row.id,
         key: row.key,
+        // Checked rather than cast, on the same argument as the three rungs below: the column is
+        // plain text, and a row edited by hand naming a kind this code has never heard of is a
+        // character nothing knows what to do with. `host` is what the table meant before callers
+        // existed, so it is the safe reading of anything unrecognised.
+        kind: isPersonaKind(row.kind) ? row.kind : DEFAULT_PERSONA_KIND,
         label: row.label,
         style: row.style,
         active: row.active,

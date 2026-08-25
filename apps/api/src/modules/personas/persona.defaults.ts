@@ -177,7 +177,15 @@
 
 import type { PersonaDraft } from './persona.js';
 
-export const SEED_PERSONAS: readonly PersonaDraft[] = [
+/**
+ * The hosts.
+ *
+ * `kind` is stamped once at the bottom rather than written on every entry, because this file IS the
+ * host list: a `kind: 'host'` on each of the nineteen would be one fact said nineteen times and
+ * capable of being wrong once. The people who ring IN are `caller.defaults.ts`, which does the same
+ * thing with the other value.
+ */
+export const SEED_PERSONAS: readonly PersonaDraft[] = ([
     {
         key: 'classic',
         label: 'Classic host',
@@ -1022,4 +1030,4 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = [
             'It is {{clock.rough}}. This is {{station.name}}.[[ {{previous.title}}, {{previous.artist}}.]][[ Later, {{next.artist}}, {{next.title}}.]]',
         ].join('\n'),
     },
-];
+] as const satisfies readonly Omit<PersonaDraft, 'kind'>[]).map(draft => ({ ...draft, kind: 'host' as const }));

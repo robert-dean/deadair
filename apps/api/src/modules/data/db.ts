@@ -343,6 +343,7 @@ export interface DeadairPersonas {
   djName: string | null;
   id: Generated<string>;
   key: string;
+  kind: Generated<"host" | "caller">;
   label: string;
   latitude: string | null;
   quirks: Generated<Json>;

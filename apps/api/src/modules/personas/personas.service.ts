@@ -16,12 +16,22 @@ import type {
     PersonaList,
     PersonaRequest,
 } from './types/personas.types.js';
-import type { Persona, PersonaDraft } from './persona.js';
+import { DEFAULT_PERSONA_KIND, type Persona, type PersonaDraft } from './persona.js';
 import { PersonaRepository } from './persona.repository.js';
 import { SEED_PERSONAS } from './persona.defaults.js';
+import { SEED_CALLERS } from './caller.defaults.js';
 import { SEED_PERSONA_STORIES } from './persona.story.defaults.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MAX_WAIT_MS, PERSONA_MODEL_KEY, personaPrompt, readPersona } from './persona.writer.js';
+
+/**
+ * Everybody a fresh station starts with: the hosts, then the people who ring in.
+ *
+ * One list because seeding is one question — what does an empty station have? — and because the
+ * emptiness guard is over the whole table. Two lists at the call sites would mean a station could be
+ * seeded with hosts and no callers, which is a state nothing wants and only a bug produces.
+ */
+const SEED_CHARACTERS: readonly PersonaDraft[] = [...SEED_PERSONAS, ...SEED_CALLERS];
 
 /**
  * The operator's surface over who the station is.
@@ -113,6 +123,15 @@ export class PersonasService {
      * must not cost the operator a write that has already happened.
      */
     async setActive(id: string): Promise<PersonaList> {
+        // A caller is somebody who phones IN, so putting one on air is a question with no sensible
+        // answer rather than an unusual choice. The database refuses it too; this is here so an
+        // operator gets a sentence instead of a constraint violation.
+        const asked = await this.personas.find(id);
+        if (asked === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
+        if (asked.kind !== DEFAULT_PERSONA_KIND) {
+            throw httpError(400).withDetails({ message: `"${asked.label}" is a caller, and a caller cannot present the station` });
+        }
+
         const active = await this.personas.setActive(id);
         if (active === undefined) throw httpError(404).withDetails({ message: `persona "${id}" does not exist` });
 
@@ -165,8 +184,8 @@ export class PersonasService {
      * bargain the button already makes about a deleted persona, and it is what the button means.
      */
     async restore(): Promise<PersonaList> {
-        const written = await this.personas.restoreMissing(SEED_PERSONAS);
-        const told = await this.seedStories(SEED_PERSONAS.map(persona => persona.key));
+        const written = await this.personas.restoreMissing(SEED_CHARACTERS);
+        const told = await this.seedStories(SEED_CHARACTERS.map(persona => persona.key));
         this.logger.info('personas: an operator restored the station personas', { written: written.length, keys: written, stories: told });
 
         return this.answer();
@@ -181,14 +200,14 @@ export class PersonasService {
      * with no personas is an ordinary state everything downstream already handles.
      */
     async seed(): Promise<void> {
-        const written = await this.personas.seed(SEED_PERSONAS, 'classic');
+        const written = await this.personas.seed(SEED_CHARACTERS, 'classic');
         if (written === 0) return;
 
         // Only where the personas themselves were just written, so this inherits `seed`'s emptiness
         // guard rather than having a weaker one of its own: a boot that re-stocked a character an
         // operator had emptied would make deleting a story inexpressible, which is the same argument
         // one table up.
-        const told = await this.seedStories(SEED_PERSONAS.map(persona => persona.key));
+        const told = await this.seedStories(SEED_CHARACTERS.map(persona => persona.key));
         this.logger.info('personas: seeded a station that had none', { written, stories: told });
     }
 
@@ -339,6 +358,9 @@ function draftOf(body: PersonaInput): PersonaDraft {
 
     return {
         key: body.key,
+        // Defaulted rather than required of a client, because every persona the console wrote before
+        // callers existed is a host and a form that has not been redeployed still means one.
+        kind: body.kind ?? DEFAULT_PERSONA_KIND,
         label: body.label,
         style: body.style,
         ...omitUndefined({
@@ -347,6 +369,10 @@ function draftOf(body: PersonaInput): PersonaDraft {
             background: text(body.background),
             brevity: body.brevity,
             latitude: body.latitude,
+            // Threaded here and in `toView` as of the caller work. It was in `toDraftView` alone, so
+            // a generated sheet could carry it and an operator's own save silently cleared it and
+            // the editor never drew it back — the field worked for seeds and for nothing else.
+            storytelling: body.storytelling,
             templates: text(body.templates),
             diction: list(body.diction),
             dictionMarkers: list(body.dictionMarkers),
@@ -362,6 +388,7 @@ function toView(persona: Persona): PersonaView {
     return {
         id: persona.id,
         key: persona.key,
+        kind: persona.kind,
         label: persona.label,
         style: persona.style,
         active: persona.active,
@@ -371,6 +398,7 @@ function toView(persona: Persona): PersonaView {
             background: persona.background,
             brevity: persona.brevity,
             latitude: persona.latitude,
+            storytelling: persona.storytelling,
             templates: persona.templates,
             diction: mutable(persona.diction),
             dictionMarkers: mutable(persona.dictionMarkers),

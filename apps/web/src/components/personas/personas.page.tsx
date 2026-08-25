@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { ActionIcon, Anchor, Badge, Button, Card, CloseButton, Group, Stack, Text, TextInput } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import type { Persona, PersonaInput, ScriptHistorySummaryRow, Voice } from '@deadair/sdk';
+
+/** What a character is for. Absent on the wire means `host`, which is what every row was before callers. */
+type PersonaKind = NonNullable<PersonaInput['kind']>;
+const kindOf = (persona: Persona): PersonaKind => persona.kind ?? 'host';
 
 import {
     useCreatePersona,
@@ -17,6 +21,7 @@ import { SUMMARY_HOURS, useScriptSummary } from '../../api/scripts.queries';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { EmptyState } from '../shared/empty.state';
+import { Eyebrow } from '../shared/eyebrow';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
@@ -59,6 +64,9 @@ export function PersonasPage() {
     // this app where null earns its keep: "no editor" and "an editor with nothing in it" are
     // genuinely different states.
     const [editing, setEditing] = useState<Persona | null | undefined>(undefined);
+    // Which of the two New buttons was pressed. Only read while `editing` is null: an existing
+    // character carries its own kind, and this is the answer for one that has no row yet.
+    const [writing, setWriting] = useState<PersonaKind>('host');
     // Which character's notebook is open, or none. One at a time, because the panel fetches per
     // persona and a page of nineteen open notebooks is nineteen requests nobody asked for.
     const [notebook, setNotebook] = useState<string | undefined>(undefined);
@@ -100,8 +108,9 @@ export function PersonasPage() {
                 title="Personas"
                 description={
                     <Text c="dimmed" size="sm">
-                        Who the station is when it talks. The one on air decides how a break is written, what it says when nothing wrote it, which
-                        voice reads it, and what the station programmes towards. A change is heard on the next break.
+                        Who the station is when it talks. The one on air decides how a break is written, what it says when nothing wrote it and which
+                        voice reads it; a change is heard on the next break. Callers are the other half of the roster: they never present, and they
+                        are cast into a production when one wants somebody on the phone.
                     </Text>
                 }
                 actions={
@@ -112,7 +121,26 @@ export function PersonasPage() {
                         <Button variant="default" loading={restore.isPending} onClick={() => restore.mutate(undefined)}>
                             Restore built-ins
                         </Button>
-                        <Button onClick={() => setEditing(null)}>New persona</Button>
+                        {/* Two buttons rather than a field in the form, because what a character is
+                            FOR is not a property somebody edits afterwards: a host presents and a
+                            caller rings in, and the roster is drawn in those two halves. */}
+                        <Button
+                            variant="default"
+                            onClick={() => {
+                                setWriting('caller');
+                                setEditing(null);
+                            }}
+                        >
+                            New caller
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setWriting('host');
+                                setEditing(null);
+                            }}
+                        >
+                            New host
+                        </Button>
                     </>
                 }
             />
@@ -166,164 +194,179 @@ export function PersonasPage() {
             ) : undefined}
 
             <Stack gap="sm">
-                {shown.map(persona => (
-                    <Card key={persona.id}>
-                        <Group justify="space-between" align="flex-start" wrap="nowrap">
-                            <Stack gap="xxs" style={{ minWidth: 0 }}>
-                                <Group gap="xs">
-                                    <Text fw={600}>{persona.label}</Text>
-                                    {persona.active ? (
-                                        <Badge color="green" variant="light">
-                                            On air
-                                        </Badge>
-                                    ) : undefined}
-                                    {persona.djName ? (
-                                        <Badge variant="outline" color="gray">
-                                            {persona.djName}
-                                        </Badge>
-                                    ) : undefined}
-                                </Group>
-                                <Text size="sm" c="dimmed">
-                                    {persona.style}
-                                </Text>
-                                <PersonaSummary persona={persona} />
+                {shown.map((persona, index) => (
+                    <Fragment key={persona.id}>
+                        {/* A heading at each changeover rather than two separate lists, which would
+                            mean either duplicating this card or lifting ten pieces of state into a
+                            component to share it. The roster is already ordered hosts-then-callers,
+                            so one comparison with the card above is the whole of it — and a filter
+                            that matches only callers correctly draws only that heading. */}
+                        {index === 0 || kindOf(shown[index - 1]!) !== kindOf(persona) ? (
+                            <Eyebrow>{kindOf(persona) === 'caller' ? 'Callers' : 'Hosts'}</Eyebrow>
+                        ) : undefined}
+                        <Card>
+                            <Group justify="space-between" align="flex-start" wrap="nowrap">
+                                <Stack gap="xxs" style={{ minWidth: 0 }}>
+                                    <Group gap="xs">
+                                        <Text fw={600}>{persona.label}</Text>
+                                        {persona.active ? (
+                                            <Badge color="green" variant="light">
+                                                On air
+                                            </Badge>
+                                        ) : undefined}
+                                        {persona.djName ? (
+                                            <Badge variant="outline" color="gray">
+                                                {persona.djName}
+                                            </Badge>
+                                        ) : undefined}
+                                    </Group>
+                                    <Text size="sm" c="dimmed">
+                                        {persona.style}
+                                    </Text>
+                                    <PersonaSummary persona={persona} />
 
-                                {persona.voice ? (
-                                    <Group gap="xxs" wrap="nowrap">
-                                        <Text size="xs" c="dimmed">
-                                            {/* Both halves: the slot is what the editor and the
+                                    {persona.voice ? (
+                                        <Group gap="xxs" wrap="nowrap">
+                                            <Text size="xs" c="dimmed">
+                                                {/* Both halves: the slot is what the editor and the
                                                 voices page call it, and what it maps to is the only
                                                 part saying anything about the sound. A station with
                                                 no speech plugin gets the slot alone, which is all
                                                 anything knows then. */}
-                                            speaks as {describeVoice(persona.voice, voices.data?.voices)}
-                                        </Text>
-                                        <ActionIcon
-                                            variant="subtle"
-                                            size="xs"
-                                            loading={preview.isLoading(persona.voice)}
-                                            aria-label={`Play a sample of the voice ${persona.label} speaks in`}
-                                            onClick={() =>
-                                                preview.play(
-                                                    persona.voice!,
-                                                    () => fetchVoiceSample(persona.voice!),
-                                                    'That voice could not be previewed.',
-                                                )
-                                            }
-                                        >
-                                            {preview.isPlaying(persona.voice) ? '❚❚' : '▶'}
-                                        </ActionIcon>
-                                    </Group>
-                                ) : undefined}
+                                                speaks as {describeVoice(persona.voice, voices.data?.voices)}
+                                            </Text>
+                                            <ActionIcon
+                                                variant="subtle"
+                                                size="xs"
+                                                loading={preview.isLoading(persona.voice)}
+                                                aria-label={`Play a sample of the voice ${persona.label} speaks in`}
+                                                onClick={() =>
+                                                    preview.play(
+                                                        persona.voice!,
+                                                        () => fetchVoiceSample(persona.voice!),
+                                                        'That voice could not be previewed.',
+                                                    )
+                                                }
+                                            >
+                                                {preview.isPlaying(persona.voice) ? '❚❚' : '▶'}
+                                            </ActionIcon>
+                                        </Group>
+                                    ) : undefined}
 
-                                <PersonaRecord counts={countsFor(persona.key, summary.data?.rows)} />
+                                    <PersonaRecord counts={countsFor(persona.key, summary.data?.rows)} />
 
-                                {/* In the card's own column rather than the row of buttons, because
+                                    {/* In the card's own column rather than the row of buttons, because
                                     it goes somewhere rather than doing something — and because six
                                     actions in that row is one more than fits. Keyed on the
                                     persona's KEY rather than its id, since that is what
                                     `script_history` stamps: the rows outlive the character, so what
                                     it said survives it being deleted. */}
-                                <Anchor
-                                    size="xs"
-                                    renderRoot={props => <Link to="/scripts" search={{ segment: '', persona: persona.key }} {...props} />}
-                                >
-                                    What they&apos;ve said
-                                </Anchor>
-
-                                {persona.voice && preview.failureFor(persona.voice) ? (
-                                    <Text size="xs" c="red.4">
-                                        {preview.failureFor(persona.voice)}
-                                    </Text>
-                                ) : undefined}
-                            </Stack>
-                            <Group gap="xs" wrap="nowrap">
-                                {persona.active ? undefined : (
-                                    <Button
-                                        variant="light"
-                                        size="compact-sm"
-                                        loading={putOnAir.isPending && putOnAir.variables === persona.id}
-                                        onClick={() => putOnAir.mutate(persona.id)}
+                                    <Anchor
+                                        size="xs"
+                                        renderRoot={props => <Link to="/scripts" search={{ segment: '', persona: persona.key }} {...props} />}
                                     >
-                                        Put on air
-                                    </Button>
-                                )}
-                                {/* Spends a generation and changes nothing, so it is a plain button
+                                        What they&apos;ve said
+                                    </Anchor>
+
+                                    {persona.voice && preview.failureFor(persona.voice) ? (
+                                        <Text size="xs" c="red.4">
+                                            {preview.failureFor(persona.voice)}
+                                        </Text>
+                                    ) : undefined}
+                                </Stack>
+                                <Group gap="xs" wrap="nowrap">
+                                    {/* Not offered for a caller at all, rather than offered and refused:
+                                    somebody who phones in cannot present the station, and the API
+                                    and the database both say so. A button that always fails is a
+                                    question the page should not have asked. */}
+                                    {persona.active || kindOf(persona) === 'caller' ? undefined : (
+                                        <Button
+                                            variant="light"
+                                            size="compact-sm"
+                                            loading={putOnAir.isPending && putOnAir.variables === persona.id}
+                                            onClick={() => putOnAir.mutate(persona.id)}
+                                        >
+                                            Put on air
+                                        </Button>
+                                    )}
+                                    {/* Spends a generation and changes nothing, so it is a plain button
                                     rather than something behind a confirmation — but it takes the
                                     one model slot, which is why only one runs at a time. */}
-                                <Button
-                                    variant="subtle"
-                                    size="compact-sm"
-                                    loading={rehearse.isPending && rehearse.variables === persona.id}
-                                    disabled={rehearse.isPending}
-                                    onClick={() => rehearse.mutate(persona.id)}
-                                >
-                                    Rehearse
-                                </Button>
-                                {/* One at a time: the panel fetches per character, and every open
+                                    <Button
+                                        variant="subtle"
+                                        size="compact-sm"
+                                        loading={rehearse.isPending && rehearse.variables === persona.id}
+                                        disabled={rehearse.isPending}
+                                        onClick={() => rehearse.mutate(persona.id)}
+                                    >
+                                        Rehearse
+                                    </Button>
+                                    {/* One at a time: the panel fetches per character, and every open
                                     notebook is a request nobody asked for. */}
-                                <Button
-                                    variant="subtle"
-                                    size="compact-sm"
-                                    onClick={() => setNotebook(current => (current === persona.id ? undefined : persona.id))}
-                                >
-                                    {notebook === persona.id ? 'Hide notebook' : 'Notebook'}
-                                </Button>
-                                <Button
-                                    variant="subtle"
-                                    size="compact-sm"
-                                    onClick={() => setShelf(current => (current === persona.id ? undefined : persona.id))}
-                                >
-                                    {shelf === persona.id ? 'Hide stories' : 'Stories'}
-                                </Button>
-                                <Button variant="subtle" size="compact-sm" onClick={() => setEditing(persona)}>
-                                    Edit
-                                </Button>
-                                {/* The one action here that loses something an operator wrote, so
+                                    <Button
+                                        variant="subtle"
+                                        size="compact-sm"
+                                        onClick={() => setNotebook(current => (current === persona.id ? undefined : persona.id))}
+                                    >
+                                        {notebook === persona.id ? 'Hide notebook' : 'Notebook'}
+                                    </Button>
+                                    <Button
+                                        variant="subtle"
+                                        size="compact-sm"
+                                        onClick={() => setShelf(current => (current === persona.id ? undefined : persona.id))}
+                                    >
+                                        {shelf === persona.id ? 'Hide stories' : 'Stories'}
+                                    </Button>
+                                    <Button variant="subtle" size="compact-sm" onClick={() => setEditing(persona)}>
+                                        Edit
+                                    </Button>
+                                    {/* The one action here that loses something an operator wrote, so
                                     it is the one that asks first and says what goes with it. */}
-                                <Button
-                                    variant="subtle"
-                                    color="red"
-                                    size="compact-sm"
-                                    loading={remove.isPending && remove.variables === persona.id}
-                                    onClick={() => setDeleting(persona)}
-                                >
-                                    Delete
-                                </Button>
+                                    <Button
+                                        variant="subtle"
+                                        color="red"
+                                        size="compact-sm"
+                                        loading={remove.isPending && remove.variables === persona.id}
+                                        onClick={() => setDeleting(persona)}
+                                    >
+                                        Delete
+                                    </Button>
+                                </Group>
                             </Group>
-                        </Group>
 
-                        {/* Each failure belongs to the button that asked for it. A page-level alert
+                            {/* Each failure belongs to the button that asked for it. A page-level alert
                             for a per-card button puts the reason at the top of a list of fourteen,
                             where an operator working on the ninth will not see it. */}
-                        {putOnAir.error && putOnAir.variables === persona.id ? (
-                            <CardFailure error={putOnAir.error} fallback="The station is still in the character it was." />
-                        ) : undefined}
+                            {putOnAir.error && putOnAir.variables === persona.id ? (
+                                <CardFailure error={putOnAir.error} fallback="The station is still in the character it was." />
+                            ) : undefined}
 
-                        {rehearse.error && rehearse.variables === persona.id ? (
-                            <CardFailure error={rehearse.error} fallback="Nothing was changed: a rehearsal writes no row and cannot air." />
-                        ) : undefined}
+                            {rehearse.error && rehearse.variables === persona.id ? (
+                                <CardFailure error={rehearse.error} fallback="Nothing was changed: a rehearsal writes no row and cannot air." />
+                            ) : undefined}
 
-                        {/* Keyed on the persona it was actually run for rather than simply rendered
+                            {/* Keyed on the persona it was actually run for rather than simply rendered
                             under whichever card is last: one result is held at a time, and a panel
                             that stayed put while a different persona was rehearsed would attribute
                             one character's words to another. */}
-                        {rehearse.data?.personaId === persona.id ? (
-                            <PersonaRehearsalPanel rehearsal={rehearse.data} {...(persona.voice === undefined ? {} : { voice: persona.voice })} />
-                        ) : undefined}
+                            {rehearse.data?.personaId === persona.id ? (
+                                <PersonaRehearsalPanel rehearsal={rehearse.data} {...(persona.voice === undefined ? {} : { voice: persona.voice })} />
+                            ) : undefined}
 
-                        {notebook === persona.id ? <PersonaNotesPanel personaId={persona.id} /> : undefined}
+                            {notebook === persona.id ? <PersonaNotesPanel personaId={persona.id} /> : undefined}
 
-                        {shelf === persona.id ? <PersonaStoriesPanel personaId={persona.id} /> : undefined}
-                    </Card>
+                            {shelf === persona.id ? <PersonaStoriesPanel personaId={persona.id} /> : undefined}
+                        </Card>
+                    </Fragment>
                 ))}
             </Stack>
 
             <PersonaEditor
                 // Keyed, so opening a different persona builds a fresh form rather than showing the
                 // last one's values under the new one's title.
-                key={editing === null ? 'new' : (editing?.id ?? 'closed')}
+                key={editing === null ? `new-${writing}` : (editing?.id ?? 'closed')}
                 {...(editing === null || editing === undefined ? {} : { persona: editing })}
+                kind={editing ? kindOf(editing) : writing}
                 opened={editing !== undefined}
                 onClose={close}
                 onSubmit={submit}
@@ -425,8 +468,16 @@ const FILTER_FROM = 6;
  * the list saying nothing about which card matters.
  */
 function ordered(personas: Persona[]): Persona[] {
-    return [...personas].sort((left, right) => Number(right.active) - Number(left.active));
+    return [...personas].sort(
+        // Hosts first, then callers, and the station's own host at the top of the hosts. Two halves
+        // rather than one roster because they answer different questions — who the station IS, and
+        // who it might put on the phone — and mixing them alphabetically buries both.
+        (left, right) => rank(kindOf(left)) - rank(kindOf(right)) || Number(right.active) - Number(left.active),
+    );
 }
+
+/** Hosts before callers. */
+const rank = (kind: PersonaKind): number => (kind === 'caller' ? 1 : 0);
 
 /** Everything a character can be looked up by: what it is called, what it is, and who it says it is. */
 function matching(personas: Persona[], filter: string): Persona[] {
@@ -455,8 +506,12 @@ function matching(personas: Persona[], filter: string): Persona[] {
 function summarise(persona: Persona): string | undefined {
     const parts: string[] = [];
 
+    // A caller is deliberately not asked about phrasings: they are the station's floor under a
+    // break, and a caller writes no breaks. Saying one has none would report the design as a gap.
     const phrasings = (persona.templates ?? '').split('\n').filter(line => line.trim().length > 0).length;
-    if (phrasings === 0) parts.push("no phrasings of its own, so it falls back to the station's when the model declines");
+    if (phrasings === 0 && kindOf(persona) !== 'caller') {
+        parts.push("no phrasings of its own, so it falls back to the station's when the model declines");
+    }
 
     if ((persona.dictionMarkers?.length ?? 0) === 0) parts.push('not checked for staying in character');
 

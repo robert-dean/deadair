@@ -33,6 +33,7 @@
             "deadair.script_history.outcome": "'written' | 'declined' | 'failed'",
             "deadair.station_events.module": "'playout' | 'director' | 'render' | 'catalog' | 'plugins'",
             "deadair.station_events.severity": "Generated<'info' | 'warn' | 'fault'>",
+            "deadair.personas.kind": "Generated<'host' | 'caller'>",
             "deadair.break_requests.urgency": "'interrupt' | 'next' | 'soon' | 'whenever'",
             "deadair.break_requests.state": "Generated<'pending' | 'ready' | 'placed' | 'expired' | 'failed'>",
             "deadair.facts.category": "Generated<'summary' | 'placement' | 'chart' | 'recording' | 'personnel' | 'controversy' | 'cover_or_sample' | 'ending'>",

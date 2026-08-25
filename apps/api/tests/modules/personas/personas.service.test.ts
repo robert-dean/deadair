@@ -15,6 +15,7 @@ const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 const persona = (over: Partial<Persona> = {}): Persona => ({
     id: 'p1',
     key: 'pirate',
+    kind: 'host',
     label: 'Pirate captain',
     style: 'a pirate captain who runs a radio station',
     active: true,
@@ -23,6 +24,10 @@ const persona = (over: Partial<Persona> = {}): Persona => ({
 
 function build(options: { setActive?: Persona | undefined; postFails?: boolean } = {}) {
     const personas = {
+        // Answers whatever `setActive` would, because the two are now asked in sequence: the service
+        // reads the row first to find out whether it is a caller, so "no such persona" has to be the
+        // same answer from both or a 404 case would half-pass.
+        find: vi.fn(async () => ('setActive' in options ? options.setActive : persona())),
         setActive: vi.fn(async () => ('setActive' in options ? options.setActive : persona())),
         list: vi.fn(async () => [persona()]),
     };
@@ -101,6 +106,19 @@ describe('PersonasService putting a persona on air', () => {
         await expect(service.setActive('gone')).rejects.toMatchObject({ statusCode: 404 });
         await afterCommit.run();
 
+        expect(director.post).not.toHaveBeenCalled();
+        expect(activity.record).not.toHaveBeenCalled();
+    });
+
+    it('refuses to put a caller on air, and never writes the row', async () => {
+        // Somebody who phones IN cannot present the station. The database refuses it too, and this
+        // is the half that answers the operator with a sentence rather than a constraint violation
+        // — which also means `setActive` is never reached, so there is nothing to undo.
+        const { service, personas, director, activity } = build({ setActive: persona({ kind: 'caller', active: false }) });
+
+        await expect(service.setActive('p1')).rejects.toMatchObject({ statusCode: 400 });
+
+        expect(personas.setActive).not.toHaveBeenCalled();
         expect(director.post).not.toHaveBeenCalled();
         expect(activity.record).not.toHaveBeenCalled();
     });

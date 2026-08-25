@@ -8,6 +8,7 @@ options {
 contract Persona: {
     id: readonly string(min=1, max=100)
     key: string(min=1, max=100) # A stable slug, unique per station. What a log line names and what a seeded persona is recognised by
+    kind?: enum(host, caller) # What this character is FOR. `host` is the station's own voice; a `caller` phones in to a production, is cast per programme, and can never be put on air. Absent means `host`, so a form written before callers existed still means what it meant
     label: string(min=1, max=200)
     style: string(min=1, max=2000) # Completes "You are …". Who they ARE; the sheet below carries how they talk
     djName?: string(max=200) # The name this character goes by on air, overriding the station's own while it is active

@@ -29,10 +29,40 @@
 
 import type { PersonaSheet } from './persona.sheet.js';
 
+/**
+ * What a character is FOR.
+ *
+ * `host` is the station's own voice, and everything about a persona was written for one. `caller` is
+ * somebody who phones in to a production: cast per programme, never on air by themselves, and never
+ * the station — which is why the database refuses an active one rather than trusting every writer of
+ * the column to remember.
+ *
+ * A closed list rather than free text, unlike `segments.kind`, because each value is a rule the code
+ * has to know how to apply. `docs/todo/personas.md` §1's newsreader is the next entry.
+ */
+export const PERSONA_KINDS = ['host', 'caller'] as const;
+
+/** One of {@link PERSONA_KINDS}. */
+export type PersonaKind = (typeof PERSONA_KINDS)[number];
+
+/** What a persona is when nobody said: the station's own voice, which is what the table held before callers. */
+export const DEFAULT_PERSONA_KIND: PersonaKind = 'host';
+
+/** Whether a stored or submitted value is one this code knows how to apply. */
+export const isPersonaKind = (value: unknown): value is PersonaKind => PERSONA_KINDS.includes(value as PersonaKind);
+
 /** A persona as an operator wrote it, before it is a row. */
 export interface PersonaDraft extends PersonaSheet {
     /** A stable slug. What a seed is recognised by, and what a log line names. */
     key: string;
+    /**
+     * What this character is for, and it is required rather than optional.
+     *
+     * The column is `not null` with a default, so every row has one, and a draft that omitted it
+     * would be a draft nobody could classify: `host` and "not stated" would be the same thing right
+     * up until somebody wrote a caller and forgot.
+     */
+    kind: PersonaKind;
     /** What the console calls it. */
     label: string;
     /**

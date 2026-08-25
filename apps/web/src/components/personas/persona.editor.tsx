@@ -3,6 +3,9 @@ import { ActionIcon, Button, Card, Code, Divider, Group, Modal, Select, Stack, T
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 
+/** What a character is for. Mirrors the API's own enum; absent there means `host`. */
+type PersonaKind = NonNullable<PersonaInput['kind']>;
+
 import { useGeneratePersona } from '../../api/personas.queries';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
@@ -37,7 +40,11 @@ import { Eyebrow } from '../shared/eyebrow';
  * overwrite an operator's own work with no way back, and "regenerate this character" is a different
  * feature from "start me off".
  */
-export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, error }: Props) {
+export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving, error }: Props) {
+    // Fixed for the life of the form rather than a field. What a character is FOR decides which
+    // half of the roster it lands in and whether it can ever present, and flipping it under a
+    // character an operator has already cast would be a quieter change than it looks.
+    const caller = kind === 'caller';
     const voices = useVoices(opened);
     const generate = useGeneratePersona();
     const preview = useVoicePreview();
@@ -58,8 +65,8 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
     const voiceOptions = (voices.data?.voices ?? []).map(voice => ({ value: voice.id, label: voice.label }));
 
     return (
-        <Modal opened={opened} onClose={onClose} title={persona === undefined ? 'New persona' : `Edit ${persona.label}`} size="xl">
-            <form onSubmit={form.onSubmit(values => onSubmit(draftOf(values)))}>
+        <Modal opened={opened} onClose={onClose} title={titleFor(persona, caller)} size="xl">
+            <form onSubmit={form.onSubmit(values => onSubmit(draftOf(values, kind)))}>
                 <Stack gap="md">
                     {error === undefined ? undefined : (
                         <ErrorAlert title="That could not be saved" error={error} fallback="The persona could not be saved." />
@@ -70,7 +77,11 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                             <Stack gap="xs">
                                 <Eyebrow>Start from a description</Eyebrow>
                                 <Textarea
-                                    placeholder="a 1970s northern soul DJ who broadcasts from the back of a chip shop"
+                                    placeholder={
+                                        caller
+                                            ? 'a taxi driver who rings in every week to argue about the charts'
+                                            : 'a 1970s northern soul DJ who broadcasts from the back of a chip shop'
+                                    }
                                     description="Fills in the fields below. Nothing is saved until you press Save, and you can change any of it first."
                                     rows={2}
                                     value={description}
@@ -269,17 +280,25 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         {...form.getInputProps('samples')}
                     />
 
-                    <Section title="What the station says when the model declines" />
+                    {/* A caller has no floor and should not have one: phrasings are what the STATION
+                        says when the model declines, and a phone-in whose caller was written by a
+                        template is a phone-in with nobody on the phone. So the section is not drawn
+                        rather than drawn and ignored. */}
+                    {caller ? undefined : (
+                        <>
+                            <Section title="What the station says when the model declines" />
 
-                    <Textarea
-                        label="Their own phrasings"
-                        description="One per line, in the same syntax as the station's break phrasings. These are what the station says when the model declines, which is most breaks — so a character with none falls back to plain English."
-                        placeholder="That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]"
-                        rows={6}
-                        {...form.getInputProps('templates')}
-                    />
+                            <Textarea
+                                label="Their own phrasings"
+                                description="One per line, in the same syntax as the station's break phrasings. These are what the station says when the model declines, which is most breaks — so a character with none falls back to plain English."
+                                placeholder="That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]"
+                                rows={6}
+                                {...form.getInputProps('templates')}
+                            />
 
-                    <TemplateFaults raw={form.values.templates} />
+                            <TemplateFaults raw={form.values.templates} />
+                        </>
+                    )}
 
                     <UnusedMarkers markers={form.values.dictionMarkers} samples={form.values.samples} />
 
@@ -448,6 +467,13 @@ function UnusedMarkers({ markers, samples }: { markers: string; samples: string 
 interface Props {
     /** The persona being edited, or absent for a new one. */
     persona?: Persona;
+    /**
+     * What this character is for.
+     *
+     * Passed in rather than read off {@link Props.persona}, because a NEW one has no row to read it
+     * from and the page already knows which button was pressed.
+     */
+    kind: PersonaKind;
     opened: boolean;
     onClose: () => void;
     onSubmit: (draft: PersonaInput) => void;
@@ -476,6 +502,10 @@ interface FormValues {
 }
 
 const linesOf = (values: string[] | undefined): string => (values ?? []).join('\n');
+
+/** What the modal is called: which kind is being written, or which character is being edited. */
+const titleFor = (persona: Persona | undefined, caller: boolean): string =>
+    persona === undefined ? (caller ? 'New caller' : 'New host') : `Edit ${persona.label}`;
 
 /**
  * A saved persona or a generated draft, as the form's values.
@@ -511,7 +541,7 @@ function valuesOf(persona: PersonaDraftView | undefined): FormValues {
  * An empty field is left OUT rather than sent as an empty string, which is what makes "clear the
  * on-air name" mean "fall back to the station's" rather than "the presenter is called nothing".
  */
-function draftOf(values: FormValues): PersonaInput {
+function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
     const list = (raw: string): string[] | undefined => {
         const lines = raw
             .split('\n')
@@ -529,6 +559,7 @@ function draftOf(values: FormValues): PersonaInput {
 
     return {
         key: values.key.trim(),
+        kind,
         label: values.label.trim(),
         style: values.style.trim(),
         ...omitUndefined({

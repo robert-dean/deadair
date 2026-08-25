@@ -15,6 +15,7 @@ import type { Persona } from '../../../src/modules/personas/persona.js';
 const persona = (over: Partial<Persona> = {}): Persona => ({
     id: 'p1',
     key: 'pirate',
+    kind: 'host',
     label: 'Pirate captain',
     style: 'a pirate captain who runs a radio station',
     active: false,

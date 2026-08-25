@@ -36,7 +36,7 @@
 import { hasStrayBracket, TEMPLATE_VOCABULARY, unknownPlaceholders, unwrapTemplate } from '#modules/director/break.templates.js';
 import { jsonObjects, parseLooseJson, withoutThinking } from '#modules/shared/json.objects.js';
 import type { LlmMessage } from '@deadair/plugin-sdk';
-import type { PersonaDraft } from './persona.js';
+import { DEFAULT_PERSONA_KIND, type PersonaDraft } from './persona.js';
 import type { PersonaStoryDraft } from './persona.story.js';
 import { dictionMarkersIn, isPersonaBrevity, isPersonaLatitude, isPersonaStorytelling, PERSONA_SHEET_LIMITS } from './persona.sheet.js';
 
@@ -327,6 +327,10 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     return {
         draft: {
             key,
+            // The model never decides this. A generated sheet goes into the editor as a form's
+            // contents and the operator saves it, so what a character is FOR is answered by which
+            // New button they pressed — `toDraftView` drops this again on the way out.
+            kind: DEFAULT_PERSONA_KIND,
             label,
             style,
             ...omitUndefined({

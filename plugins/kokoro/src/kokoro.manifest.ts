@@ -96,6 +96,15 @@ export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?
     // one it falls into — see `docs/todo/personas.md` §1, which is the work that
     // will read it.
     { name: 'newsreader', engine: 'bf_emma' },
+    // The people who ring IN — `caller.defaults.ts`. They are down here rather than
+    // in key order because they are a different kind of character, and the rule
+    // above them is the same one read twice as hard: a caller must never share a
+    // voice with a host, since the two are in one production talking to each other.
+    { name: 'theorist', engine: 'am_v0gurney', speed: '1.1' },
+    { name: 'grumbler', engine: 'am_santa', speed: '0.95' },
+    { name: 'dedication', engine: 'bf_lily' },
+    { name: 'pedant', engine: 'bf_isabella' },
+    { name: 'nightshift', engine: 'af_nicole', speed: '0.9' },
 ];
 
 /** The rows as the config stores them: a JSON array in a string, exactly as the console writes it. */

@@ -93,12 +93,29 @@ create table deadair.personas (
     -- `story` kind is an operator asking for one in as many words, and it outranks whatever this
     -- says. See `persona.sheet.ts`.
     storytelling text,
+    -- What this character is FOR: `host` is the station's own voice, `caller` is somebody who phones
+    -- in to a production and is never the station.
+    --
+    -- **Not null, and that is a correction rather than a preference.** `docs/todo/personas.md` §1
+    -- sketches this column as nullable, with the active index becoming `(station_key, kind)` "with
+    -- nulls distinct" once a newsreader exists — and nulls distinct is Postgres's default, so two
+    -- rows with a null kind would not conflict and the station could have TWO active hosts. A
+    -- positive value has no such hole, and `host` is a real answer rather than an absence.
+    --
+    -- The newsreader §1 is actually about joins this list when it lands, and the index below can then
+    -- be widened safely. Until then it stays keyed on the station alone: a caller is never active, so
+    -- there is nothing yet for a wider index to permit.
+    kind text not null default 'host' constraint personas_kind_check check (kind in ('host', 'caller')),
     -- Whether this is the one on air. At most one per station, enforced below rather than by
     -- convention, because two active personas is a state nothing downstream could resolve and every
     -- reader would resolve differently.
     active boolean not null default false,
 
-    constraint personas_key_unique unique (station_key, key)
+    constraint personas_key_unique unique (station_key, key),
+    -- A caller that could be switched on would be a station hosted by whoever rang up about the
+    -- lizards. Refused here as well as in `PersonasService.setActive`, because the service answers
+    -- the operator and this answers everything else that ever writes the column.
+    constraint personas_caller_inactive_check check (not (active and kind <> 'host'))
 );
 
 create unique index personas_one_active_idx on deadair.personas (station_key) where active;

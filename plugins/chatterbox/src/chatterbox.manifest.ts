@@ -100,6 +100,15 @@ export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?
     { name: 'gumshoe', engine: 'Thomas.wav' },
     { name: 'forecast', engine: 'Alexander.wav' },
     { name: 'newsreader', engine: 'Abigail.wav' },
+    // The people who ring IN — `caller.defaults.ts`. Matched to the other map for
+    // register rather than for filename, so switching engines does not change a
+    // caller's sex or age, and no caller shares a clip with a host: the two are in
+    // one production talking to each other.
+    { name: 'theorist', engine: 'Eli.wav' },
+    { name: 'grumbler', engine: 'Henry.wav' },
+    { name: 'dedication', engine: 'Alice.wav' },
+    { name: 'pedant', engine: 'Elena.wav' },
+    { name: 'nightshift', engine: 'Taylor.wav' },
 ];
 
 /** The rows as the config stores them: a JSON array in a string, exactly as the console writes it. */

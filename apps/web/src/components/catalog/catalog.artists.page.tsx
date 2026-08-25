@@ -8,6 +8,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { SortableTh } from '../shared/sortable.th';
 import type { CatalogOrderParams } from './catalog.page.params';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
@@ -20,12 +21,21 @@ export interface CatalogArtistsPageProps {
     order: CatalogOrderParams;
     onPageChange: (page: number) => void;
     onSearchChange: (search: string) => void;
+    /** A new ordering, whole: changing any part of it is one gesture and resets the page. */
+    onOrderChange: (order: CatalogOrderParams) => void;
 }
 
-export function CatalogArtistsPage({ page, search, order, onPageChange, onSearchChange }: CatalogArtistsPageProps) {
+export function CatalogArtistsPage({ page, search, order, onPageChange, onSearchChange, onOrderChange }: CatalogArtistsPageProps) {
     const artists = useQuery(catalogArtistsOptions({ page, search, ...order }));
     const rows = artists.data?.data ?? [];
     const rate = useRateArtist();
+
+    // Spread into every heading, so a column cannot be drawn active while sorting by another.
+    const sorting = {
+        active: order.sortBy,
+        direction: order.sort,
+        onSort: (sortBy: string, sort: 'asc' | 'desc') => onOrderChange({ ...order, sortBy, sort }),
+    };
 
     return (
         <Stack gap="lg">
@@ -67,10 +77,18 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
                         <Table.Thead>
                             <Table.Tr>
                                 <Table.Th w={56} />
-                                <Table.Th>Artist</Table.Th>
-                                <Table.Th w={120}>Albums</Table.Th>
-                                <Table.Th w={120}>Tracks</Table.Th>
-                                <Table.Th w={150}>Rating</Table.Th>
+                                <SortableTh sortBy="name" {...sorting}>
+                                    Artist
+                                </SortableTh>
+                                <SortableTh sortBy="albums" w={120} {...sorting}>
+                                    Albums
+                                </SortableTh>
+                                <SortableTh sortBy="tracks" w={120} {...sorting}>
+                                    Tracks
+                                </SortableTh>
+                                <SortableTh sortBy="rating" w={150} {...sorting}>
+                                    Rating
+                                </SortableTh>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -109,7 +127,13 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
                             ))}
                         </Table.Tbody>
                     </Table>
-                    <CatalogPagination total={artists.data.meta.total} pageSize={order.pageSize} page={page} onChange={onPageChange} />
+                    <CatalogPagination
+                        total={artists.data.meta.total}
+                        pageSize={order.pageSize}
+                        page={page}
+                        onChange={onPageChange}
+                        onPageSizeChange={pageSize => onOrderChange({ ...order, pageSize })}
+                    />
                 </>
             ) : undefined}
         </Stack>

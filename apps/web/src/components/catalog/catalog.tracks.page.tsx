@@ -11,6 +11,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { SortableTh } from '../shared/sortable.th';
 import { CatalogPagination } from './catalog.pagination';
 import type { CatalogOrderParams, TrackStateParam } from './catalog.page.params';
 import { CatalogSearch } from './catalog.search';
@@ -27,6 +28,8 @@ export interface CatalogTracksPageProps {
     onPageChange: (page: number) => void;
     onSearchChange: (search: string) => void;
     onStateChange: (state: TrackStateParam | '') => void;
+    /** A new ordering, whole: changing any part of it is one gesture and resets the page. */
+    onOrderChange: (order: CatalogOrderParams) => void;
 }
 
 /**
@@ -52,11 +55,27 @@ function StateMark({ on, label, mark }: { on: boolean; label: string; mark: stri
  * The drill-down cannot answer "do we have this song?" without already knowing whose it is, which
  * is the question the operator actually arrives with.
  */
-export function CatalogTracksPage({ page, search, state, order, onPageChange, onSearchChange, onStateChange }: CatalogTracksPageProps) {
+export function CatalogTracksPage({
+    page,
+    search,
+    state,
+    order,
+    onPageChange,
+    onSearchChange,
+    onStateChange,
+    onOrderChange,
+}: CatalogTracksPageProps) {
     const tracks = useQuery(catalogTracksOptions({ page, search, state, ...order }));
     const rows = tracks.data?.data ?? [];
     const expansion = useTrackExpansion();
     const rate = useRateTrack();
+
+    // Spread into every heading, so a column cannot be drawn active while sorting by another.
+    const sorting = {
+        active: order.sortBy,
+        direction: order.sort,
+        onSort: (sortBy: string, sort: 'asc' | 'desc') => onOrderChange({ ...order, sortBy, sort }),
+    };
 
     return (
         <Stack gap="lg">
@@ -103,12 +122,25 @@ export function CatalogTracksPage({ page, search, state, order, onPageChange, on
                             <Table.Tr>
                                 <Table.Th w={52} />
                                 <Table.Th w={44} />
-                                <Table.Th>Title</Table.Th>
-                                <Table.Th>Artist</Table.Th>
-                                <Table.Th>Album</Table.Th>
-                                <Table.Th w={120}>Duration</Table.Th>
+                                <SortableTh sortBy="title" {...sorting}>
+                                    Title
+                                </SortableTh>
+                                <SortableTh sortBy="artist" {...sorting}>
+                                    Artist
+                                </SortableTh>
+                                <SortableTh sortBy="album" {...sorting}>
+                                    Album
+                                </SortableTh>
+                                <SortableTh sortBy="duration" w={120} {...sorting}>
+                                    Duration
+                                </SortableTh>
+                                {/* Not sortable, and the contract says why: a state is three
+                                    independent booleans, so there is no order of it an operator
+                                    would agree with. */}
                                 <Table.Th w={110}>State</Table.Th>
-                                <Table.Th w={150}>Rating</Table.Th>
+                                <SortableTh sortBy="rating" w={150} {...sorting}>
+                                    Rating
+                                </SortableTh>
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -175,7 +207,13 @@ export function CatalogTracksPage({ page, search, state, order, onPageChange, on
                             ))}
                         </Table.Tbody>
                     </Table>
-                    <CatalogPagination total={tracks.data.meta.total} pageSize={order.pageSize} page={page} onChange={onPageChange} />
+                    <CatalogPagination
+                        total={tracks.data.meta.total}
+                        pageSize={order.pageSize}
+                        page={page}
+                        onChange={onPageChange}
+                        onPageSizeChange={pageSize => onOrderChange({ ...order, pageSize })}
+                    />
                 </>
             ) : undefined}
         </Stack>

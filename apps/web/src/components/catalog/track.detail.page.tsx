@@ -254,8 +254,8 @@ function MeasurementCard({ detail }: { detail: TrackDetail }) {
 
                 {analysis === undefined ? (
                     <EmptyState>
-                        Nothing has measured this record yet. It plays perfectly well unmeasured — without the measurement the station cannot trim
-                        the silence off either end or set the level before air.
+                        Nothing has measured this record yet. It plays perfectly well unmeasured — without the measurement the station cannot trim the
+                        silence off either end or set the level before air.
                     </EmptyState>
                 ) : (
                     <Group gap="xl" wrap="wrap">

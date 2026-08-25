@@ -37,6 +37,13 @@ function CatalogArtistsRoute() {
                 // result set that now has one page renders an empty table under a full pager.
                 void navigate({ search: previous => ({ ...previous, page: 0, search: next }) });
             }}
+            onOrderChange={next => {
+                // The page resets for the search box's own reason one clause up: a re-ordered list
+                // is a different list, and page 4 of it is not the part they were looking at. A new
+                // size resets for the harder version of the same thing, since the page numbers
+                // themselves mean something else afterwards.
+                void navigate({ search: previous => ({ ...previous, page: 0, ...next }) });
+            }}
         />
     );
 }

@@ -3,13 +3,7 @@ import { Anchor, Group, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import {
-    catalogAlbumEnrichmentOptions,
-    catalogAlbumOptions,
-    catalogAlbumTracksOptions,
-    useRateAlbum,
-    useRateTrack,
-} from '../../api/catalog.queries';
+import { catalogAlbumEnrichmentOptions, catalogAlbumOptions, catalogAlbumTracksOptions, useRateAlbum, useRateTrack } from '../../api/catalog.queries';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from '../shared/artwork';
 import { ArtistLink, TrackLink } from '../shared/catalog.links';

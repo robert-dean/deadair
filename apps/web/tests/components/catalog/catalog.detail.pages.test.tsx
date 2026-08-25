@@ -190,7 +190,15 @@ describe('ArtistDetailPage', () => {
 
 describe('AlbumDetailPage', () => {
     it('heads the page with the album and lists its tracks with durations', async () => {
-        getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', year: 2002, rating: 'neutral', trackCount: 1 });
+        getAlbum.mockResolvedValue({
+            id: ALBUM_ID,
+            name: '( )',
+            artistId: ARTIST_ID,
+            artistName: 'Sigur Rós',
+            year: 2002,
+            rating: 'neutral',
+            trackCount: 1,
+        });
         listAlbumTracks.mockResolvedValue(
             page([
                 {

@@ -51,7 +51,11 @@ export function RatingControl({ rating = 'neutral', onChange, label, busy = fals
                 {
                     value: 'neutral',
                     label: (
-                        <Segment glyph={<IconMinus size={GLYPH} stroke={1.7} />} hint={`No opinion about ${label}`} aria={`No opinion about ${label}`} />
+                        <Segment
+                            glyph={<IconMinus size={GLYPH} stroke={1.7} />}
+                            hint={`No opinion about ${label}`}
+                            aria={`No opinion about ${label}`}
+                        />
                     ),
                 },
                 {

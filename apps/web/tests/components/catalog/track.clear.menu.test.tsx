@@ -60,7 +60,11 @@ describe('TrackClearMenu', () => {
     // The answer is the interesting half: "Dropped 2 copies" and "was not holding any copies" are
     // different facts about the record, and a menu that closed silently would throw away the second.
     it('clears on confirmation and keeps the answer on screen', async () => {
-        clearTrackAudio.mockResolvedValue({ trackId: TRACK_ID, cleared: 2, detail: 'Dropped 2 copies. The station fetches it again when it next comes round.' });
+        clearTrackAudio.mockResolvedValue({
+            trackId: TRACK_ID,
+            cleared: 2,
+            detail: 'Dropped 2 copies. The station fetches it again when it next comes round.',
+        });
         render(<TrackClearMenu trackId={TRACK_ID} />);
 
         await open('Throw away the local copies');

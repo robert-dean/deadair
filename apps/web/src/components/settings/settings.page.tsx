@@ -4,6 +4,7 @@ import type { StationSettingDescriptor, StationSettings } from '@deadair/sdk';
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
 import { StorageCard } from './storage.card';
@@ -60,7 +61,13 @@ export function SettingsPage() {
     const settings = useSettings();
 
     if (settings.isPending) {
-        return <Text c="dimmed">Loading…</Text>;
+        // The width matters as much as the shape: this page is a column of cards inside `maw={720}`,
+        // and a full-width placeholder is a different page than the one that replaces it.
+        return (
+            <Stack gap="lg" maw={720}>
+                <PageSkeleton variant="rows" count={4} />
+            </Stack>
+        );
     }
 
     if (settings.error || !settings.data) {

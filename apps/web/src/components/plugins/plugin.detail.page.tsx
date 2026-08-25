@@ -7,6 +7,7 @@ import { pluginDetailOptions, useSetPluginEnabled, useTestPlugin } from '../../a
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
+import { PageSkeleton } from '../shared/page.skeleton';
 import { PluginConfigForm } from './plugin.config.form';
 import { PluginLogsCard } from './plugin.logs.card';
 import { PluginOAuthCard } from './plugin.oauth.card';
@@ -25,7 +26,11 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
     const test = useTestPlugin(id);
 
     if (plugin.isPending) {
-        return <Text c="dimmed">Loading…</Text>;
+        return (
+            <Stack gap="lg" maw={720}>
+                <PageSkeleton variant="card" />
+            </Stack>
+        );
     }
 
     if (plugin.error || !plugin.data) {

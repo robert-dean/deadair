@@ -8,6 +8,7 @@ import { pluginLogsOptions, useSetPluginLogLevel } from '../../api/plugins.queri
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatMomentFull, formatMomentStamp } from '../shared/feed.moment';
+import { PageSkeleton } from '../shared/page.skeleton';
 
 /** A Mantine palette name per level, so a scan of the tail reads severity at a glance. */
 const LOG_LEVEL_COLOR: Record<PluginLogLevel, string> = {
@@ -148,9 +149,7 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
 
                 <ScrollArea h={260} type="auto" bg="dark.8" style={{ borderRadius: 'var(--mantine-radius-sm)' }} p="xs">
                     {logs.isPending ? (
-                        <Text size="sm" c="dimmed" p="xs">
-                            Loading…
-                        </Text>
+                        <PageSkeleton variant="rows" />
                     ) : entries.length === 0 ? (
                         <Text size="sm" c="dimmed" p="xs">
                             This plugin hasn&apos;t written anything yet.

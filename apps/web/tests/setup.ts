@@ -78,6 +78,13 @@ window.ResizeObserver = ResizeObserverStub;
 // test runner. Nothing asserts on scrolling; there is nothing laid out to scroll.
 Element.prototype.scrollTo = () => {};
 
+// The same absence one line up, reached by a different component. Mantine's `Combobox` keeps the
+// highlighted option in view, on a timer that outlives the test that opened the dropdown — so the
+// throw lands as an unhandled error AFTER the case has passed, which vitest reports as a run-level
+// failure attached to whichever file happened to be running. Every `Select` in this console is one
+// of these, so it belongs here rather than in the first test that met it.
+Element.prototype.scrollIntoView = () => {};
+
 // jsdom has no font loading API, and Mantine's autosizing textarea waits on one: it measures a box
 // again once the fonts have settled, which is a real thing to do in a browser and a `TypeError` on
 // mount here. Stubbed rather than avoided, because otherwise the rule becomes "do not use `autosize`

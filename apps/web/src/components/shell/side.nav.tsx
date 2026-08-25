@@ -38,6 +38,9 @@ const GROUPS: NavGroup[] = [
         items: [
             { to: '/catalog', label: 'Catalog' },
             { to: '/playlists', label: 'Playlists' },
+            // Beside the library rather than under Air: a chart is a list of records to look at,
+            // which is the question this group answers, and nothing here reaches the running order.
+            { to: '/charts', label: 'Charts' },
         ],
     },
     {

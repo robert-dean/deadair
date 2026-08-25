@@ -136,6 +136,16 @@ export const queryKeys = {
      * the activity feed is: a filtered history is not a stale unfiltered one, and sharing the key
      * would leave a half-filtered list on screen while the new first page loaded.
      */
+    /**
+     * A chart is a published document that changes at most daily, so the key carries which chart and
+     * which edition and nothing else. There is one list and one page per chart, and neither is a
+     * filtered view of the other.
+     */
+    charts: {
+        list: () => ['charts', 'list'] as const,
+        page: (id: string, date?: string) => ['charts', 'page', id, date ?? ''] as const,
+    },
+
     scripts: {
         // Every filter is part of the key, including the two that arrive from a link: a key missing
         // one is two different questions sharing one answer, and what that looks like is one

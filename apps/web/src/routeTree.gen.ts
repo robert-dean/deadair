@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivityRouteImport } from './routes/activity'
+import { Route as ChartsRouteImport } from './routes/charts'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnairRouteImport } from './routes/onair'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -41,6 +42,11 @@ const IndexRoute = IndexRouteImport.update({
 const ActivityRoute = ActivityRouteImport.update({
   id: '/activity',
   path: '/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChartsRoute = ChartsRouteImport.update({
+  id: '/charts',
+  path: '/charts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -153,6 +159,7 @@ const PluginsIdOauthCallbackRoute = PluginsIdOauthCallbackRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/charts': typeof ChartsRoute
   '/login': typeof LoginRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/charts': typeof ChartsRoute
   '/login': typeof LoginRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/activity': typeof ActivityRoute
+  '/charts': typeof ChartsRoute
   '/login': typeof LoginRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
@@ -231,6 +240,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/activity'
+    | '/charts'
     | '/login'
     | '/onair'
     | '/onboarding'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/activity'
+    | '/charts'
     | '/login'
     | '/onair'
     | '/onboarding'
@@ -281,6 +292,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/activity'
+    | '/charts'
     | '/login'
     | '/onair'
     | '/onboarding'
@@ -307,6 +319,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ActivityRoute: typeof ActivityRoute
+  ChartsRoute: typeof ChartsRoute
   LoginRoute: typeof LoginRoute
   OnairRoute: typeof OnairRoute
   OnboardingRoute: typeof OnboardingRoute
@@ -344,6 +357,13 @@ declare module '@tanstack/react-router' {
       path: '/activity'
       fullPath: '/activity'
       preLoaderRoute: typeof ActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/charts': {
+      id: '/charts'
+      path: '/charts'
+      fullPath: '/charts'
+      preLoaderRoute: typeof ChartsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -499,6 +519,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivityRoute: ActivityRoute,
+  ChartsRoute: ChartsRoute,
   LoginRoute: LoginRoute,
   OnairRoute: OnairRoute,
   OnboardingRoute: OnboardingRoute,

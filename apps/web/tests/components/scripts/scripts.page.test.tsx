@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ScriptAttempt } from '@deadair/sdk';
 
 import { ScriptsPage } from '../../../src/components/scripts/scripts.page';
-import { render, screen } from '../../utils/render';
+import { render, screen, setupUser } from '../../utils/render';
 
 vi.mock('@tanstack/react-router', () => ({
     Link: ({ children, ...rest }: { children?: ReactNode }) => (
@@ -19,9 +19,11 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const history = vi.fn();
+const rate = vi.fn();
 
 vi.mock('../../../src/api/scripts.queries', () => ({
     useScriptHistory: (filter: unknown) => history(filter),
+    useRateScript: () => ({ mutate: rate, isPending: false, variables: undefined }),
 }));
 
 const attempt = (over: Partial<ScriptAttempt> = {}): ScriptAttempt => ({
@@ -73,5 +75,46 @@ describe('ScriptsPage', () => {
         render(<ScriptsPage segmentId="seg_1" />);
 
         expect(screen.getByText(/Nothing has been written for this break yet/)).toBeInTheDocument();
+    });
+    /**
+     * The row is a button that opens the detail, and the rating is a control inside the same line.
+     * Nested they would be a button inside a button: invalid, and every thumb would also toggle the
+     * collapse. Side by side, a thumb rates and nothing opens.
+     */
+    it('rates an attempt without opening it', async () => {
+        history.mockReturnValue(answer([attempt({ id: 'sh_1', script: 'Here is a record.' })]));
+
+        render(<ScriptsPage />);
+        await setupUser().click(screen.getByLabelText('More like this'));
+
+        expect(rate).toHaveBeenCalledWith({ id: 'sh_1', rating: 'liked' });
+        // The detail carries the kind as a labelled fact, so its absence is the collapse still shut.
+        expect(screen.queryByText('Kind')).not.toBeInTheDocument();
+    });
+
+    /** An attempt that produced no words is a question with no subject. */
+    it('offers no opinion on an attempt that wrote nothing', () => {
+        history.mockReturnValue(answer([attempt({ id: 'sh_2', script: undefined, outcome: 'declined', reason: 'The model declined.' })]));
+
+        render(<ScriptsPage />);
+
+        expect(screen.queryByLabelText('More like this')).not.toBeInTheDocument();
+    });
+
+    /** Absent is not neutral: most attempts have never been read back, and it has to look that way. */
+    it('draws an unrated attempt with no answer selected', () => {
+        history.mockReturnValue(answer([attempt({ id: 'sh_3', script: 'Here is a record.' })]));
+
+        render(<ScriptsPage />);
+
+        // No segment active at all, rather than neutral standing in for it. Scoped to the three
+        // rating values, because the page's own filter chips are radios too and one of each of
+        // those is always checked.
+        const opinions = screen
+            .getAllByRole('radio')
+            .filter(radio => ['liked', 'neutral', 'disliked'].includes((radio as HTMLInputElement).value));
+
+        expect(opinions).toHaveLength(3);
+        expect(opinions.some(radio => (radio as HTMLInputElement).checked)).toBe(false);
     });
 });

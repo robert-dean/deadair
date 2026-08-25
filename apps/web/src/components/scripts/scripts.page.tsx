@@ -4,10 +4,11 @@ import { Link } from '@tanstack/react-router';
 import type { ScriptAttempt, ScriptOutcome } from '@deadair/sdk';
 
 import { apiErrorMessage } from '../../api/sdk.error';
-import { useScriptHistory } from '../../api/scripts.queries';
+import { useRateScript, useScriptHistory } from '../../api/scripts.queries';
 import { FeedMoment } from '../shared/dated.feed';
 import { Eyebrow } from '../shared/eyebrow';
 import { FeedPage } from '../shared/feed.page';
+import { ScriptRatingControl } from './script.rating.control';
 import { PageHeader } from '../shared/page.header';
 import { StatusLamp } from '../shared/status.lamp';
 import type { StatusTone } from '../shared/status';
@@ -188,6 +189,7 @@ interface AttemptRowProps {
  */
 function AttemptRow({ attempt }: AttemptRowProps) {
     const [open, setOpen] = useState(false);
+    const rate = useRateScript();
 
     // A declined or failed attempt has no words, so the reason takes the line the script would have
     // had. Without it the row is a timestamp and a badge saying nothing happened.
@@ -195,29 +197,50 @@ function AttemptRow({ attempt }: AttemptRowProps) {
 
     return (
         <Stack gap={0}>
-            <UnstyledButton
-                px="md"
-                py="xs"
-                onClick={() => {
-                    setOpen(value => !value);
-                }}
-            >
-                <Group gap="sm" wrap="nowrap" align="flex-start">
-                    <FeedMoment at={attempt.at} />
+            {/* The row's button and the rating sit SIDE BY SIDE rather than nested. A control inside
+                the button would be a button inside a button, which is invalid and would open the
+                detail on every click of a thumb. */}
+            <Group gap="xs" wrap="nowrap" align="flex-start" pr="md">
+                <UnstyledButton
+                    px="md"
+                    py="xs"
+                    style={{ flex: 1, minWidth: 0 }}
+                    onClick={() => {
+                        setOpen(value => !value);
+                    }}
+                >
+                    <Group gap="sm" wrap="nowrap" align="flex-start">
+                        <FeedMoment at={attempt.at} />
 
-                    <Box style={{ flexShrink: 0 }}>
-                        <StatusLamp tone={OUTCOME_TONE[attempt.outcome]} label={attempt.outcome} />
+                        <Box style={{ flexShrink: 0 }}>
+                            <StatusLamp tone={OUTCOME_TONE[attempt.outcome]} label={attempt.outcome} />
+                        </Box>
+
+                        <Badge size="xs" variant="light" color={attempt.writer === 'model' ? 'grape' : 'gray'} tt="none" style={{ flexShrink: 0 }}>
+                            {attempt.writer}
+                        </Badge>
+
+                        <Text size="sm" c={attempt.script === undefined ? 'dimmed' : undefined} style={{ minWidth: 0, textAlign: 'left' }}>
+                            {line}
+                        </Text>
+                    </Group>
+                </UnstyledButton>
+
+                {/* Only where there are words to have an opinion about. An attempt that declined or
+                    failed produced no script, and asking what the operator thought of a sentence
+                    that was never written is a question with no subject. */}
+                {attempt.script === undefined ? undefined : (
+                    <Box pt="xs" style={{ flexShrink: 0 }}>
+                        <ScriptRatingControl
+                            rating={attempt.rating}
+                            busy={rate.isPending && rate.variables?.id === attempt.id}
+                            onChange={rating => {
+                                rate.mutate({ id: attempt.id, rating });
+                            }}
+                        />
                     </Box>
-
-                    <Badge size="xs" variant="light" color={attempt.writer === 'model' ? 'grape' : 'gray'} tt="none" style={{ flexShrink: 0 }}>
-                        {attempt.writer}
-                    </Badge>
-
-                    <Text size="sm" c={attempt.script === undefined ? 'dimmed' : undefined} style={{ minWidth: 0, textAlign: 'left' }}>
-                        {line}
-                    </Text>
-                </Group>
-            </UnstyledButton>
+                )}
+            </Group>
 
             {/* Unmounted rather than hidden while collapsed: a page of fifty rows each holding a
                 few thousand words of prompt is worth not putting in the DOM to save a transition. */}

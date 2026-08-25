@@ -1,5 +1,5 @@
-import { infiniteQueryOptions, queryOptions, useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import type { ScriptOutcome } from '@deadair/sdk';
+import { infiniteQueryOptions, queryOptions, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ScriptAttempt, ScriptHistoryPage, ScriptOutcome, ScriptRating } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -93,4 +93,37 @@ export const scriptSummaryOptions = queryOptions({
 
 export function useScriptSummary() {
     return useQuery(scriptSummaryOptions);
+}
+
+/**
+ * Records what the operator thought of one attempt.
+ *
+ * The answer is patched into every page already held rather than refetched. This is an infinite
+ * feed, so a refetch would re-read the whole history an operator has paged back through to rate one
+ * line near the bottom of it — and the row would jump under their cursor when the head moved. The
+ * response is the attempt as it now stands, so the patch is a replacement rather than a guess.
+ *
+ * Every cached filter is patched, not only the one on screen: the same attempt appears under
+ * `Everything`, under its own writer and under its persona, and rating it in one place must not
+ * leave the other two showing the old answer when an operator switches chips.
+ */
+export function useRateScript() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, rating }: { id: string; rating: ScriptRating }) => sdk.render.rateScript(id, { rating }),
+        onSuccess: (attempt: ScriptAttempt) => {
+            queryClient.setQueriesData<{ pages: ScriptHistoryPage[]; pageParams: unknown[] }>({ queryKey: ['scripts', 'history'] }, held =>
+                held === undefined
+                    ? held
+                    : {
+                          ...held,
+                          pages: held.pages.map(page => ({
+                              ...page,
+                              attempts: page.attempts.map(row => (row.id === attempt.id ? attempt : row)),
+                          })),
+                      },
+            );
+        },
+    });
 }

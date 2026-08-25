@@ -177,6 +177,19 @@ export function planProduction(targetMs: number, options: PlanOptions = {}): Pro
 }
 
 /**
+ * How many TURNS a production of this length would have if somebody rang in.
+ *
+ * Its own name because it is asked before anybody has been cast, which is the one question in this
+ * file that is not about the production it is planning: how many callers are worth casting depends
+ * on how many turns there would be, and how many turns there are depends on whether anybody was
+ * cast. This is the estimate that breaks the ring, and it must be taken in the DIALOGUE band —
+ * measured on the first live run of this, a three-minute call-in estimated as 2 monologue beats,
+ * which is below the floor for casting anybody, so a phone-in was made with nobody on the phone.
+ */
+export const turnsFor = (targetMs: number, wordsPerMinute = WORDS_PER_MINUTE): number =>
+    planProduction(targetMs, { dialogue: true, wordsPerMinute }).beats.length;
+
+/**
  * The nearest odd count at or below this one, floored at one.
  *
  * DOWN rather than up, so a dialogue never runs past the length it was commissioned for: the budget

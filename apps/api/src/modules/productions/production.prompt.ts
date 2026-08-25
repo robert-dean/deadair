@@ -33,7 +33,7 @@
 
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import type { Persona } from '#modules/personas/persona.js';
-import { personaLines } from '#modules/personas/persona.sheet.js';
+import { latitudeOf, personaLines } from '#modules/personas/persona.sheet.js';
 import type { CastMember } from './production.cast.js';
 import type { OutlineBeat, ProductionOutline } from './production.js';
 
@@ -82,7 +82,25 @@ export interface BeatRequest {
     runIn?: string;
     /** The items this beat covers, already resolved from its indexes. */
     items?: readonly string[];
+    /** The speaker's own sheet, which is whoever this turn belongs to rather than whoever presents. */
     persona?: Persona;
+    /**
+     * Who is speaking this turn.
+     *
+     * Absent for a production with no cast, which is every one the station made before callers: the
+     * presenter says all of it and none of the conversation rules below are sent.
+     */
+    speaker?: CastMember;
+    /** Who said the run-in, when it was somebody else. What turns a continuation into an answer. */
+    previousSpeaker?: CastMember;
+    /**
+     * This is the first the listener has heard of this speaker.
+     *
+     * A caller's first turn is where they are put on air, which is NOT the programme's opening beat
+     * — they arrive in the middle of it. It is the one place in a production where a greeting is
+     * right, because it is what somebody who has just been put through actually says.
+     */
+    firstTurn?: boolean;
     station?: string;
     /** What was wrong with the previous attempt, for the one re-draft a beat gets. */
     correction?: string;
@@ -174,9 +192,17 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
  */
 export function beatPrompt(request: BeatRequest): LlmMessage[] {
     const opening = request.ordinal === 0;
+    const caller = request.speaker?.role === 'caller';
+    // A caller's FIRST turn is the one where they are put on air, which is not the same question as
+    // the programme's first beat: they arrive in the middle of it and they do greet, because that is
+    // what somebody who has just been put through actually says.
+    const answering = request.previousSpeaker !== undefined && request.previousSpeaker.role !== request.speaker?.role;
+    const arriving = caller && answering && request.firstTurn === true;
 
     const system = [
-        `You write one beat of a ${request.kind} for a radio station. It is read aloud exactly as you write it.`,
+        caller
+            ? `You are a listener who has phoned in to a ${request.kind} on a radio station, and you are on the air now. You write your next turn on the call, and it is read aloud exactly as you write it.`
+            : `You write one beat of a ${request.kind} for a radio station. It is read aloud exactly as you write it.`,
         '',
         ...(request.persona === undefined
             ? []
@@ -200,32 +226,43 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         '- Continuous spoken prose. No headings, no bullet points, no stage directions, no speaker labels, no markdown.',
         // The failure this catches is a production that sounds like several short programmes played
         // back to back, and it is the single most common thing a beat gets wrong.
-        opening
-            ? '- This is the OPENING beat. Set the programme up and get into it.'
-            : '- This beat is in the MIDDLE of the programme. Do not greet anybody, do not introduce the programme, and do not re-state what it is about. Carry on from where the last beat left off.',
+        ...openingRule({ opening, caller, arriving }),
         // The other half of the repetition problem. Spent catchphrases are handled per beat in the
         // user turn; this covers the BACKGROUND, which is not a phrase and so cannot be detected as
         // one — a presenter who has been fired from three stations mentioned it in six of
         // twenty-four beats, because the sheet offers it every time and only the first beat has any
         // reason to use it.
-        ...(opening
+        ...(opening || arriving
             ? []
             : [
                   '- You have already introduced yourself. Do not say your own name, your history or your credentials again; this audience has been listening for a while.',
               ]),
-        '- Make the beat about one thing and develop it. Covering less, properly, beats covering more.',
+        answering
+            ? // The failure a conversation has that a monologue cannot: two people taking turns to
+              // read out prepared statements. What makes it a call is that each turn is about the
+              // last one.
+              '- Answer what was just said to you before you say anything else. Make one point, and leave the other person something to come back on.'
+            : '- Make the beat about one thing and develop it. Covering less, properly, beats covering more.',
         // The general version of this rule ("do not invent names, dates, figures") was in place for
         // the first live runs and did not hold: one came back with a lab in the wrong city, a decade
         // that had not happened yet, a part count off the assembly line and a spec that does not
         // exist. A model reaches for a specific because a specific sounds like knowledge, so the
         // rule has to name the swap and give it somewhere to go instead.
-        '- Where you are not certain of a detail, say the general thing instead of inventing a specific one. "A factory in Japan" is better than the wrong city; "not many" is better than a number you made up. A vague sentence that is true is worth more than a precise one that is not.',
-        "- Never invent a place, a date, a price, a quantity, a chart position, a technical specification, or words in somebody's mouth. If a sentence only works with one of those in it, write a different sentence.",
-        '- This goes out on the radio as fact. Nobody listening can check it, and nothing later can take it back.',
+        ...groundingRules(request, caller, answering),
         '- Do not end by summarising what you just said.',
     ].join('\n');
 
     const parts: string[] = [`The programme is called "${request.title}".`];
+    // Who the other person is, which the host in particular cannot do without: putting somebody on
+    // air means saying their name, and a presenter who was never told it says "our caller" for a
+    // whole programme.
+    if (request.previousSpeaker !== undefined && answering) {
+        parts.push(
+            caller
+                ? `You are talking to ${nameOf(request.previousSpeaker)}, who is presenting.`
+                : `${nameOf(request.previousSpeaker)} is on the line. Use their name.`,
+        );
+    }
     if (request.brief !== undefined) parts.push(`What was asked for: ${request.brief}`);
     if (request.outline?.throughline !== undefined) parts.push(`What it is really about: ${request.outline.throughline}`);
 
@@ -256,12 +293,18 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     if (request.runIn !== undefined && request.runIn.trim().length > 0) {
         parts.push(
             [
-                'The programme has just said this:',
+                // The same words either way, and a different thing to do with them. Between two
+                // beats of one voice the run-in is a POSITION to carry on from; across a change of
+                // speaker it is something that was said TO you, which is the whole difference
+                // between a programme continuing and a conversation happening.
+                answering ? `${nameOf(request.previousSpeaker)} has just said this to you:` : 'The programme has just said this:',
                 `"...${request.runIn.trim()}"`,
                 // Measured: without this, beats opened by reciting the run-in word for word before
                 // saying anything of their own. Handed a quotation, a model treats it as something
                 // to pick up and read rather than as a position to start from.
-                'Those words have already been spoken. Do NOT repeat them, quote them, or rephrase them. Start the next sentence after them.',
+                answering
+                    ? 'Those words have already been said out loud. Do NOT repeat them, quote them back, or rephrase them. Answer them.'
+                    : 'Those words have already been spoken. Do NOT repeat them, quote them, or rephrase them. Start the next sentence after them.',
             ].join('\n'),
         );
     }
@@ -298,6 +341,84 @@ export function runInFrom(script: string, words = TAIL_WORDS): string {
 }
 
 /**
+ * What this speaker may state as true, which is the one rule a caller does not share with the host.
+ *
+ * ## The station stands behind its presenter and not behind its callers
+ *
+ * The grounding block underneath every beat exists because a production goes out as FACT: nobody
+ * listening can check it and nothing later can take it back. That is exactly right for the station's
+ * own voice, and it is the wrong rule for somebody who rang in — a phone-in is somebody's opinion,
+ * aired because it is somebody's opinion, and a caller who may only say what they can prove is a
+ * caller with no reason to have rung.
+ *
+ * So a caller whose sheet carries a `latitude` gets a licence instead. It is narrow and says so: it
+ * covers what THEY think, and it does not cover a real person, a real event, or anything a listener
+ * would take as the station reporting something.
+ *
+ * ## The other half is on the host, and it is what makes the licence safe
+ *
+ * A claim nobody answers is a claim the station made. So a host turn that follows a caller is told
+ * to move it along rather than confirm it — which is a rule about the HOST's own words and needs no
+ * enforcement anywhere else.
+ *
+ * A caller with no latitude gets the ordinary rules, unchanged. The rung is what asks for the
+ * licence; a sheet that never asked for one is a person on the phone who talks like everybody else.
+ */
+function groundingRules(request: BeatRequest, caller: boolean, answering: boolean): string[] {
+    const licensed = caller && latitudeOf(request.persona) !== undefined;
+
+    if (licensed) {
+        return [
+            "- You may say what you THINK. Your opinions, your theory, what you reckon: that is what you rang up with and the station is not claiming any of it is true.",
+            '- It stays yours. Say "I reckon", "I read somewhere", "you ask me" — never state it as something everybody knows.',
+            "- Never say a real, named person did something. Never describe a real event as though you were reporting it. Never put words in anybody's mouth.",
+            '- Where a detail would make it sound like news rather than like you, leave the detail out.',
+        ];
+    }
+
+    return [
+        '- Where you are not certain of a detail, say the general thing instead of inventing a specific one. "A factory in Japan" is better than the wrong city; "not many" is better than a number you made up. A vague sentence that is true is worth more than a precise one that is not.',
+        "- Never invent a place, a date, a price, a quantity, a chart position, a technical specification, or words in somebody's mouth. If a sentence only works with one of those in it, write a different sentence.",
+        ...(answering && !caller
+            ? // The host's half of the licence above. A claim nobody answers is a claim the station
+              // made, and the presenter is the only person on the programme who can say so.
+              [
+                  "- Your caller may say things you cannot check. Do not confirm one, do not repeat it as fact, and do not argue it down either. Take it as theirs — \"that's you, that is\", \"well, there you go\" — and move the programme on.",
+              ]
+            : []),
+        '- This goes out on the radio as fact. Nobody listening can check it, and nothing later can take it back.',
+    ];
+}
+
+/**
+ * Where this speaker is in the programme, which is not the same question as where the BEAT is.
+ *
+ * A caller arriving is in the middle of a programme and at the start of their own part in it, and
+ * those two facts want opposite instructions. Getting it wrong in either direction is audible: a
+ * caller told not to greet anybody is put on air and starts mid-sentence, and one told to open the
+ * programme introduces the show they just rang.
+ */
+function openingRule(where: { opening: boolean; caller: boolean; arriving: boolean }): string[] {
+    if (where.arriving) {
+        return [
+            // "Thanks for calling" is the PRESENTER's line and a model reaches for it anyway, because
+            // it is the most common sentence in the room. Measured on the first live call-in, where
+            // the caller opened with it. Saying which way round the call went is what stops it.
+            '- You have just been put on air. YOU rang THEM: you have been holding on the line and the presenter has just picked you up.',
+            '- Say hello in a few words, the way somebody who has been holding actually does, then get straight to what you rang about. Do not thank them for calling you.',
+        ];
+    }
+
+    if (where.opening) return ['- This is the OPENING beat. Set the programme up and get into it.'];
+
+    return [
+        where.caller
+            ? '- You are already on the call. Do not say hello again and do not say who you are again. Carry on from what was just said to you.'
+            : '- This beat is in the MIDDLE of the programme. Do not greet anybody, do not introduce the programme, and do not re-state what it is about. Carry on from where the last beat left off.',
+    ];
+}
+
+/**
  * The extra rules a conversation needs, or nothing at all for one voice.
  *
  * Nothing rather than a paragraph explaining that there is nobody on the phone, which is the same
@@ -331,6 +452,10 @@ function describe(who: CastMember): string {
     const role = who.role === 'caller' ? 'a listener who has phoned in' : 'the presenter';
     return who.name === undefined ? role : `${who.name}, ${role}`;
 }
+
+/** What to call somebody in a prompt: their on-air name, or what they are. */
+const nameOf = (who: CastMember | undefined): string =>
+    who?.name ?? (who?.role === 'caller' ? 'Your caller' : 'The presenter');
 
 /** One line of the beat map: what it is, and whether it is done, current, or still to come. */
 function mapLine(beat: OutlineBeat, index: number, current: number): string {

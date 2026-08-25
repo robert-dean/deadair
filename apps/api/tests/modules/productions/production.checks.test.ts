@@ -63,6 +63,35 @@ describe('checkBeat', () => {
         it('allows it in the first beat, which is where an opening belongs', () => {
             expect(checkBeat({ text: 'Welcome to the show. ' + words(200), words: 200, ordinal: 0 })).toEqual([]);
         });
+
+        it('allows a caller arriving mid-programme to say hello, because that is what it was asked for', () => {
+            // Being put on air happens in the middle of a programme, and greeting somebody there is
+            // the prompt's own instruction. A check that refused it would be marking a beat down for
+            // doing as it was told, which is the bargain every guard in this tree keeps.
+            const problems = checkBeat({
+                text: 'Hello and welcome to... sorry, hiya. ' + words(60),
+                words: 70,
+                ordinal: 3,
+                role: 'caller',
+                firstTurn: true,
+            });
+
+            expect(problems).toEqual([]);
+        });
+
+        it('still catches the presenter re-introducing the programme on its own first turn', () => {
+            // `firstTurn` is about the SPEAKER and the exemption is about a caller arriving. The host
+            // has been there since the top of the show whatever its own turn count says.
+            const problems = checkBeat({
+                text: 'Welcome back to the show. ' + words(200),
+                words: 200,
+                ordinal: 3,
+                role: 'host',
+                firstTurn: true,
+            });
+
+            expect(problems.some(problem => /introduces the programme again/i.test(problem))).toBe(true);
+        });
     });
 
     describe('repeating an earlier beat', () => {

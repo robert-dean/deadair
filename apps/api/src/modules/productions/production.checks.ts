@@ -67,6 +67,21 @@ export interface BeatCheckInput {
     words: number;
     /** Where it comes, from 0. Beat 0 is the only one allowed to open the programme. */
     ordinal: number;
+    /**
+     * Whether a caller or the presenter is speaking, for a production with a cast.
+     *
+     * The {@link OPENING} check is about the PROGRAMME being introduced twice, which is a thing only
+     * the presenter can do. A caller saying hello is not a programme introducing itself.
+     */
+    role?: 'host' | 'caller';
+    /**
+     * This is the first the listener has heard of this speaker.
+     *
+     * A caller's first turn is where they are put on air, and greeting somebody there is what the
+     * prompt asked for. Refusing it would be the check marking a beat down for following its own
+     * instruction, which is the bargain every guard in this tree keeps.
+     */
+    firstTurn?: boolean;
     /** The beats already written, for the repetition check. */
     priorBeats?: readonly string[];
     /**
@@ -113,8 +128,10 @@ export function checkBeat(input: BeatCheckInput): string[] {
 
     // Beat 0 is the opening, so an opening there is correct. Anywhere else it is a model that
     // forgot it was in the middle of something — which is what makes a production sound like
-    // several short programmes played back to back rather than one.
-    if (input.ordinal > 0 && OPENING.test(text)) {
+    // several short programmes played back to back rather than one. A caller arriving is excused:
+    // being put on air mid-programme is exactly when a greeting belongs, and the prompt asked for
+    // one.
+    if (input.ordinal > 0 && !(input.role === 'caller' && input.firstTurn === true) && OPENING.test(text)) {
         problems.push('This beat is mid-programme but it introduces the programme again. Cut the greeting and pick it up in progress.');
     }
 

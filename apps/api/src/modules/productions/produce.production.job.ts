@@ -14,7 +14,7 @@ import { errorText } from '#modules/shared/error.text.js';
 import { checkBeat, correctionNote } from './production.checks.js';
 import { isDialogue, speakerOrder, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
-import { planProduction } from './production.plan.js';
+import { planProduction, turnsFor } from './production.plan.js';
 import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
 import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan } from './production.js';
 import { firstPass, nextPass, runsPass } from './production.passes.js';
@@ -254,12 +254,19 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const plan: ProductionPlan = shaped.plan;
         if (claimed.plan === undefined) await this.productions.savePlan(claimed.id, plan, 'drafting', 'drafting', shaped.casting);
 
-        const persona = await this.personas.presenting(claimed.personaId);
+        // Empty for a production made before there was a cast at all, which `sheets` then answers by
+        // resolving the presenter — every beat is theirs, exactly as it was.
+        const casting = shaped.casting ?? [];
+        // One read per character rather than one per beat. A production is up to twenty-four beats
+        // and the sheet does not change while it is being written.
+        const sheets = await this.sheets(claimed, casting);
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
         let runIn: string | undefined;
-        // Everything written so far, for the spent-signature check. Held in memory rather than
-        // re-read per beat: this loop is the only writer of them and it has just produced them.
-        const written: string[] = [];
+        let previous: number | undefined;
+        // Everything written so far, PER SPEAKER, for the spent-signature check. Per speaker because
+        // a shared list tells the host its catchphrase is spent by a caller who never used it — and
+        // because a caller who has said one thing has not used up their own.
+        const written = new Map<number, string[]>();
 
         for (const beat of plan.beats) {
             // Between beats rather than only at the start: a production is minutes of work, which is
@@ -273,10 +280,14 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             }
 
             const outlineBeat = claimed.outline?.beats[beat.ordinal];
+            const at = beat.speaker ?? 0;
+            const speaker = casting[at];
+            const persona = sheets.get(at);
+            const mine = written.get(at) ?? [];
             // Which of this character's signatures the programme has already spent. The measured
             // failure without it: "I said what I said" in 23 of 24 beats, because the sheet offers
             // its catchphrases to every beat and no beat could see what the others had done.
-            const spent = persona === undefined ? [] : spentCatchphrases(persona, written);
+            const spent = persona === undefined ? [] : spentCatchphrases(persona, mine);
             // Built once so the retry below asks for exactly the same thing. A retry that rebuilt the
             // prompt would be a different question, and a beat that failed twice for two different
             // reasons is one nobody can diagnose.
@@ -295,6 +306,11 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                                 ...(runIn === undefined ? {} : { runIn }),
                                 ...(persona === undefined ? {} : { persona }),
                                 ...(spent.length === 0 ? {} : { spent }),
+                                ...(speaker === undefined ? {} : { speaker }),
+                                ...(previous === undefined || casting[previous] === undefined ? {} : { previousSpeaker: casting[previous]! }),
+                                // Their first turn on the call, which is where a caller says hello
+                                // and nowhere else does.
+                                ...(mine.length === 0 ? { firstTurn: true } : {}),
                                 station,
                             }),
                             maxOutputTokens: BEAT_OUTPUT_TOKENS,
@@ -332,10 +348,16 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 writer: 'model',
                 productionId: claimed.id,
                 productionOrdinal: beat.ordinal,
-                ...(persona?.voice === undefined ? {} : { voice: persona.voice }),
+                // The SPEAKER's voice and the SPEAKER's persona, which is what makes a conversation
+                // audible rather than one voice reading both parts. The cast is what is stamped
+                // rather than the sheet, because the cast is what was decided and the sheet may have
+                // been edited since.
+                ...(speaker?.voice === undefined ? {} : { voice: speaker.voice }),
+                ...(speaker?.personaId === undefined ? {} : { personaId: speaker.personaId }),
             });
 
-            written.push(script);
+            written.set(at, [...mine, script]);
+            previous = at;
             runIn = runInFrom(script);
         }
 
@@ -354,19 +376,29 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
 
         const beats = await this.segments.beatsOf(claimed.id);
         const plan = claimed.plan ?? planProduction(claimed.targetMs);
-        const persona = await this.personas.presenting(claimed.personaId);
+        const casting = claimed.casting ?? [];
+        const sheets = await this.sheets(claimed, casting);
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
         let redrafted = 0;
 
         for (const [index, beat] of beats.entries()) {
             if (beat.script === undefined) continue;
 
+            const at = plan.beats[index]?.speaker ?? 0;
+            const speaker = casting[at];
+            const persona = sheets.get(at);
+            const previousAt = index === 0 ? undefined : (plan.beats[index - 1]?.speaker ?? 0);
             const runIn = index === 0 ? undefined : runInFrom(beats[index - 1]?.script ?? '');
             const problems = checkBeat({
                 text: beat.script,
                 words: plan.beats[index]?.words ?? beat.script.split(/\s+/).length,
                 ordinal: beat.productionOrdinal ?? index,
                 priorBeats: beats.slice(0, index).map(earlier => earlier.script ?? ''),
+                // Whether an opening is out of place is a question about the SPEAKER, not about the
+                // ordinal: a caller being put on air greets somebody, in the middle of a programme,
+                // and that is the one place it is right.
+                ...(speaker === undefined ? {} : { role: speaker.role }),
+                ...(firstTurnOf(plan, index, at) ? { firstTurn: true } : {}),
                 // The same words this beat was handed, so a beat that recited them instead of
                 // carrying on from them is caught.
                 ...(runIn === undefined ? {} : { runIn }),
@@ -387,10 +419,15 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         ...(claimed.outline?.beats[index] === undefined ? {} : { beat: claimed.outline.beats[index]! }),
                         ...(runIn === undefined ? {} : { runIn }),
                         ...(persona === undefined ? {} : { persona }),
-                        // Everything the programme says EXCEPT this beat: a re-draft must not be
-                        // told its own signature is spent by its own first attempt, which would
-                        // forbid the one line it is allowed to keep.
-                        ...(spentOf(persona, beats, index).length === 0 ? {} : { spent: spentOf(persona, beats, index) }),
+                        // Everything THIS SPEAKER says EXCEPT this beat: a re-draft must not be told
+                        // its own signature is spent by its own first attempt, which would forbid the
+                        // one line it is allowed to keep — and must not be told somebody else's is.
+                        ...(spentOf(persona, mineExcept(beats, plan, at, index)).length === 0
+                            ? {}
+                            : { spent: spentOf(persona, mineExcept(beats, plan, at, index)) }),
+                        ...(speaker === undefined ? {} : { speaker }),
+                        ...(previousAt === undefined || casting[previousAt] === undefined ? {} : { previousSpeaker: casting[previousAt]! }),
+                        ...(firstTurnOf(plan, index, at) ? { firstTurn: true } : {}),
                         station,
                         correction: correctionNote(problems),
                     }),
@@ -406,7 +443,18 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // the opposite of the drafting rule above, because there the alternative was a hole.
             if (rewritten.length === 0) continue;
 
-            await this.segments.writeScript(beat.id, { script: rewritten, label: beat.label, writer: 'model' });
+            // The persona and the voice go back on with the words. `writeScript` nulls `personaId`
+            // when it is not passed and leaves `voice` alone only when it is not offered, so a
+            // re-drafted turn that forgot either would come out of the check pass in the presenter's
+            // character with the caller's voice on it — or with no character at all, which is what a
+            // recast reads as an ordinary break to rewrite.
+            await this.segments.writeScript(beat.id, {
+                script: rewritten,
+                label: beat.label,
+                writer: 'model',
+                ...(speaker?.personaId === undefined ? {} : { personaId: speaker.personaId }),
+                ...(speaker?.voice === undefined ? {} : { voice: speaker.voice }),
+            });
             redrafted += 1;
         }
 
@@ -432,6 +480,36 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
     }
 
     /**
+     * Each cast member's sheet, by their place in the cast.
+     *
+     * One read per character rather than one per beat, and the CAST is what it reads from rather
+     * than `presenting`: who was cast is what the production decided, possibly hours ago, and
+     * resolving the presenter again per pass would put a station that changed host halfway through
+     * two characters into one programme.
+     *
+     * A member whose persona has since been deleted simply has no sheet, which is the same state as
+     * a station presenting as nobody: the turn is written plainly and still goes out.
+     */
+    private async sheets(production: Production, casting: ProductionCast): Promise<Map<number, Persona>> {
+        const sheets = new Map<number, Persona>();
+
+        for (const [at, member] of casting.entries()) {
+            if (member.personaId === undefined) continue;
+            const persona = await this.personas.find(member.personaId);
+            if (persona !== undefined) sheets.set(at, persona);
+        }
+
+        // A production made before there was a cast at all. The presenter says all of it, which is
+        // what every production did until callers arrived.
+        if (casting.length === 0) {
+            const presenting = await this.personas.presenting(production.personaId);
+            if (presenting !== undefined) sheets.set(0, presenting);
+        }
+
+        return sheets;
+    }
+
+    /**
      * How long this production is, how it is divided, and who says each part.
      *
      * One step because the three answers depend on each other in a ring that has to be broken
@@ -444,17 +522,18 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
      * which is the same ring with a database read inside it.
      */
     private async shape(production: Production): Promise<{ plan: ProductionPlan; casting: ProductionCast }> {
-        const rough = planProduction(production.targetMs);
-        const casting = await this.caster.cast(production, rough.beats.length);
-        const dialogue = isDialogue(casting);
+        // The estimate is in the DIALOGUE band, and it has to be: what the caster is being asked is
+        // how many TURNS there would be if somebody rang in, and a turn is a third of a beat. The
+        // first live run of this made the mistake — a three-minute call-in estimated as 2 monologue
+        // beats, which is below the floor for casting anybody, so a phone-in was made with nobody on
+        // the phone and nothing said why. If nobody is cast the number is simply discarded.
+        const turns = turnsFor(production.targetMs);
+        const casting = await this.caster.cast(production, turns);
 
         // A monologue is planned exactly as it always was, so a station that casts nobody gets the
         // production it got before any of this: same band, same count, same word budgets.
-        if (!dialogue) return { plan: rough, casting };
+        if (!isDialogue(casting)) return { plan: planProduction(production.targetMs), casting };
 
-        // Twice, because the turn count is what the speakers are assigned across and the count comes
-        // from the dialogue band rather than the monologue one it was just estimated in.
-        const turns = planProduction(production.targetMs, { dialogue: true }).beats.length;
         const plan = planProduction(production.targetMs, { dialogue: true, speakers: speakerOrder(casting, turns) });
 
         return { plan, casting };
@@ -474,15 +553,28 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
 /**
  * Which of this character's signatures the rest of the programme has already used.
  *
- * The beat being re-drafted is excluded deliberately. Its own first attempt is about to be thrown
- * away, so counting it would tell the re-draft that a phrase is spent when the only thing that spent
- * it is the text being replaced.
+ * The beat being re-drafted is excluded by the caller, deliberately. Its own first attempt is about
+ * to be thrown away, so counting it would tell the re-draft that a phrase is spent when the only
+ * thing that spent it is the text being replaced.
  */
-function spentOf(persona: Persona | undefined, beats: readonly Segment[], skip: number): string[] {
-    if (persona === undefined) return [];
+function spentOf(persona: Persona | undefined, scripts: readonly string[]): string[] {
+    return persona === undefined ? [] : spentCatchphrases(persona, scripts);
+}
 
-    const others = beats.filter((_, index) => index !== skip).map(beat => beat.script ?? '');
-    return spentCatchphrases(persona, others);
+/**
+ * This speaker's OTHER turns, which is what a signature is spent by.
+ *
+ * Per speaker rather than per programme: a shared list tells the host its catchphrase is spent by a
+ * caller who never said it, and tells a caller who has spoken once that they have used up a phrase
+ * somebody else used.
+ */
+function mineExcept(beats: readonly Segment[], plan: ProductionPlan, speaker: number, skip: number): string[] {
+    return beats.flatMap((beat, index) => (index === skip || (plan.beats[index]?.speaker ?? 0) !== speaker ? [] : [beat.script ?? '']));
+}
+
+/** Whether this is the first the listener has heard of this speaker, which is where a caller says hello. */
+function firstTurnOf(plan: ProductionPlan, index: number, speaker: number): boolean {
+    return !plan.beats.slice(0, index).some(beat => (beat.speaker ?? 0) === speaker);
 }
 
 /**

@@ -15,6 +15,7 @@ import {
     speakerOrder,
     type ProductionCast,
 } from '../../../src/modules/productions/production.cast.js';
+import { planProduction, turnsFor } from '../../../src/modules/productions/production.plan.js';
 
 const persona = (key: string) => ({ id: `id-${key}`, key, djName: key.toUpperCase(), voice: key });
 
@@ -118,5 +119,23 @@ describe('coerceCast', () => {
         expect(coerceCast('classic')).toBeUndefined();
         expect(coerceCast([])).toBeUndefined();
         expect(coerceCast(undefined)).toBeUndefined();
+    });
+});
+
+// The bug the first live run of this found, and the seam it lived in. Casting asks how many TURNS
+// there would be, and that estimate has to be taken in the dialogue band: a three-minute call-in is
+// seven turns and two monologue beats, and two is below the floor for casting anybody — so the
+// station made a phone-in with nobody on the phone and nothing said why.
+describe('deciding a cast from a length', () => {
+    it('casts somebody into a call-in of the length one actually gets asked for', () => {
+        for (const minutes of [2, 3, 5, 10]) {
+            expect(callerCount(turnsFor(minutes * 60_000), 5), `${minutes} minutes`).toBeGreaterThan(0);
+        }
+    });
+
+    it('would cast nobody if the estimate were taken in the monologue band, which is the regression', () => {
+        // Kept as the record of what went wrong rather than as a rule: this is the number the code
+        // used to hand the caster.
+        expect(planProduction(3 * 60_000).beats.length).toBeLessThan(MIN_TURNS_FOR_A_CALLER);
     });
 });

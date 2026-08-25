@@ -168,6 +168,14 @@ export interface PlannedSegment {
      */
     productionId?: string;
     productionOrdinal?: number;
+    /**
+     * Which character this is written as, when whoever is planning it already knows.
+     *
+     * Absent for every ordinary break, where the words are written later and {@link writeScript}
+     * stamps it. A production beat is the exception: it arrives with its script and with a SPEAKER
+     * who may not be the presenter, so the row has to say so from the moment it exists.
+     */
+    personaId?: string;
     /** The request that asked for this break. See {@link Segment.requestId}. */
     requestId?: string;
     /**
@@ -546,6 +554,7 @@ export class SegmentRepository extends DataRepository {
                 label: planned.label,
                 script: planned.script ?? null,
                 voice: planned.voice ?? null,
+                personaId: planned.personaId ?? null,
                 writer: planned.writer ?? null,
                 airsAt: planned.airsAt === undefined ? null : instant(planned.airsAt),
                 requestId: planned.requestId ?? null,
@@ -787,6 +796,16 @@ export class SegmentRepository extends DataRepository {
         if (host !== undefined) {
             query = query.where('personaId', 'is not', null);
             if (host.personaId !== undefined) query = query.where('personaId', '<>', host.personaId);
+            // **A production beat is never recast alone.** A recast re-offers whatever the outgoing
+            // host had lined up, which is right for a break — another writer takes it and the
+            // station carries on. A beat is not disposable that way: the block enters the running
+            // order whole or not at all, so reopening one of its turns leaves a hole in the middle
+            // of a programme that nothing puts back. It bites the moment a beat carries a persona at
+            // all, which is exactly what casting made true — a caller's turn differs from the
+            // incoming host by definition, so every caller on the station would be rewritten as a
+            // talk break by the next changeover. Re-making a production is a decision about the
+            // whole production.
+            query = query.where('productionId', 'is', null);
         }
 
         const rows = await query.returning('id').execute();

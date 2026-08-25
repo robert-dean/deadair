@@ -33,6 +33,18 @@ const notebook = (notes: { trait: string[]; said: string[] } = { trait: [], said
     markUsed: vi.fn(),
 });
 
+/**
+ * The character's own stories, as the service sees them.
+ *
+ * Nothing by default, which is every station until somebody writes one down. The interesting case is
+ * that this is READ and never stamped: a rehearsal that spent a story would hand the next real break
+ * the second-best one.
+ */
+const shelf = (story?: { title: string; story: string; details: string[]; timesTold: number }) => ({
+    forPrompt: vi.fn(async () => (story === undefined ? undefined : { id: 's1', story })),
+    markTold: vi.fn(),
+});
+
 const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() });
 const config = (title = 'Dead Air') => ({ get: (_: string, fallback: string) => (title === '' ? fallback : title) });
 
@@ -67,7 +79,14 @@ describe('PersonaRehearsalService', () => {
     it('rehearses the persona NAMED, never the one on air', async () => {
         const personas = { find: vi.fn(async () => persona()), active: vi.fn(), presenting: vi.fn() };
         const writers = registry(twoAttempts);
-        const service = new PersonaRehearsalService(personas as never, notebook() as never, writers as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(
+            personas as never,
+            notebook() as never,
+            shelf() as never,
+            writers as never,
+            config() as never,
+            logger() as never,
+        );
 
         await service.rehearse('p1');
 
@@ -82,7 +101,14 @@ describe('PersonaRehearsalService', () => {
     it('runs against fixed invented records and no history, so two readings can be compared', async () => {
         const personas = { find: vi.fn(async () => persona()) };
         const writers = registry(twoAttempts);
-        const service = new PersonaRehearsalService(personas as never, notebook() as never, writers as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(
+            personas as never,
+            notebook() as never,
+            shelf() as never,
+            writers as never,
+            config() as never,
+            logger() as never,
+        );
 
         await service.rehearse('p1');
         await service.rehearse('p1');
@@ -105,7 +131,14 @@ describe('PersonaRehearsalService', () => {
     it('asks for the model as a preview, so the station outranks it', async () => {
         const personas = { find: vi.fn(async () => persona()) };
         const writers = registry(twoAttempts);
-        const service = new PersonaRehearsalService(personas as never, notebook() as never, writers as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(
+            personas as never,
+            notebook() as never,
+            shelf() as never,
+            writers as never,
+            config() as never,
+            logger() as never,
+        );
 
         await service.rehearse('p1');
 
@@ -119,7 +152,14 @@ describe('PersonaRehearsalService', () => {
         const personas = { find: vi.fn(async () => persona()) };
         const notes = notebook({ trait: ['has taken to calling the listener a shipmate'], said: ['called Booker T. the tightest band alive'] });
         const writers = registry(twoAttempts);
-        const service = new PersonaRehearsalService(personas as never, notes as never, writers as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(
+            personas as never,
+            notes as never,
+            shelf() as never,
+            writers as never,
+            config() as never,
+            logger() as never,
+        );
 
         await service.rehearse('p1');
 
@@ -129,9 +169,39 @@ describe('PersonaRehearsalService', () => {
         expect(notes.markUsed).not.toHaveBeenCalled();
     });
 
+    // The same bargain one table over, and the stakes are higher: a break carries at most one story,
+    // so an operator clicking rehearse three times would put three of them out of reach of the next
+    // real break and leave the store claiming each had been told.
+    it("carries one of the character's stories and spends none of it", async () => {
+        const personas = { find: vi.fn(async () => persona()) };
+        const stories = shelf({ title: 'The Barstow lights', story: 'You saw three lights over the desert.', details: [], timesTold: 0 });
+        const writers = registry(twoAttempts);
+        const service = new PersonaRehearsalService(
+            personas as never,
+            notebook() as never,
+            stories as never,
+            writers as never,
+            config() as never,
+            logger() as never,
+        );
+
+        await service.rehearse('p1');
+
+        expect(stories.forPrompt).toHaveBeenCalledWith('pirate');
+        expect(writers.seen[0]?.story?.title).toBe('The Barstow lights');
+        expect(stories.markTold).not.toHaveBeenCalled();
+    });
+
     it('reports the decline AND the floor underneath it, not only the winner', async () => {
         const personas = { find: vi.fn(async () => persona()) };
-        const service = new PersonaRehearsalService(personas as never, notebook() as never, registry(declinedThenFloor) as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(
+            personas as never,
+            notebook() as never,
+            shelf() as never,
+            registry(declinedThenFloor) as never,
+            config() as never,
+            logger() as never,
+        );
 
         const result = await service.rehearse('p1');
 
@@ -151,7 +221,10 @@ describe('PersonaRehearsalService', () => {
 
     it('answers with a reason and no words when every writer had nothing', async () => {
         const personas = { find: vi.fn(async () => persona()) };
-        const service = new PersonaRehearsalService(personas as never, notebook() as never,
+        const service = new PersonaRehearsalService(
+            personas as never,
+            notebook() as never,
+            shelf() as never,
             registry({
                 attempts: [{ writer: 'model', outcome: 'failed', reason: 'the station is busy', durationMs: 10_000 }],
                 reason: 'nothing wrote this talkbreak',
@@ -173,7 +246,14 @@ describe('PersonaRehearsalService', () => {
     it('is a 404 for a persona this station does not have', async () => {
         const personas = { find: vi.fn(async () => undefined) };
         const writers = registry(twoAttempts);
-        const service = new PersonaRehearsalService(personas as never, notebook() as never, writers as never, config() as never, logger() as never);
+        const service = new PersonaRehearsalService(
+            personas as never,
+            notebook() as never,
+            shelf() as never,
+            writers as never,
+            config() as never,
+            logger() as never,
+        );
 
         await expect(service.rehearse('nope')).rejects.toThrow();
         // And nothing was spent on the model slot finding that out.

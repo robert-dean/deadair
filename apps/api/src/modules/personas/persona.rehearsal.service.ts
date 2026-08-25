@@ -9,6 +9,7 @@ import type { BreakTrack } from '#modules/director/break.writer.js';
 import type { PersonaRehearsal, PersonaRehearsalAttempt } from './types/personas.types.js';
 import { PersonaRepository } from './persona.repository.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
+import { PersonaStoriesRepository } from './persona.stories.repository.js';
 
 /**
  * Hear a persona before putting it on air.
@@ -64,6 +65,7 @@ export class PersonaRehearsalService {
     constructor(
         private readonly personas: PersonaRepository,
         private readonly notes: PersonaNotesRepository,
+        private readonly stories: PersonaStoriesRepository,
         private readonly writers: BreakWriterRegistry,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -85,6 +87,11 @@ export class PersonaRehearsalService {
         // notebook; and it must not spend the rotation, or clicking the button would hand the next
         // real break this character's second-best six lines.
         const { notes } = await this.notes.forPrompt(persona.key);
+        // The same split, one table over, and the reason is sharper here: a story's turn is spent by
+        // READING it, so a rehearsal that stamped would hand the next real break the second story
+        // and report a telling nobody heard. The rung is not consulted either — an operator who
+        // clicked the button is asking to hear the character, not to be shown its habits.
+        const story = await this.stories.forPrompt(persona.key);
 
         const result = await this.writers.write({
             kind: TALK_BREAK_KIND,
@@ -93,6 +100,7 @@ export class PersonaRehearsalService {
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             persona,
             notebook: notes,
+            ...(story === undefined ? {} : { story: story.story }),
             // Empty rather than the last few real scripts, and that is what keeps a reading
             // repeatable. `recent` is what makes a signature phrase SPENT, so a rehearsal carrying
             // the station's actual history would decline a script for repeating something the

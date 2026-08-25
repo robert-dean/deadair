@@ -10,6 +10,10 @@ import { PlainJob } from '#modules/jobs/plain.job.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
+import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repository.js';
+import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
+import { storytellingOf } from '#modules/personas/persona.sheet.js';
+import type { Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
@@ -22,6 +26,9 @@ import { BulletinSource } from './bulletin.source.js';
 import type { BreakTrack, PlayedRecord } from './break.writer.js';
 import { dayGreeting, dayPart, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
+import { TALK_BREAK_SHAPE } from './break.prompt.js';
+import { TALK_BREAK_KIND } from './talk.break.writer.js';
+import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -43,6 +50,29 @@ const RECENT_WINDOW = 6;
  * tokens a second, which is a slow break rather than a rich one.
  */
 const PLAYED_WINDOW = 5;
+
+/**
+ * Which kinds of break may carry one of the character's own stories, and on what terms.
+ *
+ * Built from the SHAPES themselves rather than written out again, so this job cannot hold a second
+ * opinion about whether a talk break offers a story or insists on one. What it does decide is
+ * MEMBERSHIP: a kind absent from here is asked for no story at all, which keeps a bulletin from
+ * spending one it would never have been allowed to render.
+ *
+ * See `WriteBreakJob.story` for why the decision lives at this end rather than in the prompt.
+ */
+const STORY_MODES = new Map<string, 'offered' | 'told'>(
+    (
+        [
+            [TALK_BREAK_KIND, TALK_BREAK_SHAPE.stories],
+            [STORY_KIND, STORY_SHAPE.stories],
+        ] as const
+    ).flatMap(([kind, mode]) => (mode === undefined ? [] : [[kind, mode] as const])),
+);
+
+/** Whether every record this break was shown came with nothing to say about it. See {@link WriteBreakJob.story}. */
+const nothingKnownAbout = (neighbours: Neighbours): boolean =>
+    [neighbours.previous, neighbours.next].every(side => side === undefined || (side.track.facts?.length ?? 0) === 0);
 
 export interface WriteBreakPayload {
     /**
@@ -102,6 +132,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly bulletin: BulletinSource,
         private readonly personas: PersonaRepository,
         private readonly notes: PersonaNotesRepository,
+        private readonly stories: PersonaStoriesRepository,
         private readonly plays: PlayHistoryRepository,
         private readonly identity: StationIdentity,
         private readonly speech: SpeechService,
@@ -240,6 +271,10 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // here for a sharper one: the rotation belongs to whatever is actually going on air, and
             // a writer that fetched its own would spend it again on every binding that was asked.
             ...(await this.notebook(persona?.key)),
+            // Read here and RESTED here, for the notebook's reason and one of its own: the rung that
+            // decides whether this break gets a story at all is applied in the same step as the
+            // stamp, or the store fills up with tellings nobody heard. See `story`.
+            ...(await this.story(persona, segment.kind, neighbours)),
             // What the engine that will speak this can do beyond reading. Read here for the notebook's
             // reason and answered once, so every binding asked for this break agrees about what was on
             // offer — and so a station that changed engine between two breaks writes for the one that
@@ -471,6 +506,60 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             return cues.length === 0 ? {} : { reactions: cues };
         } catch (error) {
             this.logger.debug(`director: could not ask what the engine can perform (${errorText(error)})`);
+            return {};
+        }
+    }
+
+    /**
+     * The one story this break may draw on, chosen and rested here.
+     *
+     * ## The rung is applied HERE, and that is the whole reason this is not in the prompt builder
+     *
+     * A story's turn is spent by reading it, because {@link PersonaStoriesRepository.markTold} is
+     * what comes next. So a rung consulted at RENDER time would have this method spending a story on
+     * every break under `occasionally` and the prompt then quietly dropping most of them — a store
+     * reporting tellings nobody heard, and a "you have told this before" rule firing over breaks
+     * that never carried it. The decision and the stamp have to be the same step.
+     *
+     * ## What each kind may have, from the shapes themselves
+     *
+     * {@link STORY_MODES} maps a kind to what its shape declares, rather than this job holding a
+     * second opinion about which breaks tell stories. A kind that is not in it gets none — which is
+     * every kind but two, and for a BULLETIN that is an argument rather than an omission: see
+     * `BreakPromptShape.stories`.
+     *
+     * ## `occasionally` is keyed on the same fact the prompt is
+     *
+     * "The station knows nothing about this record" is the moment the default rung fires in, because
+     * that paragraph hands a model a prohibition and nothing else, and what filled that silence when
+     * it was measured was invented pressing plants. Judged on the facts already attached to the
+     * neighbours, so it is the same fact the prompt would state.
+     *
+     * Best-effort, like the notebook and the facts: a story that could not be read costs the story
+     * and never the break.
+     */
+    private async story(persona: Persona | undefined, kind: string, neighbours: Neighbours): Promise<{ story?: PersonaStoryForPrompt }> {
+        if (persona === undefined) return {};
+
+        const mode = STORY_MODES.get(kind);
+        if (mode === undefined) return {};
+
+        if (mode === 'offered') {
+            const rung = storytellingOf(persona);
+            if (rung === 'never') return {};
+            // Every record the break was shown carries something to say, so there is no silence for
+            // a story to fill. A break with no records at all is not one of these kinds.
+            if (rung === 'occasionally' && !nothingKnownAbout(neighbours)) return {};
+        }
+
+        try {
+            const found = await this.stories.forPrompt(persona.key);
+            if (found === undefined) return {};
+
+            await this.stories.markTold(found.id);
+            return { story: found.story };
+        } catch (error) {
+            this.logger.warn(`director: could not read this character's own stories (${errorText(error)})`);
             return {};
         }
     }

@@ -31,6 +31,7 @@ import type { SpeechCue } from '@deadair/plugin-sdk';
 import type { GatePriority } from '#modules/shared/gate.priority.js';
 import type { Persona } from '#modules/personas/persona.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
+import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { BreakContext } from './break.request.js';
 import type { RoughTime } from './clock.words.js';
 
@@ -234,6 +235,22 @@ export interface BreakWriteRequest {
      * phrasings and never reads a fact.
      */
     notebook?: PersonaNotesForPrompt;
+    /**
+     * The one story of this character's that this break may draw on, already chosen and rested.
+     *
+     * Read by the caller for {@link BreakWriteRequest.notebook}'s reason and rested by it for the
+     * sharper half of that reason: the rotation belongs to whatever is actually going on air, so a
+     * model that declined and a floor that covered for it have between them still used this
+     * character's turn.
+     *
+     * ONE rather than the list, which is the shape of the whole feature and not a convenience — see
+     * `PromptSettings.story`. Which one is the store's business, least recently told first.
+     *
+     * Unlike the notebook, this IS read by a deterministic writer: `StoryBreakWriter` speaks it as it
+     * stands, because a story is already speakable prose somebody wrote. That is the one place in
+     * the station where the floor needs no phrasing pool.
+     */
+    story?: PersonaStoryForPrompt;
     /**
      * The things the presenter can do that are not words, as the engine that will speak this allows.
      *

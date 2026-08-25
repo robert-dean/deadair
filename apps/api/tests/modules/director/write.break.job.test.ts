@@ -11,6 +11,7 @@ import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { WriteBreakJob } from '../../../src/modules/director/write.break.job.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
+import type { PersonaStoryForPrompt } from '../../../src/modules/personas/persona.story.js';
 import type { Segment } from '../../../src/modules/render/segment.repository.js';
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
 
@@ -50,6 +51,8 @@ function harness(
         persona?: Persona;
         /** What that character has accumulated, for the tests about carrying and resting it. */
         notebook?: { trait: readonly string[]; said: readonly string[] };
+        /** One of that character's own stories, for the tests about the rung and the rest. */
+        story?: PersonaStoryForPrompt;
         /** The request this break was made for, for the one test about handing its context over. */
         request?: StoredBreakRequest;
         /** What a bulletin has to report, for the one test about handing the stories over. */
@@ -108,6 +111,13 @@ function harness(
         forPrompt: vi.fn(async () => ({ notes: options.notebook ?? { trait: [], said: [] }, ids: options.notebook === undefined ? [] : ['n1'] })),
         markUsed: vi.fn(async () => {}),
     };
+    // The character's own history. Named for the table rather than `stories`, which in this file
+    // already means the headlines a bulletin reads. Nothing by default, which is every station until
+    // somebody writes one down and the state every other assertion here was written against.
+    const personaStories = {
+        forPrompt: vi.fn(async () => (options.story === undefined ? undefined : { id: 's1', story: options.story })),
+        markTold: vi.fn(async (_id: string) => {}),
+    };
     const jobs = { send: vi.fn(async () => {}) };
     const config = { get: vi.fn((_: string, fallback: string) => fallback) };
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
@@ -144,6 +154,7 @@ function harness(
         bulletin as never,
         personas as never,
         notes as never,
+        personaStories as never,
         plays as never,
         identity as never,
         speech as never,
@@ -165,6 +176,7 @@ function harness(
         enrichment,
         personas,
         notes,
+        personaStories,
         jobs,
         logger,
         activity,
@@ -357,6 +369,128 @@ describe('WriteBreakJob', () => {
 
         expect(segments.writeScript).toHaveBeenCalled();
         expect(logger.warn).toHaveBeenCalled();
+    });
+
+    // The character's own history, which is the one piece of material here whose ROTATION and whose
+    // gate are the same decision: reading a story is what spends it, so a rung consulted anywhere
+    // else would leave the store reporting tellings nobody heard.
+    describe("one of the character's own stories", () => {
+        const persona = (storytelling?: 'never' | 'occasionally' | 'often') =>
+            ({
+                id: 'p-1',
+                key: 'conspiracy',
+                label: 'Overnight host',
+                style: 'an overnight host',
+                active: true,
+                ...(storytelling === undefined ? {} : { storytelling }),
+            }) as Persona;
+        const story: PersonaStoryForPrompt = {
+            title: 'The Barstow lights',
+            story: 'You saw three lights over the desert.',
+            details: [],
+            timesTold: 0,
+        };
+        /** The same rotation with both records catalogued, so there is something to know about them. */
+        const catalogued = (): StationLineup => {
+            const lineup = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+            lineup.append([track('Solid Air', 'John Martyn', 'track-a'), track('Pink Moon', 'Nick Drake', 'track-b')]);
+            lineup.insertSegments([{ segmentId: 'seg-1', atIndex: 1 }]);
+            return lineup;
+        };
+
+        const knownRecords = new Map([
+            ['track-a', ['John Martyn was born in New Malden in 1948.']],
+            ['track-b', ['Recorded over two nights.']],
+        ]);
+
+        it('hands one over on a talk break, and rests it', async () => {
+            const { job, writers, personaStories } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(personaStories.forPrompt).toHaveBeenCalledWith('conspiracy');
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }));
+            expect(personaStories.markTold).toHaveBeenCalledWith('s1');
+        });
+
+        it('reads none at all at "never", so nothing is spent', async () => {
+            const { job, writers, personaStories } = harness({ lineup: await lineupWithBreak(), persona: persona('never'), story });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(personaStories.forPrompt).not.toHaveBeenCalled();
+            expect(personaStories.markTold).not.toHaveBeenCalled();
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
+        });
+
+        // The default rung, and the moment it fires in is the one the prompt would otherwise answer
+        // with a prohibition and nothing else — which is where the invented pressing plants came
+        // from when it was measured.
+        it('offers one by default only where the station knows nothing about the records', async () => {
+            const silent = harness({ lineup: await lineupWithBreak(), persona: persona(), story });
+            const known = harness({ lineup: catalogued(), persona: persona(), story, facts: knownRecords });
+
+            await silent.job.run({ segmentId: 'seg-1' });
+            await known.job.run({ segmentId: 'seg-1' });
+
+            expect(silent.writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }));
+            expect(known.writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
+            // And nothing was spent on the break that never carried one, which is the whole reason
+            // this rung is read here rather than where the prompt is built.
+            expect(known.personaStories.markTold).not.toHaveBeenCalled();
+        });
+
+        it('offers one at "often" even where both records carry notes', async () => {
+            const { job, writers } = harness({ lineup: catalogued(), persona: persona('often'), story, facts: knownRecords });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ story }));
+        });
+
+        it('reads none for a station presenting as nobody', async () => {
+            const { job, personaStories } = harness({ lineup: await lineupWithBreak(), story });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(personaStories.forPrompt).not.toHaveBeenCalled();
+        });
+
+        it('spends nothing for a character that has written none', async () => {
+            const { job, writers, personaStories } = harness({ lineup: await lineupWithBreak(), persona: persona('often') });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(personaStories.markTold).not.toHaveBeenCalled();
+            expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ story: expect.anything() }));
+        });
+
+        it('writes the break anyway when the stories cannot be read', async () => {
+            // Best-effort, exactly like the notebook and the facts beside it.
+            const { job, segments, personaStories, logger } = harness({ lineup: await lineupWithBreak(), persona: persona('often'), story });
+            personaStories.forPrompt.mockRejectedValueOnce(new Error('the database is away'));
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.writeScript).toHaveBeenCalled();
+            expect(logger.warn).toHaveBeenCalled();
+        });
+
+        // A bulletin is the argued exclusion: a model asked to report the news and handed material
+        // reads the material out. Excluded HERE as well as at render, so it cannot spend one either.
+        it('is never read for a kind whose shape carries no story', async () => {
+            const { job, personaStories } = harness({
+                lineup: await lineupWithBreak(),
+                segment: planned({ kind: 'news' }),
+                persona: persona('often'),
+                story,
+                stories: [{ headline: 'A thing happened' }],
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(personaStories.forPrompt).not.toHaveBeenCalled();
+        });
     });
 
     it('hands the writers what the installed engine can perform', async () => {

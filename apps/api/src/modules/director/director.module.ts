@@ -10,6 +10,8 @@ import { WarmUpWriter } from './warmup.writer.js';
 import { ModelNewsBreakWriter } from './model.news.break.writer.js';
 import { ModelTalkBreakWriter } from './model.talk.break.writer.js';
 import { NewsBreakWriter } from './news.break.writer.js';
+import { ModelStoryBreakWriter } from './model.story.break.writer.js';
+import { StoryBreakWriter } from './story.break.writer.js';
 import { BulletinSource, CategoryWatch, ReadLog } from './bulletin.source.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
@@ -135,6 +137,8 @@ export const DirectorModule: ServerKitModule = {
         registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
         registry.register(ModelNewsBreakWriter).useClass(ModelNewsBreakWriter).asScoped();
         registry.register(NewsBreakWriter).useClass(NewsBreakWriter).asScoped();
+        registry.register(ModelStoryBreakWriter).useClass(ModelStoryBreakWriter).asScoped();
+        registry.register(StoryBreakWriter).useClass(StoryBreakWriter).asScoped();
         registry.register(WarmUpWriter).useClass(WarmUpWriter).asScoped();
         // What the station has already read out. A SINGLETON beside the scoped source below, for the
         // same reason `AdvisoryWatch` is one among the scoped generators: "the station already said
@@ -175,7 +179,14 @@ export const DirectorModule: ServerKitModule = {
                             // something a listener has no way to check.
                             container.get(ModelNewsBreakWriter),
                             container.get(NewsBreakWriter),
-                            // The fourth kind, and the only one with no model in front of it. A
+                            // The fourth kind, ranked the same way and inverted underneath: the
+                            // floor here is not a pool of phrasings but the operator's own prose,
+                            // because a story is already written down. So a station with no model
+                            // still tells it, and the model earns its place by TELLING it rather
+                            // than reading it. See `StoryBreakWriter`.
+                            container.get(ModelStoryBreakWriter),
+                            container.get(StoryBreakWriter),
+                            // The fifth kind, and the only one with no model in front of it. A
                             // holding message is wanted at exactly the moment the station is least
                             // able to produce anything, so a binding that could be slow would
                             // arrive after the records it was covering for. See `WarmUpWriter`.

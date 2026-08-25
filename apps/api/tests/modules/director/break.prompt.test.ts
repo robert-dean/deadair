@@ -537,6 +537,83 @@ describe('breakPrompt', () => {
         });
     });
 
+    // The character's own history, which is the one thing in this prompt that is TRUE and is not
+    // about the music. Every assertion here is on one of two lines: it has to be usable enough to be
+    // worth having, and it must never become a claim about a record.
+    describe("one of the character's own stories", () => {
+        const story = {
+            title: 'The Barstow lights',
+            story: 'You saw three lights over the desert outside Barstow in ninety-seven. No sound at all, and gone before the tape was running.',
+            details: [],
+            timesTold: 0,
+        };
+        const withFacts = { ...previous, facts: ['John Martyn was born in New Malden in 1948.'] };
+        // Both records carrying notes is the moment the default rung stays quiet in, so a persona is
+        // named explicitly wherever the rung is the thing under test.
+        const told = { ...withFacts, facts: ['Recorded in two nights.'] };
+
+        it('is offered on a talk break, in the words the notes are offered in', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next }, { story }));
+
+            expect(said).toContain(story.story);
+            expect(said).toMatch(/You do not have to mention it/i);
+        });
+
+        // The failure this feature can cause is worse than the one it fixes: an anecdote hung off a
+        // discography is the station stating an invented fact about a real record, in the voice it
+        // uses for true ones.
+        it('says it is not a fact about either record', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next }, { story }));
+
+            expect(said).toMatch(/it happened to YOU/i);
+            expect(said).toMatch(/not a fact about either record/i);
+        });
+
+        it('carries the details a story has picked up, as things the character also remembers', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous, next }, { story: { ...story, details: ['The truck radio went to static.'] } }));
+
+            expect(said).toMatch(/You also remember:/);
+            expect(said).toContain('- The truck radio went to static.');
+        });
+
+        // A rule about a thing that has not happened is a rule about nothing, which is why the notes
+        // rule is withheld from a prompt carrying no notes.
+        it('says nothing about repeating itself until it has actually gone out', () => {
+            expect(user(prompt({ kind: 'talkbreak', previous, next }, { story }))).not.toMatch(/told this on air before/i);
+            expect(user(prompt({ kind: 'talkbreak', previous, next }, { story: { ...story, timesTold: 2 } }))).toMatch(/told this on air before/i);
+        });
+
+        // The character's own rung is NOT read here, and that is deliberate rather than missing:
+        // whether there is a story to render is decided where the story is read, because that is
+        // where it is also rested. A rung consulted here would spend a story's turn on a break that
+        // never carried it. See `WriteBreakJob` for the rule itself.
+        it('renders whatever it was handed, since the rung was applied before it got here', () => {
+            const persona = { style: 'an overnight host', storytelling: 'never' as const };
+            const said = user(prompt({ kind: 'talkbreak', previous: withFacts, next: told }, { story, persona }));
+
+            expect(said).toContain(story.story);
+        });
+
+        // The shapes that carry no stories at all. A bulletin is the argued one: a model asked to
+        // report the news and handed material reads the material out.
+        it('reaches neither a bulletin nor a welcome', () => {
+            const bulletin = breakPrompt({ kind: 'news', next, stories: [{ headline: 'A thing happened' }] }, { story }, NEWS_SHAPE);
+            const welcome = breakPrompt({ kind: 'welcome' }, { story }, WELCOME_SHAPE);
+
+            expect(user(bulletin)).not.toContain(story.story);
+            expect(user(welcome)).not.toContain(story.story);
+        });
+
+        // A station with nothing written down reads exactly as it did before any of this existed,
+        // which is the guarantee every optional block in this file keeps.
+        it('leaves a prompt byte-identical to one built before stories existed', () => {
+            const request: BreakWriteRequest = { kind: 'talkbreak', previous, next };
+            const persona = { style: 'an overnight host' };
+
+            expect(user(prompt(request, { persona }))).toEqual(user(prompt(request, { persona, story: undefined })));
+        });
+    });
+
     // The show behind the current record. Every assertion here is really about one risk: a list is
     // the one shape a model will simply read out, which is the failure "make one point" exists to
     // stop and the same one the notes rule above was rewritten for.

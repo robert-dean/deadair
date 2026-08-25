@@ -50,6 +50,7 @@ import {
     type PersonaSheet,
 } from '#modules/personas/persona.sheet.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
+import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 
 /**
@@ -155,6 +156,32 @@ export interface BreakPromptShape {
      */
     showsNotebook?: boolean;
     /**
+     * Whether this kind may carry one of the character's own STORIES, and on whose terms.
+     *
+     * Absent for every kind that may not, which is most of them — and `NEWS_SHAPE` is the one where
+     * that is an argument rather than an omission, on {@link BreakPromptShape.showsNotebook}' exact
+     * ground: a model asked to report the news and handed material will find a way to read the
+     * material out, and an anecdote is worse there than a discography note because nothing about it
+     * is even trying to be true today. A welcome is the station's front door rather than a slot for
+     * one.
+     *
+     * The two modes are two different claims about what the break IS, which is why this is not a
+     * boolean:
+     *
+     * - `offered` — the story is optional material on a break about something else, and saying so is
+     *   the whole of the difference. The ordinary talk break.
+     * - `told` — the story IS the break, so the optionality goes: a presenter who declined to tell it
+     *   would be a break about nothing.
+     *
+     * **Whether there is a story here at all is the CALLER's decision**, not this flag's. A
+     * character's {@link PersonaSheet.storytelling} rung is applied where the story is read, because
+     * that is where it is also RESTED — a rung consulted here instead would have the caller spending
+     * a story's turn on a break that never carried it, and the store would report a telling nobody
+     * heard. This is the same division `showsNotebook` already makes: the shape vetoes, and what is
+     * in the prompt is what the job put there.
+     */
+    stories?: 'offered' | 'told';
+    /**
      * Whether a persona's {@link PersonaSheet.latitude} is offered on this kind of break.
      *
      * Off unless a shape asks for it, and the shape has the last word rather than the sheet — which
@@ -258,6 +285,9 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
             'reminded you of. If your break would still make sense read out by anybody else, it is not yours yet.',
     ],
     mustNameRecord: true,
+    // Optional material rather than the point of the break, so the character's own rung decides
+    // whether it appears. See `BreakPromptShape.stories`.
+    stories: 'offered',
     // The link between two records is the one kind with room to give. See `allowsLatitude`.
     allowsLatitude: true,
     // The same three rules with the first one turned around, which is the only one of them that was
@@ -311,6 +341,24 @@ export interface PromptSettings {
      * is `personaLines`' own guarantee held one level up.
      */
     notebook?: PersonaNotesForPrompt;
+    /**
+     * The one story this break may draw on, from `deadair.persona_stories`.
+     *
+     * ONE, already chosen by the caller, which is the whole shape of the feature rather than a
+     * convenience. The measured failure of handing a model material is that the model gets through
+     * the material — the notes reached 108 of 137 captured prompts and the answers recite them — and
+     * a list of anecdotes in a forty-word break would be a presenter reading their own biography.
+     * The rotation lives in the store, where `last_told_at` can be stamped by whoever actually went
+     * on air; nothing here decides WHICH.
+     *
+     * Read by the caller for {@link PromptSettings.notebook}'s reason exactly: the caller rested what
+     * it took, so a writer that fetched its own would spend the rotation a second time and show a
+     * different story to the guard than to the prompt.
+     *
+     * Absent leaves the prompt byte-identical to one built before any of this existed, which is the
+     * state of every station until somebody writes a story down.
+     */
+    story?: PersonaStoryForPrompt;
     /** The ceiling, in words. See {@link DEFAULT_MAX_WORDS}. */
     maxWords?: number;
     /**
@@ -679,6 +727,14 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // IMMEDIATELY after that block, and the position is the argument for the default rung. What the
+    // paragraph above hands a model is a prohibition and nothing else — the station knows nothing,
+    // so say nothing — while the character sheet three inches up is asking for specifics. Measured
+    // over thirty-nine breaks under one persona, what filled that silence was invented pressing
+    // plants and catalogue numbers. A story is the something else, and it is true: it just is not
+    // true ABOUT THE RECORD, which is the one thing the block below has to make unmistakable.
+    parts.push(...storyLines(settings, shape));
+
     // A bulletin's substrate, and the strictest rules in this file sit on it. Rendered whenever the
     // request carries stories rather than behind a flag on the shape, exactly as the clock and the
     // recent scripts are: what the prompt says is a function of what the moment holds.
@@ -923,6 +979,68 @@ function traitLines(notes: PersonaNotesForPrompt | undefined): string[] {
     if (traits.length === 0) return [];
 
     return [`Things you have settled into on this station: ${traits.join(' ')}`];
+}
+
+/**
+ * The character's own story, as the user turn shows it — or nothing at all.
+ *
+ * Empty when the shape carries no stories, or when the caller sent none — and the second of those is
+ * where the character's own rung was already applied, beside the stamp that rests it. See
+ * {@link BreakPromptShape.stories}.
+ *
+ * ## Two things it must say, and they pull in opposite directions
+ *
+ * It has to be USABLE — a model that treats an anecdote as background it must not touch has been
+ * handed nothing — and it has to be FENCED, because the failure this feature can produce is worse
+ * than the one it fixes: a story hung off a discography is the station stating an invented fact
+ * about a real record in the voice it uses for true ones. So the story is framed as something that
+ * happened to YOU, and the fence is stated as what a story is not rather than as a prohibition on
+ * mentioning it.
+ *
+ * ## Offered, in the words the notes are offered in
+ *
+ * "Work at most one of them in" read as an instruction to work one in, which is why the notes rule
+ * says "You do not have to use any of them" in as many words. A story is that hazard one size
+ * larger, since it is the most interesting thing in the prompt by a distance. Under `told` the
+ * optionality goes, because there the story IS the break and a presenter who declined to tell it
+ * would be a break about nothing.
+ */
+function storyLines(settings: PromptSettings, shape: BreakPromptShape): string[] {
+    const story = settings.story;
+    if (shape.stories === undefined || story === undefined) return [];
+
+    const lines = [
+        shape.stories === 'told'
+            ? 'Something that happened to you, and what this break is for. Tell it:'
+            : 'Something that happened to you, which you could tell if this moment gives you a reason to:',
+        story.story,
+        // The details are the half that makes a story worth keeping in a table rather than on a
+        // sheet: they arrived one at a time, and a telling that uses one is a telling nobody has
+        // heard. Shown as things the character also remembers rather than as a list to include,
+        // which is the played-list block's own wording and for its measured reason.
+        ...(story.details.length === 0 ? [] : ['You also remember:', ...story.details.map(detail => `- ${detail}`)]),
+    ];
+
+    // Only where it has actually gone out. A story told for the first time needs no warning, and a
+    // rule about a thing that has not happened is a rule about nothing — the same reason the notes
+    // rule is withheld from a prompt carrying no notes.
+    if (story.timesTold > 0) {
+        lines.push(
+            'You have told this on air before, so a regular listener may know it. Tell it the way somebody tells a story twice: shorter, ' +
+                'or from a different end of it, or for the one detail that is new.',
+        );
+    }
+
+    lines.push(
+        shape.stories === 'told'
+            ? 'It happened to you and it is yours to tell. It is not a fact about any record: do not attach it to what is playing, do not ' +
+                  'present it as something the station knows, and do not turn it into a claim about anybody real.'
+            : 'You do not have to mention it, and most breaks are better without it. If you do, it happened to YOU — it is not a fact ' +
+                  'about either record, so do not attach it to one, do not present it as something the station knows, and never let it ' +
+                  'become a claim about the music you cannot back up.',
+    );
+
+    return [lines.join('\n')];
 }
 
 /**

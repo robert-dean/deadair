@@ -15,6 +15,7 @@ import {
     type AnswerGuard,
     type PromptSettings,
 } from './break.prompt.js';
+import { resolveBreakWords } from './break.words.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
@@ -158,11 +159,21 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // Read per break like every other setting here, so an operator's change lands on
             // the next one rather than after a restart.
             cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+            // The station's own ceiling, read here rather than left to `DEFAULT_MAX_WORDS` — which
+            // is now this setting's DEFAULT rather than the number itself, so the two cannot
+            // disagree. It reaches the guard below through `maxWordsFor` off this same object, which
+            // is the one rule that matters: what the model is told and what it is refused at have to
+            // come from one call.
+            maxWords: resolveBreakWords(this.config),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
             // Carried across rather than read here, for the reason the persona is: the caller read
             // the notebook and rested what it took, so a writer that fetched its own would spend the
             // rotation a second time and show a different character to the guard than to the prompt.
             ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
+            // Carried across for the notebook's reason exactly: the caller chose ONE story and
+            // rested it, so a writer that fetched its own would spend the rotation a second time and
+            // offer this break a story the record of it says was never told.
+            ...(request.story === undefined ? {} : { story: request.story }),
             // Carried across for the same reason, and the SHAPE is what decides whether any of it is
             // offered: this writer passes what the engine can do, and `TALK_BREAK_SHAPE` is what says
             // a link between two records is a place to do it.

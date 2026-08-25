@@ -5,6 +5,16 @@ import { SdkError } from '@deadair/sdk';
 
 import { CatalogTracksPage } from '../../../src/components/catalog/catalog.tracks.page';
 import { render, screen, waitFor } from '../../utils/render';
+import { DEFAULT_PAGE_SIZE } from '../../../src/components/catalog/catalog.page.params';
+
+/**
+ * How a list opens, for a render that is not about the ordering.
+ *
+ * Every case here predates sorting and is about rows, art, counts or the pager; the order prop
+ * is required because the page reads it to build its query, so it is supplied once rather than
+ * spelled at twenty render sites.
+ */
+const ORDER = (sortBy: string) => ({ sortBy, sort: 'asc' as const, pageSize: DEFAULT_PAGE_SIZE });
 
 const listTracks = vi.fn();
 const getTrackEnrichment = vi.fn();
@@ -74,7 +84,7 @@ describe('CatalogTracksPage', () => {
             ]),
         );
 
-        render(<CatalogTracksPage page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
 
         expect(await screen.findByRole('img', { name: '( )' })).toHaveAttribute('src', 'https://i.scdn.co/image/abc');
         expect(screen.queryByRole('img', { name: 'Untitled' })).not.toBeInTheDocument();
@@ -83,7 +93,7 @@ describe('CatalogTracksPage', () => {
     it('renders the title, artist, album and duration of each track', async () => {
         listTracks.mockResolvedValue(page([track()]));
 
-        render(<CatalogTracksPage page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
 
         expect(await screen.findByText('Vaka')).toBeInTheDocument();
         expect(screen.getByText('Sigur Rós')).toBeInTheDocument();
@@ -94,7 +104,7 @@ describe('CatalogTracksPage', () => {
     it('leaves the album cell blank for a track ingested outside any release', async () => {
         listTracks.mockResolvedValue(page([track({ albumId: undefined, albumName: undefined, title: 'Untitled' })]));
 
-        render(<CatalogTracksPage page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
 
         // The row renders at all, which is the point: an earlier contract required `albumId` and
         // this row took the whole page down with it.
@@ -107,7 +117,7 @@ describe('CatalogTracksPage', () => {
     it('blames the search term when one is set and nothing matched', async () => {
         listTracks.mockResolvedValue(page([]));
 
-        render(<CatalogTracksPage page={0} search="zzz" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="zzz" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
 
         expect(await screen.findByText('Nothing matches “zzz”')).toBeInTheDocument();
     });
@@ -124,7 +134,7 @@ describe('CatalogTracksPage', () => {
             ],
         });
 
-        render(<CatalogTracksPage page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
         await screen.findByText('Vaka');
 
         expect(getTrackEnrichment).not.toHaveBeenCalled();
@@ -143,7 +153,7 @@ describe('CatalogTracksPage', () => {
         listTracks.mockResolvedValue(page([track()]));
         rateTrack.mockResolvedValue(track({ rating: 'liked' }));
 
-        render(<CatalogTracksPage page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
         await screen.findByText('Vaka');
 
         await userEvent.click(screen.getByRole('radio', { name: 'Like Vaka' }));
@@ -158,7 +168,7 @@ describe('CatalogTracksPage', () => {
     it('says how much of the library is in each state', async () => {
         listTracks.mockResolvedValue(page([track()], 919, counts({ total: 919, cached: 345, measured: 216, failing: 4 })));
 
-        render(<CatalogTracksPage page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
 
         expect(await screen.findByText('919 records')).toBeInTheDocument();
         expect(screen.getByText('345')).toBeInTheDocument();
@@ -171,7 +181,7 @@ describe('CatalogTracksPage', () => {
         const onStateChange = vi.fn();
         listTracks.mockResolvedValue(page([track()], 4, counts({ total: 4, failing: 4 })));
 
-        render(<CatalogTracksPage page={0} search="" state="failing" onPageChange={noop} onSearchChange={noop} onStateChange={onStateChange} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="" state="failing" onPageChange={noop} onSearchChange={noop} onStateChange={onStateChange} />);
         await screen.findByText('Vaka');
 
         expect(listTracks).toHaveBeenCalledWith(expect.objectContaining({ state: 'failing' }));
@@ -183,7 +193,7 @@ describe('CatalogTracksPage', () => {
     it('keeps a filter with nothing behind it on the strip', async () => {
         listTracks.mockResolvedValue(page([track()], 10, counts({ total: 10, benched: 0 })));
 
-        render(<CatalogTracksPage page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
 
         expect(await screen.findByRole('checkbox', { name: /Benched/ })).toBeDisabled();
     });
@@ -191,7 +201,7 @@ describe('CatalogTracksPage', () => {
     it('marks each row with what the station has of it', async () => {
         listTracks.mockResolvedValue(page([track({ hasAudio: true, measured: false, enriched: true })]));
 
-        render(<CatalogTracksPage page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
 
         expect(await screen.findByLabelText('audio on this machine')).toBeInTheDocument();
         expect(screen.getByLabelText('measured')).toBeInTheDocument();
@@ -201,7 +211,7 @@ describe('CatalogTracksPage', () => {
     it('surfaces a failed read as an alert', async () => {
         listTracks.mockRejectedValue(new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'no' }, new Headers()));
 
-        render(<CatalogTracksPage page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
+        render(<CatalogTracksPage order={ORDER('title')} page={0} search="" state="" onPageChange={noop} onSearchChange={noop} onStateChange={noop} />);
 
         expect(await screen.findByText('The tracks could not be loaded')).toBeInTheDocument();
     });

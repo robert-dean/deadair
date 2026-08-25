@@ -4,7 +4,6 @@ import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
 import {
-    CATALOG_PAGE_SIZE,
     catalogAlbumEnrichmentOptions,
     catalogAlbumOptions,
     catalogAlbumTracksOptions,
@@ -18,6 +17,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import type { CatalogOrderParams } from './catalog.page.params';
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
@@ -26,12 +26,14 @@ import { TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './trac
 export interface AlbumDetailPageProps {
     albumId: string;
     page: number;
+    /** How the list on this page is ordered and how much of it is shown, carried in the URL. */
+    order: CatalogOrderParams;
     onPageChange: (page: number) => void;
 }
 
-export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPageProps) {
+export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDetailPageProps) {
     const album = useQuery(catalogAlbumOptions(albumId));
-    const tracks = useQuery(catalogAlbumTracksOptions(albumId, { page }));
+    const tracks = useQuery(catalogAlbumTracksOptions(albumId, { page, ...order }));
     const enrichment = useQuery(catalogAlbumEnrichmentOptions(albumId));
     const rows = tracks.data?.data ?? [];
     const expansion = useTrackExpansion();
@@ -163,7 +165,7 @@ export function AlbumDetailPage({ albumId, page, onPageChange }: AlbumDetailPage
                             ))}
                         </Table.Tbody>
                     </Table>
-                    <CatalogPagination total={tracks.data.meta.total} pageSize={CATALOG_PAGE_SIZE} page={page} onChange={onPageChange} />
+                    <CatalogPagination total={tracks.data.meta.total} pageSize={order.pageSize} page={page} onChange={onPageChange} />
                 </>
             ) : undefined}
         </Stack>

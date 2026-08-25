@@ -3,7 +3,7 @@ import { Anchor, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { CATALOG_PAGE_SIZE, catalogTracksOptions, useRateTrack } from '../../api/catalog.queries';
+import { catalogTracksOptions, useRateTrack } from '../../api/catalog.queries';
 import { formatDuration } from '../shared/format.duration';
 import { Artwork } from '../shared/artwork';
 import { AlbumLink, ArtistLink, TrackLink } from '../shared/catalog.links';
@@ -12,7 +12,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { CatalogPagination } from './catalog.pagination';
-import type { TrackStateParam } from './catalog.page.params';
+import type { CatalogOrderParams, TrackStateParam } from './catalog.page.params';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
 import { TrackStateFilter } from './track.state.filter';
@@ -22,6 +22,8 @@ export interface CatalogTracksPageProps {
     page: number;
     search: string;
     state: TrackStateParam | '';
+    /** How this list is ordered and how much of it is shown, carried in the URL. */
+    order: CatalogOrderParams;
     onPageChange: (page: number) => void;
     onSearchChange: (search: string) => void;
     onStateChange: (state: TrackStateParam | '') => void;
@@ -50,8 +52,8 @@ function StateMark({ on, label, mark }: { on: boolean; label: string; mark: stri
  * The drill-down cannot answer "do we have this song?" without already knowing whose it is, which
  * is the question the operator actually arrives with.
  */
-export function CatalogTracksPage({ page, search, state, onPageChange, onSearchChange, onStateChange }: CatalogTracksPageProps) {
-    const tracks = useQuery(catalogTracksOptions({ page, search, state }));
+export function CatalogTracksPage({ page, search, state, order, onPageChange, onSearchChange, onStateChange }: CatalogTracksPageProps) {
+    const tracks = useQuery(catalogTracksOptions({ page, search, state, ...order }));
     const rows = tracks.data?.data ?? [];
     const expansion = useTrackExpansion();
     const rate = useRateTrack();
@@ -173,7 +175,7 @@ export function CatalogTracksPage({ page, search, state, onPageChange, onSearchC
                             ))}
                         </Table.Tbody>
                     </Table>
-                    <CatalogPagination total={tracks.data.meta.total} pageSize={CATALOG_PAGE_SIZE} page={page} onChange={onPageChange} />
+                    <CatalogPagination total={tracks.data.meta.total} pageSize={order.pageSize} page={page} onChange={onPageChange} />
                 </>
             ) : undefined}
         </Stack>

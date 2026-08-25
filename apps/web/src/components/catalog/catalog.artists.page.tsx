@@ -2,12 +2,13 @@ import { Anchor, Group, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
-import { CATALOG_PAGE_SIZE, catalogArtistsOptions, useRateArtist } from '../../api/catalog.queries';
+import { catalogArtistsOptions, useRateArtist } from '../../api/catalog.queries';
 import { Artwork } from '../shared/artwork';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import type { CatalogOrderParams } from './catalog.page.params';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
@@ -15,12 +16,14 @@ import { RatingControl } from './rating.control';
 export interface CatalogArtistsPageProps {
     page: number;
     search: string;
+    /** How this list is ordered and how much of it is shown, carried in the URL. */
+    order: CatalogOrderParams;
     onPageChange: (page: number) => void;
     onSearchChange: (search: string) => void;
 }
 
-export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange }: CatalogArtistsPageProps) {
-    const artists = useQuery(catalogArtistsOptions({ page, search }));
+export function CatalogArtistsPage({ page, search, order, onPageChange, onSearchChange }: CatalogArtistsPageProps) {
+    const artists = useQuery(catalogArtistsOptions({ page, search, ...order }));
     const rows = artists.data?.data ?? [];
     const rate = useRateArtist();
 
@@ -106,7 +109,7 @@ export function CatalogArtistsPage({ page, search, onPageChange, onSearchChange 
                             ))}
                         </Table.Tbody>
                     </Table>
-                    <CatalogPagination total={artists.data.meta.total} pageSize={CATALOG_PAGE_SIZE} page={page} onChange={onPageChange} />
+                    <CatalogPagination total={artists.data.meta.total} pageSize={order.pageSize} page={page} onChange={onPageChange} />
                 </>
             ) : undefined}
         </Stack>

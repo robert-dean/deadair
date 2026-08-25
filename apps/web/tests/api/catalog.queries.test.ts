@@ -10,7 +10,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-    CATALOG_PAGE_SIZE,
     catalogAlbumOptions,
     catalogAlbumTracksOptions,
     catalogArtistAlbumsOptions,
@@ -19,6 +18,7 @@ import {
     catalogTracksOptions,
 } from '../../src/api/catalog.queries';
 import { queryKeys } from '../../src/api/query.keys';
+import { DEFAULT_PAGE_SIZE } from '../../src/components/catalog/catalog.page.params';
 
 const listArtists = vi.fn();
 const getArtist = vi.fn();
@@ -43,7 +43,7 @@ vi.mock('../../src/api/client', () => ({
 const ARTIST_ID = '11111111-1111-4111-8111-111111111111';
 const ALBUM_ID = '22222222-2222-4222-8222-222222222222';
 
-const emptyPage = { meta: { total: 0, page: 0, pageSize: CATALOG_PAGE_SIZE, sort: 'asc' }, data: [] };
+const emptyPage = { meta: { total: 0, page: 0, pageSize: DEFAULT_PAGE_SIZE, sort: 'asc' }, data: [] };
 
 afterEach(() => {
     vi.resetAllMocks();
@@ -51,7 +51,7 @@ afterEach(() => {
 
 describe('catalogArtistsOptions', () => {
     it('keys on the page and the search term, so neither reads the other out of the cache', () => {
-        expect(catalogArtistsOptions({ page: 0 }).queryKey).toEqual(queryKeys.catalog.artists(0, undefined));
+        expect(catalogArtistsOptions({ page: 0 }).queryKey).toEqual(queryKeys.catalog.artists(0, undefined, '::'));
         expect(catalogArtistsOptions({ page: 1 }).queryKey).not.toEqual(catalogArtistsOptions({ page: 0 }).queryKey);
         expect(catalogArtistsOptions({ page: 0, search: 'sigur' }).queryKey).not.toEqual(catalogArtistsOptions({ page: 0 }).queryKey);
     });
@@ -61,7 +61,7 @@ describe('catalogArtistsOptions', () => {
 
         await catalogArtistsOptions({ page: 2 }).queryFn?.({} as never);
 
-        expect(listArtists).toHaveBeenCalledWith({ page: 2, pageSize: CATALOG_PAGE_SIZE, sort: 'asc', search: undefined });
+        expect(listArtists).toHaveBeenCalledWith({ page: 2, pageSize: DEFAULT_PAGE_SIZE, sort: 'asc', sortBy: undefined, search: undefined });
     });
 
     it('drops an empty search rather than sending one the contract rejects', async () => {
@@ -101,7 +101,7 @@ describe('the per-parent lists', () => {
     it('key on the parent as well as the page, so two artists never share a page', () => {
         const other = '44444444-4444-4444-8444-444444444444';
 
-        expect(catalogArtistAlbumsOptions(ARTIST_ID, { page: 0 }).queryKey).toEqual(queryKeys.catalog.artistAlbums(ARTIST_ID, 0, undefined));
+        expect(catalogArtistAlbumsOptions(ARTIST_ID, { page: 0 }).queryKey).toEqual(queryKeys.catalog.artistAlbums(ARTIST_ID, 0, undefined, '::'));
         expect(catalogArtistAlbumsOptions(ARTIST_ID, { page: 0 }).queryKey).not.toEqual(catalogArtistAlbumsOptions(other, { page: 0 }).queryKey);
     });
 
@@ -112,8 +112,8 @@ describe('the per-parent lists', () => {
         await catalogArtistAlbumsOptions(ARTIST_ID, { page: 1 }).queryFn?.({} as never);
         await catalogAlbumTracksOptions(ALBUM_ID, { page: 0 }).queryFn?.({} as never);
 
-        expect(listArtistAlbums).toHaveBeenCalledWith(ARTIST_ID, { page: 1, pageSize: CATALOG_PAGE_SIZE, sort: 'asc', search: undefined });
-        expect(listAlbumTracks).toHaveBeenCalledWith(ALBUM_ID, { page: 0, pageSize: CATALOG_PAGE_SIZE, sort: 'asc', search: undefined });
+        expect(listArtistAlbums).toHaveBeenCalledWith(ARTIST_ID, { page: 1, pageSize: DEFAULT_PAGE_SIZE, sort: 'asc', sortBy: undefined, search: undefined });
+        expect(listAlbumTracks).toHaveBeenCalledWith(ALBUM_ID, { page: 0, pageSize: DEFAULT_PAGE_SIZE, sort: 'asc', sortBy: undefined, search: undefined });
     });
 });
 
@@ -123,6 +123,6 @@ describe('catalogTracksOptions', () => {
 
         await catalogTracksOptions({ page: 0, search: 'vaka' }).queryFn?.({} as never);
 
-        expect(listTracks).toHaveBeenCalledWith({ page: 0, pageSize: CATALOG_PAGE_SIZE, sort: 'asc', search: 'vaka' });
+        expect(listTracks).toHaveBeenCalledWith({ page: 0, pageSize: DEFAULT_PAGE_SIZE, sort: 'asc', sortBy: undefined, search: 'vaka' });
     });
 });

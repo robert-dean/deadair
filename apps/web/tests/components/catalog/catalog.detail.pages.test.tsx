@@ -6,6 +6,16 @@ import { SdkError } from '@deadair/sdk';
 import { AlbumDetailPage } from '../../../src/components/catalog/album.detail.page';
 import { ArtistDetailPage } from '../../../src/components/catalog/artist.detail.page';
 import { render, screen } from '../../utils/render';
+import { DEFAULT_PAGE_SIZE } from '../../../src/components/catalog/catalog.page.params';
+
+/**
+ * How a list opens, for a render that is not about the ordering.
+ *
+ * Every case here predates sorting and is about rows, art, counts or the pager; the order prop
+ * is required because the page reads it to build its query, so it is supplied once rather than
+ * spelled at twenty render sites.
+ */
+const ORDER = (sortBy: string) => ({ sortBy, sort: 'asc' as const, pageSize: DEFAULT_PAGE_SIZE });
 
 const getArtist = vi.fn();
 const listArtistAlbums = vi.fn();
@@ -68,7 +78,7 @@ describe('ArtistDetailPage', () => {
             page([{ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', year: 2002, rating: 'neutral', trackCount: 8 }]),
         );
 
-        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByRole('heading', { name: 'Sigur Rós' })).toBeInTheDocument();
         expect(screen.getByText('1 album • 11 tracks')).toBeInTheDocument();
@@ -93,7 +103,7 @@ describe('ArtistDetailPage', () => {
             ]),
         );
 
-        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByRole('img', { name: 'Sigur Rós' })).toHaveAttribute('src', '/api/art/aaaa');
         expect(await screen.findByRole('img', { name: '( )' })).toHaveAttribute('src', '/api/art/bbbb');
@@ -106,7 +116,7 @@ describe('ArtistDetailPage', () => {
         listArtistAlbums.mockResolvedValue(page([]));
         rateArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'disliked', albumCount: 0, trackCount: 2 });
 
-        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
         await screen.findByRole('heading', { name: 'Sigur Rós' });
 
         await userEvent.click(screen.getByRole('radio', { name: 'Dislike Sigur Rós' }));
@@ -123,7 +133,7 @@ describe('ArtistDetailPage', () => {
         );
         rateAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 'liked', trackCount: 8 });
 
-        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
         await screen.findByText('( )');
 
         await userEvent.click(screen.getByRole('radio', { name: 'Like ( )' }));
@@ -137,7 +147,7 @@ describe('ArtistDetailPage', () => {
         getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 0, trackCount: 2 });
         listArtistAlbums.mockResolvedValue(page([]));
 
-        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByText(/Their tracks may still be in the catalog/)).toBeInTheDocument();
     });
@@ -151,7 +161,7 @@ describe('ArtistDetailPage', () => {
             sources: [{ provider: 'deadair.musicbrainz', fetchedAt: '2026-08-02T09:00:00.000Z', stale: false, found: true, data: {} }],
         });
 
-        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByText('Sigur Rós formed in Reykjavík in 1994.')).toBeInTheDocument();
         expect(screen.getByText('post-rock')).toBeInTheDocument();
@@ -162,7 +172,7 @@ describe('ArtistDetailPage', () => {
         getArtist.mockResolvedValue({ id: ARTIST_ID, name: 'Sigur Rós', rating: 'neutral', albumCount: 0, trackCount: 2 });
         listArtistAlbums.mockResolvedValue(page([]));
 
-        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByText(/No provider has been asked about this artist yet/)).toBeInTheDocument();
     });
@@ -171,7 +181,7 @@ describe('ArtistDetailPage', () => {
         getArtist.mockRejectedValue(new SdkError(404, 'Not Found', { statusCode: 404, message: 'artist is not in the catalog' }, new Headers()));
         listArtistAlbums.mockResolvedValue(page([]));
 
-        render(<ArtistDetailPage artistId={ARTIST_ID} page={0} onPageChange={noop} />);
+        render(<ArtistDetailPage order={ORDER('name')} artistId={ARTIST_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByText('This artist could not be loaded')).toBeInTheDocument();
         expect(screen.queryByText('The albums could not be loaded')).not.toBeInTheDocument();
@@ -197,7 +207,7 @@ describe('AlbumDetailPage', () => {
             ]),
         );
 
-        render(<AlbumDetailPage albumId={ALBUM_ID} page={0} onPageChange={noop} />);
+        render(<AlbumDetailPage order={ORDER('title')} albumId={ALBUM_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByRole('heading', { name: '( )' })).toBeInTheDocument();
         expect(await screen.findByText('Vaka')).toBeInTheDocument();
@@ -209,7 +219,7 @@ describe('AlbumDetailPage', () => {
         getAlbum.mockResolvedValue({ id: ALBUM_ID, name: '( )', artistId: ARTIST_ID, artistName: 'Sigur Rós', rating: 'neutral', trackCount: 0 });
         listAlbumTracks.mockResolvedValue(page([]));
 
-        render(<AlbumDetailPage albumId={ALBUM_ID} page={0} onPageChange={noop} />);
+        render(<AlbumDetailPage order={ORDER('title')} albumId={ALBUM_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByText('(')).toBeInTheDocument();
         expect(screen.queryByRole('img')).not.toBeInTheDocument();
@@ -226,7 +236,7 @@ describe('AlbumDetailPage', () => {
             sources: [{ provider: 'deadair.musicbrainz', fetchedAt: '2026-08-02T09:00:00.000Z', stale: true, found: true, data: {} }],
         });
 
-        render(<AlbumDetailPage albumId={ALBUM_ID} page={0} onPageChange={noop} />);
+        render(<AlbumDetailPage order={ORDER('title')} albumId={ALBUM_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByText('Fat Cat')).toBeInTheDocument();
         expect(screen.getByText('2002-10-28')).toBeInTheDocument();
@@ -250,7 +260,7 @@ describe('AlbumDetailPage', () => {
             ]),
         );
 
-        render(<AlbumDetailPage albumId={ALBUM_ID} page={0} onPageChange={noop} />);
+        render(<AlbumDetailPage order={ORDER('title')} albumId={ALBUM_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByText('Untitled')).toBeInTheDocument();
         expect(screen.queryByText('0:00')).not.toBeInTheDocument();
@@ -260,7 +270,7 @@ describe('AlbumDetailPage', () => {
         getAlbum.mockRejectedValue(new SdkError(404, 'Not Found', { statusCode: 404, message: 'album is not in the catalog' }, new Headers()));
         listAlbumTracks.mockResolvedValue(page([]));
 
-        render(<AlbumDetailPage albumId={ALBUM_ID} page={0} onPageChange={noop} />);
+        render(<AlbumDetailPage order={ORDER('title')} albumId={ALBUM_ID} page={0} onPageChange={noop} />);
 
         expect(await screen.findByText('This album could not be loaded')).toBeInTheDocument();
         expect(screen.getByText('Back to catalog')).toBeInTheDocument();

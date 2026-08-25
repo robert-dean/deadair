@@ -2,13 +2,13 @@ import { createFileRoute, stripSearchParams, useNavigate } from '@tanstack/react
 
 import { catalogArtistAlbumsOptions, catalogArtistOptions } from '../../../api/catalog.queries';
 import { ArtistDetailPage } from '../../../components/catalog/artist.detail.page';
-import { CATALOG_PAGE_DEFAULTS, validateCatalogPage } from '../../../components/catalog/catalog.page.params';
+import { CATALOG_ALBUM_DEFAULTS, validateCatalogAlbums } from '../../../components/catalog/catalog.page.params';
 
 export const Route = createFileRoute('/catalog/artists/$artistId')({
     component: ArtistDetailRoute,
-    validateSearch: validateCatalogPage,
-    search: { middlewares: [stripSearchParams(CATALOG_PAGE_DEFAULTS)] },
-    loaderDeps: ({ search }) => ({ page: search.page }),
+    validateSearch: validateCatalogAlbums,
+    search: { middlewares: [stripSearchParams(CATALOG_ALBUM_DEFAULTS)] },
+    loaderDeps: ({ search }) => ({ page: search.page, sortBy: search.sortBy, sort: search.sort, pageSize: search.pageSize }),
     // Warms the same cache the page's hooks read from. Both rejections are swallowed on purpose:
     // they stay in the query cache for the page's own alerts, so a deep link to an artist that was
     // merged away costs an alert rather than the whole screen.
@@ -22,15 +22,16 @@ export const Route = createFileRoute('/catalog/artists/$artistId')({
 
 function ArtistDetailRoute() {
     const { artistId } = Route.useParams();
-    const { page } = Route.useSearch();
+    const { page, sortBy, sort, pageSize } = Route.useSearch();
     const navigate = useNavigate({ from: Route.fullPath });
 
     return (
         <ArtistDetailPage
             artistId={artistId}
             page={page}
+            order={{ sortBy, sort, pageSize }}
             onPageChange={next => {
-                void navigate({ search: { page: next } });
+                void navigate({ search: previous => ({ ...previous, page: next }) });
             }}
         />
     );

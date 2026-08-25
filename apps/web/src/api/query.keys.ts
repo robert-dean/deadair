@@ -174,17 +174,20 @@ export const queryKeys = {
      * overwrite the full list in the cache with a filtered slice of it.
      */
     catalog: {
-        artists: (page: number, search?: string) => ['catalog', 'artists', page, search ?? ''] as const,
+        artists: (page: number, search?: string, order?: string) => ['catalog', 'artists', page, search ?? '', order ?? ''] as const,
         artist: (id: string) => ['catalog', 'artist', id] as const,
-        artistAlbums: (id: string, page: number, search?: string) => ['catalog', 'artist', id, 'albums', page, search ?? ''] as const,
+        artistAlbums: (id: string, page: number, search?: string, order?: string) =>
+            ['catalog', 'artist', id, 'albums', page, search ?? '', order ?? ''] as const,
         /** What every enrichment provider stored about one row. Read only; the walk is the writer. */
         artistEnrichment: (id: string) => ['catalog', 'artist', id, 'enrichment'] as const,
-        albums: (page: number, search?: string) => ['catalog', 'albums', page, search ?? ''] as const,
+        albums: (page: number, search?: string, order?: string) => ['catalog', 'albums', page, search ?? '', order ?? ''] as const,
         album: (id: string) => ['catalog', 'album', id] as const,
-        albumTracks: (id: string, page: number, search?: string) => ['catalog', 'album', id, 'tracks', page, search ?? ''] as const,
+        albumTracks: (id: string, page: number, search?: string, order?: string) =>
+            ['catalog', 'album', id, 'tracks', page, search ?? '', order ?? ''] as const,
         albumEnrichment: (id: string) => ['catalog', 'album', id, 'enrichment'] as const,
         /** Keyed on the state filter too: a filtered list is a different request, not a stale one. */
-        tracks: (page: number, search?: string, state?: string) => ['catalog', 'tracks', page, search ?? '', state ?? ''] as const,
+        tracks: (page: number, search?: string, state?: string, order?: string) =>
+            ['catalog', 'tracks', page, search ?? '', state ?? '', order ?? ''] as const,
         /**
          * One record and everything it has accumulated. Separate from `trackEnrichment` because they
          * go stale for different reasons: this moves when the station plays, fetches or measures the

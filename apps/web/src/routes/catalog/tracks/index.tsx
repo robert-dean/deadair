@@ -8,7 +8,14 @@ export const Route = createFileRoute('/catalog/tracks/')({
     component: CatalogTracksRoute,
     validateSearch: validateCatalogTracks,
     search: { middlewares: [stripSearchParams(CATALOG_TRACK_DEFAULTS)] },
-    loaderDeps: ({ search }) => ({ page: search.page, search: search.search, state: search.state }),
+    loaderDeps: ({ search }) => ({
+        page: search.page,
+        search: search.search,
+        state: search.state,
+        sortBy: search.sortBy,
+        sort: search.sort,
+        pageSize: search.pageSize,
+    }),
     // See the sibling `/catalog` route: the rejection stays in the cache for the page's own alert.
     loader: async ({ context, deps }) => {
         await context.queryClient.ensureQueryData(catalogTracksOptions(deps)).catch(() => undefined);
@@ -16,7 +23,7 @@ export const Route = createFileRoute('/catalog/tracks/')({
 });
 
 function CatalogTracksRoute() {
-    const { page, search, state } = Route.useSearch();
+    const { page, search, state, sortBy, sort, pageSize } = Route.useSearch();
     const navigate = useNavigate({ from: Route.fullPath });
 
     return (
@@ -24,6 +31,7 @@ function CatalogTracksRoute() {
             page={page}
             search={search}
             state={state}
+            order={{ sortBy, sort, pageSize }}
             onPageChange={next => {
                 void navigate({ search: previous => ({ ...previous, page: next }) });
             }}

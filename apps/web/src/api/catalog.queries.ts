@@ -3,7 +3,7 @@ import type { Album, Artist, Rating, TrackState } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
-import { TRACK_STATES } from '../components/catalog/catalog.page.params';
+import { DEFAULT_PAGE_SIZE, TRACK_STATES } from '../components/catalog/catalog.page.params';
 
 /**
  * How long a catalog read stays fresh.
@@ -23,14 +23,24 @@ const CATALOG_STALE_TIME = 60_000;
  */
 const TRACK_DETAIL_STALE_TIME = 15_000;
 
-/** Rows per page. Below the contract's `pageSize` ceiling of 100, and dense enough to scroll rather than page. */
-export const CATALOG_PAGE_SIZE = 50;
+/**
+ * The ordering half of an input, as one string for the query key.
+ *
+ * Folded into a single segment rather than three so the keys grow by one entry each: they are
+ * matched by `invalidateRatedLists` with a predicate over segments, and a key that grew three
+ * positions would be three more chances for that predicate to read the wrong one.
+ */
+const order = ({ sortBy, sort, pageSize }: CatalogPageInput) => `${sortBy ?? ''}:${sort ?? ''}:${pageSize ?? ''}`;
 
 /** A page of any catalog list, as the routes carry it in their search params. */
 export interface CatalogPageInput {
     /** Zero-based, matching the API. The Mantine pager is one-based and converts at the edge. */
     page: number;
     search?: string;
+    /** A key from the list's own vocabulary. Absent leaves the ordering to the server's own default. */
+    sortBy?: string;
+    sort?: 'asc' | 'desc';
+    pageSize?: number;
 }
 
 /** A page of tracks, which can also be narrowed by what the station has of each record. */
@@ -41,17 +51,25 @@ export interface CatalogTrackPageInput extends CatalogPageInput {
 /**
  * The wire query for a page.
  *
- * `sort: 'asc'` is sent explicitly because the shared `Pagination` contract defaults to `desc`,
- * which over the catalog's name ordering would open every list at Z. An empty search is dropped
- * rather than sent, since the contract's `search` has a `min=1`.
+ * `sort` defaults to `asc` here rather than being left to the contract, which defaults to `desc`:
+ * over a name ordering that opens every list at Z, which reads as a broken page. The routes send a
+ * direction of their own on every read, so this default is the floor under a caller that does not,
+ * not the ordinary path. An empty search is dropped rather than sent, since the contract's `search`
+ * has a `min=1`.
  */
-function pageQuery({ page, search }: CatalogPageInput) {
-    return { page, pageSize: CATALOG_PAGE_SIZE, sort: 'asc' as const, search: search === undefined || search === '' ? undefined : search };
+function pageQuery({ page, search, sortBy, sort, pageSize }: CatalogPageInput) {
+    return {
+        page,
+        pageSize: pageSize ?? DEFAULT_PAGE_SIZE,
+        sort: sort ?? ('asc' as const),
+        sortBy,
+        search: search === undefined || search === '' ? undefined : search,
+    };
 }
 
 export function catalogArtistsOptions(input: CatalogPageInput) {
     return queryOptions({
-        queryKey: queryKeys.catalog.artists(input.page, input.search),
+        queryKey: queryKeys.catalog.artists(input.page, input.search, order(input)),
         queryFn: () => sdk.catalog.listArtists(pageQuery(input)),
         staleTime: CATALOG_STALE_TIME,
         // Paging and typing both change the key, so without this the table would blank out on
@@ -70,7 +88,7 @@ export function catalogArtistOptions(id: string) {
 
 export function catalogArtistAlbumsOptions(id: string, input: CatalogPageInput) {
     return queryOptions({
-        queryKey: queryKeys.catalog.artistAlbums(id, input.page, input.search),
+        queryKey: queryKeys.catalog.artistAlbums(id, input.page, input.search, order(input)),
         queryFn: () => sdk.catalog.listArtistAlbums(id, pageQuery(input)),
         staleTime: CATALOG_STALE_TIME,
         placeholderData: keepPreviousData,
@@ -79,7 +97,7 @@ export function catalogArtistAlbumsOptions(id: string, input: CatalogPageInput) 
 
 export function catalogAlbumsOptions(input: CatalogPageInput) {
     return queryOptions({
-        queryKey: queryKeys.catalog.albums(input.page, input.search),
+        queryKey: queryKeys.catalog.albums(input.page, input.search, order(input)),
         queryFn: () => sdk.catalog.listAlbums(pageQuery(input)),
         staleTime: CATALOG_STALE_TIME,
         placeholderData: keepPreviousData,
@@ -96,7 +114,7 @@ export function catalogAlbumOptions(id: string) {
 
 export function catalogAlbumTracksOptions(id: string, input: CatalogPageInput) {
     return queryOptions({
-        queryKey: queryKeys.catalog.albumTracks(id, input.page, input.search),
+        queryKey: queryKeys.catalog.albumTracks(id, input.page, input.search, order(input)),
         queryFn: () => sdk.catalog.listAlbumTracks(id, pageQuery(input)),
         staleTime: CATALOG_STALE_TIME,
         placeholderData: keepPreviousData,
@@ -154,7 +172,7 @@ export function catalogTrackEnrichmentOptions(id: string) {
 
 export function catalogTracksOptions(input: CatalogTrackPageInput) {
     return queryOptions({
-        queryKey: queryKeys.catalog.tracks(input.page, input.search, input.state),
+        queryKey: queryKeys.catalog.tracks(input.page, input.search, input.state, order(input)),
         // The state rides the same query as the page and the search, so a filtered list is a
         // different request rather than the same one filtered afterwards — which is what keeps
         // `meta.total` describing the set the pager is paging through.

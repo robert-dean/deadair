@@ -10,6 +10,7 @@ import {
     useSetPronunciationState,
     useUpdatePronunciation,
 } from '../../api/pronunciations.queries';
+import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
@@ -44,6 +45,10 @@ export function PronunciationsPage() {
     const [written, setWritten] = useState('');
     const [spoken, setSpoken] = useState('');
     const [editing, setEditing] = useState<{ id: string; written: string; spoken: string } | undefined>(undefined);
+
+    // The entry being deleted, held whole rather than by id: the dialog says the words back, and
+    // reading them out of the list again would mean finding the row a second time.
+    const [deleting, setDeleting] = useState<Pronunciation | undefined>(undefined);
 
     const entries = lexicon.data?.pronunciations ?? [];
     const active = entries.filter(entry => entry.state === 'active');
@@ -211,10 +216,7 @@ export function PronunciationsPage() {
                                                             color="red"
                                                             aria-label={`Delete ${entry.written}`}
                                                             loading={remove.isPending}
-                                                            onClick={() => {
-                                                                if (window.confirm(`Stop saying "${entry.written}" as "${entry.spoken}"?`))
-                                                                    remove.mutate(entry.id);
-                                                            }}
+                                                            onClick={() => setDeleting(entry)}
                                                         >
                                                             <IconTrash size={14} />
                                                         </ActionIcon>
@@ -294,6 +296,25 @@ export function PronunciationsPage() {
                     </Stack>
                 </Card>
             ) : undefined}
+
+            <ConfirmModal
+                opened={deleting !== undefined}
+                onClose={() => setDeleting(undefined)}
+                onConfirm={() => {
+                    if (deleting === undefined) return;
+                    remove.mutate(deleting.id, { onSuccess: () => setDeleting(undefined) });
+                }}
+                title={deleting ? `Stop saying ${deleting.written} that way?` : 'Delete this entry?'}
+                confirmLabel="Delete"
+                confirming={remove.isPending}
+                error={remove.error}
+                errorTitle="That entry could not be deleted"
+                errorFallback="Nothing was removed."
+            >
+                {deleting
+                    ? `The station reads it as "${deleting.spoken}" today, and will say it however the engine does once this is gone.`
+                    : ''}
+            </ConfirmModal>
         </Stack>
     );
 }

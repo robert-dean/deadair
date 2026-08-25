@@ -1,8 +1,8 @@
-import { Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { Stack, Text } from '@mantine/core';
 import type { Persona } from '@deadair/sdk';
 
 import { usePersonaNotes } from '../../api/personas.queries';
-import { ErrorAlert } from '../shared/error.alert';
+import { ConfirmModal } from '../shared/confirm.modal';
 
 /**
  * Asking before a character is deleted, and saying what goes with it.
@@ -30,7 +30,17 @@ export function PersonaDeleteModal({ persona, opened, onClose, onConfirm, deleti
     if (persona === undefined) return undefined;
 
     return (
-        <Modal opened={opened} onClose={onClose} title={`Delete ${persona.label}?`} centered>
+        <ConfirmModal
+            opened={opened}
+            onClose={onClose}
+            onConfirm={onConfirm}
+            title={`Delete ${persona.label}?`}
+            confirmLabel="Delete"
+            confirming={deleting}
+            error={error}
+            errorTitle="That persona could not be deleted"
+            errorFallback="Nothing was removed."
+        >
             <Stack gap="md">
                 <Text size="sm">
                     Its sheet goes, and so do its own phrasings{notebookClause(notes.data?.notes.length)}. Anything it has already written and
@@ -40,19 +50,8 @@ export function PersonaDeleteModal({ persona, opened, onClose, onConfirm, deleti
                 <Text size="sm" c="dimmed">
                     The station&apos;s own characters can be written back with Restore built-ins. One you wrote yourself cannot.
                 </Text>
-
-                {error ? <ErrorAlert title="That persona could not be deleted" error={error} fallback="Nothing was removed." /> : undefined}
-
-                <Group justify="flex-end">
-                    <Button variant="default" onClick={onClose}>
-                        Cancel
-                    </Button>
-                    <Button color="red" loading={deleting} onClick={onConfirm}>
-                        Delete
-                    </Button>
-                </Group>
             </Stack>
-        </Modal>
+        </ConfirmModal>
     );
 }
 

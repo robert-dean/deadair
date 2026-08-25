@@ -5,6 +5,7 @@ import type { Topic, TopicInput, TopicKindDescriptor } from '@deadair/sdk';
 
 import { useClockBands } from '../../api/clock.queries';
 import { useCreateTopic, useDeleteTopic, useTopicKinds, useTopics, useUpdateTopic } from '../../api/topics.queries';
+import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
@@ -43,6 +44,11 @@ export function TopicsPage() {
     const remove = useDeleteTopic();
 
     const [editing, setEditing] = useState<{ kind: TopicKindDescriptor; target: TopicTarget } | undefined>(undefined);
+
+    // The subject being deleted, with the number of bands that asked for it counted at the moment
+    // the question was asked rather than while it is on screen: the clock is not moving underneath
+    // this and a count that changed mid-dialog would be a different question than the one answered.
+    const [deleting, setDeleting] = useState<{ topic: Topic; bands: number } | undefined>(undefined);
 
     const close = () => {
         setEditing(undefined);
@@ -153,9 +159,13 @@ export function TopicsPage() {
                                                                 // subject would read a general break
                                                                 // under this name, which is the
                                                                 // failure the whole feature exists
-                                                                // to prevent.
-                                                                const asking = bands.filter(band => band.topicId === topic.id).length;
-                                                                if (window.confirm(warningFor(topic.label, asking))) remove.mutate(topic.id);
+                                                                // to prevent. The count is read here
+                                                                // rather than in the dialog so the
+                                                                // dialog stays a dumb question.
+                                                                setDeleting({
+                                                                    topic,
+                                                                    bands: bands.filter(band => band.topicId === topic.id).length,
+                                                                });
                                                             }}
                                                         >
                                                             <IconTrash size={14} />
@@ -185,15 +195,39 @@ export function TopicsPage() {
                     error={create.error ?? update.error}
                 />
             ) : undefined}
+
+            <ConfirmModal
+                opened={deleting !== undefined}
+                onClose={() => setDeleting(undefined)}
+                onConfirm={() => {
+                    if (deleting === undefined) return;
+                    remove.mutate(deleting.topic.id, { onSuccess: () => setDeleting(undefined) });
+                }}
+                title={deleting ? `Delete ${deleting.topic.label}?` : 'Delete this subject?'}
+                confirmLabel="Delete"
+                confirming={remove.isPending}
+                error={remove.error}
+                errorTitle="That subject could not be deleted"
+                errorFallback="Nothing was removed."
+            >
+                {deleting ? warningFor(deleting.bands) : ''}
+            </ConfirmModal>
         </Stack>
     );
 }
 
 /** What deleting this takes with it, said before it happens. */
-function warningFor(label: string, bands: number): string {
-    if (bands === 0) return `Delete ${label}?`;
+/**
+ * What goes with the subject, or the plain fact that nothing does.
+ *
+ * The title already asks the question, so this is only the consequence. A subject nothing points at
+ * still gets a sentence rather than an empty dialog: "nothing else changes" is the answer an
+ * operator came for, and a dialog with only buttons in it reads as a dialog that failed to load.
+ */
+function warningFor(bands: number): string {
+    if (bands === 0) return 'Nothing on the format clock asks for it, so nothing else changes.';
 
-    return `Delete ${label}? ${bands} band${bands === 1 ? '' : 's'} on the format clock ${bands === 1 ? 'asks' : 'ask'} for it and will go too.`;
+    return `${bands} band${bands === 1 ? '' : 's'} on the format clock ${bands === 1 ? 'asks' : 'ask'} for it and will go too.`;
 }
 
 /**

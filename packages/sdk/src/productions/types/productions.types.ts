@@ -18,7 +18,8 @@ export interface ProductionCastMember {
  */
 export interface ProductionRequest {
     kind?: string;
-    title: string;
+    /** Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in */
+    title?: string;
     brief?: string;
     personaId?: string;
     /** Absent takes the station's `render.productionWritingMode` */

@@ -38,7 +38,7 @@ contract ProductionList: {
 # What an operator asks for. Everything else about a production is decided by the passes that make it
 contract ProductionRequest: {
     kind?: string(min=1, max=100)
-    title: string(min=1, max=300)
+    title?: string(min=1, max=300) # Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in
     brief?: string(max=4000)
     personaId?: string(max=100)
     writingMode?: enum(quick, outlined, polished) # Absent takes the station's `render.productionWritingMode`

@@ -372,6 +372,18 @@ describe('OnAirPage', () => {
         expect(screen.getByRole('button', { name: 'Extend' })).toBeEnabled();
     });
 
+    it('offers to take a call while there is a broadcast to put one inside', async () => {
+        // It belongs on this page rather than on Productions because it inherits THIS show: the
+        // broadcast's host presents the call and the broadcast's brief is what it is about.
+        getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'item-1' }), orderItem({ id: 'item-2', title: 'Xtal' })] }));
+        getStationAir.mockResolvedValue(stationAir());
+
+        render(<OnAirPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.getByRole('button', { name: 'Take a call' })).toBeEnabled();
+    });
+
     it('will not offer to shuffle a tail with nothing left in it', async () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ state: 'airing' })] }));
         getStationAir.mockResolvedValue(stationAir());

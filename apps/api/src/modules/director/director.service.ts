@@ -1613,7 +1613,14 @@ export class DirectorService {
         // far too late to start. Safe on every pass because it asks the table what is already
         // scheduled rather than remembering.
         await inScope(this.container, async scope => {
-            await scope.get(ProductionScheduler).ripen();
+            // Told what SHOW it is being commissioned inside, because the running order lives here
+            // and nowhere else. A production that inherited neither would be a phone-in about
+            // nothing in particular, presented by the station's default persona rather than by the
+            // person whose broadcast it is going out in the middle of.
+            await scope.get(ProductionScheduler).ripen(Date.now(), {
+                ...(lineup.brief.trim().length === 0 ? {} : { brief: lineup.brief }),
+                ...(lineup.personaId === undefined ? {} : { personaId: lineup.personaId }),
+            });
         }).catch(error => this.logger.warn(`director: could not commission scheduled productions (${errorText(error)})`));
 
         // BEFORE committing, so a break planted this pass is in the order before anything is

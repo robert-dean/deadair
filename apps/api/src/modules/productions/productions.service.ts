@@ -9,6 +9,8 @@ import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { firstPass } from './production.passes.js';
 import { stationTargetMs, stationWritingMode } from './production.settings.js';
+import { titleFor } from './production.scheduler.js';
+import { stationZone } from '#modules/director/clock.words.js';
 import { ProductionRepository } from './production.repository.js';
 import type { Production } from './production.js';
 import type { ProductionList, ProductionRequest, Production as ProductionView } from './types/productions.types.js';
@@ -66,7 +68,10 @@ export class ProductionsService {
         const kind = body.kind ?? DEFAULT_KIND;
         const production = await this.productions.open({
             kind,
-            title: body.title,
+            // Named after its kind and the moment, exactly as a band-commissioned one is, when
+            // nobody said. Somebody taking a call now is not naming a programme, and a required box
+            // there would be a form standing between an operator and a button.
+            title: body.title ?? titleFor(kind, Date.now(), stationZone(this.config)),
             // Kind-aware, so asking for a `callin` with no length gets a phone call rather than a
             // ten-minute one. An operator who typed a number still gets exactly that.
             targetMs: body.targetMs ?? stationTargetMs(this.config, kind),

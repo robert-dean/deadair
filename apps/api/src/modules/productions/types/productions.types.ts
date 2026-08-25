@@ -25,7 +25,14 @@ export type ProductionCastMember = z.infer<typeof ProductionCastMember>;
  */
 export const ProductionRequest = z.strictObject({
     kind: z.string().min(1).max(100).optional(),
-    title: z.string().min(1).max(300),
+    title: z
+        .string()
+        .min(1)
+        .max(300)
+        .optional()
+        .describe(
+            'Absent is named after its kind and the moment it was asked for, which is what somebody taking a call now wants rather than a box to fill in',
+        ),
     brief: z.string().max(4000).optional(),
     personaId: z.string().max(100).optional(),
     writingMode: z.enum(['quick', 'outlined', 'polished']).optional().describe("Absent takes the station's `render.productionWritingMode`"),

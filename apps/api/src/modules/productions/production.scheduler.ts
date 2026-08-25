@@ -58,6 +58,20 @@ export function productionKinds(config: AppConfig): Set<string> {
 export const isProductionKind = (kind: string, config: AppConfig): boolean => productionKinds(config).has(kind.trim().toLowerCase());
 
 /**
+ * What the broadcast this is being commissioned INSIDE was asked to be.
+ *
+ * Passed in by the director rather than read here, because the running order lives in the director's
+ * memory and this is one indexed read on a commit pass. Both halves are absent for a station airing
+ * a playlist with no brief and no host of its own, which is an ordinary broadcast.
+ */
+export interface BroadcastContext {
+    /** What the operator asked the station to be, in their own words. */
+    brief?: string;
+    /** Who is hosting the show, when it named somebody. */
+    personaId?: string;
+}
+
+/**
  * Commission the productions the format clock has asked for, ahead of their slots.
  *
  * ## Why a band cannot simply be filled at its boundary
@@ -100,7 +114,7 @@ export class ProductionScheduler {
      * threw would take the commit pass with it, and a production nobody commissioned costs a slot
      * where the station falls back to ordinary programming.
      */
-    async ripen(now = Date.now()): Promise<number> {
+    async ripen(now = Date.now(), show: BroadcastContext = {}): Promise<number> {
         try {
             const kinds = productionKinds(this.config);
             const anchored = (await this.bands.active()).filter(isAnchored).filter(band => kinds.has(band.kind.trim().toLowerCase()));
@@ -126,6 +140,13 @@ export class ProductionScheduler {
                     targetMs: stationTargetMs(this.config, band.kind),
                     writingMode: stationWritingMode(this.config),
                     scheduledFor: at,
+                    // What SHOW this is inside. Without it a `:40 callin` on a heavy-metal broadcast
+                    // is a phone-in about nothing in particular, presented by the station's default
+                    // persona rather than by the person whose show it is — because `presenting`
+                    // falls back the moment nobody names a host. The block airs inside somebody
+                    // else's programme, so it belongs to that programme.
+                    ...(show.brief === undefined || show.brief.trim().length === 0 ? {} : { brief: show.brief.trim() }),
+                    ...(show.personaId === undefined ? {} : { personaId: show.personaId }),
                 });
 
                 await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production.writingMode) });
@@ -152,7 +173,7 @@ export class ProductionScheduler {
  * The kind and its slot, which is what a schedule actually produces: an operator looking at a list
  * of them wants to know which one is tonight's rather than reading twelve rows called "Podcast".
  */
-function titleFor(kind: string, at: number, zone: string): string {
+export function titleFor(kind: string, at: number, zone: string): string {
     const when = new Intl.DateTimeFormat('en-GB', {
         timeZone: zone,
         weekday: 'short',

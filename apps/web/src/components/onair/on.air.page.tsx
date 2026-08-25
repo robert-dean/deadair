@@ -13,6 +13,7 @@ import { BriefTheStation } from './brief.the.station';
 import { ClockOnAir } from './clock.on.air';
 import { HostOnAir } from './host.on.air';
 import { ReplanTheRest } from './replan.the.rest';
+import { TakeACall } from './take.a.call';
 import { StationOrderTable } from './station.order.table';
 
 /**
@@ -153,6 +154,15 @@ export function OnAirPage() {
                             disabled on a short tail the way Shuffle is — an order that has run dry
                             is exactly one worth replanning. */}
                         <ReplanTheRest brief={loaded?.brief ?? ''} disabled={nothingOn} />
+                        {/* Beside the two that change what PLAYS, because it is the one that changes
+                            what the station SAYS — and it belongs on this page rather than on
+                            Productions for the reason the brief box does: it is about the show that
+                            is running, and it inherits that show's host and its brief. */}
+                        <TakeACall
+                            brief={loaded?.brief ?? ''}
+                            {...(loaded?.personaId === undefined ? {} : { personaId: loaded.personaId })}
+                            disabled={nothingOn}
+                        />
                         <Tooltip
                             label={extendFailure ?? 'Queues a refill. The tracks land a few seconds later.'}
                             color={extendFailure ? 'red' : undefined}

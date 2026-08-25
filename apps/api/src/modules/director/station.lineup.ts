@@ -400,12 +400,12 @@ export class StationLineup implements LiveOrder {
         return this.binding.rules ?? {};
     }
 
-    /** What the operator asked for, for whatever generates more. Empty means they asked for nothing. */
     /** Who is hosting this broadcast, or `undefined` for the station's own active persona. */
     get personaId(): string | undefined {
         return this.binding.personaId;
     }
 
+    /** What the operator asked for, for whatever generates more. Empty means they asked for nothing. */
     get brief(): string {
         return this.binding.brief ?? '';
     }

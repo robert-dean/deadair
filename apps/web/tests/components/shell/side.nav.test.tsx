@@ -76,11 +76,32 @@ describe('SideNav', () => {
         expect(screen.getByText('1')).toBeInTheDocument();
     });
 
-    it('leaves the accessible name of a link alone when it carries a badge', () => {
+    it('says what a badge means in words, rather than sticking its number on the name', () => {
         // Mantine folds a `rightSection` into the link's accessible name, so an unguarded badge
-        // renames "Catalog" to "Catalog 4" for a screen reader. The number is a visual shortcut and
-        // the sentence behind it is on the page this links to.
+        // renames "Catalog" to "Catalog 4" for a screen reader. The badge stays hidden and the link
+        // carries the sentence instead, so the shortcut exists for somebody not looking at it.
         render(<SideNav attention={[{ code: 'benchedCopies', severity: 'warning', title: 'a', detail: 'a', route: '/catalog' }]} />);
+
+        expect(screen.getByRole('link', { name: 'Catalog, 1 thing needs attention' })).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Catalog 1' })).not.toBeInTheDocument();
+    });
+
+    it('counts in the plural when there is more than one', () => {
+        render(
+            <SideNav
+                attention={[
+                    { code: 'benchedCopies', severity: 'warning', title: 'a', detail: 'a', route: '/catalog' },
+                    { code: 'failingFetches', severity: 'failure', title: 'b', detail: 'b', route: '/catalog' },
+                ]}
+            />,
+        );
+
+        expect(screen.getByRole('link', { name: 'Catalog, 2 things need attention' })).toBeInTheDocument();
+    });
+
+    /** A link with nothing waiting keeps its plain name rather than announcing that nothing is wrong. */
+    it('leaves a link with nothing waiting exactly as it was', () => {
+        render(<SideNav />);
 
         expect(screen.getByRole('link', { name: 'Catalog' })).toBeInTheDocument();
     });

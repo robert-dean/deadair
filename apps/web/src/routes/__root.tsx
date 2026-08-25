@@ -83,7 +83,9 @@ export function RootLayout() {
             <AppShell.Header className="da-scanlines">
                 <Group h="100%" px="md" justify="space-between" wrap="nowrap">
                     <Group gap="sm" wrap="nowrap">
-                        {signedIn ? <Burger opened={navOpened} onClick={navDrawer.toggle} hiddenFrom="sm" size="sm" aria-label="Navigation" /> : undefined}
+                        {signedIn ? (
+                            <Burger opened={navOpened} onClick={navDrawer.toggle} hiddenFrom="sm" size="sm" aria-label="Navigation" />
+                        ) : undefined}
                         <StationMark />
                         <Text ff="heading" fw={700} tt="uppercase" style={{ letterSpacing: 'var(--da-tracking-wordmark)' }}>
                             deadair

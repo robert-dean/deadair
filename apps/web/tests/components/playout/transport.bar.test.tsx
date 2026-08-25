@@ -365,3 +365,47 @@ describe('TransportBar clock', () => {
         expect(screen.getByText('0:00')).toBeInTheDocument();
     });
 });
+
+/**
+ * What the strip does when the readings stop arriving.
+ *
+ * TanStack keeps the last successful data through a failed poll, which is right: the alternative is
+ * a strip that blanks on every blip. The cost is that a dead API leaves a confident-looking title on
+ * screen indefinitely, and this is the half that says so.
+ */
+describe('a reading that has stopped arriving', () => {
+    beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('says nothing at all while the readings are current', () => {
+        render(<TransportBar status={playoutStatus()} expanded={false} onToggleExpanded={vi.fn()} updatedAt={Date.now()} />);
+
+        expect(screen.queryByText(/as of/)).not.toBeInTheDocument();
+    });
+
+    it('stamps the strip once the reading is older than the station polls', async () => {
+        render(<TransportBar status={playoutStatus()} expanded={false} onToggleExpanded={vi.fn()} updatedAt={Date.now()} />);
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(12_000);
+        });
+
+        expect(screen.getByText(/as of/)).toBeInTheDocument();
+    });
+
+    /** A caller that does not know when its reading landed should claim nothing about it. */
+    it('claims nothing when nobody said when the reading landed', async () => {
+        render(<TransportBar status={playoutStatus()} expanded={false} onToggleExpanded={vi.fn()} />);
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(60_000);
+        });
+
+        expect(screen.queryByText(/as of/)).not.toBeInTheDocument();
+    });
+});

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { ActionIcon, Button, Divider, Group, Paper, Progress, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
 import { IconChevronDown, IconChevronUp, IconHeadphones, IconPlayerPlay, IconPlayerSkipForward, IconPlayerStop } from '@tabler/icons-react';
 import type { PlayoutStatus } from '@deadair/sdk';
@@ -6,6 +7,7 @@ import { useSetAirMode } from '../../api/director.queries';
 import { useSkipCurrent, useStartPlayout, useStopPlayout } from '../../api/playout.queries';
 import { Artwork } from '../shared/artwork';
 import { TrackLink } from '../shared/catalog.links';
+import { formatTimeOfDay } from '../shared/feed.moment';
 import { formatDuration } from '../shared/format.duration';
 import { listenerLabel, OnAirBadge } from './on.air.badge';
 import { usePlayhead } from './playhead';
@@ -24,6 +26,14 @@ export interface TransportBarProps {
     /** Whether the full panel is open. Owned by the shell, which has to reserve the height. */
     expanded: boolean;
     onToggleExpanded: () => void;
+    /**
+     * When the reading behind `status` actually arrived, as epoch milliseconds.
+     *
+     * Optional because a caller that does not know claims nothing: with it absent the strip reads
+     * exactly as it did, which is the right answer for a test render and for anything drawing a
+     * status it did not poll for.
+     */
+    updatedAt?: number;
 }
 
 /** Footer heights the shell reserves, collapsed and expanded. */
@@ -62,27 +72,55 @@ export function hasTransportToShow(status: PlayoutStatus | undefined): status is
 }
 
 /**
- * The station's transport.
+ * How long a reading may stand before the strip stops presenting it as the present tense.
  *
- * It reports what the PLAYER says is airing, which is a different thing from
- * what the app last handed over: an item is pushed, and downloaded, one item
- * ahead of air, so a bar driven by the hand-over would name the next track for
- * most of the current one.
- *
- * Two states, one component. Collapsed it is a strip: what is on air, how far in,
- * and the two commands. Expanded it adds the running order behind it and where
- * the stream is going. The collapsed strip is the resting state on purpose —
- * this sits under every page, and a console that permanently spends a third of
- * the window on the transport is worse at everything else.
- *
- * Presentational: the shell owns the polling AND the expanded flag, because it
- * also has to decide how much footer to reserve.
+ * Five missed polls at the transport's two seconds. Long enough that an ordinary slow answer or a
+ * request lost to a reload says nothing, short enough that an operator looking at a title is not
+ * looking at one that stopped playing a minute ago. TanStack keeps the last successful data when a
+ * poll fails, which is the right call — the alternative is a strip that blanks on every blip — and
+ * this is the other half of it: the data stays and stops claiming to be now.
  */
-export function TransportBar({ status, airMode, expanded, onToggleExpanded }: TransportBarProps) {
+const STALE_AFTER_MS = 10_000;
+
+/** How often the check runs. It only has to notice within a beat of the threshold. */
+const STALE_TICK_MS = 2_000;
+
+/**
+ * Whether the reading on screen is still current.
+ *
+ * A ticking check rather than a value derived at render, because nothing re-renders this strip when
+ * a poll FAILS: the query keeps its last data, the component keeps its props, and without a clock of
+ * its own the bar would go on presenting a dead reading indefinitely. Counted against the wall clock
+ * rather than in ticks, unlike the playhead beside it, since the question here is how old a
+ * timestamp is and a throttled tab that woke up late should say so rather than pretend it did not
+ * sleep.
+ */
+function useStaleReading(updatedAt: number | undefined): boolean {
+    // A ticking CLOCK rather than a ticking boolean. Deriving the answer at render keeps the effect
+    // free of a synchronous setState, and keeps this one fact in one place: with a boolean the
+    // threshold is applied in the effect and read in the body, so a change of mind about how old is
+    // too old has two homes.
+    const [now, setNow] = useState(() => Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setNow(Date.now());
+        }, STALE_TICK_MS);
+
+        return () => {
+            clearInterval(timer);
+        };
+    }, []);
+
+    return updatedAt !== undefined && now - updatedAt > STALE_AFTER_MS;
+}
+
+export function TransportBar({ status, airMode, expanded, onToggleExpanded, updatedAt }: TransportBarProps) {
     const skip = useSkipCurrent();
     const stop = useStopPlayout();
     const start = useStartPlayout();
     const setAirMode = useSetAirMode();
+    const stale = useStaleReading(updatedAt);
 
     const { streamUp, nowPlaying, upNext, queuedCount, mountPath, listeners, silence } = status;
     const idle = !nowPlaying && queuedCount === 0;
@@ -107,7 +145,10 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                     {/* Only while something is on air: an empty square over "Starting…" reads as a
                         second thing being wrong rather than as art the station does not have. */}
                     {nowPlaying ? <Artwork src={nowPlaying.item.artworkUrl} alt={nowPlaying.item.title} size={expanded ? 40 : 32} /> : undefined}
-                    <Stack gap="xxxs" style={{ minWidth: 0, flex: 1 }}>
+                    {/* Dimmed WHOLE rather than per line: what is stale is the reading, not one
+                        field of it, and half a strip at full strength would read as the parts that
+                        are still true. */}
+                    <Stack gap="xxxs" style={{ minWidth: 0, flex: 1, opacity: stale ? 0.55 : 1 }}>
                         {nowPlaying ? (
                             <>
                                 <Group gap="xs" wrap="nowrap">
@@ -121,6 +162,14 @@ export function TransportBar({ status, airMode, expanded, onToggleExpanded }: Tr
                                     <Text size="sm" c="dimmed" truncate>
                                         {nowPlaying.item.artists.join(', ')}
                                     </Text>
+                                    {/* The one thing a dimmed strip cannot say on its own: WHEN it
+                                        was true. Without the time this reads as a styling choice
+                                        rather than as a reading that has stopped arriving. */}
+                                    {stale && updatedAt !== undefined ? (
+                                        <Text size="xs" c="dimmed" style={{ flexShrink: 0 }} className="da-num">
+                                            as of {formatTimeOfDay(new Date(updatedAt).toISOString())}
+                                        </Text>
+                                    ) : undefined}
                                     {/* The album earns its place only with the panel open. The strip
                                         sits under every page, and the title and artist are what
                                         identify a track. */}

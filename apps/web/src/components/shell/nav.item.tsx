@@ -29,17 +29,26 @@ export interface NavItemProps {
  * happened to already be on the page that showed them, which is the same problem the home page's
  * list solves one level up — and it reads the same answer, so the two cannot disagree.
  *
- * It is `aria-hidden`, and that is a decision rather than an oversight. Mantine folds a
- * `rightSection` into the link's accessible name, so a badge would rename "Catalog" to "Catalog 4"
- * for anybody using a screen reader — a worse label carrying a number that is already available as a
- * sentence on the page this links to and on the home page. The badge is the visual shortcut; the
- * words are the answer.
+ * The badge is `aria-hidden` and the link says the same thing in words instead. Mantine folds a
+ * `rightSection` into the accessible name, so left alone the badge renames "Catalog" to "Catalog 4",
+ * which is a label with a number stuck on the end of it rather than a sentence. Hiding it and saying
+ * nothing was the first answer and was half of one: it left the shortcut sighted operators get with
+ * no equivalent at all, on the argument that the count is available as a sentence on the page this
+ * links to — which is true, and is a page you have to already be on.
+ *
+ * So the label is written out only when there IS attention, and a link with nothing waiting keeps
+ * its plain name rather than announcing that nothing is wrong with it.
  */
 export function NavItem({ to, label, onNavigate, attention }: NavItemProps) {
     return (
         <NavLink
             classNames={{ root: classes.item, label: classes.label }}
             label={label}
+            aria-label={
+                attention === undefined
+                    ? undefined
+                    : `${label}, ${attention.count} ${attention.count === 1 ? 'thing needs' : 'things need'} attention`
+            }
             rightSection={
                 attention === undefined ? undefined : (
                     <Badge aria-hidden size="sm" circle variant="filled" color={severityColor[attention.severity]}>

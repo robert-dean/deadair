@@ -332,6 +332,37 @@ that; the one clause that will is named in a comment on `ScriptHistoryRepository
 `script_history` and why optimising against `characterFault` would be steering at the failure
 `overusedWords` already documents.
 
+**A character also has a PAST, and it is the one thing here nothing can check.** `deadair.persona_stories`
+(migration 0021) holds anecdotes — the night the overnight host saw three lights over the desert —
+with `persona_story_details` under each, because a story GROWS: it gets told, and the next telling
+carries something the last one did not, which is a child row rather than a rewrite of the telling so
+an operator can turn down one invented clause without losing the story. Keyed by `personas.key` and
+shaped after `persona_notes` in every respect that file argues. Five things are load-bearing. **A
+story is not a FACT and must never borrow the fact store's posture**: `facts.source_url` is `not null`
+because a claim about the world with no source must not be expressible, and a story is fiction about a
+character the station stands behind none of — so `source` is nullable prose saying where a proposal
+came from and nothing reads it as evidence. What keeps that safe is at the other end, in
+`break.prompt.ts`, where a story is offered as something that happened to YOU and may never be
+attached to a record as a fact about the record. **At most ONE reaches any break**, chosen
+least-recently-told-first by the store, because handed material gets used and a list of anecdotes in a
+forty-word break is a presenter reading their own biography. **`personas.storytelling`
+(`never`/`occasionally`/`often`, absent meaning `occasionally`) is the first sheet field that never
+reaches a model** — it decides whether a story is IN the prompt — and it is applied where the story is
+READ, in `WriteBreakJob`, because reading one is what spends it: a rung consulted at render time would
+leave the store reporting tellings nobody heard. It governs the ordinary talk break ALONE, since a
+`story` band on the clock is an operator asking in as many words. **The `story` KIND inverts the usual
+floor**: `StoryBreakWriter` speaks `persona_stories.story` as it stands, because that column is
+already a script, so it needs no phrasing pool and chains none — and the model binding in front earns
+its place by TELLING the story (to this hour, this record, a listener who has heard it twice) rather
+than reading it. A character with none declines the slot, which is the classic host's shipped state
+and the reason it seeds no stories. And **the enrichment pass writes only PROPOSALS**
+(`llm.personaStories`, off, 04:11, after the notebook pass so the two do not queue for the one model
+slot): it is the only pass on the station that runs with tools ON, because a past is worth having only
+where it is grounded in records this station holds, and there is nothing to verify a story against —
+so `suggested` and the operator IS the check. Both word ceilings involved are settings now with a
+declared MINIMUM (`rotation.breakWords`, `rotation.storyWords`, `break.words.ts`), because a ceiling
+set too low does not make a terse station, it hands every model break to the phrasings in silence.
+
 **What buys a character room is what the break does not have to say, never the word ceiling.**
 Measured before changing anything: 2 of 137 captured answers reached `DEFAULT_MAX_WORDS` and the
 median break came in at 28 words, so the ceiling was never what bounded one — the model stops on its

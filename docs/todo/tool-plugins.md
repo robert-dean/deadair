@@ -77,6 +77,28 @@ thing it talks to is deadair, it is a source the module registers directly.
   construction; anything that writes needs a deliberate decision about whether a model gets to do it
   unattended, and this file is not making that decision.
 
+## The tool loop has a second caller now, 2026-08-25
+
+Everything above was written when the only thing that drove tools was a break writer. The persona
+STORY pass (`persona.story.pass.service.ts`) is the second, and it changes what a `search` capability
+would be worth here: it is the one pass on the station that runs with tools ON deliberately, because
+a character's invented past is worth having only where it is grounded in records this station
+actually holds. A `search` source registered in `ToolRegistry` reaches it with no change to that
+file.
+
+Two things to re-read on the day somebody builds one, and the first is the important one:
+
+- **The fence in `persona.story.model.ts` was written for a pass that could only look at this
+  station's own library.** A pass that can search the open web can also state what it found, and the
+  rule it is holding — a record may be in a story, an event involving a real artist may not — gets
+  much harder to keep when the model has a source to cite. Everything that pass writes arrives
+  `suggested`, so the operator is still the check; that is what makes the risk survivable rather than
+  what makes it go away.
+- **Every tool the registry holds is offered to every caller.** `LlmService.toolsFor` is all or
+  nothing, so a search tool added for the story pass is also in front of the break writers, which
+  today deliberately run with `tools: false`. That is fine as it stands and would stop being fine the
+  moment something wanted tools for one caller and not another.
+
 ## Related
 
 - [dj-voice.md](dj-voice.md) for the writers that would use tools, and for the bulletin kind that news

@@ -248,8 +248,10 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
      * been wrong on exactly the station that switched models, and wrong in the direction where the
      * engine reads the word "laugh" out loud.
      *
-     * The engine's vocabulary is wider than the station's — it also offers a cough, a sniff and a
-     * throat clear — so this narrows rather than translates. It happens that both spell a cue the
+     * The engine's vocabulary is wider than the station's — it also offers a `shush`, which the
+     * station does not name because shushing is aimed AT somebody in the room — so this narrows
+     * rather than translates. The station's own list grew to meet most of the rest of it: a caller
+     * on a phone-in clears their throat, and which speaker may use which is decided host-side. It happens that both spell a cue the
      * same way, which is why {@link speak} passes the text through untouched; a future engine that
      * spells them differently would rewrite them there and change nothing here.
      *

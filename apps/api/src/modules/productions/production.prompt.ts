@@ -34,6 +34,8 @@
 import type { LlmMessage, SpeechCue } from '@deadair/plugin-sdk';
 import type { Persona } from '#modules/personas/persona.js';
 import { latitudeOf, personaLines } from '#modules/personas/persona.sheet.js';
+import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
+import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { CastMember } from './production.cast.js';
 import type { OutlineBeat, ProductionOutline } from './production.js';
 
@@ -113,6 +115,23 @@ export interface BeatRequest {
      * station whose engine only reads words.
      */
     reactions?: readonly SpeechCue[];
+    /**
+     * What this character has accumulated: what it has settled into, and what it has said before.
+     *
+     * The same two halves the break prompt carries and in the same two turns — a trait beside the
+     * sheet, because it is who this person IS, and a saying beside the show's memory, because it is
+     * what they DID. Resolved and RESTED by the caller, so a turn nobody airs does not spend the
+     * next one's lines.
+     */
+    notebook?: PersonaNotesForPrompt;
+    /**
+     * One thing that happened to this character, offered rather than requested.
+     *
+     * A caller's own past, which is the whole reason a phone-in with a roster is worth more than one
+     * with a random name each time. Fenced exactly as the break prompt fences one: it happened to
+     * YOU, and it is never a fact about a record.
+     */
+    story?: PersonaStoryForPrompt;
     /**
      * Signature phrases this production has already used, so this beat does not use them again.
      *
@@ -225,6 +244,7 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
                   // them. Read per beat, "once a break" becomes twenty-four times, which is exactly
                   // what happened — the presenter's catchphrase appeared in 23 of 24 beats and their
                   // own history in 6.
+                  ...traitLines(request.notebook),
                   'One more thing about the character above. What follows is ONE programme, not one break: you are already part way through it and you will be speaking for a while yet. ' +
                       'Where that description rations something — a signature phrase, an admission about yourself, a piece of your own history — the ration is for the WHOLE programme rather than for this beat. ' +
                       'Assume the other beats have used most of it already.',
@@ -296,6 +316,22 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     if (request.items !== undefined && request.items.length > 0) {
         parts.push(['What this beat covers:', ...request.items.map(item => `- ${item}`)].join('\n'));
     }
+
+    // What this character has said on this station before tonight, which is the half of a memory
+    // that outlives one programme. Offered rather than requested, in the words the break prompt uses
+    // and for the reason measured there: handed a list, a model gets through the list.
+    const said = (request.notebook?.said ?? []).filter(note => note.trim().length > 0);
+    if (said.length > 0) {
+        parts.push(
+            [
+                'Things you have said on this station before, which a regular listener may remember:',
+                ...said.map(note => `- ${note}`),
+                'These are yours to build on, not a list to get through. Pick one up only if this moment gives you a reason to. You do not have to mention any of them.',
+            ].join('\n'),
+        );
+    }
+
+    if (request.story !== undefined) parts.push(storyLines(request.story));
 
     // Verbatim, and last before the instruction, so it is the freshest thing in the model's context
     // when it starts writing. A summary here produces an introduction; the actual words produce a
@@ -481,6 +517,50 @@ function speakerLines(speakers: OutlineRequest['speakers']): string[] {
 function describe(who: CastMember): string {
     const role = who.role === 'caller' ? 'a listener who has phoned in' : 'the presenter';
     return who.name === undefined ? role : `${who.name}, ${role}`;
+}
+
+/**
+ * Who this character has become, in the system turn beside the sheet.
+ *
+ * `break.prompt.ts`' own block, in its own register: named as things the character HAS DONE rather
+ * than as instructions, because the sheet above it is already a list of rules and a second
+ * imperative list competes with the first.
+ */
+function traitLines(notes: PersonaNotesForPrompt | undefined): string[] {
+    const traits = (notes?.trait ?? []).map(trait => trait.trim()).filter(trait => trait.length > 0);
+    if (traits.length === 0) return [];
+
+    return [`Things you have settled into on this station: ${traits.join(' ')}`, ''];
+}
+
+/**
+ * One thing that happened to this character, as the user turn offers it.
+ *
+ * The break prompt's fence, kept word for word where it matters: it happened to YOU, it is not a
+ * fact about a record, and it is never something the station knows. A caller's anecdote is fiction
+ * about somebody the station stands behind none of, which makes the fence more load-bearing here
+ * rather than less.
+ */
+function storyLines(story: PersonaStoryForPrompt): string {
+    const lines = [
+        'Something that happened to you, which you could bring up if this moment gives you a reason to:',
+        story.story,
+        ...(story.details.length === 0 ? [] : ['You also remember:', ...story.details.map(detail => `- ${detail}`)]),
+    ];
+
+    if (story.timesTold > 0) {
+        lines.push(
+            'You have told this on air before, so a regular listener may know it. Tell it the way somebody tells a story twice: shorter, ' +
+                'or from a different end of it, or for the one detail that is new.',
+        );
+    }
+
+    lines.push(
+        'You do not have to mention it. If you do, it happened to YOU — it is not a fact about any record, so do not attach it to one, ' +
+            'do not present it as something the station knows, and never let it become a claim about anybody real.',
+    );
+
+    return lines.join('\n');
 }
 
 /** What to call somebody in a prompt: their on-air name, or what they are. */

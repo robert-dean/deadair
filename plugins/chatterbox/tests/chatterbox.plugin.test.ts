@@ -430,14 +430,20 @@ describe('ChatterboxPlugin.testConnection', () => {
     // about answering NOTHING when the claim would be unsafe: a cue the station believes in and the
     // engine cannot do is the word "laugh" read out on air.
     describe('the cues it can perform', () => {
-        const turbo = { supports_paralinguistic_tags: true, available_paralinguistic_tags: ['laugh', 'chuckle', 'sigh', 'gasp', 'cough'] };
+        const turbo = {
+            supports_paralinguistic_tags: true,
+            available_paralinguistic_tags: ['laugh', 'chuckle', 'sigh', 'gasp', 'cough', 'clear throat', 'sniff', 'groan', 'shush'],
+        };
 
         it('narrows the engine vocabulary to the station one', async () => {
-            // The engine offers more than the station names, `cough` among them, and the station's
-            // four are the ones a radio host actually does. The intersection is what may be asked for.
+            // The engine offers more than the station names — `shush` among them, which is aimed AT
+            // somebody in the room and is business rather than delivery. The intersection is what
+            // may be asked for. Note that the station's list is wider than this plugin's four ever
+            // were: a caller in a production clears their throat, and WHO may use which is decided
+            // host-side rather than here.
             const { plugin } = await started({ loaded: [true], modelInfo: turbo });
 
-            expect(await plugin.listCues()).toEqual(['laugh', 'chuckle', 'sigh', 'gasp']);
+            expect(await plugin.listCues()).toEqual(['laugh', 'chuckle', 'sigh', 'gasp', 'cough', 'clear throat', 'sniff', 'groan']);
         });
 
         it('answers nothing for a model that does not do them', async () => {

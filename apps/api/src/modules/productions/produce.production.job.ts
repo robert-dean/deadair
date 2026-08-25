@@ -3,19 +3,25 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
-import type { SpeechCue } from '@deadair/plugin-sdk';
+import type { LlmMessage, SpeechCue } from '@deadair/plugin-sdk';
 import { PlainJob } from '#modules/jobs/plain.job.js';
-import { LlmService } from '#modules/llm/llm.service.js';
+import { LlmService, type LlmConversation } from '#modules/llm/llm.service.js';
+import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
+import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repository.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
+import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
+import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import { spentCatchphrases } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
+import { ScriptHistoryRepository, type ScriptWrite } from '#modules/render/script.history.repository.js';
+import { captureWrites } from '#modules/render/script.history.settings.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { speakableScript } from '#modules/render/speakable.script.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { checkBeat, correctionNote } from './production.checks.js';
-import { isDialogue, speakerOrder, type ProductionCast } from './production.cast.js';
+import { isDialogue, speakerOrder, type CastMember, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
 import { planProduction, turnsFor } from './production.plan.js';
@@ -78,6 +84,16 @@ export const BEAT_OUTPUT_TOKENS = 8_000;
  */
 export const EMPTY_BEAT_RETRIES = 1;
 
+/**
+ * Kinds of production that are REPORTED rather than presented, and are shown no character memory.
+ *
+ * `showsNotebook`'s argument one source further out: a character reading the news and handed a list
+ * of its own past sayings will read one out. A list of words rather than a setting because nobody
+ * has asked for one — `segments.kind` is free text, so these are the two spellings a station would
+ * reach for, and the day somebody uses a third this becomes a key in `production.settings.ts`.
+ */
+export const PLAIN_KINDS: readonly string[] = ['news', 'bulletin'];
+
 export interface ProducePayload {
     /**
      * Which production to work on.
@@ -115,7 +131,15 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
     constructor(
         private readonly productions: ProductionRepository,
         private readonly segments: SegmentRepository,
+        // Everything the station writes is kept, and a production wrote nothing down until callers
+        // arrived. It is what `/scripts` draws, what `llm.captureWrites` captures, and — through
+        // `persona_key` — the only way a character accumulates anything from a programme.
+        private readonly history: ScriptHistoryRepository,
         private readonly personas: PersonaRepository,
+        // What a character has accumulated. Both are keyed by a persona KEY and know nothing about
+        // breaks, so a caller who has rung before reaches them without a line of new storage.
+        private readonly notes: PersonaNotesRepository,
+        private readonly stories: PersonaStoriesRepository,
         private readonly caster: ProductionCaster,
         // What the engine can PERFORM, asked once per pass. A beat's own answer is stripped against
         // the same list it was offered, which is what keeps the two from disagreeing.
@@ -297,66 +321,77 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // failure without it: "I said what I said" in 23 of 24 beats, because the sheet offers
             // its catchphrases to every beat and no beat could see what the others had done.
             const spent = persona === undefined ? [] : spentCatchphrases(persona, mine);
-            // Built once so the retry below asks for exactly the same thing. A retry that rebuilt the
-            // prompt would be a different question, and a beat that failed twice for two different
-            // reasons is one nobody can diagnose.
-            const ask = async (): Promise<string> =>
-                (
-                    await this.llm.converse(
-                        {
-                            messages: beatPrompt({
-                                kind: claimed.kind,
-                                title: claimed.title,
-                                ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
-                                ordinal: beat.ordinal,
-                                words: beat.words,
-                                ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),
-                                ...(outlineBeat === undefined ? {} : { beat: outlineBeat }),
-                                ...(runIn === undefined ? {} : { runIn }),
-                                ...(persona === undefined ? {} : { persona }),
-                                ...(spent.length === 0 ? {} : { spent }),
-                                ...(speaker === undefined ? {} : { speaker }),
-                                ...(previous === undefined || casting[previous] === undefined ? {} : { previousSpeaker: casting[previous]! }),
-                                // Their first turn on the call, which is where a caller says hello
-                                // and nowhere else does.
-                                ...(mine.length === 0 ? { firstTurn: true } : {}),
-                                ...(reactions.length === 0 ? {} : { reactions }),
-                                station,
-                            }),
-                            maxOutputTokens: BEAT_OUTPUT_TOKENS,
-                            reasoningEffort: 'low',
-                        },
-                        { budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
-                    )
-                ).text.trim();
+            // Built once so the retry below asks for exactly the same thing, and held so the history
+            // row can carry it: a retry that rebuilt the prompt would be a different question, and a
+            // beat that failed twice for two different reasons is one nobody can diagnose.
+            const prompt = beatPrompt({
+                kind: claimed.kind,
+                title: claimed.title,
+                ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
+                ordinal: beat.ordinal,
+                words: beat.words,
+                ...(claimed.outline === undefined ? {} : { outline: claimed.outline }),
+                ...(outlineBeat === undefined ? {} : { beat: outlineBeat }),
+                ...(runIn === undefined ? {} : { runIn }),
+                ...(persona === undefined ? {} : { persona }),
+                ...(spent.length === 0 ? {} : { spent }),
+                ...(speaker === undefined ? {} : { speaker }),
+                ...(previous === undefined || casting[previous] === undefined ? {} : { previousSpeaker: casting[previous]! }),
+                // Their first turn on the call, which is where a caller says hello and nowhere else
+                // does.
+                ...(mine.length === 0 ? { firstTurn: true } : {}),
+                ...(reactions.length === 0 ? {} : { reactions }),
+                ...(await this.remembers(claimed, speaker, mine.length === 0)),
+                station,
+            });
 
-            // Speakable, which a beat has never been. The engine reads what it is given, so a stage
-            // direction is a word in the audio — the first live call-in aired an album title with the
-            // asterisks still round it. The strip spares exactly the cues this speaker was offered.
-            let script = speakable(await ask(), reactions);
+            const ask = async () =>
+                await this.llm.converse(
+                    { messages: prompt, maxOutputTokens: BEAT_OUTPUT_TOKENS, reasoningEffort: 'low' },
+                    { budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
+                );
+
+            const label = `${claimed.title} (${beat.ordinal + 1}/${plan.beats.length})`;
+            // One row per ATTEMPT, which is `script_history`'s own rule: an empty answer and the
+            // retry after it are two things that happened, and a store that kept only the winner
+            // would report a model that failed half the time as one that never did.
+            const attempts: ScriptWrite[] = [];
+            let script = '';
 
             // Asked again before the production is written off. A beat that came back empty is the
             // model having spent its allowance on reasoning rather than an answer, which is a bad
             // roll rather than a bad brief — and failing here throws away every beat already
             // written, since a production cannot air with a hole in it.
-            for (let attempt = 0; script.length === 0 && attempt < EMPTY_BEAT_RETRIES; attempt++) {
-                this.logger.info('productions: a beat came back empty, so it is being asked again', {
-                    production: claimed.id,
-                    beat: beat.ordinal,
-                });
-                script = speakable(await ask(), reactions);
+            for (let attempt = 0; script.length === 0 && attempt <= EMPTY_BEAT_RETRIES; attempt++) {
+                if (attempt > 0) {
+                    this.logger.info('productions: a beat came back empty, so it is being asked again', {
+                        production: claimed.id,
+                        beat: beat.ordinal,
+                    });
+                }
+
+                const answer = await ask();
+                // Speakable, which a beat has never been. The engine reads what it is given, so a
+                // stage direction is a word in the audio — the first live call-in aired an album
+                // title with the asterisks still round it. The strip spares exactly the cues this
+                // speaker was offered.
+                script = speakable(answer.text, reactions);
+                attempts.push(this.attemptOf(claimed, { label, script, speaker, answer, messages: prompt }));
             }
 
             if (script.length === 0) {
                 // Out of attempts. Not survivable the way a missing break is: another break is along
-                // shortly and a programme with a hole in it is not a shorter programme.
+                // shortly and a programme with a hole in it is not a shorter programme. The attempts
+                // are still written down: a production that failed is exactly when somebody wants to
+                // read what the model actually said.
+                await this.remember(attempts);
                 await this.productions.fail(claimed.id, `beat ${beat.ordinal + 1} came back empty twice`);
                 return false;
             }
 
-            await this.segments.plan({
+            const planned = await this.segments.plan({
                 kind: claimed.kind,
-                label: `${claimed.title} (${beat.ordinal + 1}/${plan.beats.length})`,
+                label,
                 script,
                 writer: 'model',
                 productionId: claimed.id,
@@ -368,6 +403,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 ...(speaker?.voice === undefined ? {} : { voice: speaker.voice }),
                 ...(speaker?.personaId === undefined ? {} : { personaId: speaker.personaId }),
             });
+
+            await this.remember(attempts.map(attempt => ({ ...attempt, segmentId: planned.id })));
 
             written.set(at, [...mine, script]);
             previous = at;
@@ -493,6 +530,112 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         for (const beat of beats) await this.jobs.send('render.segment', { segmentId: beat.id });
 
         this.logger.info('productions: a production is written and its beats are being spoken', { production: productionId, beats: beats.length });
+    }
+
+    /**
+     * One attempt at a turn, as the station's own record of it.
+     *
+     * The SPEAKER's key rather than the presenter's, which is the whole of caller memory: the distil
+     * pass groups by it, so a caller's turns become the caller's notes and the host's become the
+     * host's. `previous` and `next` stay absent deliberately — they are the records a break sits
+     * between, and a turn sits between two turns.
+     */
+    private attemptOf(
+        production: Production,
+        beat: { label: string; script: string; speaker?: CastMember; answer: LlmConversation; messages: LlmMessage[] },
+    ): ScriptWrite {
+        const empty = beat.script.length === 0;
+
+        return {
+            kind: production.kind,
+            writer: 'model',
+            outcome: empty ? 'failed' : 'written',
+            ...(empty ? { reason: 'the model answered with nothing that could be spoken' } : { script: beat.script, label: beat.label }),
+            ...(beat.speaker?.personaKey === undefined ? {} : { personaKey: beat.speaker.personaKey }),
+            ...(beat.answer.usage === undefined ? {} : { usage: beat.answer.usage as unknown as Record<string, number> }),
+            // An evening of prompt tuning rather than a default, exactly as the break path has it.
+            ...(captureWrites(this.config) ? { prompt: beat.messages, raw: beat.answer.text } : {}),
+        };
+    }
+
+    /**
+     * Write down what was written, or carry on without it.
+     *
+     * Best-effort for `ActivityRecorder`'s reason one table over: nothing reads these rows to decide
+     * anything, and a failed insert must never cost the station the programme it was describing.
+     */
+    private async remember(attempts: readonly ScriptWrite[]): Promise<void> {
+        if (attempts.length === 0) return;
+
+        try {
+            await this.history.recordAll(attempts);
+        } catch (error) {
+            this.logger.warn(`productions: a turn was written but not recorded (${errorText(error)})`);
+        }
+    }
+
+    /**
+     * What this speaker has accumulated, for the prompt: their notebook, and one of their stories.
+     *
+     * Both come from `deadair.persona_notes` and `deadair.persona_stories`, which are keyed by a
+     * persona KEY and know nothing about breaks — so a caller who has rung before reaches them the
+     * moment a production writes any history at all. The read RESTS what it takes (`markUsed`, the
+     * story's own stamp), which is why it happens once per speaker per turn rather than per attempt.
+     *
+     * Withheld from a plainly-reported kind, which is `showsFacts`' argument one source further out:
+     * a character reading the news and handed a list of its own past sayings will read one out, and
+     * it is worse than a discography note because nothing about it is even trying to be true today.
+     * A list of words rather than a setting because nobody has asked for one; when somebody does,
+     * this is where it goes.
+     *
+     * Best-effort throughout: a notebook that could not be read costs the notebook and never the
+     * turn.
+     */
+    private async remembers(
+        production: Production,
+        speaker: CastMember | undefined,
+        firstTurn: boolean,
+    ): Promise<{ notebook?: PersonaNotesForPrompt; story?: PersonaStoryForPrompt }> {
+        const key = speaker?.personaKey;
+        if (key === undefined || PLAIN_KINDS.includes(production.kind.trim().toLowerCase())) return {};
+
+        const notebook = await this.notebookOf(key);
+        // A story is offered on a speaker's FIRST turn alone, and only to somebody who rang in. It
+        // is the most interesting thing in a prompt by a distance, so offering it on every turn is
+        // a caller who tells the same anecdote three times in four minutes — and the presenter's
+        // own stories belong to the talk break, where the operator's `storytelling` rung and the
+        // `story` band already decide when one is told.
+        if (!firstTurn || speaker?.role !== 'caller') return notebook;
+
+        return { ...notebook, ...(await this.storyOf(key)) };
+    }
+
+    /** This character's notebook, rested as it is read. */
+    private async notebookOf(personaKey: string): Promise<{ notebook?: PersonaNotesForPrompt }> {
+        try {
+            const { notes, ids } = await this.notes.forPrompt(personaKey);
+            if (notes.trait.length === 0 && notes.said.length === 0) return {};
+
+            await this.notes.markUsed(ids);
+            return { notebook: notes };
+        } catch (error) {
+            this.logger.warn(`productions: a turn was written without its character's notebook (${errorText(error)})`);
+            return {};
+        }
+    }
+
+    /** One of this character's stories, rested as it is read. */
+    private async storyOf(personaKey: string): Promise<{ story?: PersonaStoryForPrompt }> {
+        try {
+            const found = await this.stories.forPrompt(personaKey);
+            if (found === undefined) return {};
+
+            await this.stories.markTold(found.id);
+            return { story: found.story };
+        } catch (error) {
+            this.logger.warn(`productions: a turn was written without its character's story (${errorText(error)})`);
+            return {};
+        }
     }
 
     /**

@@ -156,3 +156,62 @@ describe('what a speaker may perform', () => {
         expect(system).not.toContain('square brackets');
     });
 });
+
+// A caller who has rung before. Everything here comes out of `persona_notes` and `persona_stories`,
+// which are keyed by a persona key and know nothing about breaks — so the only new thing a
+// production needed was to write its own history down.
+describe('what a character remembers', () => {
+    it('puts what it has settled into beside the sheet, where who it IS belongs', () => {
+        const system = systemOf(
+            turn({ ...base, speaker: dale, previousSpeaker: host, persona: sheet(), notebook: { trait: ['You never quite finish a sentence.'], said: [] } }),
+        );
+
+        expect(system).toContain('Things you have settled into on this station');
+        expect(system).toContain('never quite finish a sentence');
+    });
+
+    it('puts what it has SAID beside the moment, where what it DID belongs', () => {
+        const messages = turn({ ...base, speaker: dale, previousSpeaker: host, notebook: { trait: [], said: ['Rang in about the lights again.'] } });
+
+        expect(userOf(messages)).toContain('Rang in about the lights again.');
+        expect(systemOf(messages)).not.toContain('Rang in about the lights again.');
+    });
+
+    it('offers the sayings rather than asking for them', () => {
+        // Measured on the break path and inherited whole: "work at most one of them in" reads as an
+        // instruction to work one in.
+        const user = userOf(turn({ ...base, speaker: dale, previousSpeaker: host, notebook: { trait: [], said: ['Rang in about the lights.'] } }));
+
+        expect(user).toContain('You do not have to mention any of them');
+    });
+
+    it('offers a story with the fence that keeps it off the records', () => {
+        const user = userOf(
+            turn({
+                ...base,
+                speaker: dale,
+                previousSpeaker: host,
+                story: { title: 'The lights', story: 'Three lights over the desert, moving together.', details: [], timesTold: 0 },
+            }),
+        );
+
+        expect(user).toContain('Three lights over the desert');
+        expect(user).toContain('it happened to YOU');
+        expect(user).toContain('not a fact about any record');
+    });
+
+    it('says a story has been told before, only once it has', () => {
+        const told = (timesTold: number) =>
+            userOf(turn({ ...base, speaker: dale, previousSpeaker: host, story: { title: 'The lights', story: 'Three lights.', details: [], timesTold } }));
+
+        expect(told(2)).toContain('somebody tells a story twice');
+        expect(told(0)).not.toContain('somebody tells a story twice');
+    });
+
+    it('carries nothing at all for a character with nothing, which is the byte-identical case', () => {
+        const withNothing = turn({ ...base, speaker: dale, previousSpeaker: host, notebook: { trait: [], said: [] } });
+        const withNone = turn({ ...base, speaker: dale, previousSpeaker: host });
+
+        expect(withNothing).toEqual(withNone);
+    });
+});

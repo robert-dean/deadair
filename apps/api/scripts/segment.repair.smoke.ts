@@ -28,6 +28,7 @@ import { KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroon
 
 import type { DB } from '../src/modules/data/db.js';
 import { PersonaRepository } from '../src/modules/personas/persona.repository.js';
+import { ProductionRepository } from '../src/modules/productions/production.repository.js';
 import { SegmentRepository } from '../src/modules/render/segment.repository.js';
 import { StationIdentity } from '../src/modules/shared/station.identity.js';
 
@@ -166,8 +167,13 @@ async function recasts(): Promise<void> {
     const already = await writtenBy(incoming.id, incoming.voice);
     const nobodys = await written('item-1');
     const operators = await writtenBy(outgoing.id, 'a-voice-the-operator-chose');
+    // A turn of a programme, in a character that is not the incoming host — which is every caller by
+    // definition. It has to survive, and it is the one exemption whose failure is destructive rather
+    // than merely wrong: a block enters the running order whole, so reopening one turn leaves a hole
+    // in the middle of a programme that nothing puts back.
+    const beat = await writtenBy(outgoing.id, 'a-callers-voice', await aProduction());
 
-    const reopened = await segments.recast([theirs, already, nobodys, operators], incoming.id);
+    const reopened = await segments.recast([theirs, already, nobodys, operators, beat], incoming.id);
     const row = await segments.findById(theirs);
     // `persona_id` is on the row and not on `Segment`, because nothing reads it back through the
     // repository. It is the whole subject here, so this one asks the table.
@@ -181,12 +187,29 @@ async function recasts(): Promise<void> {
     check((await stamped(theirs)).personaId == null, 'the stamped host goes with the words it describes');
     check((await stamped(theirs)).voice == null, 'and the voice goes with it, since it was the outgoing host’s');
     check((await stamped(operators)).voice === 'a-voice-the-operator-chose', 'a voice an operator set by hand survives the recast');
+    check(!reopened.includes(beat), 'a turn of a production is left alone, because a programme is re-made whole or not at all');
+    check((await stamped(beat)).personaId != null, 'and it keeps the character it was written as');
     check((await trail(theirs)).includes('written→planned'), 'the trail says it was un-written');
 }
 
+/** A production for a beat to belong to, so the recast guard has something real to skip. */
+async function aProduction(): Promise<string> {
+    const production = await new ProductionRepository(db, new StationIdentity()).open({
+        kind: KIND,
+        title: 'Smoke',
+        targetMs: 60_000,
+        writingMode: 'quick',
+    });
+    return production.id;
+}
+
 /** The same as {@link written}, under a persona and in a voice, as a break the station planted is. */
-async function writtenBy(personaId: string, voice: string | undefined): Promise<string> {
-    const planned = await segments.plan({ kind: KIND, label: 'Smoke' });
+async function writtenBy(personaId: string, voice: string | undefined, productionId?: string): Promise<string> {
+    const planned = await segments.plan({
+        kind: KIND,
+        label: 'Smoke',
+        ...(productionId === undefined ? {} : { productionId, productionOrdinal: 0 }),
+    });
     await segments.claimForWrite(planned.id);
     await segments.writeScript(planned.id, {
         script: 'In character, at length.',
@@ -225,6 +248,9 @@ try {
     // After the segments, because `segments.persona_id` references them: `on delete set null` would
     // otherwise leave the rows above pointing at nothing halfway through the cleanup.
     await db.deleteFrom('deadair.personas').where('key', 'like', `${KIND}.%`).execute();
+    // And the production a beat belonged to, for the same reason in the other direction:
+    // `segments.production_id` is `on delete set null`, so this is safe once the segments are gone.
+    await db.deleteFrom('deadair.productions').where('kind', '=', KIND).execute();
     console.log(`\n  cleaned up ${numDeletedRows} segment${numDeletedRows === 1n ? '' : 's'}`);
     await db.destroy();
 }

@@ -38,6 +38,22 @@ function formatArtists(artists: string[]): string {
 const isSpent = (state: StationItemState): boolean => state !== 'planned';
 
 /**
+ * How loud a row is, on the three-way split the running order actually has.
+ *
+ * Full for what is happening and what is still to come, half for the history an operator reads to
+ * see where the station got to, and a quarter for a skipped SEGMENT — which is history that arrives
+ * in runs. Four consecutive "News SEGMENT MODEL SKIPPED" lines at the same weight as the records
+ * around them read as the running order rather than as the holes in it.
+ *
+ * Segments only. A skipped RECORD is a single row and is the more interesting fact of the two, since
+ * the station had something to play and did not play it.
+ */
+function opacityFor(item: StationOrderItem): number {
+    if (item.state === 'airing' || item.state === 'planned') return 1;
+    return item.state === 'skipped' && item.segmentId !== undefined ? 0.25 : 0.5;
+}
+
+/**
  * What decided a break's words, in a sentence.
  *
  * Free text on the row rather than a fixed set, because a station can install a writer this console
@@ -316,7 +332,16 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                                     // Dimmed rather than hidden: what is beyond editing is how an operator
                                     // reads where the station has got to. The item ON AIR is not dimmed,
                                     // because it is the one thing on the page that is happening.
-                                    opacity={item.state === 'airing' || item.state === 'planned' ? 1 : 0.5}
+                                    //
+                                    // A SKIPPED segment is dimmed further still, which is not a third
+                                    // opinion about states but a fact about how they arrive: a played
+                                    // record is one row and a break the station passed over comes in
+                                    // runs, four and five deep, each one an identical line saying News
+                                    // SEGMENT MODEL SKIPPED. At the same weight as the history around
+                                    // them they read as the order rather than as the gaps in it. The row
+                                    // stays a row, because which break was skipped and where is exactly
+                                    // what an operator scrolls back to find.
+                                    opacity={opacityFor(item)}
                                 >
                                     <Table.Td>
                                         <Text size="xs" c="dimmed" className="da-num">

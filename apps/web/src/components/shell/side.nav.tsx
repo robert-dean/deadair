@@ -41,6 +41,9 @@ const GROUPS: NavGroup[] = [
             // Beside the library rather than under Air: a chart is a list of records to look at,
             // which is the question this group answers, and nothing here reaches the running order.
             { to: '/charts', label: 'Charts' },
+            // Beside the charts for the same reason: this is material the station draws on rather
+            // than anything it is currently doing, and both answer "what is there to talk about".
+            { to: '/news', label: 'News' },
         ],
     },
     {

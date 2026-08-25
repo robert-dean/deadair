@@ -33,6 +33,7 @@ describe('SideNav', () => {
             'Catalog',
             'Playlists',
             'Charts',
+            'News',
             'Personas',
             'Subjects',
             'Productions',

@@ -146,6 +146,17 @@ export const queryKeys = {
         page: (id: string, date?: string) => ['charts', 'page', id, date ?? ''] as const,
     },
 
+    /**
+     * The feed list is one question; the stories are another, narrowed by which feed.
+     *
+     * The category filter is deliberately NOT in the key: it is applied client-side by joining
+     * stories to the feeds that carry a category, so narrowing by one asks the API nothing.
+     */
+    news: {
+        feeds: () => ['news', 'feeds'] as const,
+        stories: (feedId?: string) => ['news', 'stories', feedId ?? ''] as const,
+    },
+
     scripts: {
         // Every filter is part of the key, including the two that arrive from a link: a key missing
         // one is two different questions sharing one answer, and what that looks like is one

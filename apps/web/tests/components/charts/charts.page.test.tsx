@@ -85,7 +85,7 @@ describe('ChartsPage', () => {
         // The country distinguishes two charts one plugin offers under similar names.
         const user = setupUser();
         await user.click(screen.getByRole('combobox', { name: 'Chart' }));
-        await user.click(await screen.findByText('UK (GB)'));
+        await user.click(await screen.findByRole('option', { name: 'UK (GB)' }));
 
         expect(readChart).toHaveBeenCalledWith('deadair.lastfm:uk', {});
     });

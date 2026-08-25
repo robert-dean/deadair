@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as ChartsRouteImport } from './routes/charts'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as NewsRouteImport } from './routes/news'
 import { Route as OnairRouteImport } from './routes/onair'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PersonasRouteImport } from './routes/personas'
@@ -52,6 +53,11 @@ const ChartsRoute = ChartsRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewsRoute = NewsRouteImport.update({
+  id: '/news',
+  path: '/news',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnairRoute = OnairRouteImport.update({
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/charts': typeof ChartsRoute
   '/login': typeof LoginRoute
+  '/news': typeof NewsRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
   '/personas': typeof PersonasRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/activity': typeof ActivityRoute
   '/charts': typeof ChartsRoute
   '/login': typeof LoginRoute
+  '/news': typeof NewsRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
   '/personas': typeof PersonasRoute
@@ -214,6 +222,7 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/charts': typeof ChartsRoute
   '/login': typeof LoginRoute
+  '/news': typeof NewsRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
   '/personas': typeof PersonasRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/charts'
     | '/login'
+    | '/news'
     | '/onair'
     | '/onboarding'
     | '/personas'
@@ -268,6 +278,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/charts'
     | '/login'
+    | '/news'
     | '/onair'
     | '/onboarding'
     | '/personas'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/charts'
     | '/login'
+    | '/news'
     | '/onair'
     | '/onboarding'
     | '/personas'
@@ -321,6 +333,7 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   ChartsRoute: typeof ChartsRoute
   LoginRoute: typeof LoginRoute
+  NewsRoute: typeof NewsRoute
   OnairRoute: typeof OnairRoute
   OnboardingRoute: typeof OnboardingRoute
   PersonasRoute: typeof PersonasRoute
@@ -371,6 +384,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/news': {
+      id: '/news'
+      path: '/news'
+      fullPath: '/news'
+      preLoaderRoute: typeof NewsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onair': {
@@ -521,6 +541,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityRoute: ActivityRoute,
   ChartsRoute: ChartsRoute,
   LoginRoute: LoginRoute,
+  NewsRoute: NewsRoute,
   OnairRoute: OnairRoute,
   OnboardingRoute: OnboardingRoute,
   PersonasRoute: PersonasRoute,

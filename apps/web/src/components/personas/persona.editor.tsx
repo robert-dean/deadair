@@ -233,6 +233,18 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                             allowDeselect={false}
                             {...form.getInputProps('latitude')}
                         />
+
+                        <Select
+                            label="How often they bring up their own past"
+                            description="Their stories are kept on this character's own shelf, and at most one ever reaches a break. This is only about ordinary talk breaks: a story band on your clock asks for one whatever this says."
+                            data={[
+                                { value: '', label: 'Occasionally — when nothing is known about the records' },
+                                { value: 'often', label: 'Often — most breaks' },
+                                { value: 'never', label: 'Never in a link' },
+                            ]}
+                            allowDeselect={false}
+                            {...form.getInputProps('storytelling')}
+                        />
                     </Group>
 
                     {/* The two compose, and neither control can say so on its own: a terse character
@@ -240,7 +252,7 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
                         what they have actually asked for. Each field's own description explains what
                         it does; this says what the combination comes to. */}
                     <Text size="xs" c="dimmed">
-                        {voiceReadout(form.values.brevity, form.values.latitude)}
+                        {voiceReadout(form.values.brevity, form.values.latitude, form.values.storytelling)}
                     </Text>
 
                     <Textarea
@@ -304,7 +316,7 @@ export function PersonaEditor({ persona, opened, onClose, onSubmit, saving, erro
  * with what gets measured on air, and a number repeated here would be a second claim about them that
  * nothing keeps true.
  */
-function voiceReadout(brevity: string, latitude: string): string {
+function voiceReadout(brevity: string, latitude: string, storytelling: string): string {
     const length =
         brevity === 'one-line'
             ? 'one line'
@@ -321,7 +333,17 @@ function voiceReadout(brevity: string, latitude: string): string {
               ? 'Follows a thought where it goes'
               : 'Makes one point';
 
-    return `${manner}, in ${length}. The station's content rules and its refusals are unchanged either way.`;
+    // The third field is about MATERIAL rather than manner, so it is a sentence of its own rather
+    // than another clause: what it changes is whether there is anything of the character's own life
+    // in the prompt, which is a different question from how the character talks.
+    const stories =
+        storytelling === 'never'
+            ? ' It keeps its stories to itself in a link.'
+            : storytelling === 'often'
+              ? ' It works one of its own stories into most breaks.'
+              : ' It reaches for one of its own stories when the station knows nothing about the records.';
+
+    return `${manner}, in ${length}. The station's content rules and its refusals are unchanged either way.${stories}`;
 }
 
 /**
@@ -443,6 +465,7 @@ interface FormValues {
     background: string;
     brevity: string;
     latitude: string;
+    storytelling: string;
     templates: string;
     diction: string;
     dictionMarkers: string;
@@ -471,6 +494,7 @@ function valuesOf(persona: PersonaDraftView | undefined): FormValues {
         background: persona?.background ?? '',
         brevity: persona?.brevity ?? '',
         latitude: persona?.latitude ?? '',
+        storytelling: persona?.storytelling ?? '',
         templates: persona?.templates ?? '',
         diction: linesOf(persona?.diction),
         dictionMarkers: linesOf(persona?.dictionMarkers),
@@ -500,6 +524,8 @@ function draftOf(values: FormValues): PersonaInput {
     // back to `string` on its way through `omitUndefined`'s inference.
     const brevity: PersonaInput['brevity'] = values.brevity === 'short' || values.brevity === 'one-line' ? values.brevity : undefined;
     const latitude: PersonaInput['latitude'] = values.latitude === 'loose' || values.latitude === 'unleashed' ? values.latitude : undefined;
+    const storytelling: PersonaInput['storytelling'] =
+        values.storytelling === 'never' || values.storytelling === 'often' ? values.storytelling : undefined;
 
     return {
         key: values.key.trim(),
@@ -515,6 +541,11 @@ function draftOf(values: FormValues): PersonaInput {
             // Same rule: '' is the station's ordinary discipline, which is a field that is not there
             // rather than a rung meaning "no extra room".
             latitude,
+            // And again, with one difference worth knowing: the absent value here is the MIDDLE
+            // rung rather than the bottom one. `occasionally` is what a character with nothing set
+            // does, so it is the one option in the select with no value behind it — a persona that
+            // never mentions its own past is a decision and is stored as `never`.
+            storytelling,
             // Not trimmed per line: the phrasings are parsed by the API the same way the station's
             // own setting is, and a blank line between two of them is somebody spacing their list.
             templates: text(values.templates),

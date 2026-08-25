@@ -24,6 +24,7 @@ import { toneColor } from '../shared/status';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
 import { PersonaNotesPanel } from './persona.notes';
+import { PersonaStoriesPanel } from './persona.stories';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
 import { PresentingBanner } from './presenting.banner';
 
@@ -61,6 +62,10 @@ export function PersonasPage() {
     // Which character's notebook is open, or none. One at a time, because the panel fetches per
     // persona and a page of nineteen open notebooks is nineteen requests nobody asked for.
     const [notebook, setNotebook] = useState<string | undefined>(undefined);
+    // Its own toggle rather than a second tab inside the notebook's, because they are two different
+    // questions about a character: what it has picked up from its own broadcasts, and what happened
+    // to it before any of them. One open panel each, for the reason the notebook has one.
+    const [shelf, setShelf] = useState<string | undefined>(undefined);
     // Which character a delete is being asked about. Holding the persona rather than its id, so the
     // dialog can name what it is about to take without looking it back up.
     const [deleting, setDeleting] = useState<Persona | undefined>(undefined);
@@ -264,6 +269,13 @@ export function PersonasPage() {
                                 >
                                     {notebook === persona.id ? 'Hide notebook' : 'Notebook'}
                                 </Button>
+                                <Button
+                                    variant="subtle"
+                                    size="compact-sm"
+                                    onClick={() => setShelf(current => (current === persona.id ? undefined : persona.id))}
+                                >
+                                    {shelf === persona.id ? 'Hide stories' : 'Stories'}
+                                </Button>
                                 <Button variant="subtle" size="compact-sm" onClick={() => setEditing(persona)}>
                                     Edit
                                 </Button>
@@ -301,6 +313,8 @@ export function PersonasPage() {
                         ) : undefined}
 
                         {notebook === persona.id ? <PersonaNotesPanel personaId={persona.id} /> : undefined}
+
+                        {shelf === persona.id ? <PersonaStoriesPanel personaId={persona.id} /> : undefined}
                     </Card>
                 ))}
             </Stack>

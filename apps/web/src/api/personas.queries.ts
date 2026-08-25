@@ -7,6 +7,10 @@ import type {
     PersonaNoteState,
     PersonaNoteWrite,
     PersonaRehearsal,
+    PersonaStoryDetailWrite,
+    PersonaStoryList,
+    PersonaStoryState,
+    PersonaStoryWrite,
 } from '@deadair/sdk';
 
 import { sdk } from './client';
@@ -112,12 +116,14 @@ function useNoteWrite<TArgs extends { id: string }>(mutationFn: (args: TArgs) =>
     });
 }
 
-export const useWritePersonaNote = () => useNoteWrite(({ id, body }: { id: string; body: PersonaNoteWrite }) => sdk.personas.writePersonaNote(id, body));
+export const useWritePersonaNote = () =>
+    useNoteWrite(({ id, body }: { id: string; body: PersonaNoteWrite }) => sdk.personas.writePersonaNote(id, body));
 
 export const useUpdatePersonaNote = () =>
     useNoteWrite(({ id, noteId, body }: { id: string; noteId: string; body: PersonaNoteWrite }) => sdk.personas.updatePersonaNote(id, noteId, body));
 
-export const useDeletePersonaNote = () => useNoteWrite(({ id, noteId }: { id: string; noteId: string }) => sdk.personas.deletePersonaNote(id, noteId));
+export const useDeletePersonaNote = () =>
+    useNoteWrite(({ id, noteId }: { id: string; noteId: string }) => sdk.personas.deletePersonaNote(id, noteId));
 
 /**
  * Accept a proposal, turn one down, or rest an active note.
@@ -128,6 +134,65 @@ export const useDeletePersonaNote = () => useNoteWrite(({ id, noteId }: { id: st
 export const useSetPersonaNoteState = () =>
     useNoteWrite(({ id, noteId, state }: { id: string; noteId: string; state: PersonaNoteState['state'] }) =>
         sdk.personas.setPersonaNoteState(id, noteId, { state }),
+    );
+
+/** What one character has lived through. Read on the same terms as the notebook beside it. */
+export function usePersonaStories(id: string | undefined) {
+    return useQuery({
+        queryKey: queryKeys.personas.stories(id ?? ''),
+        queryFn: () => sdk.personas.listPersonaStories(id!),
+        staleTime: PERSONAS_STALE_TIME,
+        enabled: id !== undefined,
+    });
+}
+
+/**
+ * Every story write, sharing one success path.
+ *
+ * `useNoteWrite`'s arrangement one table over, and the same reason: every route here answers with the
+ * whole shelf, because accepting a proposal — or adding a detail to a story three rows down — changes
+ * a list rather than a row.
+ */
+function useStoryWrite<TArgs extends { id: string }>(mutationFn: (args: TArgs) => Promise<PersonaStoryList>) {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn,
+        onSuccess: (stories: PersonaStoryList) => {
+            queryClient.setQueryData(queryKeys.personas.stories(stories.personaId), stories);
+        },
+    });
+}
+
+export const useWritePersonaStory = () =>
+    useStoryWrite(({ id, body }: { id: string; body: PersonaStoryWrite }) => sdk.personas.writePersonaStory(id, body));
+
+export const useUpdatePersonaStory = () =>
+    useStoryWrite(({ id, storyId, body }: { id: string; storyId: string; body: PersonaStoryWrite }) =>
+        sdk.personas.updatePersonaStory(id, storyId, body),
+    );
+
+export const useDeletePersonaStory = () =>
+    useStoryWrite(({ id, storyId }: { id: string; storyId: string }) => sdk.personas.deletePersonaStory(id, storyId));
+
+/** Accept a proposal or turn one down. A rejection outlives the pass, for the notebook's reason. */
+export const useSetPersonaStoryState = () =>
+    useStoryWrite(({ id, storyId, state }: { id: string; storyId: string; state: PersonaStoryState['state'] }) =>
+        sdk.personas.setPersonaStoryState(id, storyId, { state }),
+    );
+
+export const useAddPersonaStoryDetail = () =>
+    useStoryWrite(({ id, storyId, body }: { id: string; storyId: string; body: PersonaStoryDetailWrite }) =>
+        sdk.personas.addPersonaStoryDetail(id, storyId, body),
+    );
+
+export const useDeletePersonaStoryDetail = () =>
+    useStoryWrite(({ id, storyId, detailId }: { id: string; storyId: string; detailId: string }) =>
+        sdk.personas.deletePersonaStoryDetail(id, storyId, detailId),
+    );
+
+export const useSetPersonaStoryDetailState = () =>
+    useStoryWrite(({ id, storyId, detailId, state }: { id: string; storyId: string; detailId: string; state: PersonaStoryState['state'] }) =>
+        sdk.personas.setPersonaStoryDetailState(id, storyId, detailId, { state }),
     );
 
 /**

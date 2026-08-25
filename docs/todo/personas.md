@@ -47,8 +47,13 @@ exists on both engines, and none of the work below is blocked on a voice to reac
 missing is only the `kind` column and the precedence, which is what this section was always about.
 See the speech and persona gotchas in CLAUDE.md.
 
-**The seam is a nullable `kind` on `deadair.personas`**, and the precedence stays in the one place it
-already lives:
+**The seam is a `kind` on `deadair.personas`**, and the precedence stays in the one place it already
+lives. **The column landed on 2026-08-25 with the caller work, and it is NOT NULL with a default of
+`host`** — which is a correction to what follows rather than a detail. This entry sketches it nullable
+with the active index becoming `(station_key, kind)` "with nulls distinct", and nulls distinct is
+Postgres's DEFAULT for a unique index: two rows with a null kind would not conflict, so the station
+could have two active hosts. With a positive value that hole does not exist and the index below is
+safe to write when the newsreader arrives. Adding `newsreader` is one entry in the check constraint:
 
 ```
 presenting(kind, lineupPersonaId)
@@ -277,10 +282,16 @@ Two decisions, neither settled:
 
 ## What this file does not cover
 
-- **Multiple personas talking to each other** (the raw list's two-voice dialogue, and what
-  `from-v1.md` records as a built feature of the previous station). That is a segment KIND with two
-  voices and a script with turns, not a property of personas, and it should be scoped where the
-  writers are.
+- **Multiple personas talking to each other — ANSWERED (2026-08-25), and the answer was not a
+  persona feature.** It is a PRODUCTION: one turn per segment, one voice each, and the block enters
+  the running order whole. That is what this entry meant by "a segment kind with two voices and a
+  script with turns", and the reason it could not be one segment is unchanged — `segments.voice` is
+  one id and a segment is one render.
+
+  What personas had to lend it is one column. `personas.kind` is `host` or `caller`, a caller can
+  never be active (the database refuses it), and everything else a caller needs — the sheet, the
+  diction check, the voice slot, `persona_notes`, `persona_stories` — it already had. See
+  [produced-episodes.md](produced-episodes.md) for the six things that were decided in the building.
 - **Mood**, which is [station-moment.md](station-moment.md) and is deliberately a different axis: a
   persona is who the station is and a mood is what the hour is like. A persona that changed with the
   clock would be a schedule, which is §3.

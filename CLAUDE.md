@@ -378,6 +378,68 @@ something nothing was asking for. **A rule true of one kind and false of the nex
 right for a link between two records and a licence to drop two thirds of a bulletin if the news shape
 had to read it.
 
+**Somebody can PHONE IN, and everything about that is decided host-side rather than by the model.**
+`personas.kind` is `host` or `caller` — not null, defaulting to `host`, which is a correction to
+`docs/todo/personas.md` §1: it sketched the column nullable with a `(station_key, kind)` unique index
+"with nulls distinct", and nulls distinct is Postgres's default, so two null-kind rows would not
+conflict and the station could have TWO active hosts. A caller can never be active at all, refused by
+`personas_caller_inactive_check` as well as by `PersonasService.setActive`, and it ships with no
+`templates` because phrasings are the STATION's floor under a break and a phone-in whose caller was
+written by a template is a phone-in with nobody on the phone. Five callers seed, both speech plugins
+map them, and the roster is five rather than six because the two shipped maps must name the SAME
+slots and sharing a voice with a host is the one thing they may not do — the two are in one
+programme talking to each other. A caller reaches a listener only inside a PRODUCTION
+(`productions.casting`, decided by the first pass that runs rather than at commission, since the
+clock reads three hours ahead and the roster can change in between). Six things are load-bearing.
+**Who says a turn is arithmetic**: `OutlineBeat.lead` is deleted and `BeatPlan.speaker` replaced it,
+on `production.plan.ts`'s own rule about how long a beat is — a model naming somebody the production
+was not given is a turn drafted as one character and rendered in another's voice, silently — and the
+outline is TOLD the assignment so it can plan content that fits. **A turn is not a beat**:
+`TURN_BAND` is 40/70/110 against the monologue 150/200/260, because the monologue floor is argued as
+"below this a beat is a headline read out", which is true of somebody talking uninterrupted and false
+of somebody answering a question; a dialogue's turn count is forced ODD, since the host both opens
+and closes. **A caller may be WRONG and the host is what makes that safe**: the grounding block goes
+out as fact, which is right for the station's own voice and wrong for a phone-in, so a caller whose
+sheet carries a `latitude` gets a licence instead (what THEY think, kept theirs, never a real named
+person, never anything shaped like news) and the host's next turn is told to take it as theirs rather
+than confirm it — the licence REPLACES the ordinary rules rather than joining them, because two rules
+that disagree produce neither. **A production beat is never recast alone**
+(`SegmentRepository.recast` skips `production_id`), since a recast re-offers what the outgoing host
+had lined up, which is right for a break and a hole in the middle of a programme for a beat, and a
+caller differs from the incoming host by definition. **A caller ARRIVES mid-programme**, so
+`firstTurn` is a fact about the SPEAKER rather than about the beat: it is the one place a greeting
+belongs, `checkBeat` is excused there, and the prompt says which way round the call went because the
+first live one opened with "thanks for calling", which is the presenter's line. And **the estimate
+that decides a cast is taken in the dialogue band** — the first live call-in of three minutes looked
+like two monologue beats, below the floor for casting anybody, so the station made a phone-in with
+nobody on it and nothing said why (`turnsFor`).
+
+**A production writes down what it wrote, which is what gives a caller a memory.**
+`ScriptHistoryRepository` had one caller for as long as it existed and a programme recorded nothing,
+so a production was invisible to `/scripts`, to `llm.captureWrites` and to every pass that reads the
+station's own history back. It records one row per write ATTEMPT now with the SPEAKER's key on it,
+which is the whole of caller memory: `persona_notes` and `persona_stories` are keyed by a persona KEY
+and know nothing about breaks, and both nightly passes iterate the roster, so a caller reaches all of
+it with no new storage. The read is the same two halves in the same two turns as a break (a trait
+beside the sheet, a saying beside the moment) and a story reaches a CALLER on their FIRST turn alone,
+since it is the most interesting thing in a prompt by a distance and offering it every turn is
+somebody who tells the same anecdote three times in four minutes. `PLAIN_KINDS` withholds both from a
+production an operator called news or a bulletin, on `showsFacts`' argument one source further out.
+
+**The performance cues are EIGHT, and who may use which is a permission the host holds.**
+`SPEECH_CUES` was four with a stated reason — "a cough or a sniff reads as illness rather than as
+delivery" — which is right about somebody paid to talk into a microphone and exactly wrong about
+somebody on a telephone, where the throat-clear IS the realism. So the vocabulary widened to what the
+engine actually names (minus `shush`, which is aimed AT somebody in the room and is business rather
+than delivery) and the split moved app-side: `PRESENTER_CUES` is the original four, `CALLER_CUES` is
+all of them, and both are intersected with what the installed engine reports. **Widening the list
+without narrowing the offer is how the presenter starts coughing**, which is why the allowed set is a
+required parameter wherever a script is read back rather than a reach for the whole vocabulary, and
+why every matcher built from the list orders the longest form first now that `clear throat` is in it.
+The other half is that `readAnswer`'s tidying is `speakableScript` and BOTH paths call it: a
+production beat never had it, so `the album is *The Soft Parade*` went to an engine that reads
+asterisks.
+
 **A character can be given ROPE, and what it buys is the station asking for more rather than
 accepting worse.** `personas.latitude` is `loose` / `unleashed` above the ordinary discipline, where
 `brevity` is `short` / `one-line` below it, and they are two fields because they are two kinds of

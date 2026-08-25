@@ -63,7 +63,11 @@ ended up with, after several passes:
   150–260 word band and items spread across them.
 - **Show styles** as presets (conspiracy, talkshow, debate, news-desk, cozy) with mode/tone/rules/cues
   and per-show overrides, mirrored in the console form.
-- **Callers**, cast per episode, each assigned a voice from a pool.
+- **Callers**, cast per episode, each assigned a voice from a pool. **Ported 2026-08-25, and the two
+  ideas below it were folded in**: a caller here is a PERSONA (kind `caller`) rather than a cast
+  entry, so it recurs by construction and carries a sheet, a voice slot, a notebook and a past — which
+  is "caller and persona memory" from the wishlist further down, arriving with the feature rather than
+  after it.
 - **`[SFX: …]` cue markers**, non-spoken, from an allow-list, with a `renderSfx` seam left for real
   mixing.
 - **Human-in-the-loop preview**: a draft episode with an approve/regenerate step, and an in-flight
@@ -152,10 +156,11 @@ plus `modules/station/station.log.repository.ts` for the activity log behind the
 From v1's own `todo.md` and the deferred notes around it. These have no implementation to port, so
 they are ideas rather than ports:
 
-- **Caller and persona memory.** Persist generated callers (name, town, voice, topics) so they recur
-  across episodes, and more broadly let personas accumulate history and relationships. The outline
-  step already casts callers per episode, which is where remembered ones would feed in. This is a
-  table, not env config.
+- ~~**Caller and persona memory.**~~ **Built**, in two halves and neither of them a new table:
+  personas accumulating history landed 2026-08-22 (`deadair.persona_notes`), and callers recurring
+  landed 2026-08-25 by making a caller a persona in the first place. What a caller remembers comes out
+  of the same store as what the host remembers, which is the whole argument for not having built it
+  twice.
 - **Full foley.** Turn the `[SFX: …]` markers into mixed audio through an asset library and ffmpeg,
   then duck it under speech.
 - **Instant breaking-news breaks.** Superseded in design by the plugin `programme` capability and

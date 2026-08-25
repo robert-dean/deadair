@@ -21,6 +21,7 @@ Where each decision lives now:
 | 3 | A production enters the order whole or not at all | `DirectorService.injectProductions`, `StationLineup.insertGroup` |
 | 4 | A job per pass, with the row as the checkpoint | `production.passes.ts`, `PASSES`, `nextPass`, `retryLimit: 0` |
 | 5 | Timing never comes from the model | `production.plan.ts`, judged by `production.checks.ts` |
+| — | And nor does CASTING, for the same reason | `production.cast.ts`, `production.caster.ts` |
 
 [from-v1.md](from-v1.md) §"Shows and episodes" is the prior art and is not repeated here: multi-pass
 screenwriting, `writingMode`, show styles, callers cast per episode, `[SFX: …]` cues, and the two
@@ -225,10 +226,42 @@ The five decisions are. What sits on top of them, as of 2026-08-16:
   `putOnAir` rather than in the schedule, so an operator's changeover is covered by the same code,
   and it may only return a group NO beat of which has been heard: a part-aired episode is genuinely
   over and must not restart from the top.
-- **The cast is one.** `OutlineBeat.lead` and `Production.voices` exist and nothing reads them, so
-  multi-voice is a shape with no behaviour behind it. Callers cast per episode are personas, per
-  [personas.md](personas.md).
-- **No `[SFX: …]` cues**, which v1 had. There is no foley layer in this tree at all.
+- ~~**The cast is one.**~~ **Built, 2026-08-25.** A caller is a persona of kind `caller`,
+  `productions.casting` is the cast the first pass decided, and every turn is written from its own
+  speaker's sheet, stamped with that persona and spoken in that voice. Six things were decided in the
+  building rather than here, and each one is a way this goes wrong if it is done casually.
+
+  - **`OutlineBeat.lead` was deleted rather than finally read.** Who says a turn is the station's
+    arithmetic (`BeatPlan.speaker`), for the same reason §5 gives about how LONG a beat is: a model
+    naming somebody the production was never given is a turn drafted as one character and rendered in
+    another's voice, silently. The outline is TOLD the assignment instead, which is the useful half of
+    what `lead` was for.
+  - **A turn is not a beat.** `production.plan.ts` grew a second band (40/70/110 against 150/200/260),
+    because the monologue floor is argued as "below this a beat is a headline read out" — true of
+    somebody talking uninterrupted and false of somebody answering a question. A dialogue's turn count
+    is forced ODD, since the host both opens and closes and an even count makes those two rules
+    collide on the last turn.
+  - **A caller may be WRONG, and the host is what makes that safe.** The grounding block exists
+    because a production goes out as fact, which is right for the station's own voice and wrong for a
+    phone-in: a caller who may only say what they can prove has no reason to have rung. A caller whose
+    sheet carries a `latitude` gets a licence instead — what THEY think, kept theirs, never a real
+    named person — and the host's next turn is told to take it as theirs and move on. The licence
+    REPLACES the ordinary rules rather than joining them, because two rules that disagree produce
+    neither.
+  - **A production beat is never recast alone.** `SegmentRepository.recast` skips them. A recast
+    re-offers what the outgoing host had lined up, which is right for a break and ruinous for a beat,
+    and a caller differs from the incoming host by definition.
+  - **The estimate that decides a cast has to be taken in the dialogue band**, which the first live
+    run found: a three-minute call-in looked like two monologue beats, which is below the floor for
+    casting anybody, so the station made a phone-in with nobody on the phone.
+  - **A production writes `script_history` now**, which it never did. That is what gives a caller a
+    memory (`persona_notes` and `persona_stories` are keyed by a persona key and needed nothing new),
+    and it is worth having on its own: a programme was invisible to `/scripts` and to
+    `llm.captureWrites`.
+- **No `[SFX: …]` cues**, which v1 had. There is no foley layer in this tree at all — but the
+  performance cues are wider than they were: `SPEECH_CUES` is eight, and a caller may use all of them
+  where a presenter keeps the original four. That is delivery rather than foley, and the dog barking
+  behind the caller is still mixing that does not happen in Node.
 
 ## What not to do, in one place
 

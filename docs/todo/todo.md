@@ -37,12 +37,16 @@ points at that file. Checked against the tree on 2026-08-11.
       A trait reaches the system turn beside the sheet and a saying the user turn beside the show's
       memory; a bulletin gets neither. What is left is the operator's opinion of a break, which is
       `break-ratings.md`
-- [~] talkshows with callers (can we do real and fake like a conspiracy theories ) — **the machinery
-      is built, 2026-08-16**: a production is several beats written in several passes that airs as one
-      block (`modules/productions`, `produced-episodes.md`), which is what a talkshow is made of. Two
-      things are missing and neither is the hard part: the CAST, since `OutlineBeat.lead` and
-      `Production.voices` exist and nothing reads them (a caller is a persona, per `personas.md`), and
-      a schedule to commission one, which is `director-and-lineups.md`
+- [~] talkshows with callers (can we do real and fake like a conspiracy theories ) — **the FAKE half
+      is built, 2026-08-25**. A caller is a persona of kind `caller` that can never go on air by
+      itself; a `callin` production is planned as short alternating TURNS rather than beats, one
+      segment and one voice each; who rings in is a rotation over the roster, least recently heard
+      first; and a caller whose sheet carries a `latitude` may say what it THINKS, with the host's
+      next turn told to take it as theirs rather than confirm it. Five callers ship, both speech
+      plugins map them, and `:40 callin` on the station clock commissions one. What is left is the
+      REAL half — a listener actually getting through — which is the request bot two lines down
+      wearing a different hat, and is an inbound surface and a permission before it is anything about
+      personas
 - [ ] telegram bot for "requests"
 - [ ] fix the tune-in album art, etc
 - [ ] improve playlist generation, use similar artists to get related artists ect to help
@@ -56,7 +60,12 @@ points at that file. Checked against the tree on 2026-08-11.
 - [ ] more music sources (pandora, ?): youtube music and apple music appear to be hard to impossible
     - scoped since: `youtube-music.md` splits it into a catalog half that is ordinary plugin code
       and an audio half that is a second track fetcher and a sidecar
-- [ ] add foley, sounds, etc (especially useful for "callers" so you hear background noise like a dog barking)
+- [~] add foley, sounds, etc (especially useful for "callers" so you hear background noise like a dog
+      barking) — the callers are real now (see above) and the DELIVERY half of this came with them:
+      `SPEECH_CUES` is eight, and a caller may cough, clear its throat, sniff or groan where a
+      presenter keeps the original four. The background noise is still blocked on the same thing it
+      always was — a dog barking under a voice is MIXING, and no decoding, mixing or encoding happens
+      in Node. It is Liquidsoap or the `analysis/` sidecar
 - [x] console/logs/activity feed — built 2026-08-13, with the silence diagnosis it was paired with
       in `station-intelligence.md` §8. `GET /activity` unions `station_events`, `segment_events` and
       `play_history`; the console draws it at `/activity`
@@ -74,10 +83,14 @@ points at that file. Checked against the tree on 2026-08-11.
       actions) and that choosing which verbs an outside agent may reach is `service-actors.md`'s
       question wearing a different hat
 - [ ] daily snapshot from calendar integration?
-- [ ] have the talk shows (like conspiracy) keep a history so it can grow organically — this is
-      `persona memory` above wearing a different hat, and `personas.md` §2 says so: a show that
-      remembers is a persona that remembers, and building it twice gives the station two characters
-      with one name
+- [x] have the talk shows (like conspiracy) keep a history so it can grow organically — **BUILT
+      2026-08-25**, and it cost no schema, exactly as `personas.md` §2 predicted by pointing at
+      `persona memory`: a show that remembers is a persona that remembers. `persona_notes` and
+      `persona_stories` are keyed by a persona KEY and know nothing about breaks, so the only thing
+      missing was that a production wrote no `script_history` at all. It does now, one row per write
+      attempt with the SPEAKER's key on it — so a caller's turns become the caller's notes, the
+      nightly distil pass reads them without being told about productions, and a caller who has rung
+      before is offered its own past on its first turn of the next call
 - [ ] view saved track metadata
 - [ ] like/dislike artist/song/album maybe genre — the dislike half is BUILT (a `-1` rating at all
       three levels, collapsed by `effectiveRating`); the genre half is `never-play-rules.md`, and the

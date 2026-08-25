@@ -42,6 +42,7 @@ describe('SideNav', () => {
             'Pronunciations',
             'Scripts',
             'Plugins',
+            'Check-up',
             'Settings',
         ];
         for (const label of labels) {

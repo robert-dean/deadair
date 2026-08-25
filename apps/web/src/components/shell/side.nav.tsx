@@ -75,7 +75,12 @@ const GROUPS: NavGroup[] = [
     },
     {
         title: 'System',
-        items: [{ to: '/settings', label: 'Settings' }],
+        items: [
+            // Under System rather than Air: this is a page about the machinery, beside the plugins
+            // and the settings, where the home page's list is the one about the broadcast.
+            { to: '/checkup', label: 'Check-up' },
+            { to: '/settings', label: 'Settings' },
+        ],
     },
 ];
 

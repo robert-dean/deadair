@@ -34,3 +34,25 @@ export const stationAttentionOptions = queryOptions({
 export function useStationAttention(enabled: boolean) {
     return useQuery({ ...stationAttentionOptions, enabled });
 }
+
+/**
+ * How often the machinery is re-read.
+ *
+ * Thirty seconds, slower than the attention list because what it carries moves slower still: a
+ * heartbeat that is late is late for minutes, and a library gets measured over hours. It does NOT
+ * poll in the background, unlike the attention query beside it — nothing here drives a badge, so a
+ * reading nobody is looking at is a request nobody asked for.
+ */
+const CHECKUP_POLL_MS = 30_000;
+
+export const stationCheckupOptions = queryOptions({
+    queryKey: queryKeys.station.checkup(),
+    queryFn: () => sdk.station.readStationCheckup(),
+    refetchInterval: CHECKUP_POLL_MS,
+    staleTime: CHECKUP_POLL_MS,
+});
+
+/** The loops the station runs, and how much of the library it has looked at. */
+export function useStationCheckup() {
+    return useQuery(stationCheckupOptions);
+}

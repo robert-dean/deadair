@@ -112,6 +112,8 @@ export const queryKeys = {
     station: {
         /** What needs somebody. One key: it is a reading of the whole station, and there is only one. */
         attention: () => ['station', 'attention'] as const,
+        /** The machinery underneath it. One reading, for the same reason. */
+        checkup: () => ['station', 'checkup'] as const,
     },
     playlists: {
         list: () => ['playlists', 'list'] as const,

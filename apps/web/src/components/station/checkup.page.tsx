@@ -1,0 +1,313 @@
+import { Card, Group, Progress, Stack, Table, Text } from '@mantine/core';
+import { useQuery } from '@tanstack/react-query';
+import type { PluginSummary, StationHeartbeat } from '@deadair/sdk';
+
+import { usePlayoutStatus } from '../../api/playout.queries';
+import { pluginsListOptions } from '../../api/plugins.queries';
+import { useStationAttention, useStationCheckup } from '../../api/station.queries';
+import { useStorage } from '../../api/storage.queries';
+import { AttentionList } from './attention.list';
+import { EmptyState } from '../shared/empty.state';
+import { Eyebrow } from '../shared/eyebrow';
+import { formatBytes } from '../shared/format.bytes';
+import { formatTimeOfDay } from '../shared/feed.moment';
+import { PageHeader } from '../shared/page.header';
+import { StatusLamp } from '../shared/status.lamp';
+import type { StatusTone } from '../shared/status';
+
+/**
+ * Everything an operator would otherwise visit five pages to read.
+ *
+ * Assembled from readings the console ALREADY makes rather than from a new composition: the silence
+ * verdict and the audience come off the transport's own poll, what needs somebody off the nav's,
+ * the plugin statuses off the plugins page's, the disk off the settings page's, and only the two
+ * signals nothing exposed — the loops and the backlog — come from a route added for this. Five
+ * queries rather than one, deliberately: a second server-side composition of facts the console holds
+ * would be a second answer that can disagree with the first.
+ *
+ * Every section fails on its own, which is the same rule the service under it works to and the
+ * reason this page is worth having: a page that says what is wrong is the worst possible place for
+ * one dead reader to blank the whole screen. So a section that cannot be read says so in its own
+ * box and the rest of the page still answers.
+ */
+export function CheckupPage() {
+    const playout = usePlayoutStatus(true);
+    const attention = useStationAttention(true);
+    const plugins = useQuery(pluginsListOptions);
+    const storage = useStorage();
+    const checkup = useStationCheckup();
+
+    return (
+        <Stack gap="lg">
+            <PageHeader
+                title="Check-up"
+                description={
+                    <Text size="sm" c="dimmed">
+                        The machinery, in one place. Nothing here probes the station: every figure is a reading it was already keeping, so looking at
+                        this page changes nothing about it.
+                    </Text>
+                }
+            />
+
+            <Section title="On air" failed={playout.isError} pending={playout.isPending}>
+                {playout.data === undefined ? undefined : (
+                    <Stack gap="xs">
+                        <Group gap="sm" wrap="wrap">
+                            {/* The station's own verdict rather than a second one worked out here.
+                                It composes ten gates in causal order and words the answer, and a
+                                sentence of our own would be a thing to disagree with it. */}
+                            <StatusLamp
+                                tone={playout.data.silence.audible ? 'live' : silenceTone(playout.data.silence.cause)}
+                                label={playout.data.silence.cause}
+                                emphasis="chip"
+                            />
+                            <Text size="sm">{playout.data.silence.detail}</Text>
+                        </Group>
+                        {playout.data.silence.remedy === undefined ? undefined : (
+                            <Text size="xs" c="dimmed">
+                                {playout.data.silence.remedy}
+                            </Text>
+                        )}
+                        <Group gap="lg" wrap="wrap">
+                            <Fact label="Listeners" value={String(playout.data.listeners)} />
+                            <Fact label="Stream" value={playout.data.streamUp ? 'up' : 'unreachable'} />
+                            <Fact label="Queued" value={String(playout.data.queuedCount)} />
+                        </Group>
+                        {/* A container running config that was replaced is never the CAUSE of a
+                            silence, and is the reason the next attempt to go on air will fail. */}
+                        {playout.data.staleStreamConfig.map(warning => (
+                            <Text key={warning.container} size="xs" c="yellow.4">
+                                {warning.container}: {warning.detail}
+                            </Text>
+                        ))}
+                    </Stack>
+                )}
+            </Section>
+
+            <Section title="Needs you" failed={attention.isError} pending={attention.isPending}>
+                {attention.data === undefined ? undefined : attention.data.items.length === 0 ? (
+                    <Text size="sm" c="dimmed">
+                        Nothing is waiting on anybody.
+                    </Text>
+                ) : (
+                    <AttentionList items={attention.data.items} />
+                )}
+            </Section>
+
+            <Section title="Loops" failed={checkup.isError} pending={checkup.isPending}>
+                {/* Absent rather than empty means the reader failed, which the service distinguishes
+                    on purpose: a station with no loops running is not the same as a station that
+                    could not be asked. */}
+                {checkup.data?.heartbeats === undefined ? (
+                    <Text size="sm" c="dimmed">
+                        The station could not say what its loops are doing.
+                    </Text>
+                ) : (
+                    <Loops heartbeats={checkup.data.heartbeats} readAt={checkup.data.readAt} />
+                )}
+            </Section>
+
+            <Section title="Plugins" failed={plugins.isError} pending={plugins.isPending}>
+                {plugins.data === undefined ? undefined : <Plugins plugins={plugins.data} />}
+            </Section>
+
+            <Section title="Library" failed={checkup.isError} pending={checkup.isPending}>
+                {checkup.data?.backlog === undefined ? (
+                    <Text size="sm" c="dimmed">
+                        The catalog could not be counted.
+                    </Text>
+                ) : (
+                    <Stack gap="xs">
+                        <Group gap="lg" wrap="wrap">
+                            <Fact label="Records" value={checkup.data.backlog.total.toLocaleString()} />
+                            <Fact label="On this machine" value={checkup.data.backlog.cached.toLocaleString()} />
+                            <Fact label="Measured" value={checkup.data.backlog.measured.toLocaleString()} />
+                        </Group>
+                        {/* The sentence the counts exist for. A bar rather than a percentage,
+                            because what an operator reads off it is how far along it is. */}
+                        <Progress
+                            value={checkup.data.backlog.total === 0 ? 0 : (checkup.data.backlog.measured / checkup.data.backlog.total) * 100}
+                            size="sm"
+                            aria-label="How much of the library is measured"
+                        />
+                    </Stack>
+                )}
+            </Section>
+
+            <Section title="Disk" failed={storage.isError} pending={storage.isPending}>
+                {storage.data === undefined ? undefined : (
+                    <Stack gap="xs">
+                        {storage.data.stores.map(store => (
+                            <Group key={store.id} gap="lg" wrap="wrap">
+                                <Text size="sm" w={160}>
+                                    {store.label}
+                                </Text>
+                                <Text size="sm" c="dimmed" className="da-num">
+                                    {formatBytes(store.bytes)}
+                                </Text>
+                                <Text size="xs" c="dimmed" className="da-num">
+                                    {store.files.toLocaleString()} files
+                                </Text>
+                                {/* Files no row claims, and claims whose file is gone. Reported
+                                    rather than reconciled, because the two disagree in different
+                                    directions and each means something different. */}
+                                {store.orphanFiles === 0 ? undefined : (
+                                    <Text size="xs" c="yellow.4" className="da-num">
+                                        {store.orphanFiles.toLocaleString()} unclaimed
+                                    </Text>
+                                )}
+                                {store.rowsWithNoFile === 0 ? undefined : (
+                                    <Text size="xs" c="yellow.4" className="da-num">
+                                        {store.rowsWithNoFile.toLocaleString()} missing
+                                    </Text>
+                                )}
+                            </Group>
+                        ))}
+                        {/* The store's own reading time, which is on its contract because a disk
+                            walk is expensive enough not to be done per request. */}
+                        <Text size="xs" c="dimmed">
+                            Read at {formatTimeOfDay(storage.data.readAt)}
+                        </Text>
+                    </Stack>
+                )}
+            </Section>
+        </Stack>
+    );
+}
+
+/**
+ * One part of the reading, in a box that can fail without taking the others.
+ *
+ * The whole point of the page: a check-up assembled from five sources where any one of them can be
+ * the thing that is broken. A section that cannot be read says so where its content would have been,
+ * so the page still answers everything else.
+ */
+function Section({ title, failed, pending, children }: { title: string; failed: boolean; pending: boolean; children?: React.ReactNode }) {
+    return (
+        <Stack gap="xs">
+            <Eyebrow>{title}</Eyebrow>
+            <Card padding="md">
+                {failed ? (
+                    <Text size="sm" c="red.4">
+                        This could not be read. The rest of the page is unaffected.
+                    </Text>
+                ) : pending ? (
+                    <Text size="sm" c="dimmed">
+                        Reading…
+                    </Text>
+                ) : (
+                    children
+                )}
+            </Card>
+        </Stack>
+    );
+}
+
+/**
+ * The loops, with how long it has been since each came round.
+ *
+ * The AGE is computed here and no threshold is applied, which is the reader's half of the bargain
+ * the contract makes: `Heartbeat` refuses to say what "too long" means because a five-second
+ * reconcile and a nightly sweep are both healthy, and a page that painted one red would be picking
+ * a number the station deliberately did not.
+ */
+function Loops({ heartbeats, readAt }: { heartbeats: StationHeartbeat[]; readAt: string }) {
+    if (heartbeats.length === 0) {
+        return <EmptyState>Nothing is being watched, which on a running station means the loops have not registered yet.</EmptyState>;
+    }
+
+    const taken = new Date(readAt).getTime();
+
+    return (
+        <Table>
+            <Table.Thead>
+                <Table.Tr>
+                    <Table.Th>Loop</Table.Th>
+                    <Table.Th w={140}>Last pass</Table.Th>
+                    <Table.Th w={140}>Started</Table.Th>
+                </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+                {heartbeats.map(beat => (
+                    <Table.Tr key={beat.name}>
+                        <Table.Td>
+                            <Text size="sm" ff="monospace">
+                                {beat.name}
+                            </Text>
+                        </Table.Td>
+                        <Table.Td>
+                            {/* A loop that has never finished a pass says so rather than showing a
+                                dash, because the two are different facts and `startedAt` beside it
+                                is what tells a slow first pass from a stopped loop. */}
+                            <Text size="sm" c="dimmed" className="da-num">
+                                {beat.lastBeat === undefined ? 'not yet' : `${ago(taken, beat.lastBeat)} ago`}
+                            </Text>
+                        </Table.Td>
+                        <Table.Td>
+                            <Text size="xs" c="dimmed" className="da-num">
+                                {ago(taken, beat.startedAt)} ago
+                            </Text>
+                        </Table.Td>
+                    </Table.Tr>
+                ))}
+            </Table.Tbody>
+        </Table>
+    );
+}
+
+/** How long between two moments, in the coarsest unit that still says something. */
+function ago(now: number, then: string): string {
+    const seconds = Math.max(0, Math.round((now - new Date(then).getTime()) / 1000));
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+    if (seconds < 86_400) return `${Math.round(seconds / 3600)}h`;
+    return `${Math.round(seconds / 86_400)}d`;
+}
+
+/** Which plugins are unhappy, and a count of the ones that are fine. */
+function Plugins({ plugins }: { plugins: PluginSummary[] }) {
+    const unhappy = plugins.filter(plugin => plugin.enabled && plugin.status !== 'active');
+
+    return (
+        <Stack gap="xs">
+            <Text size="sm" c="dimmed">
+                {plugins.filter(plugin => plugin.status === 'active').length} of {plugins.length} running.
+            </Text>
+            {/* Only the ones with something wrong get a row. A list of ten healthy plugins is the
+                plugins page, and repeating it here would bury the one that is not. */}
+            {unhappy.map(plugin => (
+                <Group key={plugin.id} gap="sm">
+                    <StatusLamp tone={plugin.status === 'failed' ? 'fault' : 'standby'} label={plugin.status} />
+                    <Text size="sm">{plugin.name}</Text>
+                </Group>
+            ))}
+        </Stack>
+    );
+}
+
+/** One figure, labelled. */
+function Fact({ label, value }: { label: string; value: string }) {
+    return (
+        <Stack gap={0}>
+            <Text size="xs" c="dimmed">
+                {label}
+            </Text>
+            <Text size="sm" className="da-num">
+                {value}
+            </Text>
+        </Stack>
+    );
+}
+
+/**
+ * How a silence reads as a lamp.
+ *
+ * `waiting` rather than `fault` for the two causes that are the station doing as it was told: an
+ * operator who pressed Stop knows why it is quiet, and a station idling for want of a listener is
+ * the audience gate working. Painting either red is the failure the `ready` badge exists to avoid.
+ */
+export function silenceTone(cause: string): StatusTone {
+    if (cause === 'stoodDown') return 'off';
+    if (cause === 'noAudience' || cause === 'warmingUp' || cause === 'noProgramme') return 'standby';
+    return 'fault';
+}

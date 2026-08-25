@@ -15,6 +15,15 @@ import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.write
 import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.js';
 import { BULLETIN_KEYS, DEFAULT_MAX_AGE_HOURS, DEFAULT_STORY_COUNT } from '#modules/director/bulletin.source.js';
 import { CLOCK_KEYS } from '#modules/director/clock.words.js';
+import {
+    BREAK_WORD_KEYS,
+    DEFAULT_STORY_WORDS,
+    MAX_BREAK_WORDS,
+    MAX_STORY_WORDS,
+    MIN_BREAK_WORDS,
+    MIN_STORY_WORDS,
+} from '#modules/director/break.words.js';
+import { DEFAULT_MAX_WORDS } from '#modules/director/break.prompt.js';
 import { SUSTAINING_KEYS } from '#modules/schedule/schedule.service.js';
 import { DEFAULT_MAX_OUTPUT_TOKENS, MODEL_GENERATOR_DEFAULT, MODEL_GENERATOR_KEYS } from '#modules/director/model.set.generator.js';
 import { CHART_GENERATOR_KEYS, DEFAULT_CHART_MIX } from '#modules/director/chart.set.generator.js';
@@ -27,6 +36,7 @@ import { LLM_PLUGIN_KEY } from '#modules/llm/llm.settings.js';
 import { ALWAYS_REACH_DEFAULT, MUSIC_SEARCH_KEYS } from '#modules/llm/music.search.tool.js';
 import { MODEL_FACTS_DEFAULT, MODEL_FACTS_KEYS } from '#modules/enrichment/fact.extraction.service.js';
 import { PERSONA_NOTES_DEFAULT, PERSONA_NOTES_KEYS } from '#modules/personas/persona.distil.service.js';
+import { PERSONA_STORIES_DEFAULT, PERSONA_STORIES_KEYS } from '#modules/personas/persona.story.pass.service.js';
 import {
     ANALYSIS_CONCURRENCY_KEY,
     ANALYSIS_LOCAL_PACE_KEY,
@@ -332,6 +342,32 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
+        key: BREAK_WORD_KEYS.talk,
+        label: 'Words a talk break may run to',
+        type: 'number',
+        default: DEFAULT_MAX_WORDS,
+        dependsOn: ROTATION_KEYS.breaks,
+        // The bounds `resolveBreakWords` clamps a stored row to, shared for the reason every default
+        // in this file is shared. The FLOOR is the one that matters: the ceiling is not an
+        // instruction and a model stops where it stops, but a break refused for being longer than
+        // three words falls to the phrasings every time with nothing saying why.
+        min: MIN_BREAK_WORDS,
+        max: MAX_BREAK_WORDS,
+        help: 'How long the presenter may talk between two records. Forty is about fifteen seconds, which is a link rather than a monologue — and it is a ceiling rather than a target, so raising it lets a character run where it has something to say instead of making every break longer. A persona given latitude of its own still gets whichever is the greater.',
+    },
+    {
+        group: 'rotation',
+        key: BREAK_WORD_KEYS.story,
+        label: 'Words a story may run to',
+        type: 'number',
+        default: DEFAULT_STORY_WORDS,
+        dependsOn: ROTATION_KEYS.breaks,
+        min: MIN_STORY_WORDS,
+        max: MAX_STORY_WORDS,
+        help: 'How long the presenter may take over one of their own stories, when your clock asks for one. A hundred and twenty words is around three quarters of a minute. Stories are written on each persona; a character with none passes the slot over rather than filling it.',
+    },
+    {
+        group: 'rotation',
         key: ROTATION_KEYS.welcome,
         label: 'Say hello to a new listener',
         type: 'boolean',
@@ -595,6 +631,23 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: PERSONA_NOTES_KEYS.enabled,
         default: '',
         help: "Nothing is waiting on this, so it is another place a slower and more careful model costs you nothing. Leave empty for the plugin's own default.",
+    },
+    {
+        group: 'llm',
+        key: PERSONA_STORIES_KEYS.enabled,
+        label: 'Let a model think of things your characters have lived through',
+        type: 'boolean',
+        default: PERSONA_STORIES_DEFAULT,
+        help: 'Once a night, a model looks at what your station actually plays and writes down something that might have happened to each of your characters — a new story, or one more thing they remember about a story they already have. Nothing it writes can ever be said on air until you have read it and kept it: a story is made up by definition, so there is nothing to check it against and you are the check. It runs in the background at the lowest priority.',
+    },
+    {
+        group: 'llm',
+        key: PERSONA_STORIES_KEYS.model,
+        label: 'Model for thinking one up',
+        type: 'string',
+        dependsOn: PERSONA_STORIES_KEYS.enabled,
+        default: '',
+        help: "Nothing is waiting on this either, so a slower and more careful model costs you nothing — and this is the one pass that uses the station's own search tools, which a stronger model drives better. Leave empty for the plugin's own default.",
     },
     {
         group: 'llm',

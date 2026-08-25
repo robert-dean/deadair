@@ -6,6 +6,7 @@ options {
         PersonasService: "#src/modules/personas/personas.service.js"
         PersonaRehearsalService: "#src/modules/personas/persona.rehearsal.service.js"
         PersonaNotesService: "#src/modules/personas/persona.notes.service.js"
+        PersonaStoriesService: "#src/modules/personas/persona.stories.service.js"
     }
     security: {
         # The floor for this file is the WRITE end, unlike settings beside it, because this file is
@@ -204,6 +205,159 @@ operation /personas/{id}/notes/{noteId}/state: {
         response: {
             200: {
                 application/json: PersonaNoteList
+            }
+        }
+    }
+}
+
+# What has happened to this character, which is the half of it that GROWS.
+#
+# The same shape as the notebook above, one table over, and every mutation answers the whole shelf for
+# the same reason: accepting a proposal moves a row between two sections of one panel.
+#
+# A story carries DETAILS, which is why there is a fourth level of path here where the notebook stops
+# at three. A detail is turned down without touching the story it was hung on, and that is the whole
+# argument for it being a row rather than a rewrite of the telling.
+operation /personas/{id}/stories: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    get: { # Every story this character holds, oldest first, in every state
+        name: List persona stories
+        service: PersonaStoriesService.list
+        security: {
+            policy: platform.view
+        }
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+    post: { # Writes a story by hand. An operator's own is tellable from the moment it exists; only the enrichment pass proposes
+        name: Write persona story
+        service: PersonaStoriesService.create
+        request: {
+            application/json: PersonaStoryWrite
+        }
+        response: {
+            201: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/stories/{storyId}: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+    }
+    put: { # Rewrites one story's handle and telling, whoever wrote it
+        name: Update persona story
+        service: PersonaStoriesService.update
+        request: {
+            application/json: PersonaStoryWrite
+        }
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+    delete: { # Removes a story outright, details and all. Turning down a PROPOSAL is a state rather than this, or the next pass writes it again
+        name: Delete persona story
+        service: PersonaStoriesService.remove
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/stories/{storyId}/state: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+    }
+    put: { # Accepts a proposal, turns one down, or takes a story out of the rotation without losing it
+        name: Set persona story state
+        service: PersonaStoriesService.setState
+        request: {
+            application/json: PersonaStoryState
+        }
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/stories/{storyId}/details: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+    }
+    post: { # Adds one thing to a story that already exists
+        name: Add persona story detail
+        service: PersonaStoriesService.addDetail
+        request: {
+            application/json: PersonaStoryDetailWrite
+        }
+        response: {
+            201: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/stories/{storyId}/details/{detailId}: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+        detailId: string(min=1, max=100)
+    }
+    put: { # Rewrites one detail's words
+        name: Update persona story detail
+        service: PersonaStoriesService.updateDetail
+        request: {
+            application/json: PersonaStoryDetailWrite
+        }
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+    delete: { # Removes one detail, leaving the story it was hung on alone
+        name: Delete persona story detail
+        service: PersonaStoriesService.removeDetail
+        response: {
+            200: {
+                application/json: PersonaStoryList
+            }
+        }
+    }
+}
+
+operation /personas/{id}/stories/{storyId}/details/{detailId}/state: {
+    params: {
+        id: string(min=1, max=100)
+        storyId: string(min=1, max=100)
+        detailId: string(min=1, max=100)
+    }
+    put: { # Accepts a proposed detail or turns it down, which has to outlive the pass that proposed it
+        name: Set persona story detail state
+        service: PersonaStoriesService.setDetailState
+        request: {
+            application/json: PersonaStoryState
+        }
+        response: {
+            200: {
+                application/json: PersonaStoryList
             }
         }
     }

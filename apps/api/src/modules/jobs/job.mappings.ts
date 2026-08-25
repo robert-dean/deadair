@@ -18,6 +18,7 @@ import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
 import { PersonaDistilJob } from '#modules/personas/persona.distil.job.js';
+import { PersonaStoryPassJob } from '#modules/personas/persona.story.pass.job.js';
 import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
 import { SweepTrackCacheJob } from '#modules/playout/audio/sweep.track.cache.job.js';
 import { ScrobbleFlushJob } from '#modules/scrobble/scrobble.flush.job.js';
@@ -313,6 +314,23 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'personas.distil_notes': {
         job: PersonaDistilJob,
         cron: '41 3 * * *',
+        policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 15 }) },
+    },
+
+    // Nightly, half an hour after the notebook pass, and the gap is the whole of the schedule: both
+    // want the one model slot for minutes at a time, and two passes queued against `LlmGate` at the
+    // same minute means the second one spends its `maxWaitMs` waiting and writes nothing.
+    //
+    // It runs SECOND on purpose. The notebook pass has a deadline — it reads scripts that
+    // `render.prune_script_history` deletes at 04:23 — and this one has none at all: what it reads
+    // is the station's own library, which is still there tomorrow.
+    //
+    // One retry, on the distil pass's argument: a failed run has real work outstanding, and the
+    // usual reason it failed is the model host being down, which a retry ten minutes later does not
+    // fix.
+    'personas.write_stories': {
+        job: PersonaStoryPassJob,
+        cron: '11 4 * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 15 }) },
     },
 

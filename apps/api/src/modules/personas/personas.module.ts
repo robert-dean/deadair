@@ -6,6 +6,9 @@ import { PersonaDistilService } from './persona.distil.service.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
 import { PersonaNotesService } from './persona.notes.service.js';
 import { PersonaRehearsalService } from './persona.rehearsal.service.js';
+import { PersonaStoriesRepository } from './persona.stories.repository.js';
+import { PersonaStoriesService } from './persona.stories.service.js';
+import { PersonaStoryPassService } from './persona.story.pass.service.js';
 import { PersonasService } from './personas.service.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 
@@ -30,13 +33,19 @@ export const PersonasModule: ServerKitModule = {
         // scope the boot seed opens.
         registry.register(PersonaRepository).useClass(PersonaRepository).asScoped();
         registry.register(PersonaNotesRepository).useClass(PersonaNotesRepository).asScoped();
+        registry.register(PersonaStoriesRepository).useClass(PersonaStoriesRepository).asScoped();
         registry.register(PersonasService).useClass(PersonasService).asScoped();
         registry.register(PersonaNotesService).useClass(PersonaNotesService).asScoped();
+        registry.register(PersonaStoriesService).useClass(PersonaStoriesService).asScoped();
         // Scoped like the rest, and resolved by a cron job rather than by a request. It reaches
         // FORWARDS into `RenderModule` for the script history, which is the same thing
         // `PersonaRehearsalService` does into the director and is fine for the same reason: this
         // list is a lifecycle order, not a resolution order.
         registry.register(PersonaDistilService).useClass(PersonaDistilService).asScoped();
+        // The same arrangement one table over, and resolved by its own cron job. It reaches no
+        // further than this module and the LLM one, which is why it is registered beside the pass it
+        // is modelled on rather than anywhere more careful.
+        registry.register(PersonaStoryPassService).useClass(PersonaStoryPassService).asScoped();
         // Scoped like the two above, and it resolves `BreakWriterRegistry` out of the director's
         // registrations at REQUEST time — which is why this module being registered before that one
         // costs nothing. The list is a lifecycle order (start, ready, shutdown), not a resolution

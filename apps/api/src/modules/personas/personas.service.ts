@@ -19,6 +19,8 @@ import type {
 import type { Persona, PersonaDraft } from './persona.js';
 import { PersonaRepository } from './persona.repository.js';
 import { SEED_PERSONAS } from './persona.defaults.js';
+import { SEED_PERSONA_STORIES } from './persona.story.defaults.js';
+import { PersonaStoriesRepository } from './persona.stories.repository.js';
 import { BUDGET_MS, MAX_OUTPUT_TOKENS, MAX_WAIT_MS, PERSONA_MODEL_KEY, personaPrompt, readPersona } from './persona.writer.js';
 
 /**
@@ -42,6 +44,7 @@ import { BUDGET_MS, MAX_OUTPUT_TOKENS, MAX_WAIT_MS, PERSONA_MODEL_KEY, personaPr
 export class PersonasService {
     constructor(
         private readonly personas: PersonaRepository,
+        private readonly stories: PersonaStoriesRepository,
         private readonly llm: LlmService,
         // Reaching FORWARDS: PersonasModule sits above DirectorModule in `modules.ts`, which is a
         // dependency order for lifecycle rather than for resolution. `ScheduleModule` already does
@@ -152,7 +155,12 @@ export class PersonasService {
      */
     async restore(): Promise<PersonaList> {
         const written = await this.personas.restoreMissing(SEED_PERSONAS);
-        this.logger.info('personas: an operator restored the station personas', { written: written.length, keys: written });
+        // Only for the characters that were actually written back. A persona this station already
+        // had keeps whatever stories it has — including none, if the operator cleared them out —
+        // because restoring a character somebody deleted and re-stocking one they are using are two
+        // different requests and only the first is the one the button makes.
+        const told = await this.seedStories(written);
+        this.logger.info('personas: an operator restored the station personas', { written: written.length, keys: written, stories: told });
 
         return this.answer();
     }
@@ -167,7 +175,35 @@ export class PersonasService {
      */
     async seed(): Promise<void> {
         const written = await this.personas.seed(SEED_PERSONAS, 'classic');
-        if (written > 0) this.logger.info('personas: seeded a station that had none', { written });
+        if (written === 0) return;
+
+        // Only where the personas themselves were just written, so this inherits `seed`'s emptiness
+        // guard rather than having a weaker one of its own: a boot that re-stocked a character an
+        // operator had emptied would make deleting a story inexpressible, which is the same argument
+        // one table up.
+        const told = await this.seedStories(SEED_PERSONAS.map(persona => persona.key));
+        this.logger.info('personas: seeded a station that had none', { written, stories: told });
+    }
+
+    /**
+     * Write the stories that belong to these characters, skipping any they already hold.
+     *
+     * Best-effort in the sense that matters: a station whose stories could not be written is a
+     * station whose characters have none, which is an ordinary state — a `story` band passes its slot
+     * over and a talk break carries no anecdote. So this never stops a seed that has already put the
+     * personas in.
+     */
+    private async seedStories(keys: readonly string[]): Promise<number> {
+        const writes = keys.flatMap(key =>
+            (SEED_PERSONA_STORIES[key] ?? []).map(story => ({ personaKey: key, ...story, state: 'active' as const, origin: 'operator' as const })),
+        );
+
+        try {
+            return await this.stories.addAll(writes);
+        } catch (error) {
+            this.logger.warn(`personas: the seeded characters were written without their stories (${errorText(error)})`);
+            return 0;
+        }
     }
 
     /**
@@ -242,6 +278,11 @@ export class PersonasService {
 
         return {
             persona: toDraftView(generated.draft),
+            // Handed back beside the form rather than written here, which is what keeps this route a
+            // way of FILLING IN a form. The console saves the character through POST /personas and
+            // then writes these through the stories route, so both go through the same validation an
+            // operator's own typing does.
+            stories: generated.stories.map(story => ({ title: story.title, story: story.story })),
             droppedMarkers: [...generated.droppedMarkers],
             droppedTemplates: [...generated.droppedTemplates],
         };
@@ -353,6 +394,7 @@ function toDraftView(draft: PersonaDraft): PersonaDraftView {
             background: draft.background,
             brevity: draft.brevity,
             latitude: draft.latitude,
+            storytelling: draft.storytelling,
             templates: draft.templates,
             diction: mutable(draft.diction),
             dictionMarkers: mutable(draft.dictionMarkers),

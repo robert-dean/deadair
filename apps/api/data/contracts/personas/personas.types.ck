@@ -20,6 +20,7 @@ contract Persona: {
     background?: string(max=2000) # A couple of grounded facts they may self-reference
     brevity?: enum(short, one-line) # How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one
     latitude?: enum(loose, unleashed) # How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal
+    storytelling?: enum(never, occasionally, often) # How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says
     samples?: array(string(min=1, max=500)) # Lines in their own voice, used as examples and as a console preview
     templates?: string(max=20000) # This character's own break phrasings, one per line. Empty means the station's global ones
     active: readonly boolean # Whether this is the one on air. At most one per station
@@ -51,6 +52,7 @@ contract PersonaDraftView: {
     background?: string(max=2000)
     brevity?: enum(short, one-line)
     latitude?: enum(loose, unleashed)
+    storytelling?: enum(never, occasionally, often)
     samples?: array(string(min=1, max=500))
     templates?: string(max=20000)
 }
@@ -58,6 +60,7 @@ contract PersonaDraftView: {
 # What a model wrote, and what had to be dropped to make it usable
 contract GeneratedPersona: {
     persona: PersonaDraftView
+    stories: array(PersonaStoryWrite) # A couple of things that have happened to this character. Beside the form rather than in it, because they are their own table: the console saves the persona and then writes these through the stories route, so they go through the same validation an operator's own typing does
     droppedMarkers: array(string(min=1, max=100)) # Words the model called markers that its own sample lines never used. Dropped, because the samples are the evidence and the marker list is the claim — a marker nothing says declines every break and looks exactly like a model that is switched off
     droppedTemplates: array(string(min=1, max=500)) # Phrasings naming a value the vocabulary does not have. Dropped by the LINE, since five good phrasings and one broken one is five phrasings
 }
@@ -89,6 +92,50 @@ contract PersonaNoteWrite: { # A note an operator is writing by hand. Always act
 }
 
 contract PersonaNoteState: { # Accepting a proposal, turning one down, or taking a note out of use without losing it
+    state: enum(active, suggested, rejected)
+}
+
+# Something that happened to this character, in its own telling. Not a claim about the world and never
+# checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
+# downstream reads it as evidence — see `persona.story.ts` for why that is the load-bearing difference
+# from a fact
+contract PersonaStory: {
+    id: readonly string(min=1, max=100)
+    title: string(min=1, max=200) # A short handle. Never spoken; what this list is read by and what a proposal names
+    story: string(min=1, max=4000) # The telling itself, in the character's voice. Already speakable, because the floor reads it as it stands
+    state: readonly enum(active, suggested, rejected) # `active` can be told. `rejected` outlives the pass that proposed it, or the same catalogue proposes it forever
+    origin: readonly enum(operator, model) # Who says so. `model` is the enrichment pass writing from what the station already holds
+    source?: readonly string(max=1000) # Where a proposal came from, in the station's own words. Absent for anything an operator wrote
+    details: readonly array(PersonaStoryDetail) # What it has picked up since, in every state
+    lastToldAt?: readonly string(max=40) # Absent means never told, which is what puts it at the front of the rotation
+    timesTold: readonly int(min=0) # How often it has gone out, which changes how the model is asked to tell it
+    createdAt: readonly string(min=1, max=40)
+}
+
+contract PersonaStoryDetail: { # One thing a story has picked up since it was written. A row rather than a rewrite, so an invented clause can be turned down without losing the story
+    id: readonly string(min=1, max=100)
+    detail: string(min=1, max=1000)
+    state: readonly enum(active, suggested, rejected)
+    origin: readonly enum(operator, model)
+    source?: readonly string(max=1000)
+    createdAt: readonly string(min=1, max=40)
+}
+
+contract PersonaStoryList: { # Every story one character holds, oldest first, in every state
+    personaId: string(min=1, max=100)
+    stories: array(PersonaStory)
+}
+
+contract PersonaStoryWrite: { # A story an operator is writing by hand. Always active and always theirs; a proposal is something only the enrichment pass creates
+    title: string(min=1, max=200)
+    story: string(min=1, max=4000)
+}
+
+contract PersonaStoryDetailWrite: { # One thing to add to a story that already exists
+    detail: string(min=1, max=1000)
+}
+
+contract PersonaStoryState: { # Accepting a proposal, turning one down, or taking a story out of the rotation without losing it
     state: enum(active, suggested, rejected)
 }
 

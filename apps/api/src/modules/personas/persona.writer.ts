@@ -37,7 +37,8 @@ import { hasStrayBracket, TEMPLATE_VOCABULARY, unknownPlaceholders, unwrapTempla
 import { jsonObjects, parseLooseJson, withoutThinking } from '#modules/shared/json.objects.js';
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import type { PersonaDraft } from './persona.js';
-import { dictionMarkersIn, isPersonaBrevity, isPersonaLatitude, PERSONA_SHEET_LIMITS } from './persona.sheet.js';
+import type { PersonaStoryDraft } from './persona.story.js';
+import { dictionMarkersIn, isPersonaBrevity, isPersonaLatitude, isPersonaStorytelling, PERSONA_SHEET_LIMITS } from './persona.sheet.js';
 
 /** How long a description may be. Long enough for a paragraph, short enough not to be a script. */
 export const MAX_DESCRIPTION = 2000;
@@ -167,6 +168,8 @@ export function personaPrompt(description: string): LlmMessage[] {
                 '  "background": "a couple of grounded facts they may mention about themselves",',
                 '  "brevity": "omit this unless the character is notably terse; \\"short\\" for one who says less than most, \\"one-line\\" for one who barely speaks",',
                 '  "latitude": "omit this unless the character is one that has to be allowed to run: \\"loose\\" for one who follows a thought wherever it goes, \\"unleashed\\" for one who does that and says it however they like",',
+                '  "storytelling": "how often they bring up something that happened to them: \\"never\\", \\"occasionally\\" or \\"often\\". Omit it for occasionally.",',
+                '  "stories": [{"title": "a short handle, never said out loud", "story": "two or three sentences of something that happened to this character, in their own voice, as told on air"}],',
                 `  "templates": ["five phrasings in this character's voice, one string each. Values you may use: ${TEMPLATE_VALUES.join(' ')}"]`,
                 '}',
                 '',
@@ -194,6 +197,12 @@ export function personaPrompt(description: string): LlmMessage[] {
                 // The floor, and the reason it must be in character: these are what airs when the
                 // model declined, which is the ordinary case by design. A plain-English phrasing set
                 // makes the character disappear at exactly the moments it was hired for.
+                // The one field here whose failure mode is not a worse-sounding break but a false
+                // statement about somebody real. A model asked for a presenter's past reaches for
+                // the nearest famous name, and the station would then say it in the voice it uses
+                // for things that are true.
+                '- The "stories" are things that happened to THIS CHARACTER, and nobody real appears in one. No actual band, artist, record, label or venue, and nothing that could be checked. Their own life, their own studio, their own listeners.',
+                '- Write two, and write them as scripts: whole sentences, said out loud, with an ending. The station reads one out exactly as you wrote it when there is no model available.',
                 '- The phrasings in "templates" are what the station says when nothing else wrote the break. They are not a fallback to plain English — they are this character speaking, so write them in the same diction as the samples and work its own words into them.',
                 '- Change the words AROUND a value, never the value itself. Plain: "That was {{previous.title}}, from {{previous.artist}}." In character: "That there haul was {{previous.title}}, from {{previous.artist}}." The {{...}} stay exactly as given, spelled the same, never translated into the dialect.',
                 '- Each must read as a complete sentence once the values are filled in. Wrap a part that can be left out in [[double brackets]]; anything outside those brackets must always be fillable, or the phrasing is never used.',
@@ -222,6 +231,18 @@ export function personaPrompt(description: string): LlmMessage[] {
 /** What the generator answers with, and what it had to change to make it usable. */
 export interface GeneratedPersona {
     draft: PersonaDraft;
+    /**
+     * A couple of things that have happened to this character, for `deadair.persona_stories`.
+     *
+     * Beside the draft rather than inside it, because that is where they live: the persona row holds
+     * the sheet, and what has happened to a character is a list that grows and that an operator turns
+     * proposals down on. The caller writes them once the character itself has been saved, which is
+     * also what keeps a generated persona a filled-in FORM rather than a second writer of two tables.
+     *
+     * Empty is an ordinary answer. A character with no stories works none into its links and passes
+     * over a `story` slot, which is exactly the classic host's shipped state.
+     */
+    stories: PersonaStoryDraft[];
     /**
      * Markers the model named and its own sample lines never used.
      *
@@ -288,6 +309,9 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     // so a model answering "high" or "free" must leave the character on the station's ordinary
     // discipline rather than on whatever the nearest rung looked like.
     const latitude = isPersonaLatitude(raw.latitude) ? raw.latitude : undefined;
+    // Same treatment again. A model answering "sometimes" leaves the rung unset, which reads as
+    // `occasionally` — the default, and the one an unset field should mean.
+    const storytelling = isPersonaStorytelling(raw.storytelling) ? raw.storytelling : undefined;
 
     // Unwrapped BEFORE it is judged, because the quotes are the model's packaging rather than part
     // of the phrasing — a line refused for marks that were never meant to be there would be a line
@@ -310,6 +334,7 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
                 background: text(raw.background),
                 brevity,
                 latitude,
+                storytelling,
                 // Empty means the station's own phrasings, which is a legitimate persona and the
                 // right answer for one whose every generated line was malformed.
                 templates: templates.length === 0 ? undefined : templates.join('\n'),
@@ -321,9 +346,58 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
                 samples: nonEmpty(samples),
             }),
         },
+        // Their own table rather than part of the draft, because that is where they live: a persona
+        // row holds the sheet, and what has happened to a character is a list that grows. The caller
+        // writes them once the character itself has been saved.
+        stories: readStories(raw.stories),
         droppedMarkers: named.filter(marker => !markers.includes(marker)),
         droppedTemplates: phrasings.filter(line => !templates.includes(line)),
     };
+}
+
+/**
+ * How many generated stories are kept.
+ *
+ * Two, which is what the prompt asks for and what the seeds ship: enough that the rotation is visible
+ * and few enough that an operator can read both before deciding whether this character is right. A
+ * model that wrote six has not been more helpful — a story nobody has read is a story on air.
+ */
+const MAX_GENERATED_STORIES = 2;
+
+/** The longest generated telling that is kept, matching the contract's own bound on the column. */
+const MAX_STORY_CHARS = 4000;
+
+/**
+ * The stories out of a model's answer, dropped rather than repaired.
+ *
+ * `readPersona`'s posture throughout: a field of the wrong shape is left out, because these are
+ * edited by hand immediately afterwards and a half-repaired story is worse to correct than a missing
+ * one. Both halves are required — a telling with no handle cannot be listed and a handle with no
+ * telling cannot be told.
+ */
+function readStories(value: unknown): PersonaStoryDraft[] {
+    if (!Array.isArray(value)) return [];
+
+    const out: PersonaStoryDraft[] = [];
+    const seen = new Set<string>();
+    for (const entry of value) {
+        if (typeof entry !== 'object' || entry === null) continue;
+
+        const row = entry as Record<string, unknown>;
+        const title = text(row.title)?.slice(0, 200);
+        const story = text(row.story)?.slice(0, MAX_STORY_CHARS);
+        if (title === undefined || story === undefined) continue;
+
+        // The store's own unique index, applied here so a model that wrote one story twice does not
+        // hand the console a list whose second row can never be saved.
+        const key = title.toLowerCase();
+        if (seen.has(key)) continue;
+
+        seen.add(key);
+        out.push({ title, story });
+        if (out.length >= MAX_GENERATED_STORIES) break;
+    }
+    return out;
 }
 
 /** A slug the personas table will accept, or `undefined`. Letters only, which is what the seeds use. */

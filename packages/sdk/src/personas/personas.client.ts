@@ -10,6 +10,10 @@ import type {
     PersonaNoteWrite,
     PersonaRehearsal,
     PersonaRequest,
+    PersonaStoryDetailWrite,
+    PersonaStoryList,
+    PersonaStoryState,
+    PersonaStoryWrite,
 } from './types/personas.types.js';
 
 export class PersonasClient {
@@ -145,6 +149,120 @@ export class PersonasClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<PersonaNoteList>(result);
+    }
+
+    /**
+     * @name List persona stories
+     * @description Every story this character holds, oldest first, in every state
+     */
+    async listPersonaStories(id: string): Promise<PersonaStoryList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/stories`, { method: 'GET' });
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Write persona story
+     * @description Writes a story by hand. An operator's own is tellable from the moment it exists; only the enrichment pass proposes
+     */
+    async writePersonaStory(id: string, body: PersonaStoryWrite): Promise<PersonaStoryList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/stories`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Update persona story
+     * @description Rewrites one story's handle and telling, whoever wrote it
+     */
+    async updatePersonaStory(id: string, storyId: string, body: PersonaStoryWrite): Promise<PersonaStoryList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Delete persona story
+     * @description Removes a story outright, details and all. Turning down a PROPOSAL is a state rather than this, or the next pass writes it again
+     */
+    async deletePersonaStory(id: string, storyId: string): Promise<PersonaStoryList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}`, { method: 'DELETE' });
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Set persona story state
+     * @description Accepts a proposal, turns one down, or takes a story out of the rotation without losing it
+     */
+    async setPersonaStoryState(id: string, storyId: string, body: PersonaStoryState): Promise<PersonaStoryList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/state`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Add persona story detail
+     * @description Adds one thing to a story that already exists
+     */
+    async addPersonaStoryDetail(id: string, storyId: string, body: PersonaStoryDetailWrite): Promise<PersonaStoryList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/details`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Update persona story detail
+     * @description Rewrites one detail's words
+     */
+    async updatePersonaStoryDetail(id: string, storyId: string, detailId: string, body: PersonaStoryDetailWrite): Promise<PersonaStoryList> {
+        const result = await this.fetch(
+            `/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/details/${encodeURIComponent(detailId)}`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body, bigIntReplacer),
+            },
+        );
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Delete persona story detail
+     * @description Removes one detail, leaving the story it was hung on alone
+     */
+    async deletePersonaStoryDetail(id: string, storyId: string, detailId: string): Promise<PersonaStoryList> {
+        const result = await this.fetch(
+            `/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/details/${encodeURIComponent(detailId)}`,
+            { method: 'DELETE' },
+        );
+        return await parseJson<PersonaStoryList>(result);
+    }
+
+    /**
+     * @name Set persona story detail state
+     * @description Accepts a proposed detail or turns it down, which has to outlive the pass that proposed it
+     */
+    async setPersonaStoryDetailState(id: string, storyId: string, detailId: string, body: PersonaStoryState): Promise<PersonaStoryList> {
+        const result = await this.fetch(
+            `/personas/${encodeURIComponent(id)}/stories/${encodeURIComponent(storyId)}/details/${encodeURIComponent(detailId)}/state`,
+            {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body, bigIntReplacer),
+            },
+        );
+        return await parseJson<PersonaStoryList>(result);
     }
 
     /**

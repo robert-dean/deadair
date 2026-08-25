@@ -45,6 +45,9 @@ function build(options: { setActive?: Persona | undefined; postFails?: boolean }
         activity,
         service: new PersonasService(
             personas as never,
+            // The stories shelf. Untouched by anything these cases are about — only the seed and the
+            // restore reach it — so an empty double is the honest one.
+            {} as never,
             {} as never,
             director as never,
             afterCommit,

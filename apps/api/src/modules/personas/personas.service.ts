@@ -150,16 +150,23 @@ export class PersonasService {
      * saying what they want, and it is the only way a station that has been running since before a
      * persona was written can ever reach it.
      *
-     * Nothing already here is touched, including a persona rewritten under a seeded key, and nothing
-     * is put on air.
+     * No persona ROW already here is touched, including one rewritten under a seeded key, and
+     * nothing is put on air.
+     *
+     * **Its STORIES are topped up, and that is deliberate rather than an oversight in the sentence
+     * above.** The whole reason this button exists is a station that has been running since before
+     * something was written, and the seeded stories are exactly that: every install made before them
+     * has the characters and none of their pasts, with no other way to reach them. Scoping this to
+     * the characters that were newly WRITTEN — which is what it did for one commit — meant the
+     * operator this was built for could press it and get nothing at all.
+     *
+     * It is additive and never destructive: the partial unique index skips a handle this character
+     * already holds, so an edited story is safe and only a DELETED one comes back. That is the same
+     * bargain the button already makes about a deleted persona, and it is what the button means.
      */
     async restore(): Promise<PersonaList> {
         const written = await this.personas.restoreMissing(SEED_PERSONAS);
-        // Only for the characters that were actually written back. A persona this station already
-        // had keeps whatever stories it has — including none, if the operator cleared them out —
-        // because restoring a character somebody deleted and re-stocking one they are using are two
-        // different requests and only the first is the one the button makes.
-        const told = await this.seedStories(written);
+        const told = await this.seedStories(SEED_PERSONAS.map(persona => persona.key));
         this.logger.info('personas: an operator restored the station personas', { written: written.length, keys: written, stories: told });
 
         return this.answer();

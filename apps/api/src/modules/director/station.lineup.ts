@@ -194,6 +194,10 @@ export interface StationLineupRules {
     breaks?: boolean;
     /** Whether the station greets somebody who tunes in to an empty room during this broadcast. */
     welcome?: boolean;
+    /** Whether somebody phones in during this broadcast. Off unless the operator asked for it. */
+    callins?: boolean;
+    /** Minutes of airtime between one call and the next. `0` is `callins: false`. */
+    callinEveryMinutes?: number;
     /** Minutes of airtime between one break and the next of the same kind. `0` is `breaks: false`. */
     breakEveryMinutes?: number;
     /**

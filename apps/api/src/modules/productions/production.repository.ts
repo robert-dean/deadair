@@ -249,6 +249,44 @@ export class ProductionRepository extends DataRepository {
         return rows.map(toProduction);
     }
 
+    /**
+     * Whether this broadcast already has one of these being made, and when its last one went in.
+     *
+     * The two questions a STANDING commission asks, in one read, because they are asked together on
+     * every commit pass and the answer to either alone is not actionable: one already in flight
+     * means wait, and one that aired a minute ago means wait as well.
+     *
+     * Scoped to the broadcast rather than to the station, which is the whole point — "does the show
+     * that is on air have a call coming" is a different question from "has this station ever taken
+     * one", and a station put on air twice in an evening should not inherit the first show's
+     * spacing. A production with no broadcast belongs to no show and is counted by neither.
+     *
+     * `aired` is the state to measure FROM, because that is when the block entered the running
+     * order. Everything unsettled counts as pending, including one that is still `planned`: it is
+     * going to air, and commissioning a second one beside it is how a station ends up taking two
+     * calls back to back.
+     */
+    async standingIn(broadcastId: string, kind: string): Promise<{ pending: boolean; lastAiredAt?: number }> {
+        const rows = await this.db
+            .selectFrom('deadair.productions')
+            .select(['state', 'updatedAt'])
+            .where('stationKey', '=', this.identity.stationKey)
+            .where('broadcastId', '=', broadcastId)
+            .where('kind', '=', kind)
+            .where('state', 'not in', ['failed', 'cancelled'])
+            .execute();
+
+        const aired = rows
+            .filter(row => row.state === 'aired')
+            .map(row => millisOf(row.updatedAt as DateTime | null))
+            .filter((at): at is number => at !== undefined);
+
+        return {
+            pending: rows.some(row => row.state !== 'aired'),
+            ...(aired.length === 0 ? {} : { lastAiredAt: Math.max(...aired) }),
+        };
+    }
+
     /** Everything still being made, oldest first: what a scheduler drains. */
     async unfinished(limit = 20): Promise<Production[]> {
         const rows = await this.db

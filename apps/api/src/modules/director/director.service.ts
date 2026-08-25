@@ -1620,6 +1620,13 @@ export class DirectorService {
             await scope.get(ProductionScheduler).ripen(Date.now(), {
                 ...(lineup.brief.trim().length === 0 ? {} : { brief: lineup.brief }),
                 ...(lineup.personaId === undefined ? {} : { personaId: lineup.personaId }),
+                // The other half: whether this SHOW takes calls, which is a per-broadcast rule
+                // resolved exactly like breaks and spacing are. The id is what the spacing is
+                // measured against, so a station put on air twice in an evening does not inherit the
+                // first show's clock.
+                broadcastId: lineup.broadcastId,
+                callins: rules.callins,
+                callinEveryMinutes: rules.callinEveryMinutes,
             });
         }).catch(error => this.logger.warn(`director: could not commission scheduled productions (${errorText(error)})`));
 

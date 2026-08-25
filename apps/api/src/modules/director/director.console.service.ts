@@ -266,6 +266,11 @@ export class DirectorConsoleService {
             // is the same answer a persona deleted mid-broadcast gets. Refusing to go on air over a
             // stale id would be the station declining to broadcast over a question about its DJ.
             ...(input.personaId?.trim() ? { personaId: input.personaId.trim() } : {}),
+            // A per-broadcast rule rather than a field of its own, which is where every other
+            // switch about what a broadcast DOES lives. Absent leaves the station's own setting
+            // standing, and a `setlist` or a `feature` takes no calls whatever this says because
+            // `NO_RULES` is what those modes resolve from.
+            ...(input.callins === undefined ? {} : { rules: { callins: input.callins } }),
             ...(slot === undefined ? {} : { slotId: slot.id }),
             mode: input.mode ?? 'rotation',
             onEnd: input.onEnd ?? 'extend',

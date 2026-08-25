@@ -74,6 +74,7 @@ contract PutOnAirInput: { # Put the station on air, building its running order f
     personaId?: string(min=1, max=100) # Who is hosting this broadcast. It rides the running order for as long as the broadcast does, so the presenter cannot drift back mid-show. Absent uses whichever persona the station has on air
     eraFrom?: int(min=1900, max=2100) # The earliest release year this broadcast plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period
     eraTo?: int(min=1900, max=2100) # The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
+    callins?: boolean # Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent takes the station's own setting, which is off
     mode?: StationMode
     onEnd?: StationOnEnd
 }

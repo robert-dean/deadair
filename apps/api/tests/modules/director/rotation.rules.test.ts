@@ -83,6 +83,11 @@ describe('resolveRules', () => {
             // not stop halfway to introduce itself to whoever just arrived.
             welcome: false,
             breakEveryMinutes: 0,
+            // And the same argument again for a phone-in, which is a break's worth of
+            // intrusion several times over: an album side interrupted by somebody
+            // ringing in is exactly what this mode exists to prevent.
+            callins: false,
+            callinEveryMinutes: 0,
             // Same argument, one step further: somebody decided where these records stop
             // and start, and overlapping two of them overrules that decision.
             crossfade: false,

@@ -1,4 +1,4 @@
-import { Button, Card, Collapse, Group, NumberInput, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
+import { Button, Card, Checkbox, Collapse, Group, NumberInput, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { useState } from 'react';
 
@@ -58,6 +58,9 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
     // either end, and the two are independent.
     const [eraFrom, setEraFrom] = useState<number | string>('');
     const [eraTo, setEraTo] = useState<number | string>('');
+    // Off unless this operator asks, whatever the station's own setting says, because this box is
+    // where a show is described and a show that takes calls is a format decision somebody makes.
+    const [callins, setCallins] = useState(false);
     const onAir = usePutStationOnAir();
     const personas = usePersonas();
     // Shut while there is a broadcast to interrupt, open while there is not.
@@ -84,6 +87,10 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
             ...(personaId === undefined ? {} : { personaId }),
             ...(typeof eraFrom === 'number' ? { eraFrom } : {}),
             ...(typeof eraTo === 'number' ? { eraTo } : {}),
+            // Sent only when it is ON. Absent leaves the station's own setting standing, which is
+            // what an operator who did not think about the phone means — where `false` would be
+            // this box overruling a station that takes calls every hour.
+            ...(callins ? { callins: true } : {}),
         });
     };
 
@@ -185,6 +192,15 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
                             A period, if you want one. Unlike the words, it holds without a model.
                         </Text>
                     </Group>
+                    {/* Beside the period rather than in the row above, because it is a decision
+                        about the SHOW rather than about the records: what the station plays, when it
+                        plays it, and then who is on it. */}
+                    <Checkbox
+                        label="Take calls during this broadcast"
+                        description="A listener rings in every so often and your host takes it: a few short turns, each in its own voice, going in as one block. Who rings is drawn from the callers on the personas page. The spacing is “Minutes between calls” in settings."
+                        checked={callins}
+                        onChange={event => setCallins(event.currentTarget.checked)}
+                    />
                     <Text size="xs" c="dimmed">
                         The host stays with this broadcast until you go on air again. Leave it empty to use whichever persona the station has on air.
                         A record whose release year the catalogue does not know is played whatever the period.

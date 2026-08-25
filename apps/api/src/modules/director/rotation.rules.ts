@@ -36,6 +36,28 @@ export interface ResolvedRules {
      */
     welcome: boolean;
     /**
+     * Whether somebody phones in during this broadcast.
+     *
+     * Beside {@link breaks} rather than under it, which is the opposite call to {@link welcome} and
+     * is worth the sentence: a break is the station talking to a listener and a call-in is a
+     * PROGRAMME — several turns in several voices, entering the order as one block — so a station
+     * that wants breaks has said nothing about whether it wants phone-ins. Off by default for the
+     * same reason: taking calls is a format decision rather than something a radio station does by
+     * being one.
+     *
+     * `NO_RULES` zeroes it, so a setlist and a feature take no calls without anybody setting that.
+     * An album side interrupted by somebody ringing in is exactly what those modes exist to prevent.
+     */
+    callins: boolean;
+    /**
+     * Minutes of airtime between one call and the next. `0` is `callins: false`.
+     *
+     * Its own number rather than {@link breakEveryMinutes}, because a call is minutes long where a
+     * break is seconds: at the break spacing the station would be on the phone for a fifth of its
+     * airtime. Erring long, for the reason the break spacing does.
+     */
+    callinEveryMinutes: number;
+    /**
      * Minutes of airtime between one break and the next OF THE SAME KIND. `0` is `breaks: false`.
      *
      * Minutes rather than records, which is what this counted until it was measured. Four records
@@ -93,6 +115,13 @@ export const DEFAULT_RULES: ResolvedRules = {
     // break every few minutes is a novelty that wears out in an afternoon. This is the number the
     // setting's help has always claimed; it is only now the number the code actually uses.
     breakEveryMinutes: 15,
+    // OFF. A station that takes calls is one an operator decided should, which is not something to
+    // discover by hearing a stranger on your own radio station.
+    callins: false,
+    // Half an hour. A call is a few minutes of talk, so this is the same fraction of the hour the
+    // break spacing takes and no more — and a phone-in every quarter of an hour is a phone-in show,
+    // which is a thing to ask for rather than to arrive at.
+    callinEveryMinutes: 30,
     // ON. It was held off on the belief that a blend puts `on_air_elapsed` -- which every DJ break
     // is timed against -- ahead of the audience. Measured, it does not: the counter is a wall clock
     // zeroed at the instant the record becomes audible, and a cross moves the source pointer rather
@@ -117,6 +146,8 @@ export const ROTATION_KEYS = {
     autoExtend: 'rotation.autoExtend',
     breaks: 'rotation.breaks',
     welcome: 'rotation.welcome',
+    callins: 'rotation.callins',
+    callinEveryMinutes: 'rotation.callinEveryMinutes',
     breakEveryMinutes: 'rotation.breakEveryMinutes',
     crossfade: 'rotation.crossfade',
 } as const;
@@ -151,6 +182,8 @@ export function stationRules(config: AppConfig): ResolvedRules {
         autoExtend: boolean(ROTATION_KEYS.autoExtend, DEFAULT_RULES.autoExtend),
         breaks: boolean(ROTATION_KEYS.breaks, DEFAULT_RULES.breaks),
         welcome: boolean(ROTATION_KEYS.welcome, DEFAULT_RULES.welcome),
+        callins: boolean(ROTATION_KEYS.callins, DEFAULT_RULES.callins),
+        callinEveryMinutes: number(ROTATION_KEYS.callinEveryMinutes, DEFAULT_RULES.callinEveryMinutes),
         breakEveryMinutes: number(ROTATION_KEYS.breakEveryMinutes, DEFAULT_RULES.breakEveryMinutes),
         crossfade: boolean(ROTATION_KEYS.crossfade, DEFAULT_RULES.crossfade),
     };
@@ -165,6 +198,8 @@ const NO_RULES: ResolvedRules = {
     breaks: false,
     welcome: false,
     breakEveryMinutes: 0,
+    callins: false,
+    callinEveryMinutes: 0,
     crossfade: false,
 };
 
@@ -211,6 +246,8 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         autoExtend: overrides?.autoExtend ?? base.autoExtend,
         breaks: overrides?.breaks ?? base.breaks,
         welcome: overrides?.welcome ?? base.welcome,
+        callins: overrides?.callins ?? base.callins,
+        callinEveryMinutes: overrides?.callinEveryMinutes ?? base.callinEveryMinutes,
         breakEveryMinutes: overrides?.breakEveryMinutes ?? base.breakEveryMinutes,
         crossfade: overrides?.crossfade ?? base.crossfade,
     };

@@ -26,7 +26,7 @@ export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'ski
 
 /**
  * Change who is presenting the broadcast that is on air
- * generated from [SetStationHostInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L81)
+ * generated from [SetStationHostInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L82)
  */
 export interface SetStationHostInput {
     /** Who hosts it from here on. Absent hands it back to whichever persona the station has on air, which is what a broadcast that never named one already does */
@@ -35,7 +35,7 @@ export interface SetStationHostInput {
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L85)
+ * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L86)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -47,7 +47,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L91)
+ * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L92)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -55,7 +55,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L95)
+ * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L96)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -63,7 +63,7 @@ export interface ExtendStationInput {
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L99)
+ * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L100)
  */
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */
@@ -118,6 +118,8 @@ export interface PutOnAirInput {
     eraFrom?: number;
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
     eraTo?: number;
+    /** Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent takes the station's own setting, which is off */
+    callins?: boolean;
     mode?: StationMode;
     onEnd?: StationOnEnd;
 }

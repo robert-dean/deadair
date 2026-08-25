@@ -7,7 +7,7 @@ import { ClockBandRepository } from '#modules/director/clock.band.repository.js'
 import { stationZone } from '#modules/director/clock.words.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { firstPass } from './production.passes.js';
-import { stationTargetMs, stationWritingMode } from './production.settings.js';
+import { dialogueKinds, stationTargetMs, stationWritingMode } from './production.settings.js';
 import { ProductionRepository } from './production.repository.js';
 
 /**
@@ -69,6 +69,12 @@ export interface BroadcastContext {
     brief?: string;
     /** Who is hosting the show, when it named somebody. */
     personaId?: string;
+    /** This broadcast's own id, which is what a standing commission is spaced against. */
+    broadcastId?: string;
+    /** Whether this broadcast takes calls at all. `ResolvedRules.callins`. */
+    callins?: boolean;
+    /** Minutes of airtime between one call and the next. `ResolvedRules.callinEveryMinutes`. */
+    callinEveryMinutes?: number;
 }
 
 /**
@@ -116,54 +122,123 @@ export class ProductionScheduler {
      */
     async ripen(now = Date.now(), show: BroadcastContext = {}): Promise<number> {
         try {
-            const kinds = productionKinds(this.config);
-            const anchored = (await this.bands.active()).filter(isAnchored).filter(band => kinds.has(band.kind.trim().toLowerCase()));
-            if (anchored.length === 0) return 0;
-
-            const zone = stationZone(this.config);
-            const scheduled = await this.productions.scheduledAfter(now);
-            let started = 0;
-
-            for (const band of anchored) {
-                const at = nextOccurrence(band, now, zone);
-                if (at - now > COMMISSION_AHEAD_MS) continue;
-
-                // Already being made for that instant. The table is the memory, so a restart in the
-                // middle of an hour does not commission a second one.
-                if (scheduled.some(existing => existing.kind === band.kind && existing.scheduledFor === at)) continue;
-
-                const production = await this.productions.open({
-                    kind: band.kind,
-                    title: titleFor(band.kind, at, zone),
-                    // Kind-aware: a `callin` band is a three-minute phone call and a `podcast` band
-                    // is a programme, and one number for both makes whichever it was not.
-                    targetMs: stationTargetMs(this.config, band.kind),
-                    writingMode: stationWritingMode(this.config),
-                    scheduledFor: at,
-                    // What SHOW this is inside. Without it a `:40 callin` on a heavy-metal broadcast
-                    // is a phone-in about nothing in particular, presented by the station's default
-                    // persona rather than by the person whose show it is — because `presenting`
-                    // falls back the moment nobody names a host. The block airs inside somebody
-                    // else's programme, so it belongs to that programme.
-                    ...(show.brief === undefined || show.brief.trim().length === 0 ? {} : { brief: show.brief.trim() }),
-                    ...(show.personaId === undefined ? {} : { personaId: show.personaId }),
-                });
-
-                await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production.writingMode) });
-                started += 1;
-
-                this.logger.info('productions: the station clock asked for a production', {
-                    production: production.id,
-                    kind: band.kind,
-                    at: new Date(at).toISOString(),
-                });
-            }
-
-            return started;
+            return (await this.fromTheClock(now, show)) + (await this.standing(now, show));
         } catch (error) {
-            this.logger.warn(`productions: could not commission what the clock asked for (${errorText(error)})`);
+            this.logger.warn(`productions: could not commission what was asked for (${errorText(error)})`);
             return 0;
         }
+    }
+
+    /**
+     * What the format clock wants soon and nothing is being made for yet.
+     *
+     * A band is a TIME: the station makes this thing at twenty to the hour whatever else is going on.
+     * See {@link standing} for the other half, which is a property of the show rather than of the
+     * clock — the two are separate because a broadcast that takes calls does not want one at a fixed
+     * minute past, and a `:40 podcast` wants one whether or not anybody is briefing the station.
+     */
+    private async fromTheClock(now: number, show: BroadcastContext): Promise<number> {
+        const kinds = productionKinds(this.config);
+        const anchored = (await this.bands.active()).filter(isAnchored).filter(band => kinds.has(band.kind.trim().toLowerCase()));
+        if (anchored.length === 0) return 0;
+
+        const zone = stationZone(this.config);
+        const scheduled = await this.productions.scheduledAfter(now);
+        let started = 0;
+
+        for (const band of anchored) {
+            const at = nextOccurrence(band, now, zone);
+            if (at - now > COMMISSION_AHEAD_MS) continue;
+
+            // Already being made for that instant. The table is the memory, so a restart in the
+            // middle of an hour does not commission a second one.
+            if (scheduled.some(existing => existing.kind === band.kind && existing.scheduledFor === at)) continue;
+
+            const production = await this.productions.open({
+                kind: band.kind,
+                title: titleFor(band.kind, at, zone),
+                // Kind-aware: a `callin` band is a three-minute phone call and a `podcast` band
+                // is a programme, and one number for both makes whichever it was not.
+                targetMs: stationTargetMs(this.config, band.kind),
+                writingMode: stationWritingMode(this.config),
+                scheduledFor: at,
+                // What SHOW this is inside. Without it a `:40 callin` on a heavy-metal broadcast
+                // is a phone-in about nothing in particular, presented by the station's default
+                // persona rather than by the person whose show it is — because `presenting`
+                // falls back the moment nobody names a host. The block airs inside somebody
+                // else's programme, so it belongs to that programme.
+                ...(show.brief === undefined || show.brief.trim().length === 0 ? {} : { brief: show.brief.trim() }),
+                ...(show.personaId === undefined ? {} : { personaId: show.personaId }),
+            });
+
+            await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production.writingMode) });
+            started += 1;
+
+            this.logger.info('productions: the station clock asked for a production', {
+                production: production.id,
+                kind: band.kind,
+                at: new Date(at).toISOString(),
+            });
+        }
+
+        return started;
+    }
+
+    /**
+     * The call this broadcast keeps taking, if it was told to take them.
+     *
+     * ## Why this is not a band
+     *
+     * A clock band is a TIME: the station makes a thing at twenty to the hour whatever else is going
+     * on. A broadcast that takes calls is not about the clock at all — it is a property of the show,
+     * it lasts exactly as long as the show does, and an operator who set it while briefing the
+     * station is describing this hour rather than every hour. So the spacing is measured from the
+     * last call this BROADCAST aired, and a new broadcast starts the count again.
+     *
+     * ## Idempotence, on the same terms as a slot
+     *
+     * By table read rather than by memory. One unsettled call-in for this broadcast means one is
+     * coming and nothing else is commissioned, which is what stops a commit pass every few seconds
+     * from queueing a switchboard. That guard has to come first: a call takes minutes to write, and
+     * the spacing clock does not start until it AIRS.
+     *
+     * The first one goes out as soon as the broadcast can make it, deliberately. A station told to
+     * take calls and then made to wait half an hour for the first is one an operator assumes is
+     * broken.
+     */
+    private async standing(now: number, show: BroadcastContext): Promise<number> {
+        const every = show.callinEveryMinutes ?? 0;
+        if (show.callins !== true || every <= 0 || show.broadcastId === undefined) return 0;
+
+        const kind = [...dialogueKinds(this.config)][0];
+        // A station whose operator emptied the dialogue kinds has said there are no conversations,
+        // which is a coherent thing to have said. There is nothing to commission.
+        if (kind === undefined) return 0;
+
+        const { pending, lastAiredAt } = await this.productions.standingIn(show.broadcastId, kind);
+        if (pending) return 0;
+        if (lastAiredAt !== undefined && now - lastAiredAt < every * 60_000) return 0;
+
+        const production = await this.productions.open({
+            kind,
+            title: titleFor(kind, now, stationZone(this.config)),
+            targetMs: stationTargetMs(this.config, kind),
+            writingMode: stationWritingMode(this.config),
+            // No `scheduledFor`: it airs when it is ready rather than at an instant somebody chose,
+            // which is also what keeps it `background` at the model for its whole life. Nothing is
+            // waiting on air for it.
+            ...(show.brief === undefined || show.brief.trim().length === 0 ? {} : { brief: show.brief.trim() }),
+            ...(show.personaId === undefined ? {} : { personaId: show.personaId }),
+        });
+
+        await this.jobs.send('director.produce', { productionId: production.id, pass: firstPass(production.writingMode) });
+        this.logger.info('productions: this broadcast takes calls, so somebody is being put on the phone', {
+            production: production.id,
+            kind,
+            everyMinutes: every,
+        });
+
+        return 1;
     }
 }
 

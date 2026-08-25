@@ -63,10 +63,13 @@ export class ProductionsService {
      * a title is the only thing nobody else can supply.
      */
     async request(body: ProductionRequest): Promise<ProductionView> {
+        const kind = body.kind ?? DEFAULT_KIND;
         const production = await this.productions.open({
-            kind: body.kind ?? DEFAULT_KIND,
+            kind,
             title: body.title,
-            targetMs: body.targetMs ?? stationTargetMs(this.config),
+            // Kind-aware, so asking for a `callin` with no length gets a phone call rather than a
+            // ten-minute one. An operator who typed a number still gets exactly that.
+            targetMs: body.targetMs ?? stationTargetMs(this.config, kind),
             writingMode: body.writingMode ?? stationWritingMode(this.config),
             ...(body.brief === undefined ? {} : { brief: body.brief }),
             ...(body.personaId === undefined ? {} : { personaId: body.personaId }),
@@ -149,6 +152,14 @@ export class ProductionsService {
             ...(production.scheduledFor === undefined ? {} : { scheduledFor: DateTime.fromMillis(production.scheduledFor) }),
             ...(production.cancelledAt === undefined ? {} : { cancelledAt: DateTime.fromMillis(production.cancelledAt) }),
             beats: beats.length,
+            // Who is on it. The stored snapshot rather than a fresh resolve, which is the whole
+            // reason the cast is a column: the persona it names may have been edited or deleted
+            // since, and what an operator is reading back is what the turns were written as.
+            cast: (production.casting ?? []).map(member => ({
+                role: member.role,
+                ...(member.name === undefined ? {} : { name: member.name }),
+                ...(member.personaKey === undefined ? {} : { persona: member.personaKey }),
+            })),
             createdAt: DateTime.fromMillis(production.createdAt),
         };
     }

@@ -83,6 +83,24 @@ export function ProductionsPage() {
 }
 
 /**
+ * Who is on a production: the presenter, and whoever was cast to ring in.
+ *
+ * Only drawn where there IS somebody else, since a cast of one is every production the station made
+ * before callers and saying "presented by" on all of them is a line that reads the same on every
+ * card. A member with no name is one whose station is presenting as nobody in particular.
+ */
+function cast(production: Production): string {
+    const named = (role: 'host' | 'caller'): string[] =>
+        production.cast.filter(member => member.role === role).flatMap(member => (member.name === undefined ? [] : [member.name]));
+
+    const callers = named('caller');
+    const host = named('host')[0];
+
+    const parts = [...(host === undefined ? [] : [`presented by ${host}`]), ...(callers.length === 0 ? [] : [`with ${callers.join(' and ')}`])];
+    return parts.length === 0 ? `${production.cast.length} voices` : parts.join(', ');
+}
+
+/**
  * When a scheduled production is due, to the minute.
  *
  * The same shape the catalog's detail page uses, and it has to be built here rather than taken from
@@ -119,6 +137,15 @@ function ProductionCard({ production, stopping, onCancel }: { production: Produc
                     <Text size="sm" c="dimmed">
                         {describe(production)}
                     </Text>
+
+                    {/* Who is on it, which is the answer to "why was there somebody else in that
+                        programme". Drawn from the stored cast rather than from the personas page,
+                        because the character may have been edited since it was written. */}
+                    {production.cast.length > 1 && (
+                        <Text size="xs" c="dimmed">
+                            {cast(production)}
+                        </Text>
+                    )}
 
                     {production.error !== undefined && (
                         <Text size="sm" c={toneColor.fault}>

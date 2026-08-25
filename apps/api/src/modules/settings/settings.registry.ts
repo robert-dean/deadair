@@ -50,7 +50,13 @@ import {
 } from '#modules/analysis/analysis.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
-import { DEFAULT_DIALOGUE_KINDS, DEFAULT_TARGET_MINUTES, DEFAULT_WRITING_MODE, PRODUCTION_KEYS } from '#modules/productions/production.settings.js';
+import {
+    DEFAULT_DIALOGUE_KINDS,
+    DEFAULT_DIALOGUE_MINUTES,
+    DEFAULT_TARGET_MINUTES,
+    DEFAULT_WRITING_MODE,
+    PRODUCTION_KEYS,
+} from '#modules/productions/production.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
 
@@ -527,6 +533,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_TARGET_MINUTES,
         help: 'The default length, which decides how many beats it has and how long each one is. Nothing about the timing is left to the model: asked to decide for itself it gives one subject one beat, which at ten minutes is a single beat asked to carry more words than any one answer contains.',
+    },
+    {
+        group: 'render',
+        key: PRODUCTION_KEYS.dialogueMinutes,
+        label: 'How long a call-in runs (minutes)',
+        type: 'number',
+        default: DEFAULT_DIALOGUE_MINUTES,
+        help: 'The default length for a production that has callers in it, which is its own number because a turn is about a third of a beat: ten minutes of conversation is twenty-odd turns of a phone call rather than a longer one. Three minutes is about seven turns, which is a call.',
     },
     {
         group: 'render',

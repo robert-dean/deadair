@@ -19,6 +19,7 @@ export const PRODUCTION_KEYS = {
     writingMode: 'render.productionWritingMode',
     targetMinutes: 'render.productionMinutes',
     dialogueKinds: 'render.dialogueKinds',
+    dialogueMinutes: 'render.dialogueMinutes',
 } as const;
 
 /**
@@ -61,6 +62,20 @@ export const DEFAULT_WRITING_MODE: WritingMode = 'outlined';
 export const DEFAULT_TARGET_MINUTES = 10;
 
 /**
+ * How long a CONVERSATION runs when nobody said, in minutes.
+ *
+ * Its own number because a phone-in and a documentary are not the same length, and the arithmetic
+ * makes the gap wider than it looks: a turn is a third of a beat, so ten minutes of dialogue is
+ * twenty-three turns rather than eight — which is not a long phone-in, it is a different programme.
+ * Three minutes is seven turns, which is a call.
+ *
+ * The better long-term shape is a length on the clock band row, since `deadair.clock_bands` is a
+ * table now and a band saying its own length would kill this setting. That is the thing to do when a
+ * THIRD kind of production appears rather than now.
+ */
+export const DEFAULT_DIALOGUE_MINUTES = 3;
+
+/**
  * The station's default writing mode, or the fallback.
  *
  * A value nothing recognises falls back rather than throwing, for the reason every resolver here
@@ -72,8 +87,23 @@ export function stationWritingMode(config: AppConfig): WritingMode {
     return isWritingMode(set) ? set : DEFAULT_WRITING_MODE;
 }
 
-/** The station's default length, in milliseconds. Floored at a minute, since anything less is not a production. */
-export function stationTargetMs(config: AppConfig): number {
-    const minutes = config.get(PRODUCTION_KEYS.targetMinutes, DEFAULT_TARGET_MINUTES);
-    return Math.max(1, Number.isFinite(minutes) ? minutes : DEFAULT_TARGET_MINUTES) * 60_000;
+/**
+ * The station's default length for a production of this kind, in milliseconds.
+ *
+ * Kind-aware because a conversation has its own default: without it a `callin` band commissions ten
+ * minutes, which the turn arithmetic turns into twenty-three turns of a phone call.
+ *
+ * **Read as a STRING and parsed**, which is not defensiveness: every layer of `AppConfig` holds text,
+ * so a stored `20` arrives as `'20'` and `Number.isFinite('20')` is false. This function read the
+ * value straight and asked `Number.isFinite` of it for as long as it existed, which meant a station
+ * that had ever set the setting silently got the default back. See the `settingIsOn` gotcha in
+ * CLAUDE.md, of which this is the numeric half.
+ */
+export function stationTargetMs(config: AppConfig, kind?: string): number {
+    const dialogue = kind !== undefined && dialogueKinds(config).has(kind.trim().toLowerCase());
+    const key = dialogue ? PRODUCTION_KEYS.dialogueMinutes : PRODUCTION_KEYS.targetMinutes;
+    const fallback = dialogue ? DEFAULT_DIALOGUE_MINUTES : DEFAULT_TARGET_MINUTES;
+
+    const minutes = Number(String(config.get(key, String(fallback))).trim());
+    return Math.max(1, Number.isFinite(minutes) && minutes > 0 ? minutes : fallback) * 60_000;
 }

@@ -4,6 +4,15 @@ options {
     }
 }
 
+# One person in a production: the presenter, or somebody cast to phone in. A snapshot rather than a
+# reference, because the persona it names may be edited or deleted while the programme is still being
+# made and what the turns were written as has to be what an operator reads back
+contract ProductionCastMember: {
+    role: enum(host, caller)
+    name?: string(max=200) # What they are called on air
+    persona?: string(max=100) # The persona key, for a link back to the character
+}
+
 # Something the station makes rather than something it says: several beats of speech, written in several passes, that airs as one block
 contract Production: {
     id: readonly string(min=1, max=100)
@@ -18,6 +27,7 @@ contract Production: {
     scheduledFor?: datetime # When it should air. Absent means as soon as it is made
     cancelledAt?: readonly datetime
     beats: readonly int(min=0) # How many beats exist so far, which is how far along the drafting is
+    cast: readonly array(ProductionCastMember) # Who is on it, decided by the first pass that ran. Empty for one nobody has started, and for a programme the presenter reads alone
     createdAt: readonly datetime
 }
 

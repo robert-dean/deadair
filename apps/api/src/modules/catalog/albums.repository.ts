@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { ExpressionBuilder } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import { DB } from '../data/db.js';
-import { CatalogListQuery, likeContains } from './catalog.query.js';
+import { CatalogListQuery, columnFor, directionFor, likeContains } from './catalog.query.js';
 import { artUrl } from './catalog.art.js';
 
 /**
@@ -33,13 +33,26 @@ function trackCount(eb: ExpressionBuilder<DB, 'deadair.albums' | 'deadair.artist
         .as('trackCount');
 }
 
+/**
+ * What an album list may be ordered by.
+ *
+ * `tracks` is the alias of the correlated subquery above, already selected. `albums` is absent
+ * because an album has no albums, and asking for it gets name order, per {@link columnFor}.
+ */
+const ALBUM_SORTS = {
+    name: 'deadair.albums.name',
+    tracks: 'trackCount',
+    year: 'deadair.albums.year',
+    rating: 'deadair.albums.rating',
+} as const;
+
 @Injectable()
 export class AlbumsRepository extends DataRepository {
     /**
      * @param artistId - Narrows to one artist's albums. Absent lists the whole catalog.
      */
     async listAlbums(query: CatalogListQuery, artistId?: string) {
-        const { limit, offset, sort, search } = query;
+        const { limit, offset, sort, search, sortBy } = query;
 
         // The join is inner because `albums.artist_id` is `not null references artists`, so every
         // album has one. It is not filtered on the artist's own `merged_into_id`: the album points
@@ -61,7 +74,7 @@ export class AlbumsRepository extends DataRepository {
             .select(ALBUM_COLUMNS)
             .select(artUrl(ALBUM_IMAGE_COLUMN))
             .select(eb => [trackCount(eb)])
-            .orderBy('deadair.albums.name', sort)
+            .orderBy(columnFor(sortBy, ALBUM_SORTS, ALBUM_SORTS.name), directionFor(sort))
             .orderBy('deadair.albums.id', 'asc')
             .limit(limit)
             .offset(offset)

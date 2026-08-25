@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql, type ExpressionBuilder } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import type { DB } from '../data/db.js';
-import { CatalogListQuery, likeContains } from './catalog.query.js';
+import { CatalogListQuery, columnFor, directionFor, likeContains } from './catalog.query.js';
 import { catalogKey, normalizeKey } from './catalog.keys.js';
 import { artUrl } from './catalog.art.js';
 import { ratingFromColumn } from './rating.js';
@@ -211,6 +211,24 @@ const TRACK_COLUMNS = [
     'deadair.albums.name as albumName',
 ] as const;
 
+/**
+ * What a track list may be ordered by.
+ *
+ * `artist` and `album` order by the JOINED name rather than by the foreign key, which is the only
+ * reading an operator would recognise and costs nothing: {@link TracksRepository.readable} already
+ * joins both. A `year` or a `durationMs` is null on plenty of rows, and Postgres sorts nulls last
+ * ascending and first descending; that is left alone rather than forced, because a record the
+ * station knows nothing about belongs at whichever end the operator is not looking at.
+ */
+const TRACK_SORTS = {
+    title: 'deadair.tracks.title',
+    artist: 'deadair.artists.name',
+    album: 'deadair.albums.name',
+    year: 'deadair.tracks.year',
+    duration: 'deadair.tracks.durationMs',
+    rating: 'deadair.tracks.rating',
+} as const;
+
 @Injectable()
 export class TracksRepository extends DataRepository {
     /**
@@ -232,7 +250,7 @@ export class TracksRepository extends DataRepository {
      * @param albumId - Narrows to one album's tracks. Absent lists the whole catalog.
      */
     async listTracks(query: TrackListQuery, albumId?: string) {
-        const { limit, offset, sort, search, state, schemaVersion } = query;
+        const { limit, offset, sort, search, state, schemaVersion, sortBy } = query;
 
         let scoped = this.readable();
         if (albumId !== undefined) {
@@ -255,7 +273,7 @@ export class TracksRepository extends DataRepository {
             // query and no row multiplication: a record with four copies must not come back four
             // times because one of them has bytes.
             .select(eb => [hasAudio(eb).as('hasAudio'), isMeasured(eb, schemaVersion).as('measured'), isEnriched(eb).as('enriched')])
-            .orderBy('deadair.tracks.title', sort)
+            .orderBy(columnFor(sortBy, TRACK_SORTS, TRACK_SORTS.title), directionFor(sort))
             .orderBy('deadair.tracks.id', 'asc')
             .limit(limit)
             .offset(offset)

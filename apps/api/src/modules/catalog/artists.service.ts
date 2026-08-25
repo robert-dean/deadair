@@ -11,8 +11,8 @@ export class ArtistsService {
     constructor(private readonly artistsRepository: ArtistsRepository) {}
 
     async listArtists(query: CatalogQueryInput): Promise<{ meta: Pagination; data: Artist[] }> {
-        const { page, pageSize, sort, search } = query;
-        const { total, data } = await this.artistsRepository.listArtists({ limit: pageSize, offset: page * pageSize, sort, search });
+        const { page, pageSize, sort, search, sortBy } = query;
+        const { total, data } = await this.artistsRepository.listArtists({ limit: pageSize, offset: page * pageSize, sort, search, sortBy });
         return { meta: { total, page, pageSize, sort }, data: await parseAndValidateArray(data.map(withRating), Artist) };
     }
 

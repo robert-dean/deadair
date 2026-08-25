@@ -44,8 +44,8 @@ export class AlbumsService {
     }
 
     private async page(query: CatalogQueryInput, artistId?: string): Promise<{ meta: Pagination; data: Album[] }> {
-        const { page, pageSize, sort, search } = query;
-        const { total, data } = await this.albumsRepository.listAlbums({ limit: pageSize, offset: page * pageSize, sort, search }, artistId);
+        const { page, pageSize, sort, search, sortBy } = query;
+        const { total, data } = await this.albumsRepository.listAlbums({ limit: pageSize, offset: page * pageSize, sort, search, sortBy }, artistId);
         return { meta: { total, page, pageSize, sort }, data: await parseAndValidateArray(data.map(withRating), Album) };
     }
 }

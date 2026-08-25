@@ -141,10 +141,24 @@ contract ClearEnrichmentQuery: {
     provider?: string(min=1, max=200)
 }
 
+# What an artist or album list is ordered BY, where `Pagination.sort` says only which direction.
+#
+#   name    the default, and the only key every row here has
+#   albums  how many records the station holds of them. Artists only
+#   tracks  how many songs. Artists only
+#   year    when the record came out. Albums only
+#   rating  the operator's own opinion
+#
+# One enum for both lists rather than two, because the alternative is a second near-identical
+# contract whose only content is which two keys it drops. A key the row cannot answer falls back to
+# name order rather than failing: an ordering nobody can serve is a page an operator cannot open.
+contract CatalogSort: enum(name, albums, tracks, year, rating)
+
 # Pagination plus a name filter. Every list operation here takes it, so the console's search box
 # narrows server-side rather than filtering one page client-side and lying about the total.
 contract CatalogQuery: Pagination & {
     search?: string(min=1, max=200)
+    sortBy?: CatalogSort
 }
 
 # Which records to show, by what the station has of them rather than by what they are.
@@ -156,12 +170,21 @@ contract CatalogQuery: Pagination & {
 #   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
 contract TrackState: enum(cached, uncached, unmeasured, benched, failing)
 
+# What a track list is ordered BY. Its own enum for `TrackQuery`'s own reason: none of these keys
+# means anything about an artist, and `name` is spelled `title` on a song.
+#
+# `state` is deliberately absent. It is three independent booleans rather than one column, so there
+# is no ordering of it an operator would agree with: a benched record and an unmeasured one are not
+# more or less than each other.
+contract TrackSort: enum(title, artist, album, year, duration, rating)
+
 # A track list, narrowed by what the station has of each record as well as by name.
 #
 # Its own contract rather than a field on `CatalogQuery`, because that one is shared with the artist
 # and album lists where none of these states means anything.
 contract TrackQuery: CatalogQuery & {
     state?: TrackState
+    sortBy?: TrackSort
 }
 
 # How much of the library is in each state, over the whole filtered set rather than this page.

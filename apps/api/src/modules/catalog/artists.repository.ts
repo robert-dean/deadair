@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { ExpressionBuilder } from 'kysely';
 import { DataRepository } from '../data/data.repository.js';
 import { DB } from '../data/db.js';
-import { CatalogListQuery, likeContains } from './catalog.query.js';
+import { CatalogListQuery, columnFor, directionFor, likeContains } from './catalog.query.js';
 import { artistArtUrl } from './catalog.art.js';
 
 /**
@@ -39,10 +39,25 @@ function trackCount(eb: ExpressionBuilder<DB, 'deadair.artists'>) {
         .as('trackCount');
 }
 
+/**
+ * What an artist list may be ordered by.
+ *
+ * `albumCount` and `trackCount` are the aliases of the two correlated subqueries above, which are
+ * already selected, so ordering by them costs the query no second pass over the tables. `year` and
+ * the track keys are absent because they are not facts about an artist; asking for one gets name
+ * order, per {@link columnFor}.
+ */
+const ARTIST_SORTS = {
+    name: 'deadair.artists.name',
+    albums: 'albumCount',
+    tracks: 'trackCount',
+    rating: 'deadair.artists.rating',
+} as const;
+
 @Injectable()
 export class ArtistsRepository extends DataRepository {
     async listArtists(query: CatalogListQuery) {
-        const { limit, offset, sort, search } = query;
+        const { limit, offset, sort, search, sortBy } = query;
 
         let scoped = this.db.selectFrom('deadair.artists').where('deadair.artists.mergedIntoId', 'is', null);
         if (search !== undefined) {
@@ -54,9 +69,10 @@ export class ArtistsRepository extends DataRepository {
             .select(ARTIST_COLUMNS)
             .select(artistArtUrl())
             .select(eb => [albumCount(eb), trackCount(eb)])
-            .orderBy('deadair.artists.name', sort)
+            .orderBy(columnFor(sortBy, ARTIST_SORTS, ARTIST_SORTS.name), directionFor(sort))
             // Names collide, and a paged list whose order is undefined between ties both drops and
-            // repeats rows across pages. The id breaks the tie because it is unique.
+            // repeats rows across pages. The id breaks the tie because it is unique. It holds for
+            // every sort key, not just the name: a count ties far harder than a name does.
             .orderBy('deadair.artists.id', 'asc')
             .limit(limit)
             .offset(offset)

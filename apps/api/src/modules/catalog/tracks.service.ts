@@ -284,10 +284,10 @@ export class TracksService {
      * the operator is looking at.
      */
     private async page(query: TrackQueryInput, albumId?: string): Promise<TrackPage> {
-        const { page, pageSize, sort, search, state } = query;
+        const { page, pageSize, sort, search, state, sortBy } = query;
         // The version the station still trusts, passed in rather than read in the repository: what
         // counts as a good measurement is the analysis module's rule, not the catalog's.
-        const listQuery = { limit: pageSize, offset: page * pageSize, sort, search, state, schemaVersion: ANALYSIS_SCHEMA_VERSION };
+        const listQuery = { limit: pageSize, offset: page * pageSize, sort, search, state, sortBy, schemaVersion: ANALYSIS_SCHEMA_VERSION };
 
         const [{ total, data }, states] = await Promise.all([
             this.tracksRepository.listTracks(listQuery, albumId),

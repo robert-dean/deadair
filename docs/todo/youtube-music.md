@@ -2,6 +2,13 @@
 
 **Written:** 2026-08-09, after checking the current state of YouTube's playback stack rather than
 assuming it still looks the way downloaders describe it.
+**Re-checked:** 2026-08-25. The plan survives intact and three of its premises did not. The segment
+protocol has a maintained MIT implementation, so the option dismissed below as "large, permanent" is
+an import rather than a project. The licence warning at the bottom was wrong: the JavaScript chain
+this needs is permissive end to end, so it can be depended on rather than paraphrased. And the
+identity ladder has lost the rungs this document was counting on, in exactly the direction it
+predicted, which puts the happy path on the authenticated branch and makes attestation something to
+plan for rather than around. Each correction is made in place and says what it is correcting.
 **State of the tree:** two music providers, `plugins/spotify` and `plugins/navidrome`. One track
 fetcher, hardwired: `PluginHostFactory.createTrackFetcher` calls `SpotifyShimClient.serve` and there
 is no lookup in front of it.
@@ -48,6 +55,11 @@ caller-supplied fetch implementation, which means catalog traffic can be routed 
 it. Confirm that against whichever version gets pinned; it is the difference between an honest
 manifest and a decorative one.
 
+It is also actively maintained, which is the other half of that question and is answerable rather
+than hopeful: v17.0.0 in March 2026, v18.0.0 on 2026-08-13, and the deciphering path refactored onto
+AST-based extraction rather than pattern matching in v16. Pin a version, watch the releases, and
+expect the pin to move on the upstream's schedule rather than ours.
+
 ### Two things the capability contract does not fit
 
 **No ISRC.** `ProviderTrack.isrc` is documented as "the best cross-provider join key" and this
@@ -64,6 +76,11 @@ So the manifest declares `catalog` and eventually `stream`, and **not** `oauth`.
 is no refresh: the credential expires on the account's own schedule and the plugin has to fail
 legibly when it does, rather than reporting an empty catalog.
 
+That was read off the cookie's contents and is settled rather than inferred now: Google withdrew
+OAuth for this service in late 2024, and every server-side implementation that works today
+authenticates off a pasted cookie because there is nothing else on offer. There is no redirect flow
+being held back for a later phase; there is no redirect flow.
+
 `steer` is out too. There is no transport to drive.
 
 ## The audio half
@@ -73,17 +90,36 @@ legibly when it does, rather than reporting an empty catalog.
 The music client is now served over an adaptive segment protocol: not DASH or HLS, but a custom
 framing addressed by player time and buffered ranges rather than byte ranges, which ffmpeg cannot
 consume and neither can Liquidsoap (`yt-dlp/yt-dlp#13037`). Origin tokens are bound per video id, so
-obtaining them means running an attestation service continuously rather than passing a value by
-hand, and there are reports of the segment protocol being forced even with a valid token provider
-and a paid account (`yt-dlp/yt-dlp#14390`).
+obtaining them means running the attestation continuously rather than passing a value by hand (a
+process and not a container, which is worth reading below before pricing it), and there are reports
+of the segment protocol being forced even with a valid token provider and a paid account
+(`yt-dlp/yt-dlp#14390`).
 
 **That is the state of the default path, and it is avoidable.** The identity a player announces
-decides what it is served, and several identities — a standalone-headset client, a TV client, a
-mobile client — are still handed ordinary adaptive formats with signed URLs that answer a range
-request. Working desktop clients are built on exactly this: a preferred identity for the
-authenticated case, and a ladder of alternates entered when the first one is refused. So the
-question is not "how do we implement the segment protocol" but "how long does the ladder keep
-holding", which is a maintenance question rather than an architectural one.
+decides what it is served, and several identities are still handed ordinary adaptive formats with
+signed URLs that answer a range request. Working desktop clients are built on exactly this: a
+preferred identity for the authenticated case, and a ladder of alternates entered when the first one
+is refused. So the question is not "how do we implement the segment protocol" but "how long does the
+ladder keep holding", which is a maintenance question rather than an architectural one.
+
+**The rungs named just above were too generous, and which ones they are matters more than how many.**
+The original list read: a standalone-headset client, a TV client, a mobile client. Re-checked, the client
+most downloaders leaned on for years was blocked at the upstream's CDN and removed from yt-dlp's
+defaults outright (`yt-dlp/yt-dlp#15726`), and the headset client promoted into its place went
+erratic within weeks, frequently answering with nothing but a single pre-muxed 360p stream
+(`yt-dlp/yt-dlp#16150`). The TV clients and an embedded web client are what carry it now. **The
+direction is the part to hold on to**: the rungs being closed are the ANONYMOUS ones, and the
+authenticated branch this plugin was always going to be on is the one still standing. A pasted cookie
+stopped being a compromise the catalog half forced on us and became the audio half's happy path too.
+
+**And the protocol itself stopped being unimplementable, which moves the fallback rather than the
+plan.** `LuanRT/googlevideo` is a TypeScript implementation of the UMP framing and the SABR session
+under it: MIT, one runtime dependency, and by the author of the InnerTube client this document
+already proposes to depend on. yt-dlp merged an official SABR downloader as well
+(`yt-dlp/yt-dlp#13515`). Those are one fact from two directions, which is that the protocol is now
+something several maintained projects speak rather than something only the upstream speaks. So the
+third column of the table below is not a project any more. It is an import, and everything this
+section says about avoiding the protocol is now a preference rather than a necessity.
 
 ### What a working client actually does, and what it costs us
 
@@ -96,10 +132,15 @@ The pattern, stated as mechanism rather than as anyone's design:
   plus `Origin` and `Referer` for some identities. **This is the single fact that forces a sidecar
   on us**, and it has nothing to do with the segment protocol. Even on the happiest path, the URL is
   not fetchable by Liquidsoap directly.
-- **Visitor identity, or an origin token, depending on the rung.** The authenticated browser
-  identity carries an origin token; the alternate identities carry visitor data extracted separately.
-  Only one of the two branches needs the attestation service, which means it is not necessarily a
-  container we have to run.
+- **Visitor identity, or an origin token, depending on the rung, and the attestation is ours to run
+  in-process.** The authenticated browser identity carries an origin token; the alternate identities
+  carry visitor data extracted separately. This bullet used to hedge that only one of the two branches
+  needs the attestation service, and that it is therefore "not necessarily a container we have to
+  run". Both halves of that hedge resolve the same way now. `LuanRT/BgUtils` runs the attestation
+  challenge in Node under MIT, so the token is minted in the plugin beside the resolve that needs it
+  and no container is involved on either branch; and the branch that avoided attestation altogether is
+  the branch going away. **Plan for attestation rather than around it.** The token binds to the video
+  id, so it is minted per resolve and caches against nothing.
 - **The URL carries its own expiry.** An `expire` query parameter, on the order of tens of minutes.
   Treat it as authoritative rather than assuming a fixed TTL.
 
@@ -121,19 +162,31 @@ ship and diagnose from a listener's ears:
 
 Given the above, three options, and they are no longer close:
 
-| | Header-fixing proxy | Wrapper around a maintained downloader | Own segment-protocol client |
+| | Header-fixing proxy | Wrapper around a maintained downloader | Segment-protocol client on a library |
 | --- | --- | --- | --- |
-| What it does | forwards a range request upstream with the right identity headers | shells out per track, re-serves the result | implements the protocol |
-| Where resolution happens | in the plugin, in-process | in the sidecar | in the sidecar |
-| Attestation service needed | only on the authenticated branch | yes | yes |
-| Size | small, and ours | medium, mostly glue | large, permanent |
-| Breaks when | the identity ladder stops working | the same, plus the wrapper | the same, plus the protocol moves |
+| What it does | forwards a range request upstream with the right identity headers | shells out per track, re-serves the result | speaks UMP/SABR through `googlevideo`, re-serves the result |
+| Where resolution happens | in the plugin, in-process | in the sidecar | in the sidecar, because the session and the media fetch are one thing |
+| Attestation | in-process, per resolve | the downloader's own token provider | in-process, per resolve |
+| Size | small, and ours | medium, mostly glue | medium, mostly glue |
+| Breaks when | the identity ladder stops working | the same, plus the wrapper's interface | the protocol moves under the library |
 
-**Build the proxy.** Resolution stays in the plugin where the InnerTube client already lives, the
-sidecar is a range-preserving reverse proxy that sets three headers and probes before it serves, and
-`resolveStreamUrl` returns a signed URL pointing at it exactly the way the Spotify path already
-does. The other two columns are what to fall back to if the ladder collapses, and the third only if
-the second stops being maintained.
+The third column's row for size read "large, permanent" and its row for what it does read "implements
+the protocol". Both were written on the assumption that speaking the protocol meant implementing it,
+which it no longer does, and that is the single biggest change to this document. Note what does NOT
+move with it: a SABR session cannot be resolved in one place and fetched in another, because the
+session IS the fetch, addressed by player time against what the client has already buffered. So that
+column puts the media path in the sidecar by construction rather than by preference, and the "audio
+never touches Node" note below applies to it exactly as it applies to the proxy.
+
+**Build the proxy**, unchanged. Resolution stays in the plugin where the InnerTube client already
+lives, the sidecar is a range-preserving reverse proxy that sets three headers and probes before it
+serves, and `resolveStreamUrl` returns a signed URL pointing at it exactly the way the Spotify path
+already does. What changed is the order behind it. The third column was written as the thing to reach
+for only if the second stopped being maintained, on the assumption that it meant implementing a
+protocol; it means importing one, and it breaks when the protocol moves rather than when the protocol
+moves and a wrapper's interface moves. The second column keeps one real advantage, which is that
+somebody else tracks the identity ladder daily and ships the fix into a release we pull. Treat the
+two as siblings to choose between on the day, rather than as a descending ladder of desperation.
 
 Two consequences of that choice. The proxy needs the upstream URL and the identity that minted it,
 so it takes them as signed parameters rather than resolving anything itself, which keeps the
@@ -197,9 +250,16 @@ Each stands alone as a commit and leaves the tree working.
    phase that proves the credential model and the InnerTube client before any container work.
 2. **Resolve without serving.** Add the format selection, deciphering and identity ladder to the
    plugin, reachable from a debug route or a test rather than from `resolveStreamUrl`, and assert it
-   produces a URL that answers a `bytes=0-0` probe with an audio content type. This is the phase that
-   proves the ladder still holds before any container exists, and it is the phase to abandon on if it
-   does not.
+   produces a URL that answers a `bytes=0-0` probe with an audio content type. **Assert the format is
+   audio-only rather than merely audio-bearing**, which is the correction this phase most needed: the
+   live failure mode is a rung that answers with nothing but one pre-muxed 360p stream
+   (`yt-dlp/yt-dlp#16150`), and that passes "a URL with an audio content type" while being a video
+   download at the wrong bitrate for a music station. Start the ladder at the TV clients and an
+   embedded web client rather than at the mobile and headset rungs, and mint the token per resolve
+   rather than expecting a rung that needs none. This is the phase that proves the ladder still holds
+   before any container exists. **It is no longer the phase to abandon on**, which is what the arrival
+   of a maintained protocol library changed: a ladder that does not hold means building the third
+   column instead of the first, which is a different phase 3 rather than the end of the plan.
 3. **The proxy.** A range-preserving reverse proxy in `stream/`, taking a signed upstream URL and an
    identity, probing before it serves, refusing non-media content types, cooling down failed formats.
    Verifiable with `curl` before any plugin knows about it. Whether it hangs off `host.trackFetcher`
@@ -207,6 +267,45 @@ Each stands alone as a commit and leaves the tree working.
 4. **Wire it up.** Add `resolveStreamUrl` returning a proxy URL whose expiry is the upstream's own,
    flip the manifest to `['catalog', 'stream']`, and add the same-recording fallback for refused
    items. This is the commit where tracks start airing.
+
+## Who has already built this
+
+Added 2026-08-25. Three implementations are worth reading before any of the above is written, and the
+striking thing about them is that none is a radio station: this shape exists in music systems and in
+chat bots, and nobody has put it behind a running order.
+
+**A server-side music system with exactly this split.** Music Assistant's YouTube Music provider is
+the same two halves separated the same way: an unofficial catalog client for search and playlists,
+and an unrelated resolution path for audio. It resolves through yt-dlp, deciphers in a JavaScript
+runtime it ships for the purpose, and runs the attestation as its own CONTAINER that the operator
+points the provider at, pinned to a specific version. Cookie auth only, premium account required,
+free accounts unsupported. Its documentation is unusually honest about what ownership feels like:
+everything is best-effort, breakage is expected whenever the upstream changes, and the recovery story
+is waiting for upstream to fix it and picking up the release. That is the second column of the table
+above running in production, which is the strongest available evidence both that the column works and
+what it costs to live in.
+
+**The clearest reference for the ladder itself.** `lavalink-devs/youtube-source` maintains ten client
+identities with fall-through on refusal, which is the mechanism described above written down as a
+list somebody keeps current. MIT, so the definitions and the ordering are readable rather than
+inferable, and it is explicit that a poToken applies only to the web clients and that neither it nor
+OAuth is a silver bullet. Its issue tracker is the cheapest way to learn which rung broke this week,
+and the entries run continuously through 2026: signature extraction failing against a changed player
+script, individual clients demanding a login, all clients failing at once.
+
+**The sidecar, already built by somebody else.** Invidious companion is a range-proxying service on
+the same InnerTube client, maintaining PO tokens and re-serving `videoplayback` upstream, which is
+the first column of the table as a deployed thing. Read it for the failure modes rather than for the
+code: its tracker carries two this station would otherwise have discovered on air, an unhandled
+rejection in the chunk-streaming path taking the process down and defeating its own retry, and a
+proxied URL handed back naming the wrong host so that clients cannot fetch it. Its licence is
+unchecked and the project's family is copyleft, so treat it as a design reference and not as a
+dependency.
+
+**Nothing in the radio-station shape exists.** Searched against Icecast and Liquidsoap, this turns up
+hobby scripts shelling out to a downloader per track: no rotation, no caching, no audience gate,
+nothing that has to keep a mount fed for a week. So there is no comparable to copy and no
+comparable's outage history to learn from, which cuts both ways.
 
 ## Cost of ownership
 
@@ -225,8 +324,14 @@ rotation, cause upstream, ETA unknown" is a state the station will be in periodi
 identity the upstream has not yet decided to serve differently, and the direction of travel is that
 they get closed one at a time. That is worth knowing because it sets what "maintaining this" means:
 not fixing bugs, but re-checking which identities still work and reordering a list. Small, frequent,
-and impossible to schedule. It also sets the phase-2 abandon condition: if the ladder does not hold
-in a bare test, nothing downstream is worth building.
+and impossible to schedule, and the tracker of any maintained client library is the cheapest place to
+read the current state off rather than measuring it here.
+
+This section then made that the phase-2 abandon condition, and that no longer follows. A ladder that
+stops holding moves the work onto the segment protocol rather than ending it, and the protocol is a
+maintained MIT dependency now. What abandonment would take is the ladder AND the protocol library
+failing together, which is the upstream having decided to serve nobody but itself, and at that point
+what is gone is the whole third-party ecosystem rather than this plugin.
 
 Set against that, the thing it actually buys: material that is on no streaming service. Live sets,
 sessions, uploads, mixes. If that is the reason, it is a good reason and the catalog half alone does
@@ -239,9 +344,30 @@ belongs to the operator: this is a source with no published playback API and ter
 contemplate what the proxy does. It is a plugin an install can choose to run, not a thing to ship
 enabled.
 
-A second licence question, this one ours: the client implementations that work are copyleft, several
-of them AGPL. Everything above is recorded as mechanism — probe before serving, cool down per
-format, honour the URL's own expiry, bound a duration match at five seconds — precisely so that this
-can be built from the description without lifting anyone's code. Keep it that way; the mechanisms
-are obvious once stated, and the moment a file here is a derivative the whole tree inherits terms
-nobody chose.
+A second licence question, this one ours, and **this document had it wrong**. It said the client
+implementations that work are copyleft, several of them AGPL, and concluded that everything here had
+to be recorded as mechanism so it could be rebuilt from the description without lifting anyone's
+code. That is true of the Invidious and NewPipe family and false of the JavaScript ecosystem, which
+is permissive end to end:
+
+| Library | What it covers | Licence |
+| --- | --- | --- |
+| `youtubei.js` | InnerTube client: catalog, player responses, deciphering | MIT |
+| `LuanRT/googlevideo` | the UMP framing and the SABR session under it | MIT |
+| `LuanRT/BgUtils` | the attestation challenge, minting origin tokens in Node | MIT |
+| `lavalink-devs/youtube-source` | the identity ladder, kept current (Java, reference only) | MIT |
+| `ytmusicapi` | the catalog half's shape (Python, reference only) | MIT |
+| yt-dlp | everything, including the protocol | Unlicense, binaries GPLv3+ |
+
+So the chain this plugin needs can be DEPENDED on rather than paraphrased, and that is a materially
+different plan from the one above: the deciphering, the attestation and the segment protocol are
+three imports rather than three things to reimplement from a description. The only care needed is
+that yt-dlp's public-domain dedication covers its source and not its bundled binaries, which is a
+distinction that matters if a wrapper is ever built.
+
+The mechanism-not-code discipline is still worth keeping, for a reason that is not licensing. Probe
+before serving, cool down per format, honour the URL's own expiry and bound a duration match at five
+seconds are behaviours this station wants whichever library is underneath, and writing them down as
+ours is what makes them survive the library being swapped out. That is a portability argument now
+rather than a legal one, and it is the weaker of the two, so it binds the sidecar's behaviour and not
+the choice of dependency.

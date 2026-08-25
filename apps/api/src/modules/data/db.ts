@@ -348,10 +348,36 @@ export interface DeadairPersonas {
   quirks: Generated<Json>;
   samples: Generated<Json>;
   stationKey: Generated<string>;
+  storytelling: string | null;
   style: string;
   templates: string | null;
   updatedAt: Generated<DateTime>;
   voice: string | null;
+}
+
+export interface DeadairPersonaStories {
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  lastToldAt: DateTime | null;
+  origin: "operator" | "model";
+  personaKey: string;
+  source: string | null;
+  state: "active" | "suggested" | "rejected";
+  stationKey: Generated<string>;
+  story: string;
+  timesTold: Generated<number>;
+  title: string;
+  updatedAt: Generated<DateTime>;
+}
+
+export interface DeadairPersonaStoryDetails {
+  createdAt: Generated<DateTime>;
+  detail: string;
+  id: Generated<string>;
+  origin: "operator" | "model";
+  source: string | null;
+  state: "active" | "suggested" | "rejected";
+  storyId: string;
 }
 
 export interface DeadairPlayHistory {
@@ -726,6 +752,8 @@ export interface DB {
   "deadair.personaNotePasses": DeadairPersonaNotePasses;
   "deadair.personaNotes": DeadairPersonaNotes;
   "deadair.personas": DeadairPersonas;
+  "deadair.personaStories": DeadairPersonaStories;
+  "deadair.personaStoryDetails": DeadairPersonaStoryDetails;
   "deadair.playHistory": DeadairPlayHistory;
   "deadair.playlists": DeadairPlaylists;
   "deadair.playlistTracks": DeadairPlaylistTracks;

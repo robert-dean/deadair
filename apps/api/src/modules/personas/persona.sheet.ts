@@ -153,6 +153,62 @@ export const latitudeOf = (sheet: PersonaSheet | undefined): PersonaLatitude | u
     sheet !== undefined && isPersonaLatitude(sheet.latitude) ? sheet.latitude : undefined;
 
 /**
+ * How readily this character works one of its own stories into an ordinary talk break.
+ *
+ * The stories themselves are `deadair.persona_stories`, because they accumulate and a sheet cannot
+ * hold something that grows. This is the one thing about them that belongs to the CHARACTER rather
+ * than to any story: a host who is always going off on one and a host who mentions the desert once a
+ * month are two characters, not two libraries.
+ */
+export const PERSONA_STORYTELLING = ['never', 'occasionally', 'often'] as const;
+
+export type PersonaStorytelling = (typeof PERSONA_STORYTELLING)[number];
+
+/** Whether a stored value is a rung, so a hand-edited row cannot decide what a prompt carries. */
+export const isPersonaStorytelling = (value: unknown): value is PersonaStorytelling => PERSONA_STORYTELLING.includes(value as PersonaStorytelling);
+
+/**
+ * What a sheet with nothing set means, which is the middle rung rather than silence.
+ *
+ * A character who never mentions anything that happened to it is a legitimate character and is
+ * `never`; it is not what an operator who filled in fewer boxes asked for. `occasionally` is the
+ * default because of WHERE it fires — see {@link storytellingOf} — and because the alternative
+ * default, `often`, is the measured hazard: handed material, a model gets through the material.
+ */
+export const DEFAULT_STORYTELLING: PersonaStorytelling = 'occasionally';
+
+/**
+ * The rung in force, with {@link DEFAULT_STORYTELLING} behind an unset or nonsense one.
+ *
+ * ## This one is not an instruction, which is what makes it different from every rung above
+ *
+ * {@link PersonaSheet.brevity} and {@link PersonaSheet.latitude} are sentences a prompt carries: the
+ * model is told to say less, or told it has room. This is never sent to a model at all. It decides
+ * whether a story is IN the prompt, which is a decision the host makes before there is a prompt —
+ * and it is the first sheet field that works that way, so a reader looking for its wording in
+ * {@link personaLines} will not find any.
+ *
+ * ## What each rung means, and why the middle one is the default
+ *
+ * - `often` — a story is offered on most talk breaks.
+ * - `occasionally` — offered only where the moment has nothing else: neither record carries a note.
+ *   On an enriched station that is genuinely occasional. On a fresh one it lands exactly where the
+ *   invented-discography failure lives, since a prompt that says "the station knows nothing about
+ *   this record" and offers nothing in its place is a standing invitation to supply something.
+ * - `never` — the character keeps its stories and works none of them into a link.
+ *
+ * ## It governs the ordinary talk break ALONE
+ *
+ * A clock band naming the `story` kind is an operator asking for one in as many words, and it
+ * outranks whatever this says — including `never`, which means "do not work them into the links"
+ * rather than "ignore the rule I put on the clock". That is the same asymmetry `BreakPromptShape`
+ * already has over {@link PersonaSheet.latitude}: the shape has the last word, and the sheet is
+ * describing a habit rather than issuing a veto.
+ */
+export const storytellingOf = (sheet: PersonaSheet | undefined): PersonaStorytelling =>
+    sheet !== undefined && isPersonaStorytelling(sheet.storytelling) ? sheet.storytelling : DEFAULT_STORYTELLING;
+
+/**
  * The facets of a character beyond the one-line style, all optional.
  *
  * A sheet carrying none of them renders to nothing at all, which is what makes an operator who has
@@ -237,6 +293,20 @@ export interface PersonaSheet {
      *   moves where that cut falls rather than whether a long break survives at all.
      */
     latitude?: PersonaLatitude;
+    /**
+     * How readily this character works one of its own stories into an ordinary talk break, or absent
+     * for {@link DEFAULT_STORYTELLING}.
+     *
+     * The STORIES are not here, and that is the design rather than an omission: they are
+     * `deadair.persona_stories`, because a story grows — it gets told, and the next telling carries a
+     * detail the last one did not — and a sheet is a thing its author typed. What is here is the one
+     * part of them that is a property of the character.
+     *
+     * Read through {@link storytellingOf}, which is also where the three rungs are argued. Note that
+     * it reaches no prompt: unlike every rung above it, this decides what the host puts IN a prompt
+     * rather than what the model is told.
+     */
+    storytelling?: PersonaStorytelling;
     /** Lines in their own voice. The few-shot examples, and what a console previews them with. */
     samples?: readonly string[];
 }

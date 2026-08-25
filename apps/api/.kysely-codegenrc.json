@@ -48,7 +48,11 @@
             "deadair.pronunciations.subject_kind": "'track' | 'album' | 'artist' | null",
             "deadair.persona_notes.kind": "'said' | 'trait'",
             "deadair.persona_notes.state": "'active' | 'suggested' | 'rejected'",
-            "deadair.persona_notes.origin": "'operator' | 'model'"
+            "deadair.persona_notes.origin": "'operator' | 'model'",
+            "deadair.persona_stories.state": "'active' | 'suggested' | 'rejected'",
+            "deadair.persona_stories.origin": "'operator' | 'model'",
+            "deadair.persona_story_details.state": "'active' | 'suggested' | 'rejected'",
+            "deadair.persona_story_details.origin": "'operator' | 'model'"
         }
     },
     "partitions": false,

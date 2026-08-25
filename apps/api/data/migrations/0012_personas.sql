@@ -82,6 +82,17 @@ create table deadair.personas (
     -- declines to the operator's phrasings. What a rung buys is the station ASKING for more; it
     -- never makes the station accept worse. See `persona.sheet.ts` and `break.prompt.ts`.
     latitude text,
+    -- How readily this character works one of its own STORIES into an ordinary talk break: null for
+    -- `occasionally`, plus `never` and `often`. The stories themselves are `deadair.persona_stories`
+    -- (migration 0021), because they accumulate; this is the one thing about them that is a property
+    -- of the character rather than of a story.
+    --
+    -- It is the first sheet field that never reaches the model. `brevity` and `latitude` are
+    -- instructions a prompt carries; this decides whether a story is IN the prompt at all, which is
+    -- a host decision. It also governs the ordinary talk break alone: a clock band naming the
+    -- `story` kind is an operator asking for one in as many words, and it outranks whatever this
+    -- says. See `persona.sheet.ts`.
+    storytelling text,
     -- Whether this is the one on air. At most one per station, enforced below rather than by
     -- convention, because two active personas is a state nothing downstream could resolve and every
     -- reader would resolve differently.

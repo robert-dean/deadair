@@ -390,7 +390,17 @@ map them, and the roster is five rather than six because the two shipped maps mu
 slots and sharing a voice with a host is the one thing they may not do — the two are in one
 programme talking to each other. A caller reaches a listener only inside a PRODUCTION
 (`productions.casting`, decided by the first pass that runs rather than at commission, since the
-clock reads three hours ahead and the roster can change in between). Six things are load-bearing.
+clock reads three hours ahead and the roster can change in between), and there are three ways to ask
+for one: an anchored clock band, the on-air page's own button, and a broadcast told to take them.
+**All three commission through one path** and every one of them hands over the SHOW — a production
+airs as a block in the middle of somebody's broadcast, and one that inherited neither its brief nor
+its host is a phone-in about nothing in particular presented by the station's default persona rather
+than by whoever's programme it interrupts. The standing one is `ResolvedRules.callins`, a
+per-broadcast rule beside `breaks` rather than under it (a break is the station talking and a call is
+a programme, so a station that wants a DJ has said nothing about wanting a phone-in) with its own
+spacing for the same reason, and it is idempotent by TABLE READ in a fixed order: one unsettled
+call-in for this broadcast means one is coming, and the spacing clock does not start until it AIRS,
+so checking the spacing first would queue a switchboard. Six things are load-bearing.
 **Who says a turn is arithmetic**: `OutlineBeat.lead` is deleted and `BeatPlan.speaker` replaced it,
 on `production.plan.ts`'s own rule about how long a beat is — a model naming somebody the production
 was not given is a turn drafted as one character and rendered in another's voice, silently — and the

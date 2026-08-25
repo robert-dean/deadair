@@ -149,6 +149,55 @@ Two things sit on the authored side that look like they belong with the media, a
 audio an operator drops in for the station to take in (`/data/inbox`), and any voice clip added by
 hand (`/data/voices`). Nothing regenerates those.
 
+## Upgrading
+
+Ordinarily nothing: the schema is applied before the station starts and a new migration is picked up
+on the next boot.
+
+The exception is a migration that was EDITED rather than added, which this project does deliberately
+while nothing has shipped — the migration file is the recipe for a new database, and a running one is
+data. dbmate tracks versions rather than checksums, so it will not notice the file changed and will
+not re-apply it. When that happens, the release says so and gives the SQL. Run it as the OWNER (the
+`postgres` role, not `app_user`, which holds DML only) and run it BEFORE starting the new image.
+
+**Callers (2026-08-25).** Two columns, both idempotent, and safe to run twice if you are unsure
+whether you already did:
+
+```sql
+begin;
+
+-- personas: a character can be a caller, which is a character that can never go on air by itself
+alter table deadair.personas add column if not exists kind text not null default 'host';
+
+alter table deadair.personas drop constraint if exists personas_kind_check;
+alter table deadair.personas add constraint personas_kind_check check (kind in ('host', 'caller'));
+
+alter table deadair.personas drop constraint if exists personas_caller_inactive_check;
+alter table deadair.personas add constraint personas_caller_inactive_check check (not (active and kind <> 'host'));
+
+-- productions: `voices` becomes the cast it was always being held open for. Nothing ever read or
+-- wrote it, so no row holds one; the guard is for a database that has not reached that migration at
+-- all, or that got the edited version on a fresh install.
+do $$
+begin
+    if exists (
+        select 1 from information_schema.columns
+        where table_schema = 'deadair' and table_name = 'productions' and column_name = 'voices'
+    ) and not exists (
+        select 1 from information_schema.columns
+        where table_schema = 'deadair' and table_name = 'productions' and column_name = 'casting'
+    ) then
+        alter table deadair.productions rename column voices to casting;
+    end if;
+end $$;
+
+commit;
+```
+
+Afterwards, press **Restore built-ins** on the personas page. The five callers ship as seeds, and
+seeding is guarded on the station having no personas at all — so an existing station reaches them
+through that button, which writes only what is missing and puts nothing on air.
+
 ## Backing it up
 
 The data directory, and — if your database is elsewhere — a dump of it. Not the media directory. Between them they hold

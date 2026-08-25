@@ -1,15 +1,13 @@
 import { useState } from 'react';
-import { Badge, Button, Group, SegmentedControl, Stack, Text } from '@mantine/core';
+import { Badge, Group, SegmentedControl, Text } from '@mantine/core';
 import type { ActivityEntry, ActivityModule, ActivitySeverity } from '@deadair/sdk';
 
 import { useActivity } from '../../api/activity.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ScriptLink, TrackLink } from '../shared/catalog.links';
-import { DatedFeed, FeedMoment } from '../shared/dated.feed';
-import { EmptyState } from '../shared/empty.state';
-import { ErrorAlert } from '../shared/error.alert';
+import { FeedMoment } from '../shared/dated.feed';
+import { FeedPage } from '../shared/feed.page';
 import { PageHeader } from '../shared/page.header';
-import { PageSkeleton } from '../shared/page.skeleton';
 import { severityColor } from '../shared/status';
 
 /** The filter chips, and the order an operator meets them: what airs first, what makes it after. */
@@ -68,11 +66,20 @@ export function ActivityPage() {
 
     const feed = useActivity({ ...(module === 'all' ? {} : { module }), ...(severity === 'all' ? {} : { minSeverity: severity }) }, true);
 
-    const entries = feed.data?.pages.flatMap(page => page.entries) ?? [];
     const failure = feed.isError ? apiErrorMessage(feed.error, 'The activity feed could not be read.') : undefined;
 
     return (
-        <Stack gap="lg">
+        <FeedPage
+            query={feed}
+            itemsFrom={page => page.entries}
+            failure={failure}
+            emptyMessage={
+                module === 'all' && severity === 'all'
+                    ? 'Nothing yet. The station writes here as it airs records, makes breaks and changes what it is doing.'
+                    : 'Nothing matches that filter.'
+            }
+            renderRow={entry => <ActivityLine entry={entry} />}
+        >
             <PageHeader
                 title="Activity"
                 description={
@@ -100,29 +107,7 @@ export function ActivityPage() {
                     }}
                 />
             </Group>
-
-            {failure ? <ErrorAlert title="Nothing to show">{failure}</ErrorAlert> : undefined}
-
-            {feed.isPending ? <PageSkeleton variant="rows" count={3} /> : undefined}
-
-            {!feed.isPending && entries.length === 0 && failure === undefined ? (
-                <EmptyState>
-                    {module === 'all' && severity === 'all'
-                        ? 'Nothing yet. The station writes here as it airs records, makes breaks and changes what it is doing.'
-                        : 'Nothing matches that filter.'}
-                </EmptyState>
-            ) : undefined}
-
-            {entries.length > 0 ? <DatedFeed items={entries}>{entry => <ActivityLine entry={entry} />}</DatedFeed> : undefined}
-
-            {feed.hasNextPage ? (
-                <Group justify="center">
-                    <Button variant="default" loading={feed.isFetchingNextPage} onClick={() => void feed.fetchNextPage()}>
-                        Load older
-                    </Button>
-                </Group>
-            ) : undefined}
-        </Stack>
+        </FeedPage>
     );
 }
 

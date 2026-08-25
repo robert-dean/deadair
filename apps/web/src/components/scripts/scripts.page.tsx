@@ -1,16 +1,14 @@
 import { useState } from 'react';
-import { Anchor, Badge, Box, Button, Code, Collapse, Group, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core';
+import { Anchor, Badge, Box, Code, Collapse, Group, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import type { ScriptAttempt, ScriptOutcome } from '@deadair/sdk';
 
 import { apiErrorMessage } from '../../api/sdk.error';
 import { useScriptHistory } from '../../api/scripts.queries';
-import { DatedFeed, FeedMoment } from '../shared/dated.feed';
-import { EmptyState } from '../shared/empty.state';
-import { ErrorAlert } from '../shared/error.alert';
+import { FeedMoment } from '../shared/dated.feed';
 import { Eyebrow } from '../shared/eyebrow';
+import { FeedPage } from '../shared/feed.page';
 import { PageHeader } from '../shared/page.header';
-import { PageSkeleton } from '../shared/page.skeleton';
 import { StatusLamp } from '../shared/status.lamp';
 import type { StatusTone } from '../shared/status';
 
@@ -117,11 +115,30 @@ export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
         true,
     );
 
-    const attempts = history.data?.pages.flatMap(page => page.attempts) ?? [];
     const failure = history.isError ? apiErrorMessage(history.error, 'The script history could not be read.') : undefined;
 
     return (
-        <Stack gap="lg">
+        <FeedPage
+            query={history}
+            itemsFrom={page => page.attempts}
+            failure={failure}
+            emptyMessage={
+                /* A break with no attempts is its own answer, and a different one: the break was
+                   planted and nothing has been asked to write it yet. Reading that as "nothing
+                   matches that filter" would send an operator looking for a filter to clear. */
+                segmentId !== undefined && outcome === 'all' && writer === 'all'
+                    ? 'Nothing has been written for this break yet. The station asks for the words as the slot comes near, not when the break is planted.'
+                    : /* A character with no attempts has never been on air, which is a different
+                         answer again from a filter matching nothing: there is nothing to clear and
+                         nothing went wrong. */
+                      personaKey !== undefined && outcome === 'all' && writer === 'all'
+                      ? 'This character has not written anything yet. A row lands here on every attempt it makes, including the ones it declines.'
+                      : outcome === 'all' && writer === 'all'
+                        ? 'Nothing yet. The station writes here every time it makes a break, whether or not the words made it to air.'
+                        : 'Nothing matches that filter.'
+            }
+            renderRow={attempt => <AttemptRow attempt={attempt} />}
+        >
             <PageHeader
                 title={title(segmentId, personaKey)}
                 description={
@@ -153,40 +170,7 @@ export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
                 />
                 <SegmentedControl size="xs" data={WRITERS} value={writer} onChange={setWriter} />
             </Group>
-
-            {failure ? <ErrorAlert title="Nothing to show">{failure}</ErrorAlert> : undefined}
-
-            {history.isPending ? <PageSkeleton variant="rows" count={3} /> : undefined}
-
-            {!history.isPending && attempts.length === 0 && failure === undefined ? (
-                <EmptyState>
-                    {/* A break with no attempts is its own answer, and a different one: the break
-                        was planted and nothing has been asked to write it yet. Reading that as
-                        "nothing matches that filter" would send an operator looking for a filter to
-                        clear. */}
-                    {segmentId !== undefined && outcome === 'all' && writer === 'all'
-                        ? 'Nothing has been written for this break yet. The station asks for the words as the slot comes near, not when the break is planted.'
-                        : /* A character with no attempts has never been on air, which is a different
-                             answer again from a filter matching nothing: there is nothing to clear
-                             and nothing went wrong. */
-                          personaKey !== undefined && outcome === 'all' && writer === 'all'
-                          ? 'This character has not written anything yet. A row lands here on every attempt it makes, including the ones it declines.'
-                          : outcome === 'all' && writer === 'all'
-                            ? 'Nothing yet. The station writes here every time it makes a break, whether or not the words made it to air.'
-                            : 'Nothing matches that filter.'}
-                </EmptyState>
-            ) : undefined}
-
-            {attempts.length > 0 ? <DatedFeed items={attempts}>{attempt => <AttemptRow attempt={attempt} />}</DatedFeed> : undefined}
-
-            {history.hasNextPage ? (
-                <Group justify="center">
-                    <Button variant="default" loading={history.isFetchingNextPage} onClick={() => void history.fetchNextPage()}>
-                        Load older
-                    </Button>
-                </Group>
-            ) : undefined}
-        </Stack>
+        </FeedPage>
     );
 }
 

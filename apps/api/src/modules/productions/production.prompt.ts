@@ -31,7 +31,7 @@
  * one story in a ten-minute show came to be asked for 1300 spoken words.
  */
 
-import type { LlmMessage } from '@deadair/plugin-sdk';
+import type { LlmMessage, SpeechCue } from '@deadair/plugin-sdk';
 import type { Persona } from '#modules/personas/persona.js';
 import { latitudeOf, personaLines } from '#modules/personas/persona.sheet.js';
 import type { CastMember } from './production.cast.js';
@@ -104,6 +104,15 @@ export interface BeatRequest {
     station?: string;
     /** What was wrong with the previous attempt, for the one re-draft a beat gets. */
     correction?: string;
+    /**
+     * The things this speaker can do that are not words, out of what the engine performs.
+     *
+     * Resolved by the caller from the render side, exactly as `break.prompt.ts` resolves its own:
+     * one answer per turn, so the rule the model is shown and the strip its answer goes through
+     * cannot disagree about what was on offer. Empty asks for nothing, which is the state of every
+     * station whose engine only reads words.
+     */
+    reactions?: readonly SpeechCue[];
     /**
      * Signature phrases this production has already used, so this beat does not use them again.
      *
@@ -249,6 +258,7 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         // exist. A model reaches for a specific because a specific sounds like knowledge, so the
         // rule has to name the swap and give it somewhere to go instead.
         ...groundingRules(request, caller, answering),
+        ...reactionRules(request.reactions, caller),
         '- Do not end by summarising what you just said.',
     ].join('\n');
 
@@ -338,6 +348,26 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
 export function runInFrom(script: string, words = TAIL_WORDS): string {
     const all = script.trim().split(/\s+/).filter(Boolean);
     return all.slice(Math.max(0, all.length - words)).join(' ');
+}
+
+/**
+ * The one thing a speaker can do that is not words, or nothing at all when they cannot.
+ *
+ * Nothing rather than a rule saying "you may not cough", which would spend a line telling a model
+ * about a facility it was never given — the same bargain the break prompt keeps. What differs here
+ * is only the invitation: a presenter's cue is a reaction and a caller's is what makes a phone call
+ * sound like one, so the sentence asking for it says so.
+ */
+function reactionRules(reactions: readonly SpeechCue[] | undefined, caller: boolean): string[] {
+    if (reactions === undefined || reactions.length === 0) return [];
+
+    const written = reactions.map(cue => `[${cue}]`).join(', ');
+    return [
+        `- You can do one thing that is not words: ${written}. Write it in square brackets exactly like that, at the point it happens, and it is performed rather than read out. ` +
+            (caller
+                ? 'At most one in a turn, and only where you would actually have done it. You are on a telephone, not in a studio.'
+                : 'At most one in a turn, and only where you would actually have done it. A presenter who laughs at everything is not funny.'),
+    ];
 }
 
 /**

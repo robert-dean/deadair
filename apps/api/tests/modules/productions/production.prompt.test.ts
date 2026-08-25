@@ -139,3 +139,20 @@ describe('a production with no cast', () => {
         expect(system).not.toContain('Answer what was just said');
     });
 });
+
+describe('what a speaker may perform', () => {
+    it('offers a caller the wider set, because a phone call is where a throat-clear belongs', () => {
+        const system = systemOf(turn({ ...base, speaker: dale, previousSpeaker: host, reactions: ['cough', 'sniff'] }));
+
+        expect(system).toContain('[cough], [sniff]');
+        expect(system).toContain('You are on a telephone, not in a studio');
+    });
+
+    it('says nothing at all when the engine performs nothing', () => {
+        // The same bargain the break prompt keeps: a model is told about the facility it has, and a
+        // station whose engine only reads words gets a prompt with no notation in it.
+        const system = systemOf(turn({ ...base, speaker: dale, previousSpeaker: host }));
+
+        expect(system).not.toContain('square brackets');
+    });
+});

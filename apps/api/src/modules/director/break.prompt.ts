@@ -34,7 +34,8 @@
  * badly, and a rule about them would be a rule about nothing.
  */
 
-import { sentencesWithin, SPEECH_CUES, withoutCues, type LlmMessage, type SpeechCue } from '@deadair/plugin-sdk';
+import { sentencesWithin, withoutCues, type LlmMessage, type SpeechCue } from '@deadair/plugin-sdk';
+import { MAX_REACTIONS, speakableScript, stripWrapping } from '#modules/render/speakable.script.js';
 import {
     characterFault,
     latitudeOf,
@@ -432,14 +433,17 @@ const latitudeIn = (settings: PromptSettings, shape: BreakPromptShape): PersonaL
     shape.allowsLatitude === true ? latitudeOf(settings.persona) : undefined;
 
 /**
- * How many reactions one break may carry.
+ * The reactions the PRESENTER may use, which is not the whole vocabulary any more.
  *
- * One, and the number is the point rather than a starting position. The engine's own sample scripts
- * put one in front of nearly every sentence, which is a demo aesthetic: on this station's 28-word
- * median break it would be a presenter performing continuously instead of talking. One is a person
- * reacting once; two is a bit.
+ * The station's original four. `SPEECH_CUES` is wider now, because somebody on the end of a
+ * telephone clears their throat and a presenter does not — see the note there, and
+ * `production.cues.ts` for the set a caller gets. This is the half that keeps the widening from
+ * reaching the person being paid to talk.
  */
-export const MAX_REACTIONS = 1;
+export const PRESENTER_CUES: readonly SpeechCue[] = ['laugh', 'chuckle', 'sigh', 'gasp'];
+
+/** Re-exported so a caller reasoning about a break's reactions needs one import rather than two. */
+export { MAX_REACTIONS };
 
 /**
  * What this prompt may offer, which is the shape's permission and the engine's ability together.
@@ -1444,62 +1448,7 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
  * Split out so {@link writeDecline} can tell an answer that was empty from one that was too long
  * without re-running the checks in a different order and reporting something that did not happen.
  */
-function tidyAnswer(text: string): string | undefined {
-    let script = text.trim();
-
-    // A reasoning model that was told not to think out loud and did anyway. Take what follows the
-    // last one rather than dropping the answer: the words after it are usually the actual script.
-    script = script.replace(/^[\s\S]*<\/think>/i, '').trim();
-
-    // Anything before a speaker label on the first line: "DJ:", "Host:", "Announcer:".
-    script = script.replace(/^\s*[A-Z][A-Za-z ]{0,20}:\s*(?=[A-Z"'“])/, '');
-
-    // Stage directions, wherever they are: [warmly], (laughs), *sighs*.
-    //
-    // A reaction the station actually performs is spared by name, and it is a CARVE-OUT of this rule
-    // rather than a relaxation of it: `[warmly]` still goes, because the failure that put this line
-    // here was a model's stage direction being read out loud, and only four spellings have an engine
-    // behind them. See `SPEECH_CUES`. Everything past the first is dropped too — see `MAX_REACTIONS`
-    // for why one, and note that it is a TRIM rather than a refusal, on `overusedWords`' argument:
-    // the words are fine and only the notation is excessive, so declining would cost the station the
-    // model's sentence over punctuation.
-    script = keepOneReaction(script)
-        .replace(/\[[^\]]*\]/g, match => (isReaction(match) ? match.toLowerCase() : ' '))
-        .replace(/\*[^*]*\*/g, ' ')
-        // A narrow list, and matched on the stem so "laughs" and "sighing" count. Parentheses are
-        // deliberately NOT stripped wholesale: "(Don't Fear) The Reaper" is a title, and a
-        // parenthetical inside a sentence is ordinary speech.
-        .replace(/\((?:[^()]*\b(?:laugh|sigh|pause|beat|music|sfx|voice|warmly|softly|upbeat|chuckl)\w*[^()]*)\)/gi, ' ');
-
-    // Quotation marks around the WHOLE thing, which is a model quoting itself rather than a script
-    // containing a quote. Only when they wrap everything, so a quoted lyric inside a line survives.
-    script = stripWrapping(script, '"', '"');
-    script = stripWrapping(script, '“', '”');
-    script = stripWrapping(script, "'", "'");
-
-    script = script.replace(/\s{2,}/g, ' ').trim();
-    return script.length === 0 ? undefined : script;
-}
-
-/** Whether a bracketed run is one of the four the station performs, however it was capitalised. */
-const isReaction = (bracketed: string): boolean => (SPEECH_CUES as readonly string[]).includes(bracketed.slice(1, -1).trim().toLowerCase());
-
-/**
- * The same script with every reaction after the first taken out.
- *
- * The FIRST rather than the best, because there is no way to rank them and the earliest is the one
- * the model committed to before it got carried away. Kept as a separate pass ahead of the strip so
- * the two rules stay legible: this one is about how many, that one is about which.
- */
-function keepOneReaction(script: string): string {
-    let kept = 0;
-
-    return script.replace(/\[[^\]]*\]/g, match => {
-        if (!isReaction(match)) return match;
-        kept += 1;
-        return kept <= MAX_REACTIONS ? match : ' ';
-    });
-}
+const tidyAnswer = (text: string): string | undefined => speakableScript(text, { perform: PRESENTER_CUES });
 
 /**
  * How much of a run-long script is worth keeping before it stops being one.
@@ -1677,10 +1626,3 @@ export function writeTrim(text: string, guard: AnswerGuard): { kept: number; dro
     };
 }
 
-/** Drop a pair of marks that wraps the entire text, and only then. */
-function stripWrapping(text: string, open: string, close: string): string {
-    if (!text.startsWith(open) || !text.endsWith(close) || text.length < 2) return text;
-
-    const inner = text.slice(open.length, -close.length);
-    return inner.includes(close) && !inner.endsWith(close) ? text : inner.trim();
-}

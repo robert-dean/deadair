@@ -3,17 +3,21 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
+import type { SpeechCue } from '@deadair/plugin-sdk';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { spentCatchphrases } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { SpeechService } from '#modules/render/speech.service.js';
+import { speakableScript } from '#modules/render/speakable.script.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { checkBeat, correctionNote } from './production.checks.js';
 import { isDialogue, speakerOrder, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
+import { cuesFor } from './production.cues.js';
 import { planProduction, turnsFor } from './production.plan.js';
 import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
 import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan } from './production.js';
@@ -113,6 +117,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         private readonly segments: SegmentRepository,
         private readonly personas: PersonaRepository,
         private readonly caster: ProductionCaster,
+        // What the engine can PERFORM, asked once per pass. A beat's own answer is stripped against
+        // the same list it was offered, which is what keeps the two from disagreeing.
+        private readonly speech: SpeechService,
         private readonly llm: LlmService,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
@@ -260,6 +267,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // One read per character rather than one per beat. A production is up to twenty-four beats
         // and the sheet does not change while it is being written.
         const sheets = await this.sheets(claimed, casting);
+        const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
         let runIn: string | undefined;
         let previous: number | undefined;
@@ -284,6 +292,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             const speaker = casting[at];
             const persona = sheets.get(at);
             const mine = written.get(at) ?? [];
+            const reactions = cuesFor(speaker?.role, engine);
             // Which of this character's signatures the programme has already spent. The measured
             // failure without it: "I said what I said" in 23 of 24 beats, because the sheet offers
             // its catchphrases to every beat and no beat could see what the others had done.
@@ -311,6 +320,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                                 // Their first turn on the call, which is where a caller says hello
                                 // and nowhere else does.
                                 ...(mine.length === 0 ? { firstTurn: true } : {}),
+                                ...(reactions.length === 0 ? {} : { reactions }),
                                 station,
                             }),
                             maxOutputTokens: BEAT_OUTPUT_TOKENS,
@@ -320,7 +330,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     )
                 ).text.trim();
 
-            let script = await ask();
+            // Speakable, which a beat has never been. The engine reads what it is given, so a stage
+            // direction is a word in the audio — the first live call-in aired an album title with the
+            // asterisks still round it. The strip spares exactly the cues this speaker was offered.
+            let script = speakable(await ask(), reactions);
 
             // Asked again before the production is written off. A beat that came back empty is the
             // model having spent its allowance on reasoning rather than an answer, which is a bad
@@ -331,7 +344,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     production: claimed.id,
                     beat: beat.ordinal,
                 });
-                script = await ask();
+                script = speakable(await ask(), reactions);
             }
 
             if (script.length === 0) {
@@ -378,6 +391,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const plan = claimed.plan ?? planProduction(claimed.targetMs);
         const casting = claimed.casting ?? [];
         const sheets = await this.sheets(claimed, casting);
+        const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
         let redrafted = 0;
 
@@ -388,6 +402,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             const speaker = casting[at];
             const persona = sheets.get(at);
             const previousAt = index === 0 ? undefined : (plan.beats[index - 1]?.speaker ?? 0);
+            const reactions = cuesFor(speaker?.role, engine);
             const runIn = index === 0 ? undefined : runInFrom(beats[index - 1]?.script ?? '');
             const problems = checkBeat({
                 text: beat.script,
@@ -428,6 +443,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         ...(speaker === undefined ? {} : { speaker }),
                         ...(previousAt === undefined || casting[previousAt] === undefined ? {} : { previousSpeaker: casting[previousAt]! }),
                         ...(firstTurnOf(plan, index, at) ? { firstTurn: true } : {}),
+                        ...(reactions.length === 0 ? {} : { reactions }),
                         station,
                         correction: correctionNote(problems),
                     }),
@@ -437,7 +453,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 { budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
             );
 
-            const rewritten = answer.text.trim();
+            const rewritten = speakable(answer.text, reactions);
             // A re-draft that came back empty leaves the original in place. The first attempt passed
             // enough to be spoken, and a beat with problems is better than no beat at all — which is
             // the opposite of the drafting rule above, because there the alternative was a hole.
@@ -477,6 +493,22 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         for (const beat of beats) await this.jobs.send('render.segment', { segmentId: beat.id });
 
         this.logger.info('productions: a production is written and its beats are being spoken', { production: productionId, beats: beats.length });
+    }
+
+    /**
+     * What the installed engine can actually perform, or nothing.
+     *
+     * Asked once per pass rather than per beat: it is a round trip to the speech server, and the
+     * answer does not change while a production is being written. Never throws, on `SpeechService`'s
+     * own rule — a cue is a flourish, and an engine that could not be asked about one must cost the
+     * station a plainer programme rather than the programme.
+     */
+    private async performable(): Promise<readonly SpeechCue[]> {
+        try {
+            return await this.speech.cues();
+        } catch {
+            return [];
+        }
     }
 
     /**
@@ -549,6 +581,15 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         return priorityForSlot(production.scheduledFor, Date.now(), DEADLINE_MS);
     }
 }
+
+/**
+ * One answer as words an engine may be handed, or an empty string.
+ *
+ * An empty answer and one that was nothing but a stage direction are the same thing to the loop
+ * above — a beat that has to be asked for again — so this flattens `undefined` to `''` rather than
+ * making every call site carry the distinction.
+ */
+const speakable = (text: string, reactions: readonly SpeechCue[]): string => speakableScript(text, { perform: reactions }) ?? '';
 
 /**
  * Which of this character's signatures the rest of the programme has already used.

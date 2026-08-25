@@ -44,9 +44,28 @@ import type { PluginLifecycle } from '../plugin.lifecycle.js';
  * The vocabulary is the STATION's and mapping it is yours, exactly as for
  * {@link SpeechVoice}. A laugh is something a presenter does; whether your engine
  * spells it `[laugh]`, `<laugh>` or not at all is engine business, and the host
- * never learns which. Four rather than every expressive marker anyone has shipped,
- * because this is the set a radio host actually performs between two records: a
- * cough or a sniff reads as illness rather than as delivery.
+ * never learns which.
+ *
+ * ## Eight, and the second four are not for the presenter
+ *
+ * This was four, and its stated reason for stopping there was that "a cough or a
+ * sniff reads as illness rather than as delivery". That is right about somebody
+ * being paid to talk and exactly wrong about somebody on the end of a telephone,
+ * where the throat-clear IS the realism — so the vocabulary is wider now and WHO
+ * may use which is the host's business rather than this list's.
+ *
+ * The host keeps the first four. A caller in a production may use all eight. Both
+ * sets live app-side, because they are permissions rather than capabilities, and
+ * a plugin has no way to know which of its speakers is which.
+ *
+ * **Widening this list without narrowing the offer is how the presenter starts
+ * coughing.** Whatever reads a script back has to be told which of these were
+ * actually on offer to the person who wrote it, rather than reaching for the whole
+ * vocabulary.
+ *
+ * Still chosen rather than copied from an engine: `shush` is one this list does
+ * not take, because shushing is aimed AT somebody in the room. That is a piece of
+ * business rather than a way of delivering a line.
  *
  * **Answer {@link SpeechPluginInstance.listCues} honestly and the rest is free.**
  * The host strips every cue you do not claim before it calls {@link
@@ -54,7 +73,7 @@ import type { PluginLifecycle } from '../plugin.lifecycle.js';
  * one, and the failure where an engine READS the word "laugh" out loud cannot
  * happen. Claiming one you cannot perform is the only way to break that.
  */
-export const SPEECH_CUES = ['laugh', 'chuckle', 'sigh', 'gasp'] as const;
+export const SPEECH_CUES = ['laugh', 'chuckle', 'sigh', 'gasp', 'cough', 'clear throat', 'sniff', 'groan'] as const;
 
 /** One of {@link SPEECH_CUES}. */
 export type SpeechCue = (typeof SPEECH_CUES)[number];
@@ -89,11 +108,12 @@ export function withoutCues(text: string, keep: Iterable<SpeechCue> = []): strin
 /**
  * A fresh matcher every call, because a `g` flag carries `lastIndex` between them.
  *
- * All four are single words, so this is a plain alternation with no ordering to get
- * right. A multi-word cue would need the longest form first, which is the rule
- * `applyPronunciations` keeps one layer up.
+ * **Longest form first**, which is `applyPronunciations`' rule one layer up and became
+ * load-bearing the moment `clear throat` joined the list: an alternation takes the
+ * earliest branch that matches at a position, so a shorter cue that is a prefix of a
+ * longer one would claim it and leave the rest as text an engine reads out.
  */
-const cuePattern = (): RegExp => new RegExp(`\\[(${SPEECH_CUES.join('|')})\\]`, 'gi');
+const cuePattern = (): RegExp => new RegExp(`\\[(${[...SPEECH_CUES].sort((left, right) => right.length - left.length).join('|')})\\]`, 'gi');
 
 /** One thing to say. */
 export interface SpeechRequest {

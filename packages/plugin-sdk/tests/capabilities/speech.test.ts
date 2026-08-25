@@ -9,11 +9,24 @@ import { describe, expect, it } from 'vitest';
 import { cuesIn, SPEECH_CUES, withoutCues, type SpeechCue } from '../../src/capabilities/speech.js';
 
 describe('SPEECH_CUES', () => {
-    // Not a style rule. Every regex built from this list is a plain alternation, and a multi-word
-    // entry would need the longest form ordered first the way `applyPronunciations` does — so the
-    // day somebody adds `clear throat`, this fails and points at the reason.
-    it('is single words, which is what lets every matcher be a plain alternation', () => {
-        for (const cue of SPEECH_CUES) expect(cue, `${cue} has a space in it`).toMatch(/^[a-z]+$/);
+    // This asserted that every cue was a SINGLE word, and said in as many words that the day
+    // somebody added `clear throat` it would fail and point at the reason. Somebody did, so what it
+    // was pointing at is now the rule: every matcher built from this list orders the longest form
+    // first, the way `applyPronunciations` does one layer up.
+    it('matches a multi-word cue whole, rather than leaving half of it as text', () => {
+        expect(cuesIn('[clear throat] Right then.')).toEqual(['clear throat']);
+        expect(withoutCues('[clear throat] Right then.')).toBe('Right then.');
+    });
+
+    it('is lowercase and has no duplicates, which is what the sets built from it assume', () => {
+        for (const cue of SPEECH_CUES) expect(cue, `${cue} is not lowercase`).toBe(cue.toLowerCase());
+        expect([...SPEECH_CUES]).toHaveLength(new Set(SPEECH_CUES).size);
+    });
+
+    it('keeps the four a presenter performs at the front, because the host-side set names them', () => {
+        // `PRESENTER_CUES` app-side is the original four and this list is the vocabulary. Nothing
+        // reads the order, but the split is easier to hold onto when the file agrees with it.
+        expect([...SPEECH_CUES].slice(0, 4)).toEqual(['laugh', 'chuckle', 'sigh', 'gasp']);
     });
 });
 

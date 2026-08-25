@@ -5,10 +5,12 @@ import type {
     PronunciationQuery,
     PronunciationStateWrite,
     PronunciationWrite,
+    ScriptAttempt,
     ScriptHistoryPage,
     ScriptHistoryQuery,
     ScriptHistorySummary,
     ScriptHistorySummaryQuery,
+    ScriptRatingInput,
     Segment,
     SegmentCreate,
     SegmentList,
@@ -61,6 +63,19 @@ export class RenderClient {
             method: 'GET',
         });
         return await parseJson<ScriptHistoryPage>(result);
+    }
+
+    /**
+     * @name Rate script
+     * @description What the operator thought of this attempt. Nothing acts on it automatically
+     */
+    async rateScript(id: string, body: ScriptRatingInput): Promise<ScriptAttempt> {
+        const result = await this.fetch(`/scripts/${encodeURIComponent(id)}/rating`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<ScriptAttempt>(result);
     }
 
     /**

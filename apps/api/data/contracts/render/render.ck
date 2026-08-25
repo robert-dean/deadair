@@ -100,6 +100,39 @@ operation /scripts: {
 # nobody was presenting, which is an ordinary state — leaving it out would make these counts
 # irreconcilable with the page next door. A persona that has written nothing has no row at all,
 # because the table cannot report what is not in it, and the console already holds the roster.
+# What the operator thought of one attempt.
+#
+# A PUT rather than a POST because one station holds one opinion per attempt: saying it again
+# replaces it rather than accumulating a history of moods, which is what the table's primary key
+# enforces underneath.
+#
+# It rates the ATTEMPT rather than the break, the persona or the phrasing, so the floor's own lines
+# can be judged as well as the model's — every narrower verdict is a group over rows that already
+# carry all four.
+operation /scripts/{id}/rating: {
+    params: {
+        id: uuid
+    }
+    put: { # What the operator thought of this attempt. Nothing acts on it automatically
+        name: Rate script
+        service: RenderService.rateScript
+        security: {
+            # Reading back what the station wrote is a view; having an opinion about it is an
+            # operator action, so this takes `platform.manage` rather than the file's read floor.
+            # The three catalog rating verbs override their own file's floor the same way.
+            policy: platform.manage
+        }
+        request: {
+            application/json: ScriptRatingInput
+        }
+        response: {
+            200: {
+                application/json: ScriptAttempt
+            }
+        }
+    }
+}
+
 operation /scripts/summary: {
     get: { # Write attempts by outcome, per presenter, over a recent window
         name: Read script summary

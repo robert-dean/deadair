@@ -84,6 +84,13 @@ export interface ScriptWrite {
 export interface ScriptHistoryEntry extends ScriptWrite {
     id: string;
     at: DateTime;
+    /**
+     * What the operator thought of this attempt, as the column spells it.
+     *
+     * Absent means nobody has said, which is NOT the same as `0`: rating something back to neutral
+     * is a thing an operator does and has to survive being read back.
+     */
+    rating?: number;
 }
 
 /** One page of {@link ScriptHistoryRepository.page}, with the filters a console offers. */
@@ -98,6 +105,8 @@ export interface ScriptHistoryPageQuery {
     personaKey?: string;
     /** Every attempt made for one break, in place of the whole history. */
     segmentId?: string;
+    /** One attempt by id, for a caller that has just written to it and wants it back as a row. */
+    scriptId?: string;
 }
 
 /**
@@ -156,29 +165,36 @@ interface ScriptHistoryRow {
     raw: string | null;
 }
 
+/**
+ * The columns an attempt is read back with, TABLE-QUALIFIED.
+ *
+ * Qualified because the page joins the ratings table, which carries its own `created_at` and
+ * `station_key`: unqualified, those two are "column reference is ambiguous" and the whole read
+ * fails. Every other query here selects from this table alone, where the prefix is merely explicit.
+ */
 const HISTORY_COLUMNS = [
-    'id',
-    'createdAt',
-    'segmentId',
-    'kind',
-    'label',
-    'script',
-    'writer',
-    'personaKey',
-    'model',
-    'source',
-    'previous',
-    'next',
-    'outcome',
-    'reason',
-    'usage',
-    'durationMs',
-    'prompt',
-    'raw',
+    'deadair.scriptHistory.id',
+    'deadair.scriptHistory.createdAt',
+    'deadair.scriptHistory.segmentId',
+    'deadair.scriptHistory.kind',
+    'deadair.scriptHistory.label',
+    'deadair.scriptHistory.script',
+    'deadair.scriptHistory.writer',
+    'deadair.scriptHistory.personaKey',
+    'deadair.scriptHistory.model',
+    'deadair.scriptHistory.source',
+    'deadair.scriptHistory.previous',
+    'deadair.scriptHistory.next',
+    'deadair.scriptHistory.outcome',
+    'deadair.scriptHistory.reason',
+    'deadair.scriptHistory.usage',
+    'deadair.scriptHistory.durationMs',
+    'deadair.scriptHistory.prompt',
+    'deadair.scriptHistory.raw',
 ] as const;
 
 /** Rows read back as `undefined` rather than `null`, per the note in CLAUDE.md. */
-function toEntry(row: ScriptHistoryRow): ScriptHistoryEntry {
+function toEntry(row: ScriptHistoryRow & { rating?: number | null }): ScriptHistoryEntry {
     return {
         id: row.id,
         at: row.createdAt,
@@ -198,6 +214,7 @@ function toEntry(row: ScriptHistoryRow): ScriptHistoryEntry {
         ...(row.durationMs == null ? {} : { durationMs: row.durationMs }),
         ...(row.prompt == null ? {} : { prompt: row.prompt }),
         ...(row.raw == null ? {} : { raw: row.raw }),
+        ...(row.rating == null ? {} : { rating: row.rating }),
     };
 }
 
@@ -372,9 +389,18 @@ export class ScriptHistoryRepository extends DataRepository {
         let statement = this.db
             .selectFrom('deadair.scriptHistory')
             .select(HISTORY_COLUMNS)
-            .where('stationKey', '=', this.identity.stationKey)
-            .orderBy('createdAt', 'desc')
-            .orderBy('id', 'desc')
+            // A LEFT join, because most attempts have no opinion on them and a page of history is
+            // the whole point. It cannot multiply rows: the ratings table's primary key is one per
+            // station per script, and the join carries the station too.
+            .leftJoin('deadair.scriptRatings', join =>
+                join
+                    .onRef('deadair.scriptRatings.scriptId', '=', 'deadair.scriptHistory.id')
+                    .on('deadair.scriptRatings.stationKey', '=', this.identity.stationKey),
+            )
+            .select('deadair.scriptRatings.rating as rating')
+            .where('deadair.scriptHistory.stationKey', '=', this.identity.stationKey)
+            .orderBy('deadair.scriptHistory.createdAt', 'desc')
+            .orderBy('deadair.scriptHistory.id', 'desc')
             .limit(query.limit + 1);
 
         const cursor = decodeCursor(query.before);
@@ -389,6 +415,7 @@ export class ScriptHistoryRepository extends DataRepository {
         // break's attempts would suggest: this is the same page in the same order, narrowed. The
         // handful of rows one segment produces fits on it either way.
         if (query.segmentId !== undefined) statement = statement.where('segmentId', '=', query.segmentId);
+        if (query.scriptId !== undefined) statement = statement.where('deadair.scriptHistory.id', '=', query.scriptId);
 
         const rows = await statement.execute();
         return rows.map(row => toEntry(row as ScriptHistoryRow));

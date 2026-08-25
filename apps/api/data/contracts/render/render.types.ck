@@ -80,6 +80,22 @@ contract ScriptAttempt: { # One attempt to write something the station would say
     usage?: ScriptUsage
     raw?: string(max=100000) # The answer before anything read it. Only while `llm.captureWrites` is on
     prompt?: array(ScriptPromptMessage) # What the writer sent. Only while `llm.captureWrites` is on
+    rating?: readonly ScriptRating # What the operator thought of it. ABSENT means nobody has said, which `neutral` does not
+}
+
+# What an operator thought of something the station said.
+#
+# The catalog's three spellings exactly, and deliberately not a second vocabulary: an opinion is an
+# opinion whether it is about a record or about a sentence, and `catalog/rating.ts` is the one place
+# the words and the column's numbers meet.
+#
+# `neutral` is a real answer rather than an absence. Rating something back to nothing is a thing an
+# operator does, and it has to be distinguishable from never having listened, which is the field
+# being absent on the attempt.
+contract ScriptRating: enum(liked, neutral, disliked)
+
+contract ScriptRatingInput: {
+    rating: ScriptRating
 }
 
 contract ScriptHistoryQuery: { # One page of what the station has written, newest first

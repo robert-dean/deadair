@@ -93,8 +93,22 @@ export interface ScriptPromptMessage {
 }
 
 /**
+ * What an operator thought of something the station said.
+ *
+ * The catalog's three spellings exactly, and deliberately not a second vocabulary: an opinion is an
+ * opinion whether it is about a record or about a sentence, and `catalog/rating.ts` is the one place
+ * the words and the column's numbers meet.
+ *
+ * `neutral` is a real answer rather than an absence. Rating something back to nothing is a thing an
+ * operator does, and it has to be distinguishable from never having listened, which is the field
+ * being absent on the attempt.
+ * generated from [ScriptRating](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L95)
+ */
+export type ScriptRating = 'liked' | 'neutral' | 'disliked';
+
+/**
  * Words to hear before anything has aired them
- * generated from [SpeechPreviewRequest](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L100)
+ * generated from [SpeechPreviewRequest](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L116)
  */
 export interface SpeechPreviewRequest {
     /** What to say. Far under a segment's 20000 because this is one break heard once, and the cap is what bounds a cache keyed on the words themselves */
@@ -105,7 +119,7 @@ export interface SpeechPreviewRequest {
 
 /**
  * The window the counts cover
- * generated from [ScriptHistorySummaryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L105)
+ * generated from [ScriptHistorySummaryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L121)
  */
 export interface ScriptHistorySummaryQuery {
     /** How far back to count. Defaults to 24, and a week at most, because past that the nightly sweep may already have taken the rows and the count would quietly be of what survived rather than of what happened */
@@ -114,7 +128,7 @@ export interface ScriptHistorySummaryQuery {
 
 /**
  * One presenter's attempts in the window
- * generated from [ScriptHistorySummaryRow](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L109)
+ * generated from [ScriptHistorySummaryRow](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L125)
  */
 export interface ScriptHistorySummaryRow {
     /** Absent means nobody was presenting, which is an ordinary state rather than a gap in the data */
@@ -127,7 +141,7 @@ export interface ScriptHistorySummaryRow {
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L121)
+ * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L137)
  */
 export interface SegmentScanResult {
     /** Audio files seen, whether or not they were already known */
@@ -140,7 +154,7 @@ export interface SegmentScanResult {
 
 /**
  * One name the station says differently from how it is written
- * generated from [Pronunciation](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L127)
+ * generated from [Pronunciation](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L143)
  */
 export interface Pronunciation {
     id: string;
@@ -164,7 +178,7 @@ export interface Pronunciation {
 
 /**
  * A name and how to say it
- * generated from [PronunciationWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L144)
+ * generated from [PronunciationWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L160)
  */
 export interface PronunciationWrite {
     written: string;
@@ -174,7 +188,7 @@ export interface PronunciationWrite {
 
 /**
  * Accepting a proposal, turning one down, or taking an entry out of use without losing it
- * generated from [PronunciationStateWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L149)
+ * generated from [PronunciationStateWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L165)
  */
 export interface PronunciationStateWrite {
     state: 'active' | 'suggested' | 'rejected';
@@ -182,7 +196,7 @@ export interface PronunciationStateWrite {
 
 /**
  * Which part of the lexicon to read
- * generated from [PronunciationQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L153)
+ * generated from [PronunciationQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L169)
  */
 export interface PronunciationQuery {
     /** Absent is all of it */
@@ -211,7 +225,7 @@ export interface VoiceList {
 
 /**
  * One page of what the station has written, newest first
- * generated from [ScriptHistoryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L85)
+ * generated from [ScriptHistoryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L101)
  */
 export interface ScriptHistoryQuery {
     limit?: number;
@@ -260,11 +274,52 @@ export interface ScriptAttempt {
     raw?: string;
     /** What the writer sent. Only while `llm.captureWrites` is on */
     prompt?: ScriptPromptMessage[];
+    /** What the operator thought of it. ABSENT means nobody has said, which `neutral` does not */
+    rating?: ScriptRating;
+}
+
+export interface ScriptAttemptInput {
+    id: string;
+    at: string;
+    /** What sort of break it was for: `talkbreak`, `welcome`, `news` */
+    kind: string;
+    /** The binding that produced or declined it */
+    writer: string;
+    outcome: ScriptOutcome;
+    /** Who was presenting, as the persona's own key. Absent means nobody was, which is an ordinary state. Stamped on every attempt including the declined ones, so a character whose model breaks are all being refused is visible rather than hidden behind the floor */
+    personaKey?: string;
+    label?: string;
+    /** The words. Absent for an attempt that produced none */
+    script?: string;
+    /** The model that said it, for a writer that used one */
+    model?: string;
+    /** What the line was rendered from, for a writer working from something an operator can edit */
+    source?: string;
+    /** Why, for anything that is not `written` */
+    reason?: string;
+    /** The segment this was for, while it is still known. The row outlives it */
+    segmentId?: string;
+    previous?: ScriptNeighbour;
+    next?: ScriptNeighbour;
+    /** How long the attempt took */
+    durationMs?: number;
+    usage?: ScriptUsage;
+    /** The answer before anything read it. Only while `llm.captureWrites` is on */
+    raw?: string;
+    /** What the writer sent. Only while `llm.captureWrites` is on */
+    prompt?: ScriptPromptMessage[];
+}
+
+/**
+ * generated from [ScriptRatingInput](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L97)
+ */
+export interface ScriptRatingInput {
+    rating: ScriptRating;
 }
 
 /**
  * What each presenter has written lately, and over how long
- * generated from [ScriptHistorySummary](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L116)
+ * generated from [ScriptHistorySummary](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L132)
  */
 export interface ScriptHistorySummary {
     /** The window actually counted, echoed so a console can label the numbers it draws */
@@ -274,17 +329,23 @@ export interface ScriptHistorySummary {
 
 /**
  * The station's lexicon, oldest first
- * generated from [PronunciationList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L140)
+ * generated from [PronunciationList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L156)
  */
 export interface PronunciationList {
     pronunciations: Pronunciation[];
 }
 
 /**
- * generated from [ScriptHistoryPage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L95)
+ * generated from [ScriptHistoryPage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L111)
  */
 export interface ScriptHistoryPage {
     attempts: ScriptAttempt[];
+    /** The cursor for the page after this one, absent once the history has been read to its end */
+    nextBefore?: string;
+}
+
+export interface ScriptHistoryPageInput {
+    attempts: ScriptAttemptInput[];
     /** The cursor for the page after this one, absent once the history has been read to its end */
     nextBefore?: string;
 }

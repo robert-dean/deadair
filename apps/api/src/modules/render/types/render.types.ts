@@ -110,8 +110,23 @@ export const ScriptPromptMessage = z.strictObject({
 export type ScriptPromptMessage = z.infer<typeof ScriptPromptMessage>;
 
 /**
+ * What an operator thought of something the station said.
+ *
+ * The catalog's three spellings exactly, and deliberately not a second vocabulary: an opinion is an
+ * opinion whether it is about a record or about a sentence, and `catalog/rating.ts` is the one place
+ * the words and the column's numbers meet.
+ *
+ * `neutral` is a real answer rather than an absence. Rating something back to nothing is a thing an
+ * operator does, and it has to be distinguishable from never having listened, which is the field
+ * being absent on the attempt.
+ * generated from [ScriptRating](file://./../../../../data/contracts/render/render.types.ck#L95)
+ */
+export const ScriptRating = z.enum(['liked', 'neutral', 'disliked']);
+export type ScriptRating = z.infer<typeof ScriptRating>;
+
+/**
  * Words to hear before anything has aired them
- * generated from [SpeechPreviewRequest](file://./../../../../data/contracts/render/render.types.ck#L100)
+ * generated from [SpeechPreviewRequest](file://./../../../../data/contracts/render/render.types.ck#L116)
  */
 export const SpeechPreviewRequest = z.strictObject({
     text: z
@@ -127,7 +142,7 @@ export type SpeechPreviewRequest = z.infer<typeof SpeechPreviewRequest>;
 
 /**
  * The window the counts cover
- * generated from [ScriptHistorySummaryQuery](file://./../../../../data/contracts/render/render.types.ck#L105)
+ * generated from [ScriptHistorySummaryQuery](file://./../../../../data/contracts/render/render.types.ck#L121)
  */
 export const ScriptHistorySummaryQuery = z.strictObject({
     hours: z.coerce
@@ -144,7 +159,7 @@ export type ScriptHistorySummaryQuery = z.infer<typeof ScriptHistorySummaryQuery
 
 /**
  * One presenter's attempts in the window
- * generated from [ScriptHistorySummaryRow](file://./../../../../data/contracts/render/render.types.ck#L109)
+ * generated from [ScriptHistorySummaryRow](file://./../../../../data/contracts/render/render.types.ck#L125)
  */
 export const ScriptHistorySummaryRow = z.strictObject({
     personaKey: z
@@ -164,7 +179,7 @@ export type ScriptHistorySummaryRow = z.infer<typeof ScriptHistorySummaryRow>;
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../data/contracts/render/render.types.ck#L121)
+ * generated from [SegmentScanResult](file://./../../../../data/contracts/render/render.types.ck#L137)
  */
 export const SegmentScanResult = z.strictObject({
     scanned: z.coerce.number().int().min(0).describe('Audio files seen, whether or not they were already known'),
@@ -175,7 +190,7 @@ export type SegmentScanResult = z.infer<typeof SegmentScanResult>;
 
 /**
  * One name the station says differently from how it is written
- * generated from [Pronunciation](file://./../../../../data/contracts/render/render.types.ck#L127)
+ * generated from [Pronunciation](file://./../../../../data/contracts/render/render.types.ck#L143)
  */
 export const Pronunciation = z.strictObject({
     id: z.string().min(1).max(100),
@@ -206,7 +221,7 @@ export type Pronunciation = z.infer<typeof Pronunciation>;
 
 /**
  * A name and how to say it
- * generated from [PronunciationWrite](file://./../../../../data/contracts/render/render.types.ck#L144)
+ * generated from [PronunciationWrite](file://./../../../../data/contracts/render/render.types.ck#L160)
  */
 export const PronunciationWrite = z.strictObject({
     written: z.string().min(1).max(200),
@@ -216,7 +231,7 @@ export type PronunciationWrite = z.infer<typeof PronunciationWrite>;
 
 /**
  * Accepting a proposal, turning one down, or taking an entry out of use without losing it
- * generated from [PronunciationStateWrite](file://./../../../../data/contracts/render/render.types.ck#L149)
+ * generated from [PronunciationStateWrite](file://./../../../../data/contracts/render/render.types.ck#L165)
  */
 export const PronunciationStateWrite = z.strictObject({
     state: z.enum(['active', 'suggested', 'rejected']),
@@ -225,7 +240,7 @@ export type PronunciationStateWrite = z.infer<typeof PronunciationStateWrite>;
 
 /**
  * Which part of the lexicon to read
- * generated from [PronunciationQuery](file://./../../../../data/contracts/render/render.types.ck#L153)
+ * generated from [PronunciationQuery](file://./../../../../data/contracts/render/render.types.ck#L169)
  */
 export const PronunciationQuery = z.strictObject({
     state: z.enum(['active', 'suggested', 'rejected']).optional().describe('Absent is all of it'),
@@ -254,7 +269,7 @@ export type VoiceList = z.infer<typeof VoiceList>;
 
 /**
  * One page of what the station has written, newest first
- * generated from [ScriptHistoryQuery](file://./../../../../data/contracts/render/render.types.ck#L85)
+ * generated from [ScriptHistoryQuery](file://./../../../../data/contracts/render/render.types.ck#L101)
  */
 export const ScriptHistoryQuery = z.strictObject({
     limit: z.coerce.number().int().min(1).max(200).optional(),
@@ -310,12 +325,49 @@ export const ScriptAttempt = z.strictObject({
     usage: ScriptUsage.optional(),
     raw: z.string().max(100000).optional().describe('The answer before anything read it. Only while `llm.captureWrites` is on'),
     prompt: z.array(ScriptPromptMessage).optional().describe('What the writer sent. Only while `llm.captureWrites` is on'),
+    rating: ScriptRating.optional().describe('What the operator thought of it. ABSENT means nobody has said, which `neutral` does not'),
 });
 export type ScriptAttempt = z.infer<typeof ScriptAttempt>;
 
+export const ScriptAttemptInput = z.strictObject({
+    id: z.string().min(1).max(100),
+    at: _ZodDatetime,
+    kind: z.string().min(1).max(50).describe('What sort of break it was for: `talkbreak`, `welcome`, `news`'),
+    writer: z.string().min(1).max(100).describe('The binding that produced or declined it'),
+    outcome: ScriptOutcome,
+    personaKey: z
+        .string()
+        .max(100)
+        .optional()
+        .describe(
+            "Who was presenting, as the persona's own key. Absent means nobody was, which is an ordinary state. Stamped on every attempt including the declined ones, so a character whose model breaks are all being refused is visible rather than hidden behind the floor",
+        ),
+    label: z.string().max(400).optional(),
+    script: z.string().max(20000).optional().describe('The words. Absent for an attempt that produced none'),
+    model: z.string().max(200).optional().describe('The model that said it, for a writer that used one'),
+    source: z.string().max(200).optional().describe('What the line was rendered from, for a writer working from something an operator can edit'),
+    reason: z.string().max(2000).optional().describe('Why, for anything that is not `written`'),
+    segmentId: z.string().max(100).optional().describe('The segment this was for, while it is still known. The row outlives it'),
+    previous: ScriptNeighbour.optional(),
+    next: ScriptNeighbour.optional(),
+    durationMs: z.coerce.number().int().min(0).optional().describe('How long the attempt took'),
+    usage: ScriptUsage.optional(),
+    raw: z.string().max(100000).optional().describe('The answer before anything read it. Only while `llm.captureWrites` is on'),
+    prompt: z.array(ScriptPromptMessage).optional().describe('What the writer sent. Only while `llm.captureWrites` is on'),
+});
+export type ScriptAttemptInput = z.infer<typeof ScriptAttemptInput>;
+
+/**
+ * generated from [ScriptRatingInput](file://./../../../../data/contracts/render/render.types.ck#L97)
+ */
+export const ScriptRatingInput = z.strictObject({
+    rating: ScriptRating,
+});
+export type ScriptRatingInput = z.infer<typeof ScriptRatingInput>;
+
 /**
  * What each presenter has written lately, and over how long
- * generated from [ScriptHistorySummary](file://./../../../../data/contracts/render/render.types.ck#L116)
+ * generated from [ScriptHistorySummary](file://./../../../../data/contracts/render/render.types.ck#L132)
  */
 export const ScriptHistorySummary = z.strictObject({
     hours: z.coerce.number().int().min(1).max(168).describe('The window actually counted, echoed so a console can label the numbers it draws'),
@@ -325,7 +377,7 @@ export type ScriptHistorySummary = z.infer<typeof ScriptHistorySummary>;
 
 /**
  * The station's lexicon, oldest first
- * generated from [PronunciationList](file://./../../../../data/contracts/render/render.types.ck#L140)
+ * generated from [PronunciationList](file://./../../../../data/contracts/render/render.types.ck#L156)
  */
 export const PronunciationList = z.strictObject({
     pronunciations: z.array(Pronunciation),
@@ -333,7 +385,7 @@ export const PronunciationList = z.strictObject({
 export type PronunciationList = z.infer<typeof PronunciationList>;
 
 /**
- * generated from [ScriptHistoryPage](file://./../../../../data/contracts/render/render.types.ck#L95)
+ * generated from [ScriptHistoryPage](file://./../../../../data/contracts/render/render.types.ck#L111)
  */
 export const ScriptHistoryPage = z.strictObject({
     attempts: z.array(ScriptAttempt),
@@ -345,3 +397,14 @@ export const ScriptHistoryPage = z.strictObject({
         .describe('The cursor for the page after this one, absent once the history has been read to its end'),
 });
 export type ScriptHistoryPage = z.infer<typeof ScriptHistoryPage>;
+
+export const ScriptHistoryPageInput = z.strictObject({
+    attempts: z.array(ScriptAttemptInput),
+    nextBefore: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe('The cursor for the page after this one, absent once the history has been read to its end'),
+});
+export type ScriptHistoryPageInput = z.infer<typeof ScriptHistoryPageInput>;

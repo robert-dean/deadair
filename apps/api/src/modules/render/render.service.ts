@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { httpError } from '@maroonedsoftware/errors';
 import { isPluginError } from '@deadair/plugin-sdk';
 import type { SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
@@ -10,6 +11,7 @@ import type {
     PronunciationStateWrite,
     PronunciationWrite,
     ScriptAttempt,
+    ScriptRatingInput,
     ScriptHistoryPage,
     ScriptHistoryQuery,
     ScriptHistorySummary,
@@ -23,7 +25,9 @@ import type {
     VoiceList,
 } from './types/render.types.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
+import { ScriptRatingsRepository } from './script.ratings.repository.js';
 import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
+import { ratingFromColumn, ratingToColumn } from '../catalog/rating.js';
 import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType, type SegmentExtension } from './segment.store.js';
@@ -104,6 +108,8 @@ export class RenderService {
         private readonly speech: SpeechService,
         private readonly samples: VoiceSampleStore,
         private readonly history: ScriptHistoryRepository,
+        private readonly ratings: ScriptRatingsRepository,
+        private readonly context: AuthorizationContext,
         private readonly pronunciations: PronunciationRepository,
         private readonly logger: Logger,
     ) {}
@@ -136,6 +142,35 @@ export class RenderService {
             attempts: page.map(toAttempt),
             ...(more && last !== undefined ? { nextBefore: encodeScriptCursor(last) } : {}),
         };
+    }
+
+    /**
+     * Records what the operator thought of one attempt.
+     *
+     * Answers the attempt as it now stands rather than an acknowledgement, mirroring the catalog's
+     * rating verbs: the console redraws from the response instead of asking again for a page it
+     * already holds.
+     *
+     * Nothing acts on this. It is read by an operator reading back what the station said, and the
+     * one pass that will eventually consult it — the notebook's distil selection, which must not
+     * build on a break that was thumbed down — reads it as a filter rather than as a signal to
+     * train on. `docs/todo/break-ratings.md` holds the argument for why that stays true.
+     */
+    async rateScript(id: string, input: ScriptRatingInput): Promise<ScriptAttempt> {
+        // Read off the request's own actor rather than taken as a parameter, the way every other
+        // operator surface here stamps one: a caller that could pass an id could pass somebody
+        // else's. A non-user actor leaves it absent, which the column allows.
+        const actorId = this.context.actor.kind === 'user' ? this.context.actor.actorId : undefined;
+
+        const rated = await this.ratings.rate(id, ratingToColumn(input.rating), actorId);
+        if (!rated) throw httpError(404).withDetails({ message: `no attempt with id "${id}" has been written` });
+
+        // Read back through the ordinary page rather than composing an answer here, so the shape the
+        // console receives is the one it already knows how to draw.
+        const [attempt] = (await this.history.page({ limit: 1, scriptId: id })).map(toAttempt);
+        if (attempt === undefined) throw httpError(404).withDetails({ message: `no attempt with id "${id}" has been written` });
+
+        return attempt;
     }
 
     /**
@@ -556,5 +591,8 @@ function toAttempt(entry: ScriptHistoryEntry): ScriptAttempt {
         ...(usage === undefined ? {} : { usage }),
         ...(entry.raw === undefined ? {} : { raw: entry.raw }),
         ...(prompt === undefined ? {} : { prompt }),
+        // Absent stays absent: nobody having said is a different answer from `neutral`, which is
+        // somebody saying they have no opinion.
+        ...(entry.rating === undefined ? {} : { rating: ratingFromColumn(entry.rating) }),
     };
 }

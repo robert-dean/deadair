@@ -527,6 +527,15 @@ export interface DeadairScriptHistory {
   writer: string;
 }
 
+export interface DeadairScriptRatings {
+  actorId: string | null;
+  createdAt: Generated<DateTime>;
+  rating: number;
+  scriptId: string;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairScrobbleQueue {
   attempts: Generated<number>;
   broadcastId: string | null;
@@ -766,6 +775,7 @@ export interface DB {
   "deadair.pronunciations": DeadairPronunciations;
   "deadair.scheduleSlots": DeadairScheduleSlots;
   "deadair.scriptHistory": DeadairScriptHistory;
+  "deadair.scriptRatings": DeadairScriptRatings;
   "deadair.scrobbleQueue": DeadairScrobbleQueue;
   "deadair.segmentEvents": DeadairSegmentEvents;
   "deadair.segments": DeadairSegments;

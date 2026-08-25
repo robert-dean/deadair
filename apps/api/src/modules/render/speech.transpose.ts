@@ -48,10 +48,7 @@ import { applyPronunciations, type Pronunciation } from './pronunciation.lexicon
  * alternative that matches at a position, so `[laugh]` is claimed as a cue before the bare `[` in the
  * character class can claim it. Reverse them and every cue loses its opening bracket.
  */
-const SPARE_CUES = new RegExp(
-    `\\[(${[...SPEECH_CUES].sort((left, right) => right.length - left.length).join('|')})\\]|[*_\`^<>{}[\\]=+@#&$%]`,
-    'gi',
-);
+const SPARE_CUES = new RegExp(`\\[(${[...SPEECH_CUES].sort((left, right) => right.length - left.length).join('|')})\\]|[*_\`^<>{}[\\]=+@#&$%]`, 'gi');
 
 /**
  * One script, as it should be handed to an engine.

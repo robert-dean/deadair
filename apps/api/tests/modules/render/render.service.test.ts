@@ -105,6 +105,12 @@ const service = (options: ServiceOptions = {}) => {
             // than a fake unless a case hands over `attempts`: a page() nobody calls that throws is
             // a better failure than one that answers plausibly.
             { page, outcomeCountsSince } as never,
+            // Ratings are only reached by `rateScript`, which this suite does not exercise: a stub
+            // that throws on any call is a better failure than one that answers plausibly.
+            {} as never,
+            // The acting operator, for the one write that stamps who said so. Non-user leaves the
+            // column empty, which is the ordinary state for anything not driven by a console.
+            { actor: { kind: 'system' } } as never,
             // The lexicon is only reached through SpeechService, which this suite fakes whole, so
             // the repository itself is never called on any path here.
             {} as never,

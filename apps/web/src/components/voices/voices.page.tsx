@@ -1,10 +1,11 @@
-import { ActionIcon, Alert, Anchor, Card, Group, Stack, Text } from '@mantine/core';
+import { ActionIcon, Anchor, Card, Group, Stack, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import type { Persona } from '@deadair/sdk';
 
 import { usePersonas } from '../../api/personas.queries';
 import { fetchVoiceSample, voicesOptions } from '../../api/voices.queries';
+import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
@@ -79,16 +80,14 @@ export function VoicesPage() {
             {/* Not an error: a station with no TTS plugin plays records, which is a state rather
                 than a fault. The API says which of the three ways it got here. */}
             {voices.data && voices.data.voices.length === 0 ? (
-                <Alert color="gray" title="The station has no voice yet">
-                    {voices.data.reason ?? 'No plugin is available to speak.'}
-                </Alert>
+                <EmptyState title="The station has no voice yet">{voices.data.reason ?? 'No plugin is available to speak.'}</EmptyState>
             ) : undefined}
 
             {voices.isPending ? <PageSkeleton variant="table" /> : undefined}
 
             <Stack gap="xs">
                 {voices.data?.voices.map(voice => (
-                    <Card key={voice.id} padding="sm" radius="md">
+                    <Card key={voice.id} padding="sm">
                         <Group justify="space-between" wrap="nowrap">
                             <Stack gap="xxxs">
                                 <Group gap="xs" wrap="nowrap">

@@ -114,6 +114,10 @@ export function TopicsPage() {
                                 </Button>
                             </Group>
 
+                            {/* A line rather than `EmptyState`, deliberately: that component is a
+                                Card, and this sits inside the per-kind Card that already carries
+                                the heading and the New button. A card inside a card reads as a
+                                second thing on the page rather than as the inside of this one. */}
                             {held.length === 0 ? (
                                 <Text size="sm" c="dimmed">
                                     No {kind.nounMany} yet, which is a working station: every break of this sort covers whatever it finds.

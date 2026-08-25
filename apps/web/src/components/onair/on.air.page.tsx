@@ -1,10 +1,11 @@
-import { Anchor, Badge, Button, Card, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
+import { Anchor, Badge, Button, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 
 import { useRateTrack } from '../../api/catalog.queries';
 import { useExtendOrder, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
 import { usePlayoutStatus, useStartPlayout, useStopPlayout } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { StatusLamp } from '../shared/status.lamp';
@@ -239,19 +240,18 @@ export function OnAirPage() {
                 playlist is an answer to having nothing on, where an operator who already has a
                 running order has the playlists page a click away in the nav. */}
             {nothingOn ? (
-                <Card padding="xl">
-                    <Stack gap="xs" align="flex-start">
-                        <Text size="sm" c="dimmed">
-                            Or start from a playlist. It is READ at the moment the station goes on air rather than copied, so there is nothing to
-                            prepare first and nothing of yours is written into.
-                        </Text>
-                        {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
-                            the router's own types, and with them the check that `params` matches. */}
+                <EmptyState
+                    action={
+                        /* `renderRoot` rather than `component={Link}`: the polymorphic form erases
+                           the router's own types, and with them the check that `params` matches. */
                         <Anchor renderRoot={props => <Link to="/playlists" {...props} />} size="sm">
                             Browse playlists
                         </Anchor>
-                    </Stack>
-                </Card>
+                    }
+                >
+                    Or start from a playlist. It is READ at the moment the station goes on air rather than copied, so there is nothing to prepare
+                    first and nothing of yours is written into.
+                </EmptyState>
             ) : undefined}
 
             {items.length > 0 ? (

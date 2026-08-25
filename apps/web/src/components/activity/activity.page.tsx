@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Badge, Button, Card, Group, SegmentedControl, Stack, Text } from '@mantine/core';
+import { Badge, Button, Group, SegmentedControl, Stack, Text } from '@mantine/core';
 import type { ActivityEntry, ActivityModule, ActivitySeverity } from '@deadair/sdk';
 
 import { useActivity } from '../../api/activity.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { ScriptLink, TrackLink } from '../shared/catalog.links';
 import { DatedFeed, FeedMoment } from '../shared/dated.feed';
+import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
@@ -105,13 +106,11 @@ export function ActivityPage() {
             {feed.isPending ? <PageSkeleton variant="rows" count={3} /> : undefined}
 
             {!feed.isPending && entries.length === 0 && failure === undefined ? (
-                <Card padding="lg">
-                    <Text size="sm" c="dimmed">
-                        {module === 'all' && severity === 'all'
-                            ? 'Nothing yet. The station writes here as it airs records, makes breaks and changes what it is doing.'
-                            : 'Nothing matches that filter.'}
-                    </Text>
-                </Card>
+                <EmptyState>
+                    {module === 'all' && severity === 'all'
+                        ? 'Nothing yet. The station writes here as it airs records, makes breaks and changes what it is doing.'
+                        : 'Nothing matches that filter.'}
+                </EmptyState>
             ) : undefined}
 
             {entries.length > 0 ? <DatedFeed items={entries}>{entry => <ActivityLine entry={entry} />}</DatedFeed> : undefined}

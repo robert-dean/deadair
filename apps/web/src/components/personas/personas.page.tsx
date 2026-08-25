@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react';
 import { ActionIcon, Anchor, Badge, Button, Card, CloseButton, Group, Stack, Text, TextInput } from '@mantine/core';
+import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import type { Persona, PersonaInput, ScriptHistorySummaryRow, Voice } from '@deadair/sdk';
 
@@ -25,7 +26,7 @@ import { Eyebrow } from '../shared/eyebrow';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
-import { toneColor } from '../shared/status';
+import { severityColor, toneColor } from '../shared/status';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
 import { PersonaNotesPanel } from './persona.notes';
@@ -248,7 +249,7 @@ export function PersonasPage() {
                                                     )
                                                 }
                                             >
-                                                {preview.isPlaying(persona.voice) ? '❚❚' : '▶'}
+                                                {preview.isPlaying(persona.voice) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
                                             </ActionIcon>
                                         </Group>
                                     ) : undefined}
@@ -269,7 +270,7 @@ export function PersonasPage() {
                                     </Anchor>
 
                                     {persona.voice && preview.failureFor(persona.voice) ? (
-                                        <Text size="xs" c="red.4">
+                                        <Text size="xs" c={severityColor.failure}>
                                             {preview.failureFor(persona.voice)}
                                         </Text>
                                     ) : undefined}
@@ -439,7 +440,7 @@ function PersonaSummary({ persona }: { persona: Persona }) {
 /** One card's own bad news, in the place the button that caused it is. */
 function CardFailure({ error, fallback }: { error: unknown; fallback: string }) {
     return (
-        <Text size="xs" c="red.4" mt="xs" ta="right">
+        <Text size="xs" c={severityColor.failure} mt="xs" ta="right">
             {apiErrorMessage(error, fallback)}
         </Text>
     );

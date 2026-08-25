@@ -1,4 +1,5 @@
 import { ActionIcon, Anchor, Card, Group, Stack, Text } from '@mantine/core';
+import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import type { Persona } from '@deadair/sdk';
@@ -9,6 +10,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { severityColor } from '../shared/status';
 import { useVoicePreview } from './voice.preview';
 
 /**
@@ -116,12 +118,12 @@ export function VoicesPage() {
                                 aria-label={preview.isPlaying(voice.id) ? `Pause the sample of ${voice.label}` : `Play a sample of ${voice.label}`}
                                 onClick={() => preview.play(voice.id, () => fetchVoiceSample(voice.id), 'That voice could not be previewed.')}
                             >
-                                {preview.isPlaying(voice.id) ? '❚❚' : '▶'}
+                                {preview.isPlaying(voice.id) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
                             </ActionIcon>
                         </Group>
 
                         {preview.failureFor(voice.id) ? (
-                            <Text size="xs" c="red.4" mt="xs">
+                            <Text size="xs" c={severityColor.failure} mt="xs">
                                 {preview.failureFor(voice.id)}
                             </Text>
                         ) : undefined}

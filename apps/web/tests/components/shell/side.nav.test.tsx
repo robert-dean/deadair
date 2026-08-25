@@ -40,7 +40,6 @@ describe('SideNav', () => {
             'Scripts',
             'Plugins',
             'Settings',
-            'About',
         ];
         for (const label of labels) {
             expect(screen.getByRole('link', { name: label })).toBeInTheDocument();

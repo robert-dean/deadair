@@ -5,7 +5,7 @@ import type { PluginSummary } from '@deadair/sdk';
 
 import { useSetPluginEnabled } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
-import { toneColor } from '../shared/status';
+import { severityColor, toneColor } from '../shared/status';
 import { PluginStatusLamp, statusOf } from './plugin.status';
 import { PluginTrustDialog } from './plugin.trust.dialog';
 
@@ -48,7 +48,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
                 </Group>
 
                 {setEnabled.error && setEnabled.variables?.id === plugin.id ? (
-                    <Text size="xs" c="red">
+                    <Text size="xs" c={severityColor.failure}>
                         {apiErrorMessage(setEnabled.error, 'That change could not be applied.')}
                     </Text>
                 ) : undefined}

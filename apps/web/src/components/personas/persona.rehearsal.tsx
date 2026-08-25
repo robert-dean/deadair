@@ -1,4 +1,5 @@
 import { ActionIcon, Card, Group, Stack, Text } from '@mantine/core';
+import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import type { PersonaRehearsal, PersonaRehearsalAttempt } from '@deadair/sdk';
 
 import { fetchSpeechPreview } from '../../api/voices.queries';
@@ -46,7 +47,7 @@ export function PersonaRehearsalPanel({ rehearsal, voice }: { rehearsal: Persona
                                 aria-label="Hear this break"
                                 onClick={() => preview.play(spoken, () => fetchSpeechPreview(spoken, voice), 'That break could not be spoken.')}
                             >
-                                {preview.isPlaying(spoken) ? '❚❚' : '▶'}
+                                {preview.isPlaying(spoken) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
                             </ActionIcon>
                         ) : undefined}
                     </Group>

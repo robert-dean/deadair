@@ -66,10 +66,7 @@ const GROUPS: NavGroup[] = [
     },
     {
         title: 'System',
-        items: [
-            { to: '/settings', label: 'Settings' },
-            { to: '/about', label: 'About' },
-        ],
+        items: [{ to: '/settings', label: 'Settings' }],
     },
 ];
 

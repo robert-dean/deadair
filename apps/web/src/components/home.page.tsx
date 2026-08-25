@@ -29,7 +29,7 @@ export function HomePage() {
     const attention = useStationAttention(true);
 
     return (
-        <Stack gap="xl" pt="md">
+        <Stack gap="lg">
             <Group align="flex-start" gap="xl" wrap="nowrap">
                 {/* The full lockup, and the only place it appears: everywhere else in the console the
                     arched type is too small to read and the skull alone does the job. Hidden from

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActionIcon, Button, Card, Code, Divider, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 
@@ -168,7 +169,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                                 )
                                             }
                                         >
-                                            {preview.isPlaying(form.values.voice) ? '❚❚' : '▶'}
+                                            {preview.isPlaying(form.values.voice) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
                                         </ActionIcon>
                                     ) : undefined
                                 }

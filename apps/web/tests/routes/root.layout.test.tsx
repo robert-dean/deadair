@@ -56,7 +56,7 @@ describe('RootLayout', () => {
         expect(logoutButton()).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Playlists' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'About' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
     });
 
     it('hides them again for a token that exists but has expired', () => {

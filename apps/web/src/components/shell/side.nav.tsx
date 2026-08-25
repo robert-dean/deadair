@@ -63,6 +63,9 @@ const GROUPS: NavGroup[] = [
             // one is who it is, one is what it said, and this is what it makes at length.
             { to: '/productions', label: 'Productions' },
             { to: '/voices', label: 'Voices' },
+            // Beside the voices, which is the other half of the same question: that page is who
+            // the station sounds like, and this one is what it has already recorded.
+            { to: '/segments', label: 'Segments' },
             // Directly under Voices, because it is the same question one level down: that page is
             // which voice says it, this is how that voice says a particular name.
             { to: '/pronunciations', label: 'Pronunciations' },

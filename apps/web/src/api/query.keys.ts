@@ -157,6 +157,11 @@ export const queryKeys = {
         stories: (feedId?: string) => ['news', 'stories', feedId ?? ''] as const,
     },
 
+    /** One list, because the API answers with the whole library and every write answers with it again. */
+    segments: {
+        list: () => ['segments', 'list'] as const,
+    },
+
     scripts: {
         // Every filter is part of the key, including the two that arrive from a link: a key missing
         // one is two different questions sharing one answer, and what that looks like is one

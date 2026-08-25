@@ -10,6 +10,7 @@ import type {
     PluginSummary,
 } from '@deadair/sdk';
 
+import { notifyQueued } from '../components/shared/notify';
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
 import { apiErrorMessage } from './sdk.error';
@@ -142,8 +143,11 @@ export function useSetPluginEnabled() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => (enabled ? sdk.plugins.enablePlugin(id) : sdk.plugins.disablePlugin(id)),
-        onSuccess: detail => {
+        onSuccess: (detail, { enabled }) => {
             writePluginDetailPendingReinit(queryClient, detail);
+            // The switch moves on its own, so this reports the half the switch cannot: the plugin
+            // is reinitializing rather than already in the state the toggle now shows.
+            notifyQueued(`${detail.name} ${enabled ? 'enabled' : 'disabled'}. It reloads on its own.`);
         },
     });
 }

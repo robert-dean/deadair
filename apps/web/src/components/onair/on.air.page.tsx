@@ -7,6 +7,7 @@ import { usePlayoutStatus, useStartPlayout, useStopPlayout } from '../../api/pla
 import { apiErrorMessage } from '../../api/sdk.error';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
+import { notifyQueued } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { StatusLamp } from '../shared/status.lamp';
 import { SilenceDiagnosisPanel } from '../playout/silence.diagnosis.panel';
@@ -174,7 +175,10 @@ export function OnAirPage() {
                                 variant="light"
                                 color={extendFailure ? 'red' : undefined}
                                 loading={extend.isPending}
-                                onClick={() => extend.mutate({})}
+                                // The records land seconds later and the order is polled every
+                                // five, so without this the button is pressed and nothing whatever
+                                // happens for long enough to press it again.
+                                onClick={() => extend.mutate({}, { onSuccess: () => notifyQueued('Refill asked for. The records land in a few seconds.') })}
                             >
                                 Extend
                             </Button>

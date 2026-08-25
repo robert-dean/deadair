@@ -213,6 +213,9 @@ importers:
       '@mantine/hooks':
         specifier: ^9.5.1
         version: 9.5.1(react@19.2.8)
+      '@mantine/notifications':
+        specifier: 9.5.1
+        version: 9.5.1(@mantine/core@9.5.1(@mantine/hooks@9.5.1(react@19.2.8))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.5.1(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@mantine/schedule':
         specifier: 9.5.1
         version: 9.5.1(@mantine/core@9.5.1(@mantine/hooks@9.5.1(react@19.2.8))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/dates@9.5.1(@mantine/core@9.5.1(@mantine/hooks@9.5.1(react@19.2.8))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.5.1(react@19.2.8))(dayjs@1.11.23)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.5.1(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -1138,6 +1141,14 @@ packages:
     peerDependencies:
       react: ^19.2.0
 
+  '@mantine/notifications@9.5.1':
+    resolution: {integrity: sha512-/MIGWag8U20HTM4gOGSNVhmQ0n6YM2gdSR1NbtBffSh77nuzwPjr68UmpMc2WHFMi8OBlrSIcw9Xpe3YPfgnvQ==}
+    peerDependencies:
+      '@mantine/core': 9.5.1
+      '@mantine/hooks': 9.5.1
+      react: ^19.2.0
+      react-dom: ^19.2.0
+
   '@mantine/schedule@9.5.1':
     resolution: {integrity: sha512-TTSbD5kwiIe1uYI2YEO7mBe+KL1Gda/9QouRAXP3IWcJn7a2Wr8am3ggTc5lfg4ODhulpIJ+HeuzqBjNrtATGQ==}
     peerDependencies:
@@ -1146,6 +1157,11 @@ packages:
       '@mantine/hooks': 9.5.1
       react: ^19.2.0
       react-dom: ^19.2.0
+
+  '@mantine/store@9.5.1':
+    resolution: {integrity: sha512-nDmA9S+qnQQ61KYgph06Wt2cx1tj3Z6eeyK3HvFeuLb5FcGycbITsVy/+3LltH2qdqkpNeAA9wQ926NFjn5hvA==}
+    peerDependencies:
+      react: ^19.2.0
 
   '@maroonedsoftware/appconfig@2.5.0':
     resolution: {integrity: sha512-w//AoI3GLNIDZiSH5SMw+XCmSWPjIxBNcELoHCJFTqPwJbHDvCQiSQ9LWUxEUXLvjCw3rLCDXjEIC6Ck6KOWVw==}
@@ -2767,6 +2783,9 @@ packages:
   dom-accessibility-api@0.6.3:
     resolution: {integrity: sha512-7ZgogeTnjuHbo+ct10G9Ffp0mif17idi0IyWNVA/wcwcm7NPOD/WEHVP3n7n3MhXqxoIYm8d6MuZohYWIZ4T3w==}
 
+  dom-helpers@5.2.1:
+    resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
+
   dotenv-expand@12.0.3:
     resolution: {integrity: sha512-uc47g4b+4k/M/SeaW1y4OApx+mtLWl92l5LMPP0GNXctZqELk+YGgOPIIC5elYmUH4OuoK3JLhuRUYegeySiFA==}
     engines: {node: '>=12'}
@@ -4072,6 +4091,12 @@ packages:
       '@types/react':
         optional: true
 
+  react-transition-group@4.4.5:
+    resolution: {integrity: sha512-pZcd1MCJoiKiBR2NRxeCRg13uCXbydPnmB4EOeRrY7480qNWO8IIgQG6zlDkm6uRMsURXPuKq0GWtiM59a5Q6g==}
+    peerDependencies:
+      react: '>=16.6.0'
+      react-dom: '>=16.6.0'
+
   react@19.2.8:
     resolution: {integrity: sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==}
     engines: {node: '>=0.10.0'}
@@ -5290,6 +5315,15 @@ snapshots:
     dependencies:
       react: 19.2.8
 
+  '@mantine/notifications@9.5.1(@mantine/core@9.5.1(@mantine/hooks@9.5.1(react@19.2.8))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.5.1(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+    dependencies:
+      '@mantine/core': 9.5.1(@mantine/hooks@9.5.1(react@19.2.8))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@mantine/hooks': 9.5.1(react@19.2.8)
+      '@mantine/store': 9.5.1(react@19.2.8)
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      react-transition-group: 4.4.5(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+
   '@mantine/schedule@9.5.1(@mantine/core@9.5.1(@mantine/hooks@9.5.1(react@19.2.8))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/dates@9.5.1(@mantine/core@9.5.1(@mantine/hooks@9.5.1(react@19.2.8))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.5.1(react@19.2.8))(dayjs@1.11.23)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@mantine/hooks@9.5.1(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@mantine/core': 9.5.1(@mantine/hooks@9.5.1(react@19.2.8))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -5298,6 +5332,10 @@ snapshots:
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
       rrule: 2.8.1
+
+  '@mantine/store@9.5.1(react@19.2.8)':
+    dependencies:
+      react: 19.2.8
 
   '@maroonedsoftware/appconfig@2.5.0(pg@8.22.0)(yaml@2.9.0)':
     dependencies:
@@ -6812,6 +6850,11 @@ snapshots:
 
   dom-accessibility-api@0.6.3: {}
 
+  dom-helpers@5.2.1:
+    dependencies:
+      '@babel/runtime': 7.29.7
+      csstype: 3.2.3
+
   dotenv-expand@12.0.3:
     dependencies:
       dotenv: 16.6.1
@@ -8222,6 +8265,15 @@ snapshots:
       tslib: 2.8.1
     optionalDependencies:
       '@types/react': 19.2.18
+
+  react-transition-group@4.4.5(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+    dependencies:
+      '@babel/runtime': 7.29.7
+      dom-helpers: 5.2.1
+      loose-envify: 1.4.0
+      prop-types: 15.8.1
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
 
   react@19.2.8: {}
 

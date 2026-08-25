@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MantineProvider } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
@@ -23,6 +24,7 @@ import '@fontsource/ibm-plex-mono/600.css';
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import '@mantine/schedule/styles.css';
+import '@mantine/notifications/styles.css';
 // LAST, after every Mantine stylesheet: the theme's variable resolver points at `--da-*`, which this
 // defines, and the console's own surfaces have to win over the packages'.
 import './tokens.css';
@@ -52,6 +54,10 @@ createRoot(rootElement).render(
     <StrictMode>
         <QueryClientProvider client={queryClient}>
             <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} forceColorScheme="dark">
+                {/* Top right, and that is the one thing about this that is not a default: the
+                    transport bar is fixed to the bottom edge, and a stack of toasts over the tally
+                    strip would cover the state of the station to tell you a setting saved. */}
+                <Notifications position="top-right" limit={3} />
                 <RouterProvider router={router} />
             </MantineProvider>
             {/* Compiles to a stub component unless NODE_ENV is "development", so it needs no guard. */}

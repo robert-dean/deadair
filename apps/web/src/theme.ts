@@ -172,6 +172,18 @@ export const theme = createTheme({
             // at badge size.
             defaultProps: { radius: 'sm' },
         },
+        Notification: {
+            // The same spine as the Alert below, for the same reason and so that the two read as
+            // one console: a toast is an alert that goes away by itself, and drawing it as a tinted
+            // block would make the transient one louder than the one an operator has to act on.
+            // `--notification-color` is Mantine's own variable for the colour that was asked for.
+            styles: {
+                root: {
+                    background: 'var(--da-raised)',
+                    borderLeft: '2px solid var(--notification-color)',
+                },
+            },
+        },
         Alert: {
             // A panel with a coloured spine rather than a coloured block. Mantine's light variant
             // tints the whole background, which on a page that can show three alerts at once (a

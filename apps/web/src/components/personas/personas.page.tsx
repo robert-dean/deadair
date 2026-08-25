@@ -26,6 +26,7 @@ import { Eyebrow } from '../shared/eyebrow';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { notifyDone } from '../shared/notify';
 import { severityColor, toneColor } from '../shared/status';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
@@ -285,7 +286,16 @@ export function PersonasPage() {
                                             variant="light"
                                             size="compact-sm"
                                             loading={putOnAir.isPending && putOnAir.variables === persona.id}
-                                            onClick={() => putOnAir.mutate(persona.id)}
+                                            onClick={() =>
+                                                putOnAir.mutate(persona.id, {
+                                                    // The card redraws with the badge moved, which
+                                                    // is easy to miss on a page of eleven cards
+                                                    // where the one that changed may be scrolled
+                                                    // past. The sentence says WHEN, because taking
+                                                    // over is not immediate.
+                                                    onSuccess: () => notifyDone(`${persona.label} takes over at the next break.`),
+                                                })
+                                            }
                                         >
                                             Put on air
                                         </Button>

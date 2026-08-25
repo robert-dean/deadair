@@ -48,7 +48,18 @@ const carbon: MantineColorsTuple = ['#E8EDEA', '#D2DAD6', '#A7B2AC', '#8B968F', 
  * 7 is the body, 6 is a card or an input, 5 and 4 are borders, 0 is text — which is why this ramp
  * is ordered to those meanings rather than as an even gradient.
  */
-const carbonSurfaces: MantineColorsTuple = ['#E8EDEA', '#C4CDC8', '#A7B2AC', '#77837D', '#313836', '#242927', '#121514', '#0C0E0D', '#090B0A', '#050706'];
+const carbonSurfaces: MantineColorsTuple = [
+    '#E8EDEA',
+    '#C4CDC8',
+    '#A7B2AC',
+    '#77837D',
+    '#313836',
+    '#242927',
+    '#121514',
+    '#0C0E0D',
+    '#090B0A',
+    '#050706',
+];
 
 /**
  * Phosphor: the accent, anchored at index 4 (`#2FD98C`) to match `primaryShade`.

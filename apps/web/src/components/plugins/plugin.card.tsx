@@ -63,11 +63,20 @@ export function PluginCard({ plugin }: PluginCardProps) {
                         label={plugin.enabled ? 'Enabled' : 'Disabled'}
                         aria-label={`Enable ${plugin.name}`}
                         onChange={event => {
-                            if (event.currentTarget.checked) {
-                                setTrustDialogOpen(true);
-                            } else {
+                            if (!event.currentTarget.checked) {
                                 setEnabled.mutate({ id: plugin.id, enabled: false });
+                                return;
                             }
+
+                            // Asked once, on the enable that actually extends the trust. A plugin
+                            // the operator has turned on before has already answered this, and
+                            // asking again on every toggle says the answer was never recorded.
+                            if (plugin.firstEnabledAt === undefined) {
+                                setTrustDialogOpen(true);
+                                return;
+                            }
+
+                            setEnabled.mutate({ id: plugin.id, enabled: true });
                         }}
                     />
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the

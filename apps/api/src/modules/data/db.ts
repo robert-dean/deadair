@@ -421,6 +421,7 @@ export interface DeadairPluginConfigs {
   config: Generated<Json>;
   createdAt: Generated<DateTime>;
   enabled: Generated<boolean>;
+  firstEnabledAt: DateTime | null;
   lastError: string | null;
   logLevel: Generated<"debug" | "info" | "warn" | "error">;
   pluginId: string;

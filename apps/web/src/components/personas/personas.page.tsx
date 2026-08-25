@@ -250,7 +250,11 @@ export function PersonasPage() {
                                                     )
                                                 }
                                             >
-                                                {preview.isPlaying(persona.voice) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
+                                                {preview.isPlaying(persona.voice) ? (
+                                                    <IconPlayerPauseFilled size={14} />
+                                                ) : (
+                                                    <IconPlayerPlayFilled size={14} />
+                                                )}
                                             </ActionIcon>
                                         </Group>
                                     ) : undefined}

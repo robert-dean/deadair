@@ -133,7 +133,10 @@ describe('/catalog/tracks loader', () => {
         listTracks.mockResolvedValue(emptyPage);
         const queryClient = createTestQueryClient();
 
-        await runLoader(TracksRoute, { context: { queryClient }, deps: { page: 0, search: 'vaka', sortBy: 'title', sort: 'asc', pageSize: DEFAULT_PAGE_SIZE } });
+        await runLoader(TracksRoute, {
+            context: { queryClient },
+            deps: { page: 0, search: 'vaka', sortBy: 'title', sort: 'asc', pageSize: DEFAULT_PAGE_SIZE },
+        });
 
         expect(listTracks).toHaveBeenCalledWith(expect.objectContaining({ search: 'vaka' }));
         expect(queryClient.getQueryData(queryKeys.catalog.tracks(0, 'vaka', undefined, orderKey('title')))).toEqual(emptyPage);
@@ -157,7 +160,11 @@ describe('the drill-down loaders', () => {
         listAlbumTracks.mockResolvedValue(emptyPage);
         const queryClient = createTestQueryClient();
 
-        await runLoader(AlbumRoute, { context: { queryClient }, params: { albumId: ALBUM_ID }, deps: { page: 0, sortBy: 'title', sort: 'asc', pageSize: DEFAULT_PAGE_SIZE } });
+        await runLoader(AlbumRoute, {
+            context: { queryClient },
+            params: { albumId: ALBUM_ID },
+            deps: { page: 0, sortBy: 'title', sort: 'asc', pageSize: DEFAULT_PAGE_SIZE },
+        });
 
         expect(queryClient.getQueryData(queryKeys.catalog.album(ALBUM_ID))).toBeDefined();
         expect(queryClient.getQueryData(queryKeys.catalog.albumTracks(ALBUM_ID, 0, undefined, orderKey('title')))).toEqual(emptyPage);

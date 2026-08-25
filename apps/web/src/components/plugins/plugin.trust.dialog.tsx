@@ -54,8 +54,9 @@ export function PluginTrustDialog({ plugin, opened, onCancel, onConfirm }: Plugi
                     <Button onClick={onConfirm}>Enable {plugin.name}</Button>
                 </Group>
 
-                {/* No "do not ask again": persisting consent needs a server-side record and a contract
-                    change, both out of scope here, so this dialog appears on every enable. */}
+                {/* Shown on the FIRST enable alone. `plugin_configs.first_enabled_at` is the record
+                    that makes that possible, and the caller reads it: there is no "do not ask
+                    again" box here because the answer is the enable itself. */}
             </Stack>
         </Modal>
     );

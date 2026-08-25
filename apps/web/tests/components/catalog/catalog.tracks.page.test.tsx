@@ -14,7 +14,7 @@ import { DEFAULT_PAGE_SIZE } from '../../../src/components/catalog/catalog.page.
  * is required because the page reads it to build its query, so it is supplied once rather than
  * spelled at twenty render sites.
  */
-const ORDER = (sortBy: string) => ({ sortBy, sort: 'asc' as const, pageSize: DEFAULT_PAGE_SIZE });
+const ORDER = <T extends string>(sortBy: T) => ({ sortBy, sort: 'asc' as const, pageSize: DEFAULT_PAGE_SIZE });
 
 const listTracks = vi.fn();
 const getTrackEnrichment = vi.fn();

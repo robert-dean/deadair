@@ -11,7 +11,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
-import type { CatalogOrderParams } from './catalog.page.params';
+import type { TrackListOrder } from './catalog.page.params';
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
@@ -21,7 +21,7 @@ export interface AlbumDetailPageProps {
     albumId: string;
     page: number;
     /** How the list on this page is ordered and how much of it is shown, carried in the URL. */
-    order: CatalogOrderParams;
+    order: TrackListOrder;
     onPageChange: (page: number) => void;
 }
 

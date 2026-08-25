@@ -2,13 +2,7 @@ import { useState } from 'react';
 import { ActionIcon, Badge, Button, Card, Group, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import type { PersonaNote } from '@deadair/sdk';
 
-import {
-    useDeletePersonaNote,
-    usePersonaNotes,
-    useSetPersonaNoteState,
-    useUpdatePersonaNote,
-    useWritePersonaNote,
-} from '../../api/personas.queries';
+import { useDeletePersonaNote, usePersonaNotes, useSetPersonaNoteState, useUpdatePersonaNote, useWritePersonaNote } from '../../api/personas.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
@@ -67,7 +61,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
                     <ErrorAlert title="The notebook could not be loaded" error={notes.error} fallback="Nothing about this character has changed." />
                 ) : undefined}
 
-                {write.error ?? update.error ?? remove.error ?? setState.error ? (
+                {(write.error ?? update.error ?? remove.error ?? setState.error) ? (
                     <ErrorAlert
                         title="That note could not be saved"
                         error={write.error ?? update.error ?? remove.error ?? setState.error!}
@@ -137,8 +131,9 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
 
                     {active.length === 0 && !notes.isPending ? (
                         <EmptyState>
-                            This character has accumulated nothing yet, which is an ordinary state: its breaks are written from its sheet alone, exactly
-                            as they were before there was a notebook. Write a note, or let the station propose one from what it has already said.
+                            This character has accumulated nothing yet, which is an ordinary state: its breaks are written from its sheet alone,
+                            exactly as they were before there was a notebook. Write a note, or let the station propose one from what it has already
+                            said.
                         </EmptyState>
                     ) : undefined}
                 </Stack>
@@ -185,17 +180,7 @@ export function PersonaNotesPanel({ personaId }: { personaId: string }) {
  * is a line that is nearly right: an operator who can only accept or reject a nearly-right sentence
  * rejects it, and the observation is lost with the wording.
  */
-function NoteRow({
-    note,
-    actions,
-    busy,
-    onSave,
-}: {
-    note: PersonaNote;
-    actions: React.ReactNode;
-    busy: boolean;
-    onSave?: (value: string) => void;
-}) {
+function NoteRow({ note, actions, busy, onSave }: { note: PersonaNote; actions: React.ReactNode; busy: boolean; onSave?: (value: string) => void }) {
     const [draft, setDraft] = useState<string | undefined>(undefined);
     const editing = draft !== undefined;
 

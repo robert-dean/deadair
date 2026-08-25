@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import type { DateTime } from 'luxon';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { ConfigField } from '@deadair/plugin-sdk';
 import { PluginConfigRecord, PluginConfigRepository } from './plugin.config.repository.js';
@@ -23,6 +24,8 @@ export interface PluginConfigReadModel {
     lastError?: string;
     /** Per-plugin override of the log level. Absent means "use the configured default". */
     logLevel?: string;
+    /** When this plugin was first ever enabled. Absent means it never has been. */
+    firstEnabledAt?: DateTime;
 }
 
 /** `note` fields are static help text, not inputs, so they never carry a value. */
@@ -119,7 +122,7 @@ export class PluginConfigService {
 
     private toReadModel(
         record: Pick<PluginConfigRecord, 'pluginId' | 'enabled' | 'config' | 'secrets'> &
-            Partial<Pick<PluginConfigRecord, 'status' | 'lastError' | 'logLevel'>>,
+            Partial<Pick<PluginConfigRecord, 'status' | 'lastError' | 'logLevel' | 'firstEnabledAt'>>,
         fields: ConfigField[],
     ): PluginConfigReadModel {
         const config: Record<string, unknown> = {};
@@ -145,6 +148,7 @@ export class PluginConfigService {
             status: record.status,
             lastError: record.lastError,
             logLevel: record.logLevel,
+            firstEnabledAt: record.firstEnabledAt,
         };
     }
 }

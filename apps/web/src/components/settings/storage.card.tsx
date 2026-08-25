@@ -76,9 +76,9 @@ export function StorageCard() {
                         </Table>
 
                         <Text size="xs" c="dimmed">
-                            Read {formatTimeOfDay(storage.data.readAt)}. Walking the directories is real work, so this is a reading
-                            rather than a live figure. Nothing here is deleted automatically: a file no row claims and a record whose file has gone
-                            are both reported and left alone.
+                            Read {formatTimeOfDay(storage.data.readAt)}. Walking the directories is real work, so this is a reading rather than a live
+                            figure. Nothing here is deleted automatically: a file no row claims and a record whose file has gone are both reported and
+                            left alone.
                         </Text>
                     </>
                 ) : undefined}

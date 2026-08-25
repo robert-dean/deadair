@@ -79,7 +79,11 @@ function Row({ item }: { item: AttentionItem }) {
                     size="sm"
                     style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
                     renderRoot={props =>
-                        destination.params ? <Link to={destination.to} params={destination.params} {...props} /> : <Link to={destination.to} {...props} />
+                        destination.params ? (
+                            <Link to={destination.to} params={destination.params} {...props} />
+                        ) : (
+                            <Link to={destination.to} {...props} />
+                        )
                     }
                 >
                     {destination.label} →

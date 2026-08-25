@@ -38,13 +38,7 @@ export function StatusLamp({ tone, label, emphasis = 'lamp', size = 'sm', pulse 
     const dot = size === 'md' ? 10 : 8;
     return (
         <Group gap="xxs" wrap="nowrap" aria-label={`Status: ${label}`}>
-            <Box
-                w={dot}
-                h={dot}
-                bg={`${color}.5`}
-                className={pulse ? 'da-lamp-pulse' : undefined}
-                style={{ borderRadius: '50%', flexShrink: 0 }}
-            />
+            <Box w={dot} h={dot} bg={`${color}.5`} className={pulse ? 'da-lamp-pulse' : undefined} style={{ borderRadius: '50%', flexShrink: 0 }} />
             <Text size={size === 'md' ? 'sm' : 'xs'} fw={600} tt="uppercase" style={{ letterSpacing: 'var(--da-tracking-eyebrow)' }}>
                 {label}
             </Text>

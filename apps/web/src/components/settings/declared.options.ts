@@ -37,9 +37,7 @@ export function useDeclaredOptions(fields: readonly ConfigFieldDescriptor[]): Re
 
     if (!wanted.has('station.newsCategories')) return {};
 
-    const categories = (topics.data?.topics ?? [])
-        .filter(topic => topic.kind === NEWS_KIND)
-        .map(topic => ({ value: topic.key, label: topic.label }));
+    const categories = (topics.data?.topics ?? []).filter(topic => topic.kind === NEWS_KIND).map(topic => ({ value: topic.key, label: topic.label }));
 
     const resolved: Record<string, readonly ConfigFieldOption[]> = {};
     for (const field of fields) {

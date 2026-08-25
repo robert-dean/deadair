@@ -13,7 +13,8 @@ import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { SortableTh } from '../shared/sortable.th';
 import { CatalogPagination } from './catalog.pagination';
-import type { CatalogOrderParams, TrackStateParam } from './catalog.page.params';
+import type { TrackSort } from '@deadair/sdk';
+import type { TrackListOrder, TrackStateParam } from './catalog.page.params';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
 import { TrackStateFilter } from './track.state.filter';
@@ -24,12 +25,12 @@ export interface CatalogTracksPageProps {
     search: string;
     state: TrackStateParam | '';
     /** How this list is ordered and how much of it is shown, carried in the URL. */
-    order: CatalogOrderParams;
+    order: TrackListOrder;
     onPageChange: (page: number) => void;
     onSearchChange: (search: string) => void;
     onStateChange: (state: TrackStateParam | '') => void;
     /** A new ordering, whole: changing any part of it is one gesture and resets the page. */
-    onOrderChange: (order: CatalogOrderParams) => void;
+    onOrderChange: (order: TrackListOrder) => void;
 }
 
 /**
@@ -74,7 +75,7 @@ export function CatalogTracksPage({
     const sorting = {
         active: order.sortBy,
         direction: order.sort,
-        onSort: (sortBy: string, sort: 'asc' | 'desc') => onOrderChange({ ...order, sortBy, sort }),
+        onSort: (sortBy: TrackSort, sort: 'asc' | 'desc') => onOrderChange({ ...order, sortBy, sort }),
     };
 
     return (

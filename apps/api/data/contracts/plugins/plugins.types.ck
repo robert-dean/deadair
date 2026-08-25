@@ -61,6 +61,7 @@ contract PluginSummary: {
     icon?: string(max=2000)
     configFields: array(ConfigFieldDescriptor)
     secretsConfigured: record(string, boolean) # One entry per `secret` field: whether a value is currently stored. Never the value itself
+    firstEnabledAt?: readonly datetime # When this plugin was first ever enabled. Absent means it never has been, so the console asks before it is
 }
 
 contract PluginLogLevel: enum(debug, info, warn, error)

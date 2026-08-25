@@ -43,13 +43,7 @@ export interface ErrorAlertProps {
  */
 export function ErrorAlert({ title, error, fallback, tone = 'failure', onDismiss, children }: ErrorAlertProps) {
     return (
-        <Alert
-            color={severityColor[tone]}
-            title={title}
-            withCloseButton={onDismiss !== undefined}
-            closeButtonLabel="Dismiss"
-            onClose={onDismiss}
-        >
+        <Alert color={severityColor[tone]} title={title} withCloseButton={onDismiss !== undefined} closeButtonLabel="Dismiss" onClose={onDismiss}>
             {children ?? apiErrorMessage(error, fallback ?? '')}
         </Alert>
     );

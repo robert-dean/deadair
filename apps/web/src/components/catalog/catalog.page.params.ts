@@ -1,3 +1,5 @@
+import type { CatalogSort, TrackSort } from '@deadair/sdk';
+
 /**
  * Where a catalog list keeps its page, search term and ordering: the URL, not component state.
  *
@@ -5,7 +7,7 @@
  * means. Every catalog route validates its search params through here so the four lists cannot
  * drift into four spellings of the same values.
  */
-export interface CatalogPageParams extends CatalogOrderParams {
+export interface CatalogPageParams extends CatalogListOrder {
     /** Zero-based, matching the API. */
     page: number;
     /** Empty means unfiltered. Never undefined, so the components have one shape to handle. */
@@ -19,12 +21,16 @@ export interface CatalogPageParams extends CatalogOrderParams {
  * because these three move together: changing any of them is the same gesture as far as the pager
  * is concerned, and all three reset the page to zero.
  */
-export interface CatalogOrderParams {
+export interface CatalogOrderParams<TSort extends CatalogSort | TrackSort = CatalogSort | TrackSort> {
     /** A key from the list's own vocabulary. Never empty: a list is always ordered by something. */
-    sortBy: string;
+    sortBy: TSort;
     sort: 'asc' | 'desc';
     pageSize: number;
 }
+
+/** An artist or album list's ordering, and a track list's. Named so a page can say which it holds. */
+export type CatalogListOrder = CatalogOrderParams<CatalogSort>;
+export type TrackListOrder = CatalogOrderParams<TrackSort>;
 
 /**
  * The states a track list can be narrowed to, matching the API's `TrackState`.
@@ -37,16 +43,20 @@ export const TRACK_STATES = ['cached', 'uncached', 'unmeasured', 'benched', 'fai
 export type TrackStateParam = (typeof TRACK_STATES)[number];
 
 /**
- * The two sort vocabularies, matching the API's `CatalogSort` and `TrackSort`, and restated here
- * for `TRACK_STATES`' reason.
+ * The two sort vocabularies, matching the API's `CatalogSort` and `TrackSort`.
+ *
+ * The VALUES are restated for `TRACK_STATES`' reason: this file validates a URL, so a hand-typed key
+ * has to fall back before it reaches the API. The TYPE is imported rather than inferred, which is
+ * the other half of the same care — a key added to the contract and not to this list is then a
+ * compile error here rather than an ordering the console silently cannot offer.
  *
  * The server falls back on a key it cannot serve as well, which is not redundant with this: that
  * one covers a list asked for an ordering it has no column for, and this one covers a word that was
  * never a key at all. Neither is safe to remove because the other exists.
  */
-export const CATALOG_SORTS = ['name', 'albums', 'tracks', 'year', 'rating'] as const;
+export const CATALOG_SORTS: readonly CatalogSort[] = ['name', 'albums', 'tracks', 'year', 'rating'];
 
-export const TRACK_SORTS = ['title', 'artist', 'album', 'year', 'duration', 'rating'] as const;
+export const TRACK_SORTS: readonly TrackSort[] = ['title', 'artist', 'album', 'year', 'duration', 'rating'];
 
 /**
  * What an operator may set a page to.
@@ -64,7 +74,9 @@ export const PAGE_SIZES = [25, 50, 100] as const;
  */
 export const DEFAULT_PAGE_SIZE = 50;
 
-export interface CatalogTrackParams extends CatalogPageParams {
+export interface CatalogTrackParams extends TrackListOrder {
+    page: number;
+    search: string;
     /** Empty means every record, for the same reason `search` is a string rather than undefined. */
     state: TrackStateParam | '';
 }
@@ -82,7 +94,7 @@ export const CATALOG_ALBUM_DEFAULTS = { page: 0, ...orderDefaults('name') };
 export const CATALOG_ALBUM_TRACK_DEFAULTS = { page: 0, ...orderDefaults('title') };
 
 /** The ordinary opening state of any list: its own first key, ascending, at the console's page size. */
-function orderDefaults(sortBy: string): CatalogOrderParams {
+function orderDefaults<T extends CatalogSort | TrackSort>(sortBy: T): CatalogOrderParams<T> {
     return { sortBy, sort: 'asc', pageSize: DEFAULT_PAGE_SIZE };
 }
 
@@ -92,7 +104,7 @@ function orderDefaults(sortBy: string): CatalogOrderParams {
  * `asc` rather than the contract's `desc`, and that is the whole reason this defaults anything: a
  * name list opened descending opens at Z, which reads as a broken page rather than as an ordering.
  */
-function validateOrder(input: Record<string, unknown>, known: readonly string[], fallback: string): CatalogOrderParams {
+function validateOrder<T extends CatalogSort | TrackSort>(input: Record<string, unknown>, known: readonly T[], fallback: T): CatalogOrderParams<T> {
     const size = Number(input.pageSize);
 
     return {
@@ -136,11 +148,11 @@ export function validateCatalogTracks(input: Record<string, unknown>): CatalogTr
 }
 
 /** One artist's albums: no search box, and the album half of the catalog vocabulary. */
-export function validateCatalogAlbums(input: Record<string, unknown>): { page: number } & CatalogOrderParams {
+export function validateCatalogAlbums(input: Record<string, unknown>): { page: number } & CatalogListOrder {
     return { page: validatePage(input), ...validateOrder(input, CATALOG_SORTS, 'name') };
 }
 
 /** One album's tracks: no search box, and the track vocabulary. */
-export function validateCatalogAlbumTracks(input: Record<string, unknown>): { page: number } & CatalogOrderParams {
+export function validateCatalogAlbumTracks(input: Record<string, unknown>): { page: number } & TrackListOrder {
     return { page: validatePage(input), ...validateOrder(input, TRACK_SORTS, 'title') };
 }

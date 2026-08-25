@@ -90,4 +90,33 @@ describe('PluginsPage', () => {
             expect(listPlugins).toHaveBeenCalledTimes(2);
         });
     });
+    /**
+     * The trust dialog is the moment an operator agrees to run somebody else's code in this process,
+     * and it is asked once. Asking on every enable says the answer was never recorded, when the
+     * server has held it since the first time.
+     */
+    it('asks before enabling a plugin that has never been on', async () => {
+        const never = pluginSummary({ enabled: false, status: 'disabled', firstEnabledAt: undefined });
+        listPlugins.mockResolvedValue([never]);
+
+        render(<PluginsPage />);
+        await setupUser().click(await screen.findByLabelText('Enable Spotify'));
+
+        expect(await screen.findByRole('button', { name: 'Enable Spotify' })).toBeInTheDocument();
+        expect(enablePlugin).not.toHaveBeenCalled();
+    });
+
+    it('does not ask again for one the operator has already trusted', async () => {
+        const trusted = pluginSummary({ enabled: false, status: 'disabled', firstEnabledAt: '2026-08-01T12:00:00.000Z' });
+        listPlugins.mockResolvedValue([trusted]);
+        enablePlugin.mockResolvedValue({ ...pluginSummary(), config: {} });
+
+        render(<PluginsPage />);
+        await setupUser().click(await screen.findByLabelText('Enable Spotify'));
+
+        await waitFor(() => {
+            expect(enablePlugin).toHaveBeenCalledWith('deadair.spotify');
+        });
+        expect(screen.queryByRole('button', { name: 'Enable Spotify' })).not.toBeInTheDocument();
+    });
 });

@@ -9,7 +9,8 @@ import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { SortableTh } from '../shared/sortable.th';
-import type { CatalogOrderParams } from './catalog.page.params';
+import type { CatalogSort } from '@deadair/sdk';
+import type { CatalogListOrder } from './catalog.page.params';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
@@ -18,11 +19,11 @@ export interface CatalogArtistsPageProps {
     page: number;
     search: string;
     /** How this list is ordered and how much of it is shown, carried in the URL. */
-    order: CatalogOrderParams;
+    order: CatalogListOrder;
     onPageChange: (page: number) => void;
     onSearchChange: (search: string) => void;
     /** A new ordering, whole: changing any part of it is one gesture and resets the page. */
-    onOrderChange: (order: CatalogOrderParams) => void;
+    onOrderChange: (order: CatalogListOrder) => void;
 }
 
 export function CatalogArtistsPage({ page, search, order, onPageChange, onSearchChange, onOrderChange }: CatalogArtistsPageProps) {
@@ -34,7 +35,7 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
     const sorting = {
         active: order.sortBy,
         direction: order.sort,
-        onSort: (sortBy: string, sort: 'asc' | 'desc') => onOrderChange({ ...order, sortBy, sort }),
+        onSort: (sortBy: CatalogSort, sort: 'asc' | 'desc') => onOrderChange({ ...order, sortBy, sort }),
     };
 
     return (

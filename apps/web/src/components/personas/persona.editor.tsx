@@ -190,7 +190,11 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                                 )
                                             }
                                         >
-                                            {preview.isPlaying(form.values.voice) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
+                                            {preview.isPlaying(form.values.voice) ? (
+                                                <IconPlayerPauseFilled size={14} />
+                                            ) : (
+                                                <IconPlayerPlayFilled size={14} />
+                                            )}
                                         </ActionIcon>
                                     ) : undefined
                                 }

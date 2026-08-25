@@ -11,7 +11,8 @@ import { StatusLamp } from '../shared/status.lamp';
 function startError(error: unknown): string {
     const status = sdkError(error)?.status;
     if (status === 403) return 'Authorizing playback is not something your account is allowed to do.';
-    if (status === 503) return 'The track fetcher is not answering, so there is nothing to authorize yet. Check that the stream half of this install is running.';
+    if (status === 503)
+        return 'The track fetcher is not answering, so there is nothing to authorize yet. Check that the stream half of this install is running.';
     return apiErrorMessage(error, 'The authorization could not be started.');
 }
 
@@ -143,8 +144,8 @@ export function StreamAuthorizationCard({ plugin }: StreamAuthorizationCardProps
                                     and approve.
                                 </List.Item>
                                 <List.Item>
-                                    Your browser is then sent to {state?.callbackUrl ? <Code>{state.callbackUrl}</Code> : 'an address on the station'},
-                                    which is only reachable from the station itself. Expect an error page.
+                                    Your browser is then sent to {state?.callbackUrl ? <Code>{state.callbackUrl}</Code> : 'an address on the station'}
+                                    , which is only reachable from the station itself. Expect an error page.
                                 </List.Item>
                                 <List.Item>Copy that whole address out of the address bar and paste it below.</List.Item>
                             </List>
@@ -205,7 +206,10 @@ export function StreamAuthorizationCard({ plugin }: StreamAuthorizationCardProps
  * `fault` rather than `live` for an unauthorized fetcher: this is something broken that wants
  * fixing, not the station doing its job, and those two must never be drawn alike.
  */
-function lampFor(state: { reachable: boolean; configured: boolean; authorized: boolean }): { tone: 'ok' | 'fault' | 'standby' | 'off'; label: string } {
+function lampFor(state: { reachable: boolean; configured: boolean; authorized: boolean }): {
+    tone: 'ok' | 'fault' | 'standby' | 'off';
+    label: string;
+} {
     if (!state.configured) return { tone: 'off', label: 'Not set up' };
     if (!state.reachable) return { tone: 'standby', label: 'Not answering' };
     return state.authorized ? { tone: 'ok', label: 'Authorized' } : { tone: 'fault', label: 'Not authorized' };

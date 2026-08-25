@@ -841,6 +841,7 @@ export class PluginsService {
             icon: manifest?.icon,
             configFields: manifest?.configFields ?? [],
             secretsConfigured: readModel.configured,
+            firstEnabledAt: readModel.firstEnabledAt,
         };
     }
 }

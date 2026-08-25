@@ -48,7 +48,16 @@ const REPORT: StorageReport = {
             orphanBytes: 30_687_500,
             rowsWithNoFile: 2,
         },
-        { id: 'voices', label: 'Voice previews', path: '/media/voice-samples', files: 1, bytes: 43_821, orphanFiles: 0, orphanBytes: 0, rowsWithNoFile: 0 },
+        {
+            id: 'voices',
+            label: 'Voice previews',
+            path: '/media/voice-samples',
+            files: 1,
+            bytes: 43_821,
+            orphanFiles: 0,
+            orphanBytes: 0,
+            rowsWithNoFile: 0,
+        },
     ],
 };
 

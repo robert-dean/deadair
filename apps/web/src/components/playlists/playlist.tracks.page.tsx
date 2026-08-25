@@ -57,9 +57,7 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
                         // One button rather than two. Importing this into a lineup first used to be
                         // the "programmed" path; there is no lineup to import into any more, because
                         // the running order is built from this playlist at the moment it goes on.
-                        tracks.data && tracks.data.tracks.length > 0 ? (
-                            <PlayPlaylistButton pluginId={pluginId} playlistId={playlistId} />
-                        ) : undefined
+                        tracks.data && tracks.data.tracks.length > 0 ? <PlayPlaylistButton pluginId={pluginId} playlistId={playlistId} /> : undefined
                     }
                 />
             </Stack>
@@ -70,9 +68,7 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
 
             {tracks.isPending ? <PageSkeleton variant="table" /> : undefined}
 
-            {tracks.data?.tracks.length === 0 ? (
-                <EmptyState>This playlist has no tracks.</EmptyState>
-            ) : undefined}
+            {tracks.data?.tracks.length === 0 ? <EmptyState>This playlist has no tracks.</EmptyState> : undefined}
 
             {tracks.data && tracks.data.tracks.length > 0 ? (
                 <Table>

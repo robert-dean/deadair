@@ -60,7 +60,9 @@ export function TakeACall({ brief, personaId, disabled = false }: TakeACallProps
         <Popover opened={open} onChange={setOpen} position="bottom-start" width={380} withArrow shadow="md" trapFocus>
             <Popover.Target>
                 <Tooltip
-                    label={failure ?? 'Puts somebody on the phone. It is written over a few minutes and drops into the running order when it is ready.'}
+                    label={
+                        failure ?? 'Puts somebody on the phone. It is written over a few minutes and drops into the running order when it is ready.'
+                    }
                     color={failure ? 'red' : undefined}
                     multiline
                     maw={320}

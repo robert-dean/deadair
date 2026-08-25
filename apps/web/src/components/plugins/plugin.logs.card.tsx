@@ -143,9 +143,7 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
 
                 {downloadError ? <ErrorAlert title="Download failed">{downloadError}</ErrorAlert> : undefined}
 
-                {logs.error ? (
-                    <ErrorAlert title="Could not load logs" error={logs.error} fallback="The log tail could not be fetched." />
-                ) : undefined}
+                {logs.error ? <ErrorAlert title="Could not load logs" error={logs.error} fallback="The log tail could not be fetched." /> : undefined}
 
                 <ScrollArea h={260} type="auto" bg="dark.8" style={{ borderRadius: 'var(--mantine-radius-sm)' }} p="xs">
                     {logs.isPending ? (

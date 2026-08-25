@@ -60,7 +60,15 @@ export function useFinishFetcherAuthorization() {
             client.setQueryData<FetcherAuthorization>(queryKeys.stream.authorization(), previous =>
                 previous === undefined
                     ? previous
-                    : { ...previous, reachable: true, configured: true, authorized: true, session: true, loginError: undefined, pendingUrl: undefined },
+                    : {
+                          ...previous,
+                          reachable: true,
+                          configured: true,
+                          authorized: true,
+                          session: true,
+                          loginError: undefined,
+                          pendingUrl: undefined,
+                      },
             );
             return finished;
         },

@@ -1,5 +1,5 @@
 import { keepPreviousData, queryOptions, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { Album, Artist, Rating, TrackState } from '@deadair/sdk';
+import type { Album, Artist, CatalogSort, Rating, TrackSort, TrackState } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -30,21 +30,21 @@ const TRACK_DETAIL_STALE_TIME = 15_000;
  * matched by `invalidateRatedLists` with a predicate over segments, and a key that grew three
  * positions would be three more chances for that predicate to read the wrong one.
  */
-const order = ({ sortBy, sort, pageSize }: CatalogPageInput) => `${sortBy ?? ''}:${sort ?? ''}:${pageSize ?? ''}`;
+const order = ({ sortBy, sort, pageSize }: CatalogPageInput<CatalogSort | TrackSort>) => `${sortBy ?? ''}:${sort ?? ''}:${pageSize ?? ''}`;
 
 /** A page of any catalog list, as the routes carry it in their search params. */
-export interface CatalogPageInput {
+export interface CatalogPageInput<TSort extends CatalogSort | TrackSort = CatalogSort> {
     /** Zero-based, matching the API. The Mantine pager is one-based and converts at the edge. */
     page: number;
     search?: string;
     /** A key from the list's own vocabulary. Absent leaves the ordering to the server's own default. */
-    sortBy?: string;
+    sortBy?: TSort;
     sort?: 'asc' | 'desc';
     pageSize?: number;
 }
 
 /** A page of tracks, which can also be narrowed by what the station has of each record. */
-export interface CatalogTrackPageInput extends CatalogPageInput {
+export interface CatalogTrackPageInput extends CatalogPageInput<TrackSort> {
     state?: string;
 }
 
@@ -57,7 +57,7 @@ export interface CatalogTrackPageInput extends CatalogPageInput {
  * not the ordinary path. An empty search is dropped rather than sent, since the contract's `search`
  * has a `min=1`.
  */
-function pageQuery({ page, search, sortBy, sort, pageSize }: CatalogPageInput) {
+function pageQuery<TSort extends CatalogSort | TrackSort>({ page, search, sortBy, sort, pageSize }: CatalogPageInput<TSort>) {
     return {
         page,
         pageSize: pageSize ?? DEFAULT_PAGE_SIZE,
@@ -112,7 +112,7 @@ export function catalogAlbumOptions(id: string) {
     });
 }
 
-export function catalogAlbumTracksOptions(id: string, input: CatalogPageInput) {
+export function catalogAlbumTracksOptions(id: string, input: CatalogPageInput<TrackSort>) {
     return queryOptions({
         queryKey: queryKeys.catalog.albumTracks(id, input.page, input.search, order(input)),
         queryFn: () => sdk.catalog.listAlbumTracks(id, pageQuery(input)),
@@ -183,8 +183,7 @@ export function catalogTracksOptions(input: CatalogTrackPageInput) {
 }
 
 /** An empty filter is no filter, matching how `search` is dropped rather than sent empty. */
-const trackState = (state: string | undefined): TrackState | undefined =>
-    TRACK_STATES.find((known): known is TrackState => known === state);
+const trackState = (state: string | undefined): TrackState | undefined => TRACK_STATES.find((known): known is TrackState => known === state);
 
 /**
  * Every cached list that could be showing a row of this kind, marked stale.

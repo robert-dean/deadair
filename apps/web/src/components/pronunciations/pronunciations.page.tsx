@@ -311,9 +311,7 @@ export function PronunciationsPage() {
                 errorTitle="That entry could not be deleted"
                 errorFallback="Nothing was removed."
             >
-                {deleting
-                    ? `The station reads it as "${deleting.spoken}" today, and will say it however the engine does once this is gone.`
-                    : ''}
+                {deleting ? `The station reads it as "${deleting.spoken}" today, and will say it however the engine does once this is gone.` : ''}
             </ConfirmModal>
         </Stack>
     );

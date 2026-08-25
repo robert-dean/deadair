@@ -82,7 +82,10 @@ describe('StreamAuthorizationCard', () => {
 
         expect(await screen.findByText('The page you land on will not load. That is expected')).toBeInTheDocument();
         expect(screen.getByText('http://127.0.0.1:3679/login')).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Open the Spotify approval page' })).toHaveAttribute('href', 'https://accounts.spotify.com/authorize?x=1');
+        expect(screen.getByRole('link', { name: 'Open the Spotify approval page' })).toHaveAttribute(
+            'href',
+            'https://accounts.spotify.com/authorize?x=1',
+        );
     });
 
     it('relays the pasted address whole and reports which account landed', async () => {

@@ -1,10 +1,22 @@
 -- migrate:up
 
+-- `first_enabled_at` is when the operator first turned this plugin on, and it exists to be asked one
+-- question: has this one ever been trusted before.
+--
+-- Enabling a plugin is the moment trust is extended, because a plugin runs in this process with this
+-- process's own privileges, so the console asks first. Asking on EVERY enable is a different claim
+-- and a wrong one: it says the answer was never recorded, when the operator has already given it.
+--
+-- It records a FACT rather than a consent, which is why it is spelled for what happened rather than
+-- `trusted_at`. Nothing here can be withdrawn: disabling a plugin leaves the column alone, since
+-- turning something off is not a statement that you never trusted it, and a plugin re-enabled a year
+-- later is one the operator already knows what they are agreeing to.
 create table deadair.plugin_configs (
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now() check (updated_at >= created_at),
     plugin_id text primary key,
     enabled boolean not null default false,
+    first_enabled_at timestamptz,
     config jsonb not null default '{}',
     secrets jsonb not null default '{}',
     status text,

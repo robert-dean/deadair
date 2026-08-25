@@ -112,8 +112,20 @@ describe('the per-parent lists', () => {
         await catalogArtistAlbumsOptions(ARTIST_ID, { page: 1 }).queryFn?.({} as never);
         await catalogAlbumTracksOptions(ALBUM_ID, { page: 0 }).queryFn?.({} as never);
 
-        expect(listArtistAlbums).toHaveBeenCalledWith(ARTIST_ID, { page: 1, pageSize: DEFAULT_PAGE_SIZE, sort: 'asc', sortBy: undefined, search: undefined });
-        expect(listAlbumTracks).toHaveBeenCalledWith(ALBUM_ID, { page: 0, pageSize: DEFAULT_PAGE_SIZE, sort: 'asc', sortBy: undefined, search: undefined });
+        expect(listArtistAlbums).toHaveBeenCalledWith(ARTIST_ID, {
+            page: 1,
+            pageSize: DEFAULT_PAGE_SIZE,
+            sort: 'asc',
+            sortBy: undefined,
+            search: undefined,
+        });
+        expect(listAlbumTracks).toHaveBeenCalledWith(ALBUM_ID, {
+            page: 0,
+            pageSize: DEFAULT_PAGE_SIZE,
+            sort: 'asc',
+            sortBy: undefined,
+            search: undefined,
+        });
     });
 });
 

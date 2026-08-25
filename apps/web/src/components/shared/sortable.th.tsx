@@ -2,14 +2,21 @@ import type { ReactNode } from 'react';
 import { Group, Table, UnstyledButton } from '@mantine/core';
 import { IconArrowDown, IconArrowUp } from '@tabler/icons-react';
 
-export interface SortableThProps {
+export interface SortableThProps<TSort extends string> {
     /** The key this column sorts by, in the list's own vocabulary. */
-    sortBy: string;
+    sortBy: TSort;
     /** What the list is ordered by right now, which may be some other column's key. */
     active: string;
     direction: 'asc' | 'desc';
-    /** Asked for a column and a direction together, because clicking one always decides both. */
-    onSort: (sortBy: string, direction: 'asc' | 'desc') => void;
+    /**
+     * Asked for a column and a direction together, because clicking one always decides both.
+     *
+     * Generic over the key so a heading hands back a member of its own list's vocabulary rather than
+     * a bare string, which is what lets the page pass it on without a cast. The two lists here have
+     * different vocabularies and share four of their words, so a string would type-check both ways
+     * round and mean nothing.
+     */
+    onSort: (sortBy: TSort, direction: 'asc' | 'desc') => void;
     children: ReactNode;
     /** Passed through to the underlying `Table.Th`, since these are laid out in fixed columns. */
     w?: number;
@@ -31,7 +38,7 @@ export interface SortableThProps {
  * makes it reachable by keyboard and announced as something that can be pressed. `aria-sort` carries
  * the state to a screen reader, where the arrow only carries it to an eye.
  */
-export function SortableTh({ sortBy, active, direction, onSort, children, w }: SortableThProps) {
+export function SortableTh<TSort extends string>({ sortBy, active, direction, onSort, children, w }: SortableThProps<TSort>) {
     const sorted = active === sortBy;
 
     return (

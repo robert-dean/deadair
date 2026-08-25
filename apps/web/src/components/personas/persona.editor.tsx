@@ -66,9 +66,30 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
     const voiceOptions = (voices.data?.voices ?? []).map(voice => ({ value: voice.id, label: voice.label }));
 
     return (
-        <Modal opened={opened} onClose={onClose} title={titleFor(persona, caller)} size="xl">
-            <form onSubmit={form.onSubmit(values => onSubmit(draftOf(values, kind)))}>
-                <Stack gap="md">
+        /* A character sheet is fourteen fields and is read whole, which is why this is one scroll
+           rather than tabs: a field behind a tab is a field an author does not know is there. What
+           that costs without help is the Save button, which sits under the fourteenth field and is
+           therefore off screen for the whole of the editing. So the FIELDS scroll and the buttons
+           do not. Inline rather than in `theme.components` because this is the one modal long
+           enough to need it; the day a second one is, it moves. */
+        <Modal
+            opened={opened}
+            onClose={onClose}
+            title={titleFor(persona, caller)}
+            size="xl"
+            styles={{
+                content: { maxHeight: 'calc(100vh - 6rem)', display: 'flex', flexDirection: 'column' },
+                // `minHeight: 0` is what actually makes the scroll happen: a flex child's default
+                // floor is its content, so without it the body grows past the content's max height
+                // instead of overflowing inside it.
+                body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' },
+            }}
+        >
+            <form
+                onSubmit={form.onSubmit(values => onSubmit(draftOf(values, kind)))}
+                style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+            >
+                <Stack gap="md" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }} pr="xs">
                     {error === undefined ? undefined : (
                         <ErrorAlert title="That could not be saved" error={error} fallback="The persona could not be saved." />
                     )}
@@ -302,23 +323,26 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     )}
 
                     <UnusedMarkers markers={form.values.dictionMarkers} samples={form.values.samples} />
-
-                    <Group justify="space-between">
-                        <Text c="dimmed" size="xs">
-                            Nothing here can loosen the rules the station always sends: never name a record it was not given, and be certain or say
-                            nothing. Saving is heard on the next break the station writes — one already written or being spoken keeps the words it
-                            has.
-                        </Text>
-                        <Group>
-                            <Button variant="subtle" onClick={onClose}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" loading={saving}>
-                                Save
-                            </Button>
-                        </Group>
-                    </Group>
                 </Stack>
+
+                {/* Outside the scroll, so the way out of this form is never fourteen fields away.
+                    The standing-rules sentence comes with it rather than staying at the bottom of
+                    the fields: it is about what SAVING does, so it belongs beside the button that
+                    does it. */}
+                <Group justify="space-between" align="flex-end" wrap="nowrap" pt="md" mt="md" style={{ borderTop: '1px solid var(--da-border)' }}>
+                    <Text c="dimmed" size="xs">
+                        Nothing here can loosen the rules the station always sends: never name a record it was not given, and be certain or say
+                        nothing. Saving is heard on the next break the station writes — one already written or being spoken keeps the words it has.
+                    </Text>
+                    <Group wrap="nowrap">
+                        <Button variant="subtle" onClick={onClose}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" loading={saving}>
+                            Save
+                        </Button>
+                    </Group>
+                </Group>
             </form>
         </Modal>
     );

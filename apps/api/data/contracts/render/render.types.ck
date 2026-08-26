@@ -188,6 +188,18 @@ contract Pad: {
     state: enum(active, rejected)
 }
 
+# A sound arriving from the browser, as multipart form parts.
+#
+# Documentation rather than validation: a multipart body reaches the service as the raw parser and
+# the generated client types the body as `FormData`, so nothing checks this shape. It says what to
+# send
+contract PadUpload: {
+    file: binary # The audio itself. mp3, wav, ogg, flac or m4a, and at most 25 MB
+    board: string(min=1, max=200) # The directory it is filed under, which is also the set it joins. A new name makes both
+    name?: string(min=1, max=200) # What a script will write. Derived from the filename when absent, and the FILE is named after this either way
+    label?: string(min=1, max=200) # What the console calls it. Derived from the filename when absent
+}
+
 contract PadList: { # Every sound the station holds, and the sets over it
     pads: array(Pad)
     sets: array(PadSet)

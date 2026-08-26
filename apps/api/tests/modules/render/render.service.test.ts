@@ -556,3 +556,122 @@ describe('RenderService.readScriptHistory', () => {
         expect(page).toHaveBeenCalledWith(expect.not.objectContaining({ segmentId: expect.anything() }));
     });
 });
+
+// The console door onto the rack. What is under test is the READING of a multipart body — what a
+// name comes from, what an extension comes from, what is refused — because `PadLibrary.ingest`
+// beyond it has its own suite and the parser itself belongs to the server framework.
+describe('RenderService.uploadPad', () => {
+    const FILE = { field: 'file', filename: 'Air Horn (2).wav', mimeType: 'audio/wav', bytes: Buffer.from('a drop') };
+
+    /** A parsed multipart body, as the generated router hands one over. */
+    const body = (parts: { fields?: Record<string, string>; file?: typeof FILE | undefined }) =>
+        ({
+            parse: async (handler: (field: string, stream: unknown, filename: string, encoding: string, mimeType: string) => Promise<void>) => {
+                const file = parts.file === undefined ? undefined : parts.file;
+                if (file !== undefined) {
+                    // One chunk, which is all this needs: the service concatenates whatever the
+                    // stream yields and the chunking is busboy's business rather than its own.
+                    await handler(file.field, [file.bytes], file.filename, '7bit', file.mimeType);
+                }
+
+                return new Map(
+                    Object.entries(parts.fields ?? {}).map(([key, value]) => [
+                        key,
+                        { value, nameTruncated: false, valueTruncated: false, encoding: '7bit', mimeType: 'text/plain' },
+                    ]),
+                );
+            },
+        }) as never;
+
+    const uploader = (ingest = vi.fn(async () => ({ pad: { id: 'pad-1', name: 'airhorn' }, outcome: 'created', contested: false }))) => {
+        const render = new RenderService(
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            { list: vi.fn(async () => []) } as never,
+            { list: vi.fn(async () => []), setsFor: vi.fn(async () => new Map()), personasNaming: vi.fn(async () => []) } as never,
+            { ingest } as never,
+            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+        );
+
+        return { service: render, ingest };
+    };
+
+    it('derives the token and the label from the filename when nobody says otherwise', async () => {
+        const { service: render, ingest } = uploader();
+
+        await render.uploadPad(body({ file: FILE, fields: { board: 'wisecrack' } }));
+
+        expect(ingest).toHaveBeenCalledWith(
+            expect.objectContaining({ board: 'wisecrack', name: 'air-horn-2', label: 'Air Horn (2)', ext: 'wav', source: 'upload' }),
+        );
+    });
+
+    it('normalises a name the operator typed exactly as it would a filename', async () => {
+        const { service: render, ingest } = uploader();
+
+        // Or the one door produces `Air Horn` and the other `air-horn`, and the station holds two
+        // pads where somebody added one.
+        await render.uploadPad(body({ file: FILE, fields: { name: 'Air Horn' } }));
+
+        expect(ingest).toHaveBeenCalledWith(expect.objectContaining({ name: 'air-horn' }));
+    });
+
+    it('lands on the station board when nobody names one', async () => {
+        const { service: render, ingest } = uploader();
+
+        await render.uploadPad(body({ file: FILE }));
+
+        expect(ingest).toHaveBeenCalledWith(expect.objectContaining({ board: 'station' }));
+    });
+
+    it('falls back to the declared media type for a file whose name carries no extension', async () => {
+        const { service: render, ingest } = uploader();
+
+        await render.uploadPad(body({ file: { ...FILE, filename: 'airhorn', mimeType: 'audio/mpeg' } }));
+
+        expect(ingest).toHaveBeenCalledWith(expect.objectContaining({ ext: 'mp3', name: 'airhorn' }));
+    });
+
+    it('refuses a format the store cannot serve rather than filing it', async () => {
+        const { service: render, ingest } = uploader();
+
+        expect(await status(render.uploadPad(body({ file: { ...FILE, filename: 'airhorn.aiff', mimeType: 'audio/aiff' } })))).toBe(415);
+        expect(ingest).not.toHaveBeenCalled();
+    });
+
+    it('refuses an upload carrying no audio at all', async () => {
+        const { service: render, ingest } = uploader();
+
+        expect(await status(render.uploadPad(body({ fields: { board: 'wisecrack' } })))).toBe(400);
+        expect(ingest).not.toHaveBeenCalled();
+    });
+
+    it('refuses a name with nothing left in it, because a script has to be able to write one', async () => {
+        const { service: render, ingest } = uploader();
+
+        expect(await status(render.uploadPad(body({ file: FILE, fields: { name: '---' } })))).toBe(400);
+        expect(ingest).not.toHaveBeenCalled();
+    });
+
+    it('refuses a board that would write outside the library', async () => {
+        const { service: render, ingest } = uploader();
+
+        expect(await status(render.uploadPad(body({ file: FILE, fields: { board: '../../etc' } })))).toBe(400);
+        expect(ingest).not.toHaveBeenCalled();
+    });
+
+    it('says so when the set already answers to that name, because the sound is kept and unreachable', async () => {
+        const contested = vi.fn(async () => ({ pad: { id: 'pad-1', name: 'airhorn' }, outcome: 'created', contested: true }));
+        const { service: render } = uploader(contested);
+
+        expect(await status(render.uploadPad(body({ file: FILE, fields: { board: 'wisecrack' } })))).toBe(409);
+    });
+});

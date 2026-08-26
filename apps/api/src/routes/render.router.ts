@@ -7,6 +7,7 @@ import {
     PadSetMembership,
     PadSetWrite,
     PadState,
+    PadUpload,
     PronunciationList,
     PronunciationQuery,
     PronunciationStateWrite,
@@ -25,6 +26,7 @@ import {
     VoiceList,
 } from '../modules/render/types/render.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
+import { MultipartBody } from '@maroonedsoftware/multipart';
 
 /**
  * generated from [render.ck](file://./../../data/contracts/render/render.ck)
@@ -349,7 +351,7 @@ RenderRouter.put('/pronunciations/:id/state', requirePolicy({ policy: 'platform.
 
 /**
  * Every sound the station holds, board by board
- * from [render.ck](file://./../../data/contracts/render/render.ck#L443)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L448)
  */
 RenderRouter.get('/pads', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(RenderService);
@@ -361,8 +363,23 @@ RenderRouter.get('/pads', requirePolicy({ policy: 'platform.view' }), async ctx 
 });
 
 /**
+ * Takes a sound in from the browser and puts it on a board. The file lands in the pad library on disk, so it survives a rebuild and an archive carries it
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L461)
+ */
+RenderRouter.post('/pads', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['multipart']), async ctx => {
+    const multipartBody = ctx.parsedBody as MultipartBody;
+
+    const service = ctx.container.get(RenderService);
+    const result: PadList = await service.uploadPad(multipartBody);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Takes whatever audio is sitting in the pad library directory onto its board. Safe to repeat: a file nobody has touched is seen and left alone
- * from [render.ck](file://./../../data/contracts/render/render.ck#L458)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L486)
  */
 RenderRouter.post('/pads/scan', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(RenderService);
@@ -375,7 +392,7 @@ RenderRouter.post('/pads/scan', requirePolicy({ policy: 'platform.manage' }), as
 
 /**
  * Turns a sound down, or puts one back. Answers the whole rack, since one pad changing state is one row moving between two sections of the same page
- * from [render.ck](file://./../../data/contracts/render/render.ck#L476)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L504)
  */
 RenderRouter.put('/pads/:id/state', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -397,7 +414,7 @@ RenderRouter.put('/pads/:id/state', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * The sound itself, so an operator can hear what they dropped in
- * from [render.ck](file://./../../data/contracts/render/render.ck#L497)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L525)
  * anonymous access, no security required
  */
 RenderRouter.get('/pads/:id/audio', async ctx => {
@@ -424,7 +441,7 @@ RenderRouter.get('/pads/:id/audio', async ctx => {
 
 /**
  * Names a new set, or answers the one already under that key
- * from [render.ck](file://./../../data/contracts/render/render.ck#L527)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L555)
  */
 RenderRouter.post('/pads/sets', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PadSetWrite);
@@ -439,7 +456,7 @@ RenderRouter.post('/pads/sets', requirePolicy({ policy: 'platform.manage' }), bo
 
 /**
  * Renames a set. The KEY moves with it, so every persona naming the old one stops finding it
- * from [render.ck](file://./../../data/contracts/render/render.ck#L548)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L576)
  */
 RenderRouter.put('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -461,7 +478,7 @@ RenderRouter.put('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }),
 
 /**
  * Removes a set and its memberships, and no pads at all
- * from [render.ck](file://./../../data/contracts/render/render.ck#L563)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L591)
  */
 RenderRouter.delete('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -481,7 +498,7 @@ RenderRouter.delete('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' 
 
 /**
  * Puts a pad on a set or takes it off. Refused where the set already answers to that name, because a script writes a name
- * from [render.ck](file://./../../data/contracts/render/render.ck#L581)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L609)
  */
 RenderRouter.put('/pads/sets/:id/pads', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

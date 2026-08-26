@@ -4,6 +4,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { isPluginError } from '@deadair/plugin-sdk';
 import type { SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { Logger } from '@maroonedsoftware/logger';
+import { isMultipartFieldData, type MultipartBody, type MultipartData } from '@maroonedsoftware/multipart';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import type {
     PronunciationList,
@@ -30,8 +31,8 @@ import type {
     VoiceList,
 } from './types/render.types.js';
 import { DateTime } from 'luxon';
-import { PadLibrary } from './pad.library.js';
-import { PadRepository, type Pad } from './pad.repository.js';
+import { boardIsSafe, DEFAULT_BOARD, labelFor, MAX_PAD_BYTES, padName, padNameOf, PadLibrary } from './pad.library.js';
+import { PAD_SOURCES, PadRepository, type Pad } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { ScriptRatingsRepository } from './script.ratings.repository.js';
@@ -39,7 +40,15 @@ import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type Sc
 import { ratingFromColumn, ratingToColumn } from '../catalog/rating.js';
 import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
-import { isSegmentExtension, SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType, type SegmentExtension } from './segment.store.js';
+import {
+    extensionForMime,
+    isSegmentExtension,
+    SEGMENT_CONTENT_TYPES,
+    SEGMENT_EXTENSIONS,
+    SegmentStore,
+    type SegmentContentType,
+    type SegmentExtension,
+} from './segment.store.js';
 import { SpeechService } from './speech.service.js';
 import { SAMPLE_TEXT, VoiceSampleStore } from './voice.sample.store.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -385,6 +394,85 @@ export class RenderService {
     /** Takes whatever is in the pad library directory onto its board. */
     async scanPads(): Promise<PadScanResult> {
         return await this.padLibrary.scan();
+    }
+
+    /**
+     * Takes a sound in from the browser.
+     *
+     * The second door onto `PadLibrary.ingest`, which is where every rule about what a pad IS lives —
+     * including the one that matters most here: the bytes are written into the pad library on disk as
+     * well as into the content store, because the store is rewritten from that directory on every
+     * boot scan and an archive carries the directory. A pad that existed only in the store would be
+     * absent from every export with nothing logged anywhere.
+     *
+     * ## What is derived and what is refused
+     *
+     * A name is what a SCRIPT writes, so it is the one field worth being strict about: given, it is
+     * taken as the operator typed it (normalised the way a filename would be); absent, it comes off
+     * the filename. Either way the FILE is named after it — see `ingest`. A name that normalises to
+     * nothing is a 400 rather than a skip, because the caller here is a person watching rather than a
+     * scan walking forty files.
+     *
+     * The extension is read from the filename and falls back to what the browser declared, since a
+     * file dragged in from a download can arrive with a perfectly good mime type and a stem with no
+     * dot in it. Anything the store cannot serve is a 415 naming what it can, which is the same
+     * answer the scan writes to the log for the same case.
+     */
+    async uploadPad(multipart: MultipartBody): Promise<PadList> {
+        let upload: { bytes: Buffer; filename: string; mimeType: string } | undefined;
+
+        // Collected rather than streamed to disk, because `ingest` needs the bytes twice — once for
+        // the library file and once for the content-addressed store — and this is bounded at 25 MB
+        // one line down. The parser answers 413 on the ceiling itself.
+        const fields = await multipart.parse(
+            async (_field, stream, filename, _encoding, mimeType) => {
+                const chunks: Buffer[] = [];
+                for await (const chunk of stream) chunks.push(chunk as Buffer);
+
+                upload = { bytes: Buffer.concat(chunks), filename, mimeType };
+            },
+            { files: 1, fileSize: MAX_PAD_BYTES, fields: 8 },
+        );
+
+        if (upload === undefined || upload.bytes.length === 0) {
+            throw httpError(400).withDetails({ message: 'that upload carried no audio' });
+        }
+
+        const ext = uploadExtension(upload.filename, upload.mimeType);
+        if (ext === undefined) {
+            throw httpError(415).withDetails({ message: `the station serves ${SEGMENT_EXTENSIONS.join(', ')}, and that file is none of them` });
+        }
+
+        const board = (readField(fields, 'board') ?? DEFAULT_BOARD).trim();
+        if (!boardIsSafe(board)) throw httpError(400).withDetails({ message: `"${board}" is not a name a board can have` });
+
+        const asked = readField(fields, 'name');
+        const name = asked === undefined ? padNameOf(upload.filename) : padName(asked);
+        if (name === undefined) {
+            throw httpError(400).withDetails({ message: 'that sound needs a name a script could write, and nothing was left of this one' });
+        }
+
+        const label = readField(fields, 'label')?.trim() || labelFor(upload.filename);
+
+        const { pad, contested } = await this.padLibrary.ingest({
+            bytes: upload.bytes,
+            ext,
+            board,
+            name,
+            label,
+            source: PAD_SOURCES.upload,
+        });
+
+        // Reported rather than swallowed, on `setPadMembership`'s argument: the sound IS in the
+        // library, and a console that showed no difference would leave somebody wondering why a
+        // persona pointed at this board cannot reach it.
+        if (contested) {
+            throw httpError(409).withDetails({
+                message: `"${pad.name}" is in the library, but the ${board} set already answers to that name and a script names a sound by name`,
+            });
+        }
+
+        return await this.listPads();
     }
 
     /**
@@ -793,4 +881,39 @@ function toPadView(pad: Pad) {
         ...(pad.sourcePath === undefined ? {} : { sourcePath: pad.sourcePath }),
         ...(pad.lastUsedAt === undefined ? {} : { lastUsedAt: DateTime.fromISO(pad.lastUsedAt) }),
     };
+}
+
+/**
+ * One form field's value, where the caller sent one.
+ *
+ * A multipart field name can legitimately repeat, in which case the parser answers with an array;
+ * nothing here wants a list, so the first wins. Blank is the same as absent, because an untouched
+ * input in a browser form posts an empty string and "the operator left it alone" is what that means.
+ */
+function readField(fields: Map<string, MultipartData | MultipartData[]>, key: string): string | undefined {
+    const held = fields.get(key);
+    const one = Array.isArray(held) ? held[0] : held;
+
+    if (one === undefined || !isMultipartFieldData(one)) return undefined;
+
+    return one.value.trim() === '' ? undefined : one.value;
+}
+
+/**
+ * What an upload is, as a format the store can serve.
+ *
+ * The filename first, because it is what the operator sees and what the scan would read. The
+ * browser's declared type is the fallback rather than the authority: a file dragged out of a
+ * downloads folder can arrive with a good mime type and a stem carrying no dot at all, and it can
+ * equally arrive as `application/octet-stream` with a perfectly good `.wav` on the end.
+ *
+ * `undefined` for anything the store cannot hold, which is a 415 at the caller rather than a guess.
+ */
+function uploadExtension(filename: string, mimeType: string): SegmentExtension | undefined {
+    const named = filename.split('.').pop()?.toLowerCase() ?? '';
+    if (named !== filename.toLowerCase() && isSegmentExtension(named)) return named;
+
+    // `extensionForMime` rather than a reverse map built here, because a second copy of that map is
+    // a second thing that can fall behind the formats the store actually holds.
+    return extensionForMime(mimeType);
 }

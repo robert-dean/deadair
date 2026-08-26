@@ -14,6 +14,7 @@ import {
     useUpdatePadSet,
 } from '../../api/pads.queries';
 import { useVoicePreview } from '../voices/voice.preview';
+import { PadUploadCard } from './pad.upload.card';
 import { ConfirmModal } from '../shared/confirm.modal';
 import { FeedMoment } from '../shared/dated.feed';
 import { EmptyState } from '../shared/empty.state';
@@ -27,15 +28,16 @@ import { PageSkeleton } from '../shared/page.skeleton';
  *
  * ## There is no add button for a SOUND, and that is the design
  *
- * A pad arrives by being dropped in `media/pads/<name>/`, which is how the station already takes
- * delivery of audio — the same directory convention the segment inbox uses, and the same reason: an
- * operator who knows how to put an ident in front of deadair should not have to learn a second way
- * to put an air horn in front of it. That directory is the LIBRARY rather than a drop point: the
- * content store is rewritten from it on every boot scan, so it is the half a backup carries.
+ * ## Two doors, one library
  *
- * So the only things done to a SOUND here are re-scan, play and reject. Rejecting is a state rather
- * than a deletion because the scan re-reads that directory: a deleted row is back on the next pass,
- * and the operator's decision has to outlive it.
+ * A pad arrives by being dropped in `media/pads/<board>/`, which is how the station already takes
+ * delivery of audio, or by being uploaded here — and both end in the same place, because the upload
+ * writes a file into that same directory. That is not a nicety: the content store is rewritten from
+ * the directory on every boot scan and an archive carries the directory, so a sound that lived only
+ * in the store would be missing from every backup with nothing saying so.
+ *
+ * Rejecting is a state rather than a deletion because the scan re-reads that directory: a deleted
+ * row is back on the next pass, and the operator's decision has to outlive it.
  *
  * ## A SET is the thing this page is actually for
  *
@@ -81,7 +83,7 @@ export function PadsPage() {
             <PageHeader
                 eyebrow="Station"
                 title="Soundboard"
-                description="The sounds a presenter reaches for, and the sets that decide who reaches which. Drop audio in the pad library on disk and re-scan; a persona points at a set by name."
+                description="The sounds a presenter reaches for, and the sets that decide who reaches which. Drop audio in below, or into the pad library on disk and re-scan; a persona points at a set by name."
                 actions={
                     <Button leftSection={<IconRefresh size={16} />} variant="default" loading={scan.isPending} onClick={() => void scan.mutateAsync()}>
                         Re-scan the library
@@ -93,12 +95,14 @@ export function PadsPage() {
             {membership.isError ? <ErrorAlert title="That sound could not go on that set" error={membership.error} /> : undefined}
             {scan.isSuccess ? <ScanResult result={scan.data} /> : undefined}
 
+            <PadUploadCard sets={sets} />
+
             <SetList sets={sets} value={newSet} onChange={setNewSet} onAdd={addSet} adding={createSet.isPending} />
 
             {active.length === 0 ? (
                 <EmptyState title="Nothing on the rack">
-                    Drop an mp3 or a wav in <code>media/pads/station/</code> and re-scan. The filename becomes the name a script writes, so{' '}
-                    <code>airhorn.mp3</code> is <code>[sfx:airhorn]</code>, and the folder becomes a set a persona can point at.
+                    Drop an mp3 or a wav above, or put one in the pad library on disk and re-scan. The name becomes what a script writes, so{' '}
+                    <code>airhorn.mp3</code> is <code>[sfx:airhorn]</code>, and the board becomes a set a persona can point at.
                 </EmptyState>
             ) : (
                 <Card withBorder padding="md">

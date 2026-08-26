@@ -468,8 +468,18 @@ const AUDIO_EXTENSIONS = new Set(['oga', 'opus', 'aac', 'aif', 'aiff', 'wma', 'a
  */
 export function padNameOf(relative: string): string | undefined {
     const file = relative.split('/').pop() ?? relative;
-    const stem = file.slice(0, file.length - extname(file).length);
-    const name = stem
+    return padName(file.slice(0, file.length - extname(file).length));
+}
+
+/**
+ * A word somebody TYPED as that same token.
+ *
+ * {@link padNameOf} one step in, for the console door: an operator naming a sound in a form is making
+ * exactly the claim a filename makes, so it had better normalise identically — a name that came out
+ * of a box and a name that came off a file must not be two pads.
+ */
+export function padName(text: string): string | undefined {
+    const name = text
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');

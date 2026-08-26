@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DateTime } from 'luxon';
 
+const _ZodBinary = z.custom<Buffer>(val => Buffer.isBuffer(val), { error: 'Must be binary data' });
 const _ZodDatetime = z.preprocess(
     val => (typeof val === 'string' ? DateTime.fromISO(val) : val),
     z.custom<DateTime>(val => val instanceof DateTime && val.isValid, { message: 'Must be in ISO 8601 format' }),
@@ -296,11 +297,32 @@ export const PadInput = z.strictObject({
 export type PadInput = z.infer<typeof PadInput>;
 
 /**
+ * A sound arriving from the browser, as multipart form parts.
+ *
+ * Documentation rather than validation: a multipart body reaches the service as the raw parser and
+ * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
+ * send
+ * generated from [PadUpload](file://./../../../../data/contracts/render/render.types.ck#L196)
+ */
+export const PadUpload = z.strictObject({
+    file: _ZodBinary.describe('The audio itself. mp3, wav, ogg, flac or m4a, and at most 25 MB'),
+    board: z.string().min(1).max(200).describe('The directory it is filed under, which is also the set it joins. A new name makes both'),
+    name: z
+        .string()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe('What a script will write. Derived from the filename when absent, and the FILE is named after this either way'),
+    label: z.string().min(1).max(200).optional().describe('What the console calls it. Derived from the filename when absent'),
+});
+export type PadUpload = z.infer<typeof PadUpload>;
+
+/**
  * A named collection of pads: what a presenter is actually handed.
  *
  * One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
  * renaming a set unpoints every persona naming it — which is why `personas` says who those are
- * generated from [PadSet](file://./../../../../data/contracts/render/render.types.ck#L200)
+ * generated from [PadSet](file://./../../../../data/contracts/render/render.types.ck#L212)
  */
 export const PadSet = z.strictObject({
     id: z.uuid(),
@@ -325,7 +347,7 @@ export type PadSetInput = z.infer<typeof PadSetInput>;
 
 /**
  * A set an operator is naming, or renaming
- * generated from [PadSetWrite](file://./../../../../data/contracts/render/render.types.ck#L209)
+ * generated from [PadSetWrite](file://./../../../../data/contracts/render/render.types.ck#L221)
  */
 export const PadSetWrite = z.strictObject({
     key: z.string().min(1).max(200),
@@ -336,7 +358,7 @@ export type PadSetWrite = z.infer<typeof PadSetWrite>;
 
 /**
  * Which pad, and whether it is on the set
- * generated from [PadSetMembership](file://./../../../../data/contracts/render/render.types.ck#L215)
+ * generated from [PadSetMembership](file://./../../../../data/contracts/render/render.types.ck#L227)
  */
 export const PadSetMembership = z.strictObject({
     padId: z.uuid(),
@@ -346,7 +368,7 @@ export type PadSetMembership = z.infer<typeof PadSetMembership>;
 
 /**
  * Turning a pad down, or putting one back
- * generated from [PadState](file://./../../../../data/contracts/render/render.types.ck#L220)
+ * generated from [PadState](file://./../../../../data/contracts/render/render.types.ck#L232)
  */
 export const PadState = z.strictObject({
     state: z.enum(['active', 'rejected']),
@@ -355,7 +377,7 @@ export type PadState = z.infer<typeof PadState>;
 
 /**
  * What one pass over the pad library did
- * generated from [PadScanResult](file://./../../../../data/contracts/render/render.types.ck#L224)
+ * generated from [PadScanResult](file://./../../../../data/contracts/render/render.types.ck#L236)
  */
 export const PadScanResult = z.strictObject({
     scanned: z.coerce.number().int().min(0).describe('Audio files seen, whether or not anything changed'),
@@ -511,7 +533,7 @@ export type PronunciationList = z.infer<typeof PronunciationList>;
 
 /**
  * Every sound the station holds, and the sets over it
- * generated from [PadList](file://./../../../../data/contracts/render/render.types.ck#L191)
+ * generated from [PadList](file://./../../../../data/contracts/render/render.types.ck#L203)
  */
 export const PadList = z.strictObject({
     pads: z.array(Pad),

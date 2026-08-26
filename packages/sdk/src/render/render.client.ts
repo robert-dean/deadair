@@ -6,6 +6,7 @@ import type {
     PadSetMembership,
     PadSetWrite,
     PadState,
+    PadUpload,
     PronunciationList,
     PronunciationQuery,
     PronunciationStateWrite,
@@ -315,6 +316,18 @@ export class RenderClient {
      */
     async listPads(): Promise<PadList> {
         const result = await this.fetch(`/pads`, { method: 'GET' });
+        return await parseJson<PadList>(result);
+    }
+
+    /**
+     * @name Upload pad
+     * @description Takes a sound in from the browser and puts it on a board. The file lands in the pad library on disk, so it survives a rebuild and an archive carries it
+     */
+    async uploadPad(body: FormData): Promise<PadList> {
+        const result = await this.fetch(`/pads`, {
+            method: 'POST',
+            body: body,
+        });
         return await parseJson<PadList>(result);
     }
 

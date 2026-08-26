@@ -52,6 +52,7 @@
         "@maroonedsoftware/koa": "^3.0.9",
         "@maroonedsoftware/kysely": "^0.7.8",
         "@maroonedsoftware/logger": "^1.1.8",
+        "@maroonedsoftware/multipart": "^1.3.5",
         "@maroonedsoftware/permissions": "^0.2.8",
         "@maroonedsoftware/policies": "^0.6.5",
         "@maroonedsoftware/serverfeed": "^0.1.5",

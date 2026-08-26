@@ -18,6 +18,7 @@
         "@fontsource/ibm-plex-sans": "^5.3.0",
         "@mantine/core": "^9.5.1",
         "@mantine/dates": "9.5.1",
+        "@mantine/dropzone": "9.5.1",
         "@mantine/form": "^9.5.1",
         "@mantine/hooks": "^9.5.1",
         "@mantine/notifications": "9.5.1",

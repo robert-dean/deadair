@@ -436,9 +436,14 @@ operation /pronunciations/{id}/state: {
 # a segment is one airable element and an air horn is not one, which is why `readyKinds` would
 # otherwise offer "air horn" as a bookable clock band. See migration 0023.
 #
-# There is no create and no delete. A pad arrives by being dropped in `media/pads/<board>/`,
-# which is how the station already takes delivery of audio, and it leaves by being REJECTED rather
-# than removed: the scan re-reads that directory, so a deleted row would be back on the next pass.
+# `media/pads/<board>/` is the LIBRARY rather than a delivery directory: the content store is
+# rewritten from it by every boot scan, so it is the half that cannot be regenerated and the half an
+# archive carries. Which is why the upload below writes a file into it rather than only storing the
+# bytes -- a pad that existed only in the store would be missing from every export, silently.
+#
+# A pad still leaves by being REJECTED rather than removed, because the scan re-reads that directory
+# and a deleted row would be back on the next pass. The one exception is a file the CONSOLE wrote,
+# which it may also take away; see the delete below.
 operation /pads: {
     get: { # Every sound the station holds, board by board
         name: List pads
@@ -450,6 +455,29 @@ operation /pads: {
             200: {
                 application/json: PadList
             }
+        }
+    }
+
+    post: { # Takes a sound in from the browser and puts it on a board. The file lands in the pad library on disk, so it survives a rebuild and an archive carries it
+        name: Upload pad
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.uploadPad
+        request: {
+            # The parts are documentation: a multipart body reaches the service as the raw parser
+            # and the SDK types it as `FormData`, so nothing validates this shape. It is here so the
+            # generated client and the docs say what to send.
+            multipart/form-data: PadUpload
+        }
+        response: {
+            200: {
+                application/json: PadList
+            }
+            400:
+            409:
+            413:
+            415:
         }
     }
 }

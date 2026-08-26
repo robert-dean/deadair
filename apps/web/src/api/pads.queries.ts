@@ -54,6 +54,23 @@ export const useUpdatePadSet = () => usePadSetWrite(({ id, body }: { id: string;
 
 export const useDeletePadSet = () => usePadSetWrite((id: string) => sdk.render.deletePadSet(id));
 
+/**
+ * A sound arriving from the browser.
+ *
+ * Not on `usePadSetWrite`, because of the one outcome that is neither a success nor a plain failure:
+ * a name the board's set already answers to leaves the pad IN the library and on no set, and the
+ * server says so with a 409. So the rack is invalidated on settle rather than written from the
+ * answer, or an operator would be told their sound was refused while looking at a list that does not
+ * have it.
+ */
+export function useUploadPad() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (body: FormData) => sdk.render.uploadPad(body),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.pads.list() }),
+    });
+}
+
 export const useSetPadMembership = () =>
     usePadSetWrite(({ id, body }: { id: string; body: PadSetMembership }) => sdk.render.setPadMembership(id, body));
 
@@ -66,7 +83,7 @@ export const useSetPadMembership = () =>
 export function useScanPads() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: () => sdk.render.scanThePadInbox(),
+        mutationFn: () => sdk.render.scanThePadLibrary(),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.pads.list() }),
     });
 }

@@ -147,6 +147,22 @@ describe('the half of the day a beat was told about', () => {
         expect(beat(`${words(200)} tonight`, { dayPart: evening })).toEqual([]);
     });
 
+    // The half a daypart cannot judge: "midday" is the afternoon at ten past twelve and the
+    // afternoon at half past four, so the check above passes both.
+    it('reports a beat that says midday when it goes out at half past four', () => {
+        const problems = beat(`${words(200)} midday`, { moment: { at: Date.UTC(2026, 7, 13, 16, 30), zone: 'UTC' } });
+
+        expect(problems[0]).toMatch(/says "midday", which is hours from when it goes out/i);
+    });
+
+    it('permits the same word in the middle of the day', () => {
+        expect(beat(`${words(200)} midday`, { moment: { at: Date.UTC(2026, 7, 13, 12, 15), zone: 'UTC' } })).toEqual([]);
+    });
+
+    it('asks nothing of a beat with no moment on it', () => {
+        expect(beat(`${words(200)} midday`, { dayPart: afternoon })).toEqual([]);
+    });
+
     // The file's own contract: the problems that change what the beat SAYS come before the ones
     // that change how long it is, because one re-draft has to carry everything and a model reads a
     // list with finite attention.

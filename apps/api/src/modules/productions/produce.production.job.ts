@@ -543,6 +543,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // carrying on from them is caught.
                 ...(runIn === undefined ? {} : { runIn }),
                 dayPart: airs,
+                // The same moment as a number, for the words a daypart cannot judge. Off
+                // `scheduledFor` exactly as `whenItAirs` is, so the two cannot describe different
+                // afternoons.
+                moment: { at: claimed.scheduledFor ?? Date.now(), zone: stationZone(this.config) },
             });
             if (problems.length === 0) continue;
 

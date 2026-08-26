@@ -23,7 +23,7 @@
  * two judges that can disagree.
  */
 
-import { contradictsDayPart, type RoughTime } from '#modules/director/clock.words.js';
+import { contradictsDayPart, namesWrongTimeOfDay, type RoughTime } from '#modules/director/clock.words.js';
 import { expectedWords, MAX_WORDS } from './production.plan.js';
 
 /**
@@ -99,6 +99,17 @@ export interface BeatCheckInput {
      */
     dayPart?: RoughTime;
     /**
+     * When this beat goes out and where the station is, for the half {@link dayPart} cannot judge.
+     *
+     * A daypart is a STRETCH, and a beat can name a POINT inside one and still be hours wrong:
+     * "midday" is the afternoon at ten past twelve and the afternoon at half past four. The same
+     * split, and the same pair of fields, as `AnswerGuard`. See `namesWrongTimeOfDay`.
+     *
+     * It carries the note above about where this runs, unchanged: on an `outlined` station there is
+     * no check pass, so what a beat is TOLD is the whole of the defence.
+     */
+    moment?: { at: number; zone: string };
+    /**
      * The words this beat was handed to carry on from.
      *
      * Checked because handing a model a quotation makes it read the quotation: beats opened by
@@ -136,6 +147,17 @@ export function checkBeat(input: BeatCheckInput): string[] {
         problems.push(
             `This beat calls it "${named}" when it goes out ${input.dayPart!.words}. Say nothing about the part of the day except that one, ` +
                 'and do not reach for the hour, the light or the weather to set a scene you were not given.',
+        );
+    }
+
+    // The same complaint about a word a daypart cannot judge, and phrased about the CLOCK rather
+    // than about the stretch, because that is what makes it wrong: the beat may well have the half
+    // of the day right.
+    const hour = namesWrongTimeOfDay(text, input.moment?.at, input.moment?.zone);
+    if (hour !== undefined) {
+        problems.push(
+            `This beat says "${hour}", which is hours from when it goes out. Say nothing about the time of day except what you were told, ` +
+                'and do not reach for a mealtime or an hour to set a scene you were not given.',
         );
     }
 

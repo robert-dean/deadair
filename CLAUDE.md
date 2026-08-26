@@ -424,6 +424,35 @@ that decides a cast is taken in the dialogue band** — the first live call-in o
 like two monologue beats, below the floor for casting anybody, so the station made a phone-in with
 nobody on it and nothing said why (`turnsFor`).
 
+**A beat is the unit of WRITING and the joined row is the unit of AIRING, and only the second half is
+new.** A beat has to be its own segment because it is one model call in one voice, and it used to be
+its own lineup item too — seven turns of a three-minute phone-in were seven items, seven hand-overs
+to the player and seven metadata changes on the mount, with the pause between turns being the speech
+engine's own padding plus whatever the transport added at the boundary, adjustable by nobody. Once
+every beat is `ready` the director moves the production `rendering → stitching` and sends
+`render.stitch_production`, which asks the analyzer to trim each beat to its own cue points, join
+them with `render.productionGapMs` between (200ms, clamped 0–2000) and hand back one file. That is
+the only thing this buys that nothing else could: one title on the mount and one item to remove are
+worth having and are not the reason. Five things are load-bearing. **Joining is the `analysis`
+capability's optional half** (`joinAudio`, `analysis/README.md`'s `/join`), because it is the same
+requirement as measuring seen from the other end — both need decoded PCM, which is the one thing that
+does not happen in Node — and it is OPTIONAL because the station that asks has somewhere to go. **The
+joined row is `production_id` with a NULL `production_ordinal`**, which is why migration 0016's
+constraint says an ordinal requires a production rather than both-or-neither: every guard that
+already says "a production beat is not an ordinary break" is written as `production_id is null` and
+the joined row wants all of them, `SegmentRepository.recast` above most of all, since without it a
+changeover would reopen a finished programme and wipe its script. **It is born `ready`**, which is a
+safety property rather than a shortcut — `claimForRender` starts at `written`, so a joined row that
+began there would eventually be claimed by a retry and hand a whole phone-in to the engine as one
+line in one voice. **Every failure lands in the same place**: no analyzer, an analyzer that cannot
+join, a join that threw, a media type the store cannot hold, all leave the production `ready` with no
+joined row and the beats go in as a block, which is what every station got before this existed and
+what a station with no analyzer gets permanently — the feed says which of the two it was. And **it is
+still a GROUP even at one item**, because `groupId` is how `releaseUnheardProductions` and `remove`
+know a segment belongs to a programme. `listReady`/`readyKinds` now exclude everything a production
+owns, since a kind is free text and a `callin` band could otherwise draw one turn of a past phone-in
+off the shelf and air it alone.
+
 **A production writes down what it wrote, which is what gives a caller a memory.**
 `ScriptHistoryRepository` had one caller for as long as it existed and a programme recorded nothing,
 so a production was invisible to `/scripts`, to `llm.captureWrites` and to every pass that reads the

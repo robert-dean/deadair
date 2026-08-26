@@ -884,6 +884,11 @@ export class DirectorService {
      * governing an ordinary break, which is skipped when it is not ready precisely because another
      * one is along shortly and silence is the worse outcome.
      *
+     * **What goes in is ONE item where the beats were joined**, which is the ordinary case on a
+     * station with an analyzer, and the block of beats where they were not. The second is not a
+     * compatibility path kept alive: it is what a station with no analyzer gets permanently, and it
+     * is what every station got before anything could join audio.
+     *
      * That all-or-nothing wait is what lets the rest of the transport stay exactly as it was. Since
      * a block only ever enters the order with every beat already spoken, the ordinary "a segment that
      * is not ready is skipped, never waited for" rule needs no exception for productions, and nothing
@@ -950,9 +955,19 @@ export class DirectorService {
                     // next pass has a longer order to put it in.
                     if (at === undefined) continue;
 
+                    // One item where the beats were joined, and the block where they were not. The
+                    // fallback is not a compatibility path: it is what a station with no analyzer
+                    // gets, permanently, and it is the shape this has always had.
+                    const joined = await segments.joinedOf(production.id);
+
+                    // Still a GROUP, even when it is one item. `groupId` is how everything else in
+                    // the director knows a segment is part of a programme rather than a disposable
+                    // break — `releaseUnheardProductions` hands back an episode a changeover never
+                    // played, and `remove` takes a block out whole — and a joined production placed
+                    // as a bare segment would be invisible to all of it.
                     const result = lineup.insertGroup(
                         production.id,
-                        beats.map(beat => beat.id),
+                        joined === undefined ? beats.map(beat => beat.id) : [joined.id],
                         at,
                         production.kind,
                     );
@@ -964,13 +979,21 @@ export class DirectorService {
                         production: production.id,
                         title: production.title,
                         beats: beats.length,
+                        joined: joined?.id,
                         at,
                     });
                     void this.activity.record({
                         module: 'director',
                         kind: 'production.aired',
-                        detail: `"${production.title}" went into the running order, ${beats.length} beats long.`,
-                        data: { productionId: production.id, beats: beats.length },
+                        // Which of the two it was, on the feed rather than only in the log: a
+                        // programme that went in as seven items is a different thing to listen to
+                        // than one that went in as one, and an operator who changed the gap setting
+                        // and heard nothing different is owed the reason.
+                        detail:
+                            joined === undefined
+                                ? `"${production.title}" went into the running order as ${beats.length} separate beats.`
+                                : `"${production.title}" went into the running order as one piece, ${beats.length} beats long.`,
+                        data: { productionId: production.id, beats: beats.length, joined: joined !== undefined },
                     });
                 }
 

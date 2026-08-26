@@ -132,6 +132,17 @@ interface Options {
     personas?: { active?: string; known?: string[] };
     /** A personas table that cannot be read at all, which must leave the breaks alone. */
     personasFail?: boolean;
+    /**
+     * Productions still being made, as `ProductionRepository.unfinished` answers them.
+     *
+     * Empty by default, so the commit pass's injection step is a no-op unless a test says
+     * otherwise.
+     */
+    productions?: { id: string; kind: string; title: string; state: string }[];
+    /** Their beats, as `SegmentRepository.beatsOf` answers them, keyed by production id. */
+    beats?: Record<string, { id: string; state: string }[]>;
+    /** Which productions have been joined into one row, keyed by production id. */
+    joined?: Record<string, { id: string }>;
 }
 
 function build(options: Options = {}) {
@@ -180,9 +191,16 @@ function build(options: Options = {}) {
     // Produced episodes. `unfinished` answers nothing by default, so the commit pass's injection
     // step is a no-op unless a test says otherwise; `moveTo` is what a changeover uses to hand back
     // an episode nobody heard, and it reports whether the row was in the state it was guarded on.
+    // Aired productions drop out of the drain, exactly as the real table does: `unfinished` is a
+    // partial index over the states that are not settled. Without that, one commit pass places an
+    // episode and the next one places it again.
+    const aired = new Set<string>();
     const productions = {
-        unfinished: vi.fn(async () => []),
-        moveTo: vi.fn(async () => true),
+        unfinished: vi.fn(async () => (options.productions ?? []).filter(production => !aired.has(production.id))),
+        moveTo: vi.fn(async (id: string, to: string) => {
+            if (to === 'aired') aired.add(id);
+            return true;
+        }),
         fail: vi.fn(async () => true),
     };
 
@@ -236,6 +254,11 @@ function build(options: Options = {}) {
         // `apps/api/scripts/segment.repair.smoke.ts`; what these tests are about is WHICH ids the
         // director offers it, and that it offers them at all.
         recast: vi.fn(async (ids: readonly string[]) => [...ids]),
+        // A production's beats and, separately, the one row its beats were joined into. The two are
+        // deliberately different questions: the joined row carries the production id with no
+        // ordinal, so it is the programme rather than a beat of it.
+        beatsOf: vi.fn(async (productionId: string) => options.beats?.[productionId] ?? []),
+        joinedOf: vi.fn(async (productionId: string) => options.joined?.[productionId]),
     };
     const segments = segmentStub as unknown as SegmentRepository;
 
@@ -1842,6 +1865,114 @@ describe('DirectorService committing segments', () => {
 // The refill job plants breaks among the records it appends, which covers a rotation. This pass is
 // what covers a lineup nothing ever refills — an imported provider playlist above all, which would
 // otherwise play for an hour without once saying what station it is.
+describe('DirectorService placing a finished production', () => {
+    const READY_BEATS = {
+        'prod-1': [
+            { id: 'beat-1', state: 'ready' },
+            { id: 'beat-2', state: 'ready' },
+        ],
+    };
+
+    it('asks for the beats to be joined once every one of them has been spoken', async () => {
+        // The pass that discovers a production is speakable-through is this one: the beats become
+        // joinable minutes after the last WRITING pass returned, when the render jobs behind them
+        // finish, and nothing else is watching for that.
+        const { director, productions, jobs, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'rendering' }],
+            beats: READY_BEATS,
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(productions.moveTo).toHaveBeenCalledWith('prod-1', 'stitching', 'rendering');
+        expect(jobs.send).toHaveBeenCalledWith('render.stitch_production', { productionId: 'prod-1' });
+    });
+
+    it('asks for nothing while a beat is still being spoken', async () => {
+        const { director, productions, jobs, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'rendering' }],
+            beats: {
+                'prod-1': [
+                    { id: 'beat-1', state: 'ready' },
+                    { id: 'beat-2', state: 'rendering' },
+                ],
+            },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(productions.moveTo).not.toHaveBeenCalledWith('prod-1', 'stitching', 'rendering');
+        expect(jobs.send).not.toHaveBeenCalledWith('render.stitch_production', { productionId: 'prod-1' });
+    });
+
+    it('puts a joined production in as ONE item, which is the whole point of joining it', async () => {
+        const { director, lineup, productions, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'ready' }],
+            beats: READY_BEATS,
+            joined: { 'prod-1': { id: 'joined-1' } },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        const placed = lineup.all().filter(item => item.kind === 'segment' && item.groupId === 'prod-1');
+        expect(placed).toHaveLength(1);
+        expect(placed[0]).toMatchObject({ segmentId: 'joined-1' });
+        expect(productions.moveTo).toHaveBeenCalledWith('prod-1', 'aired', 'ready');
+    });
+
+    it('keeps the group on it, so a changeover can still hand back an episode nobody heard', async () => {
+        // `groupId` is how everything else in the director knows a segment is part of a programme
+        // rather than a disposable break. Placed as a bare segment, a joined production would be
+        // invisible to `releaseUnheardProductions` and to `remove` taking a block out whole.
+        const { director, lineup, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'ready' }],
+            beats: READY_BEATS,
+            joined: { 'prod-1': { id: 'joined-1' } },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(lineup.all().some(item => item.kind === 'segment' && item.groupId === 'prod-1')).toBe(true);
+    });
+
+    it('falls back to the beats as a block when nothing joined them', async () => {
+        // A station with no analyzer, or one whose analyzer cannot join. Not a compatibility path:
+        // it is what every station got before anything could join audio, and it still airs.
+        const { director, lineup, productions, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'ready' }],
+            beats: READY_BEATS,
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        const placed = lineup.all().filter(item => item.kind === 'segment' && item.groupId === 'prod-1');
+        expect(placed.map(item => item.kind === 'segment' && item.segmentId)).toEqual(['beat-1', 'beat-2']);
+        expect(productions.moveTo).toHaveBeenCalledWith('prod-1', 'aired', 'ready');
+    });
+
+    it('fails the production when a beat could not be spoken, rather than airing a programme with a hole in it', async () => {
+        const { director, productions, seed } = build({
+            productions: [{ id: 'prod-1', kind: 'callin', title: 'Late line', state: 'rendering' }],
+            beats: {
+                'prod-1': [
+                    { id: 'beat-1', state: 'ready' },
+                    { id: 'beat-2', state: 'failed' },
+                ],
+            },
+        });
+        await seed();
+        await director.start();
+        await settle();
+
+        expect(productions.fail).toHaveBeenCalledWith('prod-1', expect.stringContaining('could not be spoken'));
+    });
+});
+
 describe('DirectorService planting breaks', () => {
     it('plants into a lineup nothing will ever extend', async () => {
         const { director, lineup, seed } = build({ items: Array.from({ length: 20 }, (_, index) => `t${index}`) });

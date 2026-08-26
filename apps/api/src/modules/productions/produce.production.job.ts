@@ -4,6 +4,7 @@ import { JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import type { LlmMessage, SpeechCue } from '@deadair/plugin-sdk';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { dayPart, stationZone, type RoughTime } from '#modules/director/clock.words.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { LlmService, type LlmConversation } from '#modules/llm/llm.service.js';
@@ -173,6 +174,9 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         private readonly llm: LlmService,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
+        // Best-effort and never awaited, on `ActivityRecorder`'s own rule: nothing reads these rows
+        // to decide anything, so a failed insert must never cost the station the thing it described.
+        private readonly activity: ActivityRecorder,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -255,7 +259,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
 
         const { plan, casting } = await this.shape(claimed);
 
-        const answer = await this.llm.converse(
+        const ask = async () =>
+            await this.llm.converse(
             {
                 messages: outlinePrompt({
                     kind: claimed.kind,
@@ -283,13 +288,36 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             { budgetMs: OUTLINE_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
         );
 
-        // A model that gave nothing usable is not a failure of the production. The plan is already
-        // computed, so the beats can be drafted from the brief alone — which is what a `quick`
-        // production does by design.
-        const outline = coerceOutline(parseJson(answer.text), 0);
+        // Asked again before giving up, which is worth one call and is not free. The measured reason
+        // this pass fails is the one model slot being busy — "waited 60000ms for the model and it is
+        // still busy" — so a second ask may hit the same wall; it costs another `LlmGate` wait on a
+        // background-priority call and nothing on the air path. Measured live: 8 of 12 productions
+        // aired with no outline at all.
+        let outline = coerceOutline(parseJson((await ask()).text), 0);
+        if (outline === undefined) {
+            this.logger.info('productions: the outline came back unusable, so it is being asked again', { production: claimed.id });
+            outline = coerceOutline(parseJson((await ask()).text), 0);
+        }
+
+        // Still a model that gave nothing usable, which is not a failure of the production: the plan
+        // is already computed, so the beats can be drafted from the brief alone — which is what a
+        // `quick` production does by design.
+        //
+        // What is new is SAYING so. Degrading quietly to `quick` at `info` level meant two thirds of
+        // this station's phone-ins were written with no throughline and no beat map, each turn blind
+        // to every other, and nothing anywhere said that had happened — a programme where nothing
+        // answers anything looks exactly like a model that is simply not very good.
         if (outline === undefined) {
             this.logger.info('productions: the model gave no usable outline, so the beats will be drafted from the brief', {
                 production: claimed.id,
+            });
+            void this.activity.record({
+                module: 'render',
+                kind: 'production.unplanned',
+                detail:
+                    `"${claimed.title}" is being written without an outline: the model could not plan it, twice. Each beat will be written on ` +
+                    'its own, so it will read as a run of separate pieces rather than one programme.',
+                data: { production: claimed.id, kind: claimed.kind },
             });
             return await this.productions.savePlan(claimed.id, plan, 'outlining', 'drafting', casting);
         }

@@ -49,7 +49,7 @@ import {
     MAX_ANALYSIS_PACE_MS,
 } from '#modules/analysis/analysis.settings.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
-import { PAD_GAP_BOUNDS, PAD_GAP_KEY } from '#modules/render/pad.settings.js';
+import { PAD_EVERY_BOUNDS, PAD_EVERY_KEY, PAD_GAP_BOUNDS, PAD_GAP_KEY, PADS_KEY } from '#modules/render/pad.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
 import {
@@ -536,6 +536,24 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: '',
         help: 'The plugin id that makes one piece of audio out of several, which is what lets a programme written turn by turn air as a single item with a pause you chose between the turns. Its own key rather than the measurement one, so a station can measure with one engine and join with another. Leave empty when only one plugin can. With none available a programme simply airs as its separate parts.',
+    },
+    {
+        group: 'render',
+        key: PADS_KEY,
+        label: 'Let the station use its soundboard',
+        type: 'boolean',
+        default: true,
+        help: 'Whether a presenter with a board may hit a pad at all. On covers both halves \u2014 a character being told what it has to hand, and the station putting one in by itself when the words were written without a model. A character with no board is unaffected either way.',
+    },
+    {
+        group: 'render',
+        key: PAD_EVERY_KEY,
+        label: 'Put one in every N breaks',
+        type: 'number',
+        default: PAD_EVERY_BOUNDS.default,
+        min: PAD_EVERY_BOUNDS.min,
+        max: PAD_EVERY_BOUNDS.max,
+        help: 'How far apart the station puts a soundboard hit into a break it wrote without a model. Zero switches that off while leaving a character free to reach for one itself. Lower than about four and the station is a jingle package rather than a presenter: a hit every other break is a noise roughly every ninety seconds of speech.',
     },
     {
         group: 'render',

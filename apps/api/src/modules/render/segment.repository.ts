@@ -505,6 +505,43 @@ export class SegmentRepository extends DataRepository {
         return toSegment(row);
     }
 
+    /**
+     * How many breaks the station has written since the last one that hit a pad.
+     *
+     * What the deterministic floor's spacing is judged against, and it is counted from the ROWS
+     * rather than held in memory for `ReadLog`'s inverse reason: a bulletin's read log is a question
+     * with a twelve-hour half-life and a restart costing one repeated story, where this is a
+     * rhythm — a station restarted every hour would hit a pad on the first break every time, which
+     * is the one pattern a listener would actually notice.
+     *
+     * Counted over everything the station WROTE rather than over what aired, because a break dropped
+     * before its slot still spent its pad (`PadRepository.markUsed` stamps at selection, and this has
+     * to agree with it or the two would disagree about what happened). Segments with no script are
+     * excluded: an imported ident is not a break the station wrote, and counting the library would
+     * make the spacing a function of how many files an operator dropped in.
+     *
+     * A station that has never hit one answers the count of everything it has ever written, which is
+     * large and is the right answer: the floor is overdue.
+     */
+    async breaksSincePad(): Promise<number> {
+        const row = await this.db
+            .selectFrom('deadair.segments')
+            .select(({ fn }) => fn.countAll<string>().as('count'))
+            .where('stationKey', '=', this.identity.stationKey)
+            .where('script', 'is not', null)
+            .where(
+                'createdAt',
+                '>',
+                // `coalesce` to the epoch rather than a branch on "has anything ever hit one", so
+                // this stays a single round trip: a station with an untouched rack compares every
+                // row against a date before it existed and counts them all.
+                sql<DateTime>`coalesce((select max(created_at) from deadair.segments where station_key = ${this.identity.stationKey} and jsonb_array_length(pads) > 0), 'epoch'::timestamptz)`,
+            )
+            .executeTakeFirst();
+
+        return Number(row?.count ?? 0);
+    }
+
     /** One segment, whatever state it is in. */
     async findById(id: string): Promise<Segment | undefined> {
         const row = await this.db.selectFrom('deadair.segments').select(SEGMENT_COLUMNS).where('id', '=', id).executeTakeFirst();

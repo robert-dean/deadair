@@ -71,6 +71,12 @@ function harness(
         spokenThrows?: boolean;
         /** What is on the presenting character's soundboard. Empty for every test that is not about one. */
         pads?: { name: string }[];
+        /** How long since the station last made a noise, which is what the floor's spacing reads. */
+        breaksSincePad?: number;
+        /** Which writer produced the words, since the floor's pad applies only to the station's own. */
+        writer?: string;
+        /** Settings as the STRINGS a config layer actually holds. See the off-case assertions. */
+        settings?: Record<string, string>;
     } = {},
 ) {
     const segments = {
@@ -80,6 +86,7 @@ function harness(
         findById: vi.fn(async () => ('segment' in options ? options.segment : planned())),
         recentScripts: vi.fn(async () => []),
         writeScript: vi.fn(async () => options.wrote ?? true),
+        breaksSincePad: vi.fn(async () => options.breaksSincePad ?? 0),
         markFailed: vi.fn(async () => {}),
     };
     const lineups = { load: vi.fn(async () => options.lineup) };
@@ -97,7 +104,7 @@ function harness(
         writer,
         attempts: [{ writer, outcome: 'written', written: { script, label }, durationMs: 1 }],
     });
-    const writers = { write: vi.fn(async () => options.written ?? wrote('talking', 'Talk break: one into two', 'deterministic')) };
+    const writers = { write: vi.fn(async () => options.written ?? wrote('talking', 'Talk break: one into two', options.writer ?? 'deterministic')) };
     const enrichment = {
         factsForTracks: vi.fn(async (_ids: readonly string[], _rotate?: number) =>
             options.factsThrow ? Promise.reject(new Error('the enrichment tables are gone')) : (options.facts ?? new Map<string, string[]>()),
@@ -108,7 +115,11 @@ function harness(
     const personas = { presenting: vi.fn(async () => options.persona) };
     // A rack with nothing on it, which is what every persona in these tests has: `pads` answers `{}`
     // for an empty board, so the request is byte-identical to one built before soundboards existed.
-    const pads = { onBoard: vi.fn(async () => options.pads ?? []) };
+    const pads = {
+        onBoard: vi.fn(async () => options.pads ?? []),
+        named: vi.fn(async (_board: string, name: string) => (options.pads ?? []).find(pad => pad.name === name)),
+        markUsed: vi.fn(async (_id: string) => {}),
+    };
     // What that character has accumulated. Empty unless a test asks otherwise, and never read at all
     // for a station presenting as nobody — which is what the `personaKey === undefined` guard buys
     // and what most assertions here were written against.
@@ -124,7 +135,7 @@ function harness(
         markTold: vi.fn(async (_id: string) => {}),
     };
     const jobs = { send: vi.fn(async () => {}) };
-    const config = { get: vi.fn((_: string, fallback: string) => fallback) };
+    const config = { get: vi.fn((key: string, fallback: string) => options.settings?.[key] ?? fallback) };
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
     // The feed's write side. Only a break that fell through to a second writer reaches it.
     const activity = { record: vi.fn(async (_event: Record<string, unknown>) => undefined) };
@@ -175,6 +186,7 @@ function harness(
     return {
         job,
         segments,
+        pads,
         lineups,
         requests,
         history,
@@ -1107,5 +1119,92 @@ describe('WriteBreakJob', () => {
             expect(segments.recentScripts).toHaveBeenCalledWith('talkbreak', expect.any(Number));
             expect(logger.warn).toHaveBeenCalled();
         });
+    });
+});
+
+// The floor's own half of the soundboard. A station with no model still has a rack, and this is what
+// reaches it — a sting after a phrasing an operator typed, every few breaks.
+//
+// The line it must not cross is the one the whole prompt is built around: a model shown the rack and
+// choosing not to reach for it has made a judgement about its own sentence, and appending a sound to
+// words somebody else shaped is two rules that disagree.
+describe('WriteBreakJob putting a pad in by itself', () => {
+    const withBoard = { key: 'wisecrack', id: 'p-1', label: 'Wisecrack', kind: 'host', style: 'dry', active: true, soundboard: 'wisecrack' };
+    const rack = [{ id: 'pad-1', board: 'wisecrack', name: 'rimshot', label: 'Rimshot', audioChecksum: 'sum', audioExt: 'mp3', source: 'library', state: 'active' }];
+
+    it('adds a sting to a break the floor wrote, once one is due', async () => {
+        const { job, segments } = harness({ lineup: await lineupWithBreak(), persona: withBoard as never, pads: rack as never, breaksSincePad: 4 });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // At the end, because a phrasing is a sentence an operator typed and nothing here knows where
+        // its beat falls. After the words is a sting; inside them is guessing at comic timing.
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking [sfx:rimshot]' }));
+    });
+
+    it('resolves and rests what it added, so the rotation counts it like any other hit', async () => {
+        const { job, segments, pads } = harness({ lineup: await lineupWithBreak(), persona: withBoard as never, pads: rack as never, breaksSincePad: 4 });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(pads.markUsed).toHaveBeenCalledWith('pad-1');
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ pads: [{ name: 'rimshot', padId: 'pad-1' }] }));
+    });
+
+    it('waits when the last one was too recent', async () => {
+        const { job, segments } = harness({ lineup: await lineupWithBreak(), persona: withBoard as never, pads: rack as never, breaksSincePad: 2 });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking', pads: [] }));
+    });
+
+    it('leaves a break the MODEL wrote exactly as the model wrote it', async () => {
+        // The line. A character that was shown the rack and said nothing has decided; the station
+        // does not get to append a punchline to somebody else's sentence.
+        const { job, segments } = harness({ lineup: await lineupWithBreak(), persona: withBoard as never, pads: rack as never, breaksSincePad: 40, writer: 'a-model' });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking', pads: [] }));
+    });
+
+    it('says nothing for a character with no board, however overdue it is', async () => {
+        const { job, segments } = harness({ lineup: await lineupWithBreak(), pads: rack as never, breaksSincePad: 40 });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking' }));
+    });
+
+    it('is switched off by the setting, and reads it as the STRING a config layer actually holds', async () => {
+        // `config.get(key, false)` answers `'false'`, which is truthy: a switch written that way can
+        // be turned on and never back off, in silence. Handing a real boolean here would pass either
+        // way and prove nothing.
+        const { job, segments } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: rack as never,
+            breaksSincePad: 40,
+            settings: { 'render.pads': 'false' },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking' }));
+    });
+
+    it('is switched off by a spacing of zero, which leaves a model free to reach for one', async () => {
+        const { job, segments } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: rack as never,
+            breaksSincePad: 40,
+            settings: { 'render.padEveryBreaks': '0' },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking' }));
     });
 });

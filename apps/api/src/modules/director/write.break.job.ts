@@ -7,8 +7,9 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { EnrichmentReadService } from '#modules/enrichment/enrichment.read.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
-import { padsIn } from '#modules/render/pad.cues.js';
+import { padCue, padsIn } from '#modules/render/pad.cues.js';
 import { PadRepository } from '#modules/render/pad.repository.js';
+import { padEveryBreaks, padsAreOn } from '#modules/render/pad.settings.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
@@ -25,11 +26,11 @@ import { BreakRequestRepository } from './break.request.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { isRenderedFirst, priorityForUrgency, type StoredBreakRequest } from './break.request.js';
 import { BulletinSource } from './bulletin.source.js';
-import type { BreakTrack, PlayedRecord } from './break.writer.js';
+import type { BreakTrack, PlayedRecord, WrittenBreak } from './break.writer.js';
 import { dayGreeting, dayPart, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { TALK_BREAK_SHAPE } from './break.prompt.js';
-import { TALK_BREAK_KIND } from './talk.break.writer.js';
+import { DETERMINISTIC_WRITER, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
@@ -332,11 +333,16 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // across the station, so a renderer resolving `[sfx:airhorn]` for itself would have to ask
         // who is presenting NOW — which after a recast is somebody else with a different rack, and
         // the sound joined would not be the one the words were written for.
-        const pads = await this.hits(result.written.script, persona);
+        // The FLOOR runs first, because it can only ever change a script that hit nothing — so what
+        // `hits` resolves below is the finished words either way, whoever decided them.
+        const script = await this.floorPad(result, persona);
+        const pads = await this.hits(script, persona);
 
         if (
             !(await this.segments.writeScript(segmentId, {
                 ...result.written,
+                // The floor may have added a hit, so this is the script rather than the writer's own.
+                script,
                 writer: result.writer,
                 ...(claimsItemId === undefined ? {} : { claimsItemId }),
                 ...(persona === undefined ? {} : { personaId: persona.id }),
@@ -525,6 +531,61 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         } catch (error) {
             this.logger.debug(`director: could not ask what the engine can perform (${errorText(error)})`);
             return {};
+        }
+    }
+
+    /**
+     * A soundboard hit added to a break the FLOOR wrote, when one is due. Answers the script either way.
+     *
+     * ## Why only the floor
+     *
+     * A model shown the rack and choosing not to reach for it has made a judgement about its own
+     * sentence, and appending a sound to the end of words somebody else shaped is the two-rules-that-
+     * disagree failure this prompt spends most of its length avoiding. A template writer is the
+     * opposite case: `BreakWriteRequest.pads` is documented as unread by every deterministic writer,
+     * so it was never offered the choice and there is no judgement here to override.
+     *
+     * That is also what keeps the guarantee the whole registry is built on. The floor cannot fail, so
+     * whatever this does has to be incapable of failing: it appends a marker to a string, and the
+     * render path treats a hit it cannot resolve as a break that airs as words.
+     *
+     * ## Where it goes, and why the end is the only honest answer
+     *
+     * At the end. A phrasing is a sentence an operator typed and nothing here knows where its beat
+     * falls — dropping a rimshot into the middle of somebody's template would be guessing at comic
+     * timing on their behalf. After the words is a sting, which is a thing radio actually does.
+     *
+     * The pad is the least recently hit, which is what `PadRepository.onBoard` already orders by, so
+     * this takes the first and does not sort again.
+     */
+    private async floorPad(result: { written: WrittenBreak; writer: string }, persona: Persona | undefined): Promise<string> {
+        const script = result.written.script;
+        if (result.writer !== DETERMINISTIC_WRITER) return script;
+
+        const board = persona?.soundboard;
+        if (board === undefined || !padsAreOn(this.config)) return script;
+
+        // Zero is the operator switching the floor off while leaving the model free to reach for one.
+        const every = padEveryBreaks(this.config);
+        if (every === 0) return script;
+
+        // A template cannot have written one, so this is belt and braces rather than a real branch —
+        // and it is what keeps the rule true if a deterministic writer ever does learn to.
+        if (padsIn(script).length > 0) return script;
+
+        try {
+            const rack = await this.padRepository.onBoard(board);
+            if (rack.length === 0) return script;
+
+            const since = await this.segments.breaksSincePad();
+            if (since < every) return script;
+
+            // Least recently hit, which is the order the read already answers in.
+            return `${script} ${padCue(rack[0]!.name)}`;
+        } catch (error) {
+            // The floor cannot fail. A rack that could not be read costs the break its sting.
+            this.logger.debug(`director: could not decide whether to hit a pad (${errorText(error)})`);
+            return script;
         }
     }
 

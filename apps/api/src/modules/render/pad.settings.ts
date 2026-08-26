@@ -6,6 +6,7 @@
  */
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /** The `deadair.settings` key. Dot-keyed, and in the `render` group like everything else this path reads. */
 export const PAD_GAP_KEY = 'render.padGapMs';
@@ -55,3 +56,50 @@ export function padGapMs(config: AppConfig): number {
 
 /** What the console draws, so the form and the resolver cannot disagree about the range. */
 export const PAD_GAP_BOUNDS = { default: DEFAULT_GAP_MS, min: MIN_GAP_MS, max: MAX_GAP_MS } as const;
+
+/** Whether the station reaches for its soundboard at all. */
+export const PADS_KEY = 'render.pads';
+
+/** How many breaks apart the deterministic floor puts one. */
+export const PAD_EVERY_KEY = 'render.padEveryBreaks';
+
+/**
+ * On, because off makes the whole path inert.
+ *
+ * `rotation.discover`'s call and its reason: a feature whose default is off is a feature nobody
+ * finds. The thing this actually switches off is not the model — a character told about its rack
+ * will reach for it — it is the FLOOR below, which is the half an operator might genuinely not
+ * want. Both are behind one switch because "the station may make a noise" is one question.
+ *
+ * Read through `settingIsOn` and never as a boolean, because every layer of `AppConfig` holds
+ * strings: `config.get(key, false)` answers `'false'`, which is truthy, so a switch written that way
+ * can be turned on and never back off, in silence, with the console showing the change.
+ */
+export function padsAreOn(config: AppConfig): boolean {
+    return settingIsOn(config, PADS_KEY, true);
+}
+
+/**
+ * How many breaks apart the floor puts a pad, and why the number is not smaller.
+ *
+ * Four, measured against the same thing `MAX_PADS` is: this station's median break is 28 words, so a
+ * pad every other break is a station that makes a noise roughly every ninety seconds of speech. That
+ * is a jingle package rather than a presenter. Four is often enough to be a habit and rare enough to
+ * still be a punchline.
+ *
+ * Zero switches the floor off while leaving the model free to hit one, which is the one state
+ * {@link padsAreOn} cannot express and is worth having: a station that trusts its character and does
+ * not want the machine joining in.
+ *
+ * Clamped rather than refused, like every resolver here, and parsed from a string for the same
+ * reason {@link padGapMs} is.
+ */
+export function padEveryBreaks(config: AppConfig): number {
+    const set = Number(String(config.get(PAD_EVERY_KEY, String(PAD_EVERY_BOUNDS.default))).trim());
+    if (!Number.isFinite(set)) return PAD_EVERY_BOUNDS.default;
+
+    return Math.min(PAD_EVERY_BOUNDS.max, Math.max(PAD_EVERY_BOUNDS.min, Math.round(set)));
+}
+
+/** What the console draws, so the form and the resolver cannot disagree about the range. */
+export const PAD_EVERY_BOUNDS = { default: 4, min: 0, max: 100 } as const;

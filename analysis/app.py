@@ -26,7 +26,18 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
-from join import MAX_GAP_MS, MAX_PARTS, duration_ms, join_samples, trim_to_cues
+from join import (
+    MAX_GAP_MS,
+    MAX_OFFSET_MS,
+    MAX_OVERLAYS,
+    MAX_PARTS,
+    duration_ms,
+    join_offsets,
+    join_samples,
+    place_overlay,
+    trim_to_cues,
+    with_headroom,
+)
 from loudness import integrated_lufs, sample_peak_db, to_mono, true_peak_db
 from measure import SAMPLE_RATE, SCHEMA_VERSION, measure
 from tags import gain_tags
@@ -98,10 +109,36 @@ class JoinPart(BaseModel):
     url: str
 
 
+class JoinOverlay(BaseModel):
+    """One sound mixed ON the joined parts rather than placed between them.
+
+    Anchored to a JOIN rather than to a timestamp, because the caller knows which
+    boundary it means and does not know how long the parts came out. `afterIndex`
+    0 is the boundary after the first part; `offsetMs` nudges it either side, so a
+    negative value pulls the sound under the tail of what came before -- which is
+    the difference between a drop that lands on the last word and one that waits
+    politely for it to finish.
+    """
+
+    url: str
+    afterIndex: int
+    # Zero is exactly on the boundary. Negative pulls it earlier.
+    offsetMs: int = 0
+    # What to do to the sound, and to the words underneath it, in decibels. Both
+    # default to leaving things alone, so an overlay with neither named is a plain
+    # sum -- which is what a short drop over speech usually wants.
+    gainDb: float = 0.0
+    duckDb: float = 0.0
+
+
 class JoinRequest(BaseModel):
     """Several files to be made into one. See `join.py` for why the station wants it."""
 
     parts: list[JoinPart]
+    # Absent is the ordinary join: parts one after another and nothing on top of
+    # them. Every existing caller sends none, and gets exactly what it got before
+    # this field existed.
+    overlays: list[JoinOverlay] = []
     # 200ms by default: a beat between two turns rather than a pause. The caller
     # holds the real opinion -- this is only what a caller that said nothing gets.
     gapMs: int = 200
@@ -389,7 +426,7 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     }
 
 
-def _join(urls: list[str], gap_ms: int, trim: bool) -> tuple[bytes, int]:
+def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay]) -> tuple[bytes, int]:
     """Fetch every part, join them, and answer with one FLAC and how long it runs.
 
     The parts are downloaded and probed BEFORE any of them is decoded, because
@@ -410,6 +447,18 @@ def _join(urls: list[str], gap_ms: int, trim: bool) -> tuple[bytes, int]:
         raise AnalysisError("undecodable", f"more than {MAX_PARTS} parts", status=400)
     if gap_ms < 0 or gap_ms > MAX_GAP_MS:
         raise AnalysisError("undecodable", f"a gap of {gap_ms}ms is outside 0..{MAX_GAP_MS}", status=400)
+    if len(overlays) > MAX_OVERLAYS:
+        raise AnalysisError("undecodable", f"more than {MAX_OVERLAYS} overlays", status=400)
+    for overlay in overlays:
+        if abs(overlay.offsetMs) > MAX_OFFSET_MS:
+            raise AnalysisError("undecodable", f"an offset of {overlay.offsetMs}ms is outside +/-{MAX_OFFSET_MS}", status=400)
+        # Refused rather than clamped, unlike the app's own settings resolvers:
+        # this is a request somebody composed rather than a row already stored, and
+        # an overlay anchored to a boundary that does not exist is a caller's bug.
+        # Silently moving it to a boundary that does would put a sound somewhere
+        # nobody asked for and say nothing.
+        if overlay.afterIndex < 0 or overlay.afterIndex > len(urls) - 2:
+            raise AnalysisError("undecodable", f"there is no join {overlay.afterIndex} in {len(urls)} parts", status=400)
 
     paths: list[str] = []
     try:
@@ -417,8 +466,18 @@ def _join(urls: list[str], gap_ms: int, trim: bool) -> tuple[bytes, int]:
             path, _ = _download(url)
             paths.append(path)
 
+        # The overlays are fetched with the parts and decoded to the SAME channel
+        # count, for the reason the parts are: summing buffers that disagree about
+        # that shears every frame of the overlap.
+        overlay_paths: list[str] = []
+        for overlay in overlays:
+            path, _ = _download(overlay.url)
+            overlay_paths.append(path)
+            paths.append(path)
+
         channels = max(_probe(path).channels for path in paths)
-        parts = [_decode(path, channels).samples for path in paths]
+        parts = [_decode(path, channels).samples for path in paths[: len(urls)]]
+        overlay_samples = [_decode(path, channels).samples for path in overlay_paths]
     finally:
         # Always, and all of them: a join that failed half way through has the
         # same claim on the container's disk as one that worked.
@@ -433,6 +492,18 @@ def _join(urls: list[str], gap_ms: int, trim: bool) -> tuple[bytes, int]:
 
     try:
         joined = join_samples(parts, gap_ms)
+
+        # Placed AFTER the concatenation and against its own offsets, so the two
+        # can never disagree about where a boundary is. See `join_offsets`.
+        if overlays:
+            boundaries = join_offsets(parts, gap_ms)
+            for overlay, samples in zip(overlays, overlay_samples, strict=True):
+                at = boundaries[overlay.afterIndex] + int(overlay.offsetMs * SAMPLE_RATE / 1000)
+                joined = place_overlay(joined, samples, at, overlay.gainDb, overlay.duckDb)
+
+            # Only where something was summed. An ordinary join is bit-identical to
+            # one made before overlays existed.
+            joined = with_headroom(joined)
     except ValueError as error:
         raise AnalysisError("undecodable", str(error), status=400) from error
 
@@ -536,11 +607,13 @@ async def join(request: JoinRequest) -> Response:
     urls = [part.url.strip() for part in request.parts]
     if any(len(url) == 0 for url in urls):
         return _error(AnalysisError("unfetchable", "a part was given with no url", status=400))
+    if any(len(overlay.url.strip()) == 0 for overlay in request.overlays):
+        return _error(AnalysisError("unfetchable", "an overlay was given with no url", status=400))
 
     async with _slots:
         loop = asyncio.get_running_loop()
         try:
-            audio, length_ms = await loop.run_in_executor(_pool, _join, urls, request.gapMs, request.trim)
+            audio, length_ms = await loop.run_in_executor(_pool, _join, urls, request.gapMs, request.trim, request.overlays)
         except AnalysisError as error:
             return _error(error)
         except Exception as error:  # noqa: BLE001 - the boundary; nothing above this catches

@@ -37,7 +37,7 @@
  */
 
 import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
-import type { AudioJoin } from './capabilities/mixer.js';
+import type { AudioJoin, AudioOverlay } from './capabilities/mixer.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
 import type { NewsFeedDescriptor, NewsItem, NewsQuery } from './capabilities/news.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
@@ -174,6 +174,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     LlmModelInfo: IsJsonSafe<LlmModelInfo>;
     AnalysisRef: IsJsonSafe<AnalysisRef>;
     AudioJoin: IsJsonSafe<AudioJoin>;
+    AudioOverlay: IsJsonSafe<AudioOverlay>;
     TrackCuePoints: IsJsonSafe<TrackCuePoints>;
     TrackLoudness: IsJsonSafe<TrackLoudness>;
     TrackTaggedLoudness: IsJsonSafe<TrackTaggedLoudness>;
@@ -235,6 +236,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'LlmModelInfo',
     'AnalysisRef',
     'AudioJoin',
+    'AudioOverlay',
     'TrackCuePoints',
     'TrackLoudness',
     'TrackTaggedLoudness',

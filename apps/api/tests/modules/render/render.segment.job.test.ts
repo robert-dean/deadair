@@ -40,6 +40,8 @@ function harness(
         join?: () => Promise<unknown>;
         /** The pad the row names has been deleted since the words were written. */
         padMissing?: boolean;
+        /** Settings as the STRINGS a config layer actually holds. */
+        settings?: Record<string, string>;
     } = {},
 ) {
     const claimed = 'claimed' in options ? options.claimed : segment();
@@ -78,7 +80,7 @@ function harness(
         ),
     } as unknown as PadRepository;
 
-    const config = { get: vi.fn((_key: string, fallback: string) => fallback) } as unknown as AppConfig;
+    const config = { get: vi.fn((key: string, fallback: string) => options.settings?.[key] ?? fallback) } as unknown as AppConfig;
 
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
     const job = new RenderSegmentJob(segments, speech, mixer, store, pads, analysis, config, { id: 'job-1' } as never, {} as never, logger as never);
@@ -363,5 +365,76 @@ describe('RenderSegmentJob joining a break around a soundboard hit', () => {
 
         expect(mixer.join).not.toHaveBeenCalled();
         expect(speech.speak).toHaveBeenCalledTimes(1);
+    });
+});
+
+// The pad as an OVERLAY rather than a part. Zero is what the station ships — a sting, the sound
+// after the line — and above zero the drop lands on the last word with nothing moved.
+describe('RenderSegmentJob landing a pad under the words', () => {
+    const padded = () =>
+        segment({
+            script: 'Ambitious. [sfx:rimshot] They played it anyway.',
+            pads: [{ name: 'rimshot', padId: 'pad-1' }],
+        });
+
+    const joinArgs = (mixer: unknown) =>
+        (mixer as { join: { mock: { calls: [string, string[], number, { overlays?: unknown[] }][] } } }).join.mock.calls[0]!;
+
+    it('sends the pad as a part when nothing asked for an overlay', async () => {
+        const { job, mixer } = harness({ claimed: padded() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        const [, urls, , options] = joinArgs(mixer);
+        expect(urls).toHaveLength(3);
+        expect(options.overlays ?? []).toHaveLength(0);
+    });
+
+    it('sends it as an overlay anchored to the join it sits at, pulled back under the words', async () => {
+        const { job, mixer } = harness({ claimed: padded(), settings: { 'render.padUnderMs': '400' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        const [, urls, , options] = joinArgs(mixer);
+        // Two takes only: nothing moved to make room, which is the whole difference.
+        expect(urls).toHaveLength(2);
+        expect(options.overlays).toEqual([{ url: expect.stringContaining('pad-sum'), afterIndex: 0, offsetMs: -400, duckDb: 0 }]);
+    });
+
+    it('still joins when the overlay leaves only one take, because there is something to mix on', async () => {
+        const { job, mixer, segments } = harness({
+            claimed: segment({ script: 'Ambitious. [sfx:rimshot]', pads: [{ name: 'rimshot', padId: 'pad-1' }] }),
+            settings: { 'render.padUnderMs': '400' },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // One part is not a join UNLESS something is being mixed onto it, which it is.
+        expect(mixer.join).toHaveBeenCalled();
+        expect(segments.markReady).toHaveBeenCalledWith('seg-1', expect.objectContaining({ audioExt: 'flac' }));
+    });
+
+    it('leaves a hit at the very start as a part, since there are no words in front of it', async () => {
+        const { job, mixer } = harness({
+            claimed: segment({ script: '[sfx:airhorn] Good evening.', pads: [{ name: 'airhorn', padId: 'pad-1' }] }),
+            settings: { 'render.padUnderMs': '400' },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // An overlay anchored to a join that does not exist is refused by the mixer, which would cost
+        // the break its whole join rather than its timing.
+        const [, urls, , options] = joinArgs(mixer);
+        expect(urls).toHaveLength(2);
+        expect(options.overlays ?? []).toHaveLength(0);
+    });
+
+    it('carries the duck through, and reads it as the string a config layer holds', async () => {
+        const { job, mixer } = harness({ claimed: padded(), settings: { 'render.padUnderMs': '400', 'render.padDuckDb': '-6' } });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        const [, , , options] = joinArgs(mixer);
+        expect(options.overlays?.[0]).toMatchObject({ duckDb: -6 });
     });
 });

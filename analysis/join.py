@@ -115,3 +115,106 @@ def join_samples(parts: list[np.ndarray], gap_ms: int, sample_rate: int = SAMPLE
 def duration_ms(samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> int:
     """How long a joined buffer runs, which is what the station stores on the row."""
     return int(samples.shape[0] * 1000 / sample_rate)
+
+
+# The most overlays one call may place.
+#
+# Well above what the station asks for (one pad in a break) and low enough that a
+# malformed request cannot turn one join into an hour of array arithmetic.
+MAX_OVERLAYS = 16
+
+# How far either side of a join an overlay may be nudged.
+#
+# Three seconds, which is the longest a sound can start before the words end and
+# still be the same moment rather than a second thing happening. Past that the
+# caller is describing a bed, and a bed wants a span rather than an anchor.
+MAX_OFFSET_MS = 3000
+
+
+def join_offsets(parts: list[np.ndarray], gap_ms: int, sample_rate: int = SAMPLE_RATE) -> list[int]:
+    """Where each join FALLS in the buffer `join_samples` builds, in frames.
+
+    One entry per boundary, so `n` parts give `n - 1` offsets and a single part
+    gives none. Computed rather than measured, because it has to agree exactly
+    with the concatenation beside it -- two functions that each decide where a
+    boundary is are two functions that can disagree by a frame, and an overlay
+    anchored to the wrong one lands in the middle of a word.
+    """
+    gap_frames = int(gap_ms * sample_rate / 1000)
+    offsets: list[int] = []
+    at = 0
+
+    for part in parts[:-1]:
+        at += part.shape[0]
+        offsets.append(at)
+        # The gap that follows this part, which the next one starts after.
+        at += gap_frames
+
+    return offsets
+
+
+def place_overlay(
+    base: np.ndarray,
+    overlay: np.ndarray,
+    at_frame: int,
+    gain_db: float = 0.0,
+    duck_db: float = 0.0,
+) -> np.ndarray:
+    """One sound mixed into a buffer at a frame, with the buffer ducked under it.
+
+    Mixed rather than inserted, which is the whole difference between this and
+    `join_samples`: nothing moves, so the words either side of a drop keep the
+    timing they were spoken with and the drop happens ON them.
+
+    `at_frame` may be negative or past the end; both are clipped to what actually
+    overlaps, so an offset that would put a sound before the first word simply
+    starts it at the first word rather than raising. A caller nudging an overlay
+    around a boundary should not have to know how long the parts were.
+
+    `duck_db` attenuates the base for the overlay's SPAN only, which is what makes
+    a sound audible over speech without turning the speech down for the whole
+    break. It is applied before the sum rather than after, or the duck would pull
+    the overlay down with it.
+    """
+    if overlay.size == 0 or base.size == 0:
+        return base
+
+    mixed = base.astype(np.float32, copy=True)
+
+    start = max(0, at_frame)
+    end = min(base.shape[0], at_frame + overlay.shape[0])
+    if end <= start:
+        return mixed
+
+    # Which slice of the overlay actually lands, for the case where it starts
+    # before the buffer does.
+    taken = overlay[start - at_frame : end - at_frame]
+
+    if duck_db != 0.0:
+        mixed[start:end] *= np.float32(10.0 ** (duck_db / 20.0))
+
+    mixed[start:end] += taken.astype(np.float32, copy=False) * np.float32(10.0 ** (gain_db / 20.0))
+
+    return mixed
+
+
+def with_headroom(samples: np.ndarray) -> np.ndarray:
+    """The same buffer, scaled down if summing pushed it past full scale.
+
+    A LINEAR scale of the whole thing rather than a limiter, and that is a real
+    choice rather than the lazy one. A limiter would keep the loud moment loud and
+    change the shape of it, which is a decision about how the station sounds that
+    belongs to whoever masters the audio; scaling changes no shape at all. What it
+    costs -- the whole break coming out quieter -- costs nothing here, because the
+    station MEASURES what it made and stamps a gain from that measurement on the
+    way to the mount. Only the ratio between the words and the sound survives this
+    function, and the ratio is the part the caller actually asked for.
+
+    Untouched when nothing clipped, so an ordinary join is bit-identical to one
+    made before overlays existed.
+    """
+    peak = float(np.max(np.abs(samples))) if samples.size else 0.0
+    if peak <= 1.0:
+        return samples
+
+    return (samples / np.float32(peak)).astype(np.float32, copy=False)

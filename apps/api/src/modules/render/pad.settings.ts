@@ -103,3 +103,67 @@ export function padEveryBreaks(config: AppConfig): number {
 
 /** What the console draws, so the form and the resolver cannot disagree about the range. */
 export const PAD_EVERY_BOUNDS = { default: 4, min: 0, max: 100 } as const;
+
+/** How far a pad is pulled back under the words before it, in milliseconds. */
+export const PAD_UNDER_KEY = 'render.padUnderMs';
+
+/**
+ * Zero, so the station's shipped behaviour is a STING: the sound follows the words.
+ *
+ * The default is the conservative one on purpose. A sting after the line is what a phrasing an
+ * operator typed can support, is what a template writer's floor produces, and is a thing radio
+ * actually does. Landing a drop ON the last word is funnier when it works and is a timing judgement
+ * nothing here can make on the operator's behalf — the beat is in their sentence, not in this file.
+ *
+ * Set it and the pad becomes an OVERLAY rather than a part: nothing moves, the words either side keep
+ * the timing they were spoken with, and the sound happens on them. That is the whole difference the
+ * mixer's `overlays` field buys.
+ */
+const DEFAULT_UNDER_MS = 0;
+
+/**
+ * The ceiling is the mixer's own, and it is a real bound rather than a round number.
+ *
+ * Past about three seconds a sound starting before the words end is not the same moment any more, it
+ * is a second thing happening — which is a BED, and a bed wants a span rather than an anchor.
+ */
+const MAX_UNDER_MS = 3000;
+
+/**
+ * How far under the preceding words to pull a pad.
+ *
+ * Zero means the sound follows them, which is a sting and is what the station ships. Anything above
+ * makes it an overlay starting that far before the words end.
+ *
+ * Clamped and parsed from a string, like every resolver here.
+ */
+export function padUnderMs(config: AppConfig): number {
+    const set = Number(String(config.get(PAD_UNDER_KEY, String(DEFAULT_UNDER_MS))).trim());
+    if (!Number.isFinite(set)) return DEFAULT_UNDER_MS;
+
+    return Math.min(MAX_UNDER_MS, Math.max(0, Math.round(set)));
+}
+
+/** What the console draws, so the form and the resolver cannot disagree about the range. */
+export const PAD_UNDER_BOUNDS = { default: DEFAULT_UNDER_MS, min: 0, max: MAX_UNDER_MS } as const;
+
+/**
+ * How far to duck the words underneath an overlaid pad.
+ *
+ * Zero, which is a plain sum, and that is right for the short loud drop this is nearly always used
+ * for: a rimshot over the tail of a sentence does not need the sentence turned down, and ducking one
+ * that does not need it makes the presenter sound like they flinched. An operator running something
+ * longer under a break is who this is for.
+ *
+ * Negative, because it is an attenuation. Clamped to something that cannot mute the words entirely:
+ * a break whose speech was ducked to silence under a two-second drop is a break nobody can hear.
+ */
+export function padDuckDb(config: AppConfig): number {
+    const set = Number(String(config.get(PAD_DUCK_KEY, '0')).trim());
+    if (!Number.isFinite(set)) return 0;
+
+    return Math.min(0, Math.max(-24, set));
+}
+
+/** The `deadair.settings` key for the duck. */
+export const PAD_DUCK_KEY = 'render.padDuckDb';

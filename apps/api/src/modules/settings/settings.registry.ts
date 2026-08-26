@@ -49,7 +49,16 @@ import {
     MAX_ANALYSIS_PACE_MS,
 } from '#modules/analysis/analysis.settings.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
-import { PAD_EVERY_BOUNDS, PAD_EVERY_KEY, PAD_GAP_BOUNDS, PAD_GAP_KEY, PADS_KEY } from '#modules/render/pad.settings.js';
+import {
+    PAD_DUCK_KEY,
+    PAD_EVERY_BOUNDS,
+    PAD_EVERY_KEY,
+    PAD_GAP_BOUNDS,
+    PAD_GAP_KEY,
+    PAD_UNDER_BOUNDS,
+    PAD_UNDER_KEY,
+    PADS_KEY,
+} from '#modules/render/pad.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
 import {
@@ -564,6 +573,26 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: PAD_GAP_BOUNDS.min,
         max: PAD_GAP_BOUNDS.max,
         help: 'How much silence sits either side of a drop when a break is joined around one. Much shorter than the pause between a production\u2019s turns, and for the opposite reason: a rimshot lands on the beat after the line, and a fifth of a second in front of it is a presenter who missed their own cue. Zero butts it straight against the words.',
+    },
+    {
+        group: 'render',
+        key: PAD_UNDER_KEY,
+        label: 'Land a hit under the words by (ms)',
+        type: 'number',
+        default: PAD_UNDER_BOUNDS.default,
+        min: PAD_UNDER_BOUNDS.min,
+        max: PAD_UNDER_BOUNDS.max,
+        help: 'Zero is a sting: the sound follows the line. Above zero it starts that far before the words end and plays ON them, with nothing moved \u2014 which is funnier when it lands and is a timing judgement about your own phrasings rather than one the station can make for you. A hit at the very start of a break always follows, because there are no words in front of it.',
+    },
+    {
+        group: 'render',
+        key: PAD_DUCK_KEY,
+        label: 'Duck the words under a hit by (dB)',
+        type: 'number',
+        default: 0,
+        min: -24,
+        max: 0,
+        help: 'How far to pull the speech down for the length of an overlaid hit, and only for that. Zero is right for the short loud drop this is nearly always used for: ducking under a rimshot that did not need it makes the presenter sound like they flinched. Worth setting for something longer running under a break.',
     },
     {
         group: 'render',

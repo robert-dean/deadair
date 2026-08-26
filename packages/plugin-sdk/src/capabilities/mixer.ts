@@ -75,6 +75,64 @@ export interface AudioJoin {
      * known to be tight already and their exact lengths matter.
      */
     trim?: boolean;
+
+    /**
+     * Sounds mixed ON the joined parts rather than placed between them.
+     *
+     * Absent is the ordinary join, and every caller that sends none gets exactly
+     * what it got before this field existed.
+     *
+     * The difference from a part is that **nothing moves**. A part pushes
+     * everything after it later; an overlay happens at the same time as what is
+     * already there, so the words either side of a drop keep the timing they were
+     * spoken with. That is the difference between a presenter landing a joke and
+     * one waiting politely for their own sentence to finish.
+     */
+    overlays?: AudioOverlay[];
+}
+
+/**
+ * One sound to mix onto a join.
+ *
+ * Anchored to a JOIN rather than to a timestamp, which is the one design decision
+ * here. A caller knows which boundary it means — after the setup, before the
+ * punchline — and does not know how long the parts will come out, because that is
+ * a fact about audio it has not decoded. Naming the boundary lets whatever IS
+ * decoding resolve it in samples.
+ */
+export interface AudioOverlay {
+    /** Complete and fetchable exactly as a part's url is. */
+    url: string;
+
+    /**
+     * Which join this sits at: `0` is the boundary after the first part.
+     *
+     * A join that does not exist is an ERROR rather than a nudge to the nearest
+     * one. An implementation that quietly moved it would put a sound somewhere
+     * nobody asked for and say nothing about having done so.
+     */
+    afterIndex: number;
+
+    /**
+     * How far either side of that boundary to start it, in milliseconds.
+     *
+     * Zero is exactly on it. **Negative pulls the sound earlier**, under the tail
+     * of what came before, which is what this whole field exists for.
+     */
+    offsetMs?: number;
+
+    /** What to do to the sound itself, in decibels. Absent leaves it alone. */
+    gainDb?: number;
+
+    /**
+     * How far to pull DOWN what is underneath, in decibels, for this overlay's
+     * span alone.
+     *
+     * The span rather than the whole join, because turning the speech down for a
+     * two-second drop is not the same request as turning the break down. Applied
+     * before the sum, or the duck would pull down the very sound it made room for.
+     */
+    duckDb?: number;
 }
 
 /**

@@ -157,6 +157,20 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
                 parts: request.parts.map(part => ({ url: part.url })),
                 gapMs: request.gapMs,
                 trim: request.trim ?? true,
+                // Sent only when there are any, so a station that asks for an ordinary join puts
+                // exactly the same body on the wire it did before overlays existed — and an older
+                // sidecar, whose model would reject an unknown field, keeps working.
+                ...(request.overlays === undefined || request.overlays.length === 0
+                    ? {}
+                    : {
+                          overlays: request.overlays.map(overlay => ({
+                              url: overlay.url,
+                              afterIndex: overlay.afterIndex,
+                              offsetMs: overlay.offsetMs ?? 0,
+                              gainDb: overlay.gainDb ?? 0,
+                              duckDb: overlay.duckDb ?? 0,
+                          })),
+                      }),
             }),
             timeoutMs: JOIN_TIMEOUT_MS,
         });

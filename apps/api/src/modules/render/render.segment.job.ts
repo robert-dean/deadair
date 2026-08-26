@@ -6,9 +6,10 @@ import { isPluginError } from '@deadair/plugin-sdk';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { resolvePlayoutBaseUrl, segmentAudioUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
+import type { AudioOverlay } from '@deadair/plugin-sdk';
 import { splitOnPads, withoutPads } from './pad.cues.js';
 import { PadRepository } from './pad.repository.js';
-import { padGapMs } from './pad.settings.js';
+import { padDuckDb, padGapMs, padUnderMs } from './pad.settings.js';
 import { MixerService } from './mixer.service.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import { extensionForMime, SegmentStore } from './segment.store.js';
@@ -215,7 +216,13 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         const byName = new Map(segment.pads.map(hit => [hit.name, hit.padId]));
 
         const base = resolvePlayoutBaseUrl(this.config);
+        // Zero is a STING: the pad is a part, and the words wait for it. Anything above makes it an
+        // OVERLAY that starts that far before the words end, so nothing moves and the sound happens
+        // ON them. The whole difference is which of these two lists the pad goes into.
+        const under = padUnderMs(this.config);
+
         const urls: string[] = [];
+        const overlays: AudioOverlay[] = [];
         const spoken: string[] = [];
         let placed = 0;
 
@@ -231,7 +238,20 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                     continue;
                 }
 
-                urls.push(storedAudioUrl(base, pad.audioChecksum, pad.audioExt));
+                const url = storedAudioUrl(base, pad.audioChecksum, pad.audioExt);
+                if (under > 0 && urls.length > 0) {
+                    // Anchored to the join AFTER the take just pushed, which is the boundary this
+                    // pad sits at in the sentence. `urls.length - 1` because a join is named by the
+                    // part it follows.
+                    //
+                    // Guarded on there being a preceding take at all: a script that OPENS on a hit
+                    // has no words for the sound to land under, so it stays a part. Sending an
+                    // overlay anchored to a join that does not exist is refused by the mixer, which
+                    // would cost the break its whole join rather than its timing.
+                    overlays.push({ url, afterIndex: urls.length - 1, offsetMs: -under, duckDb: padDuckDb(this.config) });
+                } else {
+                    urls.push(url);
+                }
                 placed += 1;
                 continue;
             }
@@ -250,7 +270,12 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         // take of the whole script is strictly better, and that is what the caller falls back to.
         if (placed === 0) return undefined;
 
-        const joined = await this.mixer.join(segment.label, urls, padGapMs(this.config));
+        // Two parts is the floor for a join, and an overlaid pad does not raise it: one take with a
+        // drop mixed onto it is still one part, and a mixer asked to join a single file pays a decode
+        // to hand the same bytes back. It IS worth the call once there is something to mix on.
+        if (urls.length < 2 && overlays.length === 0) return undefined;
+
+        const joined = await this.mixer.join(segment.label, urls, padGapMs(this.config), { overlays });
         if (joined === undefined) return undefined;
 
         const ext = extensionForMime(joined.mime);
@@ -273,6 +298,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
             job: this.context.id,
             segment: segment.id,
             parts: urls.length,
+            overlays: overlays.length,
             ext,
         });
 

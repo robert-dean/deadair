@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import type { AudioJoin, JoinedAudio } from '@deadair/plugin-sdk';
+import type { AudioJoin, AudioOverlay, JoinedAudio } from '@deadair/plugin-sdk';
 import { asMixerPlugin, type MixerPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -106,12 +106,28 @@ export class MixerService {
      * @param label - What this is, for the log line. Not read back.
      * @param urls - The parts in order, each reachable from wherever the joining happens — a sidecar
      *               container rather than this process.
+     * @param gapMs - The silence between the parts.
+     * @param options - Anything beyond a plain sequence. An options bag rather than a fourth
+     *                  positional argument, because the next thing after overlays is a fifth, and a
+     *                  call site reading `join(label, urls, 60, [], undefined)` says nothing about
+     *                  what it wants.
      */
-    async join(label: string, urls: readonly string[], gapMs: number): Promise<JoinedAudio | undefined> {
+    async join(
+        label: string,
+        urls: readonly string[],
+        gapMs: number,
+        options: { overlays?: readonly AudioOverlay[] } = {},
+    ): Promise<JoinedAudio | undefined> {
         const mixer = this.mixer();
         if (mixer === undefined) return undefined;
 
-        const request: AudioJoin = { parts: urls.map(url => ({ url })), gapMs };
+        const request: AudioJoin = {
+            parts: urls.map(url => ({ url })),
+            gapMs,
+            // Omitted rather than sent empty, so an ordinary join puts the same request on the wire
+            // it did before overlays existed.
+            ...(options.overlays === undefined || options.overlays.length === 0 ? {} : { overlays: [...options.overlays] }),
+        };
 
         try {
             return await this.pluginInvoker.invoke(mixer.record.id, 'mixer.join', async () => mixer.instance.join(request), {

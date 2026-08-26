@@ -66,6 +66,56 @@ export function timeClaimIn(script: string, ...offered: readonly (RoughTime | un
     };
 }
 
+/**
+ * The daypart a script names that cannot be true, given the one it was told, or `undefined`.
+ *
+ * ## Why this is not an equality check
+ *
+ * The prompt already asks, in as many words, and a model still does not always comply: of the nine
+ * scripts this station wrote that named a daypart while having been told one, three agreed and six
+ * did not — and every one of the six had reached for "tonight". So asking is necessary and is
+ * demonstrably not sufficient.
+ *
+ * But refusing everything that is not the exact word told would refuse half of those six for
+ * nothing. Three of them were told "this evening" and said "tonight", which is not an error: a
+ * presenter at nine in the evening may call it either, and {@link DAYPARTS_ROUND_THE_CLOCK} draws
+ * the line at ten only because a table has to draw it somewhere. The other three were told "this
+ * morning" or "this afternoon" and still said "tonight", which is the failure a listener actually
+ * hears.
+ *
+ * So what is compared is not the words but which STRETCH they name, and evening and tonight are the
+ * one pair that names the same stretch. Everything else has to match: morning and afternoon are not
+ * interchangeable with each other or with anything, being six hours apart and equally audible when
+ * wrong. A first attempt grouped this as light-out against dark-out, which permitted "this morning"
+ * being called "this afternoon" — coarse enough to miss a whole failure for the sake of one pair.
+ *
+ * ## What it does not catch, deliberately
+ *
+ * A script that names no daypart at all, which is the ordinary case and the one the station has no
+ * opinion about; and a script that hedges by naming both, which comes back as the first crossing
+ * found rather than as a separate verdict, because the answer is the same either way.
+ */
+export function contradictsDayPart(script: string, part: RoughTime | undefined): string | undefined {
+    if (part === undefined) return undefined;
+
+    const told = stretchOf(part.words);
+    if (told === undefined) return undefined;
+
+    // Every daypart word naming a different stretch. Matched with `saysTime`'s own
+    // case-insensitivity, which exists because a model capitalises the first word of a sentence and
+    // a station whose break said "Tonight" had its claim silently dropped for the capital T.
+    return DAYPART_WORDS.find(words => stretchOf(words) !== told && saysTime(script, { ...part, words }));
+}
+
+/**
+ * The stretch of the day a phrasing names, as against the phrasing itself.
+ *
+ * Two words share one of these only where a presenter could honestly use either, which is `night`
+ * alone. See {@link contradictsDayPart} for why the question is asked about the stretch rather than
+ * about the words.
+ */
+type DayStretch = 'morning' | 'afternoon' | 'night';
+
 /** The time, said the way a presenter says it, and how long that stays true. */
 export interface RoughTime {
     /** The words, with no leading capital and no trailing stop: a template decides the sentence. */
@@ -237,15 +287,37 @@ export function dayPart(at: number, zone: string): RoughTime {
  * Phrased as the adverbial a break would actually contain ("this morning", "tonight") rather than as
  * a label ("morning"), because these words are handed to a model to USE and are searched for in what
  * comes back. A label would be told to it and never said.
+ *
+ * `stretch` is what {@link contradictsDayPart} judges by, and it is on the row rather than in a
+ * second list so a part added here cannot be left out of that question. It differs from the words in
+ * exactly one place: "this evening" and "tonight" both name `night`, because a presenter at nine may
+ * honestly say either and the boundary between them at ten only exists because a table has to put it
+ * somewhere.
  */
-const DAYPARTS_ROUND_THE_CLOCK: readonly { from: number; until: number; words: string }[] = [
+const DAYPARTS_ROUND_THE_CLOCK: readonly { from: number; until: number; words: string; stretch: DayStretch }[] = [
     // Leads, so the `?? [0]` above lands on the part that actually covers midnight.
-    { from: 0, until: 5, words: 'tonight' },
-    { from: 5, until: 12, words: 'this morning' },
-    { from: 12, until: 18, words: 'this afternoon' },
-    { from: 18, until: 22, words: 'this evening' },
-    { from: 22, until: 24, words: 'tonight' },
+    { from: 0, until: 5, words: 'tonight', stretch: 'night' },
+    { from: 5, until: 12, words: 'this morning', stretch: 'morning' },
+    { from: 12, until: 18, words: 'this afternoon', stretch: 'afternoon' },
+    { from: 18, until: 22, words: 'this evening', stretch: 'night' },
+    { from: 22, until: 24, words: 'tonight', stretch: 'night' },
 ];
+
+/**
+ * Which stretch a phrasing names, or `undefined` for a word the table does not carry.
+ *
+ * Read out of {@link DAYPARTS_ROUND_THE_CLOCK} rather than listed again, so a part added to that
+ * table has to declare its stretch and cannot quietly fall outside this question. A word belonging
+ * to none is one {@link contradictsDayPart} declines to judge — the safe direction, but not one to
+ * arrive at by accident.
+ *
+ * Below the table rather than beside its caller: both of these read it as the module loads, and a
+ * `const` above it is in the temporal dead zone when it does.
+ */
+const stretchOf = (words: string): DayStretch | undefined => DAYPARTS_ROUND_THE_CLOCK.find(daypart => daypart.words === words)?.stretch;
+
+/** Every daypart the station has a word for, once each. */
+const DAYPART_WORDS: readonly string[] = [...new Set(DAYPARTS_ROUND_THE_CLOCK.map(daypart => daypart.words))];
 
 /**
  * A daypart as words with the window they hold in, given the hour it was found at.

@@ -54,6 +54,7 @@ import {
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
+import { contradictsDayPart, type RoughTime } from './clock.words.js';
 
 /**
  * What makes one KIND of break's prompt different from another's.
@@ -1465,6 +1466,18 @@ export interface AnswerGuard {
      */
     cues?: BreakCues;
     /**
+     * The half of the day this break was told it was speaking in.
+     *
+     * The same `RoughTime` the prompt was built from, on {@link AnswerGuard.recent}'s bargain: the
+     * station asks before it refuses. Absent means the question is not asked, which covers a break
+     * whose row carried no `airs_at` — and that used to be every ordinary talk break, which is the
+     * bug this exists downstream of rather than the state it is designed for.
+     *
+     * See {@link contradictsDayPart} for why it is judged at the resolution of light-and-dark rather
+     * than word for word.
+     */
+    dayPart?: RoughTime;
+    /**
      * The pads this break was offered, which are the only `[sfx:…]` runs its script may keep.
      *
      * The same list the prompt was built from, on {@link AnswerGuard.recent}'s bargain: the station
@@ -1516,6 +1529,12 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // it, because these two orders have to stay the same story — the note on `tidyAnswer` says why.
     // See `misCuedIn` for how narrowly it refuses.
     if (cuesWrongly(words, guard)) return undefined;
+
+    // A break that called the afternoon "tonight". Beside the cue check because it is the same kind
+    // of wrongness — a statement about the moment that a listener can check against their own window
+    // — and above the character check for the reason that one sits below the others: being out of
+    // character is a question worth asking only about a script the station could otherwise say.
+    if (saysWrongDayPart(words, guard)) return undefined;
 
     // A correct sentence that is not this character speaking, which is the failure a persona is
     // asked for and the one a model handed a page of content rules actually makes — in flat plain
@@ -1600,6 +1619,18 @@ const namesNothing = (script: string, guard: AnswerGuard): boolean => {
 const cuesWrongly = (script: string, guard: AnswerGuard): boolean => guard.cues !== undefined && misCuedIn(script, guard.cues);
 
 /**
+ * Whether a script named a half of the day that cannot be the one it was told.
+ *
+ * A guard with no daypart asks nothing, exactly as {@link namesNothing} asks nothing of a break that
+ * was shown no records — and the reason is the same bargain: the prompt has to have said so before
+ * the script can be refused for contradicting it.
+ *
+ * The measurement behind refusing at all is in {@link contradictsDayPart}. The short version is that
+ * the prompt asks and is obeyed most of the time, and the times it is not are all the same word.
+ */
+const saysWrongDayPart = (script: string, guard: AnswerGuard): boolean => contradictsDayPart(script, guard.dayPart) !== undefined;
+
+/**
  * Why a cleaned script is not the persona speaking, or `undefined` when it is.
  *
  * The same judgement {@link readAnswer} makes, exported so a writer can log WHICH of the four faults
@@ -1630,6 +1661,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
         'the model wrote past the word ceiling with nothing whole to keep short of it, and a script cut mid-sentence is worse than the phrasing underneath it',
     'named-nothing': 'the model wrote a break about neither of the records it was shown, so a listener could not tell what was playing',
     'cued-wrong': 'the model announced a record on the wrong side of the break, telling a listener something had played when it had not',
+    'wrong-daypart': 'the model called it the wrong half of the day, which a listener hears immediately and the station cannot take back',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'avoided-wording': 'the model used wording the persona forbids',
@@ -1644,7 +1676,7 @@ const FAULT_REASONS: Record<WriteFault, string> = {
  * an operator looking at a persona sheet for a ceiling that was in the way of a bulletin the prompt
  * had asked for.
  */
-export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing' | 'cued-wrong';
+export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing' | 'cued-wrong' | 'wrong-daypart';
 
 /**
  * Why a raw answer was refused, for a writer that wants to say so, or `undefined` when it was not.
@@ -1677,6 +1709,7 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // a break that named nothing has not got as far as cueing anything wrongly, and a break that
     // told the listener the wrong record played is not worth asking whether it did so in voice.
     if (cuesWrongly(speakable, guard)) return reasoned('cued-wrong');
+    if (saysWrongDayPart(speakable, guard)) return reasoned('wrong-daypart');
 
     const fault = faultIn(speakable, guard);
 

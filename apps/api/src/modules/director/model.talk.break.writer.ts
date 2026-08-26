@@ -232,6 +232,11 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // a bargain rather than a trick: the model is refused only for repeating something it
             // was shown and told not to repeat.
             ...(request.recent === undefined ? {} : { recent: request.recent }),
+            // The same daypart the prompt stated, so a script is refused for contradicting it only
+            // where it was actually told. This is the kind of break that had never been told at all
+            // — see `BreakPlanner.slotsFor` — which is why the talk break is where the word "tonight"
+            // came out through twelve of thirty-nine consecutive MORNING breaks.
+            ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
             // Built from `settings` rather than from `request`, so the guard is judging EXACTLY what
             // the prompt offered — the shape's veto included. A guard handed the raw request would
             // keep a pad hit in a kind of break whose shape refused to offer one, which is the same

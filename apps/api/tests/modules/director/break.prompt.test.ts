@@ -20,6 +20,7 @@ import {
     type PromptSettings,
 } from '../../../src/modules/director/break.prompt.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
+import { dayPart } from '../../../src/modules/director/clock.words.js';
 import { NEWS_SHAPE } from '../../../src/modules/director/model.news.break.writer.js';
 import { WELCOME_SHAPE } from '../../../src/modules/director/model.welcome.writer.js';
 import { LATITUDE_INSTRUCTIONS, LATITUDE_LICENCE, LATITUDE_MAX_WORDS } from '../../../src/modules/personas/persona.sheet.js';
@@ -1168,6 +1169,50 @@ describe('readAnswer, against the side of the break a record is on', () => {
 
     it('reports naming nothing ahead of cueing wrongly, because it is the more basic fault', () => {
         const declined = writeDecline('Tonight the groove lands, friend.', { names: [madhouse, hills], cues: between });
+
+        expect(declined?.fault).toBe('named-nothing');
+    });
+});
+
+// The prompt states the half of the day and mostly gets it, and the times it does not are all the
+// same word. See `contradictsDayPart` for the count; this is the half that makes the station act on
+// it, and the reason it declines rather than re-drafting is the one every guard here runs on — the
+// floor speaks in the same character and gets there at once.
+describe('readAnswer, against the half of the day it was told', () => {
+    const at = (hour: number) => dayPart(Date.UTC(2026, 7, 13, hour, 30), 'UTC');
+
+    it('asks nothing of a break that was never told what time it was', () => {
+        // Which was every ordinary talk break until the planner started stamping `airsAt`, and is
+        // still the state of a break planted past the end of the projection.
+        const script = 'Tonight we are back to back, and it does not let up.';
+
+        expect(readAnswer(script, {})).toBe(script);
+    });
+
+    it('declines a break that calls the afternoon tonight', () => {
+        expect(readAnswer('Tonight we are back to back, and it does not let up.', { dayPart: at(14) })).toBeUndefined();
+    });
+
+    it('takes an evening called tonight, which is a presenter choosing their own words', () => {
+        const script = 'Tonight we are back to back, and it does not let up.';
+
+        expect(readAnswer(script, { dayPart: at(20) })).toBe(script);
+    });
+
+    it('says which fault it was, in terms of the listener who can see out of a window', () => {
+        const declined = writeDecline('Tonight we are back to back.', { dayPart: at(9) });
+
+        expect(declined?.fault).toBe('wrong-daypart');
+        expect(declined?.reason).toMatch(/wrong half of the day/i);
+    });
+
+    it('reports naming nothing ahead of the daypart, because it is the more basic fault', () => {
+        // The two orders in `readAnswer` and `writeDecline` have to stay one story, and this is the
+        // assertion that holds them together at the position the new check was inserted at.
+        const declined = writeDecline('Tonight the groove lands, friend.', {
+            names: [{ title: 'Madhouse', artist: 'Anthrax' }],
+            dayPart: at(9),
+        });
 
         expect(declined?.fault).toBe('named-nothing');
     });

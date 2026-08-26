@@ -7,7 +7,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { settingsConfig } from '../../utils/settings.config.js';
-import { CLOCK_KEYS, dayGreeting, dayPart, roughTime, stationZone, timeClaimIn } from '../../../src/modules/director/clock.words.js';
+import {
+    CLOCK_KEYS,
+    contradictsDayPart,
+    dayGreeting,
+    dayPart,
+    roughTime,
+    stationZone,
+    timeClaimIn,
+} from '../../../src/modules/director/clock.words.js';
 
 /** An instant from a UTC wall clock, so a test can name the time it means. */
 const at = (hour: number, minute: number, second = 0): number => Date.UTC(2026, 7, 13, hour, minute, second);
@@ -194,6 +202,50 @@ describe('dayPart', () => {
 
         expect(dayPart(instant, 'Asia/Kolkata').words).toBe('this morning');
         expect(dayPart(instant, UTC).words).toBe('tonight');
+    });
+});
+
+// Telling the model is necessary and is measurably not sufficient. Of the nine scripts this station
+// wrote that named a daypart having been told one, six named a different one — and every one of the
+// six had reached for "tonight". Three of those six were told "this evening", which is a presenter's
+// own choice of words rather than a mistake; the other three were told the morning or the afternoon,
+// which is the thing a listener hears and the station cannot take back. So evening and tonight are
+// one answer and nothing else is.
+describe('contradictsDayPart', () => {
+    const morning = dayPart(at(9, 30), UTC);
+    const afternoon = dayPart(at(14, 0), UTC);
+    const evening = dayPart(at(20, 0), UTC);
+
+    it('asks nothing of a script that named no part of the day at all', () => {
+        expect(contradictsDayPart('That one still holds up. Here is another.', morning)).toBeUndefined();
+    });
+
+    it('asks nothing when the break was never told what time it was', () => {
+        // Which was every ordinary talk break until the planner started stamping `airsAt`. A script
+        // cannot be refused for contradicting something nobody said to it.
+        expect(contradictsDayPart('Great record for tonight.', undefined)).toBeUndefined();
+    });
+
+    it('permits the words it was given', () => {
+        expect(contradictsDayPart('Lovely way to spend this morning.', morning)).toBeUndefined();
+    });
+
+    it('permits an evening called tonight, because a presenter at eight may say either', () => {
+        expect(contradictsDayPart('Big one for tonight.', evening)).toBeUndefined();
+    });
+
+    it('refuses an afternoon called tonight, which is the break that went out wrong', () => {
+        expect(contradictsDayPart('Big one for tonight.', afternoon)).toBe('tonight');
+    });
+
+    it('refuses a morning called tonight however it was capitalised', () => {
+        // A model capitalises the first word of a sentence, and a check that missed it would pass
+        // exactly the scripts most likely to be wrong — the ones that OPEN on the word.
+        expect(contradictsDayPart('Tonight we are back to back.', morning)).toBe('tonight');
+    });
+
+    it('refuses a morning called the afternoon, which is the same crossing the other way', () => {
+        expect(contradictsDayPart('Settling into this afternoon nicely.', morning)).toBe('this afternoon');
     });
 });
 

@@ -4,6 +4,7 @@ import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
+import { MixerService } from '#modules/render/mixer.service.js';
 import { resolvePlayoutBaseUrl, segmentAudioUrl } from '#modules/playout/playout.urls.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SegmentStore, extensionForMime } from '#modules/render/segment.store.js';
@@ -32,15 +33,15 @@ export interface StitchProductionPayload {
  * leading and trailing silence plus whatever the transport added at the boundary. Nothing could tune
  * it, because there was nothing between the beats to tune.
  *
- * Joined, the pause is `render.productionGapMs` and nothing else, because the analyzer trims each
+ * Joined, the pause is `render.productionGapMs` and nothing else, because the mixer trims each
  * beat to where it actually starts and stops first. Everything else this buys — one title on the
  * mount, one item to remove, one loudness reading over the finished thing — is worth having and is
  * not the reason.
  *
  * ## Every failure lands in the same place
  *
- * No analyzer, an analyzer that cannot join, a join that threw, a media type the store cannot hold:
- * all of them leave the production `ready` with no joined row, and the director then places the
+ * No mixer, a join that threw, a media type the store cannot hold: all of them leave the
+ * production `ready` with no joined row, and the director then places the
  * beats as a block exactly as it did before any of this existed. That is why nothing here throws and
  * why the state is moved on in a `finally` — a production stuck in `stitching` would be a programme
  * that was made and never aired, which is a worse outcome than every failure this is guarding.
@@ -58,6 +59,7 @@ export class StitchProductionJob extends PlainJob<StitchProductionPayload> {
         private readonly productions: ProductionRepository,
         private readonly segments: SegmentRepository,
         private readonly store: SegmentStore,
+        private readonly mixer: MixerService,
         private readonly analysis: AnalysisService,
         private readonly config: AppConfig,
         context: JobContext,
@@ -118,7 +120,7 @@ export class StitchProductionJob extends PlainJob<StitchProductionPayload> {
         const urls = beats.map(beat => segmentAudioUrl(base, beat.id));
         const gapMs = stationGapMs(this.config);
 
-        const joined = await this.analysis.joinAudio(production.title, urls, gapMs);
+        const joined = await this.mixer.join(production.title, urls, gapMs);
         if (joined === undefined) return;
 
         const ext = extensionForMime(joined.mime);
@@ -168,8 +170,13 @@ export class StitchProductionJob extends PlainJob<StitchProductionPayload> {
      * How loud the joined programme came out, best-effort.
      *
      * The same call `RenderSegmentJob` makes and held to the same rule: nothing here may cost the
-     * production. A station with no analyzer never reaches this at all, since it could not have
-     * joined anything either.
+     * production.
+     *
+     * **The one place this job needs the ANALYZER rather than the mixer**, and since the split those
+     * are two picks: a station can perfectly well join a programme and then have nothing to measure
+     * it with, where before, reaching here at all proved there was an analyzer. `measureAudio`
+     * already answers `undefined` for having none, so the degradation is the one that was always
+     * here — the programme airs at the assumed speech level.
      */
     private async measure(segmentId: string): Promise<void> {
         try {

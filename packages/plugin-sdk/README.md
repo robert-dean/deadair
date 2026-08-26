@@ -15,7 +15,8 @@ A plugin extends deadair by declaring capabilities:
 | `enrichment` | supply facts about a track: year, genre, label, trivia, prose  |
 | `speech`     | say something out loud: text in, audio out                     |
 | `llm`        | produce words: a conversation in, text out                     |
-| `analysis`   | do the things that need decoded audio: measure a track, join several |
+| `analysis`   | measure a track's audio: bytes in, cue points and loudness out  |
+| `mixer`      | make one piece of audio out of several: parts in, audio out    |
 | `charts`     | say what is popular: a chart id in, ranked names out           |
 | `similarity` | say who else sounds like this: an artist in, artists out       |
 | `news`       | say what happened outside the station: a feed in, entries out  |
@@ -738,13 +739,16 @@ plugins it is the only place an operator can learn them.
 
 ## Decoded audio
 
-A plugin that declares `analysis` does the things that need decoded PCM, which
-is the one thing that does not happen inside deadair. The expected shape is an
-adapter over a separate program — the bundled one is an HTTP sidecar — in the
-same relationship a speech plugin has with its engine.
+`analysis` and `mixer` are the two capabilities that need decoded PCM, which is
+the one thing that does not happen inside deadair. The expected shape for both is
+an adapter over a separate program — the bundled one is an HTTP sidecar serving
+both — in the same relationship a speech plugin has with its engine.
 
-`analyzeTrack(ref)` is the required half: bytes in, cue points and loudness out.
-Two fields in the answer are not measurements and both matter. `schemaVersion`
+### Measuring, and joining
+
+`analyzeTrack(ref)` is what `analysis` requires: bytes in, cue points and
+loudness out. Two fields in the answer are not measurements and both matter.
+`schemaVersion`
 is what YOU produced rather than the constant this package exports, because an
 adapter is reporting the analyzer's version and the two drift across an upgrade.
 `complete` says whether the whole file was measured, and the host cannot check
@@ -752,14 +756,31 @@ it: a truncated download measures perfectly confidently and the specific lie it
 tells is that a record which fades ended cold. Always answering `true` disables
 the check silently.
 
-`joinAudio(request)` is optional: several URLs and a gap in, one piece of audio
-out, as a `mime` and a stream. It is on this capability because it is the same
-requirement seen from the other end — whatever decodes for you can almost
-certainly concatenate — and it is optional because a station that asks has
-somewhere to go if you decline. Answer `unsupported` rather than failing, trim
-each part to its own cue points unless told not to, and put the silence BETWEEN
-the parts and never at the ends: what you are making is one item in somebody's
-running order.
+`join(request)` is what `mixer` requires: several URLs and a gap in, one piece of
+audio out, as a `mime` and a stream. Trim each part to its own cue points unless
+told not to, and put the silence BETWEEN the parts and never at the ends — what
+you are making is one item in somebody's running order. Answer `unsupported`
+rather than failing where the thing behind you cannot join what it was given; a
+station that asks has somewhere to go, since a programme whose parts were not
+joined simply airs as its parts.
+
+### Why these are two capabilities and can still be one plugin
+
+Joining is the same requirement seen from the other end: whatever decodes for you
+can almost certainly concatenate. So declare both and serve them off one address,
+which is what the bundled adapter does — splitting it would be two config rows
+for one process, free to drift apart.
+
+They are two capabilities all the same, because **the host picks one plugin per
+capability**. Carried on `analysis` as an optional method, the station's joiner
+was whichever plugin the operator chose to MEASURE with: install one that
+measures better and cannot join, name it, and joining stops with nothing to do
+about it but choose a worse analyzer. Two keys (`analysis.pluginId` and
+`render.mixerPluginId`) let a station measure with one engine and join with
+another, and let a mix-only plugin exist at all.
+
+Declaring several capabilities is ordinary here rather than a compromise: the
+bundled music providers declare three and four.
 
 ## Configuration fields
 

@@ -14,6 +14,7 @@ import type { Production } from '../../../src/modules/productions/production.js'
 import type { SegmentRepository, Segment } from '../../../src/modules/render/segment.repository.js';
 import type { SegmentStore } from '../../../src/modules/render/segment.store.js';
 import type { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
+import type { MixerService } from '../../../src/modules/render/mixer.service.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
@@ -70,8 +71,13 @@ function harness(
 
     const store = { writeStream: vi.fn(async () => 'checksum-1') } as unknown as SegmentStore;
 
+    // Two doubles, because they are two picks: the mixer joins and the analyzer measures what came
+    // back, and a station can have one and not the other.
+    const mixer = {
+        join: vi.fn(options.join ?? (async () => ({ mime: 'audio/flac', audio: audio(), durationMs: 184_320 }))),
+    } as unknown as MixerService;
+
     const analysis = {
-        joinAudio: vi.fn(options.join ?? (async () => ({ mime: 'audio/flac', audio: audio(), durationMs: 184_320 }))),
         measureAudio: vi.fn(async () => ({ schemaVersion: 1, complete: true, data: { integratedLufs: -21.5 } })),
     } as unknown as AnalysisService;
 
@@ -80,18 +86,18 @@ function harness(
     } as unknown as AppConfig;
 
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
-    const job = new StitchProductionJob(productions, segments, store, analysis, config, { id: 'job-1' } as never, {} as never, logger as never);
+    const job = new StitchProductionJob(productions, segments, store, mixer, analysis, config, { id: 'job-1' } as never, {} as never, logger as never);
 
-    return { job, productions, segments, store, analysis, logger };
+    return { job, productions, segments, store, mixer, analysis, logger };
 }
 
 describe('StitchProductionJob', () => {
     it('joins the beats in order and writes one row that is ready to air', async () => {
-        const { job, segments, store, analysis } = harness();
+        const { job, segments, store, mixer } = harness();
 
         await job.run({ productionId: 'prod-1' });
 
-        expect(analysis.joinAudio).toHaveBeenCalledWith(
+        expect(mixer.join).toHaveBeenCalledWith(
             'Late line',
             // The station's own segment route for each part: the bytes joined are the bytes that
             // aired, and it is reachable from a sidecar container.
@@ -129,11 +135,11 @@ describe('StitchProductionJob', () => {
     });
 
     it('reads the operator gap and clamps a figure past the joiner will take', async () => {
-        const { job, analysis } = harness({ gapMs: '9000' });
+        const { job, mixer } = harness({ gapMs: '9000' });
 
         await job.run({ productionId: 'prod-1' });
 
-        expect(analysis.joinAudio).toHaveBeenCalledWith(expect.anything(), expect.anything(), 2000);
+        expect(mixer.join).toHaveBeenCalledWith(expect.anything(), expect.anything(), 2000);
     });
 
     it('still reaches ready when there is nothing that can join, so the beats air as a block', async () => {
@@ -148,7 +154,7 @@ describe('StitchProductionJob', () => {
     it('still reaches ready when the join throws', async () => {
         const { job, productions, segments, logger } = harness({
             join: async () => {
-                throw new Error('the analyzer fell over');
+                throw new Error('the mixer fell over');
             },
         });
 
@@ -176,21 +182,21 @@ describe('StitchProductionJob', () => {
     });
 
     it('does not join a production twice', async () => {
-        const { job, analysis, productions } = harness({ joined: { id: 'joined-already' } as Segment });
+        const { job, mixer, productions } = harness({ joined: { id: 'joined-already' } as Segment });
 
         await job.run({ productionId: 'prod-1' });
 
-        expect(analysis.joinAudio).not.toHaveBeenCalled();
+        expect(mixer.join).not.toHaveBeenCalled();
         expect(productions.moveTo).toHaveBeenCalledWith('prod-1', 'ready', 'stitching');
     });
 
     it('spends nothing on a production it could not claim, which is one somebody stopped', async () => {
-        const { job, segments, analysis, productions } = harness({ claimed: undefined });
+        const { job, segments, mixer, productions } = harness({ claimed: undefined });
 
         await job.run({ productionId: 'prod-1' });
 
         expect(segments.beatsOf).not.toHaveBeenCalled();
-        expect(analysis.joinAudio).not.toHaveBeenCalled();
+        expect(mixer.join).not.toHaveBeenCalled();
         expect(productions.moveTo).not.toHaveBeenCalled();
     });
 

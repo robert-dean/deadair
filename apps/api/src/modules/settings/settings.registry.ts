@@ -48,6 +48,7 @@ import {
     MAX_ANALYSIS_CONCURRENCY,
     MAX_ANALYSIS_PACE_MS,
 } from '#modules/analysis/analysis.settings.js';
+import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
 import {
@@ -529,6 +530,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'render',
+        key: MIXER_PLUGIN_KEY,
+        label: 'Join audio with',
+        type: 'string',
+        default: '',
+        help: 'The plugin id that makes one piece of audio out of several, which is what lets a programme written turn by turn air as a single item with a pause you chose between the turns. Its own key rather than the measurement one, so a station can measure with one engine and join with another. Leave empty when only one plugin can. With none available a programme simply airs as its separate parts.',
+    },
+    {
+        group: 'render',
         key: SCRIPT_HISTORY_KEYS.retentionDays,
         label: 'Keep what the station wrote for (days)',
         type: 'number',
@@ -572,7 +581,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         min: MIN_GAP_MS,
         max: MAX_GAP_MS,
         default: DEFAULT_GAP_MS,
-        help: 'A production is written one beat at a time and then joined into a single piece of audio, and this is the silence put between the beats. Each one is trimmed to where it actually starts and stops first, so this is the whole pause rather than an addition to whatever the voice left behind. Two hundred is a beat between turns; past a second it is a break in the programme. It needs an analyzer that can join audio, and a station without one hears its productions as separate beats.',
+        help: 'A production is written one beat at a time and then joined into a single piece of audio, and this is the silence put between the beats. Each one is trimmed to where it actually starts and stops first, so this is the whole pause rather than an addition to whatever the voice left behind. Two hundred is a beat between turns; past a second it is a break in the programme. It needs something set under "Join audio with" above, and a station without one hears its productions as separate beats.',
     },
     {
         group: 'render',

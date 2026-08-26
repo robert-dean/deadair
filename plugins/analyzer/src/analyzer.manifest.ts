@@ -1,4 +1,4 @@
-import { PLUGIN_CAPABILITY_ANALYSIS, type PluginManifest } from '@deadair/plugin-sdk';
+import { PLUGIN_CAPABILITY_ANALYSIS, PLUGIN_CAPABILITY_MIXER, type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
 
 export const PLUGIN_ID = 'deadair.analyzer';
@@ -51,10 +51,13 @@ export const analyzerManifest: PluginManifest = {
     id: PLUGIN_ID,
     name: 'Audio analyzer',
     version: PLUGIN_VERSION,
-    capabilities: [PLUGIN_CAPABILITY_ANALYSIS],
+    // Two capabilities and one address, because the host picks one plugin per capability and both of
+    // these are the same sidecar. See the plugin's own note: on `analysis` alone, the joiner would be
+    // whichever plugin the operator chose to measure with.
+    capabilities: [PLUGIN_CAPABILITY_ANALYSIS, PLUGIN_CAPABILITY_MIXER],
     apiVersion: '^1.0.0',
     description:
-        'Measures where a record starts, is underway, begins ending and stops, so the station can trim dead air and time what it says. Talks to the bundled analysis container.',
+        'Measures where a record starts, is underway, begins ending and stops, so the station can trim dead air and time what it says, and joins several pieces of audio into one so a programme written turn by turn airs as a single item. Talks to the bundled analysis container.',
     permissions: {
         // The operator names the address, so there is no hostname to write down.
         // An unset or unparseable `baseUrl` contributes no entry at all, which

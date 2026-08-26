@@ -8,6 +8,7 @@ import {
     type AnalysisRef,
     type AudioJoin,
     type JoinedAudio,
+    type MixerProvider,
     type PluginConnectionResult,
     type TrackAnalysis,
 } from '@deadair/plugin-sdk';
@@ -53,15 +54,23 @@ const UPSTREAM_CODES = new Set(['unfetchable', 'undecodable', 'truncated']);
  * thing that does not happen in Node — so the work is a separate program and
  * this is the conversation with it.
  *
- * Joining is here for exactly that reason and no other. It is the same
- * requirement seen from the other end: a station wanting a phone-in's turns as
- * one file needs them decoded, and this is already the plugin that talks to the
- * thing that decodes.
+ * ## Why one plugin declares two capabilities
+ *
+ * Joining is the same requirement seen from the other end: a station wanting a
+ * phone-in's turns as one file needs them decoded, and this is already the plugin
+ * that talks to the thing that decodes. So it is one plugin, one `baseUrl`, one
+ * sidecar — splitting it would be two config rows for one process, free to drift
+ * apart with nothing saying which one a failure came from.
+ *
+ * They are two CAPABILITIES all the same, because the host picks one plugin per
+ * capability: carried on `analysis` alone, the joiner would be whichever plugin
+ * the operator chose to MEASURE with. Declaring both is ordinary here rather than
+ * a compromise — the bundled music providers declare three and four.
  *
  * That indirection is what makes the analyzer swappable. `analysis/README.md` is
- * the contract rather than a description of the bundled image: anything
- * answering `/health` and `/analyze` is a valid analyzer, `/join` is optional in
- * that contract, and moving to one is a `baseUrl` change here.
+ * the contract rather than a description of the bundled image: anything answering
+ * `/health` and `/analyze` is a valid analyzer, `/join` is what earns the second
+ * capability, and moving to another sidecar is a `baseUrl` change here.
  *
  * ## What it deliberately does not interpret
  *
@@ -71,7 +80,7 @@ const UPSTREAM_CODES = new Set(['unfetchable', 'undecodable', 'truncated']);
  * plugin that unpacked the cue points to "validate" them would have to be
  * edited for every one of those, and would reject a payload newer than itself.
  */
-export class AnalyzerPlugin extends Plugin implements AnalysisProvider {
+export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerProvider {
     private baseUrl = '';
 
     protected async onLoad(): Promise<void> {
@@ -136,7 +145,7 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider {
         return this.toAnalysis(body, ref);
     }
 
-    async joinAudio(request: AudioJoin): Promise<JoinedAudio> {
+    async join(request: AudioJoin): Promise<JoinedAudio> {
         if (this.baseUrl.length === 0) {
             throw new PluginError('the analyzer has no URL configured').withCode('config');
         }

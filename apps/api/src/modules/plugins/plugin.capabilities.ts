@@ -4,6 +4,7 @@ import {
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_ENRICHMENT,
     PLUGIN_CAPABILITY_LLM,
+    PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_NEWS,
     PLUGIN_CAPABILITY_SCROBBLE,
     PLUGIN_CAPABILITY_SIMILARITY,
@@ -15,6 +16,7 @@ import {
     type SimilarityPluginInstance,
     type EnrichmentPluginInstance,
     type LlmPluginInstance,
+    type MixerProvider,
     type MusicProviderPluginInstance,
     type NewsPluginInstance,
     type PluginManifest,
@@ -546,17 +548,12 @@ export const asLlmPlugin = (record: PluginRecord): LlmPlugin | undefined => {
  * One REQUIRED, because there is nothing a measurement can partially support: a
  * plugin either answers about a track's audio or it is not an analyzer.
  *
- * `joinAudio` is the optional sibling and is deliberately not in this list. A
- * plugin that only measures is a whole analyzer, and the station that wanted a
- * join has somewhere to go without one — the production airs as its beats. Ask
- * for it with {@link canJoinAudio} at the point of use rather than by narrowing
- * the capability, which would take measurement away from an analyzer for want of
- * something unrelated to it.
+ * Joining audio was briefly an optional sibling here, asked for at the point of
+ * use by a `canJoinAudio` that has gone with it. It is {@link MIXER_METHODS} now:
+ * the method was reachable only through the analysis PICK, so the station's
+ * joiner was whichever plugin the operator chose to measure with.
  */
 export const ANALYSIS_METHODS = ['analyzeTrack'] as const satisfies ReadonlyArray<keyof AnalysisProvider>;
-
-/** Whether this analyzer can also join audio, which is the optional half of the capability. */
-export const canJoinAudio = (plugin: AnalysisPlugin): boolean => typeof plugin.instance.joinAudio === 'function';
 
 /** A plugin narrowed to "can measure a track's audio, right now". */
 export interface AnalysisPlugin {
@@ -586,4 +583,47 @@ export const asAnalysisPlugin = (record: PluginRecord): AnalysisPlugin | undefin
     if (!implementsAnalysis(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as AnalysisProvider };
+};
+
+/**
+ * The one method that earns the `mixer` capability.
+ *
+ * Required rather than optional, which is the whole difference between this and
+ * the `joinAudio` it replaced: that one was optional because it hung off a
+ * capability meaning something else, and a plugin declaring THIS one and unable
+ * to join is not a state worth being able to express.
+ */
+export const MIXER_METHODS = ['join'] as const satisfies ReadonlyArray<keyof MixerProvider>;
+
+/** A plugin narrowed to "can make one piece of audio out of several, right now". */
+export interface MixerPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: MixerProvider;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `mixer` capability. */
+export const implementsMixer = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_MIXER)) return false;
+    return MIXER_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The mixer-capable view of a record, or `undefined` when it is not one.
+ *
+ * No priority, for {@link asAnalysisPlugin}'s reason: two mixers handed the same
+ * parts produce two pieces of audio and there is nothing to merge, so choosing
+ * between several installed plugins is a setting — see `render.mixerPluginId`.
+ *
+ * Deliberately a SEPARATE view from {@link asAnalysisPlugin} even though the
+ * bundled plugin satisfies both. One plugin answering two capabilities is
+ * ordinary here (`plugins/spotify` answers `catalog` and `stream`); what must not
+ * be ordinary is one KEY answering two questions, which is what this exists to
+ * end.
+ */
+export const asMixerPlugin = (record: PluginRecord): MixerPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsMixer(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as MixerProvider };
 };

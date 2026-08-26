@@ -11,7 +11,13 @@ decoded PCM, and decoding is the one thing that does not happen in Node.
 **This directory is one implementation of the contract below, not the contract itself.** Anything
 that answers these endpoints is a valid analyzer, and swapping to it is a `baseUrl` change in the
 plugin's config. That is the whole reason the boundary is HTTP. `/join` is optional in that contract:
-a station whose analyzer answers 404 to it keeps every other thing an analyzer does.
+a station whose sidecar answers 404 to it keeps every other thing an analyzer does, and the plugin
+turns that 404 into an `unsupported` the station degrades over rather than a fault.
+
+App-side those are two CAPABILITIES — `analysis` and `mixer`, with their own keys — while remaining
+one sidecar behind one plugin declaring both. The split is about which plugin the host PICKS for
+each job, not about which program does the work; `packages/plugin-sdk/src/capabilities/mixer.ts`
+argues it.
 
 ## Why it is a separate program
 

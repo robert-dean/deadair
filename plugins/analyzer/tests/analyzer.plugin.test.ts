@@ -184,12 +184,12 @@ describe('AnalyzerPlugin.analyzeTrack', () => {
     });
 });
 
-describe('AnalyzerPlugin.joinAudio', () => {
+describe('AnalyzerPlugin.join', () => {
     const REQUEST = { parts: [{ url: 'http://api.test/segments/a/audio' }, { url: 'http://api.test/segments/b/audio' }], gapMs: 200 };
 
     it('posts the parts in order and asks for the trim, which is what makes the gap the gap', async () => {
         const { plugin, calls } = await started();
-        await plugin.joinAudio(REQUEST);
+        await plugin.join(REQUEST);
 
         const call = calls.find(candidate => candidate.url.endsWith('/join'));
         expect(JSON.parse((call?.init?.body as string) ?? '{}')).toEqual({
@@ -202,7 +202,7 @@ describe('AnalyzerPlugin.joinAudio', () => {
 
     it('passes a caller that asked for no trim through as it is', async () => {
         const { plugin, calls } = await started();
-        await plugin.joinAudio({ ...REQUEST, trim: false });
+        await plugin.join({ ...REQUEST, trim: false });
 
         const call = calls.find(candidate => candidate.url.endsWith('/join'));
         expect(JSON.parse((call?.init?.body as string) ?? '{}').trim).toBe(false);
@@ -210,7 +210,7 @@ describe('AnalyzerPlugin.joinAudio', () => {
 
     it('answers with what the audio is and how long it runs', async () => {
         const { plugin } = await started();
-        const joined = await plugin.joinAudio(REQUEST);
+        const joined = await plugin.join(REQUEST);
 
         // The mime is what the host stores and serves the bytes under, so a wrong one fails as
         // silence rather than as an error anybody sees.
@@ -221,7 +221,7 @@ describe('AnalyzerPlugin.joinAudio', () => {
 
     it('says the duration is unknown rather than zero when the analyzer did not report one', async () => {
         const { plugin } = await started({ join: () => new Response(new Uint8Array([1]), { headers: { 'content-type': 'audio/flac' } }) });
-        const joined = await plugin.joinAudio(REQUEST);
+        const joined = await plugin.join(REQUEST);
 
         expect(joined.durationMs).toBeUndefined();
     });
@@ -231,7 +231,7 @@ describe('AnalyzerPlugin.joinAudio', () => {
         // go: the production airs as a block of beats, exactly as it did before joining existed.
         const { plugin } = await started({ join: () => new Response('', { status: 404 }) });
 
-        expect(await rejectionCode(plugin.joinAudio(REQUEST))).toBe('unsupported');
+        expect(await rejectionCode(plugin.join(REQUEST))).toBe('unsupported');
     });
 
     it('carries the analyzer own code up for a part it could not fetch', async () => {
@@ -243,18 +243,18 @@ describe('AnalyzerPlugin.joinAudio', () => {
                 }),
         });
 
-        expect(await rejectionCode(plugin.joinAudio(REQUEST))).toBe('upstream');
+        expect(await rejectionCode(plugin.join(REQUEST))).toBe('upstream');
     });
 
     it('refuses audio the analyzer would not name, rather than storing bytes under a guess', async () => {
         const { plugin } = await started({ join: () => new Response(new Uint8Array([1]), { headers: { 'content-type': '' } }) });
 
-        expect(await rejectionCode(plugin.joinAudio(REQUEST))).toBe('upstream');
+        expect(await rejectionCode(plugin.join(REQUEST))).toBe('upstream');
     });
 
     it('is a config error, not an upstream one, when no URL is set', async () => {
         const { plugin } = await started({ config: { baseUrl: '' } });
-        expect(await rejectionCode(plugin.joinAudio(REQUEST))).toBe('config');
+        expect(await rejectionCode(plugin.join(REQUEST))).toBe('config');
     });
 });
 

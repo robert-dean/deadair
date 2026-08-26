@@ -36,7 +36,8 @@
  * plus three name arrays, so the runtime cost is the arrays alone.
  */
 
-import type { AnalysisRef, AudioJoin, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
+import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
+import type { AudioJoin } from './capabilities/mixer.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
 import type { NewsFeedDescriptor, NewsItem, NewsQuery } from './capabilities/news.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
@@ -279,6 +280,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'SpeechPluginInstance',
     'LlmPluginInstance',
     'AnalysisProvider',
+    'MixerProvider',
     'ChartsProvider',
     'NewsProvider',
     'SimilarityProvider',
@@ -304,7 +306,7 @@ export const BOUNDARY_LIVE_OBJECT_TYPES = [
     // `audio`: the engine's response body, usually forwarded straight through,
     // so the bytes are never held whole on either side of the call.
     'SpeechHandle',
-    // `audio`: the same thing one capability over. A joined production is the
+    // `audio`: the same thing one capability over, on the `mixer` side. A joined production is the
     // longest single piece of audio the station ever makes, so holding it whole
     // is the one thing this must not do.
     'JoinedAudio',

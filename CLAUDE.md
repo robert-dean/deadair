@@ -430,13 +430,23 @@ its own lineup item too — seven turns of a three-minute phone-in were seven it
 to the player and seven metadata changes on the mount, with the pause between turns being the speech
 engine's own padding plus whatever the transport added at the boundary, adjustable by nobody. Once
 every beat is `ready` the director moves the production `rendering → stitching` and sends
-`render.stitch_production`, which asks the analyzer to trim each beat to its own cue points, join
+`render.stitch_production`, which asks the mixer to trim each beat to its own cue points, join
 them with `render.productionGapMs` between (200ms, clamped 0–2000) and hand back one file. That is
 the only thing this buys that nothing else could: one title on the mount and one item to remove are
-worth having and are not the reason. Five things are load-bearing. **Joining is the `analysis`
-capability's optional half** (`joinAudio`, `analysis/README.md`'s `/join`), because it is the same
-requirement as measuring seen from the other end — both need decoded PCM, which is the one thing that
-does not happen in Node — and it is OPTIONAL because the station that asks has somewhere to go. **The
+worth having and are not the reason. Five things are load-bearing. **Joining is its OWN capability
+(`mixer`, `MixerProvider.join`, `analysis/README.md`'s `/join`), picked by its own key
+(`render.mixerPluginId`), and the reason is not that the work differs from measuring.** It is the
+same requirement seen from the other end — both need decoded PCM, which is the one thing that does
+not happen in Node — so it is one sidecar and ONE PLUGIN declaring both, on the terms
+`plugins/spotify` declares `catalog` and `stream`. It is two CAPABILITIES because a capability is
+the unit of SELECTION: carried as an optional `joinAudio` on `analysis`, as it was for one commit,
+the station's joiner is whichever plugin the operator chose to MEASURE with, so a second analyzer
+that measures better and cannot join takes joining away and the only remedy is to select a worse
+analyzer — which is precisely the "a capability that answers differently depending on which
+subsystem is asking" failure `plugin.selection.ts` exists to prevent. Filtering the analysis
+candidates on the method instead would have produced a second, disagreeing pick under one key. The
+one place `StitchProductionJob` still needs the ANALYZER is measuring the joined file's loudness,
+and since the split that is genuinely a second pick a station may not have. **The
 joined row is `production_id` with a NULL `production_ordinal`**, which is why migration 0016's
 constraint says an ordinal requires a production rather than both-or-neither: every guard that
 already says "a production beat is not an ordinary break" is written as `production_id is null` and
@@ -444,10 +454,10 @@ the joined row wants all of them, `SegmentRepository.recast` above most of all, 
 changeover would reopen a finished programme and wipe its script. **It is born `ready`**, which is a
 safety property rather than a shortcut — `claimForRender` starts at `written`, so a joined row that
 began there would eventually be claimed by a retry and hand a whole phone-in to the engine as one
-line in one voice. **Every failure lands in the same place**: no analyzer, an analyzer that cannot
-join, a join that threw, a media type the store cannot hold, all leave the production `ready` with no
+line in one voice. **Every failure lands in the same place**: no mixer, a join that threw, a media
+type the store cannot hold, all leave the production `ready` with no
 joined row and the beats go in as a block, which is what every station got before this existed and
-what a station with no analyzer gets permanently — the feed says which of the two it was. And **it is
+what a station with no mixer gets permanently — the feed says which of the two it was. And **it is
 still a GROUP even at one item**, because `groupId` is how `releaseUnheardProductions` and `remove`
 know a segment belongs to a programme. `listReady`/`readyKinds` now exclude everything a production
 owns, since a kind is free text and a `callin` band could otherwise draw one turn of a past phone-in

@@ -6,7 +6,15 @@
 import { describe, expect, it } from 'vitest';
 import type { PluginInstance, PluginManifest } from '@deadair/plugin-sdk';
 
-import { asCatalogPlugin, asLlmPlugin, asSpeechPlugin, asStreamPlugin, implementsStream } from '../../../src/modules/plugins/plugin.capabilities.js';
+import {
+    asAnalysisPlugin,
+    asCatalogPlugin,
+    asLlmPlugin,
+    asMixerPlugin,
+    asSpeechPlugin,
+    asStreamPlugin,
+    implementsStream,
+} from '../../../src/modules/plugins/plugin.capabilities.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 
 const manifest = (capabilities: string[]): PluginManifest => ({ capabilities }) as unknown as PluginManifest;
@@ -136,5 +144,52 @@ describe('asLlmPlugin', () => {
         // itself is never sent any tools.
         expect(asLlmPlugin(record(['llm'], llmMethods))?.listsModels).toBe(false);
         expect(asLlmPlugin(record(['llm'], { ...llmMethods, listModels: async () => [] }))?.listsModels).toBe(true);
+    });
+});
+
+describe('asMixerPlugin', () => {
+    /** The one method `mixer` requires, as a bare stub. */
+    const mixerMethods = {
+        join: async () => ({ mime: 'audio/flac', audio: new ReadableStream<Uint8Array>() }),
+    };
+
+    /** The one method `analysis` requires, as a bare stub. */
+    const analysisMethods = { analyzeTrack: async () => ({ schemaVersion: 1, complete: true, data: {} }) };
+
+    it('accepts a plugin that can join', () => {
+        expect(asMixerPlugin(record(['mixer'], mixerMethods))).toBeDefined();
+    });
+
+    it('refuses a plugin that declares mixer and never wrote join', () => {
+        expect(asMixerPlugin(record(['mixer'], {}))).toBeUndefined();
+    });
+
+    it('refuses a plugin that implements join and never declared it', () => {
+        expect(asMixerPlugin(record(['analysis'], { ...analysisMethods, ...mixerMethods }))).toBeUndefined();
+    });
+
+    it('refuses a plugin that is not running', () => {
+        for (const status of ['discovered', 'disabled', 'misconfigured', 'failed'] as const) {
+            expect(asMixerPlugin(record(['mixer'], mixerMethods, status))).toBeUndefined();
+        }
+    });
+
+    // The whole reason the capability was split off `analysis`. Joining used to be an optional
+    // method there, so the joiner was whichever plugin the operator chose to MEASURE with: these
+    // two views have to be able to disagree about one record, or the split bought nothing.
+    it('is independent of the analysis view, in both directions', () => {
+        const measuresOnly = record(['analysis'], analysisMethods);
+        expect(asAnalysisPlugin(measuresOnly)).toBeDefined();
+        expect(asMixerPlugin(measuresOnly)).toBeUndefined();
+
+        const joinsOnly = record(['mixer'], mixerMethods);
+        expect(asAnalysisPlugin(joinsOnly)).toBeUndefined();
+        expect(asMixerPlugin(joinsOnly)).toBeDefined();
+
+        // And one plugin answering both is ordinary rather than a special case: it is what the
+        // bundled analyzer does, over one sidecar with one address.
+        const both = record(['analysis', 'mixer'], { ...analysisMethods, ...mixerMethods });
+        expect(asAnalysisPlugin(both)).toBeDefined();
+        expect(asMixerPlugin(both)).toBeDefined();
     });
 });

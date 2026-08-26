@@ -52,6 +52,22 @@ export const PLUGIN_CAPABILITY_LLM = 'llm';
 export const PLUGIN_CAPABILITY_ANALYSIS = 'analysis';
 
 /**
+ * The plugin can make one piece of audio out of several: parts in, audio out.
+ *
+ * Separate from {@link PLUGIN_CAPABILITY_ANALYSIS}, and NOT because the work is
+ * different: both need decoded PCM, and the bundled adapter serves both off one
+ * sidecar. It is separate because **a capability is the unit of SELECTION**. The
+ * host picks one plugin per capability, so a joiner carried as an optional method
+ * on the analyzer is the analyzer the operator chose to MEASURE with — install
+ * one that measures better and cannot join, name it, and joining stops with
+ * nothing to do about it but choose a worse analyzer. Two keys is what lets a
+ * station measure with one engine and mix with another.
+ *
+ * One plugin may of course declare both, and the bundled one does.
+ */
+export const PLUGIN_CAPABILITY_MIXER = 'mixer';
+
+/**
  * The plugin can say what is popular: a chart id in, an ordered list of names
  * out.
  *
@@ -103,6 +119,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_LLM,
     PLUGIN_CAPABILITY_ANALYSIS,
+    PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_NEWS,
     PLUGIN_CAPABILITY_SIMILARITY,

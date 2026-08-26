@@ -33,7 +33,7 @@ const GROUPS: { key: StationSettingDescriptor['group']; title: string; blurb: st
         title: 'Playout',
         blurb: 'What puts the station on air, and the secret the playout bridge is gated on.',
     },
-    { key: 'render', title: 'Voice', blurb: 'How the station speaks.' },
+    { key: 'render', title: 'Voice and audio', blurb: 'How the station speaks, and how a programme written in parts is put together.' },
     {
         key: 'llm',
         title: 'Words',

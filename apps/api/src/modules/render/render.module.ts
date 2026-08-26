@@ -3,6 +3,7 @@ import { Container, Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { MixerService } from './mixer.service.js';
 import { DEFAULT_PRONUNCIATIONS } from './pronunciation.lexicon.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { RenderService } from './render.service.js';
@@ -111,6 +112,11 @@ export const RenderModule: ServerKitModule = {
         // gate would hand every caller its own idea of whether it was busy.
         registry.register(SpeechGate).useClass(SpeechGate).asSingleton();
         registry.register(SpeechService).useClass(SpeechService).asScoped();
+
+        // Beside the speaker and scoped like it: both turn station material into station audio
+        // through one chosen plugin. No gate, because a join holds nothing exclusive the way a
+        // single set of model weights does.
+        registry.register(MixerService).useClass(MixerService).asScoped();
 
         registry.register(RenderService).useClass(RenderService).asScoped();
     },

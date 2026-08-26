@@ -116,8 +116,9 @@ const service = (options: ServiceOptions = {}) => {
             // The lexicon is only reached through SpeechService, which this suite fakes whole, so
             // the repository itself is never called on any path here.
             {} as never,
-            // The rack and its inbox, on the same terms: no case here reaches a pad route, so a stub
-            // that throws on any call is a better failure than one that answers plausibly.
+            // The rack, its sets and its inbox, on the same terms: no case here reaches a pad route,
+            // so a stub that throws on any call is a better failure than one that answers plausibly.
+            {} as never,
             {} as never,
             {} as never,
             logger as never,

@@ -22,6 +22,8 @@ import type {
     SegmentList,
     PadList,
     PadScanResult,
+    PadSetMembership,
+    PadSetWrite,
     PadState,
     SegmentScanResult,
     Segment as SegmentView,
@@ -30,6 +32,7 @@ import type {
 import { DateTime } from 'luxon';
 import { PadLibrary } from './pad.library.js';
 import { PadRepository, type Pad } from './pad.repository.js';
+import { PadSetRepository } from './pad.set.repository.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { ScriptRatingsRepository } from './script.ratings.repository.js';
 import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
@@ -120,6 +123,7 @@ export class RenderService {
         // The rack and the directory it fills from. Last, so every existing call site's positional
         // arguments are untouched.
         private readonly pads: PadRepository,
+        private readonly padSets: PadSetRepository,
         private readonly padLibrary: PadLibrary,
         private readonly logger: Logger,
     ) {}
@@ -315,7 +319,67 @@ export class RenderService {
      * a deleted row would be back on the next pass and the operator's decision would not survive it.
      */
     async listPads(): Promise<PadList> {
-        return { pads: (await this.pads.list()).map(toPadView) };
+        const [pads, sets] = await Promise.all([this.pads.list(), this.padSets.list()]);
+
+        // Two reads rather than one per row, because the page draws every pad's memberships and the
+        // alternative is an N+1 over a library an operator may have hundreds of.
+        const membership = await this.padSets.setsFor(pads.map(pad => pad.id));
+        const naming = new Map(await Promise.all(sets.map(async set => [set.key, await this.padSets.personasNaming(set.key)] as const)));
+
+        return {
+            pads: pads.map(pad => ({ ...toPadView(pad), sets: membership.get(pad.id) ?? [] })),
+            sets: sets.map(set => ({ ...set, personas: naming.get(set.key) ?? [] })),
+        };
+    }
+
+    /** Names a set, or answers the one already under that key. */
+    async createPadSet(write: PadSetWrite): Promise<PadList> {
+        await this.padSets.ensure({ key: write.key, label: write.label, ...(write.position === undefined ? {} : { position: write.position }) });
+        return await this.listPads();
+    }
+
+    /**
+     * Renames a set.
+     *
+     * The KEY moves with it, which is what makes this the one write here with a consequence the
+     * caller has to be shown first: `personas.soundboard` holds a key and not a foreign key, so every
+     * persona naming the old one silently stops finding it. `PadSet.personas` is on the wire for
+     * exactly that, and the console says so before it offers the button.
+     */
+    async updatePadSet(id: string, write: PadSetWrite): Promise<PadList> {
+        if (!(await this.padSets.update(id, { key: write.key, label: write.label, ...(write.position === undefined ? {} : { position: write.position }) }))) {
+            throw httpError(404).withDetails({ message: `pad set "${id}" does not exist` });
+        }
+
+        return await this.listPads();
+    }
+
+    /** Removes a set and its memberships, and no pads. */
+    async deletePadSet(id: string): Promise<PadList> {
+        if (!(await this.padSets.remove(id))) throw httpError(404).withDetails({ message: `pad set "${id}" does not exist` });
+
+        return await this.listPads();
+    }
+
+    /**
+     * Puts a pad on a set or takes it off.
+     *
+     * A refused add answers 409 rather than silently doing nothing, because the reason is specific
+     * and actionable — the set already answers to that name — and a console that showed no change
+     * would leave an operator clicking the same box.
+     */
+    async setPadMembership(id: string, write: PadSetMembership): Promise<PadList> {
+        if (!write.on) {
+            await this.padSets.drop(id, write.padId);
+            return await this.listPads();
+        }
+
+        const outcome = await this.padSets.add(id, write.padId);
+        if (outcome === 'name-taken') {
+            throw httpError(409).withDetails({ message: 'this set already has a sound under that name, and a script names a sound by name' });
+        }
+
+        return await this.listPads();
     }
 
     /** Takes whatever is in the pad inbox onto its board. */

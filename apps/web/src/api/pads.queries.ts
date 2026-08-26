@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Pad, PadList, PadState } from '@deadair/sdk';
+import type { Pad, PadList, PadSet, PadSetMembership, PadSetWrite, PadState } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -34,6 +34,30 @@ export function useSetPadState() {
 }
 
 /**
+ * Every write to a set, sharing one success path.
+ *
+ * The answer is the whole rack rather than the row that moved, so nothing refetches — which matters
+ * more here than on the lexicon it is copied from: one pad going onto a set changes that pad's row
+ * AND the set's count AND, for a rename, every persona line beside it.
+ */
+function usePadSetWrite<TArgs>(mutationFn: (args: TArgs) => Promise<PadList>) {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn,
+        onSuccess: (list: PadList) => queryClient.setQueryData(queryKeys.pads.list(), list),
+    });
+}
+
+export const useCreatePadSet = () => usePadSetWrite((body: PadSetWrite) => sdk.render.createPadSet(body));
+
+export const useUpdatePadSet = () => usePadSetWrite(({ id, body }: { id: string; body: PadSetWrite }) => sdk.render.updatePadSet(id, body));
+
+export const useDeletePadSet = () => usePadSetWrite((id: string) => sdk.render.deletePadSet(id));
+
+export const useSetPadMembership = () =>
+    usePadSetWrite(({ id, body }: { id: string; body: PadSetMembership }) => sdk.render.setPadMembership(id, body));
+
+/**
  * Reads the inbox again.
  *
  * Invalidates rather than writing the answer in, unlike every mutation beside it: the scan answers
@@ -65,4 +89,4 @@ export async function fetchPadAudio(id: string): Promise<string> {
     return URL.createObjectURL(result.data);
 }
 
-export type { Pad, PadList };
+export type { Pad, PadList, PadSet };

@@ -177,7 +177,8 @@ contract PronunciationQuery: { # Which part of the lexicon to read
 # filename produces both
 contract Pad: {
     id: readonly uuid
-    board: string(min=1, max=200) # Which rack this is on. A persona points at one by name
+    board: string(min=1, max=200) # Which directory it arrived in. Provenance: what reaches it is a set
+    sets: readonly array(string(min=1, max=200)) # The keys of the sets it is on. Empty means it is in the library and nothing can hit it
     name: string(min=1, max=200) # What a script writes: `[sfx:airhorn]`
     label: string(min=1, max=200)
     durationMs?: int(min=0)
@@ -187,8 +188,33 @@ contract Pad: {
     state: enum(active, rejected)
 }
 
-contract PadList: { # Every sound the station holds, board by board
+contract PadList: { # Every sound the station holds, and the sets over it
     pads: array(Pad)
+    sets: array(PadSet)
+}
+
+# A named collection of pads: what a presenter is actually handed.
+#
+# One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
+# renaming a set unpoints every persona naming it — which is why `personas` says who those are
+contract PadSet: {
+    id: readonly uuid
+    key: string(min=1, max=200) # The slug a persona names. A directory in the pad inbox makes one of these
+    label: string(min=1, max=200)
+    position: int(min=0)
+    pads: readonly int(min=0) # How many sounds are on it. Zero is ordinary: it is what a set looks like before anybody drops a file
+    personas: readonly array(string(min=1, max=200)) # Who is pointed at it, so a rename or a delete can say what it is about to unpoint
+}
+
+contract PadSetWrite: { # A set an operator is naming, or renaming
+    key: string(min=1, max=200)
+    label: string(min=1, max=200)
+    position?: int(min=0)
+}
+
+contract PadSetMembership: { # Which pad, and whether it is on the set
+    padId: uuid
+    on: boolean
 }
 
 contract PadState: { # Turning a pad down, or putting one back
@@ -199,5 +225,6 @@ contract PadScanResult: { # What one pass over the pad inbox did
     scanned: int(min=0) # Audio files seen, whether or not anything changed
     imported: int(min=0) # Sounds the station did not have before
     replaced: int(min=0) # Slots whose file changed under them, which every script naming them now plays
+    contested: int(min=0) # Sounds that reached the library but not their set, because it already answered to their name. In the library and unreachable until somebody says where they go
     skipped: int(min=0) # Files passed over: not audio, unreadable, or named something no script could write
 }

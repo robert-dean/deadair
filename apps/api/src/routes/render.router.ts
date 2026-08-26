@@ -4,6 +4,8 @@ import { RenderService } from '#src/modules/render/render.service.js';
 import {
     PadList,
     PadScanResult,
+    PadSetMembership,
+    PadSetWrite,
     PadState,
     PronunciationList,
     PronunciationQuery,
@@ -418,4 +420,83 @@ RenderRouter.get('/pads/:id/audio', async ctx => {
     if (result.headers['etag'] !== undefined) ctx.set('etag', String(result.headers['etag']));
     ctx.type = result.contentType;
     ctx.body = result.body;
+});
+
+/**
+ * Names a new set, or answers the one already under that key
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L527)
+ */
+RenderRouter.post('/pads/sets', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, PadSetWrite);
+
+    const service = ctx.container.get(RenderService);
+    const result: PadList = await service.createPadSet(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Renames a set. The KEY moves with it, so every persona naming the old one stops finding it
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L548)
+ */
+RenderRouter.put('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, PadSetWrite);
+
+    const service = ctx.container.get(RenderService);
+    const result: PadList = await service.updatePadSet(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Removes a set and its memberships, and no pads at all
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L563)
+ */
+RenderRouter.delete('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(RenderService);
+    const result: PadList = await service.deletePadSet(id);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Puts a pad on a set or takes it off. Refused where the set already answers to that name, because a script writes a name
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L581)
+ */
+RenderRouter.put('/pads/sets/:id/pads', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, PadSetMembership);
+
+    const service = ctx.container.get(RenderService);
+    const result: PadList = await service.setPadMembership(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
 });

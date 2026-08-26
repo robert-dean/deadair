@@ -67,9 +67,11 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
 
     const voiceOptions = (voices.data?.voices ?? []).map(voice => ({ value: voice.id, label: voice.label }));
 
-    // Answered from the PADS rather than from a list of board names, because a board exists exactly
-    // as long as something is on it — there is no table of boards to read and there should not be.
-    const boardOptions = [...new Set((pads.data?.pads ?? []).filter(pad => pad.state === 'active').map(pad => pad.board))].sort();
+    // The SETS, which is what `soundboard` names. Not derived from the pads any more: a set is a row
+    // now, and an empty one is a real thing to offer — it is what a set looks like before anybody has
+    // dropped a file, and pointing a character at it first is a perfectly ordinary order to do this
+    // in.
+    const boardOptions = (pads.data?.sets ?? []).map(set => set.key);
 
     return (
         /* A character sheet is fourteen fields and is read whole, which is why this is one scroll
@@ -214,12 +216,14 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             />
                         )}
                         {/* An autocomplete rather than a Select, on the voices map's rule: the list is
-                            what the library currently HOLDS, and a board an operator is about to fill
-                            has to stay typeable. Naming a board that does not exist yet is a rack that
-                            is empty, which is an ordinary state. */}
+                            what the station currently holds, and a set an operator is about to make
+                            has to stay typeable. Naming a set that does not exist is a rack that is
+                            empty, which `PadRepository.onSet` answers identically to a set holding
+                            nothing — deliberately, because both are a presenter with nothing to
+                            reach for. */}
                         <Autocomplete
                             label="Soundboard"
-                            description="The board this character can reach for, as the folder name under media/pads/inbox/. Leave empty for a presenter who works without one."
+                            description="The set of sounds this character can reach for. Leave empty for a presenter who works without one."
                             data={boardOptions}
                             {...form.getInputProps('soundboard')}
                         />

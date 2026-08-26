@@ -3,6 +3,8 @@ import { bigIntReplacer, parseJson, buildQueryString, readContentType } from '..
 import type {
     PadList,
     PadScanResult,
+    PadSetMembership,
+    PadSetWrite,
     PadState,
     PronunciationList,
     PronunciationQuery,
@@ -368,5 +370,53 @@ export class RenderClient {
                     headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
                 };
         }
+    }
+
+    /**
+     * @name Create pad set
+     * @description Names a new set, or answers the one already under that key
+     */
+    async createPadSet(body: PadSetWrite): Promise<PadList> {
+        const result = await this.fetch(`/pads/sets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PadList>(result);
+    }
+
+    /**
+     * @name Update pad set
+     * @description Renames a set. The KEY moves with it, so every persona naming the old one stops finding it
+     */
+    async updatePadSet(id: string, body: PadSetWrite): Promise<PadList> {
+        const result = await this.fetch(`/pads/sets/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PadList>(result);
+    }
+
+    /**
+     * @name Delete pad set
+     * @description Removes a set and its memberships, and no pads at all
+     */
+    async deletePadSet(id: string): Promise<PadList> {
+        const result = await this.fetch(`/pads/sets/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return await parseJson<PadList>(result);
+    }
+
+    /**
+     * @name Set pad membership
+     * @description Puts a pad on a set or takes it off. Refused where the set already answers to that name, because a script writes a name
+     */
+    async setPadMembership(id: string, body: PadSetMembership): Promise<PadList> {
+        const result = await this.fetch(`/pads/sets/${encodeURIComponent(id)}/pads`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PadList>(result);
     }
 }

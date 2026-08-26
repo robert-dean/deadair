@@ -257,7 +257,8 @@ export type PronunciationQuery = z.infer<typeof PronunciationQuery>;
  */
 export const Pad = z.strictObject({
     id: z.uuid(),
-    board: z.string().min(1).max(200).describe('Which rack this is on. A persona points at one by name'),
+    board: z.string().min(1).max(200).describe('Which directory it arrived in. Provenance: what reaches it is a set'),
+    sets: z.array(z.string().min(1).max(200)).describe('The keys of the sets it is on. Empty means it is in the library and nothing can hit it'),
     name: z.string().min(1).max(200).describe('What a script writes: `[sfx:airhorn]`'),
     label: z.string().min(1).max(200),
     durationMs: z.coerce.number().int().min(0).optional(),
@@ -272,7 +273,7 @@ export const Pad = z.strictObject({
 export type Pad = z.infer<typeof Pad>;
 
 export const PadInput = z.strictObject({
-    board: z.string().min(1).max(200).describe('Which rack this is on. A persona points at one by name'),
+    board: z.string().min(1).max(200).describe('Which directory it arrived in. Provenance: what reaches it is a set'),
     name: z.string().min(1).max(200).describe('What a script writes: `[sfx:airhorn]`'),
     label: z.string().min(1).max(200),
     durationMs: z.coerce.number().int().min(0).optional(),
@@ -287,8 +288,57 @@ export const PadInput = z.strictObject({
 export type PadInput = z.infer<typeof PadInput>;
 
 /**
+ * A named collection of pads: what a presenter is actually handed.
+ *
+ * One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
+ * renaming a set unpoints every persona naming it — which is why `personas` says who those are
+ * generated from [PadSet](file://./../../../../data/contracts/render/render.types.ck#L200)
+ */
+export const PadSet = z.strictObject({
+    id: z.uuid(),
+    key: z.string().min(1).max(200).describe('The slug a persona names. A directory in the pad inbox makes one of these'),
+    label: z.string().min(1).max(200),
+    position: z.coerce.number().int().min(0),
+    pads: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .describe('How many sounds are on it. Zero is ordinary: it is what a set looks like before anybody drops a file'),
+    personas: z.array(z.string().min(1).max(200)).describe('Who is pointed at it, so a rename or a delete can say what it is about to unpoint'),
+});
+export type PadSet = z.infer<typeof PadSet>;
+
+export const PadSetInput = z.strictObject({
+    key: z.string().min(1).max(200).describe('The slug a persona names. A directory in the pad inbox makes one of these'),
+    label: z.string().min(1).max(200),
+    position: z.coerce.number().int().min(0),
+});
+export type PadSetInput = z.infer<typeof PadSetInput>;
+
+/**
+ * A set an operator is naming, or renaming
+ * generated from [PadSetWrite](file://./../../../../data/contracts/render/render.types.ck#L209)
+ */
+export const PadSetWrite = z.strictObject({
+    key: z.string().min(1).max(200),
+    label: z.string().min(1).max(200),
+    position: z.coerce.number().int().min(0).optional(),
+});
+export type PadSetWrite = z.infer<typeof PadSetWrite>;
+
+/**
+ * Which pad, and whether it is on the set
+ * generated from [PadSetMembership](file://./../../../../data/contracts/render/render.types.ck#L215)
+ */
+export const PadSetMembership = z.strictObject({
+    padId: z.uuid(),
+    on: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
+});
+export type PadSetMembership = z.infer<typeof PadSetMembership>;
+
+/**
  * Turning a pad down, or putting one back
- * generated from [PadState](file://./../../../../data/contracts/render/render.types.ck#L194)
+ * generated from [PadState](file://./../../../../data/contracts/render/render.types.ck#L220)
  */
 export const PadState = z.strictObject({
     state: z.enum(['active', 'rejected']),
@@ -297,12 +347,19 @@ export type PadState = z.infer<typeof PadState>;
 
 /**
  * What one pass over the pad inbox did
- * generated from [PadScanResult](file://./../../../../data/contracts/render/render.types.ck#L198)
+ * generated from [PadScanResult](file://./../../../../data/contracts/render/render.types.ck#L224)
  */
 export const PadScanResult = z.strictObject({
     scanned: z.coerce.number().int().min(0).describe('Audio files seen, whether or not anything changed'),
     imported: z.coerce.number().int().min(0).describe('Sounds the station did not have before'),
     replaced: z.coerce.number().int().min(0).describe('Slots whose file changed under them, which every script naming them now plays'),
+    contested: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .describe(
+            'Sounds that reached the library but not their set, because it already answered to their name. In the library and unreachable until somebody says where they go',
+        ),
     skipped: z.coerce.number().int().min(0).describe('Files passed over: not audio, unreadable, or named something no script could write'),
 });
 export type PadScanResult = z.infer<typeof PadScanResult>;
@@ -445,16 +502,18 @@ export const PronunciationList = z.strictObject({
 export type PronunciationList = z.infer<typeof PronunciationList>;
 
 /**
- * Every sound the station holds, board by board
- * generated from [PadList](file://./../../../../data/contracts/render/render.types.ck#L190)
+ * Every sound the station holds, and the sets over it
+ * generated from [PadList](file://./../../../../data/contracts/render/render.types.ck#L191)
  */
 export const PadList = z.strictObject({
     pads: z.array(Pad),
+    sets: z.array(PadSet),
 });
 export type PadList = z.infer<typeof PadList>;
 
 export const PadListInput = z.strictObject({
     pads: z.array(PadInput),
+    sets: z.array(PadSetInput),
 });
 export type PadListInput = z.infer<typeof PadListInput>;
 

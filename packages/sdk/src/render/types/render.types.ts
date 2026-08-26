@@ -213,8 +213,10 @@ export interface PronunciationQuery {
  */
 export interface Pad {
     id: string;
-    /** Which rack this is on. A persona points at one by name */
+    /** Which directory it arrived in. Provenance: what reaches it is a set */
     board: string;
+    /** The keys of the sets it is on. Empty means it is in the library and nothing can hit it */
+    sets: string[];
     /** What a script writes: `[sfx:airhorn]` */
     name: string;
     label: string;
@@ -229,7 +231,7 @@ export interface Pad {
 }
 
 export interface PadInput {
-    /** Which rack this is on. A persona points at one by name */
+    /** Which directory it arrived in. Provenance: what reaches it is a set */
     board: string;
     /** What a script writes: `[sfx:airhorn]` */
     name: string;
@@ -245,8 +247,53 @@ export interface PadInput {
 }
 
 /**
+ * A named collection of pads: what a presenter is actually handed.
+ *
+ * One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
+ * renaming a set unpoints every persona naming it — which is why `personas` says who those are
+ * generated from [PadSet](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L200)
+ */
+export interface PadSet {
+    id: string;
+    /** The slug a persona names. A directory in the pad inbox makes one of these */
+    key: string;
+    label: string;
+    position: number;
+    /** How many sounds are on it. Zero is ordinary: it is what a set looks like before anybody drops a file */
+    pads: number;
+    /** Who is pointed at it, so a rename or a delete can say what it is about to unpoint */
+    personas: string[];
+}
+
+export interface PadSetInput {
+    /** The slug a persona names. A directory in the pad inbox makes one of these */
+    key: string;
+    label: string;
+    position: number;
+}
+
+/**
+ * A set an operator is naming, or renaming
+ * generated from [PadSetWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L209)
+ */
+export interface PadSetWrite {
+    key: string;
+    label: string;
+    position?: number;
+}
+
+/**
+ * Which pad, and whether it is on the set
+ * generated from [PadSetMembership](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L215)
+ */
+export interface PadSetMembership {
+    padId: string;
+    on: boolean;
+}
+
+/**
  * Turning a pad down, or putting one back
- * generated from [PadState](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L194)
+ * generated from [PadState](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L220)
  */
 export interface PadState {
     state: 'active' | 'rejected';
@@ -254,7 +301,7 @@ export interface PadState {
 
 /**
  * What one pass over the pad inbox did
- * generated from [PadScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L198)
+ * generated from [PadScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L224)
  */
 export interface PadScanResult {
     /** Audio files seen, whether or not anything changed */
@@ -263,6 +310,8 @@ export interface PadScanResult {
     imported: number;
     /** Slots whose file changed under them, which every script naming them now plays */
     replaced: number;
+    /** Sounds that reached the library but not their set, because it already answered to their name. In the library and unreachable until somebody says where they go */
+    contested: number;
     /** Files passed over: not audio, unreadable, or named something no script could write */
     skipped: number;
 }
@@ -400,15 +449,17 @@ export interface PronunciationList {
 }
 
 /**
- * Every sound the station holds, board by board
- * generated from [PadList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L190)
+ * Every sound the station holds, and the sets over it
+ * generated from [PadList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L191)
  */
 export interface PadList {
     pads: Pad[];
+    sets: PadSet[];
 }
 
 export interface PadListInput {
     pads: PadInput[];
+    sets: PadSetInput[];
 }
 
 /**

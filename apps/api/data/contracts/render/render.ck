@@ -514,3 +514,83 @@ operation /pads/{id}/audio: {
         }
     }
 }
+
+# The sets over the pad library: what a presenter is actually handed.
+#
+# Every mutation answers the WHOLE rack, as the pronunciations routes do and for their reason: one
+# pad moving between two sets changes two rows of the same page, and a caller handed only what it
+# named is holding a list it has to refetch anyway.
+#
+# There is no create-from-nothing shortcut on the directory side, deliberately: a scan makes the set
+# named after a folder, and this is for the sets an operator builds ACROSS folders
+operation /pads/sets: {
+    post: { # Names a new set, or answers the one already under that key
+        name: Create pad set
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.createPadSet
+        request: {
+            application/json: PadSetWrite
+        }
+        response: {
+            200: {
+                application/json: PadList
+            }
+        }
+    }
+}
+
+operation /pads/sets/{id}: {
+    params: {
+        id: uuid
+    }
+    put: { # Renames a set. The KEY moves with it, so every persona naming the old one stops finding it
+        name: Update pad set
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.updatePadSet
+        request: {
+            application/json: PadSetWrite
+        }
+        response: {
+            200: {
+                application/json: PadList
+            }
+        }
+    }
+    delete: { # Removes a set and its memberships, and no pads at all
+        name: Delete pad set
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.deletePadSet
+        response: {
+            200: {
+                application/json: PadList
+            }
+        }
+    }
+}
+
+operation /pads/sets/{id}/pads: {
+    params: {
+        id: uuid
+    }
+    put: { # Puts a pad on a set or takes it off. Refused where the set already answers to that name, because a script writes a name
+        name: Set pad membership
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.setPadMembership
+        request: {
+            application/json: PadSetMembership
+        }
+        response: {
+            200: {
+                application/json: PadList
+            }
+        }
+    }
+}

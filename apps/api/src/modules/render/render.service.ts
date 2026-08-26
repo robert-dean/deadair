@@ -315,7 +315,7 @@ export class RenderService {
      * Every sound the station holds, board by board.
      *
      * Every state, so a rejected pad is visible where an operator can put it back. That is the whole
-     * reason rejection is a state rather than a deletion — the inbox scan re-reads its directory, so
+     * reason rejection is a state rather than a deletion — the library scan re-reads its directory, so
      * a deleted row would be back on the next pass and the operator's decision would not survive it.
      */
     async listPads(): Promise<PadList> {
@@ -382,7 +382,7 @@ export class RenderService {
         return await this.listPads();
     }
 
-    /** Takes whatever is in the pad inbox onto its board. */
+    /** Takes whatever is in the pad library directory onto its board. */
     async scanPads(): Promise<PadScanResult> {
         return await this.padLibrary.scan();
     }

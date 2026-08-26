@@ -29,11 +29,14 @@ const DEFAULT_SEGMENT_DIR = './media/segments';
 const DEFAULT_LIBRARY_DIR = join(DEFAULT_SEGMENT_DIR, 'inbox');
 
 /**
- * Where an operator drops soundboard audio, when `PAD_LIBRARY_DIR` is unset.
+ * The soundboard library on disk, when `PAD_LIBRARY_DIR` is unset.
  *
- * Named for `SEGMENT_LIBRARY_DIR` beside it, which is the same thing one shelf over: the variable
- * says LIBRARY and the directory says inbox, because what an operator does with it is drop files in
- * and what the station has afterwards is a library.
+ * **The directory itself and not an `inbox/` inside it**, which is what this was for one commit and
+ * what the segment shelf beside it still is. Two reasons it does not carry over. `media/segments/`
+ * needs the extra level because it ALSO holds the content store, where `media/pads/` holds nothing
+ * else — pad bytes land in the segment store. And the container has never had one
+ * (`docker/rootfs/.../storage-env` sets `$DEADAIR_MEDIA/pads` and tells the operator to back that
+ * up), so the level was dev-only drift of exactly the kind the image rules exist to prevent.
  *
  * Its own root rather than a subdirectory of the segment inbox, which would otherwise read as a
  * segment KIND called `pads` and put the whole rack on the shelf the planner chooses idents from.
@@ -43,11 +46,12 @@ const DEFAULT_LIBRARY_DIR = join(DEFAULT_SEGMENT_DIR, 'inbox');
  * The BYTES still land in the segment store, because a content-addressed store is about identity
  * rather than about what the file is for. **Which is what makes THIS directory the one to back up**
  * — the store copy is rewritten from here by every boot scan and is disposable, and nothing anywhere
- * can reproduce what is here. In the container it sits with the bulk rather than with the authored
- * half, because a library of beds is gigabytes; `docker/rootfs/.../storage-env` carries that
- * argument and names this as the one thing on that disk a backup has to carry.
+ * can reproduce what is here. So it is not a drop point that happens to be kept: it is the library,
+ * written by an operator dropping files AND by the console (`PadLibrary.ingest`), and
+ * `docs/todo/backup-and-restore.md` is the design that rests on that. In the container it sits with
+ * the bulk rather than with the authored half, because a library of beds is gigabytes.
  */
-const DEFAULT_PAD_LIBRARY_DIR = './media/pads/inbox';
+const DEFAULT_PAD_LIBRARY_DIR = './media/pads';
 
 /**
  * Where the station's OWN soundboard ships, when `PAD_ASSETS_DIR` is unset.
@@ -134,8 +138,8 @@ export const RenderModule: ServerKitModule = {
             )
             .asScoped();
 
-        // The soundboard, scoped with the repository and the scanner beside it. The inbox path is a
-        // constructor argument for `SegmentLibrary`'s reason: the class stays testable against a
+        // The soundboard, scoped with the repository and the scanner beside it. The library path is
+        // a constructor argument for `SegmentLibrary`'s reason: the class stays testable against a
         // temp directory with no container and no AppConfig.
         const padLibraryDir = config.get('PAD_LIBRARY_DIR', DEFAULT_PAD_LIBRARY_DIR);
         registry.register(PadRepository).useClass(PadRepository).asScoped();
@@ -235,7 +239,7 @@ export const RenderModule: ServerKitModule = {
         } catch (error) {
             // A station with no soundboard is a station that talks without drops, which is every
             // station this one has ever been.
-            logger.warn(`render: could not scan the pad inbox (${errorText(error)})`);
+            logger.warn(`render: could not scan the pad library (${errorText(error)})`);
         }
     },
 };

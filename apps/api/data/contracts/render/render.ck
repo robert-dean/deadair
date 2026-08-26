@@ -436,7 +436,7 @@ operation /pronunciations/{id}/state: {
 # a segment is one airable element and an air horn is not one, which is why `readyKinds` would
 # otherwise offer "air horn" as a bookable clock band. See migration 0023.
 #
-# There is no create and no delete. A pad arrives by being dropped in `media/pads/inbox/<board>/`,
+# There is no create and no delete. A pad arrives by being dropped in `media/pads/<board>/`,
 # which is how the station already takes delivery of audio, and it leaves by being REJECTED rather
 # than removed: the scan re-reads that directory, so a deleted row would be back on the next pass.
 operation /pads: {
@@ -455,8 +455,8 @@ operation /pads: {
 }
 
 operation /pads/scan: {
-    post: { # Takes whatever audio is sitting in the pad inbox onto its board. Safe to repeat: a file nobody has touched is seen and left alone
-        name: Scan the pad inbox
+    post: { # Takes whatever audio is sitting in the pad library directory onto its board. Safe to repeat: a file nobody has touched is seen and left alone
+        name: Scan the pad library
         security: {
             policy: platform.manage
         }

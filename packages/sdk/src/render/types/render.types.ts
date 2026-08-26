@@ -223,7 +223,7 @@ export interface Pad {
     durationMs?: number;
     /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
     loudnessLufs?: number;
-    /** The file in the inbox it was imported from, so the console can say where it came from */
+    /** The file in the library directory it was imported from, so the console can say where it came from */
     sourcePath?: string;
     /** When it was last hit. Absent for one nothing has reached for yet */
     lastUsedAt?: string;
@@ -239,7 +239,7 @@ export interface PadInput {
     durationMs?: number;
     /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
     loudnessLufs?: number;
-    /** The file in the inbox it was imported from, so the console can say where it came from */
+    /** The file in the library directory it was imported from, so the console can say where it came from */
     sourcePath?: string;
     /** When it was last hit. Absent for one nothing has reached for yet */
     lastUsedAt?: string;
@@ -255,7 +255,7 @@ export interface PadInput {
  */
 export interface PadSet {
     id: string;
-    /** The slug a persona names. A directory in the pad inbox makes one of these */
+    /** The slug a persona names. A directory in the pad library makes one of these */
     key: string;
     label: string;
     position: number;
@@ -266,7 +266,7 @@ export interface PadSet {
 }
 
 export interface PadSetInput {
-    /** The slug a persona names. A directory in the pad inbox makes one of these */
+    /** The slug a persona names. A directory in the pad library makes one of these */
     key: string;
     label: string;
     position: number;
@@ -300,7 +300,7 @@ export interface PadState {
 }
 
 /**
- * What one pass over the pad inbox did
+ * What one pass over the pad library did
  * generated from [PadScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L224)
  */
 export interface PadScanResult {

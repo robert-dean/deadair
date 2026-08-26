@@ -361,7 +361,7 @@ RenderRouter.get('/pads', requirePolicy({ policy: 'platform.view' }), async ctx 
 });
 
 /**
- * Takes whatever audio is sitting in the pad inbox onto its board. Safe to repeat: a file nobody has touched is seen and left alone
+ * Takes whatever audio is sitting in the pad library directory onto its board. Safe to repeat: a file nobody has touched is seen and left alone
  * from [render.ck](file://./../../data/contracts/render/render.ck#L458)
  */
 RenderRouter.post('/pads/scan', requirePolicy({ policy: 'platform.manage' }), async ctx => {

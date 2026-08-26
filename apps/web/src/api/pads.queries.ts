@@ -58,7 +58,7 @@ export const useSetPadMembership = () =>
     usePadSetWrite(({ id, body }: { id: string; body: PadSetMembership }) => sdk.render.setPadMembership(id, body));
 
 /**
- * Reads the inbox again.
+ * Reads the library directory again.
  *
  * Invalidates rather than writing the answer in, unlike every mutation beside it: the scan answers
  * with a COUNT of what it did rather than with the rack, so the list has to be asked for again.

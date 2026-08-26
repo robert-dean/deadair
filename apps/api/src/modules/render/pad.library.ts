@@ -10,7 +10,7 @@ import { PadRepository, type Pad } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
 import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore } from './segment.store.js';
 
-/** What one pass over the pad inbox did. */
+/** What one pass over the pad library did. */
 export interface PadScan {
     /** Audio files seen, whether or not anything changed. */
     scanned: number;
@@ -31,7 +31,13 @@ export interface PadScan {
 }
 
 /**
- * The pad inbox: audio dropped on disk becomes something a presenter can hit.
+ * The pad library on disk: audio under `media/pads/<board>/` is what a presenter can hit.
+ *
+ * **A library rather than an inbox**, which is the word this used and the shape `SegmentLibrary`
+ * beside it still has. The difference is what `docs/todo/backup-and-restore.md` rests on: the bytes
+ * in the content store are rewritten from here by every boot scan and are disposable, and nothing
+ * anywhere can reproduce what is here, so this directory is the thing an archive carries. Which in
+ * turn is why it has no `inbox/` level — `media/pads/` holds nothing but the library.
  *
  * `SegmentLibrary` with two differences, and both of them are what a soundboard is rather than
  * incidental:
@@ -48,10 +54,10 @@ export interface PadScan {
  * emptying the directory does not silence a board, dotfiles are not deliveries, and a file that
  * cannot be read costs the operator that file rather than the other forty.
  *
- * The one thing it deliberately does NOT do is remove a pad whose file has gone. An inbox is an
- * inbox — the bytes are in the store and the row is the station's — so the way to take a pad off a
- * board is to reject it, which is a decision that outlives the next scan. See
- * `PadRepository.setState`.
+ * The one thing it deliberately does NOT do is remove a pad whose file has gone. The scan is an
+ * argument about what is present and never about what is absent — the bytes are in the store and the
+ * row is the station's — so the way to take a pad off a board is to reject it, which is a decision
+ * that outlives the next scan. See `PadRepository.setState`.
  */
 @Injectable()
 export class PadLibrary {
@@ -126,7 +132,7 @@ export class PadLibrary {
     }
 
     /**
-     * Take everything in the inbox onto the rack.
+     * Take everything in the library directory onto the rack.
      *
      * Safe to run repeatedly: a file nobody has touched is `unchanged` and silent, and one whose
      * bytes differ replaces what its slot held. Safe to run concurrently in the sense that matters —
@@ -142,12 +148,12 @@ export class PadLibrary {
         for (const file of await this.audioFiles()) await this.importOne(file, result);
 
         if (result.imported > 0 || result.replaced > 0 || result.skipped > 0 || result.contested > 0) {
-            this.logger.info('render: scanned the pad inbox', { ...result, inbox: this.root });
+            this.logger.info('render: scanned the pad library', { ...result, library: this.root });
         }
         return result;
     }
 
-    /** Everything in the inbox that is audio, with the board its directory puts it on. */
+    /** Everything in the library that is audio, with the board its directory puts it on. */
     private async audioFiles(): Promise<{ path: string; relative: string; board: string }[]> {
         const found: { path: string; relative: string; board: string }[] = [];
 
@@ -178,7 +184,7 @@ export class PadLibrary {
             // Named out loud rather than counted as a stray, per `SegmentLibrary`: the fix is only
             // obvious to somebody who knows why it was refused.
             if (AUDIO_EXTENSIONS.has(ext)) {
-                this.logger.warn('render: the pad inbox holds audio in a format the station does not serve', {
+                this.logger.warn('render: the pad library holds audio in a format the station does not serve', {
                     file: file.relative,
                     format: ext,
                     serves: SEGMENT_EXTENSIONS.join(', '),
@@ -193,14 +199,14 @@ export class PadLibrary {
         if (name === undefined) {
             // A file called `.mp3`, or one whose stem is punctuation. There is no token a script
             // could carry for it, so it is not a pad however good the audio is.
-            this.logger.warn('render: a file in the pad inbox has no name a script could write', { file: file.relative });
+            this.logger.warn('render: a file in the pad library has no name a script could write', { file: file.relative });
             result.skipped += 1;
             return;
         }
 
         const bytes = await readFile(file.path).catch(() => undefined);
         if (bytes === undefined) {
-            this.logger.warn('render: could not read a file in the pad inbox', { file: file.relative });
+            this.logger.warn('render: could not read a file in the pad library', { file: file.relative });
             result.skipped += 1;
             return;
         }
@@ -318,7 +324,7 @@ export class PadLibrary {
     }
 }
 
-/** Which board a file loose in the inbox lands on, absent a directory saying otherwise. */
+/** Which board a file loose at the top of the library lands on, absent a directory saying otherwise. */
 const DEFAULT_BOARD = 'station';
 
 /**

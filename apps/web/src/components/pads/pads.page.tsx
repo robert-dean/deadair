@@ -27,12 +27,13 @@ import { PageSkeleton } from '../shared/page.skeleton';
  *
  * ## There is no add button for a SOUND, and that is the design
  *
- * A pad arrives by being dropped in `media/pads/inbox/<name>/`, which is how the station already
- * takes delivery of audio — the same directory convention the segment inbox uses, and the same
- * reason: an operator who knows how to put an ident in front of deadair should not have to learn a
- * second way to put an air horn in front of it.
+ * A pad arrives by being dropped in `media/pads/<name>/`, which is how the station already takes
+ * delivery of audio — the same directory convention the segment inbox uses, and the same reason: an
+ * operator who knows how to put an ident in front of deadair should not have to learn a second way
+ * to put an air horn in front of it. That directory is the LIBRARY rather than a drop point: the
+ * content store is rewritten from it on every boot scan, so it is the half a backup carries.
  *
- * So the only things done to a SOUND here are scan, play and reject. Rejecting is a state rather
+ * So the only things done to a SOUND here are re-scan, play and reject. Rejecting is a state rather
  * than a deletion because the scan re-reads that directory: a deleted row is back on the next pass,
  * and the operator's decision has to outlive it.
  *
@@ -80,15 +81,15 @@ export function PadsPage() {
             <PageHeader
                 eyebrow="Station"
                 title="Soundboard"
-                description="The sounds a presenter reaches for, and the sets that decide who reaches which. Drop audio in media/pads/inbox/<name>/ and scan; a persona points at a set by name."
+                description="The sounds a presenter reaches for, and the sets that decide who reaches which. Drop audio in the pad library on disk and re-scan; a persona points at a set by name."
                 actions={
                     <Button leftSection={<IconRefresh size={16} />} variant="default" loading={scan.isPending} onClick={() => void scan.mutateAsync()}>
-                        Scan the inbox
+                        Re-scan the library
                     </Button>
                 }
             />
 
-            {scan.isError ? <ErrorAlert title="The inbox could not be read" error={scan.error} /> : undefined}
+            {scan.isError ? <ErrorAlert title="The pad library could not be read" error={scan.error} /> : undefined}
             {membership.isError ? <ErrorAlert title="That sound could not go on that set" error={membership.error} /> : undefined}
             {scan.isSuccess ? <ScanResult result={scan.data} /> : undefined}
 
@@ -96,7 +97,7 @@ export function PadsPage() {
 
             {active.length === 0 ? (
                 <EmptyState title="Nothing on the rack">
-                    Drop an mp3 or a wav in <code>media/pads/inbox/station/</code> and scan. The filename becomes the name a script writes, so{' '}
+                    Drop an mp3 or a wav in <code>media/pads/station/</code> and re-scan. The filename becomes the name a script writes, so{' '}
                     <code>airhorn.mp3</code> is <code>[sfx:airhorn]</code>, and the folder becomes a set a persona can point at.
                 </EmptyState>
             ) : (
@@ -119,7 +120,7 @@ export function PadsPage() {
                     <Stack gap="sm">
                         <Eyebrow>Turned down</Eyebrow>
                         <Text size="xs" c="dimmed">
-                            Kept rather than deleted, because the scan re-reads the inbox: a row that was removed would be back on the next pass. A
+                            Kept rather than deleted, because the scan re-reads the library: a row that was removed would be back on the next pass. A
                             turned-down sound stays on its sets and reserves nothing — put it back and it is reachable again.
                         </Text>
                         <PadTable pads={rejected} sets={[]} preview={preview} onRestore={id => void setState.mutateAsync({ id, body: { state: 'active' } })} />
@@ -168,7 +169,7 @@ function SetList({
             <Stack gap="sm">
                 <Eyebrow>Sets</Eyebrow>
                 <Text size="xs" c="dimmed">
-                    A persona points at one of these by name. A folder in the inbox makes one automatically; these are for cutting that library a
+                    A persona points at one of these by name. A folder in the library makes one automatically; these are for cutting that library a
                     different way.
                 </Text>
 

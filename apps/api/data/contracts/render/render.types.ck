@@ -183,7 +183,7 @@ contract Pad: {
     label: string(min=1, max=200)
     durationMs?: int(min=0)
     loudnessLufs?: number # How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary
-    sourcePath?: string(max=500) # The file in the inbox it was imported from, so the console can say where it came from
+    sourcePath?: string(max=500) # The file in the library directory it was imported from, so the console can say where it came from
     lastUsedAt?: datetime # When it was last hit. Absent for one nothing has reached for yet
     state: enum(active, rejected)
 }
@@ -199,7 +199,7 @@ contract PadList: { # Every sound the station holds, and the sets over it
 # renaming a set unpoints every persona naming it — which is why `personas` says who those are
 contract PadSet: {
     id: readonly uuid
-    key: string(min=1, max=200) # The slug a persona names. A directory in the pad inbox makes one of these
+    key: string(min=1, max=200) # The slug a persona names. A directory in the pad library makes one of these
     label: string(min=1, max=200)
     position: int(min=0)
     pads: readonly int(min=0) # How many sounds are on it. Zero is ordinary: it is what a set looks like before anybody drops a file
@@ -221,7 +221,7 @@ contract PadState: { # Turning a pad down, or putting one back
     state: enum(active, rejected)
 }
 
-contract PadScanResult: { # What one pass over the pad inbox did
+contract PadScanResult: { # What one pass over the pad library did
     scanned: int(min=0) # Audio files seen, whether or not anything changed
     imported: int(min=0) # Sounds the station did not have before
     replaced: int(min=0) # Slots whose file changed under them, which every script naming them now plays

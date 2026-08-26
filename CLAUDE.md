@@ -516,8 +516,11 @@ production beat never had it, so `the album is *The Soft Parade*` went to an eng
 asterisks.
 
 **A character also has a SOUNDBOARD, and a pad is deliberately not a segment.** `deadair.pads`
-(migration 0023) is the rack — short sounds filled from `media/pads/inbox/<board>/`, exactly as the
-segment inbox is filled and for its reason — and `personas.soundboard` names a board, which is
+(migration 0023) is the rack — short sounds filled from `media/pads/<board>/`, exactly as the
+segment inbox is filled and for its reason, though it is a LIBRARY rather than an inbox and carries
+no `inbox/` level: the content store is rewritten from it by every boot scan, so this directory is
+the half a backup has to carry (`storage-env`, `docs/todo/backup-and-restore.md`), and the container
+never had the extra level the dev default used to — and `personas.soundboard` names a board, which is
 `voice`'s indirection one level down: the sheet names a SLOT and the library says what it sounds
 like, so replacing the file under a pad changes what the station plays without touching a persona or
 a script. **It is its own table rather than a `segments.kind`**, and the reason is concrete:

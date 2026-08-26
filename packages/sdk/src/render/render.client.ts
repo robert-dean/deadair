@@ -319,10 +319,10 @@ export class RenderClient {
     }
 
     /**
-     * @name Scan the pad inbox
-     * @description Takes whatever audio is sitting in the pad inbox onto its board. Safe to repeat: a file nobody has touched is seen and left alone
+     * @name Scan the pad library
+     * @description Takes whatever audio is sitting in the pad library directory onto its board. Safe to repeat: a file nobody has touched is seen and left alone
      */
-    async scanThePadInbox(): Promise<PadScanResult> {
+    async scanThePadLibrary(): Promise<PadScanResult> {
         const result = await this.fetch(`/pads/scan`, { method: 'POST' });
         return await parseJson<PadScanResult>(result);
     }

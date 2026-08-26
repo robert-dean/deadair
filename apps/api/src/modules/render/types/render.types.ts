@@ -266,7 +266,11 @@ export const Pad = z.strictObject({
         .number()
         .optional()
         .describe('How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary'),
-    sourcePath: z.string().max(500).optional().describe('The file in the inbox it was imported from, so the console can say where it came from'),
+    sourcePath: z
+        .string()
+        .max(500)
+        .optional()
+        .describe('The file in the library directory it was imported from, so the console can say where it came from'),
     lastUsedAt: _ZodDatetime.optional().describe('When it was last hit. Absent for one nothing has reached for yet'),
     state: z.enum(['active', 'rejected']),
 });
@@ -281,7 +285,11 @@ export const PadInput = z.strictObject({
         .number()
         .optional()
         .describe('How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary'),
-    sourcePath: z.string().max(500).optional().describe('The file in the inbox it was imported from, so the console can say where it came from'),
+    sourcePath: z
+        .string()
+        .max(500)
+        .optional()
+        .describe('The file in the library directory it was imported from, so the console can say where it came from'),
     lastUsedAt: _ZodDatetime.optional().describe('When it was last hit. Absent for one nothing has reached for yet'),
     state: z.enum(['active', 'rejected']),
 });
@@ -296,7 +304,7 @@ export type PadInput = z.infer<typeof PadInput>;
  */
 export const PadSet = z.strictObject({
     id: z.uuid(),
-    key: z.string().min(1).max(200).describe('The slug a persona names. A directory in the pad inbox makes one of these'),
+    key: z.string().min(1).max(200).describe('The slug a persona names. A directory in the pad library makes one of these'),
     label: z.string().min(1).max(200),
     position: z.coerce.number().int().min(0),
     pads: z.coerce
@@ -309,7 +317,7 @@ export const PadSet = z.strictObject({
 export type PadSet = z.infer<typeof PadSet>;
 
 export const PadSetInput = z.strictObject({
-    key: z.string().min(1).max(200).describe('The slug a persona names. A directory in the pad inbox makes one of these'),
+    key: z.string().min(1).max(200).describe('The slug a persona names. A directory in the pad library makes one of these'),
     label: z.string().min(1).max(200),
     position: z.coerce.number().int().min(0),
 });
@@ -346,7 +354,7 @@ export const PadState = z.strictObject({
 export type PadState = z.infer<typeof PadState>;
 
 /**
- * What one pass over the pad inbox did
+ * What one pass over the pad library did
  * generated from [PadScanResult](file://./../../../../data/contracts/render/render.types.ck#L224)
  */
 export const PadScanResult = z.strictObject({

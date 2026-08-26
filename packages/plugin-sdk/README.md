@@ -15,7 +15,7 @@ A plugin extends deadair by declaring capabilities:
 | `enrichment` | supply facts about a track: year, genre, label, trivia, prose  |
 | `speech`     | say something out loud: text in, audio out                     |
 | `llm`        | produce words: a conversation in, text out                     |
-| `analysis`   | measure a track's audio: bytes in, cue points and loudness out |
+| `analysis`   | do the things that need decoded audio: measure a track, join several |
 | `charts`     | say what is popular: a chart id in, ranked names out           |
 | `similarity` | say who else sounds like this: an artist in, artists out       |
 | `news`       | say what happened outside the station: a feed in, entries out  |
@@ -735,6 +735,31 @@ setup loop with no way in: an operator cannot name a model before they can reach
 the server, and cannot test the server before they have saved it. Let the address
 be saved on its own, and say the model names in `testConnection` — for many
 plugins it is the only place an operator can learn them.
+
+## Decoded audio
+
+A plugin that declares `analysis` does the things that need decoded PCM, which
+is the one thing that does not happen inside deadair. The expected shape is an
+adapter over a separate program — the bundled one is an HTTP sidecar — in the
+same relationship a speech plugin has with its engine.
+
+`analyzeTrack(ref)` is the required half: bytes in, cue points and loudness out.
+Two fields in the answer are not measurements and both matter. `schemaVersion`
+is what YOU produced rather than the constant this package exports, because an
+adapter is reporting the analyzer's version and the two drift across an upgrade.
+`complete` says whether the whole file was measured, and the host cannot check
+it: a truncated download measures perfectly confidently and the specific lie it
+tells is that a record which fades ended cold. Always answering `true` disables
+the check silently.
+
+`joinAudio(request)` is optional: several URLs and a gap in, one piece of audio
+out, as a `mime` and a stream. It is on this capability because it is the same
+requirement seen from the other end — whatever decodes for you can almost
+certainly concatenate — and it is optional because a station that asks has
+somewhere to go if you decline. Answer `unsupported` rather than failing, trim
+each part to its own cue points unless told not to, and put the silence BETWEEN
+the parts and never at the ends: what you are making is one item in somebody's
+running order.
 
 ## Configuration fields
 

@@ -28,6 +28,18 @@ export const DEFAULT_BASE_URL = 'http://localhost:9321';
  */
 export const ANALYZE_TIMEOUT_MS = 5 * 60_000;
 
+/**
+ * How long a join may take.
+ *
+ * On {@link ANALYZE_TIMEOUT_MS}'s argument, and for the same reason: joining a
+ * production decodes every one of its beats, so it is several of those decodes
+ * end to end rather than a request. Shorter than the analysis all the same,
+ * because the parts are short — a turn is seconds where a record is minutes —
+ * and because nothing downstream is lost when it gives up: the production airs
+ * as a block of beats, which is what it did before this existed.
+ */
+export const JOIN_TIMEOUT_MS = 3 * 60_000;
+
 /** A short call: it exists to answer "is anything there?", not to do work. */
 export const PROBE_TIMEOUT_MS = 5_000;
 

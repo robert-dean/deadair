@@ -6,10 +6,12 @@ import {
     tryJsonBody,
     type AnalysisProvider,
     type AnalysisRef,
+    type AudioJoin,
+    type JoinedAudio,
     type PluginConnectionResult,
     type TrackAnalysis,
 } from '@deadair/plugin-sdk';
-import { ANALYZE_TIMEOUT_MS, PROBE_TIMEOUT_MS, analyzerManifest } from './analyzer.manifest.js';
+import { ANALYZE_TIMEOUT_MS, JOIN_TIMEOUT_MS, PROBE_TIMEOUT_MS, analyzerManifest } from './analyzer.manifest.js';
 
 export { analyzerManifest };
 
@@ -41,19 +43,25 @@ interface ErrorResponse {
 const UPSTREAM_CODES = new Set(['unfetchable', 'undecodable', 'truncated']);
 
 /**
- * Per-track audio measurement, through the bundled analysis sidecar.
+ * Per-track audio measurement — and joining — through the bundled analysis
+ * sidecar.
  *
  * ## This plugin does not measure anything
  *
  * It is an adapter, in the same relationship to its container that the speech
  * plugin has to its engine. Measuring needs decoded PCM, and decoding is the one
  * thing that does not happen in Node — so the work is a separate program and
- * this is the two-endpoint conversation with it.
+ * this is the conversation with it.
+ *
+ * Joining is here for exactly that reason and no other. It is the same
+ * requirement seen from the other end: a station wanting a phone-in's turns as
+ * one file needs them decoded, and this is already the plugin that talks to the
+ * thing that decodes.
  *
  * That indirection is what makes the analyzer swappable. `analysis/README.md` is
  * the contract rather than a description of the bundled image: anything
- * answering `/health` and `/analyze` is a valid analyzer, and moving to one is a
- * `baseUrl` change here.
+ * answering `/health` and `/analyze` is a valid analyzer, `/join` is optional in
+ * that contract, and moving to one is a `baseUrl` change here.
  *
  * ## What it deliberately does not interpret
  *
@@ -126,6 +134,77 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider {
 
         const body = await tryJsonBody<AnalyzeResponse>(response);
         return this.toAnalysis(body, ref);
+    }
+
+    async joinAudio(request: AudioJoin): Promise<JoinedAudio> {
+        if (this.baseUrl.length === 0) {
+            throw new PluginError('the analyzer has no URL configured').withCode('config');
+        }
+
+        const response = await this.host.fetch(`${this.baseUrl}/join`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+                parts: request.parts.map(part => ({ url: part.url })),
+                gapMs: request.gapMs,
+                trim: request.trim ?? true,
+            }),
+            timeoutMs: JOIN_TIMEOUT_MS,
+        });
+
+        // An analyzer that predates `/join`, or one that never had it. Its own
+        // code, because a station reading `unsupported` has somewhere to go — the
+        // production airs as a block of beats — where `upstream` reads as a fault
+        // to fix.
+        if (response.status === 404 || response.status === 405) {
+            throw new PluginError('this analyzer cannot join audio').withCode('unsupported').withUpstreamStatus(response.status);
+        }
+
+        if (!response.ok) {
+            throw await this.joinFailure(response);
+        }
+
+        const body = response.body;
+        if (body === null) {
+            throw new PluginError('the analyzer answered the join with no audio').withCode('upstream');
+        }
+
+        const mime = response.headers.get('content-type')?.split(';')[0]?.trim();
+        if (mime === undefined || mime.length === 0) {
+            // Cancelled rather than left open: nothing is going to read a body
+            // whose bytes the host cannot name.
+            await body.cancel();
+            throw new PluginError('the analyzer answered the join without saying what the audio is').withCode('upstream');
+        }
+
+        const declared = Number(response.headers.get('x-duration-ms'));
+
+        this.host.logger.debug('joined audio', { parts: request.parts.length, gapMs: request.gapMs, mime });
+
+        return {
+            mime,
+            audio: body,
+            ...(Number.isFinite(declared) && declared > 0 ? { durationMs: Math.round(declared) } : {}),
+        };
+    }
+
+    /**
+     * A non-2xx from a join, as the error the station will log.
+     *
+     * The same shape as {@link upstreamFailure} without a track to name, and
+     * separate rather than parameterised because the two failures are read in
+     * different places: one is recorded against a record and re-read by the walk,
+     * and this one costs a production its seam and nothing else.
+     */
+    private async joinFailure(response: Response): Promise<PluginError> {
+        const body = await tryJsonBody<ErrorResponse>(response);
+        const code = body?.error?.code;
+        const detail = body?.error?.message;
+        const described = code !== undefined && detail !== undefined ? `${code}: ${detail}` : (detail ?? `HTTP ${response.status}`);
+
+        return new PluginError(`the analyzer could not join the audio (${described})`)
+            .withCode(code !== undefined && UPSTREAM_CODES.has(code) ? 'upstream' : 'internal')
+            .withUpstreamStatus(response.status);
     }
 
     /**

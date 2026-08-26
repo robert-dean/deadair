@@ -12,7 +12,7 @@ import { isPluginError, type HostFetchInit, type PluginError } from '@deadair/pl
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { AnalyzerPlugin } from '../src/analyzer.plugin.js';
-import { ANALYZE_TIMEOUT_MS } from '../src/analyzer.manifest.js';
+import { ANALYZE_TIMEOUT_MS, JOIN_TIMEOUT_MS } from '../src/analyzer.manifest.js';
 
 const BASE_URL = 'http://analysis.test:9321';
 
@@ -37,7 +37,21 @@ interface FakeHostOptions {
     analyze?: { status?: number; body?: unknown };
     /** Status and body for `/health`. */
     health?: { status?: number; body?: unknown };
+    /**
+     * The whole response for `/join`, because that one answers AUDIO.
+     *
+     * A builder rather than a body, since what the tests turn on is the headers
+     * beside the bytes: what the audio IS, and how long it runs.
+     */
+    join?: () => Response;
 }
+
+/** What the sidecar answers a join with: some bytes, a media type and a duration. */
+const joinedResponse = (): Response =>
+    new Response(new Uint8Array([0x66, 0x4c, 0x61, 0x43]), {
+        status: 200,
+        headers: { 'content-type': 'audio/flac', 'x-duration-ms': '184320' },
+    });
 
 function fakeHost(options: FakeHostOptions = {}) {
     // Recorded locally rather than read off `host.calls`: a test below asserts
@@ -49,6 +63,8 @@ function fakeHost(options: FakeHostOptions = {}) {
 
     host.setFetchImpl(async (url: string, init?: HostFetchInit): Promise<Response> => {
         calls.push({ url, init });
+
+        if (url.endsWith('/join')) return (options.join ?? joinedResponse)();
 
         const chosen = url.endsWith('/analyze') ? options.analyze : options.health;
         const status = chosen?.status ?? 200;
@@ -165,6 +181,80 @@ describe('AnalyzerPlugin.analyzeTrack', () => {
     it('is a config error, not an upstream one, when no URL is set', async () => {
         const { plugin } = await started({ config: { baseUrl: '' } });
         expect(await rejectionCode(plugin.analyzeTrack(REF))).toBe('config');
+    });
+});
+
+describe('AnalyzerPlugin.joinAudio', () => {
+    const REQUEST = { parts: [{ url: 'http://api.test/segments/a/audio' }, { url: 'http://api.test/segments/b/audio' }], gapMs: 200 };
+
+    it('posts the parts in order and asks for the trim, which is what makes the gap the gap', async () => {
+        const { plugin, calls } = await started();
+        await plugin.joinAudio(REQUEST);
+
+        const call = calls.find(candidate => candidate.url.endsWith('/join'));
+        expect(JSON.parse((call?.init?.body as string) ?? '{}')).toEqual({
+            parts: [{ url: REQUEST.parts[0]!.url }, { url: REQUEST.parts[1]!.url }],
+            gapMs: 200,
+            trim: true,
+        });
+        expect(call?.init?.timeoutMs).toBe(JOIN_TIMEOUT_MS);
+    });
+
+    it('passes a caller that asked for no trim through as it is', async () => {
+        const { plugin, calls } = await started();
+        await plugin.joinAudio({ ...REQUEST, trim: false });
+
+        const call = calls.find(candidate => candidate.url.endsWith('/join'));
+        expect(JSON.parse((call?.init?.body as string) ?? '{}').trim).toBe(false);
+    });
+
+    it('answers with what the audio is and how long it runs', async () => {
+        const { plugin } = await started();
+        const joined = await plugin.joinAudio(REQUEST);
+
+        // The mime is what the host stores and serves the bytes under, so a wrong one fails as
+        // silence rather than as an error anybody sees.
+        expect(joined.mime).toBe('audio/flac');
+        expect(joined.durationMs).toBe(184_320);
+        expect(await new Response(joined.audio).arrayBuffer()).toHaveProperty('byteLength', 4);
+    });
+
+    it('says the duration is unknown rather than zero when the analyzer did not report one', async () => {
+        const { plugin } = await started({ join: () => new Response(new Uint8Array([1]), { headers: { 'content-type': 'audio/flac' } }) });
+        const joined = await plugin.joinAudio(REQUEST);
+
+        expect(joined.durationMs).toBeUndefined();
+    });
+
+    it('reports an analyzer that has no join as `unsupported`, which is a state and not a fault', async () => {
+        // An older analyzer is a perfectly good analyzer. The station reading this has somewhere to
+        // go: the production airs as a block of beats, exactly as it did before joining existed.
+        const { plugin } = await started({ join: () => new Response('', { status: 404 }) });
+
+        expect(await rejectionCode(plugin.joinAudio(REQUEST))).toBe('unsupported');
+    });
+
+    it('carries the analyzer own code up for a part it could not fetch', async () => {
+        const { plugin } = await started({
+            join: () =>
+                new Response(JSON.stringify({ error: { code: 'unfetchable', message: 'HTTP 404 from the audio url' } }), {
+                    status: 502,
+                    headers: { 'content-type': 'application/json' },
+                }),
+        });
+
+        expect(await rejectionCode(plugin.joinAudio(REQUEST))).toBe('upstream');
+    });
+
+    it('refuses audio the analyzer would not name, rather than storing bytes under a guess', async () => {
+        const { plugin } = await started({ join: () => new Response(new Uint8Array([1]), { headers: { 'content-type': '' } }) });
+
+        expect(await rejectionCode(plugin.joinAudio(REQUEST))).toBe('upstream');
+    });
+
+    it('is a config error, not an upstream one, when no URL is set', async () => {
+        const { plugin } = await started({ config: { baseUrl: '' } });
+        expect(await rejectionCode(plugin.joinAudio(REQUEST))).toBe('config');
     });
 });
 

@@ -316,7 +316,76 @@ export interface TrackAnalysis {
     analyzer?: string;
 }
 
-/** A plugin that can measure a track's audio. */
+/**
+ * Several pieces of audio to be made into one.
+ *
+ * The station's own use is a production: a phone-in or a podcast is written one
+ * beat at a time, because a beat is one model call in one voice, and joining the
+ * beats once they exist is what lets the programme air as ONE item with a pause
+ * between turns that somebody chose. See {@link AnalysisProvider.joinAudio}.
+ */
+export interface AudioJoin {
+    /**
+     * The parts, in the order they are to be heard.
+     *
+     * Each URL is complete and fetchable exactly as {@link AnalysisRef.audioUrl}
+     * is, and carries whatever authentication it needs. It has to be reachable
+     * from wherever the joining happens, which is not necessarily where this
+     * plugin runs.
+     */
+    parts: Array<{ url: string }>;
+
+    /**
+     * How much silence to put BETWEEN the parts, in milliseconds.
+     *
+     * Between, and never at the ends: what comes back is one item in a running
+     * order, and padding its head or tail is dead air at a boundary somebody
+     * else already trims.
+     */
+    gapMs: number;
+
+    /**
+     * Take each part's own leading and trailing silence off before joining.
+     *
+     * Absent means yes, because it is what makes {@link gapMs} mean anything: a
+     * gap between two untrimmed parts is that gap plus two unknowns that move
+     * with the voice and with the line. Set it false only where the parts are
+     * known to be tight already and their exact lengths matter.
+     */
+    trim?: boolean;
+}
+
+/**
+ * The joined audio, and what it is.
+ *
+ * {@link SpeechHandle}'s shape, deliberately and for its reasons: `mime` is what
+ * the host stores and serves the bytes under, and the audio is a stream so a
+ * whole programme is never held in memory on either side of the call.
+ */
+export interface JoinedAudio {
+    /**
+     * What the bytes ARE, as a media type (`audio/flac`).
+     *
+     * Load-bearing rather than decoration, exactly as it is for speech: both
+     * consumers of station audio go by the header rather than by the bytes, so a
+     * flac announced as `audio/wav` fails as silence rather than as an error.
+     */
+    mime: string;
+
+    /** The audio. The host reads it to the end or cancels it. */
+    audio: ReadableStream<Uint8Array>;
+
+    /**
+     * How long the result runs, if the joiner can say.
+     *
+     * Worth reporting because whatever just did the joining has already seen
+     * every sample, and a host that has to learn this some other way is a second
+     * decode of something it just received. Absent is fine.
+     */
+    durationMs?: number;
+}
+
+/** A plugin that can measure a track's audio, and perhaps join some. */
 export interface AnalysisProvider extends PluginLifecycle {
     /**
      * Measure one track.
@@ -335,4 +404,28 @@ export interface AnalysisProvider extends PluginLifecycle {
      *   could not be decoded, `timeout` when the analyzer did not answer.
      */
     analyzeTrack(ref: AnalysisRef): Promise<TrackAnalysis>;
+
+    /**
+     * Join several pieces of audio into one.
+     *
+     * Optional, and absent is normal rather than broken: a plugin that only
+     * measures is a valid analyzer, and the station that asks has somewhere else
+     * to go — a production whose beats cannot be joined airs as a block of beats,
+     * which is what it did before anything could join them.
+     *
+     * It lives on THIS capability rather than on one of its own because it is the
+     * same work seen from the other end. Both need decoded PCM, which is the one
+     * thing the station's architecture says does not happen in Node, so both want
+     * the same adapter over the same program — and an implementation that can do
+     * one is a few lines from the other.
+     *
+     * Expect minutes rather than seconds, as with a measurement, and honour
+     * `host.signal` for the same reason.
+     *
+     * @throws {PluginError} `config` when the plugin is not set up enough to try,
+     *   `upstream` when a part could not be fetched or decoded, `unsupported`
+     *   when whatever is behind this plugin cannot join, `timeout` when it did
+     *   not answer.
+     */
+    joinAudio?(request: AudioJoin): Promise<JoinedAudio>;
 }

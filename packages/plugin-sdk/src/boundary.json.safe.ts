@@ -36,7 +36,7 @@
  * plus three name arrays, so the runtime cost is the arrays alone.
  */
 
-import type { AnalysisRef, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
+import type { AnalysisRef, AudioJoin, TrackAnalysis, TrackCuePoints, TrackLoudness, TrackTaggedLoudness } from './capabilities/analysis.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
 import type { NewsFeedDescriptor, NewsItem, NewsQuery } from './capabilities/news.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
@@ -172,6 +172,7 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     LlmResult: IsJsonSafe<LlmResult>;
     LlmModelInfo: IsJsonSafe<LlmModelInfo>;
     AnalysisRef: IsJsonSafe<AnalysisRef>;
+    AudioJoin: IsJsonSafe<AudioJoin>;
     TrackCuePoints: IsJsonSafe<TrackCuePoints>;
     TrackLoudness: IsJsonSafe<TrackLoudness>;
     TrackTaggedLoudness: IsJsonSafe<TrackTaggedLoudness>;
@@ -232,6 +233,7 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'LlmResult',
     'LlmModelInfo',
     'AnalysisRef',
+    'AudioJoin',
     'TrackCuePoints',
     'TrackLoudness',
     'TrackTaggedLoudness',
@@ -302,6 +304,10 @@ export const BOUNDARY_LIVE_OBJECT_TYPES = [
     // `audio`: the engine's response body, usually forwarded straight through,
     // so the bytes are never held whole on either side of the call.
     'SpeechHandle',
+    // `audio`: the same thing one capability over. A joined production is the
+    // longest single piece of audio the station ever makes, so holding it whole
+    // is the one thing this must not do.
+    'JoinedAudio',
     // `text`: the words as the model produces them, and `result`: a promise that
     // settles when it stops. The stream is what lets the host hold its single
     // model slot until the generation really ends rather than until the call

@@ -53,7 +53,8 @@
             "deadair.persona_stories.state": "'active' | 'suggested' | 'rejected'",
             "deadair.persona_stories.origin": "'operator' | 'model'",
             "deadair.persona_story_details.state": "'active' | 'suggested' | 'rejected'",
-            "deadair.persona_story_details.origin": "'operator' | 'model'"
+            "deadair.persona_story_details.origin": "'operator' | 'model'",
+            "deadair.pads.state": "Generated<'active' | 'rejected'>"
         }
     },
     "partitions": false,

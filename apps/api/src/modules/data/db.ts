@@ -296,6 +296,24 @@ export interface DeadairLoginFailureCounters {
   lastSeenAt: Generated<DateTime>;
 }
 
+export interface DeadairPads {
+  audioChecksum: string;
+  audioExt: string;
+  board: string;
+  createdAt: Generated<DateTime>;
+  durationMs: number | null;
+  id: Generated<string>;
+  label: string;
+  lastUsedAt: DateTime | null;
+  loudnessLufs: number | null;
+  name: string;
+  source: Generated<string>;
+  sourcePath: string | null;
+  state: Generated<"active" | "rejected">;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairPermissionsRelationTuples {
   createdAt: Generated<DateTime>;
   createdBy: string | null;
@@ -759,6 +777,7 @@ export interface DB {
   "deadair.facts": DeadairFacts;
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
+  "deadair.pads": DeadairPads;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;
   "deadair.personaNotePasses": DeadairPersonaNotePasses;
   "deadair.personaNotes": DeadairPersonaNotes;

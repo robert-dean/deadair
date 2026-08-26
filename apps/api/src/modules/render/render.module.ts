@@ -4,6 +4,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { MixerService } from './mixer.service.js';
+import { PadLibrary } from './pad.library.js';
+import { PadRepository } from './pad.repository.js';
 import { DEFAULT_PRONUNCIATIONS } from './pronunciation.lexicon.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { RenderService } from './render.service.js';
@@ -23,6 +25,19 @@ const DEFAULT_SEGMENT_DIR = './media/segments';
 
 /** Where an operator drops audio for the station to take in, when `SEGMENT_LIBRARY_DIR` is unset. */
 const DEFAULT_LIBRARY_DIR = join(DEFAULT_SEGMENT_DIR, 'inbox');
+
+/**
+ * Where an operator drops soundboard audio, when `PAD_INBOX_DIR` is unset.
+ *
+ * Its own root rather than a subdirectory of the segment inbox, which would otherwise read as a
+ * segment KIND called `pads` and put the whole rack on the shelf the planner chooses idents from.
+ * The same reason the voice samples sit beside the segment store rather than inside it: separate
+ * roots make "this is not that" a filesystem fact instead of a convention.
+ *
+ * The BYTES still land in the segment store, because a content-addressed store is about identity
+ * rather than about what the file is for.
+ */
+const DEFAULT_PAD_INBOX_DIR = './media/pads/inbox';
 
 /**
  * Where rendered voice previews are cached, when `VOICE_SAMPLE_DIR` is unset.
@@ -95,6 +110,16 @@ export const RenderModule: ServerKitModule = {
             )
             .asScoped();
 
+        // The soundboard, scoped with the repository and the scanner beside it. The inbox path is a
+        // constructor argument for `SegmentLibrary`'s reason: the class stays testable against a
+        // temp directory with no container and no AppConfig.
+        const padInboxDir = config.get('PAD_INBOX_DIR', DEFAULT_PAD_INBOX_DIR);
+        registry.register(PadRepository).useClass(PadRepository).asScoped();
+        registry
+            .register(PadLibrary)
+            .useFactory(container => new PadLibrary(container.get(SegmentStore), container.get(PadRepository), padInboxDir, container.get(Logger)))
+            .asScoped();
+
         // Scoped with the repositories and the plugin registry it reads. It owns no loop and holds
         // no state between calls: everything about one render lives in the call, and the stream it
         // drains belongs to the plugin instance rather than to this.
@@ -157,6 +182,18 @@ export const RenderModule: ServerKitModule = {
             // A station with no idents is a station that plays records, which is what it did
             // yesterday. Not a reason to refuse to boot.
             logger.warn(`render: could not scan the segment inbox (${errorText(error)})`);
+        }
+
+        // The rack, on the same terms and in its own try for the same reason: an unreadable pad
+        // inbox must not cost the station the idents the scan above just took in.
+        try {
+            await inScope(container, async scope => {
+                await scope.get(PadLibrary).scan();
+            });
+        } catch (error) {
+            // A station with no soundboard is a station that talks without drops, which is every
+            // station this one has ever been.
+            logger.warn(`render: could not scan the pad inbox (${errorText(error)})`);
         }
     },
 };

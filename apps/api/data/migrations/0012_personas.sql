@@ -58,6 +58,20 @@ create table deadair.personas (
     -- This character's own break phrasings, one per line, in the syntax of
     -- `rotation.breakTemplates`. Empty means the station's global ones.
     templates text,
+    -- Which soundboard this character has to hand: a `deadair.pads.board`, or null for a presenter
+    -- who works without one, which is what every persona here did before pads existed.
+    --
+    -- **Not a foreign key**, on `persona_notes.persona_key`'s rule read the other way round: a board
+    -- exists exactly as long as pads are on it, so it is a name rather than a row and there is
+    -- nothing to reference. Emptying `media/pads/inbox/wisecrack/` and rejecting what it left leaves
+    -- this column naming a board with nothing on it, which is a presenter whose rack is empty and
+    -- must stay expressible.
+    --
+    -- It is `voice`'s shape one column up, and deliberately: the persona names a SLOT, the library
+    -- says what that slot sounds like, and swapping the file under a pad changes what the station
+    -- plays without touching a persona or a script. What reaches a model is never this word — it is
+    -- the NAMES of the pads on the board, offered the way `[laugh]` is.
+    soundboard text,
     -- How much this character says: null for the station's ordinary length, `short` or `one-line`
     -- below it. Only rungs BELOW, and that is the design rather than an unfinished list — measured
     -- on this station, 2 of 137 answers reached the word ceiling and the median came in at 28 words,

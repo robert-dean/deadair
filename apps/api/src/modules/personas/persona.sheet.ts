@@ -326,6 +326,21 @@ export interface PersonaSheet {
      * rather than what the model is told.
      */
     storytelling?: PersonaStorytelling;
+    /**
+     * Which soundboard this character has to hand, as a `deadair.pads.board`, or absent for a
+     * presenter who works without one.
+     *
+     * {@link PersonaSheet.voice}'s shape and its argument: the sheet names a SLOT and the library
+     * says what that slot sounds like, so replacing the file under a pad changes what the station
+     * plays without touching a persona or a script.
+     *
+     * **This word never reaches a model.** What does is the NAMES of the pads on the board, offered
+     * the way `[laugh]` is — the shape's permission intersected with what the rack actually holds —
+     * so a character pointed at an empty board is told about no pads rather than told it has none.
+     * It is `storytelling`'s kind of field in that respect: it decides what goes IN a prompt rather
+     * than being something the model is told.
+     */
+    soundboard?: string;
     /** Lines in their own voice. The few-shot examples, and what a console previews them with. */
     samples?: readonly string[];
 }

@@ -41,6 +41,21 @@ describe('the seeded personas', () => {
         }
     });
 
+    it('name a soundboard only where it is a directory an operator could actually make', () => {
+        // A seeded board is a promise about a PATH: `media/pads/inbox/<board>/`. Nothing ships in
+        // one, and an empty rack is an ordinary state, so what this guards is only that the promise
+        // is keepable — a board with a space or a slash in it is a directory the scan would read as
+        // a different name, or as two.
+        //
+        // Deliberately not "every seed names one", which is the opposite call to `voice` above: a
+        // presenter without a rack is most of radio, and a board on every sheet would be nineteen
+        // empty directories implying the station wants filling.
+        for (const persona of SEED_PERSONAS) {
+            if (persona.soundboard === undefined) continue;
+            expect(persona.soundboard, `${persona.key} names a board that is not a directory name`).toMatch(/^[a-z0-9-]+$/);
+        }
+    });
+
     it('render a sheet the model can actually use', () => {
         for (const persona of SEED_PERSONAS) {
             expect(personaLines(persona).length, `${persona.key} rendered an empty sheet`).toBeGreaterThan(0);

@@ -366,6 +366,7 @@ export interface DeadairPersonas {
   latitude: string | null;
   quirks: Generated<Json>;
   samples: Generated<Json>;
+  soundboard: string | null;
   stationKey: Generated<string>;
   storytelling: string | null;
   style: string;

@@ -366,6 +366,10 @@ function draftOf(body: PersonaInput): PersonaDraft {
         ...omitUndefined({
             djName: text(body.djName),
             voice: text(body.voice),
+            // Beside `voice` because it is the same kind of field: the sheet names a slot and a
+            // library says what the slot sounds like. Threaded here and in `toView` but NOT in
+            // `toDraftView` — see there.
+            soundboard: text(body.soundboard),
             background: text(body.background),
             brevity: body.brevity,
             latitude: body.latitude,
@@ -395,6 +399,7 @@ function toView(persona: Persona): PersonaView {
         ...omitUndefined({
             djName: persona.djName,
             voice: persona.voice,
+            soundboard: persona.soundboard,
             background: persona.background,
             brevity: persona.brevity,
             latitude: persona.latitude,
@@ -417,6 +422,14 @@ function toView(persona: Persona): PersonaView {
  * derived from {@link toView} because the two answer different questions — one is a row and one is a
  * form's contents — and folding them together would mean inventing an id for something that is not
  * a persona yet.
+ *
+ * **`soundboard` is deliberately not here**, which is the one field that is threaded in `toView` and
+ * in the write mapper and not in this one. A board is a name only this install holds, so a model
+ * inventing one names a rack that does not exist — the same reason a `list` column reaching for a
+ * station vocabulary declares `optionsFrom` rather than letting a plugin answer for it. An operator
+ * picks the board after saving, from what the library actually has. Note this is the opposite call
+ * to `storytelling` one field up, and for the opposite reason: that one is a rung a model can
+ * reasonably choose, and it was broken by being threaded HERE alone.
  */
 function toDraftView(draft: PersonaDraft): PersonaDraftView {
     return {

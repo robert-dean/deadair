@@ -13,6 +13,7 @@ contract Persona: {
     style: string(min=1, max=2000) # Completes "You are …". Who they ARE; the sheet below carries how they talk
     djName?: string(max=200) # The name this character goes by on air, overriding the station's own while it is active
     voice?: string(max=200) # The station voice that speaks this persona, as the id a speech plugin maps. Empty means that plugin's default
+    soundboard?: string(max=200) # The soundboard this character has to hand, as the name of a board in the pad library. Empty for a presenter who works without one. What reaches a model is the names of the pads on that board, never this word
     diction?: array(string(min=1, max=500)) # The dialect: grammar and substitutions that apply to every sentence rather than to a subject
     dictionMarkers?: array(string(min=1, max=100)) # Words whose presence proves the dialect survived. What a model's answer is checked against
     quirks?: array(string(min=1, max=500)) # What they always and never do on air
@@ -45,6 +46,7 @@ contract PersonaDraftView: {
     style: string(min=1, max=2000)
     djName?: string(max=200)
     voice?: string(max=200)
+    soundboard?: string(max=200)
     diction?: array(string(min=1, max=500))
     dictionMarkers?: array(string(min=1, max=100))
     quirks?: array(string(min=1, max=500))

@@ -263,6 +263,7 @@ function columnsOf(draft: PersonaDraft) {
         voice: draft.voice ?? null,
         background: draft.background ?? null,
         templates: draft.templates ?? null,
+        soundboard: draft.soundboard ?? null,
         brevity: draft.brevity ?? null,
         latitude: draft.latitude ?? null,
         storytelling: draft.storytelling ?? null,
@@ -302,6 +303,7 @@ function toPersona(row: {
     voice: string | null;
     background: string | null;
     templates: string | null;
+    soundboard: string | null;
     brevity: string | null;
     latitude: string | null;
     storytelling: string | null;
@@ -332,6 +334,7 @@ function toPersona(row: {
         ...(row.voice == null ? {} : { voice: row.voice }),
         ...(row.background == null ? {} : { background: row.background }),
         ...(row.templates == null ? {} : { templates: row.templates }),
+        ...(row.soundboard == null ? {} : { soundboard: row.soundboard }),
         // Checked rather than cast, because the column is plain text and a row edited by hand could
         // otherwise put an unknown rung in front of a model as an instruction.
         ...(isPersonaBrevity(row.brevity) ? { brevity: row.brevity } : {}),

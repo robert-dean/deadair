@@ -39,17 +39,19 @@ export interface SegmentIngest {
 /**
  * The inbox: audio dropped on disk becomes something the station can play.
  *
- * Deliberately a scanned directory rather than an upload endpoint. Two reasons, in order of how
- * much they matter:
+ * A scanned directory, and since `POST /segments/upload` also a console door. It was only the first
+ * for a long time on two arguments, and exactly one of them survived: it IS how the station already
+ * takes delivery of audio — `radio.liq` re-scans `MUSIC_DIR` on a timer for the same reason — so an
+ * operator who knows how to put a track in front of deadair should not have to learn a second way to
+ * put an ident in front of it. The other was that no contract in this repo accepted a file, which
+ * stopped being true when the soundboard took one: the toolchain generates the whole multipart path.
  *
- * 1. It is how the station already takes delivery of audio. `radio.liq` re-scans `MUSIC_DIR` on a
- *    timer for exactly this reason, and an operator who already knows how to put a track in front
- *    of deadair does not have to learn a second way to put an ident in front of it.
- * 2. No contract in this repo accepts a file, so an upload route would mean inventing multipart
- *    handling for the first delivery of the first feature that wants it.
+ * **Both doors write HERE**, which is the thing to keep true. The bytes are copied into the
+ * content-addressed store, and that copy is rewritten from this directory by every boot scan — so an
+ * archive carries the directory and ignores the store (`docs/todo/backup-and-restore.md`), and a
+ * recording that reached only the store would be missing from every export in silence.
  *
- * The inbox is only an inbox. Bytes are COPIED into the content-addressed store on import, so
- * emptying the directory afterwards does not take a segment off the air, and re-filling it does not
+ * Emptying the directory afterwards does not take a segment off the air, and re-filling it does not
  * produce duplicates: the checksum is the identity.
  *
  * A subdirectory names the {@link Segment.kind}, which is the whole of the taxonomy: drop a file in

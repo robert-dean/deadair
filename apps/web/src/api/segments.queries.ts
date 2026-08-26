@@ -45,6 +45,23 @@ export function useCreateSegment() {
     });
 }
 
+/**
+ * Takes a recording in from the browser.
+ *
+ * Invalidates on SETTLE rather than on success, unlike `useCreateSegment` beside it: an upload can
+ * land a file on disk and still answer with something the caller reads as a failure, and an operator
+ * told their recording was refused while looking at a list that does not have it has been told the
+ * wrong thing twice.
+ */
+export function useUploadSegment() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (body: FormData) => sdk.render.uploadSegment(body),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.segments.list() }),
+    });
+}
+
 /** Reads the inbox for audio somebody dropped in, and imports what is not already known. */
 export function useScanSegments() {
     const queryClient = useQueryClient();

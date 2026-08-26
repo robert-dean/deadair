@@ -51,6 +51,36 @@ operation /segments: {
     }
 }
 
+# Takes a recording in from the browser.
+#
+# The file lands in the inbox directory as well as in the content store, because the store is
+# rewritten from that directory by every boot scan and an archive carries the directory -- so a
+# segment that existed only in the store would be missing from every export, silently.
+#
+# Its own verb rather than a second mime on `POST /segments`, which writes a `planned` row from a
+# SCRIPT: folding them together would give one service method two unrelated jobs and one SDK method
+# a body that is either a form or an object
+operation /segments/upload: {
+    post: { # Takes a recording in from the browser and puts it in the library, ready to air
+        name: Upload segment
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.uploadSegment
+        request: {
+            multipart/form-data: SegmentUpload
+        }
+        response: {
+            201: {
+                application/json: Segment
+            }
+            400:
+            413:
+            415:
+        }
+    }
+}
+
 operation /segments/scan: {
     post: { # Takes whatever audio is sitting in the inbox directory into the library. Safe to repeat: a segment is identified by its audio, so the same recording arriving twice is one segment
         name: Scan the segment inbox

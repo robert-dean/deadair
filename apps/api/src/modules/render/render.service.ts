@@ -39,7 +39,7 @@ import { PronunciationRepository } from './pronunciation.repository.js';
 import { ScriptRatingsRepository } from './script.ratings.repository.js';
 import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
 import { ratingFromColumn, ratingToColumn } from '../catalog/rating.js';
-import { SegmentLibrary } from './segment.library.js';
+import { DEFAULT_KIND as DEFAULT_SEGMENT_KIND, labelFor, MAX_SEGMENT_BYTES, SegmentLibrary } from './segment.library.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
 import {
     extensionForMime,
@@ -842,6 +842,61 @@ export class RenderService {
     /** Take whatever is in the inbox into the library. */
     async scanLibrary(): Promise<SegmentScanResult> {
         return await this.library.scan();
+    }
+
+    /**
+     * Takes a recording in from the browser.
+     *
+     * The second door onto `SegmentLibrary.ingest`, which puts the bytes in the inbox directory as
+     * well as in the content store — the store is rewritten from that directory by every boot scan
+     * and an archive carries the directory, so a segment that existed only in the store would be
+     * absent from every export with nothing logged.
+     *
+     * `uploadPad`'s shape exactly, and it shares that method's two helpers rather than growing its
+     * own. Two things differ, both because a segment is identified by its CHECKSUM rather than by a
+     * slot. There is no name to normalise: a segment carries no token a script writes, so the
+     * filename only ever becomes a LABEL and an awkward one costs nothing. And a repeat is not an
+     * error — dropping the same recording in twice is one segment either way, so this answers with
+     * the row that already held those bytes rather than refusing.
+     *
+     * The KIND is what its directory is called, so it takes the same path guard a board does. It is
+     * also what `readyKinds()` offers the format clock as a bookable band, which is why the console
+     * says so before an operator invents one by typing.
+     */
+    async uploadSegment(multipart: MultipartBody): Promise<SegmentView> {
+        let upload: { bytes: Buffer; filename: string; mimeType: string } | undefined;
+
+        const fields = await multipart.parse(
+            async (_field, stream, filename, _encoding, mimeType) => {
+                const chunks: Buffer[] = [];
+                for await (const chunk of stream) chunks.push(chunk as Buffer);
+
+                upload = { bytes: Buffer.concat(chunks), filename, mimeType };
+            },
+            { files: 1, fileSize: MAX_SEGMENT_BYTES, fields: 8 },
+        );
+
+        if (upload === undefined || upload.bytes.length === 0) {
+            throw httpError(400).withDetails({ message: 'that upload carried no audio' });
+        }
+
+        const ext = uploadExtension(upload.filename, upload.mimeType);
+        if (ext === undefined) {
+            throw httpError(415).withDetails({ message: `the station serves ${SEGMENT_EXTENSIONS.join(', ')}, and that file is none of them` });
+        }
+
+        const kind = (readField(fields, 'kind') ?? DEFAULT_SEGMENT_KIND).trim();
+        if (!subdirectoryIsSafe(kind)) throw httpError(400).withDetails({ message: `"${kind}" is not a name a kind can have` });
+
+        const label = readField(fields, 'label')?.trim() || labelFor(upload.filename);
+        if (label === '') throw httpError(400).withDetails({ message: 'that recording needs a name somebody can read' });
+
+        const { segment, created } = await this.library.ingest({ bytes: upload.bytes, ext, kind, label });
+        if (!created) {
+            this.logger.info('render: an uploaded recording was one the station already held', { segment: segment.id, kind: segment.kind });
+        }
+
+        return toView(segment);
     }
 }
 

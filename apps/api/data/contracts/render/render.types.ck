@@ -26,6 +26,17 @@ contract SegmentCreate: { # Something for the station to say, before anything ha
     voice?: string(max=100) # A station voice name the speech plugin knows how to map. Absent uses its default
 }
 
+# A recording arriving from the browser, as multipart form parts.
+#
+# Documentation rather than validation: a multipart body reaches the service as the raw parser and
+# the generated client types the body as `FormData`, so nothing checks this shape. It says what to
+# send
+contract SegmentUpload: {
+    file: binary # The audio itself. mp3, wav, ogg, flac or m4a, and at most 50 MB
+    kind: string(min=1, max=50) # What sort of element it is, which is also the directory it is filed under. A kind nothing else uses becomes a bookable band on the format clock
+    label?: string(min=1, max=400) # What the console calls it, and what the mount is labelled with while it airs. Derived from the filename when absent
+}
+
 contract SegmentList: { # Everything the station can play that is not a record
     segments: array(Segment)
 }

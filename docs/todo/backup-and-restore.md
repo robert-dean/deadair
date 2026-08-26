@@ -187,8 +187,12 @@ it reads rather than trusting the number, and the number is for the human readin
 
 ### The media half makes it an archive, and the JSON stays valid alone
 
-Recorded idents under `media/segments/inbox/` are authored — somebody spoke them — so a complete
-export is a container (the JSON at the root, the audio beside it). **The pad library is the second
+Recorded idents under `media/segments/inbox/` (`/data/inbox` in the container) are authored — somebody
+spoke them — so a complete export is a container (the JSON at the root, the audio beside it). **That
+directory has two authors now too**: `POST /segments/upload` writes the file into it rather than only
+storing the bytes, on the same argument as the pad library below, and for the same reason — the boot
+scan rewrites the store from here, so a recording that existed only in the store would be absent from
+every export with nothing logged. **The pad library is the second
 thing in that container**, and it is the one that surprises people: soundboard audio lives under
 `$DEADAIR_MEDIA/pads`, which is the DERIVED disk, so it sits among files that are all disposable and
 is the only one that is not. It is there because of size rather than because of provenance — a drop

@@ -817,3 +817,104 @@ describe('RenderService.fetchPad', () => {
         expect(fetch).not.toHaveBeenCalled();
     });
 });
+
+// The console door onto the segment library. Thinner than the pad case beside it because a segment
+// carries no token a script writes: the filename only ever becomes a LABEL, so what is left to check
+// is the extension, the kind, and that a repeat is not treated as a mistake.
+describe('RenderService.uploadSegment', () => {
+    const FILE = { field: 'file', filename: 'Top of the hour.wav', mimeType: 'audio/wav', bytes: Buffer.from('a recording') };
+
+    const body = (parts: { fields?: Record<string, string>; file?: typeof FILE | undefined }) =>
+        ({
+            parse: async (handler: (field: string, stream: unknown, filename: string, encoding: string, mimeType: string) => Promise<void>) => {
+                if (parts.file !== undefined) {
+                    await handler(parts.file.field, [parts.file.bytes], parts.file.filename, '7bit', parts.file.mimeType);
+                }
+
+                return new Map(
+                    Object.entries(parts.fields ?? {}).map(([key, value]) => [
+                        key,
+                        { value, nameTruncated: false, valueTruncated: false, encoding: '7bit', mimeType: 'text/plain' },
+                    ]),
+                );
+            },
+        }) as never;
+
+    const uploader = (created = true) => {
+        const ingest = vi.fn(async () => ({ segment: { ...READY, id: ID }, created }));
+
+        const render = new RenderService(
+            {} as never,
+            {} as never,
+            { ingest } as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+        );
+
+        return { service: render, ingest };
+    };
+
+    it('files it under the kind it was given, with the filename as its label', async () => {
+        const { service: render, ingest } = uploader();
+
+        await render.uploadSegment(body({ file: FILE, fields: { kind: 'ident' } }));
+
+        expect(ingest).toHaveBeenCalledWith(expect.objectContaining({ kind: 'ident', label: 'Top of the hour', ext: 'wav' }));
+    });
+
+    it('lands on the ident kind when nobody names one', async () => {
+        const { service: render, ingest } = uploader();
+
+        await render.uploadSegment(body({ file: FILE }));
+
+        expect(ingest).toHaveBeenCalledWith(expect.objectContaining({ kind: 'ident' }));
+    });
+
+    it('takes a label the operator typed over the one the filename gives', async () => {
+        const { service: render, ingest } = uploader();
+
+        // What goes on the mount as the title while it airs, so it reaches a listener rather than
+        // only the console.
+        await render.uploadSegment(body({ file: FILE, fields: { label: 'Top of the hour (new)' } }));
+
+        expect(ingest).toHaveBeenCalledWith(expect.objectContaining({ label: 'Top of the hour (new)' }));
+    });
+
+    it('answers with the segment the station already held rather than refusing a repeat', async () => {
+        // Dropping the same recording in twice is one segment either way: `importFile` dedups on the
+        // checksum, so there is nothing here to report as an error.
+        const { service: render } = uploader(false);
+
+        expect(await status(render.uploadSegment(body({ file: FILE })))).toBe(200);
+    });
+
+    it('refuses a format the store cannot serve rather than filing it', async () => {
+        const { service: render, ingest } = uploader();
+
+        expect(await status(render.uploadSegment(body({ file: { ...FILE, filename: 'ident.aiff', mimeType: 'audio/aiff' } })))).toBe(415);
+        expect(ingest).not.toHaveBeenCalled();
+    });
+
+    it('refuses an upload carrying no audio at all', async () => {
+        const { service: render, ingest } = uploader();
+
+        expect(await status(render.uploadSegment(body({ fields: { kind: 'ident' } })))).toBe(400);
+        expect(ingest).not.toHaveBeenCalled();
+    });
+
+    it('refuses a kind that would write outside the inbox', async () => {
+        const { service: render, ingest } = uploader();
+
+        expect(await status(render.uploadSegment(body({ file: FILE, fields: { kind: '../../etc' } })))).toBe(400);
+        expect(ingest).not.toHaveBeenCalled();
+    });
+});

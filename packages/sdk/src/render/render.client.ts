@@ -22,6 +22,7 @@ import type {
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
+    SegmentUpload,
     SpeechPreviewRequest,
     VoiceList,
 } from './types/render.types.js';
@@ -47,6 +48,18 @@ export class RenderClient {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<Segment>(result);
+    }
+
+    /**
+     * @name Upload segment
+     * @description Takes a recording in from the browser and puts it in the library, ready to air
+     */
+    async uploadSegment(body: FormData): Promise<Segment> {
+        const result = await this.fetch(`/segments/upload`, {
+            method: 'POST',
+            body: body,
         });
         return await parseJson<Segment>(result);
     }

@@ -4,6 +4,7 @@ import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react
 import type { Segment } from '@deadair/sdk';
 
 import { fetchSegmentAudio, useCreateSegment, useScanSegments, useSegments } from '../../api/segments.queries';
+import { SegmentUploadCard } from './segment.upload.card';
 import { useVoices } from '../../api/voices.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -53,6 +54,7 @@ export function SegmentsPage() {
     const segments = useSegments();
     const scan = useScanSegments();
     const [composing, setComposing] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     const rows = segments.data?.segments ?? [];
     const kinds = [...new Set(rows.map(segment => segment.kind))].sort();
@@ -88,6 +90,14 @@ export function SegmentsPage() {
                             </Button>
                         </Tooltip>
                         <Button
+                            variant="default"
+                            onClick={() => {
+                                setUploading(open => !open);
+                            }}
+                        >
+                            Upload
+                        </Button>
+                        <Button
                             onClick={() => {
                                 setComposing(open => !open);
                             }}
@@ -104,6 +114,8 @@ export function SegmentsPage() {
 
             {scan.error ? <ErrorAlert title="The inbox could not be scanned" error={scan.error} fallback="The scan did not finish." /> : undefined}
 
+            {uploading ? <SegmentUploadCard kinds={kinds} onDone={() => setUploading(false)} /> : undefined}
+
             {composing ? (
                 <ComposeSegment
                     onDone={() => {
@@ -116,8 +128,8 @@ export function SegmentsPage() {
 
             {segments.data && rows.length === 0 ? (
                 <EmptyState title="The station has no segments">
-                    Write one above, or drop audio into the inbox folder and scan it. The station plays what it has; without a segment it plays
-                    records back to back.
+                    Upload a recording above, write one for the station to say, or drop audio into the inbox folder and scan it. The station plays
+                    what it has; without a segment it plays records back to back.
                 </EmptyState>
             ) : undefined}
 

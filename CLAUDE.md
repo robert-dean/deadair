@@ -405,10 +405,22 @@ so checking the spacing first would queue a switchboard. Six things are load-bea
 on `production.plan.ts`'s own rule about how long a beat is — a model naming somebody the production
 was not given is a turn drafted as one character and rendered in another's voice, silently — and the
 outline is TOLD the assignment so it can plan content that fits. **A turn is not a beat**:
-`TURN_BAND` is 40/70/110 against the monologue 150/200/260, because the monologue floor is argued as
+`TURN_BAND` is 15/30/60 against the monologue 150/200/260, because the monologue floor is argued as
 "below this a beat is a headline read out", which is true of somebody talking uninterrupted and false
 of somebody answering a question; a dialogue's turn count is forced ODD, since the host both opens
-and closes. **A caller may be WRONG and the host is what makes that safe**: the grounding block goes
+and closes. It was 40/70/110 and that was measured wrong: the model hit the budget exactly (58 to 78
+words across every turn of every call) and seventy words is twenty-six seconds of uninterrupted
+speech, so seven of them alternating is two people reading paragraphs at each other, which is what
+"call-ins run long" actually was. **The budget is split by ROLE and not evenly** — `turnWeights` in
+`production.cast.ts`, where role knowledge lives, handing `production.plan.ts` plain numbers so the
+arithmetic learns nothing about who is on the programme — because a host asks and hands over where a
+caller answers, and funding both identically is the same failure from the other side. Together a
+three-minute call is fifteen turns of 23/43, which costs a model call and a render per turn: roughly
+double, taken deliberately. **`TURNS_PER_CALLER` moves whenever `TURN_BAND` does, and nothing makes
+that obvious** — it is a proxy for a caller's AIRTIME and was calibrated against seventy-word turns,
+so the finer band left alone casts two callers into an eleven-turn call and three into a fifteen-turn
+one, which is `MAX_CALLERS`' documented switchboard arriving through a door it does not cover.
+**A caller may be WRONG and the host is what makes that safe**: the grounding block goes
 out as fact, which is right for the station's own voice and wrong for a phone-in, so a caller whose
 sheet carries a `latitude` gets a licence instead (what THEY think, kept theirs, never a real named
 person, never anything shaped like news) and the host's next turn is told to take it as theirs rather
@@ -419,7 +431,14 @@ had lined up, which is right for a break and a hole in the middle of a programme
 caller differs from the incoming host by definition. **A caller ARRIVES mid-programme**, so
 `firstTurn` is a fact about the SPEAKER rather than about the beat: it is the one place a greeting
 belongs, `checkBeat` is excused there, and the prompt says which way round the call went because the
-first live one opened with "thanks for calling", which is the presenter's line. And **the estimate
+first live one opened with "thanks for calling", which is the presenter's line. **The host both puts
+a caller ON air and takes them OFF**, which `openingRule` knew neither of: the opening beat was told
+to set the programme up and nothing about anybody holding, so it wrote a music-hype monologue and the
+caller simply appeared unintroduced, and the last beat matched no case at all and fell through to
+"carry on from where the last beat left off", so the host closed the SHOW and left the caller on the
+line. `guest` is a separate question from `previousSpeaker` and has to be, since the opening beat has
+nobody before it; `lastTurn` is a fact about the BEAT, since a programme has one ending however many
+people were on it. And **the estimate
 that decides a cast is taken in the dialogue band** — the first live call-in of three minutes looked
 like two monologue beats, below the floor for casting anybody, so the station made a phone-in with
 nobody on it and nothing said why (`turnsFor`).
@@ -593,7 +612,28 @@ who is awake and useless to a model, which said "tonight" through twelve of thos
 breaks while the welcome beside it said good morning, with the persona's own `tonight` marker
 rewarding it. `dayPart` covers all twenty-four hours (the greeting deliberately does not; its hole in
 the small hours is the stretch "tonight" is RIGHT for), rides the request beside `greeting`, and
-`timeClaimIn` intersects whichever claims a script actually made so the narrower window wins. It
+`timeClaimIn` intersects whichever claims a script actually made so the narrower window wins.
+
+**That fix reached the kinds that did not need it and missed the one that did, for two years' worth
+of breaks.** `WriteBreakJob` derives the clock, the greeting AND the daypart from `segments.airs_at`
+and skips all three when there is none, and `BreakPlanner.slotsFor` stamped it on the ANCHORED walk
+alone — so news and welcome had one and the ordinary talk break, planted by the station's own spacing
+floor, never did. Measured live: 940 talk breaks, not one with an `airs_at`, 225 of 225 talk-break
+prompts with no daypart line in them, and "tonight" going out at seven, eight, nine, ten, eleven and
+noon. Every walk stamps `projected[at]` now, which also switches on the claim window for the kind of
+break the station makes most of. **And stating it is necessary and not sufficient**: of the nine
+scripts that named a daypart having been told one, six named a different one and every one of the six
+had reached for "tonight", so `contradictsDayPart` refuses a crossing — comparing which STRETCH a
+phrasing names rather than the phrasing, since "this evening" and "tonight" are one answer at nine in
+the evening and "this morning" and "tonight" are never one answer at all. It declines to the floor
+rather than re-drafting, on the writer registry's own argument, and asks nothing of a break that was
+never told the time. A first cut grouped the day as light against dark, which got the evening pair
+right and quietly permitted "this morning" being called "this afternoon". **A PRODUCTION gets the
+daypart and never `roughTime`**, since a programme takes minutes to write and more to render and an
+hour phrasing's window is seven or eight minutes wide; `checkBeat` asks the same question, which on a
+station writing `outlined` productions never runs, so there it is prevention alone. The whole of it
+rests on `station.timezone`, which defaults to empty and falls back to the container's `TZ` — nothing
+set one until `deploy/` and the Unraid template did, so a stock install read the clock in UTC. It
 never said what to do when a record carried NO notes, only what to do with notes — so a sheet asking
 for specifics was the only instruction in the room, and the station aired invented pressing plants,
 catalogue numbers and years about records it knew nothing about. And it named worn OPENINGS while
@@ -605,7 +645,8 @@ the cheapest way to pass the character check is to say the marker list again, an
 declined over it would be refusing the character for being itself.
 
 **A bulletin does not read a story twice, and what it is not shown is as deliberate as what it is.**
-`BulletinSource` took the top `rotation.newsStories` off a newest-first feed with nothing remembering
+`BulletinSource` took the top `rotation.newsStoriesMin`–`Max` off a newest-first feed with nothing
+remembering
 the last bulletin, so on a feed that had not moved the same three stories went out in twenty-seven
 consecutive bulletins across seven hours — which the twelve-hour freshness window permits and a
 listener cannot tell from the station being wrong. `ReadLog` is what it now checks against: **in
@@ -829,6 +870,20 @@ there stores a figure they did not ask for and shows it back as though they had.
 too, where the number visibly changes in front of them. Undeclared bounds were how
 `analysis.concurrency` accepted 400 and ran at 32. Still constants, deliberately: the four mixer
 knobs, because the real work there is a Liquidsoap restart (`docs/todo/mixer-settings-in-db.md`).
+
+**Some lengths are RANGES, and the resolvers behind them are the only ones here allowed to be
+random.** `render.productionMinutesMin`/`Max`, `render.dialogueMinutesMin`/`Max` and
+`rotation.newsStoriesMin`/`Max`, because a programme that is always exactly the same length is the
+one thing about a schedule a listener notices without being able to say why. What makes a
+non-deterministic resolver safe here and nowhere else is that the answer is read ONCE and stored —
+`stationTargetMs` is called at commission and goes straight into `productions.target_ms`, and every
+pass afterwards reads the row — so there is nothing for a second roll to contradict; `random` is a
+parameter for the reason `storiesFor`'s `now` is one. Both ends are read as an unordered PAIR and
+clamped, on the resolver rule above. **Which lengths are worth ranging is measured rather than
+assumed**: a BREAK is given a ceiling rather than a budget and the model stops where it stops, so
+talk breaks already span 3 to 100 words around a median of 28 and randomising `rotation.breakWords`
+would be a no-op — only a production's `target_ms` and a bulletin's story COUNT are the mechanical
+kind, which is why those two got it and the word ceilings did not.
 
 **A capability with several plugins and no setting picks the FIRST, and says so.** `selectPlugin`
 (`modules/plugins/plugin.selection.ts`) is one rule shared by `render.speechPluginId`,
@@ -1185,7 +1240,10 @@ part is SQL.
 
 **What writes to it, and the two rules learned by running it.** Beyond the transport's own edges
 (`silence.cause`, `gap`) the producers are the director (`air.on`/`air.off`, `order.caughtUp`,
-`item.skipped`, `break.claimStale`, `set.generated`), the render path (`break.degraded`), the catalog
+`item.skipped`, `break.claimStale`, `set.generated`), the render path (`break.degraded`,
+`production.unplanned` — a programme whose outline the model could not write TWICE, which degrades to
+what a `quick` production does by design and had been doing so in silence for 8 of this station's 12
+productions), the catalog
 (`binding.benched`, `track.discovered`) and the two operator surfaces (`order.*`, `airMode.set`,
 `plugin.*`), which are the only ones that stamp `station_events.actor_id`. **A catch-up is ONE event
 carrying a count, not one per item.** `StationLineup.markAiring` answers how many it passed over

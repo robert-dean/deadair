@@ -72,7 +72,7 @@ Six things are load-bearing, and four of them were not obvious before it was bui
   headlines is a presenter who has not decided what this break is.
 
 The settings are `rotation.newsTemplates` (with `{{news.headlines}}`, the first new row in the
-template vocabulary since it was written), `rotation.newsStories`, `rotation.newsMaxAgeHours` and
+template vocabulary since it was written), `rotation.newsStoriesMin`/`Max`, `rotation.newsMaxAgeHours` and
 `rotation.newsFeed`. The format clock that schedules it was a setting too, briefly; it is now
 `deadair.clock_bands` and is edited on the schedule page.
 

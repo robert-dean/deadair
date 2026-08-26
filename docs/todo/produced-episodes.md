@@ -196,7 +196,7 @@ answer is what it is asked for, not the ceiling it is given. A beat is the same:
 The five decisions are. What sits on top of them, as of 2026-08-16:
 
 - **The operator surface**, which is landing as this is written: `data/contracts/productions/` and
-  `production.settings.ts` (two keys, `render.productionWritingMode` and `render.productionMinutes`).
+  `production.settings.ts` (`render.productionWritingMode` and the `render.productionMinutesMin`/`Max` range).
   Check the tree rather than this line.
 - ~~**Nothing commissions one on a schedule.**~~ **Built, and this line was stale by the time it was
   read back on 2026-08-19.** `ProductionScheduler.ripen()` commissions off the format clock: an
@@ -213,7 +213,7 @@ The five decisions are. What sits on top of them, as of 2026-08-16:
   the first question anyone asks.** Clock bands schedule what the station MAKES; the daypart schedule
   in [director-and-lineups.md](director-and-lineups.md) decides what it PLAYS BETWEEN. A production
   is a block INSIDE a running order rather than a slot that replaces one, which is right: a
-  production is bounded by `render.productionMinutes`, so an all-talk hour is a question about
+  production is bounded by the `render.productionMinutesMin`/`Max` range, so an all-talk hour is a question about
   production length rather than about slot types.
 
   **One hazard the daypart schedule brings, recorded before it is built.**

@@ -267,6 +267,25 @@ export interface PersonaSheet {
      *
      * They reach the prompt as well as the check ({@link personaLines}), because a writer marked
      * against words it was never shown is being graded on a rubric it cannot read.
+     *
+     * ## A marker has to be a word only THIS character would say
+     *
+     * The check counts the cheapest marker a model can reach, so one free entry in a list of twelve
+     * makes the other eleven optional. Two ways an entry is free, and the second is the one that got
+     * past every author here:
+     *
+     * - It is ordinary ENGLISH. `you`, `your`, `it's`, `here`, `record`, `still` — a warm, correct,
+     *   character-free break carries them already, so the sheet is checking nothing.
+     * - It is ordinary for the REGISTER the character already occupies. This is the subtle one:
+     *   `brand new`, `back to back`, `turn it up` and `biggest` are not everyday English, and they
+     *   are what a jock of ANY decade says — so an eighties sheet built on them passed its own check
+     *   on every break while placing the character nowhere, which is exactly what a listener reported
+     *   ("it never says tubular or rad"). The words were period-neutral radio and nobody had asked
+     *   for the period at all.
+     *
+     * `persona.markers.test.ts` is what holds this, and it holds it by cross-fire rather than by a
+     * word list: no seed's check may pass on another seed's sample lines. A marker that fires on
+     * somebody else's voice is by definition not evidence of this one.
      */
     dictionMarkers?: readonly string[];
     /** What they always and never do on air, and what they care about. */

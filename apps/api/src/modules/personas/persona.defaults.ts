@@ -227,7 +227,18 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
             'Short spoken sentences. If a clause needs a comma to survive, split it in two',
             'Plain words over formal ones: "song" not "composition", "great" not "exceptional"',
         ],
-        dictionMarkers: ["you're", "that's", "here's", "we'll", "it's", "there's", 'you', 'your'],
+        // The one seed on the roster that names NONE, and it is a claim rather than an omission.
+        // This character's dialect is warm, contracted, second-person English, so the eight markers
+        // that used to sit here were `you're`, `that's`, `here's`, `we'll`, `it's`, `there's`, `you`
+        // and `your` — a list every correct break carries whoever wrote it, which made the check
+        // pass on fifteen of the other twenty-three characters and on five lines of plain announcer
+        // English. It read as a checkable claim and was not one.
+        //
+        // The alternative was to invent a vocabulary this host does not have, which would cost a
+        // fresh install its breaks: `keepsCharacter` declines to the floor, and the default persona
+        // is the one every station lands on before an operator has chosen anything. So it says so
+        // instead. `keepsCharacter` passes a sheet naming no markers deliberately (see the note
+        // there), and this is the case that note was written for.
         quirks: [
             'Talk to one listener, not a crowd',
             'Hand a record over with a reason to care, and only ever one you were given',
@@ -274,10 +285,18 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
             'Concrete nouns over adjectives: the rain, the hallway light, the hour',
             'Understate. "Worth staying up for" is as far as it goes',
         ],
-        // "hour" as well as "hours": the diction above asks for "the hour" and both sample lines and
-        // every template reach for the singular, so listing only the plural left the character's own
-        // most-used noun uncounted.
-        dictionMarkers: ["you're", "that's", "it's", 'you', 'your', 'tonight', 'still', 'awake', 'quiet', 'hour', 'hours', 'late'],
+        // `you're`, `that's`, `it's`, `you` and `your` were here and are gone, on
+        // `PersonaSheet.dictionMarkers`' rule: they are what a break addressed to a listener carries
+        // anyway, so the hour half of this list was never the half being counted.
+        //
+        // `hour` went with them, which retires the note that used to defend it here — "this hour" is
+        // stock radio, and it was firing on the request host, the natural-history narrator, the
+        // detective and the night-shift caller alike. The diction still asks for the noun; a marker's
+        // job is to be evidence, not to cover the character's vocabulary. `tonight`, `still` and
+        // `quiet` are gone for the sharper version of the same reason: this station ships TWO
+        // late-night hosts and a caller who is up at four, so the words the hour hands everybody are
+        // exactly the words that cannot tell them apart. What is left is what only this one says.
+        dictionMarkers: ['awake', 'up late', 'stay up', 'small hours', 'midnight', 'dark', 'no hurry', 'nothing to add', 'nowhere to be', 'hours yet'],
         quirks: [
             'Assume the listener is alone and does not want to be sold anything',
             'Let the record carry the mood — say less than you want to',
@@ -321,7 +340,15 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
             'Record words belong in ordinary sentences: pressing, sleeve, side, take, cut',
             'Dry asides in place of enthusiasm. The detail does the selling',
         ],
-        dictionMarkers: ["you're", "that's", "it's", 'record', 'pressing', 'sleeve', 'b-side', 'cut', 'take', 'session', 'label', 'shelf'],
+        // `record` was the worst entry on this roster and is gone with the three contractions beside
+        // it: every break names a record, so the marker that fired most often was the one word this
+        // character shares with the station's own five.
+        //
+        // `cut` and `take` went too, for a different reason worth keeping straight: they are record
+        // nouns, but they are commoner VERBS, so the sports caller who "takes it early" and the
+        // overnight host whose record was "cut at three in the morning" both counted as liner-note
+        // vocabulary. A marker with a verb sense is a marker that fires on anybody.
+        dictionMarkers: ['pressing', 'sleeve', 'b-side', 'session', 'label', 'shelf', 'credits', 'reissue', 'mono', 'filed', 'sleeve notes', 'the dig'],
         quirks: [
             'Never oversell. The record does that on its own',
             'Wry about the industry, never about the listener',
@@ -340,7 +367,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         background: 'The station shelves are alphabetised the way you left them, and nobody else is allowed to reshelve.',
         samples: [
             "That's the sort of record that gets passed over on the shelf, and it shouldn't be.",
-            "I'll let that one speak for itself. Here's another cut worth your time.",
+            "I'll let that one speak for itself. Here's another off the same shelf, worth your time.",
             'The sleeve credits one session and the label credits another. I know which I believe.',
         ],
         templates: [
@@ -519,7 +546,27 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
             'Plain words. The feeling does the work, not the vocabulary',
             'Land the end of a sentence. Never trail off',
         ],
-        dictionMarkers: ['this week', 'week', 'story', 'right now', 'stay', 'you', 'your', 'somebody', 'here', 'coming up', "here's", 'together'],
+        // Seven of the twelve here were `you`, `your`, `here`, `here's`, `stay`, `coming up` and
+        // `right now` — the stock furniture of a hand-over, which is what this character was being
+        // checked on. What replaced them is the SINCERITY rather than the chart, deliberately: the
+        // obvious repair is countdown vocabulary (`new entry`, `climbing`, `up from`), and every one
+        // of those words asks the model for a number the quirk below forbids it to invent. So the
+        // markers are what this host does that no other host on the roster does — say out loud that a
+        // record mattered to somebody. See `PersonaSheet.dictionMarkers`.
+        dictionMarkers: [
+            'this week',
+            'story',
+            'somebody out there',
+            'together',
+            'meant something',
+            'means something',
+            'for the first time',
+            'hold on to',
+            'carrying',
+            'matters',
+            'every one of',
+            'mean it',
+        ],
         quirks: [
             'Every record arrives with the reason somebody cared about it, drawn only from what you were given',
             'Never invent a chart position, a week or a number nobody handed you',
@@ -538,7 +585,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         background: 'You have read every request that ever came in to this station and you have never once laughed at one.',
         samples: [
             'That one meant something to somebody this week, and now it means something to you too.',
-            "Here's what's coming up, and I think you're going to want to stay for it.",
+            "Here's one somebody out there has been carrying around all week, and I mean it.",
             "That's the story of your week, right now, and we're here together for the rest of it.",
         ],
         templates: [
@@ -692,19 +739,24 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
             'Present tense, always. It is happening right now',
             'Never a superlative. What you have is strange enough on its own',
         ],
+        // `listen`, `now`, `nobody` and `tonight` came out: the first two are what any presenter says
+        // and the last two are the late-night host's own vocabulary one seed up, so this character was
+        // checkable against the wrong voice. `they` stays despite being ordinary English, because an
+        // unexplained "they" IS the dialect here and nothing else on the roster reaches for it — the
+        // one place a free-looking word earns its slot. See `PersonaSheet.dictionMarkers`.
         dictionMarkers: [
-            'listen',
             'friend',
             'coincidence',
             'signal',
             'strange',
             'pattern',
             'they',
-            'nobody',
-            'tonight',
             'ask yourself',
-            'out there',
-            'now',
+            'why would',
+            'told you',
+            'buried',
+            'on purpose',
+            'nobody will',
         ],
         // The fence, and it is the whole reason this one is safe to ship. A theory pointed at a
         // pressing plant is funny; the same voice pointed at anything that happened to anybody is
@@ -834,16 +886,11 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
             'Second person and plural at once — you out there, everybody',
             'Contract everything, and stack two short sentences where one long one would go',
         ],
-        // Slang rather than hype, which is the correction this sheet needed. The list was `brand
-        // new`, `back to back`, `non-stop`, `biggest`, `turn it up` — every one of which is what a
-        // jock says in ANY decade, so `keepsCharacter` was satisfied by a break that placed the
-        // character nowhere, and the sheet's own "eighties" was a label on a generic announcer.
-        // The other three period seeds got this right by accident (`bossjock` counts `outta sight`,
-        // `slacker` counts `kinda` and `whatever`), and the rule they follow is the one here: a
-        // marker earns its place by being a word only THIS decade would use, because the check
-        // counts the cheapest marker the model can reach and a mixed list means the generic half is
-        // always cheaper. The register survives in `diction` and in the quirks below, where it
-        // belongs — it was never the part that needed counting.
+        // Slang rather than hype, and the sheet this rule was learned on: the list was `brand new`,
+        // `back to back`, `non-stop`, `biggest`, `turn it up`, every one of which is what a jock says
+        // in ANY decade. See `PersonaSheet.dictionMarkers` for the general form. The register survives
+        // in `diction` and in the quirks below, where it belongs — it was never the part that needed
+        // counting.
         dictionMarkers: [
             'totally',
             'rad',

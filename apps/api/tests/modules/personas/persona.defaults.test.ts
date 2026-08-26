@@ -85,7 +85,14 @@ describe('the seeded personas', () => {
     it('carry enough markers to be checkable without being unfair', () => {
         // A sheet with one marker declines almost every script, which reads from the console as a
         // model that is off rather than a persona that is strict.
+        //
+        // `classic` names none at all, which is a third state rather than a smaller version of this
+        // one: it is the default host, its dialect is ordinary warm English, and the markers it used
+        // to carry were contractions that made its check pass on anything. See the comment on the
+        // sheet, and `persona.markers.test.ts`, which is where that exemption is stated and held.
         for (const persona of SEED_PERSONAS) {
+            if ((persona.dictionMarkers?.length ?? 0) === 0) continue;
+
             expect(persona.dictionMarkers?.length ?? 0, `${persona.key} has too few markers to judge a break by`).toBeGreaterThanOrEqual(
                 MIN_DICTION_MARKERS * 3,
             );

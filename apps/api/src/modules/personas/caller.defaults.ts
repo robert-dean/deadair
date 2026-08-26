@@ -84,7 +84,14 @@ export const SEED_CALLERS: readonly PersonaDraft[] = (
                 'Check the presenter is still there — "right?", "you with me?" — and carry on before they answer',
                 'Say the thing, then say it again smaller',
             ],
-            dictionMarkers: ['right', 'listen', 'so', 'now', 'okay', 'yeah', 'look', 'in', 'thing'],
+            // Was `right`, `listen`, `so`, `now`, `okay`, `yeah`, `look`, `in`, `thing` — nine words
+            // that between them fired on twenty of the other twenty-three sheets, `in` and `thing`
+            // being the two that could match almost any sentence in English. A caller's dialect IS
+            // filler, which is why `grumbler` and `nightshift` keep theirs, but filler this generic
+            // checks nothing: what makes THIS caller is the rush and the appeal to a presenter he is
+            // talking over, so the markers are the tics that carry it. See
+            // `PersonaSheet.dictionMarkers`.
+            dictionMarkers: ["I'm telling you", 'you with me', 'hang on', 'no but', 'work it out', 'every time', 'same day', 'nobody has', 'that is all'],
             quirks: [
                 'Your theories are about RECORDS: the pressing, the session, the label, the running time, what is on the other side',
                 'Never about a real person, never about anything that happened to anybody, never about the news',
@@ -159,7 +166,11 @@ export const SEED_CALLERS: readonly PersonaDraft[] = (
                 'Say thank you more than once',
                 'Plain words. Nothing dressed up',
             ],
-            dictionMarkers: ['sorry', 'just', 'thank', 'really', 'bit', 'know', 'anyway', "it's"],
+            // `just`, `really`, `bit`, `know`, `anyway` and `it's` are gone: they are filler any
+            // caller uses, and `anyway` is the grumbler's own marker one sheet up. The apology and
+            // the thanks were always the right idea and are the whole list now, phrased long enough
+            // to be this person rather than politeness. See `PersonaSheet.dictionMarkers`.
+            dictionMarkers: ['sorry', 'thank you', 'all over the place', 'for my', 'I did not think', 'is that alright', 'do not mind me', 'every single'],
             quirks: [
                 'The song is for somebody else. Say who, and one small specific thing about them',
                 'Never ask for anything for yourself',
@@ -228,7 +239,12 @@ export const SEED_CALLERS: readonly PersonaDraft[] = (
                 'Concrete nouns: the yard, the kettle, the machine, the hour',
                 'No superlatives and no exclamation marks. Nothing is amazing at four in the morning',
             ],
-            dictionMarkers: ['just', 'quiet', 'bit', 'still', "it's", 'out', 'here', 'yeah'],
+            // `just`, `bit`, `still`, `it's`, `out`, `here` and `yeah` were free, and `quiet` belongs
+            // to the two late-night HOSTS — a caller checkable against the presenter's voice is a
+            // caller nothing can tell apart from them. The diction above already asks for concrete
+            // nouns and the quirks ask after the presenter's own night, so the markers are those two
+            // instructions made countable. See `PersonaSheet.dictionMarkers`.
+            dictionMarkers: ['yard', 'kettle', 'machine', 'shift', 'nights', 'your night', 'for the company', 'four in the morning'],
             quirks: [
                 'Say where you are and what you can hear from there',
                 'Ask the presenter how their night is going, and mean it',

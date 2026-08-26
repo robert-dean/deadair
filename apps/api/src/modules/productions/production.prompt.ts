@@ -123,6 +123,33 @@ export interface BeatRequest {
      * right, because it is what somebody who has just been put through actually says.
      */
     firstTurn?: boolean;
+    /**
+     * This is the last thing anybody says before the programme hands back.
+     *
+     * The sibling of {@link firstTurn} and a fact about the BEAT rather than about the speaker,
+     * because a programme has one ending however many people were on it. `speakerOrder` already
+     * guarantees the host has this turn — that is what the odd turn count is for — so this is the
+     * one place a sign-off belongs.
+     *
+     * Without it the last turn fell through to the ordinary middle-of-the-programme rule, which
+     * says carry on from where the last beat left off. Measured live: a seven-turn phone-in whose
+     * host closed the SHOW and never took the caller off the line, on every run.
+     */
+    lastTurn?: boolean;
+    /**
+     * Somebody else is on this programme, for the host turns that have to acknowledge it.
+     *
+     * Not the same question as {@link previousSpeaker}, which is who spoke LAST — the opening beat
+     * has nobody before it and is exactly the turn that needs to know a caller is holding. Without
+     * it the host opened with a plain music-hype monologue and the caller simply appeared in turn
+     * two, unintroduced and unnamed, which is what a phone-in sounds like when nobody put anybody
+     * on air.
+     *
+     * Absent for a monologue, and deliberately absent on a CALLER's own turns: what a caller needs
+     * to know about the other person is that they are presenting, which `previousSpeaker` already
+     * says.
+     */
+    guest?: CastMember;
     station?: string;
     /** What was wrong with the previous attempt, for the one re-draft a beat gets. */
     correction?: string;
@@ -263,6 +290,10 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
     // what somebody who has just been put through actually says.
     const answering = request.previousSpeaker !== undefined && request.previousSpeaker.role !== request.speaker?.role;
     const arriving = caller && answering && request.firstTurn === true;
+    // Whose programme this is, for the two turns that have to acknowledge somebody else being on it.
+    // Absent for a monologue, which is what keeps its prompt byte-identical to the one built before
+    // callers existed.
+    const guest = caller ? undefined : request.guest;
 
     const system = [
         caller
@@ -292,7 +323,7 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         '- Continuous spoken prose. No headings, no bullet points, no stage directions, no speaker labels, no markdown.',
         // The failure this catches is a production that sounds like several short programmes played
         // back to back, and it is the single most common thing a beat gets wrong.
-        ...openingRule({ opening, caller, arriving }),
+        ...openingRule({ opening, caller, arriving, lastTurn: request.lastTurn === true, guest }),
         // The other half of the repetition problem. Spent catchphrases are handled per beat in the
         // user turn; this covers the BACKGROUND, which is not a phrase and so cannot be detected as
         // one — a presenter who has been fired from three stations mentioned it in six of
@@ -536,8 +567,18 @@ function groundingRules(request: BeatRequest, caller: boolean, answering: boolea
  * those two facts want opposite instructions. Getting it wrong in either direction is audible: a
  * caller told not to greet anybody is put on air and starts mid-sentence, and one told to open the
  * programme introduces the show they just rang.
+ *
+ * ## A conversation needs an opening and an ending, and had neither
+ *
+ * The first version of this knew about three positions — arriving, opening, middle — which is the
+ * whole of a monologue and two thirds of a phone-in. What it left out was the two turns where the
+ * host has to acknowledge that somebody else is there. The opening beat was told to set the
+ * programme up, said nothing about anybody being on the line, and produced a plain music-hype
+ * monologue with the caller simply appearing in turn two; the last beat matched no case at all and
+ * fell through to "carry on from where the last beat left off", so the host closed the SHOW and
+ * left the caller on the line. Both were true of every phone-in the station made.
  */
-function openingRule(where: { opening: boolean; caller: boolean; arriving: boolean }): string[] {
+function openingRule(where: { opening: boolean; caller: boolean; arriving: boolean; lastTurn: boolean; guest?: CastMember }): string[] {
     if (where.arriving) {
         return [
             // "Thanks for calling" is the PRESENTER's line and a model reaches for it anyway, because
@@ -548,7 +589,30 @@ function openingRule(where: { opening: boolean; caller: boolean; arriving: boole
         ];
     }
 
-    if (where.opening) return ['- This is the OPENING beat. Set the programme up and get into it.'];
+    if (where.opening) {
+        // Named, because the alternative is what happened: a host who was never told who was waiting
+        // says "our caller" or, worse, nothing at all, and somebody the listener has not been
+        // introduced to starts talking.
+        if (where.guest !== undefined) {
+            return [
+                `- This is the OPENING beat, and ${nameOf(where.guest)} is holding on the line waiting to come on.`,
+                `- Set the programme up in a sentence or two, then bring ${nameOf(where.guest)} in by name and hand over to them. Ask them something or invite them to say what they rang about — do not answer it yourself.`,
+            ];
+        }
+
+        return ['- This is the OPENING beat. Set the programme up and get into it.'];
+    }
+
+    // The ending. Ahead of the middle case rather than inside it, because a last turn is in the
+    // middle of the programme by every other measure and would match that rule first.
+    if (where.lastTurn && !where.caller) {
+        return where.guest === undefined
+            ? ['- This is the LAST beat. Bring the programme to an end and hand back to the music. Do not summarise what you covered.']
+            : [
+                  `- This is the LAST beat, and it is where the call ENDS. Thank ${nameOf(where.guest)}, say goodbye to them so the listener hears them go, and hand back to the music.`,
+                  '- Keep it short. A sign-off is a few sentences, not a summary of what was said.',
+              ];
+    }
 
     return [
         where.caller

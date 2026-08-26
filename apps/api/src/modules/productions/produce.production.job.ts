@@ -383,6 +383,13 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // Their first turn on the call, which is where a caller says hello and nowhere else
                 // does.
                 ...(mine.length === 0 ? { firstTurn: true } : {}),
+                // The programme's own ending, which is where the call is wound up. `speakerOrder`
+                // guarantees this turn is the host's — that is what the odd turn count is for.
+                ...(beat.ordinal === plan.beats.length - 1 ? { lastTurn: true } : {}),
+                // Who else is on the programme, for the two turns that have to acknowledge it. Read
+                // off the cast rather than off the run-in, because the opening beat has no run-in
+                // and is exactly the turn that needs to know somebody is holding.
+                ...(guestOf(casting) === undefined ? {} : { guest: guestOf(casting)! }),
                 ...(reactions.length === 0 ? {} : { reactions }),
                 ...(board.names.length === 0 ? {} : { pads: board.names }),
                 ...(await this.remembers(claimed, speaker, mine.length === 0)),
@@ -534,6 +541,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         ...(speaker === undefined ? {} : { speaker }),
                         ...(previousAt === undefined || casting[previousAt] === undefined ? {} : { previousSpeaker: casting[previousAt]! }),
                         ...(firstTurnOf(plan, index, at) ? { firstTurn: true } : {}),
+                        // The same two facts the draft was given. A re-draft asked for anything less
+                        // would answer the correction and lose the rule that shaped the turn.
+                        ...(index === beats.length - 1 ? { lastTurn: true } : {}),
+                        ...(guestOf(casting) === undefined ? {} : { guest: guestOf(casting)! }),
                         ...(reactions.length === 0 ? {} : { reactions }),
                         // EXACTLY what this beat already hit, and never the whole board.
                         //
@@ -939,6 +950,15 @@ function mineExcept(beats: readonly Segment[], plan: ProductionPlan, speaker: nu
 function firstTurnOf(plan: ProductionPlan, index: number, speaker: number): boolean {
     return !plan.beats.slice(0, index).some(beat => (beat.speaker ?? 0) === speaker);
 }
+
+/**
+ * Who the host is talking TO on this programme, or nobody at all.
+ *
+ * The first caller in the cast, which is the one the host opens by bringing in and closes by seeing
+ * off. A programme with two of them still has one opening and one ending, and the second caller
+ * arrives the way any caller does — on their own first turn, which `firstTurn` already marks.
+ */
+const guestOf = (cast: ProductionCast): CastMember | undefined => cast.find(member => member.role === 'caller');
 
 /**
  * A model's answer as JSON, or `undefined`.

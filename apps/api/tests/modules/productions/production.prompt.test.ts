@@ -111,6 +111,54 @@ describe('a turn written by the host', () => {
     });
 });
 
+// A conversation needs an opening and an ending and had neither. The opening beat was told to set
+// the programme up and nothing about anybody being on the line, so the host wrote a plain music-hype
+// monologue and the caller simply appeared in turn two, unintroduced. The last beat matched no case
+// at all and fell through to "carry on from where the last beat left off", so the host closed the
+// SHOW and left the caller holding. Both were true of every phone-in the station made.
+describe('putting a caller on air and taking them off again', () => {
+    it('tells the opening beat somebody is holding, and to bring them in by name', () => {
+        const system = systemOf(turn({ ...base, ordinal: 0, speaker: host, guest: dale }));
+
+        expect(system).toMatch(/Dale is holding on the line/);
+        expect(system).toMatch(/bring Dale in by name/);
+        // The other half of handing over: a host who asks and then answers has not handed over.
+        expect(system).toMatch(/do not answer it yourself/i);
+    });
+
+    it('leaves a monologue opening exactly as it was', () => {
+        const system = systemOf(turn({ ...base, ordinal: 0 }));
+
+        expect(system).toMatch(/This is the OPENING beat\. Set the programme up and get into it\./);
+        expect(system).not.toMatch(/holding on the line/);
+    });
+
+    it('tells the last beat the call ends there', () => {
+        const system = systemOf(turn({ ...base, speaker: host, previousSpeaker: dale, guest: dale, lastTurn: true }));
+
+        expect(system).toMatch(/this is where the call ENDS|it is where the call ENDS/);
+        expect(system).toMatch(/Thank Dale/);
+        expect(system).toMatch(/say goodbye to them/);
+    });
+
+    it('does not tell a middle beat anything of the sort', () => {
+        const system = systemOf(turn({ ...base, speaker: host, previousSpeaker: dale, guest: dale }));
+
+        expect(system).toMatch(/in the MIDDLE of the programme/);
+        expect(system).not.toMatch(/ENDS/);
+    });
+
+    it('says nothing about seeing anybody off on a CALLER\'s last turn', () => {
+        // `speakerOrder` gives the host the last turn, so this should not arise — but a caller told
+        // to thank themselves and hand back to the music is a bad enough failure to close off here
+        // rather than rely on the arithmetic upstream staying true.
+        const system = systemOf(turn({ ...base, speaker: dale, previousSpeaker: host, lastTurn: true }));
+
+        expect(system).toMatch(/You are already on the call/);
+        expect(system).not.toMatch(/hand back to the music/);
+    });
+});
+
 describe('the run-in across a change of speaker', () => {
     it('is something to answer rather than a position to carry on from', () => {
         const user = userOf(turn({ ...base, speaker: dale, previousSpeaker: host, runIn: 'so what have you got for us' }));

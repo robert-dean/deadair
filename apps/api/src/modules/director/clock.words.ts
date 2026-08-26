@@ -168,9 +168,7 @@ const TIMES_OF_DAY: readonly { words: readonly string[]; fromHour: number; until
 
 /** Whether an hour falls in a window that may wrap around midnight. */
 const holdsAt = (hour: number, window: { fromHour: number; untilHour: number }): boolean =>
-    window.fromHour <= window.untilHour
-        ? hour >= window.fromHour && hour < window.untilHour
-        : hour >= window.fromHour || hour < window.untilHour;
+    window.fromHour <= window.untilHour ? hour >= window.fromHour && hour < window.untilHour : hour >= window.fromHour || hour < window.untilHour;
 
 /**
  * Whether a script carries a word, as a word.

@@ -1,9 +1,11 @@
-import { mkdir, readdir, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { errorText } from '#modules/shared/error.text.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
-import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore } from './segment.store.js';
+import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore, subdirectoryIsSafe, type SegmentExtension } from './segment.store.js';
 
 /** What one pass over the inbox did. */
 export interface LibraryScan {
@@ -13,6 +15,25 @@ export interface LibraryScan {
     imported: number;
     /** Files passed over: not audio, or unreadable. */
     skipped: number;
+}
+
+/** One recording arriving, from whichever door. See {@link SegmentLibrary.ingest}. */
+export interface SegmentIngest {
+    /** The audio itself. */
+    bytes: Buffer;
+    ext: SegmentExtension;
+    /** The directory it is filed under, which IS its kind. Validated by `subdirectoryIsSafe`. */
+    kind: string;
+    /** What the console calls it, and what the mount is labelled with while it airs. */
+    label: string;
+    /**
+     * Where it already sits, relative to the inbox root, when the caller read it off that disk.
+     *
+     * The scan sets it and nothing else does. Absent means the bytes arrived over HTTP and this has
+     * to put them on disk itself; present means they are already there and copying them onto
+     * themselves would be a needless write.
+     */
+    onDisk?: string;
 }
 
 /**
@@ -124,25 +145,150 @@ export class SegmentLibrary {
             return undefined;
         }
 
-        const checksum = await this.store.write(bytes, ext);
-        const { segment, created } = await this.segments.importFile({
+        const { segment, created } = await this.ingest({
+            bytes,
+            ext,
             kind: file.kind,
             label: labelFor(file.relative),
-            sourcePath: file.relative,
+            onDisk: file.relative,
+        });
+
+        if (created) result.imported += 1;
+        return segment;
+    }
+
+    /**
+     * Take one recording into the library, whichever door it arrived through.
+     *
+     * The scan is one caller and the console is the other. Shorter than `PadLibrary.ingest`'s tail
+     * because a segment joins nothing and is measured by nothing — `durationMs` is a display value
+     * the player works out for itself — so what is shared is the file, the bytes and the row.
+     *
+     * ## The disk write is the one step here that is NOT best-effort
+     *
+     * `docs/todo/backup-and-restore.md` carries this directory as tier 1 and treats the content store
+     * as disposable, because the boot scan rewrites the store from here. So bytes that reached only
+     * the store are a recording that is absent from every export and gone after a restore, with
+     * nothing logged anywhere. A refusal the operator can see is strictly better, so this throws.
+     *
+     * ## A name already taken is written BESIDE rather than over
+     *
+     * This is where a segment differs from a pad and the difference is not cosmetic. A pad's identity
+     * is `(board, name)`, so a second file under one name REPLACES what that slot holds and writing
+     * over it is the correct thing to do. A segment's identity is its CHECKSUM, so two different
+     * recordings both called `ident.mp3` are two segments — and writing the second over the first
+     * would leave the first row's `source_path` naming bytes that are not its own, which the archive
+     * then carries in place of the audio that row actually plays. Nothing would report it.
+     *
+     * So a path already holding DIFFERENT bytes gets `-2`, `-3` and so on, while a path holding the
+     * SAME bytes is left exactly as it is: `importFile` will answer with the existing row anyway, and
+     * rewriting a byte-identical file would churn the directory an operator is looking at.
+     */
+    async ingest(request: SegmentIngest): Promise<{ segment: Segment; created: boolean }> {
+        if (!subdirectoryIsSafe(request.kind)) throw new Error(`"${request.kind}" is not a kind a file can be filed under`);
+
+        const checksum = await this.store.write(request.bytes, request.ext);
+        const relative = request.onDisk ?? (await this.write(request, checksum));
+
+        const { segment, created } = await this.segments.importFile({
+            kind: request.kind,
+            label: request.label,
+            sourcePath: relative,
             audioChecksum: checksum,
-            audioExt: ext,
+            audioExt: request.ext,
         });
 
         if (created) {
-            result.imported += 1;
             this.logger.info('render: took a new segment into the library', { segment: segment.id, kind: segment.kind, label: segment.label });
         }
-        return segment;
+
+        return { segment, created };
+    }
+
+    /**
+     * Take one segment's file back off the disk.
+     *
+     * The other end of {@link ingest}'s write, and what makes `RenderService.deleteSegment` mean
+     * anything: a row removed on its own comes back on the next scan, because the file is still there
+     * making the same claim it always did.
+     *
+     * Best-effort, which is the opposite call to the write it undoes and not an inconsistency: a
+     * write that fails leaves a recording nothing can back up, where a delete that fails leaves a
+     * file the next scan re-imports — visible, in the library, and fixable by hand. A file already
+     * gone is the ordinary case rather than a fault.
+     *
+     * It never touches the content store, whose bytes are content-addressed and shared: what may be
+     * removed there is a question about every other row naming that checksum.
+     */
+    async discard(segment: Segment): Promise<void> {
+        if (segment.sourcePath === undefined) return;
+
+        try {
+            await rm(join(this.root, segment.sourcePath), { force: true });
+        } catch (error) {
+            this.logger.warn('render: could not take a segment\'s file off the disk; the next scan will read it back in', {
+                segment: segment.id,
+                file: segment.sourcePath,
+                error: errorText(error),
+            });
+        }
+    }
+
+    /**
+     * Put the bytes in the inbox, and answer where they landed. Throws; see {@link ingest}.
+     *
+     * The suffix search is bounded rather than open: past a handful of collisions under one name the
+     * operator is uploading into a mess of their own and a number is not the fix, so it gives up and
+     * lets the ingest fail rather than counting to a thousand.
+     */
+    private async write(request: SegmentIngest, checksum: string): Promise<string> {
+        const stem = request.label.replace(/[/\\\0]/g, '-').trim() || 'segment';
+
+        await mkdir(join(this.root, request.kind), { recursive: true });
+
+        for (let attempt = 1; attempt <= MAX_NAME_ATTEMPTS; attempt += 1) {
+            const relative = join(request.kind, `${stem}${attempt === 1 ? '' : `-${attempt}`}.${request.ext}`);
+            const held = await this.checksumAt(relative);
+
+            // Free, or already holding exactly these bytes. The second case writes nothing: the row
+            // this is about to answer with is the one that file already produced.
+            if (held === undefined) {
+                await writeFile(join(this.root, relative), request.bytes);
+                return relative;
+            }
+            if (held === checksum) return relative;
+        }
+
+        throw new Error(`the inbox already holds ${MAX_NAME_ATTEMPTS} different recordings called "${stem}"`);
+    }
+
+    /** What is at this path, or `undefined` where nothing is. */
+    private async checksumAt(relative: string): Promise<string | undefined> {
+        const bytes = await readFile(join(this.root, relative)).catch(() => undefined);
+
+        return bytes === undefined ? undefined : createHash('sha256').update(bytes).digest('hex');
     }
 }
 
 /** What a file loose in the inbox is, absent a directory saying otherwise. */
-const DEFAULT_KIND = 'ident';
+export const DEFAULT_KIND = 'ident';
+
+/**
+ * The most a single recording may weigh.
+ *
+ * Its own constant rather than `MAX_PAD_BYTES` shared, because the two are different things: a pad is
+ * a drop measured in kilobytes and this is a recording somebody made, so one number covering both
+ * would be named after neither and would be set for whichever was argued about last.
+ */
+export const MAX_SEGMENT_BYTES = 50 * 1024 * 1024;
+
+/**
+ * How many recordings may share one name before the inbox gives up.
+ *
+ * A bound rather than an open search: past a handful of files called the same thing the operator is
+ * uploading into a mess of their own, and a bigger number is not the fix.
+ */
+const MAX_NAME_ATTEMPTS = 20;
 
 /**
  * Audio the station recognises but does not serve, so a file in one of these formats is refused out
@@ -158,8 +304,11 @@ const AUDIO_EXTENSIONS = new Set(['oga', 'opus', 'aac', 'aif', 'aiff', 'wma', 'a
  * somebody's car stereo as "station ident 1" is the whole of the ambition. Nothing here tries to be
  * clever about capitalisation: an operator who wants exact wording renames the file, and a guess
  * that title-cased "a" and "the" would be wrong more often than the raw name is.
+ *
+ * Exported because the console door derives one too, and the two have to derive it identically or an
+ * uploaded recording and a dropped one are labelled by different rules.
  */
-function labelFor(relative: string): string {
+export function labelFor(relative: string): string {
     const name = relative.split('/').pop() ?? relative;
     const stem = name.slice(0, name.length - extname(name).length);
     return stem.replace(/[-_]+/g, ' ').trim() || stem;

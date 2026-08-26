@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { Logger } from '@maroonedsoftware/logger';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { boardIsSafe, PadLibrary, padNameOf } from '../../../src/modules/render/pad.library.js';
+import { PadLibrary, padNameOf } from '../../../src/modules/render/pad.library.js';
 import { PAD_SOURCES, type ImportedPad, type PadRepository } from '../../../src/modules/render/pad.repository.js';
 import type { PadSetRepository } from '../../../src/modules/render/pad.set.repository.js';
 import { SegmentStore } from '../../../src/modules/render/segment.store.js';
@@ -426,17 +426,3 @@ describe('PadLibrary.ingest', () => {
     });
 });
 
-describe('boardIsSafe', () => {
-    it('takes a directory an operator could plausibly have made by hand', () => {
-        expect(boardIsSafe('wisecrack')).toBe(true);
-        expect(boardIsSafe('My Board')).toBe(true);
-    });
-
-    it('refuses anything that could write outside the library', () => {
-        expect(boardIsSafe('../etc')).toBe(false);
-        expect(boardIsSafe('a/b')).toBe(false);
-        expect(boardIsSafe('a\\b')).toBe(false);
-        expect(boardIsSafe('.hidden')).toBe(false);
-        expect(boardIsSafe('   ')).toBe(false);
-    });
-});

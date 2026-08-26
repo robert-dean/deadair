@@ -32,7 +32,7 @@ import type {
     VoiceList,
 } from './types/render.types.js';
 import { DateTime } from 'luxon';
-import { boardIsSafe, DEFAULT_BOARD, labelFor, MAX_PAD_BYTES, padName, padNameOf, PadLibrary } from './pad.library.js';
+import { DEFAULT_BOARD, labelFor as padLabelFor, MAX_PAD_BYTES, padName, padNameOf, PadLibrary } from './pad.library.js';
 import { PAD_SOURCES, padIsConsoleWritten, PadRepository, type Pad } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
@@ -47,6 +47,7 @@ import {
     SEGMENT_CONTENT_TYPES,
     SEGMENT_EXTENSIONS,
     SegmentStore,
+    subdirectoryIsSafe,
     type SegmentContentType,
     type SegmentExtension,
 } from './segment.store.js';
@@ -455,7 +456,7 @@ export class RenderService {
         }
 
         const board = (readField(fields, 'board') ?? DEFAULT_BOARD).trim();
-        if (!boardIsSafe(board)) throw httpError(400).withDetails({ message: `"${board}" is not a name a board can have` });
+        if (!subdirectoryIsSafe(board)) throw httpError(400).withDetails({ message: `"${board}" is not a name a board can have` });
 
         const asked = readField(fields, 'name');
         const name = asked === undefined ? padNameOf(upload.filename) : padName(asked);
@@ -463,7 +464,7 @@ export class RenderService {
             throw httpError(400).withDetails({ message: 'that sound needs a name a script could write, and nothing was left of this one' });
         }
 
-        const label = readField(fields, 'label')?.trim() || labelFor(upload.filename);
+        const label = readField(fields, 'label')?.trim() || padLabelFor(upload.filename);
 
         const { pad, contested } = await this.padLibrary.ingest({
             bytes: upload.bytes,
@@ -508,7 +509,7 @@ export class RenderService {
      */
     async fetchPad(write: PadFetch): Promise<PadList> {
         const board = write.board.trim();
-        if (!boardIsSafe(board)) throw httpError(400).withDetails({ message: `"${board}" is not a name a board can have` });
+        if (!subdirectoryIsSafe(board)) throw httpError(400).withDetails({ message: `"${board}" is not a name a board can have` });
 
         const address = new URL(write.url);
         const response = await fetch(address, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), redirect: 'follow' }).catch(error => {
@@ -546,7 +547,7 @@ export class RenderService {
             ext,
             board,
             name,
-            label: write.label?.trim() || labelFor(path),
+            label: write.label?.trim() || padLabelFor(path),
             source: PAD_SOURCES.url,
         });
 

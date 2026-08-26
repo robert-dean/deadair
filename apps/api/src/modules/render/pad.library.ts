@@ -8,7 +8,7 @@ import { resolvePlayoutBaseUrl, storedAudioUrl } from '#modules/playout/playout.
 import { errorText } from '#modules/shared/error.text.js';
 import { PAD_SOURCES, PadRepository, type Pad, type PadImport } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
-import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore, type SegmentExtension } from './segment.store.js';
+import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore, subdirectoryIsSafe, type SegmentExtension } from './segment.store.js';
 
 /** What one pass over the pad library did. */
 export interface PadScan {
@@ -35,7 +35,7 @@ export interface PadIngest {
     /** The audio itself. */
     bytes: Buffer;
     ext: SegmentExtension;
-    /** The directory it belongs in, which is also the set it joins. Validated by {@link boardIsSafe}. */
+    /** The directory it belongs in, which is also the set it joins. Validated by `subdirectoryIsSafe`. */
     board: string;
     /** What a script will write. The FILE is named after this, not after whatever it was called upstream. */
     name: string;
@@ -285,7 +285,7 @@ export class PadLibrary {
      * better, so this throws.
      */
     async ingest(request: PadIngest): Promise<PadIngested> {
-        if (!boardIsSafe(request.board)) throw new Error(`"${request.board}" is not a board a file can be filed under`);
+        if (!subdirectoryIsSafe(request.board)) throw new Error(`"${request.board}" is not a board a file can be filed under`);
 
         const relative = request.onDisk ?? (await this.write(request));
         const checksum = await this.store.write(request.bytes, request.ext);
@@ -463,26 +463,6 @@ export const DEFAULT_BOARD = 'station';
  * anything.
  */
 export const MAX_PAD_BYTES = 25 * 1024 * 1024;
-
-/**
- * Whether a board is a name a file can be filed under.
- *
- * The scan takes its boards from directory names, which are safe by construction. A console upload
- * takes one from whoever is typing, and `join(root, board)` with `../..` in it writes wherever it
- * likes — so this is checked at the seam rather than at each door, because the guarantee wanted is
- * that nothing can escape the library root rather than that each caller remembered.
- *
- * A LIMIT rather than a normalisation: `My Board` is a directory an operator may legitimately have
- * made by hand, and rewriting it here would file an upload somewhere the scan does not look.
- */
-export function boardIsSafe(board: string): boolean {
-    const trimmed = board.trim();
-
-    if (trimmed === '' || trimmed.length > 200) return false;
-    if (trimmed.startsWith('.')) return false;
-
-    return !/[/\\\0]/.test(trimmed);
-}
 
 /**
  * Audio the station recognises but does not serve, so a file in one of these formats is refused out

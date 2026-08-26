@@ -3,7 +3,7 @@
 // because the idempotency this checks is the SCAN's (same file, one import call per unique
 // checksum); the row-level half lives in the partial unique index and is the database's job.
 
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Logger } from '@maroonedsoftware/logger';
@@ -194,5 +194,109 @@ describe('SegmentLibrary', () => {
         expect(result).toMatchObject({ imported: 1, skipped: 1 });
         expect(imports).toHaveLength(1);
         expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('could not read'), { file: 'unreadable.mp3' });
+    });
+});
+
+// The console door. What is under test is the WRITE — that the bytes land in the inbox at all, and
+// that a name already taken does not swallow the recording already under it, which is the one place
+// a segment behaves differently from a pad.
+describe('SegmentLibrary.ingest', () => {
+    const library = (repository: SegmentRepository) => new SegmentLibrary(store, repository, inbox, logger);
+
+    const wav = (bytes: string) => ({ bytes: Buffer.from(bytes), ext: 'wav' as const, kind: 'ident', label: 'Top of the hour' });
+
+    it('writes the bytes into the inbox, because that directory is what a backup carries', async () => {
+        const { repository } = fakeRepository();
+
+        await library(repository).ingest(wav('a recording'));
+
+        expect(await readFile(join(inbox, 'ident', 'Top of the hour.wav'), 'utf8')).toBe('a recording');
+    });
+
+    it('leaves a re-scan of what it wrote with nothing new to do', async () => {
+        const { repository } = fakeRepository();
+        const segments = library(repository);
+
+        await segments.ingest(wav('a recording'));
+
+        expect(await segments.scan()).toMatchObject({ scanned: 1, imported: 0 });
+    });
+
+    it('puts a second recording BESIDE one of the same name rather than over it', async () => {
+        const { repository, imports } = fakeRepository();
+        const segments = library(repository);
+
+        // The case a pad does not have. A pad's identity is its slot, so a second file under one
+        // name replaces what that slot holds; a segment's identity is its CHECKSUM, so these are two
+        // segments — and writing the second over the first would leave the first row's source path
+        // naming somebody else's bytes, which the archive would then carry in its place.
+        await segments.ingest(wav('the first take'));
+        await segments.ingest(wav('the second take'));
+
+        expect(await readFile(join(inbox, 'ident', 'Top of the hour.wav'), 'utf8')).toBe('the first take');
+        expect(await readFile(join(inbox, 'ident', 'Top of the hour-2.wav'), 'utf8')).toBe('the second take');
+        expect(imports.map(one => one.sourcePath)).toEqual([join('ident', 'Top of the hour.wav'), join('ident', 'Top of the hour-2.wav')]);
+    });
+
+    it('writes nothing at all for bytes the inbox already holds under that name', async () => {
+        const { repository, imports } = fakeRepository();
+        const segments = library(repository);
+
+        await segments.ingest(wav('a recording'));
+        const { created } = await segments.ingest(wav('a recording'));
+
+        // One file, and the row that file already produced: `importFile` dedups on the checksum, so
+        // a second copy on disk would be a file nothing references.
+        expect(await readdir(join(inbox, 'ident'))).toEqual(['Top of the hour.wav']);
+        expect(imports).toHaveLength(2);
+        expect(created).toBe(false);
+    });
+
+    it('refuses a kind that would write outside the inbox, rather than filing it there', async () => {
+        const { repository, imports } = fakeRepository();
+
+        await expect(library(repository).ingest({ ...wav('a recording'), kind: '../../etc' })).rejects.toThrow();
+
+        expect(imports).toHaveLength(0);
+    });
+
+    it('fails rather than half-succeeding when the bytes cannot reach the disk', async () => {
+        const { repository, imports } = fakeRepository();
+        // A file where the kind directory has to go. The point is that it does NOT proceed: a row
+        // whose bytes are only in the content store is a recording absent from every export.
+        await mkdir(inbox, { recursive: true });
+        await writeFile(join(inbox, 'ident'), 'not a directory');
+
+        await expect(library(repository).ingest(wav('a recording'))).rejects.toThrow();
+
+        expect(imports).toHaveLength(0);
+    });
+});
+
+describe('SegmentLibrary.discard', () => {
+    it('takes the file off the disk so the next scan does not read it back in', async () => {
+        const { repository } = fakeRepository();
+        const segments = new SegmentLibrary(store, repository, inbox, logger);
+        const { segment } = await segments.ingest({ bytes: Buffer.from('a recording'), ext: 'wav', kind: 'ident', label: 'Top of the hour' });
+
+        await segments.discard({ ...segment, sourcePath: join('ident', 'Top of the hour.wav') });
+
+        expect(await segments.scan()).toMatchObject({ scanned: 0, imported: 0 });
+    });
+
+    it('is untroubled by a file somebody already deleted by hand', async () => {
+        const { repository } = fakeRepository();
+        const segments = new SegmentLibrary(store, repository, inbox, logger);
+
+        await expect(
+            segments.discard({
+                id: 'segment-1',
+                kind: 'ident',
+                state: 'ready',
+                label: 'gone',
+                source: 'library',
+                sourcePath: join('ident', 'never-existed.wav'),
+            } as never),
+        ).resolves.toBeUndefined();
     });
 });

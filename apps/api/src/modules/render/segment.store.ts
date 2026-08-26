@@ -33,6 +33,30 @@ export function isSegmentExtension(value: string | undefined): value is SegmentE
     return value !== undefined && Object.hasOwn(SEGMENT_CONTENT_TYPES, value);
 }
 
+/**
+ * Whether a name may be a directory inside one of the station's audio libraries.
+ *
+ * Both libraries take a subdirectory from somewhere: the SCAN takes it from a directory that already
+ * exists, which is safe by construction, and a console upload takes it from whoever is typing — and
+ * `join(root, name)` with `../..` in it writes wherever it likes. So both `PadLibrary.ingest` and
+ * `SegmentLibrary.ingest` check it at the seam rather than at each door, because the guarantee wanted
+ * is that nothing escapes the library root rather than that every caller remembered.
+ *
+ * A LIMIT rather than a normalisation: `My Board` is a directory an operator may legitimately have
+ * made by hand, and rewriting it here would file an upload somewhere the scan does not look.
+ *
+ * Here rather than in either library because there are two now, on `extensionForMime`'s reason one
+ * function down: a second copy of a path rule is a second thing that can be relaxed by accident.
+ */
+export function subdirectoryIsSafe(name: string): boolean {
+    const trimmed = name.trim();
+
+    if (trimmed === '' || trimmed.length > 200) return false;
+    if (trimmed.startsWith('.')) return false;
+
+    return !/[/\\\0]/.test(trimmed);
+}
+
 /** Reverse of {@link SEGMENT_CONTENT_TYPES}: what a declared media type is stored as. */
 const EXTENSION_BY_MIME = new Map<string, SegmentExtension>(
     (Object.entries(SEGMENT_CONTENT_TYPES) as [SegmentExtension, string][]).map(([ext, mime]) => [mime, ext]),

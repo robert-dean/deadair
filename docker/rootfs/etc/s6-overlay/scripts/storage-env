@@ -13,6 +13,19 @@
 # grows to the size of the library actually played, which is the only part of this that ever fills
 # a disk.
 #
+# There is one exception on the second disk and it is worth knowing before you wipe anything. The
+# PAD LIBRARY — the soundboard audio an operator dropped in — is the only thing under `/media` that
+# cannot be produced again. Nothing re-fetches it, because nobody upstream has it: it is somebody's
+# own files. It sits here rather than with the authored half because of SIZE, which is the one axis
+# where it does not behave like the rest of that half: a drop is a few kilobytes, but the bed that
+# runs under a phone call is minutes of stereo and a library of those is gigabytes, and the whole
+# point of the first disk is being small enough to copy. So it is filed with the bulk and flagged
+# here instead: **back up `$DEADAIR_MEDIA/pads`.** Everything else on this disk you can throw away.
+#
+# The pad STORE is not the same directory and is genuinely disposable: pad bytes are copied into
+# `SEGMENT_DIR` like every other segment, and the boot scan rewrites them from the library on every
+# start. Losing the store costs a restart; losing the library costs the soundboard.
+#
 # Mount something at `/media` and the second kind goes there. What decides it is whether that path
 # is really a mount rather than a setting an operator also has to change: a path and a variable
 # that must agree can disagree, and the way they would disagree here is the expensive one — the
@@ -20,8 +33,9 @@
 # means quietly filling the disk image every container shares. Unmounted, everything stays under
 # the data directory exactly where it has always been.
 #
-# Each variable is still individually overridable, for the operator who wants one of these five
-# somewhere else entirely; only the ones nobody set are filled in here.
+# Each variable is still individually overridable, for the operator who wants one of these six
+# somewhere else entirely; only the ones nobody set are filled in here. The pad library is the one
+# most likely to be moved by hand, since it is the one an operator may want on the backed-up disk.
 if awk '$2 == "/media" { found = 1 } END { exit !found }' /proc/mounts 2>/dev/null; then
     DEADAIR_MEDIA=/media
 else
@@ -31,5 +45,6 @@ fi
 TRACKS_DIR="${TRACKS_DIR:-$DEADAIR_MEDIA/tracks}"
 ART_DIR="${ART_DIR:-$DEADAIR_MEDIA/art}"
 SEGMENT_DIR="${SEGMENT_DIR:-$DEADAIR_MEDIA/segments}"
+PAD_LIBRARY_DIR="${PAD_LIBRARY_DIR:-$DEADAIR_MEDIA/pads}"
 VOICE_SAMPLE_DIR="${VOICE_SAMPLE_DIR:-$DEADAIR_MEDIA/voice-samples}"
-export DEADAIR_MEDIA TRACKS_DIR ART_DIR SEGMENT_DIR VOICE_SAMPLE_DIR
+export DEADAIR_MEDIA TRACKS_DIR ART_DIR SEGMENT_DIR PAD_LIBRARY_DIR VOICE_SAMPLE_DIR

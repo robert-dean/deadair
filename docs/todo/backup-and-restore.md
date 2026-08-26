@@ -188,9 +188,18 @@ it reads rather than trusting the number, and the number is for the human readin
 ### The media half makes it an archive, and the JSON stays valid alone
 
 Recorded idents under `media/segments/inbox/` are authored — somebody spoke them — so a complete
-export is a container (the JSON at the root, the audio beside it). Everything else on disk is tier 2:
-track bytes are licensed, re-fetchable and already swept against a cap, art is re-derivable, rendered
-break audio is re-speakable from `script_history`'s words. Keep the plain JSON export as its own
+export is a container (the JSON at the root, the audio beside it). **The pad library is the second
+thing in that container**, and it is the one that surprises people: soundboard audio lives under
+`$DEADAIR_MEDIA/pads`, which is the DERIVED disk, so it sits among files that are all disposable and
+is the only one that is not. It is there because of size rather than because of provenance — a drop
+is kilobytes and a bed under a phone call is minutes of stereo — and `storage-env` carries the
+argument and the warning. An export that took the idents and left the pads would be a station that
+came back with its recordings and no soundboard.
+
+Everything else on disk is tier 2: track bytes are licensed, re-fetchable and already swept against a
+cap, art is re-derivable, rendered break audio is re-speakable from `script_history`'s words, and pad
+BYTES under `SEGMENT_DIR` are rewritten from the library by the boot scan — which is what makes the
+library the thing to carry and the store the thing to ignore. Keep the plain JSON export as its own
 answer, because it is the shareable one and because a persona in an email attachment is the case that
 justifies this file.
 
@@ -218,7 +227,7 @@ Each leaves the tree working and is one commit.
    fail. Writes nothing. The same code path the real import will use.
 3. **Import, merge mode**, through the services, honouring the settings reload and the plugin reinit.
 4. **Replace mode and the off-air guard.**
-5. **The archive**, carrying recorded idents beside the JSON.
+5. **The archive**, carrying recorded idents and the pad library beside the JSON.
 6. **The record tier behind its own flag** (`play_history`, `script_history`), and only if somebody
    actually wants it. Note `persona_notes` here, not earlier.
 

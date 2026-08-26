@@ -28,7 +28,11 @@ const DEFAULT_SEGMENT_DIR = './media/segments';
 const DEFAULT_LIBRARY_DIR = join(DEFAULT_SEGMENT_DIR, 'inbox');
 
 /**
- * Where an operator drops soundboard audio, when `PAD_INBOX_DIR` is unset.
+ * Where an operator drops soundboard audio, when `PAD_LIBRARY_DIR` is unset.
+ *
+ * Named for `SEGMENT_LIBRARY_DIR` beside it, which is the same thing one shelf over: the variable
+ * says LIBRARY and the directory says inbox, because what an operator does with it is drop files in
+ * and what the station has afterwards is a library.
  *
  * Its own root rather than a subdirectory of the segment inbox, which would otherwise read as a
  * segment KIND called `pads` and put the whole rack on the shelf the planner chooses idents from.
@@ -36,9 +40,13 @@ const DEFAULT_LIBRARY_DIR = join(DEFAULT_SEGMENT_DIR, 'inbox');
  * roots make "this is not that" a filesystem fact instead of a convention.
  *
  * The BYTES still land in the segment store, because a content-addressed store is about identity
- * rather than about what the file is for.
+ * rather than about what the file is for. **Which is what makes THIS directory the one to back up**
+ * — the store copy is rewritten from here by every boot scan and is disposable, and nothing anywhere
+ * can reproduce what is here. In the container it sits with the bulk rather than with the authored
+ * half, because a library of beds is gigabytes; `docker/rootfs/.../storage-env` carries that
+ * argument and names this as the one thing on that disk a backup has to carry.
  */
-const DEFAULT_PAD_INBOX_DIR = './media/pads/inbox';
+const DEFAULT_PAD_LIBRARY_DIR = './media/pads/inbox';
 
 /**
  * Where rendered voice previews are cached, when `VOICE_SAMPLE_DIR` is unset.
@@ -114,7 +122,7 @@ export const RenderModule: ServerKitModule = {
         // The soundboard, scoped with the repository and the scanner beside it. The inbox path is a
         // constructor argument for `SegmentLibrary`'s reason: the class stays testable against a
         // temp directory with no container and no AppConfig.
-        const padInboxDir = config.get('PAD_INBOX_DIR', DEFAULT_PAD_INBOX_DIR);
+        const padLibraryDir = config.get('PAD_LIBRARY_DIR', DEFAULT_PAD_LIBRARY_DIR);
         registry.register(PadRepository).useClass(PadRepository).asScoped();
         registry
             .register(PadLibrary)
@@ -123,7 +131,7 @@ export const RenderModule: ServerKitModule = {
                     new PadLibrary(
                         container.get(SegmentStore),
                         container.get(PadRepository),
-                        padInboxDir,
+                        padLibraryDir,
                         container.get(AnalysisService),
                         config,
                         container.get(Logger),

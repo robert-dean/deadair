@@ -1,0 +1,19 @@
+{
+    "$comment": [
+        "Provenance for every audio file this repository SHIPS. Read docs/decisions/pad-licensing.md",
+        "before adding one: the rule is CC0 or an equivalent public-domain dedication, and",
+        "attribution-requiring audio is refused rather than credited, because a radio station has",
+        "nowhere to put a credit and the obligation would travel to the operator in silence.",
+        "",
+        "An entry is a claim about BYTES rather than about a page. `sha256` is what makes it",
+        "checkable by somebody who was not there when it was downloaded, and `uploader` is recorded",
+        "because CC0 on a user-upload site is self-asserted -- naming who asserted it does not make",
+        "it true, it makes a bad entry findable.",
+        "",
+        "`set` is the directory the file goes in, which is the set an operator's station will end up",
+        "with. `name` is what a script writes: [sfx:<name>].",
+        "",
+        "Nothing ships yet. `pads` is empty deliberately rather than pending -- see the decision."
+    ],
+    "pads": []
+}

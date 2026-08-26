@@ -50,6 +50,20 @@ const DEFAULT_LIBRARY_DIR = join(DEFAULT_SEGMENT_DIR, 'inbox');
 const DEFAULT_PAD_LIBRARY_DIR = './media/pads/inbox';
 
 /**
+ * Where the station's OWN soundboard ships, when `PAD_ASSETS_DIR` is unset.
+ *
+ * Tracked in the repository rather than under `media/`, because it is part of the build rather than
+ * something an operator gave the station — which is the same reason `stream/` is tracked and
+ * `media/segments/` is not. It is copied into the library once, on a station that has never held a
+ * pad, and never read again.
+ *
+ * Empty today. `docs/decisions/pad-licensing.md` is why: everything this repository redistributes
+ * has to be CC0, attribution-requiring audio is refused rather than credited, and sourcing verified
+ * public-domain audio properly is a research task nobody has done yet.
+ */
+const DEFAULT_PAD_ASSETS_DIR = '../../assets/pads';
+
+/**
  * Where rendered voice previews are cached, when `VOICE_SAMPLE_DIR` is unset.
  *
  * Beside the segment store and deliberately not inside it: a sample is not a segment, and the one
@@ -207,10 +221,16 @@ export const RenderModule: ServerKitModule = {
         }
 
         // The rack, on the same terms and in its own try for the same reason: an unreadable pad
-        // inbox must not cost the station the idents the scan above just took in.
+        // library must not cost the station the idents the scan above just took in.
         try {
             await inScope(container, async scope => {
-                await scope.get(PadLibrary).scan();
+                const library = scope.get(PadLibrary);
+
+                // Before the scan, and only into a library that has never held anything. See
+                // `PadLibrary.seed` for both halves of that, and `docs/decisions/pad-licensing.md`
+                // for why the directory it copies from is empty today.
+                await library.seed(scope.get(AppConfig).get('PAD_ASSETS_DIR', DEFAULT_PAD_ASSETS_DIR));
+                await library.scan();
             });
         } catch (error) {
             // A station with no soundboard is a station that talks without drops, which is every

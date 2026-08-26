@@ -330,6 +330,13 @@ RUN python3 -m venv /opt/analysis/venv \
  && /opt/analysis/venv/bin/pip install --no-cache-dir -r /opt/analysis/requirements.txt
 COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/app.py /opt/analysis/
 
+# The station's own soundboard, copied into the pad library once on a station that has never held a
+# pad. Below the fence with everything else the repository produces, and it is genuinely empty today:
+# `docs/decisions/pad-licensing.md` refuses attribution-requiring audio, because a radio station has
+# nowhere to put a credit and the obligation would travel to the operator in silence. The directory
+# exists so the seam does, and so the day somebody sources verified CC0 audio it is a file drop.
+COPY assets/pads /app/assets/pads
+
 # What the app renders its stream config FROM. Only the template: `station-id.mp3` and the script
 # are the audio chain's, not the app's, and the app reads nothing else here.
 COPY stream/icecast.xml.tmpl /app/stream/
@@ -386,6 +393,10 @@ ENV NODE_ENV=production \
     SEGMENT_LIBRARY_DIR=/data/inbox \
     PLUGINS_DIR=/data/plugins \
     STREAM_ASSETS_DIR=/app/stream \
+    # Where the shipped soundboard is read from, once. Not under `/data` or `/media`: it is part of
+    # the image rather than something the operator gave the station, and it is copied INTO the pad
+    # library rather than served from here.
+    PAD_ASSETS_DIR=/app/assets/pads \
     STREAM_CONFIG_DIR=/data/streamconfig \
     # Everything that reads the rendered config here is the station's own user, so the passwords
     # in it are not world-readable. The default is looser because it has to serve a deployment

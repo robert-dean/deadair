@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -66,6 +66,64 @@ export class PadLibrary {
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
+
+    /**
+     * Copy the shipped pack into the library, once, before the first scan reads it.
+     *
+     * ## Guarded on the LIBRARY being empty, not on each file being absent
+     *
+     * `persona.defaults.ts`' rule and its reason: asking whether the station holds anything is what
+     * makes DELETING a stock pad expressible. Per-file it would come back on every boot, and an
+     * operator who threw an air horn away would have to keep throwing it away.
+     *
+     * The library rather than the ROWS, because the row and the file are two different absences: a
+     * rejected pad is a row saying somebody decided something, and an empty directory is a station
+     * that has never been given anything. This reads the directory.
+     *
+     * ## Nothing ships in it today
+     *
+     * `assets/pads/` is empty on purpose — `docs/decisions/pad-licensing.md` says why, and the short
+     * version is that everything the station redistributes has to be CC0 and sourcing that properly
+     * is a research task with a legal edge. So this is a no-op on every current install, and the
+     * reason it exists anyway is that the copy is the part with the decisions in it (when, guarded on
+     * what, and what happens on a second boot) and those are worth settling before there is audio to
+     * argue about.
+     *
+     * Best-effort throughout: a pack that could not be copied costs the station its stock sounds and
+     * never its boot, exactly as a lexicon that could not be seeded does.
+     */
+    async seed(from: string): Promise<number> {
+        try {
+            const shipped = await readdir(from, { withFileTypes: true }).catch(() => []);
+            if (shipped.length === 0) return 0;
+
+            // Anything at all, including a file the operator has since rejected: what this asks is
+            // whether the station has ever been given pads, and one directory of them is an answer.
+            const held = await this.audioFiles();
+            if (held.length > 0) return 0;
+
+            let copied = 0;
+            for (const entry of shipped) {
+                if (!entry.isDirectory()) continue;
+
+                const target = join(this.root, entry.name);
+                await mkdir(target, { recursive: true });
+
+                for (const file of await readdir(join(from, entry.name), { withFileTypes: true }).catch(() => [])) {
+                    if (!file.isFile() || file.name.startsWith('.')) continue;
+
+                    await copyFile(join(from, entry.name, file.name), join(target, file.name));
+                    copied += 1;
+                }
+            }
+
+            if (copied > 0) this.logger.info('render: put the station\'s own soundboard in the library', { files: copied, from });
+            return copied;
+        } catch (error) {
+            this.logger.warn(`render: could not lay down the shipped soundboard (${errorText(error)})`);
+            return 0;
+        }
+    }
 
     /**
      * Take everything in the inbox onto the rack.

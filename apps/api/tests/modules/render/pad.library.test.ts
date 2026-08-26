@@ -238,3 +238,55 @@ describe('PadLibrary joining a pad to its set', () => {
         expect(result).toMatchObject({ imported: 1, skipped: 0 });
     });
 });
+
+// The shipped pack. Nothing is in it today and the copy still has the decisions in it: when it runs,
+// what it is guarded on, and what a second boot does.
+describe('PadLibrary.seed', () => {
+    let assets: string;
+
+    beforeEach(async () => {
+        assets = join(root, 'assets');
+        await mkdir(join(assets, 'station'), { recursive: true });
+        await writeFile(join(assets, 'station', 'airhorn.wav'), 'shipped');
+    });
+
+    const library = (repository: PadRepository) => new PadLibrary(store, repository, sets, inbox, analysis, config, logger);
+
+    it('lays the pack down in a library that has never held anything', async () => {
+        const { repository } = fakeRepository();
+
+        expect(await library(repository).seed(assets)).toBe(1);
+        expect(await library(repository).scan()).toMatchObject({ imported: 1 });
+    });
+
+    it('does nothing on a second boot, so a stock sound thrown away STAYS thrown away', async () => {
+        // Guarded on the library holding anything rather than on each file being absent, which is
+        // `persona.defaults.ts`' rule: per-file, an operator who deleted an air horn would have to
+        // keep deleting it on every restart.
+        const { repository } = fakeRepository();
+        await library(repository).seed(assets);
+
+        expect(await library(repository).seed(assets)).toBe(0);
+    });
+
+    it('leaves a library somebody has already filled entirely alone', async () => {
+        const { repository } = fakeRepository();
+        await write('wisecrack/rimshot.wav', 'the operator\'s own');
+
+        expect(await library(repository).seed(assets)).toBe(0);
+    });
+
+    it('costs the station its stock sounds and never its boot', async () => {
+        const { repository } = fakeRepository();
+
+        expect(await library(repository).seed(join(root, 'no-such-directory'))).toBe(0);
+    });
+
+    it('copies nothing at all from an empty pack, which is what ships today', async () => {
+        const { repository } = fakeRepository();
+        const empty = join(root, 'empty-assets');
+        await mkdir(empty, { recursive: true });
+
+        expect(await library(repository).seed(empty)).toBe(0);
+    });
+});

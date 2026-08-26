@@ -69,7 +69,17 @@ points at that file. Checked against the tree on 2026-08-11.
       in Node.
       A production BEAT carries one too, host-only: a caller is never offered a board, because the
       board is in the studio and they are on a telephone, and the programme's ceiling is two rather
-      than the break's one-per-segment.
+      than the break's one-per-segment. And a pad belongs to the LIBRARY with named SETS over it
+      (`deadair.pad_sets`, `topics`' shape), so one air horn serves six characters without six copies
+      and one library can be cut two ways.
+      **No stock pack ships**, and that is a decision rather than a gap:
+      `docs/decisions/pad-licensing.md` refuses attribution-requiring audio outright, because a radio
+      station has nowhere to put a credit and the obligation would travel silently to whoever
+      installed this. What is built is the machinery — `assets/pads/MANIFEST.json` for per-file
+      provenance including a checksum and the uploader who ASSERTED the licence, and a first-boot
+      copy guarded on the library being empty so a stock sound thrown away stays thrown away. What is
+      left is sourcing verified CC0 audio, which is a research task with a legal edge rather than a
+      coding one.
       What is still open is the thing this line was actually asking for. A dog barking BEHIND
       somebody is not a pad: a
       pad is a sound at a MOMENT, and this is a bed running under a whole turn, so it wants

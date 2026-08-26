@@ -36,7 +36,7 @@ import { Kysely, sql } from 'kysely';
 import { EmptyUpdateRewriteDialect, KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroonedsoftware/kysely';
 
 import type { DB } from '../src/modules/data/db.js';
-import { PadRepository } from '../src/modules/render/pad.repository.js';
+import { PAD_SOURCES, PadRepository } from '../src/modules/render/pad.repository.js';
 import { PadSetRepository } from '../src/modules/render/pad.set.repository.js';
 import { SegmentRepository } from '../src/modules/render/segment.repository.js';
 import { padsIn, splitOnPads } from '../src/modules/render/pad.cues.js';
@@ -108,6 +108,7 @@ try {
                 board: BOARD,
                 name,
                 label: name,
+                source: PAD_SOURCES.library,
                 sourcePath: `${BOARD}/${name}.wav`,
                 audioChecksum: checksum,
                 audioExt: 'wav',
@@ -176,6 +177,7 @@ try {
             board: `${BOARD}-elsewhere`,
             name: shared.name,
             label: shared.name,
+            source: PAD_SOURCES.library,
             sourcePath: 'elsewhere.wav',
             audioChecksum: 'sum-rival',
             audioExt: 'wav',

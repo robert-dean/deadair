@@ -39,11 +39,13 @@ export interface Pad {
     state: PadState;
 }
 
-/** A pad as it arrives from the inbox: audio first, everything else described. */
+/** A pad as it arrives from the library or the console: audio first, everything else described. */
 export interface ImportedPad {
     board: string;
     name: string;
     label: string;
+    /** One of {@link PAD_SOURCES}. Decides whether the console may delete it; see `RenderService.deletePad`. */
+    source: string;
     sourcePath: string;
     audioChecksum: string;
     audioExt: SegmentExtension;
@@ -251,6 +253,10 @@ export class PadRepository extends DataRepository {
                 .updateTable('deadair.pads')
                 .set({
                     label: imported.label,
+                    // The SOURCE moves with the bytes: a slot an operator has since dropped a file
+                    // into is theirs now, whichever door filled it the first time, and the delete
+                    // rule reads this column.
+                    source: imported.source,
                     sourcePath: imported.sourcePath,
                     audioChecksum: imported.audioChecksum,
                     audioExt: imported.audioExt,
@@ -274,7 +280,7 @@ export class PadRepository extends DataRepository {
                 board: imported.board,
                 name: imported.name,
                 label: imported.label,
-                source: LIBRARY_SOURCE,
+                source: imported.source,
                 sourcePath: imported.sourcePath,
                 audioChecksum: imported.audioChecksum,
                 audioExt: imported.audioExt,
@@ -341,8 +347,31 @@ export class PadRepository extends DataRepository {
     }
 }
 
-/** What `source` says about a pad that arrived in the inbox. */
-const LIBRARY_SOURCE = 'library';
+/**
+ * Who put the file there, which is the one thing `source` decides.
+ *
+ * `library` is a file the operator dropped in the directory themselves, and the console does not
+ * delete other people's files — it turns those down instead, because the scan would put a deleted row
+ * straight back. The other two are files the console wrote and may therefore take away again. That
+ * makes this column load-bearing where migration 0023 left it as pure provenance; see
+ * `RenderService.deletePad`.
+ *
+ * Unconstrained text in the schema, deliberately, so an upstream pad library is a value rather than a
+ * migration. This list is what the station itself writes.
+ */
+export const PAD_SOURCES = {
+    /** Dropped in `media/pads/<board>/` by whoever runs the station. */
+    library: 'library',
+    /** Uploaded through the console. */
+    upload: 'upload',
+    /** Fetched from an address the operator typed. */
+    url: 'url',
+} as const;
+
+/** Whether the console wrote this file, and may therefore remove it. */
+export function padIsConsoleWritten(source: string): boolean {
+    return source !== PAD_SOURCES.library;
+}
 
 /**
  * One row as a {@link Pad}.

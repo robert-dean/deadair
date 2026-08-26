@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, readFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -6,9 +6,9 @@ import { Logger } from '@maroonedsoftware/logger';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { resolvePlayoutBaseUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
 import { errorText } from '#modules/shared/error.text.js';
-import { PadRepository, type Pad } from './pad.repository.js';
+import { PAD_SOURCES, PadRepository, type Pad, type PadImport } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
-import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore } from './segment.store.js';
+import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore, type SegmentExtension } from './segment.store.js';
 
 /** What one pass over the pad library did. */
 export interface PadScan {
@@ -28,6 +28,36 @@ export interface PadScan {
      * until somebody puts it on a set by hand.
      */
     contested: number;
+}
+
+/** One sound arriving, from whichever door. See {@link PadLibrary.ingest}. */
+export interface PadIngest {
+    /** The audio itself. */
+    bytes: Buffer;
+    ext: SegmentExtension;
+    /** The directory it belongs in, which is also the set it joins. Validated by {@link boardIsSafe}. */
+    board: string;
+    /** What a script will write. The FILE is named after this, not after whatever it was called upstream. */
+    name: string;
+    label: string;
+    /** Who delivered it: `library`, `upload`, `url`. See `pads.source`. */
+    source: string;
+    /**
+     * Where it already sits, relative to the library root, when the caller read it off that disk.
+     *
+     * The scan sets it and nothing else does. Absent means the bytes arrived over HTTP and this has
+     * to put them on disk itself; present means they are already there and copying them onto
+     * themselves would be a needless write.
+     */
+    onDisk?: string;
+}
+
+/** What taking one sound in did. */
+export interface PadIngested {
+    pad: Pad;
+    outcome: PadImport;
+    /** The set already answered to this name, so the pad is in the library and nothing can hit it. */
+    contested: boolean;
 }
 
 /**
@@ -211,14 +241,59 @@ export class PadLibrary {
             return;
         }
 
-        const checksum = await this.store.write(bytes, ext);
-        const { pad, outcome } = await this.pads.importFile({
+        const { outcome, contested } = await this.ingest({
+            bytes,
+            ext,
             board: file.board,
             name,
             label: labelFor(file.relative),
-            sourcePath: file.relative,
+            source: PAD_SOURCES.library,
+            onDisk: file.relative,
+        });
+
+        if (outcome === 'created') result.imported += 1;
+        else if (outcome === 'replaced') result.replaced += 1;
+        if (contested) result.contested += 1;
+    }
+
+    /**
+     * Take one sound onto the rack, whichever door it arrived through.
+     *
+     * The scan is one caller and the console is the other, and they share this because the tail is
+     * where every rule about what a pad IS lives: the file on disk, the bytes in the store, the row,
+     * the set it joins and the measurement. A door that skipped the last two would produce pads on no
+     * set showing a dash in the loudness column forever, with nothing to backfill either.
+     *
+     * ## The file is written under the NAME, never under the filename it arrived as
+     *
+     * `padNameOf` runs on the filename at the next scan, so a sound saved as `Air Horn (2).mp3` under
+     * the chosen name `airhorn` would come back as a SECOND pad called `air-horn-2`. Written as
+     * `<board>/<name>.<ext>`, the re-scan derives the same name, sees the same checksum, answers
+     * `unchanged`, and leaves an operator-set label alone — `importFile` only rewrites `label` when
+     * the bytes changed.
+     *
+     * ## The disk write is the one step here that is NOT best-effort
+     *
+     * `join` and `measure` below are both allowed to fail and cost only what they were for. This is
+     * not: `docs/todo/backup-and-restore.md` carries this directory and treats the content store as
+     * disposable, so bytes that reached only the store are a pad that is absent from every export and
+     * gone after a restore, with nothing logged anywhere. A refusal the operator can see is strictly
+     * better, so this throws.
+     */
+    async ingest(request: PadIngest): Promise<PadIngested> {
+        if (!boardIsSafe(request.board)) throw new Error(`"${request.board}" is not a board a file can be filed under`);
+
+        const relative = request.onDisk ?? (await this.write(request));
+        const checksum = await this.store.write(request.bytes, request.ext);
+
+        const { pad, outcome } = await this.pads.importFile({
+            board: request.board,
+            name: request.name,
+            label: request.label,
+            source: request.source,
+            sourcePath: relative,
             audioChecksum: checksum,
-            audioExt: ext,
+            audioExt: request.ext,
         });
 
         // The set of the same name, created if absent, and joined on EVERY pass rather than only on
@@ -230,14 +305,12 @@ export class PadLibrary {
         // A name the set already answers to is reported rather than thrown, because the case that
         // reaches it is two directories holding `airhorn.wav` and one set pointed at both — which is
         // a thing to tell somebody about, not a reason to fail forty other files.
-        await this.join(pad, file.board, result);
+        const contested = await this.join(pad, request.board);
 
         if (outcome === 'created') {
-            result.imported += 1;
-            this.logger.info('render: put a new pad on a board', { pad: pad.id, board: pad.board, name: pad.name });
+            this.logger.info('render: put a new pad on a board', { pad: pad.id, board: pad.board, name: pad.name, source: request.source });
             await this.measure(pad);
         } else if (outcome === 'replaced') {
-            result.replaced += 1;
             // Worth a line where `unchanged` is not: the station is already saying this name, and
             // what it now plays is a different sound.
             this.logger.info('render: a pad was replaced by a new file under the same name', { pad: pad.id, board: pad.board, name: pad.name });
@@ -246,6 +319,18 @@ export class PadLibrary {
             // failure that column exists to prevent.
             await this.measure(pad);
         }
+
+        return { pad, outcome, contested };
+    }
+
+    /** Put the bytes in the library directory, and answer where they landed. Throws; see {@link ingest}. */
+    private async write(request: PadIngest): Promise<string> {
+        const relative = join(request.board, `${request.name}.${request.ext}`);
+
+        await mkdir(join(this.root, request.board), { recursive: true });
+        await writeFile(join(this.root, relative), request.bytes);
+
+        return relative;
     }
 
     /**
@@ -304,28 +389,65 @@ export class PadLibrary {
      * Best-effort like the measurement beside it: a set that could not be written costs the pad its
      * rack and never the import, because the row is in the library either way and an operator can
      * put it on a set by hand.
+     *
+     * Answers whether the name was contested rather than counting it, because a count belongs to a
+     * SCAN and this runs for a single upload too.
      */
-    private async join(pad: Pad, board: string, result: PadScan): Promise<void> {
+    private async join(pad: Pad, board: string): Promise<boolean> {
         try {
             const set = await this.sets.ensure({ key: board, label: board });
             const outcome = await this.sets.add(set.id, pad.id);
 
             if (outcome === 'name-taken') {
-                result.contested += 1;
                 this.logger.warn('render: a set already answers to this name, so the new pad is in the library and not on it', {
                     pad: pad.id,
                     set: set.key,
                     name: pad.name,
                 });
+                return true;
             }
         } catch (error) {
             this.logger.warn('render: could not put a pad on its set', { pad: pad.id, board, error: errorText(error) });
         }
+
+        return false;
     }
 }
 
 /** Which board a file loose at the top of the library lands on, absent a directory saying otherwise. */
-const DEFAULT_BOARD = 'station';
+export const DEFAULT_BOARD = 'station';
+
+/**
+ * The most a single sound may weigh.
+ *
+ * Bounds what arrives over HTTP; a file already on the disk is already on the disk. Deliberately
+ * above `@maroonedsoftware/multipart`'s own 20 MB default rather than below it, and deliberately not
+ * a `deadair.settings` row: `docs/todo/backup-and-restore.md` is where the figure comes from, in that
+ * "a drop is a few kilobytes, but the bed that runs under a phone call is minutes of stereo" — so ten
+ * would refuse a legitimate bed, and a ceiling an operator can raise is a ceiling that stops meaning
+ * anything.
+ */
+export const MAX_PAD_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Whether a board is a name a file can be filed under.
+ *
+ * The scan takes its boards from directory names, which are safe by construction. A console upload
+ * takes one from whoever is typing, and `join(root, board)` with `../..` in it writes wherever it
+ * likes — so this is checked at the seam rather than at each door, because the guarantee wanted is
+ * that nothing can escape the library root rather than that each caller remembered.
+ *
+ * A LIMIT rather than a normalisation: `My Board` is a directory an operator may legitimately have
+ * made by hand, and rewriting it here would file an upload somewhere the scan does not look.
+ */
+export function boardIsSafe(board: string): boolean {
+    const trimmed = board.trim();
+
+    if (trimmed === '' || trimmed.length > 200) return false;
+    if (trimmed.startsWith('.')) return false;
+
+    return !/[/\\\0]/.test(trimmed);
+}
 
 /**
  * Audio the station recognises but does not serve, so a file in one of these formats is refused out
@@ -360,8 +482,10 @@ export function padNameOf(relative: string): string | undefined {
  *
  * `SegmentLibrary.labelFor` exactly, and separate from {@link padNameOf} for the reason the two
  * columns are separate: one is prose for a console and the other is a token for a model.
+ *
+ * Exported because both doors derive one and they have to derive it identically.
  */
-function labelFor(relative: string): string {
+export function labelFor(relative: string): string {
     const name = relative.split('/').pop() ?? relative;
     const stem = name.slice(0, name.length - extname(name).length);
     return stem.replace(/[-_]+/g, ' ').trim() || stem;

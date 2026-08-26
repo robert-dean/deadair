@@ -1,26 +1,30 @@
-// The pad inbox: what a directory means, what a filename becomes, and the one thing that makes a
+// The pad library: what a directory means, what a filename becomes, and the one thing that makes a
 // pad different from a segment — that dropping a new file under a name the station is already
 // saying REPLACES what that slot holds rather than adding a second sound to hit.
 //
-// The repository is faked, as it is for the segment inbox and for the same reason: what is under
+// `ingest` is the seam both doors share, so its own block covers what the scan cannot reach: a sound
+// arriving as BYTES has to be written into this directory, because that directory is what a backup
+// carries and the content store is rewritten from it.
+//
+// The repository is faked, as it is for the segment libraryDir and for the same reason: what is under
 // test is the SCAN's reading of a directory. The uniqueness itself lives in the partial index and
 // is the database's job.
 
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Logger } from '@maroonedsoftware/logger';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PadLibrary, padNameOf } from '../../../src/modules/render/pad.library.js';
-import type { ImportedPad, PadRepository } from '../../../src/modules/render/pad.repository.js';
+import { boardIsSafe, PadLibrary, padNameOf } from '../../../src/modules/render/pad.library.js';
+import { PAD_SOURCES, type ImportedPad, type PadRepository } from '../../../src/modules/render/pad.repository.js';
 import type { PadSetRepository } from '../../../src/modules/render/pad.set.repository.js';
 import { SegmentStore } from '../../../src/modules/render/segment.store.js';
 import type { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 let root: string;
-let inbox: string;
+let libraryDir: string;
 let store: SegmentStore;
 
 const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn() } as unknown as Logger;
@@ -39,7 +43,7 @@ const config = { get: vi.fn((_key: string, fallback: string) => fallback) } as u
 
 beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'deadair-pad-library-test-'));
-    inbox = join(root, 'inbox');
+    libraryDir = join(root, 'libraryDir');
     store = new SegmentStore(join(root, 'store'));
     vi.clearAllMocks();
 });
@@ -71,7 +75,7 @@ const fakeRepository = () => {
                     label: imported.label,
                     audioChecksum: imported.audioChecksum,
                     audioExt: imported.audioExt,
-                    source: 'library',
+                    source: imported.source,
                     state: 'active' as const,
                 },
             };
@@ -82,7 +86,7 @@ const fakeRepository = () => {
 };
 
 const write = async (relative: string, bytes: string): Promise<void> => {
-    const path = join(inbox, relative);
+    const path = join(libraryDir, relative);
     await mkdir(join(path, '..'), { recursive: true });
     await writeFile(path, bytes);
 };
@@ -112,7 +116,7 @@ describe('PadLibrary.scan', () => {
         await write('wisecrack/airhorn.mp3', 'one');
         await write('rimshot.mp3', 'two');
 
-        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ scanned: 2, imported: 2, replaced: 0, skipped: 0 });
         expect(imports.map(one => `${one.board}/${one.name}`).sort()).toEqual(['station/rimshot', 'wisecrack/airhorn']);
@@ -121,7 +125,7 @@ describe('PadLibrary.scan', () => {
     it('is silent on a second pass over a directory nobody has touched', async () => {
         const { repository } = fakeRepository();
         await write('wisecrack/airhorn.mp3', 'one');
-        const library = new PadLibrary(store, repository, sets, inbox, analysis, config, logger);
+        const library = new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger);
 
         await library.scan();
         const again = await library.scan();
@@ -133,7 +137,7 @@ describe('PadLibrary.scan', () => {
     it('replaces what a slot holds when the file under a name changes', async () => {
         const { repository } = fakeRepository();
         await write('wisecrack/airhorn.mp3', 'the first one');
-        const library = new PadLibrary(store, repository, sets, inbox, analysis, config, logger);
+        const library = new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger);
         await library.scan();
 
         await write('wisecrack/airhorn.mp3', 'a better one');
@@ -148,7 +152,7 @@ describe('PadLibrary.scan', () => {
         const { repository, imports } = fakeRepository();
         await write('wisecrack/airhorn.opus', 'one');
 
-        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ scanned: 0, skipped: 1 });
         expect(imports).toHaveLength(0);
@@ -159,7 +163,7 @@ describe('PadLibrary.scan', () => {
         const { repository, imports } = fakeRepository();
         await write('wisecrack/---.mp3', 'one');
 
-        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ skipped: 1 });
         expect(imports).toHaveLength(0);
@@ -170,21 +174,21 @@ describe('PadLibrary.scan', () => {
         await write('.DS_Store', 'not a delivery');
         await write('wisecrack/.DS_Store', 'nor this');
 
-        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ scanned: 0, imported: 0, skipped: 0 });
     });
 
-    it('makes the inbox when it is missing, so there is a place to drop files', async () => {
+    it('makes the libraryDir when it is missing, so there is a place to drop files', async () => {
         const { repository } = fakeRepository();
 
-        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ scanned: 0 });
         // The directory now exists: a second scan reads it rather than catching its way past a
         // missing path.
         await write('rimshot.mp3', 'one');
-        expect(await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan()).toMatchObject({ imported: 1 });
+        expect(await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan()).toMatchObject({ imported: 1 });
     });
 });
 
@@ -195,7 +199,7 @@ describe('PadLibrary joining a pad to its set', () => {
         const { repository } = fakeRepository();
         await write('wisecrack/airhorn.mp3', 'one');
 
-        await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+        await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
 
         expect(sets.ensure).toHaveBeenCalledWith({ key: 'wisecrack', label: 'wisecrack' });
         expect(sets.add).toHaveBeenCalledWith('set-wisecrack', 'pad-wisecrack/airhorn');
@@ -207,7 +211,7 @@ describe('PadLibrary joining a pad to its set', () => {
         // and the library full, with nothing saying why.
         const { repository } = fakeRepository();
         await write('wisecrack/airhorn.mp3', 'one');
-        const library = new PadLibrary(store, repository, sets, inbox, analysis, config, logger);
+        const library = new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger);
 
         await library.scan();
         await library.scan();
@@ -223,7 +227,7 @@ describe('PadLibrary joining a pad to its set', () => {
         (sets as unknown as { add: { mockResolvedValueOnce: (v: unknown) => void } }).add.mockResolvedValueOnce('name-taken');
         await write('wisecrack/airhorn.mp3', 'one');
 
-        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ imported: 1, contested: 1, skipped: 0 });
     });
@@ -233,7 +237,7 @@ describe('PadLibrary joining a pad to its set', () => {
         (sets as unknown as { ensure: { mockRejectedValueOnce: (v: unknown) => void } }).ensure.mockRejectedValueOnce(new Error('no database'));
         await write('wisecrack/airhorn.mp3', 'one');
 
-        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ imported: 1, skipped: 0 });
     });
@@ -250,7 +254,7 @@ describe('PadLibrary.seed', () => {
         await writeFile(join(assets, 'station', 'airhorn.wav'), 'shipped');
     });
 
-    const library = (repository: PadRepository) => new PadLibrary(store, repository, sets, inbox, analysis, config, logger);
+    const library = (repository: PadRepository) => new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger);
 
     it('lays the pack down in a library that has never held anything', async () => {
         const { repository } = fakeRepository();
@@ -288,5 +292,151 @@ describe('PadLibrary.seed', () => {
         await mkdir(empty, { recursive: true });
 
         expect(await library(repository).seed(empty)).toBe(0);
+    });
+});
+
+describe('PadLibrary.ingest', () => {
+    const library = (repository: PadRepository) => new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger);
+
+    it('writes the bytes into the library, because that directory is what a backup carries', async () => {
+        const { repository } = fakeRepository();
+
+        await library(repository).ingest({
+            bytes: Buffer.from('a drop'),
+            ext: 'wav',
+            board: 'wisecrack',
+            name: 'airhorn',
+            label: 'Air Horn',
+            source: PAD_SOURCES.upload,
+        });
+
+        expect(await readFile(join(libraryDir, 'wisecrack', 'airhorn.wav'), 'utf8')).toBe('a drop');
+    });
+
+    it('names the file after the NAME, so a re-scan finds the same pad rather than a second one', async () => {
+        const { repository, imports } = fakeRepository();
+        const padLibrary = library(repository);
+
+        // The token the operator chose, against the filename they happened to upload. Saved under
+        // the filename, `padNameOf` would derive `air-horn-2` on the next pass and the station would
+        // hold two sounds where somebody added one.
+        await padLibrary.ingest({
+            bytes: Buffer.from('a drop'),
+            ext: 'wav',
+            board: 'wisecrack',
+            name: 'airhorn',
+            label: 'Air Horn',
+            source: PAD_SOURCES.upload,
+        });
+
+        const rescan = await padLibrary.scan();
+
+        expect(rescan).toMatchObject({ scanned: 1, imported: 0, replaced: 0 });
+        expect(imports.map(one => `${one.board}/${one.name}`)).toEqual(['wisecrack/airhorn', 'wisecrack/airhorn']);
+    });
+
+    it('records who delivered it, which is what decides whether the console may take it back', async () => {
+        const { repository, imports } = fakeRepository();
+
+        await library(repository).ingest({
+            bytes: Buffer.from('a drop'),
+            ext: 'mp3',
+            board: 'station',
+            name: 'sting',
+            label: 'Sting',
+            source: PAD_SOURCES.url,
+        });
+
+        expect(imports[0]?.source).toBe('url');
+        expect(imports[0]?.sourcePath).toBe(join('station', 'sting.mp3'));
+    });
+
+    it('puts it on the set named after its board, exactly as a dropped file is', async () => {
+        const { repository } = fakeRepository();
+
+        const { pad, contested } = await library(repository).ingest({
+            bytes: Buffer.from('a drop'),
+            ext: 'wav',
+            board: 'wisecrack',
+            name: 'airhorn',
+            label: 'Air Horn',
+            source: PAD_SOURCES.upload,
+        });
+
+        expect(sets.ensure).toHaveBeenCalledWith({ key: 'wisecrack', label: 'wisecrack' });
+        expect(sets.add).toHaveBeenCalledWith('set-wisecrack', pad.id);
+        expect(contested).toBe(false);
+    });
+
+    it('reports a name the set already answers to rather than throwing over it', async () => {
+        const { repository } = fakeRepository();
+        vi.mocked(sets.add).mockResolvedValueOnce('name-taken' as never);
+
+        const { contested } = await library(repository).ingest({
+            bytes: Buffer.from('a drop'),
+            ext: 'wav',
+            board: 'wisecrack',
+            name: 'airhorn',
+            label: 'Air Horn',
+            source: PAD_SOURCES.upload,
+        });
+
+        // In the library and unreachable until somebody says where it goes, which is a thing to tell
+        // an operator about rather than a reason to refuse the sound.
+        expect(contested).toBe(true);
+    });
+
+    it('refuses a board that would write outside the library, rather than filing it there', async () => {
+        const { repository, imports } = fakeRepository();
+
+        await expect(
+            library(repository).ingest({
+                bytes: Buffer.from('a drop'),
+                ext: 'wav',
+                board: '../../etc',
+                name: 'airhorn',
+                label: 'Air Horn',
+                source: PAD_SOURCES.upload,
+            }),
+        ).rejects.toThrow();
+
+        expect(imports).toHaveLength(0);
+    });
+
+    it('fails rather than half-succeeding when the bytes cannot reach the disk', async () => {
+        const { repository, imports } = fakeRepository();
+        // A file where the board directory has to go. Everything else about the ingest is fine, and
+        // the point is that it does NOT proceed: a row whose bytes are only in the content store is
+        // a pad that is absent from every export and gone after a restore.
+        await mkdir(libraryDir, { recursive: true });
+        await writeFile(join(libraryDir, 'wisecrack'), 'not a directory');
+
+        await expect(
+            library(repository).ingest({
+                bytes: Buffer.from('a drop'),
+                ext: 'wav',
+                board: 'wisecrack',
+                name: 'airhorn',
+                label: 'Air Horn',
+                source: PAD_SOURCES.upload,
+            }),
+        ).rejects.toThrow();
+
+        expect(imports).toHaveLength(0);
+    });
+});
+
+describe('boardIsSafe', () => {
+    it('takes a directory an operator could plausibly have made by hand', () => {
+        expect(boardIsSafe('wisecrack')).toBe(true);
+        expect(boardIsSafe('My Board')).toBe(true);
+    });
+
+    it('refuses anything that could write outside the library', () => {
+        expect(boardIsSafe('../etc')).toBe(false);
+        expect(boardIsSafe('a/b')).toBe(false);
+        expect(boardIsSafe('a\\b')).toBe(false);
+        expect(boardIsSafe('.hidden')).toBe(false);
+        expect(boardIsSafe('   ')).toBe(false);
     });
 });

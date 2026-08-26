@@ -23,9 +23,10 @@ from dataclasses import dataclass
 
 import numpy as np
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
+from join import MAX_GAP_MS, MAX_PARTS, duration_ms, join_samples, trim_to_cues
 from loudness import integrated_lufs, sample_peak_db, to_mono, true_peak_db
 from measure import SAMPLE_RATE, SCHEMA_VERSION, measure
 from tags import gain_tags
@@ -91,6 +92,22 @@ _slots = asyncio.Semaphore(WORKERS)
 class AnalyzeRequest(BaseModel):
     url: str
     durationMs: int | None = None
+
+
+class JoinPart(BaseModel):
+    url: str
+
+
+class JoinRequest(BaseModel):
+    """Several files to be made into one. See `join.py` for why the station wants it."""
+
+    parts: list[JoinPart]
+    # 200ms by default: a beat between two turns rather than a pause. The caller
+    # holds the real opinion -- this is only what a caller that said nothing gets.
+    gapMs: int = 200
+    # On by default, because a gap between two untrimmed parts is not a gap of
+    # `gapMs`, it is `gapMs` plus two unknowns.
+    trim: bool = True
 
 
 class AnalysisError(Exception):
@@ -372,6 +389,98 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     }
 
 
+def _join(urls: list[str], gap_ms: int, trim: bool) -> tuple[bytes, int]:
+    """Fetch every part, join them, and answer with one FLAC and how long it runs.
+
+    The parts are downloaded and probed BEFORE any of them is decoded, because
+    every part has to be decoded at the same channel count -- a concatenation of
+    buffers that disagree about that shears every frame after the first join.
+    The count is the widest any part claims, so a mono turn beside a stereo one
+    is widened rather than the stereo one folded.
+
+    FLAC rather than wav, and it is not a preference. The host caps a plugin's
+    response body at 64 MB, which a feature-length programme in 48 kHz wav
+    reaches; FLAC is about half that and is lossless, so a turn is never taken
+    through a lossy step on its way into the programme. It is already one of the
+    formats the segment store serves.
+    """
+    if not urls:
+        raise AnalysisError("undecodable", "there is nothing to join", status=400)
+    if len(urls) > MAX_PARTS:
+        raise AnalysisError("undecodable", f"more than {MAX_PARTS} parts", status=400)
+    if gap_ms < 0 or gap_ms > MAX_GAP_MS:
+        raise AnalysisError("undecodable", f"a gap of {gap_ms}ms is outside 0..{MAX_GAP_MS}", status=400)
+
+    paths: list[str] = []
+    try:
+        for url in urls:
+            path, _ = _download(url)
+            paths.append(path)
+
+        channels = max(_probe(path).channels for path in paths)
+        parts = [_decode(path, channels).samples for path in paths]
+    finally:
+        # Always, and all of them: a join that failed half way through has the
+        # same claim on the container's disk as one that worked.
+        for path in paths:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+    if trim:
+        parts = [trim_to_cues(part) for part in parts]
+
+    try:
+        joined = join_samples(parts, gap_ms)
+    except ValueError as error:
+        raise AnalysisError("undecodable", str(error), status=400) from error
+
+    length_ms = duration_ms(joined)
+    if length_ms > MAX_SECONDS * 1000:
+        # Refused rather than cut. A programme over the ceiling is a mistake
+        # upstream, and answering with the first half of it would air as one.
+        raise AnalysisError("undecodable", f"the joined audio is longer than the {MAX_SECONDS}s limit", status=400)
+
+    return _encode_flac(joined, channels), length_ms
+
+
+def _encode_flac(samples: np.ndarray, channels: int) -> bytes:
+    """Interleaved float32 back through ffmpeg as one FLAC.
+
+    ffmpeg rather than a Python encoder for the reason everything else here
+    shells out to it: it is already in the image, it is the only thing in this
+    service that knows a container format, and nothing about writing a header by
+    hand would be an improvement.
+    """
+    command = [
+        "ffmpeg",
+        "-nostdin",
+        "-hide_banner",
+        "-loglevel", "error",
+        "-f", "f32le",
+        "-ar", str(SAMPLE_RATE),
+        "-ac", str(channels),
+        "-i", "-",
+        "-f", "flac",
+        "-",
+    ]
+
+    try:
+        finished = subprocess.run(command, input=samples.tobytes(), capture_output=True, check=False)
+    except FileNotFoundError as error:  # pragma: no cover - a broken image, not a bad request
+        raise AnalysisError("internal", "ffmpeg is not installed in this image", status=500) from error
+
+    if finished.returncode != 0:
+        stderr = finished.stderr.decode("utf-8", errors="replace").strip()
+        raise AnalysisError("internal", stderr[:500] or f"ffmpeg exited {finished.returncode}", status=500)
+
+    if not finished.stdout:
+        raise AnalysisError("internal", "the encoder produced no audio", status=500)
+
+    return finished.stdout
+
+
 def _loudness_of(samples: np.ndarray) -> dict:
     """The loudness fields, omitting any the signal cannot support.
 
@@ -413,6 +522,34 @@ async def analyze(request: AnalyzeRequest) -> JSONResponse:
             return _error(AnalysisError("internal", str(error)[:500], status=500))
 
     return JSONResponse(result)
+
+
+@app.post("/join")
+async def join(request: JoinRequest) -> Response:
+    """Several parts as one file. Answers AUDIO, unlike everything else here.
+
+    Under the same semaphore and the same pool as `/analyze`, because it is the
+    same work: this decodes every part it is given, and a join that escaped the
+    ceiling would be a way to run the machine out of memory that the operator's
+    own concurrency setting cannot see.
+    """
+    urls = [part.url.strip() for part in request.parts]
+    if any(len(url) == 0 for url in urls):
+        return _error(AnalysisError("unfetchable", "a part was given with no url", status=400))
+
+    async with _slots:
+        loop = asyncio.get_running_loop()
+        try:
+            audio, length_ms = await loop.run_in_executor(_pool, _join, urls, request.gapMs, request.trim)
+        except AnalysisError as error:
+            return _error(error)
+        except Exception as error:  # noqa: BLE001 - the boundary; nothing above this catches
+            return _error(AnalysisError("internal", str(error)[:500], status=500))
+
+    # The duration rides a header rather than a second call: this service has
+    # just decoded every sample, and the caller storing the row would otherwise
+    # have to decode the result again to learn how long it is.
+    return Response(content=audio, media_type="audio/flac", headers={"X-Duration-Ms": str(length_ms)})
 
 
 def _error(error: AnalysisError) -> JSONResponse:

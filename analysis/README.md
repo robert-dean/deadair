@@ -5,9 +5,13 @@ underway, where the ending begins, where it stops. The station reads those to tr
 head and tail of every record, to know how long it may talk over an intro, and later to size a blend
 between two records.
 
+It also **joins** several files into one, which is the same work seen from the other end: both need
+decoded PCM, and decoding is the one thing that does not happen in Node.
+
 **This directory is one implementation of the contract below, not the contract itself.** Anything
-that answers these two endpoints is a valid analyzer, and swapping to it is a `baseUrl` change in the
-plugin's config. That is the whole reason the boundary is HTTP.
+that answers these endpoints is a valid analyzer, and swapping to it is a `baseUrl` change in the
+plugin's config. That is the whole reason the boundary is HTTP. `/join` is optional in that contract:
+a station whose analyzer answers 404 to it keeps every other thing an analyzer does.
 
 ## Why it is a separate program
 
@@ -132,6 +136,69 @@ exactly the case the measurement exists to serve.
 So this service reports it, and the host filters on it. An implementation that always answers `true`
 has silently disabled the check. A genuinely short track is `true`; a download that stopped early is
 `false`, told apart using `durationMs` where the caller supplied one.
+
+### `POST /join`
+
+```jsonc
+// request
+{
+  "parts": [                 // in the order they are to be heard
+    { "url": "https://…" },  // each complete and self-authenticating, as /analyze's is
+    { "url": "https://…" }
+  ],
+  "gapMs": 200,              // silence BETWEEN the parts. 0..2000, default 200
+  "trim": true               // take each part's own leading and trailing silence off first
+}
+```
+
+```
+// response, 200
+Content-Type: audio/flac
+X-Duration-Ms: 184320
+
+<the audio>
+```
+
+The one endpoint here that answers audio rather than JSON. Errors take the same shape as
+`/analyze`'s, so a caller has one failure vocabulary for the whole service.
+
+#### What it is for
+
+A production — a phone-in, a podcast, a long bulletin — is written one beat at a time, because a beat
+is one model call in one voice. It used to AIR that way too: seven turns of a three-minute call were
+seven items in the station's running order, seven hand-overs to the player, and the pause between one
+turn and the next was the speech engine's own padding plus whatever the transport added. Nothing
+could tune it, because there was nothing between the beats to tune. Joining them makes that pause a
+number.
+
+#### Why `trim` is on by default
+
+A gap inserted between two files that each carry a few hundred milliseconds of engine padding is not
+a gap of `gapMs`; it is `gapMs` plus two unknowns that move with the voice and with the line. So each
+part is trimmed to its own `cueIn..cueOut` first, with the same −60 dBFS floor described under the
+four points — chosen to sit below a quiet transfer's noise floor precisely so a trim does not clip an
+attack. A part that measures as silence all the way through is kept whole rather than trimmed to
+nothing: a beat of room tone is still a beat somebody wrote.
+
+The silence goes **between** the parts and never at the ends, which is the same rule read twice: what
+comes back is one item in a running order, and padding its head would put back exactly the dead air
+the trim just removed.
+
+#### FLAC, and the ceiling behind it
+
+The answer is FLAC because it is lossless — no turn is taken through a lossy step on its way into the
+programme — and because it is about half the size of the equivalent wav. That is not tidiness: the
+station caps a plugin's response body at 64 MB, which 48 kHz wav reaches on a feature-length
+production.
+
+Every part is decoded at the same channel count, the widest any of them claims, so a mono turn beside
+a stereo one is widened rather than the stereo one folded. A join longer than `ANALYSIS_MAX_SECONDS`
+is refused rather than cut: answering with the first half of a programme would air as one. So is one
+of more than 64 parts, which is a mistake upstream rather than a long programme.
+
+`/join` runs under the same concurrency ceiling as `/analyze`, because it is the same work. It
+decodes every part it is given, and a join that escaped the ceiling would be a way past the operator's
+own concurrency setting into the machine's memory.
 
 ### Errors
 
@@ -260,7 +327,14 @@ curl -s localhost:9321/health
 curl -s -X POST localhost:9321/analyze -H 'content-type: application/json' -d '{"url":"http://localhost:8000/some.mp3"}'
 ```
 
-Check the answers against the file in an audio editor by eye once. There is no test that can hear it.
+```bash
+curl -s -X POST localhost:9321/join -H 'content-type: application/json' \
+  -d '{"parts":[{"url":"http://localhost:8000/one.wav"},{"url":"http://localhost:8000/two.wav"}],"gapMs":200}' \
+  -o joined.flac
+```
+
+Check the answers against the file in an audio editor by eye once. There is no test that can hear it,
+and that goes double for the gap: 200 ms is a starting point somebody has to listen to.
 
 **The URL has to be reachable from this container**, which is not the same network position as the
 API process. The bundled track fetcher is `liquidsoap:3679` inside compose and `127.0.0.1:3679` from

@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PadLibrary, padNameOf } from '../../../src/modules/render/pad.library.js';
 import type { ImportedPad, PadRepository } from '../../../src/modules/render/pad.repository.js';
+import type { PadSetRepository } from '../../../src/modules/render/pad.set.repository.js';
 import { SegmentStore } from '../../../src/modules/render/segment.store.js';
 import type { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
@@ -27,6 +28,13 @@ const logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), t
 // A station with no analyzer, which is the ordinary case and the one every assertion here is about:
 // measuring a pad must cost nothing and change nothing about what the scan reports.
 const analysis = { measureAudio: vi.fn(async () => undefined) } as unknown as AnalysisService;
+
+// A set store that remembers what went on what, with the one rule the real one enforces: a set may
+// not answer to two names, because a script writes a name and resolution happens inside a set.
+const sets = {
+    ensure: vi.fn(async ({ key }: { key: string }) => ({ id: `set-${key}`, key, label: key, position: 0, pads: 0 })),
+    add: vi.fn(async () => 'added' as const),
+} as unknown as PadSetRepository;
 const config = { get: vi.fn((_key: string, fallback: string) => fallback) } as unknown as AppConfig;
 
 beforeEach(async () => {
@@ -104,7 +112,7 @@ describe('PadLibrary.scan', () => {
         await write('wisecrack/airhorn.mp3', 'one');
         await write('rimshot.mp3', 'two');
 
-        const result = await new PadLibrary(store, repository, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ scanned: 2, imported: 2, replaced: 0, skipped: 0 });
         expect(imports.map(one => `${one.board}/${one.name}`).sort()).toEqual(['station/rimshot', 'wisecrack/airhorn']);
@@ -113,7 +121,7 @@ describe('PadLibrary.scan', () => {
     it('is silent on a second pass over a directory nobody has touched', async () => {
         const { repository } = fakeRepository();
         await write('wisecrack/airhorn.mp3', 'one');
-        const library = new PadLibrary(store, repository, inbox, analysis, config, logger);
+        const library = new PadLibrary(store, repository, sets, inbox, analysis, config, logger);
 
         await library.scan();
         const again = await library.scan();
@@ -125,7 +133,7 @@ describe('PadLibrary.scan', () => {
     it('replaces what a slot holds when the file under a name changes', async () => {
         const { repository } = fakeRepository();
         await write('wisecrack/airhorn.mp3', 'the first one');
-        const library = new PadLibrary(store, repository, inbox, analysis, config, logger);
+        const library = new PadLibrary(store, repository, sets, inbox, analysis, config, logger);
         await library.scan();
 
         await write('wisecrack/airhorn.mp3', 'a better one');
@@ -140,7 +148,7 @@ describe('PadLibrary.scan', () => {
         const { repository, imports } = fakeRepository();
         await write('wisecrack/airhorn.opus', 'one');
 
-        const result = await new PadLibrary(store, repository, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ scanned: 0, skipped: 1 });
         expect(imports).toHaveLength(0);
@@ -151,7 +159,7 @@ describe('PadLibrary.scan', () => {
         const { repository, imports } = fakeRepository();
         await write('wisecrack/---.mp3', 'one');
 
-        const result = await new PadLibrary(store, repository, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ skipped: 1 });
         expect(imports).toHaveLength(0);
@@ -162,7 +170,7 @@ describe('PadLibrary.scan', () => {
         await write('.DS_Store', 'not a delivery');
         await write('wisecrack/.DS_Store', 'nor this');
 
-        const result = await new PadLibrary(store, repository, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ scanned: 0, imported: 0, skipped: 0 });
     });
@@ -170,12 +178,63 @@ describe('PadLibrary.scan', () => {
     it('makes the inbox when it is missing, so there is a place to drop files', async () => {
         const { repository } = fakeRepository();
 
-        const result = await new PadLibrary(store, repository, inbox, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
 
         expect(result).toMatchObject({ scanned: 0 });
         // The directory now exists: a second scan reads it rather than catching its way past a
         // missing path.
         await write('rimshot.mp3', 'one');
-        expect(await new PadLibrary(store, repository, inbox, analysis, config, logger).scan()).toMatchObject({ imported: 1 });
+        expect(await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan()).toMatchObject({ imported: 1 });
+    });
+});
+
+// The set a directory produces. This is what keeps dropping files in a folder a complete answer:
+// the pad reaches the library AND something a presenter can be pointed at, with no console visit.
+describe('PadLibrary joining a pad to its set', () => {
+    it('makes the set named after the directory and puts the pad on it', async () => {
+        const { repository } = fakeRepository();
+        await write('wisecrack/airhorn.mp3', 'one');
+
+        await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+
+        expect(sets.ensure).toHaveBeenCalledWith({ key: 'wisecrack', label: 'wisecrack' });
+        expect(sets.add).toHaveBeenCalledWith('set-wisecrack', 'pad-wisecrack/airhorn');
+    });
+
+    it('joins on EVERY pass, not only the one that created the row', async () => {
+        // A set an operator deleted should come back when the files are rescanned, because the
+        // directory is still the claim. A join that only ran on `created` would leave the rack empty
+        // and the library full, with nothing saying why.
+        const { repository } = fakeRepository();
+        await write('wisecrack/airhorn.mp3', 'one');
+        const library = new PadLibrary(store, repository, sets, inbox, analysis, config, logger);
+
+        await library.scan();
+        await library.scan();
+
+        expect(sets.add).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports a name the set already answers to rather than failing the scan', async () => {
+        // Two directories holding airhorn.wav and one set pointed at both. The pad is in the library
+        // and merely unreachable, which is a thing to tell somebody about and not a reason to lose
+        // the other forty files.
+        const { repository } = fakeRepository();
+        (sets as unknown as { add: { mockResolvedValueOnce: (v: unknown) => void } }).add.mockResolvedValueOnce('name-taken');
+        await write('wisecrack/airhorn.mp3', 'one');
+
+        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+
+        expect(result).toMatchObject({ imported: 1, contested: 1, skipped: 0 });
+    });
+
+    it('costs the pad its rack and never the import when the set cannot be written', async () => {
+        const { repository } = fakeRepository();
+        (sets as unknown as { ensure: { mockRejectedValueOnce: (v: unknown) => void } }).ensure.mockRejectedValueOnce(new Error('no database'));
+        await write('wisecrack/airhorn.mp3', 'one');
+
+        const result = await new PadLibrary(store, repository, sets, inbox, analysis, config, logger).scan();
+
+        expect(result).toMatchObject({ imported: 1, skipped: 0 });
     });
 });

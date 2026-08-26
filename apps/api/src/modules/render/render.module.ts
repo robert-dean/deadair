@@ -7,6 +7,7 @@ import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { MixerService } from './mixer.service.js';
 import { PadLibrary } from './pad.library.js';
 import { PadRepository } from './pad.repository.js';
+import { PadSetRepository } from './pad.set.repository.js';
 import { DEFAULT_PRONUNCIATIONS } from './pronunciation.lexicon.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { RenderService } from './render.service.js';
@@ -124,6 +125,7 @@ export const RenderModule: ServerKitModule = {
         // temp directory with no container and no AppConfig.
         const padLibraryDir = config.get('PAD_LIBRARY_DIR', DEFAULT_PAD_LIBRARY_DIR);
         registry.register(PadRepository).useClass(PadRepository).asScoped();
+        registry.register(PadSetRepository).useClass(PadSetRepository).asScoped();
         registry
             .register(PadLibrary)
             .useFactory(
@@ -131,6 +133,7 @@ export const RenderModule: ServerKitModule = {
                     new PadLibrary(
                         container.get(SegmentStore),
                         container.get(PadRepository),
+                        container.get(PadSetRepository),
                         padLibraryDir,
                         container.get(AnalysisService),
                         config,

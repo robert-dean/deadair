@@ -7,6 +7,7 @@ import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { resolvePlayoutBaseUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { PadRepository, type Pad } from './pad.repository.js';
+import { PadSetRepository } from './pad.set.repository.js';
 import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore } from './segment.store.js';
 
 /** What one pass over the pad inbox did. */
@@ -19,6 +20,14 @@ export interface PadScan {
     replaced: number;
     /** Files passed over: not audio, or unreadable. */
     skipped: number;
+    /**
+     * Pads that reached the library but not their set, because it already answered to their name.
+     *
+     * Its own count rather than folded into `skipped`, because the outcomes are opposite: a skipped
+     * file is not in the station at all, and one of these is in the library and merely unreachable
+     * until somebody puts it on a set by hand.
+     */
+    contested: number;
 }
 
 /**
@@ -49,6 +58,8 @@ export class PadLibrary {
     constructor(
         private readonly store: SegmentStore,
         private readonly pads: PadRepository,
+        // What a presenter can actually reach. See {@link join}.
+        private readonly sets: PadSetRepository,
         private readonly root: string,
         // How loud a pad came out, which nothing else can answer. See {@link measure}.
         private readonly analysis: AnalysisService,
@@ -69,10 +80,10 @@ export class PadLibrary {
         // cannot find.
         await mkdir(this.root, { recursive: true });
 
-        const result: PadScan = { scanned: 0, imported: 0, replaced: 0, skipped: 0 };
+        const result: PadScan = { scanned: 0, imported: 0, replaced: 0, skipped: 0, contested: 0 };
         for (const file of await this.audioFiles()) await this.importOne(file, result);
 
-        if (result.imported > 0 || result.replaced > 0 || result.skipped > 0) {
+        if (result.imported > 0 || result.replaced > 0 || result.skipped > 0 || result.contested > 0) {
             this.logger.info('render: scanned the pad inbox', { ...result, inbox: this.root });
         }
         return result;
@@ -146,6 +157,17 @@ export class PadLibrary {
             audioExt: ext,
         });
 
+        // The set of the same name, created if absent, and joined on EVERY pass rather than only on
+        // the one that created the row. That is what keeps dropping files in a directory a complete
+        // answer: an operator who took a pad off its own set by hand has said something and a re-scan
+        // must not undo it, but a set an operator DELETED should come back the moment the files are
+        // rescanned, because the directory is still the claim.
+        //
+        // A name the set already answers to is reported rather than thrown, because the case that
+        // reaches it is two directories holding `airhorn.wav` and one set pointed at both — which is
+        // a thing to tell somebody about, not a reason to fail forty other files.
+        await this.join(pad, file.board, result);
+
         if (outcome === 'created') {
             result.imported += 1;
             this.logger.info('render: put a new pad on a board', { pad: pad.id, board: pad.board, name: pad.name });
@@ -209,6 +231,31 @@ export class PadLibrary {
                 pad: pad.id,
                 error: errorText(error),
             });
+        }
+    }
+
+    /**
+     * Put one pad on the set named after its directory, making the set if this is the first file.
+     *
+     * Best-effort like the measurement beside it: a set that could not be written costs the pad its
+     * rack and never the import, because the row is in the library either way and an operator can
+     * put it on a set by hand.
+     */
+    private async join(pad: Pad, board: string, result: PadScan): Promise<void> {
+        try {
+            const set = await this.sets.ensure({ key: board, label: board });
+            const outcome = await this.sets.add(set.id, pad.id);
+
+            if (outcome === 'name-taken') {
+                result.contested += 1;
+                this.logger.warn('render: a set already answers to this name, so the new pad is in the library and not on it', {
+                    pad: pad.id,
+                    set: set.key,
+                    name: pad.name,
+                });
+            }
+        } catch (error) {
+            this.logger.warn('render: could not put a pad on its set', { pad: pad.id, board, error: errorText(error) });
         }
     }
 }

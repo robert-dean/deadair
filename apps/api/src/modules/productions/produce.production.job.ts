@@ -694,7 +694,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         if (name === undefined) return { names: [] };
 
         try {
-            const rack = await this.pads.onBoard(name);
+            const rack = await this.pads.onSet(name);
             return rack.length === 0 ? { names: [] } : { name, names: rack.map(pad => pad.name) };
         } catch (error) {
             this.logger.debug(`productions: could not read the soundboard (${errorText(error)})`);

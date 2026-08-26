@@ -114,10 +114,10 @@ function harness(
     // that has chosen no persona is the state every assertion below was written against.
     const personas = { presenting: vi.fn(async () => options.persona) };
     // A rack with nothing on it, which is what every persona in these tests has: `pads` answers `{}`
-    // for an empty board, so the request is byte-identical to one built before soundboards existed.
+    // for an empty set, so the request is byte-identical to one built before soundboards existed.
     const pads = {
-        onBoard: vi.fn(async () => options.pads ?? []),
-        named: vi.fn(async (_board: string, name: string) => (options.pads ?? []).find(pad => pad.name === name)),
+        onSet: vi.fn(async () => options.pads ?? []),
+        named: vi.fn(async (_setKey: string, name: string) => (options.pads ?? []).find(pad => pad.name === name)),
         markUsed: vi.fn(async (_id: string) => {}),
     };
     // What that character has accumulated. Empty unless a test asks otherwise, and never read at all

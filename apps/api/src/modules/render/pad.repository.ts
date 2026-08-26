@@ -71,10 +71,16 @@ export type PadImport = 'created' | 'unchanged' | 'replaced';
  * {@link PadImport}'s third outcome exist at all. Nothing about a script changes when the file does,
  * which is `segments.voice`'s indirection argument one level down.
  *
- * ## Everything a board is asked is asked in SQL
+ * ## A pad is in the LIBRARY; a set is what reaches it
  *
- * {@link onBoard} orders least-recently-hit first rather than handing a caller the rows to sort,
- * because the rotation is the point and two callers sorting differently is a board whose rotation
+ * `board` is where the file came from and decides nothing. What a presenter can hit is
+ * `deadair.pad_sets`, which is many-to-many, so one air horn serves six characters without six
+ * copies and one library can be cut two ways. See {@link PadSetRepository}.
+ *
+ * ## Everything a set is asked is asked in SQL
+ *
+ * {@link onSet} orders least-recently-hit first rather than handing a caller the rows to sort,
+ * because the rotation is the point and two callers sorting differently is a rack whose rotation
  * depends on who asked. The same reason `PronunciationRepository.list` orders in SQL.
  */
 @Injectable()
@@ -87,21 +93,30 @@ export class PadRepository extends DataRepository {
     }
 
     /**
-     * One board's reachable pads, least recently hit first.
+     * One SET's reachable pads, least recently hit first.
      *
-     * The read a break makes. A pad never hit sorts first (`nulls first`), which is what stops a
-     * board's newest sound waiting behind everything else for a full rotation before it is ever
-     * heard.
+     * The read a break makes, and it takes the set's KEY rather than its id because that is what
+     * `personas.soundboard` holds — a caller that had to resolve a key to an id first would be a
+     * second read on the path of every break, to answer a question this join already answers.
+     *
+     * A key naming no set answers with nothing, which is deliberately the same answer as a set
+     * holding nothing: both are a presenter with nothing to reach for, and nowhere downstream should
+     * have to tell them apart.
+     *
+     * A pad never hit sorts first (`nulls first`), which is what stops a set's newest sound waiting
+     * behind everything else for a full rotation before it is ever heard.
      */
-    async onBoard(board: string): Promise<Pad[]> {
+    async onSet(key: string): Promise<Pad[]> {
         const rows = await this.db
-            .selectFrom('deadair.pads')
-            .selectAll()
-            .where('stationKey', '=', this.station.stationKey)
-            .where('board', '=', board)
-            .where('state', '=', 'active')
-            .orderBy(sql`last_used_at asc nulls first`)
-            .orderBy('name', 'asc')
+            .selectFrom('deadair.pads as p')
+            .innerJoin('deadair.padSetMembers as m', 'm.padId', 'p.id')
+            .innerJoin('deadair.padSets as s', 's.id', 'm.setId')
+            .selectAll('p')
+            .where('p.stationKey', '=', this.station.stationKey)
+            .where('s.key', '=', key.trim())
+            .where('p.state', '=', 'active')
+            .orderBy(sql`p.last_used_at asc nulls first`)
+            .orderBy('p.name', 'asc')
             .execute();
 
         return rows.map(toPad);
@@ -161,14 +176,42 @@ export class PadRepository extends DataRepository {
     }
 
     /**
-     * The pad a script named, if this board holds one under that name.
+     * The pad a script named, if this SET holds one under that name.
      *
-     * Case-insensitively and trimmed, matching the unique index, because a model handed a list of
-     * names does not reliably give one back in the case it was offered in. `rejected` rows are
-     * excluded here rather than by the caller: a turned-down pad is exactly as unreachable as one
-     * that was never there, and a script naming it should be treated as naming nothing.
+     * Case-insensitively and trimmed, because a model handed a list of names does not reliably give
+     * one back in the case it was offered in. `rejected` rows are excluded here rather than by the
+     * caller: a turned-down pad is exactly as unreachable as one that was never there, and a script
+     * naming it should be treated as naming nothing.
+     *
+     * **Ordered, and that is not decoration.** `PadSetRepository.add` refuses a name a set already
+     * answers to, so this should never see two — but the rule spans a join and cannot be an index, so
+     * a row that got in another way must not make one script sound different between two renders.
+     * Oldest first, which is the one that was there when the name started meaning something.
      */
-    async named(board: string, name: string): Promise<Pad | undefined> {
+    async named(setKey: string, name: string): Promise<Pad | undefined> {
+        const row = await this.db
+            .selectFrom('deadair.pads as p')
+            .innerJoin('deadair.padSetMembers as m', 'm.padId', 'p.id')
+            .innerJoin('deadair.padSets as s', 's.id', 'm.setId')
+            .selectAll('p')
+            .where('p.stationKey', '=', this.station.stationKey)
+            .where('s.key', '=', setKey.trim())
+            .where('p.state', '=', 'active')
+            .where(sql<boolean>`lower(btrim(p.name)) = lower(btrim(${name}))`)
+            .orderBy('p.createdAt', 'asc')
+            .executeTakeFirst();
+
+        return row === undefined ? undefined : toPad(row);
+    }
+
+    /**
+     * The pad this directory already holds under a name, if any.
+     *
+     * The import path's own question, matching `pads_name_idx` exactly — same station, same board,
+     * case-insensitive, and `rejected` excluded because the index is partial on it. An operator who
+     * turned an air horn down and dropped a better one in gets a new pad rather than a refusal.
+     */
+    private async inBoard(board: string, name: string): Promise<Pad | undefined> {
         const row = await this.db
             .selectFrom('deadair.pads')
             .selectAll()
@@ -194,7 +237,12 @@ export class PadRepository extends DataRepository {
      * already saying is worth a line in the log.
      */
     async importFile(imported: ImportedPad): Promise<{ pad: Pad; outcome: PadImport }> {
-        const existing = await this.named(imported.board, imported.name);
+        // By DIRECTORY and not by set, which is the whole of what this method is about: a second
+        // `airhorn.wav` in one folder replaces the first, and in another folder it is a second pad.
+        // {@link named} answers the other question — what a SCRIPT can reach — and using it here
+        // would make importing depend on a set existing, so the first file in a new directory would
+        // never find the row it had just written.
+        const existing = await this.inBoard(imported.board, imported.name);
 
         if (existing !== undefined) {
             if (existing.audioChecksum === imported.audioChecksum) return { pad: existing, outcome: 'unchanged' };

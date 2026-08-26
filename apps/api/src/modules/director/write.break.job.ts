@@ -587,7 +587,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         if (padsIn(script).length > 0) return script;
 
         try {
-            const rack = await this.padRepository.onBoard(board);
+            const rack = await this.padRepository.onSet(board);
             if (rack.length === 0) return script;
 
             const since = await this.segments.breaksSincePad();
@@ -653,8 +653,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * that is working correctly.
      *
      * Two absences that mean the same thing and must not be told apart by anything downstream: a
-     * persona with no `soundboard`, and one naming a board the library holds nothing on. Both are a
-     * presenter with nothing to hit, and the prompt says nothing about pads either way — see
+     * persona with no `soundboard`, and one naming a SET that holds nothing — or that does not exist
+     * at all, which `onSet` answers identically and deliberately. All three are a presenter with
+     * nothing to hit, and the prompt says nothing about pads either way — see
      * `padRules`, which is omitted entirely rather than saying "you have no sound effects".
      *
      * Nothing is RESTED here, which is where this differs from the notes and the story beside it. A
@@ -665,7 +666,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         if (persona?.soundboard === undefined) return {};
 
         try {
-            const rack = await this.padRepository.onBoard(persona.soundboard);
+            const rack = await this.padRepository.onSet(persona.soundboard);
             return rack.length === 0 ? {} : { pads: rack.map(pad => pad.name) };
         } catch (error) {
             this.logger.debug(`director: could not read the soundboard (${errorText(error)})`);

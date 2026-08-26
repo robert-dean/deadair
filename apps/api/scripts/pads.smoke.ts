@@ -37,6 +37,7 @@ import { EmptyUpdateRewriteDialect, KyselyDefaultPlugins, KyselyPgTypeOverrides,
 
 import type { DB } from '../src/modules/data/db.js';
 import { PadRepository } from '../src/modules/render/pad.repository.js';
+import { PadSetRepository } from '../src/modules/render/pad.set.repository.js';
 import { SegmentRepository } from '../src/modules/render/segment.repository.js';
 import { padsIn, splitOnPads } from '../src/modules/render/pad.cues.js';
 import { resolvePlayoutBaseUrl, storedAudioUrl } from '../src/modules/playout/playout.urls.js';
@@ -92,13 +93,28 @@ const identity = { stationKey: 'main' } as never;
 try {
     await db.transaction().execute(async trx => {
         const pads = new PadRepository(trx as never, identity);
+        const sets = new PadSetRepository(trx as never, identity);
         const segments = new SegmentRepository(trx as never, identity);
 
         // ── the rack, and what a name means on it ─────────────────────────────
         say('the rack');
 
-        const put = async (name: string, checksum: string) =>
-            await pads.importFile({ board: BOARD, name, label: name, sourcePath: `${BOARD}/${name}.wav`, audioChecksum: checksum, audioExt: 'wav' });
+        // Imported AND put on the set of the same name, which is what `PadLibrary` does on every
+        // scan. The library and the set are two different things now, so a fixture that only did the
+        // first would have a rack nothing can reach — which is exactly the failure this script is for.
+        const set = await sets.ensure({ key: BOARD, label: BOARD });
+        const put = async (name: string, checksum: string) => {
+            const imported = await pads.importFile({
+                board: BOARD,
+                name,
+                label: name,
+                sourcePath: `${BOARD}/${name}.wav`,
+                audioChecksum: checksum,
+                audioExt: 'wav',
+            });
+            await sets.add(set.id, imported.pad.id);
+            return imported;
+        };
 
         const first = await put('airhorn', 'sum-one');
         check('a new sound is created', first.outcome, 'created');
@@ -124,7 +140,7 @@ try {
 
         await pads.setState(first.pad.id, 'rejected');
         check('a rejected pad is unreachable by name', await pads.named(BOARD, 'airhorn'), undefined);
-        check('and off the board', (await pads.onBoard(BOARD)).length, 0);
+        check('and off the board', (await pads.onSet(BOARD)).length, 0);
         // The partial index: turning down one air horn must not stop the operator putting a better
         // one under the same name.
         check('but the name is free again', (await put('airhorn', 'sum-three')).outcome, 'created');
@@ -133,15 +149,61 @@ try {
         say('the rotation');
 
         await put('rimshot', 'sum-four');
-        const fresh = await pads.onBoard(BOARD);
+        const fresh = await pads.onSet(BOARD);
         check('two sounds are reachable', fresh.length, 2);
 
         await pads.markUsed(fresh[0]!.id);
-        const after = await pads.onBoard(BOARD);
+        const after = await pads.onSet(BOARD);
         // `nulls first`: a pad nobody has hit sorts in front of one that has, so a board's newest
         // sound does not wait out a full rotation before it is ever heard.
         check('the one nobody has hit comes first', after[0]!.id, fresh[1]!.id);
         check('and the one just spent goes last', after[1]!.id, fresh[0]!.id);
+
+        // ── sets, which are the whole reason a board stopped being the boundary ──
+        say('the sets');
+
+        // One library, cut two ways. This is what a `board` column could never express: the same
+        // air horn in front of two characters without two copies of the file or two rows.
+        const second = await sets.ensure({ key: `${BOARD}-two`, label: 'second' });
+        const shared = (await pads.onSet(BOARD))[0]!;
+        check('a pad can go on a second set', await sets.add(second.id, shared.id), 'added');
+        check('and is reachable from both', (await pads.named(`${BOARD}-two`, shared.name))?.id, shared.id);
+        check('adding it twice is not an error', await sets.add(second.id, shared.id), 'already');
+
+        // The rule no index can express, because it spans a join: a script writes a NAME, so a set
+        // answering to one name twice is a break that sounds different between two renders.
+        const rival = await pads.importFile({
+            board: `${BOARD}-elsewhere`,
+            name: shared.name,
+            label: shared.name,
+            sourcePath: 'elsewhere.wav',
+            audioChecksum: 'sum-rival',
+            audioExt: 'wav',
+        });
+        check('a second pad under one name is refused BY THE SET', await sets.add(second.id, rival.pad.id), 'name-taken');
+        // And is not a collision in the LIBRARY, which is the half that makes two characters with
+        // two different air horns possible at all.
+        // Scoped to the fixture's own boards, for `advisory.smoke.ts`' reason: this runs against a
+        // real station, `list()` with no board is the whole library, and a real rack holding a pad of
+        // the same name would otherwise be counted as one of ours.
+        const named = (await pads.list()).filter(pad => pad.board.startsWith(BOARD) && pad.name === shared.name && pad.state === 'active');
+        check('while the library holds both, reachable from different sets', named.length, 2);
+
+        // Deleting a set takes the grouping and leaves the audio, which is the whole difference
+        // between a set and a directory.
+        const held = (await pads.list(BOARD)).length;
+        check('deleting a set removes it', await sets.remove(second.id), true);
+        check('and leaves every pad in the library', (await pads.list(BOARD)).length, held);
+        check('and leaves the original set alone', (await pads.onSet(BOARD)).length > 0, true);
+
+        // A key naming nothing is the same answer as a set holding nothing, deliberately: both are a
+        // presenter with nothing to reach for and nothing downstream should tell them apart.
+        check('a set that does not exist reads as an empty rack', await pads.onSet('zzsmoke-no-such-set'), []);
+        check('and naming a pad on it finds nothing', await pads.named('zzsmoke-no-such-set', shared.name), undefined);
+
+        // What a rename or a delete has to warn about, since `personas.soundboard` is a key and the
+        // schema would say nothing.
+        check('a set can say which personas name it', Array.isArray(await sets.personasNaming(BOARD)), true);
 
         // ── the spacing the floor is judged on ────────────────────────────────
         say('the spacing');

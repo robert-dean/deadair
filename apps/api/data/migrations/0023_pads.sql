@@ -28,16 +28,21 @@ create table deadair.pads (
     updated_at timestamptz not null default now() check (updated_at >= created_at),
     -- Whose rack this is, as on every other station-owned table.
     station_key text not null default 'main',
-    -- Which board this pad is on, and therefore which characters can reach it.
+    -- Which directory this file arrived in. PROVENANCE, and nothing decides anything by it.
     --
-    -- `personas.soundboard` names one of these, so a board is the unit a character is given rather
-    -- than a tag a pad happens to carry: two presenters sharing a station legitimately have different
-    -- racks, and the one thing that must not happen is the newsreader hitting the breakfast show's
-    -- air horn because both files were in the same directory.
+    -- It was the whole of the rack for one commit — a pad belonged to one board and a persona named
+    -- one board — and `deadair.pad_sets` below is what replaced that, for the two things it made
+    -- unexpressible. What survives here is only where the file came from, which the console groups by
+    -- and a re-scan reports against.
     --
-    -- Unconstrained text, like `segments.kind` and `lineups.source`: an operator who wants a board
+    -- It still does one load-bearing thing: on import a pad joins the SET of the same name, created
+    -- if absent. That is what keeps dropping files in a directory a complete answer, with no console
+    -- visit and nothing to configure.
+    --
+    -- Unconstrained text, like `segments.kind` and `lineups.source`: an operator who wants a folder
     -- called `overnight` must not need a migration to have one. `board` rather than `set` because
-    -- `SET` is a keyword every UPDATE statement in this file would then have to work around.
+    -- `SET` is a keyword every UPDATE statement in this file would then have to work around — and
+    -- because the two are now genuinely different things.
     board text not null check (length(btrim(board)) > 0),
     -- What a script writes to hit this pad, and the ONE thing a model is ever told about it.
     --
@@ -81,7 +86,7 @@ create table deadair.pads (
     -- from and a re-scan can report one it already knows. Not a path the server reads back: the
     -- bytes were copied into the store on import, so emptying the inbox does not silence a pad.
     source_path text,
-    -- When this pad was last chosen, so a board can be played least-recently-hit first.
+    -- When this pad was last chosen, so a set can be played least-recently-hit first.
     --
     -- Stamped at SELECTION rather than after the break airs, which is `chooseFacts`' documented
     -- inaccuracy taken deliberately for its reason: the alternative is a second writer downstream
@@ -95,17 +100,97 @@ create table deadair.pads (
 );
 select deadair.add_updated_at_trigger('deadair.pads');
 
--- One pad per name per board, because a script names a pad and two rows answering to one name are
--- two files that cannot both be hit. Lower-cased and trimmed, since the match is.
+-- One pad per name per DIRECTORY, which is a rule about imports rather than about resolution: a
+-- second file called `airhorn.wav` in one folder replaces the first, and in another folder it is a
+-- second pad. Lower-cased and trimmed, since the match is.
+--
+-- What resolution actually needs is one name per SET, which spans a join and lives in
+-- `PadSetRepository.add`. See `pad_set_members`.
 --
 -- Partial on the same argument the lexicon's is: turning down one air horn must not stop the
 -- operator putting a better one under the same name.
 create unique index pads_name_idx on deadair.pads (station_key, board, lower(btrim(name))) where state <> 'rejected';
 
--- The read a break makes: this board's reachable pads, least recently hit first. Ordered in SQL
--- rather than by the caller so the rotation cannot depend on which pass asked.
+-- The read a scan makes, and what the console groups by: everything that came from one directory.
 create index pads_board_idx on deadair.pads (station_key, board, last_used_at) where state = 'active';
+
+-- A named collection of pads: what a presenter is actually handed.
+--
+-- `deadair.topics`' shape, and for its reason: this is a list an operator adds to, renames and
+-- reorders, which is a table rather than a `ConfigField` describing one row of a form. The words
+-- have to be the operator's, so the station seeds a vocabulary and every entry in it can be
+-- rewritten or deleted.
+--
+-- ## Why it is not just `pads.board`
+--
+-- `board` is where a file CAME FROM — the directory it was dropped in — and it was the whole of the
+-- rack for one commit. That made two things unexpressible. A stock pack cannot be shared, because
+-- every persona names its own board and a `station` board reaches nobody; and one library cannot be
+-- cut two ways, because a pad belongs to exactly one board and an operator who wants two characters
+-- sharing most drops and differing on two has nowhere to say so.
+--
+-- So membership moved to the table below and `board` stayed as provenance. What did not change is
+-- the zero-configuration path: importing a pad joins it to the set named after its directory,
+-- creating that set if absent, so dropping files in `pads/station/` still produces a working rack
+-- with no console visit.
+--
+-- ## Two columns `topics` has that this does not
+--
+-- No `kind`, because a topic is per `segments.kind` — a bulletin's subjects are not a weather
+-- break's — and a set is not per anything. And no `config`: `topics.config` is deliberately shapeless
+-- because the code for a KIND reads it, and nothing reads a set's payload, so a column here would be
+-- a shape nobody is in a position to define.
+create table deadair.pad_sets (
+    id uuid not null default gen_random_uuid() primary key,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now() check (updated_at >= created_at),
+    -- Whose vocabulary this is, as on every other station-owned table.
+    station_key text not null default 'main',
+    -- The slug anything else refers to this by. `personas.soundboard` holds one of these.
+    key text not null check (length(btrim(key)) > 0),
+    -- What the console calls it. Never spoken, unlike a topic's label, because a set is a piece of
+    -- studio equipment rather than something a break says out loud.
+    label text not null,
+    -- The operator's own order, for a console drawing a list. No meaning beyond that: two sets never
+    -- contest anything.
+    position integer not null default 0,
+
+    -- Two sets under one key means a persona naming it reaches whichever the planner felt like.
+    constraint pad_sets_key_unique unique (station_key, key)
+);
+
+select deadair.add_updated_at_trigger('deadair.pad_sets');
+
+-- Which pads are on which set. Many-to-many, which is the entire point of the table.
+--
+-- Both sides `cascade`, and they mean different things. Deleting a SET removes its memberships and
+-- leaves every pad in the library, because a set is a way of grouping the rack rather than a place
+-- the audio lives. Deleting a PAD takes it out of every set it was on, because there is nothing left
+-- to reach.
+--
+-- **A set may not hold two pads under one name**, and that cannot be said here: a script writes a
+-- name, resolution happens within a set, and two pads answering to `airhorn` in one set is a break
+-- that plays whichever the planner returned first. It spans a join so no unique index expresses it;
+-- `PadSetRepository.add` refuses it and the read orders deterministically so a duplicate that got in
+-- some other way cannot flip between two renders of one script.
+--
+-- Note what is NOT a collision: the library legitimately holds two pads called `airhorn`, from two
+-- directories, on two sets, reachable by two different characters. That is the feature.
+create table deadair.pad_set_members (
+    created_at timestamptz not null default now(),
+    set_id uuid not null references deadair.pad_sets (id) on delete cascade,
+    pad_id uuid not null references deadair.pads (id) on delete cascade,
+
+    constraint pad_set_members_pkey primary key (set_id, pad_id)
+);
+
+-- The read a break makes: this set's reachable pads, least recently hit first. Ordered in SQL rather
+-- than by the caller so the rotation cannot depend on which pass asked, and indexed from the set
+-- because that is the direction every read goes.
+create index pad_set_members_pad_idx on deadair.pad_set_members (pad_id);
 
 -- migrate:down
 
+drop table if exists deadair.pad_set_members;
+drop table if exists deadair.pad_sets;
 drop table if exists deadair.pads;

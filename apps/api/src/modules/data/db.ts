@@ -314,6 +314,22 @@ export interface DeadairPads {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairPadSetMembers {
+  createdAt: Generated<DateTime>;
+  padId: string;
+  setId: string;
+}
+
+export interface DeadairPadSets {
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  key: string;
+  label: string;
+  position: Generated<number>;
+  stationKey: Generated<string>;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairPermissionsRelationTuples {
   createdAt: Generated<DateTime>;
   createdBy: string | null;
@@ -780,6 +796,8 @@ export interface DB {
   "deadair.loginEvents": DeadairLoginEvents;
   "deadair.loginFailureCounters": DeadairLoginFailureCounters;
   "deadair.pads": DeadairPads;
+  "deadair.padSetMembers": DeadairPadSetMembers;
+  "deadair.padSets": DeadairPadSets;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;
   "deadair.personaNotePasses": DeadairPersonaNotePasses;
   "deadair.personaNotes": DeadairPersonaNotes;

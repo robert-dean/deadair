@@ -108,6 +108,88 @@ export function contradictsDayPart(script: string, part: RoughTime | undefined):
 }
 
 /**
+ * A time of day the script named that the clock says it cannot be, or `undefined`.
+ *
+ * ## Why this is not more rows in the daypart table
+ *
+ * {@link contradictsDayPart} compares which STRETCH two phrasings name, and there are words a stretch
+ * cannot describe. "Midday" is the one that was measured: a bulletin opened "welcome to your midday
+ * news blast" at half past four in the afternoon, and no version of the stretch question catches it —
+ * midday and half past four are both `afternoon`, so an equality check passes it, and giving midday a
+ * stretch of its own would then refuse a perfectly good "coming up to midday" at ten past twelve.
+ * What is wrong with the live one is not which half of the day it named but how far from noon it was,
+ * and that is a WINDOW, which is the shape the rest of this file already uses for everything.
+ *
+ * ## The table is read and never offered
+ *
+ * {@link DAYPARTS_ROUND_THE_CLOCK} is both what a writer is TOLD and what the check reads back, which
+ * is why a row there has to declare its stretch. {@link TIMES_OF_DAY} is only ever read: nothing
+ * hands these words to a model, and adding a row changes no sentence the station will ever say. That
+ * is the whole reason it is a second table rather than more rows in the first — the two have opposite
+ * obligations, and one list serving both would mean either the station starts saying "teatime" or the
+ * check keeps declining to judge it.
+ *
+ * Answers `undefined` when the slot instant or the zone is missing, on {@link contradictsDayPart}'s
+ * own bargain: a break that was never told when it airs is not refused for guessing.
+ */
+export function namesWrongTimeOfDay(script: string, at: number | undefined, zone: string | undefined): string | undefined {
+    if (at === undefined || zone === undefined) return undefined;
+
+    const { hour } = wallClock(at, zone);
+
+    for (const claim of TIMES_OF_DAY) {
+        if (holdsAt(hour, claim)) continue;
+
+        const said = claim.words.find(word => saysWholeWord(script, word));
+        if (said !== undefined) return said;
+    }
+
+    return undefined;
+}
+
+/**
+ * Words for a time of day, and the hours each one is true in.
+ *
+ * Deliberately short, and every entry earns its place by being something a model has said or would
+ * plainly say. These are not synonyms for the dayparts: each names a POINT in the day with an hour or
+ * two either side of it, which is exactly what a stretch cannot express and why they are here.
+ *
+ * `untilHour` is exclusive and may be smaller than `fromHour`, which is how "midnight" spans the turn
+ * of the day; see {@link holdsAt}. The windows are generous on purpose — the cost of one being too
+ * narrow is a good break refused, and the failure being caught is a break naming a time of day four
+ * hours from the one it airs in.
+ */
+const TIMES_OF_DAY: readonly { words: readonly string[]; fromHour: number; untilHour: number }[] = [
+    { words: ['midday', 'noon', 'lunchtime'], fromHour: 11, untilHour: 14 },
+    { words: ['midnight'], fromHour: 23, untilHour: 1 },
+    { words: ['breakfast'], fromHour: 5, untilHour: 10 },
+    { words: ['teatime'], fromHour: 16, untilHour: 19 },
+];
+
+/** Whether an hour falls in a window that may wrap around midnight. */
+const holdsAt = (hour: number, window: { fromHour: number; untilHour: number }): boolean =>
+    window.fromHour <= window.untilHour
+        ? hour >= window.fromHour && hour < window.untilHour
+        : hour >= window.fromHour || hour < window.untilHour;
+
+/**
+ * Whether a script carries a word, as a word.
+ *
+ * **{@link saysTime} cannot be used for this and the reason is concrete**: it is `includes`, and
+ * `noon` is a substring of `afternoon`. Reusing it would have the station's own daypart phrasing
+ * trigger the check against itself on every afternoon break — a guard that refuses the exact words it
+ * told the model to use.
+ *
+ * `matchesDictionMarker` in `personas/persona.sheet.ts` is the same problem solved once already and
+ * is worth reading for the boundary it uses. Not imported: a personas helper reaching into the
+ * director is the wrong direction, and that one also carries inflections, which a fixed word for a
+ * time of day has no use for.
+ *
+ * Case-insensitive for {@link saysTime}'s reason — a model capitalises the first word of a sentence.
+ */
+const saysWholeWord = (script: string, word: string): boolean => new RegExp(`(?<![a-z])${word}(?![a-z])`).test(script.toLowerCase());
+
+/**
  * The stretch of the day a phrasing names, as against the phrasing itself.
  *
  * Two words share one of these only where a presenter could honestly use either, which is `night`

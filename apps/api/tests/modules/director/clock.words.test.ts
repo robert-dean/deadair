@@ -12,6 +12,7 @@ import {
     contradictsDayPart,
     dayGreeting,
     dayPart,
+    namesWrongTimeOfDay,
     roughTime,
     stationZone,
     timeClaimIn,
@@ -275,5 +276,51 @@ describe('timeClaimIn', () => {
 
     it('ignores an offer the moment never had', () => {
         expect(timeClaimIn('It is this morning.', undefined, morning)?.until).toBe(morning.validUntil);
+    });
+});
+
+
+// The gap `contradictsDayPart` structurally cannot cover. A stretch says which half of the day a
+// phrasing names, and some words name a POINT in it — so "midday" and half past four in the
+// afternoon are the same stretch, and the check that catches every other wrong daypart passes this
+// one. It aired: a bulletin opened "welcome to your midday news blast" at 16:30.
+describe('namesWrongTimeOfDay', () => {
+    it('refuses a break that calls half past four midday', () => {
+        expect(namesWrongTimeOfDay('Welcome to your midday news blast.', at(16, 30), UTC)).toBe('midday');
+    });
+
+    it('allows the same words when it really is the middle of the day', () => {
+        // The case a stretch of its own would have got wrong, which is why the window exists.
+        expect(namesWrongTimeOfDay('Welcome to your midday news blast.', at(12, 15), UTC)).toBeUndefined();
+        expect(namesWrongTimeOfDay('Coming up to midday.', at(11, 50), UTC)).toBeUndefined();
+    });
+
+    it('does not find noon inside afternoon', () => {
+        // The substring trap, and the reason `saysTime` could not be reused: the station's own
+        // daypart phrasing would otherwise trip the guard that told the model to use it.
+        expect(namesWrongTimeOfDay("You're with us this afternoon on Deadair.", at(16, 30), UTC)).toBeUndefined();
+    });
+
+    it('reads a window that wraps around the turn of the day', () => {
+        expect(namesWrongTimeOfDay('Nearly midnight here.', at(23, 30), UTC)).toBeUndefined();
+        expect(namesWrongTimeOfDay('Nearly midnight here.', at(0, 30), UTC)).toBeUndefined();
+        expect(namesWrongTimeOfDay('Nearly midnight here.', at(14, 0), UTC)).toBe('midnight');
+    });
+
+    it('asks nothing of a break that was never told when it airs', () => {
+        // `contradictsDayPart`'s own bargain: the prompt has to have said so before a script can be
+        // refused for contradicting it.
+        expect(namesWrongTimeOfDay('Welcome to your midday news blast.', undefined, UTC)).toBeUndefined();
+        expect(namesWrongTimeOfDay('Welcome to your midday news blast.', at(16, 30), undefined)).toBeUndefined();
+    });
+
+    it('reads the station zone rather than the hosts', () => {
+        // 16:30 UTC is half past eleven in New York, which is the middle of the day there.
+        expect(namesWrongTimeOfDay('Your midday news.', at(16, 30), 'America/New_York')).toBeUndefined();
+        expect(namesWrongTimeOfDay('Your midday news.', at(16, 30), 'Europe/London')).toBe('midday');
+    });
+
+    it('says nothing about a script that named no time of day at all', () => {
+        expect(namesWrongTimeOfDay('That was Blue Monday, from New Order.', at(16, 30), UTC)).toBeUndefined();
     });
 });

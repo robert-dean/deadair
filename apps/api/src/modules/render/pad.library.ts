@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
@@ -88,6 +88,10 @@ export interface PadIngested {
  * argument about what is present and never about what is absent — the bytes are in the store and the
  * row is the station's — so the way to take a pad off a board is to reject it, which is a decision
  * that outlives the next scan. See `PadRepository.setState`.
+ *
+ * The exception is a file the CONSOLE wrote, which it may also take away: {@link discard} removes it
+ * so the row and the claim go together. `RenderService.deletePad` holds the rule about which pads
+ * those are.
  */
 @Injectable()
 export class PadLibrary {
@@ -321,6 +325,37 @@ export class PadLibrary {
         }
 
         return { pad, outcome, contested };
+    }
+
+    /**
+     * Take one pad's file back off the disk.
+     *
+     * The other end of {@link ingest}'s write, and the reason `RenderService.deletePad` can exist at
+     * all: a row removed on its own comes straight back on the next scan, because the file is still
+     * there making the same claim it always did.
+     *
+     * Best-effort, which is the opposite call to the write it undoes and for a reason that is not
+     * inconsistency: a write that fails leaves a pad nothing can back up, where a delete that fails
+     * leaves a file the next scan re-imports — visible, in the library, and fixable by hand. The row
+     * going is what the caller asked for. A file already gone is the ordinary case rather than a
+     * fault, since an operator may well have deleted it themselves.
+     *
+     * It never touches the content store: those bytes are content-addressed and shared with
+     * segments, so what may be removed is a question about every other reference to that checksum
+     * rather than about this pad, and the boot scan rewrites that half anyway.
+     */
+    async discard(pad: Pad): Promise<void> {
+        if (pad.sourcePath === undefined) return;
+
+        try {
+            await rm(join(this.root, pad.sourcePath), { force: true });
+        } catch (error) {
+            this.logger.warn('render: could not take a pad\'s file off the disk; the next scan will read it back in', {
+                pad: pad.id,
+                file: pad.sourcePath,
+                error: errorText(error),
+            });
+        }
     }
 
     /** Put the bytes in the library directory, and answer where they landed. Throws; see {@link ingest}. */

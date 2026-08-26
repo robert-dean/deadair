@@ -223,6 +223,8 @@ export interface Pad {
     durationMs?: number;
     /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
     loudnessLufs?: number;
+    /** Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it */
+    source: string;
     /** The file in the library directory it was imported from, so the console can say where it came from */
     sourcePath?: string;
     /** When it was last hit. Absent for one nothing has reached for yet */
@@ -252,7 +254,7 @@ export interface PadInput {
  * Documentation rather than validation: a multipart body reaches the service as the raw parser and
  * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
  * send
- * generated from [PadUpload](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L196)
+ * generated from [PadUpload](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L197)
  */
 export interface PadUpload {
     /** The audio itself. mp3, wav, ogg, flac or m4a, and at most 25 MB */
@@ -270,7 +272,7 @@ export interface PadUpload {
  *
  * One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
  * renaming a set unpoints every persona naming it — which is why `personas` says who those are
- * generated from [PadSet](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L212)
+ * generated from [PadSet](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L213)
  */
 export interface PadSet {
     id: string;
@@ -293,7 +295,7 @@ export interface PadSetInput {
 
 /**
  * A set an operator is naming, or renaming
- * generated from [PadSetWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L221)
+ * generated from [PadSetWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L222)
  */
 export interface PadSetWrite {
     key: string;
@@ -303,7 +305,7 @@ export interface PadSetWrite {
 
 /**
  * Which pad, and whether it is on the set
- * generated from [PadSetMembership](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L227)
+ * generated from [PadSetMembership](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L228)
  */
 export interface PadSetMembership {
     padId: string;
@@ -312,7 +314,7 @@ export interface PadSetMembership {
 
 /**
  * Turning a pad down, or putting one back
- * generated from [PadState](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L232)
+ * generated from [PadState](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L233)
  */
 export interface PadState {
     state: 'active' | 'rejected';
@@ -320,7 +322,7 @@ export interface PadState {
 
 /**
  * What one pass over the pad library did
- * generated from [PadScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L236)
+ * generated from [PadScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L237)
  */
 export interface PadScanResult {
     /** Audio files seen, whether or not anything changed */
@@ -469,7 +471,7 @@ export interface PronunciationList {
 
 /**
  * Every sound the station holds, and the sets over it
- * generated from [PadList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L203)
+ * generated from [PadList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L204)
  */
 export interface PadList {
     pads: Pad[];

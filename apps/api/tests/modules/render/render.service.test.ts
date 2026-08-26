@@ -675,3 +675,61 @@ describe('RenderService.uploadPad', () => {
         expect(await status(render.uploadPad(body({ file: FILE, fields: { board: 'wisecrack' } })))).toBe(409);
     });
 });
+
+// The one thing `pads.source` decides. A file the console wrote it may take away; a file the operator
+// dropped in the library is theirs, and deleting the row would only bring it back on the next scan.
+describe('RenderService.deletePad', () => {
+    const pad = (source: string) => ({ id: ID, name: 'airhorn', label: 'Air Horn', source, sourcePath: `station/airhorn.wav` });
+
+    const deleter = (source: string) => {
+        const findById = vi.fn(async () => pad(source));
+        const remove = vi.fn(async () => true);
+        const discard = vi.fn(async () => undefined);
+
+        const render = new RenderService(
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            { findById, remove, list: vi.fn(async () => []) } as never,
+            { list: vi.fn(async () => []), setsFor: vi.fn(async () => new Map()), personasNaming: vi.fn(async () => []) } as never,
+            { discard } as never,
+            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+        );
+
+        return { service: render, remove, discard };
+    };
+
+    it('takes the row and the file together, because the scan re-reads the directory', async () => {
+        const { service: render, remove, discard } = deleter('upload');
+
+        await render.deletePad(ID);
+
+        // Both, and in that order of importance: a row removed on its own comes straight back on the
+        // next pass, because the file is still there making the same claim.
+        expect(discard).toHaveBeenCalled();
+        expect(remove).toHaveBeenCalledWith(ID);
+    });
+
+    it('does the same for one fetched from an address', async () => {
+        const { service: render, remove } = deleter('url');
+
+        await render.deletePad(ID);
+
+        expect(remove).toHaveBeenCalled();
+    });
+
+    it('refuses a file the operator dropped in themselves, and says what to do instead', async () => {
+        const { service: render, remove, discard } = deleter('library');
+
+        expect(await status(render.deletePad(ID))).toBe(409);
+        expect(remove).not.toHaveBeenCalled();
+        expect(discard).not.toHaveBeenCalled();
+    });
+});

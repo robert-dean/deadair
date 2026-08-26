@@ -183,6 +183,7 @@ contract Pad: {
     label: string(min=1, max=200)
     durationMs?: int(min=0)
     loudnessLufs?: number # How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary
+    source: readonly string(min=1, max=50) # Who put the file there: `library` for one the operator dropped in, `upload` or `url` for one the console wrote. It decides whether the console may delete it
     sourcePath?: string(max=500) # The file in the library directory it was imported from, so the console can say where it came from
     lastUsedAt?: datetime # When it was last hit. Absent for one nothing has reached for yet
     state: enum(active, rejected)

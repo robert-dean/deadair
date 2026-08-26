@@ -17,6 +17,7 @@ import type { Pad, PadSet } from '@deadair/sdk';
 import {
     fetchPadAudio,
     useCreatePadSet,
+    useDeletePad,
     useDeletePadSet,
     usePads,
     useScanPads,
@@ -71,7 +72,9 @@ export function PadsPage() {
     // plays station audio goes through this, and a second way of doing it is a second set of bugs
     // about what happens when you click the next one before the first has finished.
     const preview = useVoicePreview();
+    const remove = useDeletePad();
     const [newSet, setNewSet] = useState('');
+    const [deleting, setDeleting] = useState<Pad | undefined>(undefined);
 
     if (rack.isPending) return <PageSkeleton variant="rows" count={6} />;
     if (rack.isError) return <ErrorAlert title="The soundboard could not be read" error={rack.error} />;
@@ -125,6 +128,7 @@ export function PadsPage() {
                             preview={preview}
                             onToggle={(setId, padId, on) => void membership.mutateAsync({ id: setId, body: { padId, on } })}
                             onReject={id => void setState.mutateAsync({ id, body: { state: 'rejected' } })}
+                            onDelete={setDeleting}
                         />
                     </Stack>
                 </Card>
@@ -138,10 +142,31 @@ export function PadsPage() {
                             Kept rather than deleted, because the scan re-reads the library: a row that was removed would be back on the next pass. A
                             turned-down sound stays on its sets and reserves nothing — put it back and it is reachable again.
                         </Text>
-                        <PadTable pads={rejected} sets={[]} preview={preview} onRestore={id => void setState.mutateAsync({ id, body: { state: 'active' } })} />
+                        <PadTable
+                            pads={rejected}
+                            sets={[]}
+                            preview={preview}
+                            onRestore={id => void setState.mutateAsync({ id, body: { state: 'active' } })}
+                            onDelete={setDeleting}
+                        />
                     </Stack>
                 </Card>
             ) : undefined}
+
+            <ConfirmModal
+                opened={deleting !== undefined}
+                title={`Delete ${deleting?.label ?? ''}?`}
+                confirmLabel="Delete the sound"
+                onConfirm={async () => {
+                    if (deleting !== undefined) await remove.mutateAsync(deleting.id);
+                    setDeleting(undefined);
+                }}
+                onClose={() => setDeleting(undefined)}
+            >
+                The file this console wrote for it goes too, so the next scan does not read it back
+                in. Any script already written naming <code>[sfx:{deleting?.name}]</code> will simply
+                find nothing and be spoken without it.
+            </ConfirmModal>
         </Stack>
     );
 }
@@ -296,9 +321,10 @@ interface PadTableProps {
     onToggle?: (setId: string, padId: string, on: boolean) => void;
     onReject?: (id: string) => void;
     onRestore?: (id: string) => void;
+    onDelete?: (pad: Pad) => void;
 }
 
-function PadTable({ pads, sets, preview, onToggle, onReject, onRestore }: PadTableProps) {
+function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete }: PadTableProps) {
     return (
         <Table verticalSpacing="xs" highlightOnHover>
             <Table.Thead>
@@ -409,6 +435,16 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore }: PadTab
                                     <Tooltip label="Put it back in use">
                                         <ActionIcon variant="subtle" aria-label={`Restore ${pad.label}`} onClick={() => onRestore(pad.id)}>
                                             <IconRotate size={16} />
+                                        </ActionIcon>
+                                    </Tooltip>
+                                ) : undefined}
+                                {/* Only for a file this console wrote. One the operator dropped in
+                                    themselves is theirs, and deleting the row would only bring it
+                                    back on the next scan; the reject above is the answer there. */}
+                                {onDelete && pad.source !== 'library' ? (
+                                    <Tooltip label="Delete it, and the file that was written for it">
+                                        <ActionIcon variant="subtle" color="red" aria-label={`Delete ${pad.label}`} onClick={() => onDelete(pad)}>
+                                            <IconTrash size={16} />
                                         </ActionIcon>
                                     </Tooltip>
                                 ) : undefined}

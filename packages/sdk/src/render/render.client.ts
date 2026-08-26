@@ -341,6 +341,15 @@ export class RenderClient {
     }
 
     /**
+     * @name Delete pad
+     * @description Removes a sound the console put there, and the file it wrote for it
+     */
+    async deletePad(id: string): Promise<PadList> {
+        const result = await this.fetch(`/pads/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return await parseJson<PadList>(result);
+    }
+
+    /**
      * @name Set pad state
      * @description Turns a sound down, or puts one back. Answers the whole rack, since one pad changing state is one row moving between two sections of the same page
      */

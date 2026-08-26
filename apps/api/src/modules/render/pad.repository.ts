@@ -335,6 +335,24 @@ export class PadRepository extends DataRepository {
      * outlive it. Rejecting one does not stop them putting a different sound under the same name,
      * which is what the unique index being partial is for.
      */
+    /**
+     * Take a pad off the rack for good.
+     *
+     * The narrow half of the pair above, and it exists only for a file the CONSOLE wrote: `setState`
+     * argues that a deleted row comes back on the next scan, which is true of every pad, so what
+     * makes this expressible at all is the caller deleting the FILE in the same breath. See
+     * `RenderService.deletePad`, which holds the rule about which pads those are — this method asks
+     * nothing about it, because a repository is not where a policy belongs.
+     *
+     * Memberships go with it: `pad_set_members.pad_id` cascades, so a set loses the row and keeps
+     * every other sound on it.
+     */
+    async remove(id: string): Promise<boolean> {
+        const result = await this.db.deleteFrom('deadair.pads').where('id', '=', id).where('stationKey', '=', this.station.stationKey).executeTakeFirst();
+
+        return Number(result.numDeletedRows) > 0;
+    }
+
     async setState(id: string, state: PadState): Promise<boolean> {
         const result = await this.db
             .updateTable('deadair.pads')

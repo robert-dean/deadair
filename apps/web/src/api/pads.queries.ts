@@ -71,6 +71,15 @@ export function useUploadPad() {
     });
 }
 
+/**
+ * Removing a sound the console put there, and the file it wrote for it.
+ *
+ * On `usePadSetWrite` rather than on the upload's settle path, because this one has no
+ * kept-but-unreachable outcome: it either removed the pad and answered the rack, or it refused and
+ * changed nothing.
+ */
+export const useDeletePad = () => usePadSetWrite((id: string) => sdk.render.deletePad(id));
+
 export const useSetPadMembership = () =>
     usePadSetWrite(({ id, body }: { id: string; body: PadSetMembership }) => sdk.render.setPadMembership(id, body));
 

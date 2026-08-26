@@ -32,7 +32,7 @@ import type {
 } from './types/render.types.js';
 import { DateTime } from 'luxon';
 import { boardIsSafe, DEFAULT_BOARD, labelFor, MAX_PAD_BYTES, padName, padNameOf, PadLibrary } from './pad.library.js';
-import { PAD_SOURCES, PadRepository, type Pad } from './pad.repository.js';
+import { PAD_SOURCES, padIsConsoleWritten, PadRepository, type Pad } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { ScriptRatingsRepository } from './script.ratings.repository.js';
@@ -476,6 +476,45 @@ export class RenderService {
     }
 
     /**
+     * Removes a sound the console put there, and the file it wrote for it.
+     *
+     * ## Why this is not simply the delete `setState` argues against
+     *
+     * Rejecting rather than deleting is the rule on this table, and its reason is the scan: the pad
+     * library on disk is re-read on every boot and on every operator's press of the button, so a
+     * removed ROW comes back with the file still sitting there. That argument holds for every pad,
+     * which is why the second half of this is deleting the FILE.
+     *
+     * What decides who may do that is `pads.source`, and it is the one thing that column decides. A
+     * file the operator dropped in the library is theirs, and the console does not delete other
+     * people's files — turning it down is the answer there, and it is the answer this refuses with.
+     * A file the console WROTE (an upload, a fetch) it may also take away, and a mis-uploaded sound
+     * that could never leave would be a one-way door.
+     *
+     * The bytes stay in the content store. It is content-addressed and shared with segments, so
+     * removing them is a question about what else references that checksum rather than about this
+     * pad, and the archive design already treats that store as the disposable half — the boot scan
+     * rewrites it from the library. A file missing from disk is not an error either: the row going is
+     * the point, and a pad whose file somebody already deleted by hand is exactly the case this is
+     * for.
+     */
+    async deletePad(id: string): Promise<PadList> {
+        const pad = await this.pads.findById(id);
+        if (pad === undefined) throw httpError(404).withDetails({ message: `pad "${id}" does not exist` });
+
+        if (!padIsConsoleWritten(pad.source)) {
+            throw httpError(409).withDetails({
+                message: `"${pad.name}" is a file in the pad library on disk, so deleting the row would only bring it back on the next scan. Turn it down instead, or remove the file`,
+            });
+        }
+
+        await this.padLibrary.discard(pad);
+        await this.pads.remove(id);
+
+        return await this.listPads();
+    }
+
+    /**
      * Turns a sound down, or puts one back, and answers the whole rack.
      *
      * The whole rack rather than the row, exactly as the pronunciations routes do: one pad changing
@@ -878,6 +917,7 @@ function toPadView(pad: Pad) {
         state: pad.state,
         ...(pad.durationMs === undefined ? {} : { durationMs: pad.durationMs }),
         ...(pad.loudnessLufs === undefined ? {} : { loudnessLufs: pad.loudnessLufs }),
+        source: pad.source,
         ...(pad.sourcePath === undefined ? {} : { sourcePath: pad.sourcePath }),
         ...(pad.lastUsedAt === undefined ? {} : { lastUsedAt: DateTime.fromISO(pad.lastUsedAt) }),
     };

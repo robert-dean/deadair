@@ -497,6 +497,30 @@ operation /pads/scan: {
     }
 }
 
+operation /pads/{id}: {
+    params: {
+        id: uuid
+    }
+
+    # Only for a file the CONSOLE wrote. A sound the operator dropped in the pad library themselves is
+    # turned down instead -- the scan re-reads that directory, so a deleted row would be back on the
+    # next pass, and deleting the file to stop that would be the station removing somebody else's file
+    delete: { # Removes a sound the console put there, and the file it wrote for it
+        name: Delete pad
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.deletePad
+        response: {
+            200: {
+                application/json: PadList
+            }
+            404:
+            409:
+        }
+    }
+}
+
 operation /pads/{id}/state: {
     params: {
         id: uuid

@@ -380,6 +380,7 @@ export interface DeadairPersonas {
   kind: Generated<"host" | "caller">;
   label: string;
   latitude: string | null;
+  preoccupations: Generated<Json>;
   quirks: Generated<Json>;
   samples: Generated<Json>;
   soundboard: string | null;

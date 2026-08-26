@@ -252,6 +252,35 @@ export interface PersonaSheet {
     dictionMarkers?: readonly string[];
     /** What they always and never do on air, and what they care about. */
     quirks?: readonly string[];
+    /**
+     * The standing subjects this character keeps coming back to, of which **exactly one** reaches any
+     * one prompt.
+     *
+     * ## Not a quirk, which is the same split {@link PersonaSheet.diction} makes one field up
+     *
+     * A quirk is a RULE about how the character behaves and is true of every break there will ever
+     * be, so all six go out every time. These are MATERIAL, and material a model is handed gets used:
+     * five of them in a forty-word break is a presenter reading their own file. That is
+     * `persona_stories`' rule exactly, and it is why the caller picks one rather than the sheet
+     * offering the list.
+     *
+     * ## Rotating them cannot loosen a fence, because the fence is not in here
+     *
+     * The conspiracy host's quirks say its theories may never be pointed at a real event, a real
+     * death or a government; its preoccupations say what they ARE pointed at tonight. The first is
+     * still sent in full whichever of the second comes round, so variety is bought without any rule
+     * being negotiable — which is the whole reason the two are separate fields rather than a longer
+     * quirk list.
+     *
+     * The rotation is a cheap spread over the segment id (`rotationOf`) rather than a stored cursor.
+     * Stability is the point of choosing it that way: a break re-offered after a lost job has to be
+     * handed the same material, or the retry becomes a second opinion.
+     *
+     * **Only a model ever sees one.** A phrasing is a sentence an operator typed and has nowhere to
+     * put a subject, so a station with no model keeps its preoccupations and never says anything out
+     * of them — the bound `PersonaNotesForPrompt` is already under.
+     */
+    preoccupations?: readonly string[];
     /** Signature phrases. Asked for sparingly, because a catchphrase every break is a jingle. */
     catchphrases?: readonly string[];
     /** Wording that breaks the character. Also the lever against a model's own tells. */
@@ -361,6 +390,8 @@ export const PERSONA_SHEET_LIMITS = {
     /** Higher than the rest: markers are single words, and the check needs enough to be fair. */
     dictionMarkers: 16,
     quirks: 6,
+    /** Matching {@link PERSONA_SHEET_LIMITS.quirks}: enough for a rotation to be worth having, few enough that a sheet stays a sheet. */
+    preoccupations: 6,
     catchphrases: 6,
     avoid: 12,
     samples: 3,

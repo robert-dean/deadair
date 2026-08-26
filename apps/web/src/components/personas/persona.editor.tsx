@@ -256,6 +256,14 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         {...form.getInputProps('quirks')}
                     />
 
+                    <Textarea
+                        label="What they keep coming back to"
+                        description="One subject per line. Only ONE of these reaches any break, chosen in turn, so a longer list is more variety rather than more to say at once. These are subjects; the rules about how they behave belong above."
+                        placeholder={'the pressing plant\nthe session that booked four hours\nthe running order of this station'}
+                        rows={4}
+                        {...form.getInputProps('preoccupations')}
+                    />
+
                     <Group grow align="flex-start">
                         <Textarea
                             label="Signature phrases"
@@ -546,6 +554,7 @@ interface FormValues {
     diction: string;
     dictionMarkers: string;
     quirks: string;
+    preoccupations: string;
     catchphrases: string;
     avoid: string;
     samples: string;
@@ -580,6 +589,7 @@ function valuesOf(persona: PersonaDraftView | undefined): FormValues {
         diction: linesOf(persona?.diction),
         dictionMarkers: linesOf(persona?.dictionMarkers),
         quirks: linesOf(persona?.quirks),
+        preoccupations: linesOf(persona?.preoccupations),
         catchphrases: linesOf(persona?.catchphrases),
         avoid: linesOf(persona?.avoid),
         samples: linesOf(persona?.samples),
@@ -635,6 +645,7 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
             diction: list(values.diction),
             dictionMarkers: list(values.dictionMarkers),
             quirks: list(values.quirks),
+            preoccupations: list(values.preoccupations),
             catchphrases: list(values.catchphrases),
             avoid: list(values.avoid),
             samples: list(values.samples),

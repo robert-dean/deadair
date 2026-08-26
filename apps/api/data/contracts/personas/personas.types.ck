@@ -17,6 +17,7 @@ contract Persona: {
     diction?: array(string(min=1, max=500)) # The dialect: grammar and substitutions that apply to every sentence rather than to a subject
     dictionMarkers?: array(string(min=1, max=100)) # Words whose presence proves the dialect survived. What a model's answer is checked against
     quirks?: array(string(min=1, max=500)) # What they always and never do on air
+    preoccupations?: array(string(min=1, max=500)) # The standing subjects they keep coming back to. Exactly ONE reaches any one break, chosen by rotation, which is what makes a character sound like it has things on its mind rather than one thing
     catchphrases?: array(string(min=1, max=200)) # Signature phrases, asked for sparingly
     avoid?: array(string(min=1, max=200)) # Wording that breaks the character
     background?: string(max=2000) # A couple of grounded facts they may self-reference
@@ -50,6 +51,7 @@ contract PersonaDraftView: {
     diction?: array(string(min=1, max=500))
     dictionMarkers?: array(string(min=1, max=100))
     quirks?: array(string(min=1, max=500))
+    preoccupations?: array(string(min=1, max=500))
     catchphrases?: array(string(min=1, max=200))
     avoid?: array(string(min=1, max=200))
     background?: string(max=2000)

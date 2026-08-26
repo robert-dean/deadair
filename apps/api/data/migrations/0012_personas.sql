@@ -51,6 +51,18 @@ create table deadair.personas (
     diction jsonb not null default '[]'::jsonb,
     diction_markers jsonb not null default '[]'::jsonb,
     quirks jsonb not null default '[]'::jsonb,
+    -- The standing subjects this character keeps coming back to, and EXACTLY ONE of them reaches any
+    -- one prompt. That is the whole difference from `quirks` above, which all go out every time: a
+    -- quirk is a rule about how the character behaves and is true of every break, where these are
+    -- material, and material a model is handed gets used — a list of five in a forty-word break is a
+    -- presenter reading their own file. It is `persona_stories`' rule one table over, and the
+    -- rotation is a cheap spread over the segment id rather than a column, because the question has
+    -- no memory worth keeping: see `rotationOf`.
+    --
+    -- The split with `quirks` is also what keeps a fence honest. A quirk says what this character may
+    -- never point a theory at; a preoccupation is what it is pointed at TODAY. Rotating the second
+    -- can never loosen the first, because the first is still sent in full.
+    preoccupations jsonb not null default '[]'::jsonb,
     catchphrases jsonb not null default '[]'::jsonb,
     avoid jsonb not null default '[]'::jsonb,
     samples jsonb not null default '[]'::jsonb,

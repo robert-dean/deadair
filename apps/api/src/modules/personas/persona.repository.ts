@@ -270,6 +270,7 @@ function columnsOf(draft: PersonaDraft) {
         diction: jsonOf(draft.diction),
         dictionMarkers: jsonOf(draft.dictionMarkers),
         quirks: jsonOf(draft.quirks),
+        preoccupations: jsonOf(draft.preoccupations),
         catchphrases: jsonOf(draft.catchphrases),
         avoid: jsonOf(draft.avoid),
         samples: jsonOf(draft.samples),
@@ -310,6 +311,7 @@ function toPersona(row: {
     diction: unknown;
     dictionMarkers: unknown;
     quirks: unknown;
+    preoccupations: unknown;
     catchphrases: unknown;
     avoid: unknown;
     samples: unknown;
@@ -343,6 +345,7 @@ function toPersona(row: {
         ...list(row.diction, 'diction'),
         ...list(row.dictionMarkers, 'dictionMarkers'),
         ...list(row.quirks, 'quirks'),
+        ...list(row.preoccupations, 'preoccupations'),
         ...list(row.catchphrases, 'catchphrases'),
         ...list(row.avoid, 'avoid'),
         ...list(row.samples, 'samples'),

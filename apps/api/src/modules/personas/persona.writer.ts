@@ -163,6 +163,7 @@ export function personaPrompt(description: string): LlmMessage[] {
                 '  "samples": ["at least six lines in their own voice, as said on air. Between them they must use EVERY diction rule above"],',
                 '  "dictionMarkers": ["words COPIED from the sample lines you just wrote — see the rules below"],',
                 '  "quirks": ["what they always and never do on air, and what they care about"],',
+                '  "preoccupations": ["four or five subjects this character keeps coming back to. One of them goes into any one break, so make each of them enough to talk about on its own"],',
                 '  "catchphrases": ["signature phrases, at most three"],',
                 '  "avoid": ["wording that would break the character"],',
                 '  "background": "a couple of grounded facts they may mention about themselves",',
@@ -218,6 +219,10 @@ export function personaPrompt(description: string): LlmMessage[] {
                 // the station with nothing to say at the top of an order or on the hour.
                 '- Write one of each of these, in this order: (1) what just played and then what is next, (2) only what is next, for the top of a show when nothing has played yet, (3) the station name with both records in [[brackets]], (4) only what just played, (5) one using {{clock.rough}}.',
                 '- diction is HOW they talk and quirks are WHAT they talk about. Do not put a subject in diction.',
+                // The distinction that decides whether the rotation is worth anything: a rule
+                // repeated five times is one preoccupation written out five ways, and the station
+                // gets no variety out of a list whose entries are all the same instruction.
+                '- A quirk is a RULE about how they behave, true of every break. A preoccupation is a SUBJECT they return to, and only one is shown at a time. So no entry may be a rule, and no two may be the same subject worded differently.',
                 // A local model wrapping a long string across lines is invalid JSON and loses the
                 // whole persona. `parseLooseJson` repairs it; asking is cheaper than repairing.
                 '- Every value is on ONE line. Never break a string across lines, and use plain straight quotes and hyphens.',
@@ -345,6 +350,7 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
                 diction: nonEmpty(list(raw.diction, PERSONA_SHEET_LIMITS.diction)),
                 dictionMarkers: nonEmpty(markers),
                 quirks: nonEmpty(list(raw.quirks, PERSONA_SHEET_LIMITS.quirks)),
+                preoccupations: nonEmpty(list(raw.preoccupations, PERSONA_SHEET_LIMITS.preoccupations)),
                 catchphrases: nonEmpty(list(raw.catchphrases, PERSONA_SHEET_LIMITS.catchphrases)),
                 avoid: nonEmpty(list(raw.avoid, PERSONA_SHEET_LIMITS.avoid)),
                 samples: nonEmpty(samples),

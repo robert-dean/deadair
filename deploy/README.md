@@ -96,6 +96,12 @@ station being a station:
 5. **A model, if you want one.** Plugins page: the station writes what the presenter says with a
    local or hosted model when one is configured, and from its own phrasings when none is. It is
    not required, and a station with none still talks.
+6. **Where the station is.** Settings page: an IANA zone name. It is what the presenter reads the
+   clock in, and — less obviously — what decides whether it is morning or evening where a listener
+   is. Left unanswered the station falls back to the container's `TZ`, which is UTC unless you set
+   it, and a presenter four hours out says "tonight" through your afternoon. Set the setting rather
+   than the variable where the two disagree: a station is a place and its listeners are in it,
+   which is not necessarily where the server is.
 
 Two things need a browser visit rather than a setting, and both are on the plugins page: the music
 provider's authorization, and — on Spotify — the station's own playback authorization above. Nothing

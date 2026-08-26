@@ -202,6 +202,7 @@ RUN set -eux; \
         nginx \
         python3 python3-venv \
         media-types \
+        tzdata \
         libcurl4 libogg0 libspeex1 libssl3t64 libtheora0 libvorbis0a libxml2 libxslt1.1 librhash1; \
     apt-get install -y --no-install-recommends -t trixie-backports libigloo0t64; \
     rm -rf /var/lib/apt/lists/*

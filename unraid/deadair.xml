@@ -58,6 +58,10 @@
         Description="Normally the same as the public address, because one port serves both."
         Type="Variable" Display="always" Required="true" Mask="false"></Config>
 
+    <Config Name="Timezone" Target="TZ" Default="Etc/UTC" Mode=""
+        Description="An IANA zone name such as America/New_York or Europe/London. The station reads the clock in this when it says the time and when it works out what half of the day it is; left unset a container reports UTC, which is a presenter saying &quot;tonight&quot; through your afternoon. Only the fallback — the station's own &quot;Where the station is&quot; setting, on the settings page, wins over it, because a station is a place and its listeners are in it rather than wherever the server happens to sit."
+        Type="Variable" Display="always" Required="false" Mask="false">Etc/UTC</Config>
+
     <Config Name="Secret key" Target="KMS_LOCAL_ROOT_KEY" Default="" Mode=""
         Description="Encrypts every credential the station stores, including your music provider's. Generate once with: openssl rand -hex 32 — it must be hex, and keep it. Losing it means entering all of them again."
         Type="Variable" Display="always" Required="true" Mask="true"></Config>

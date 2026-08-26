@@ -6,7 +6,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { SEED_PERSONAS } from '../../../src/modules/personas/persona.defaults.js';
-import { avoidedWording, echoedSample, keepsCharacter, MIN_DICTION_MARKERS, personaLines } from '../../../src/modules/personas/persona.sheet.js';
+import { SEED_CALLERS } from '../../../src/modules/personas/caller.defaults.js';
+import {
+    avoidedWording,
+    echoedSample,
+    keepsCharacter,
+    MIN_DICTION_MARKERS,
+    personaLines,
+    PERSONA_SHEET_LIMITS,
+} from '../../../src/modules/personas/persona.sheet.js';
 import { parseTemplates, unknownPlaceholders, usable } from '../../../src/modules/director/break.templates.js';
 import { spoken } from '../../../src/modules/director/talk.break.writer.js';
 
@@ -14,6 +22,15 @@ const previous = { title: 'Solid Air', artist: 'John Martyn' };
 const next = { title: 'Pink Moon', artist: 'Nick Drake' };
 
 const withTemplates = SEED_PERSONAS.filter(persona => (persona.templates ?? '').trim().length > 0);
+
+/**
+ * Both rosters, for the guards that were written after callers existed.
+ *
+ * The older cases above run over the hosts alone, which is where they were pointed when they were
+ * written rather than a judgement that a caller's sheet cannot make the same mistakes — it can, and
+ * widening them is worth doing on its own rather than as a side effect of adding a field.
+ */
+const SEED_CHARACTERS = [...SEED_PERSONAS, ...SEED_CALLERS];
 
 describe('the seeded personas', () => {
     it('all have a key, a label and somebody to be', () => {
@@ -112,6 +129,45 @@ describe('the seeded personas', () => {
 
             for (const catchphrase of persona.catchphrases ?? []) {
                 expect(markers.has(catchphrase.toLowerCase()), `${persona.key} says "${catchphrase}" is both a marker and a signature`).toBe(false);
+            }
+        }
+    });
+
+    // Membership rather than content, since what a character is on about is a judgement. What is
+    // checkable is that the field was filled in at all: a seed with none is a character the operator
+    // sees a box for and never hears anything out of, and the reason `forecast` has none is written
+    // on the seed itself rather than left to be inferred from an empty array.
+    it('all have something they keep coming back to, except the bulletin that may not', () => {
+        for (const persona of SEED_CHARACTERS) {
+            const subjects = persona.preoccupations?.length ?? 0;
+
+            if (persona.key === 'forecast') expect(subjects, 'the forecast announcer has opinions now').toBe(0);
+            else expect(subjects, `${persona.key} has nothing on its mind`).toBeGreaterThan(2);
+        }
+    });
+
+    // Past the cap an entry reaches no prompt, and a duplicate is silently dropped by the sheet's own
+    // normalizer — both of which look from the console like a list that is longer than the rotation
+    // it actually has.
+    it('keep every subject inside the cap, and none of them twice', () => {
+        for (const persona of SEED_CHARACTERS) {
+            const subjects = persona.preoccupations ?? [];
+            const distinct = new Set(subjects.map(subject => subject.trim().toLowerCase()));
+
+            expect(subjects.length, `${persona.key} has subjects past the cap that no break will see`).toBeLessThanOrEqual(
+                PERSONA_SHEET_LIMITS.preoccupations,
+            );
+            expect(distinct.size, `${persona.key} lists the same subject twice`).toBe(subjects.length);
+        }
+    });
+
+    // The same trap as the samples below, one field up: a subject carrying wording the sheet forbids
+    // goes into the prompt as the thing to talk about and comes back as the thing that gets the
+    // script refused.
+    it('name no subject in wording they forbid', () => {
+        for (const persona of SEED_CHARACTERS) {
+            for (const subject of persona.preoccupations ?? []) {
+                expect(avoidedWording(persona, subject), `${persona.key} is on about wording it forbids: "${subject}"`).toEqual([]);
             }
         }
     });

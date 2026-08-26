@@ -103,7 +103,13 @@ export interface ScriptHistoryPageQuery {
     outcome?: ScriptOutcome;
     /** Everything one character has said, which is the read a persona's own page wants. */
     personaKey?: string;
-    /** Every attempt made for one break, in place of the whole history. */
+    /**
+     * Every attempt made for one break, in place of the whole history.
+     *
+     * A production's JOINED row is the exception and is widened to its beats: the words on that row
+     * were never written by anybody, they are the beats' own scripts run together, so an equality
+     * on it answers nothing. See {@link ScriptHistoryRepository.page}.
+     */
     segmentId?: string;
     /** One attempt by id, for a caller that has just written to it and wants it back as a row. */
     scriptId?: string;
@@ -414,11 +420,51 @@ export class ScriptHistoryRepository extends DataRepository {
         // Newest first like every other read here, rather than the oldest-first walk a single
         // break's attempts would suggest: this is the same page in the same order, narrowed. The
         // handful of rows one segment produces fits on it either way.
-        if (query.segmentId !== undefined) statement = statement.where('segmentId', '=', query.segmentId);
+        //
+        // The one narrowing that is not an equality, because a PRODUCTION airs as one row and was
+        // written as several. `planJoined` keeps the beats' words on the joined row for a reader,
+        // but nothing ever wrote that row, so every attempt behind a phone-in carries a BEAT's id —
+        // and a console linking the running order's own item at it (which is the joined row, since
+        // that is what airs) landed on an empty page. So a segment id that names a joined row means
+        // "this programme", and one that names anything else still means itself.
+        if (query.segmentId !== undefined) statement = statement.where('segmentId', 'in', this.segmentOrItsBeats(query.segmentId));
         if (query.scriptId !== undefined) statement = statement.where('deadair.scriptHistory.id', '=', query.scriptId);
 
         const rows = await statement.execute();
         return rows.map(row => toEntry(row as ScriptHistoryRow));
+    }
+
+    /**
+     * The segment ids one segment id stands for: itself, plus every beat of the production it is the
+     * joined row of.
+     *
+     * A subquery rather than a read followed by a second statement, because the answer is only ever
+     * used inside {@link page}'s own `where` and a separate round trip would let the two disagree
+     * about a production being stitched while the page is being drawn.
+     *
+     * The inner select is what makes this narrow: it answers a production id only for a row with NO
+     * ordinal, so an ordinary break, an imported ident and a single BEAT all fall through to the
+     * `id` arm alone. A beat deliberately still means itself — somebody who has clicked into one
+     * turn of a phone-in asked about that turn.
+     */
+    private segmentOrItsBeats(segmentId: string) {
+        return this.db
+            .selectFrom('deadair.segments')
+            .select('deadair.segments.id')
+            .where(eb =>
+                eb.or([
+                    eb('deadair.segments.id', '=', segmentId),
+                    eb(
+                        'deadair.segments.productionId',
+                        '=',
+                        eb
+                            .selectFrom('deadair.segments as joined')
+                            .select('joined.productionId')
+                            .where('joined.id', '=', segmentId)
+                            .where('joined.productionOrdinal', 'is', null),
+                    ),
+                ]),
+            );
     }
 
     /**

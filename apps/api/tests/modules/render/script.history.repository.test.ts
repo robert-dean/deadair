@@ -143,3 +143,31 @@ describe('ScriptHistoryRepository.outcomeCountsSince', () => {
         expect(bucket).toEqual({ written: 4, declined: 1, failed: 0 });
     });
 });
+
+describe('ScriptHistoryRepository.page', () => {
+    it('answers nothing for a page of zero without asking the database', async () => {
+        await expect(repositoryOver(untouchableDb()).page({ limit: 0 })).resolves.toEqual([]);
+    });
+
+    it('narrows a segment to the beats of the production it is the joined row of', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).page({ limit: 20, segmentId: 'joined-row' });
+
+        // Not an equality: a production airs as ONE row and was written as several, so every
+        // attempt behind a phone-in carries a beat's id and a console linking the running order's
+        // own item — which is the joined row — would land on an empty page.
+        expect(captured.sql).toContain('"segment_id" in (select "deadair"."segments"."id"');
+        // The inner select is what keeps it narrow: a production id only for a row with no ordinal.
+        expect(captured.sql).toContain('"production_ordinal" is null');
+        expect(captured.parameters).toContain('joined-row');
+    });
+
+    it('still means itself for a segment that is no production joined row', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).page({ limit: 20, segmentId: 'an-ordinary-break' });
+
+        // The `id` arm carries an ordinary break, an imported ident and a single BEAT: somebody who
+        // clicked into one turn of a phone-in asked about that turn.
+        expect(captured.sql).toContain('"deadair"."segments"."id" =');
+    });
+});

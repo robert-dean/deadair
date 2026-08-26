@@ -7,6 +7,7 @@ import { TALK_BREAK_KIND } from '#modules/director/talk.break.writer.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import type { BreakTrack } from '#modules/director/break.writer.js';
 import type { PersonaRehearsal, PersonaRehearsalAttempt } from './types/personas.types.js';
+import { preoccupationOf } from './persona.sheet.js';
 import { PersonaRepository } from './persona.repository.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
@@ -93,6 +94,15 @@ export class PersonaRehearsalService {
         // clicked the button is asking to hear the character, not to be shown its habits.
         const story = await this.stories.forPrompt(persona.key);
 
+        // Nothing is spent by reading one, so this needs neither half of the split above: it is the
+        // sheet's own list, and the caller picks. Spread over the PERSONA's id rather than over
+        // anything per-click, which is `recent: []`'s argument two comments down — a reading has to
+        // be repeatable, and a subject that changed on every click would make two rehearsals of one
+        // character two different characters to compare. The cost is that a rehearsal shows one of
+        // the six rather than sampling them, which is the right way round: the page is for hearing
+        // whether the voice is right, and the voice is the same whichever subject it is on.
+        const preoccupation = preoccupationOf(persona, persona.id);
+
         const result = await this.writers.write({
             kind: TALK_BREAK_KIND,
             previous: REHEARSAL_PREVIOUS,
@@ -100,6 +110,7 @@ export class PersonaRehearsalService {
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
             persona,
             notebook: notes,
+            ...(preoccupation === undefined ? {} : { preoccupation }),
             ...(story === undefined ? {} : { story: story.story }),
             // Empty rather than the last few real scripts, and that is what keeps a reading
             // repeatable. `recent` is what makes a signature phrase SPENT, so a rehearsal carrying

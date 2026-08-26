@@ -193,6 +193,47 @@ describe('PersonaRehearsalService', () => {
         expect(stories.markTold).not.toHaveBeenCalled();
     });
 
+    // Part of how the character currently stands, so a rehearsal has to carry it: an operator who
+    // filled the box in and heard none of it would have no way to tell a subject that reads badly
+    // from one the model ignored.
+    it('carries one of the preoccupations, and the same one every reading', async () => {
+        const personas = { find: vi.fn(async () => persona({ preoccupations: ['the ship\'s manifest', 'the tide tables', 'the harbourmaster'] })) };
+        const writers = registry(twoAttempts);
+        const service = new PersonaRehearsalService(
+            personas as never,
+            notebook() as never,
+            shelf() as never,
+            writers as never,
+            config() as never,
+            logger() as never,
+        );
+
+        await service.rehearse('p1');
+        await service.rehearse('p1');
+
+        expect(writers.seen[0]?.preoccupation).toBeDefined();
+        // Repeatable for `recent: []`'s reason: two readings of one character have to be comparable,
+        // and a subject that moved between them would make them two characters.
+        expect(writers.seen[1]?.preoccupation).toBe(writers.seen[0]?.preoccupation);
+    });
+
+    it('sends none for a character with none, which is every seed the station shipped with', async () => {
+        const personas = { find: vi.fn(async () => persona()) };
+        const writers = registry(twoAttempts);
+        const service = new PersonaRehearsalService(
+            personas as never,
+            notebook() as never,
+            shelf() as never,
+            writers as never,
+            config() as never,
+            logger() as never,
+        );
+
+        await service.rehearse('p1');
+
+        expect(writers.seen[0]?.preoccupation).toBeUndefined();
+    });
+
     it('reports the decline AND the floor underneath it, not only the winner', async () => {
         const personas = { find: vi.fn(async () => persona()) };
         const service = new PersonaRehearsalService(

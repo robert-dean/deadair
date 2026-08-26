@@ -328,7 +328,7 @@ COPY --from=shim /out/deadair-shim /usr/local/bin/deadair-shim
 COPY analysis/requirements.txt /opt/analysis/requirements.txt
 RUN python3 -m venv /opt/analysis/venv \
  && /opt/analysis/venv/bin/pip install --no-cache-dir -r /opt/analysis/requirements.txt
-COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/app.py /opt/analysis/
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/app.py /opt/analysis/
 
 # What the app renders its stream config FROM. Only the template: `station-id.mp3` and the script
 # are the audio chain's, not the app's, and the app reads nothing else here.

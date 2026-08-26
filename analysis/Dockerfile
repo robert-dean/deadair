@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # here, so the image built clean and then died on `from tags import gain_tags` every time it
 # started. Nothing upstream noticed, because a sidecar that will not start looks exactly like
 # a sidecar nobody called.
-COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/app.py ./
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/app.py ./
 
 # Non-root: this service fetches URLs it was handed and runs a decoder over what
 # comes back, which is the one process here that touches bytes from outside.

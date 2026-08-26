@@ -4,6 +4,7 @@ import { JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import type { LlmMessage, SpeechCue } from '@deadair/plugin-sdk';
+import { dayPart, stationZone, type RoughTime } from '#modules/director/clock.words.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { LlmService, type LlmConversation } from '#modules/llm/llm.service.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
@@ -269,6 +270,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                     // the wrong person has to say.
                     ...(isDialogue(casting) ? { speakers: plan.beats.map(beat => ({ ordinal: beat.ordinal, who: casting[beat.speaker ?? 0]! })) } : {}),
                     station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
+                    // Here as well as on every beat, because a throughline is an instruction each
+                    // beat then obeys: a plan written around the end of a long day cannot be undone
+                    // by a rule in the beat prompt saying it is the morning.
+                    dayPart: this.whenItAirs(claimed).words,
                 }),
                 maxOutputTokens: OUTLINE_OUTPUT_TOKENS,
                 // Planning IS the reasoning problem here, unlike a break. Left at the model's own
@@ -318,6 +323,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const sheets = await this.sheets(claimed, casting);
         const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
+        // Once for the production rather than once per beat: a programme does not cross into a
+        // different part of the day while it is being written, and if one did, beats disagreeing
+        // with each other would be worse than all of them being an hour stale.
+        const airs = this.whenItAirs(claimed);
         let runIn: string | undefined;
         let previous: number | undefined;
         // Everything written so far, PER SPEAKER, for the spent-signature check. Per speaker because
@@ -378,6 +387,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 ...(board.names.length === 0 ? {} : { pads: board.names }),
                 ...(await this.remembers(claimed, speaker, mine.length === 0)),
                 station,
+                dayPart: airs.words,
             });
 
             const ask = async () =>
@@ -472,6 +482,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         const sheets = await this.sheets(claimed, casting);
         const engine = await this.performable();
         const station = this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
+        const airs = this.whenItAirs(claimed);
         let redrafted = 0;
 
         for (const [index, beat] of beats.entries()) {
@@ -496,6 +507,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // The same words this beat was handed, so a beat that recited them instead of
                 // carrying on from them is caught.
                 ...(runIn === undefined ? {} : { runIn }),
+                dayPart: airs,
             });
             if (problems.length === 0) continue;
 
@@ -534,6 +546,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         // is not what was wrong with it.
                         ...(beat.pads.length === 0 ? {} : { pads: beat.pads.map(hit => hit.name) }),
                         station,
+                        dayPart: airs.words,
                         correction: correctionNote(problems),
                     }),
                     maxOutputTokens: BEAT_OUTPUT_TOKENS,
@@ -862,6 +875,23 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
      */
     private priorityOf(production: Production) {
         return priorityForSlot(production.scheduledFor, Date.now(), DEADLINE_MS);
+    }
+
+    /**
+     * What half of the day this production goes out in.
+     *
+     * Its SLOT where a band commissioned it, and now where nothing did — the standing call-in rule
+     * writes no `scheduledFor` because such a production airs when it is ready rather than at an
+     * instant somebody chose, and "when it is ready" is minutes from here. That approximation is
+     * safe at this resolution and would not be at the hour's: a daypart's window is hours wide,
+     * where `roughTime`'s is seven or eight minutes, which is why only the daypart is sent.
+     *
+     * The one thing it cannot get right is a production drafted either side of a boundary, which is
+     * an hour or two of the day rather than the whole of it, and costs one wrong word rather than a
+     * programme.
+     */
+    private whenItAirs(production: Production): RoughTime {
+        return dayPart(production.scheduledFor ?? Date.now(), stationZone(this.config));
     }
 }
 

@@ -23,6 +23,7 @@
  * two judges that can disagree.
  */
 
+import { contradictsDayPart, type RoughTime } from '#modules/director/clock.words.js';
 import { expectedWords, MAX_WORDS } from './production.plan.js';
 
 /**
@@ -85,6 +86,19 @@ export interface BeatCheckInput {
     /** The beats already written, for the repetition check. */
     priorBeats?: readonly string[];
     /**
+     * The half of the day this beat was told it was going out in.
+     *
+     * The same `RoughTime` the prompt was built from, so a beat is judged for contradicting only
+     * what it was actually told — the bargain every check in this tree keeps. Absent asks nothing.
+     *
+     * Note where this does and does not run. `checkBeat` is the `check` pass, which only `polished`
+     * mode has, so on a station writing `outlined` productions the daypart is prevention alone. That
+     * is deliberate rather than an oversight: the alternative is a second model call per beat on a
+     * host that is already timing productions out, and the prompt is where the daypart does most of
+     * its work anyway.
+     */
+    dayPart?: RoughTime;
+    /**
      * The words this beat was handed to carry on from.
      *
      * Checked because handing a model a quotation makes it read the quotation: beats opened by
@@ -113,6 +127,16 @@ export function checkBeat(input: BeatCheckInput): string[] {
     // exactly this, which is observable in this station's own logs.
     if (text.length === 0) {
         return ['The beat came back empty. Write it as continuous spoken prose, with no headings, stage directions or bullet points.'];
+    }
+
+    // First of the problems that change what the beat SAYS, and so ahead of every length complaint:
+    // a beat that told the listener it was the wrong half of the day is wrong at any length.
+    const named = contradictsDayPart(text, input.dayPart);
+    if (named !== undefined) {
+        problems.push(
+            `This beat calls it "${named}" when it goes out ${input.dayPart!.words}. Say nothing about the part of the day except that one, ` +
+                'and do not reach for the hour, the light or the weather to set a scene you were not given.',
+        );
     }
 
     const spoken = countWords(text);

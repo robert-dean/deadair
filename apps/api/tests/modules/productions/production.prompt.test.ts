@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { beatPrompt } from '../../../src/modules/productions/production.prompt.js';
+import { beatPrompt, outlinePrompt } from '../../../src/modules/productions/production.prompt.js';
 import type { CastMember } from '../../../src/modules/productions/production.cast.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
 
@@ -197,6 +197,32 @@ describe('the soundboard in a beat', () => {
 // A caller who has rung before. Everything here comes out of `persona_notes` and `persona_stories`,
 // which are keyed by a persona key and know nothing about breaks — so the only new thing a
 // production needed was to write its own history down.
+// A production had no clock of any kind: the outline never knew when it went out and neither did a
+// beat, so a call-in written at five to one in the afternoon said "tonight" six times in seven turns
+// and every check it passed was about something else.
+describe('the half of the day a production goes out in', () => {
+    it('tells every beat, because a beat is its own model call and knows nothing else', () => {
+        const system = systemOf(turn({ ...base, dayPart: 'this afternoon' }));
+
+        expect(system).toMatch(/It is this afternoon where your listener is/);
+        // The negative half, which is the half it is actually guarding: a model told only what time
+        // it is still reaches for the light and the weather to open on.
+        expect(system).toMatch(/do not call it any other part of the day/i);
+    });
+
+    it('says nothing at all when the station could not work out when it airs', () => {
+        expect(systemOf(turn(base))).not.toMatch(/where your listener is/);
+    });
+
+    it('tells the OUTLINE too, because a throughline is an instruction every beat then obeys', () => {
+        // A plan about winding down at the end of a long day cannot be undone by a rule in the beat
+        // prompt saying it is the morning: the beat has been given a brief and it will write to it.
+        const messages = outlinePrompt({ kind: 'callin', title: 'Phone-in', beats: 7, wordsPerBeat: 70, dayPart: 'this morning' });
+
+        expect(String(messages[1]?.content)).toMatch(/goes out this morning/);
+    });
+});
+
 describe('what a character remembers', () => {
     it('puts what it has settled into beside the sheet, where who it IS belongs', () => {
         const system = systemOf(

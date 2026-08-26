@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { checkBeat, correctionNote, countWords, DUPLICATE_OVERLAP, trigramOverlap } from '../../../src/modules/productions/production.checks.js';
+import { dayPart } from '../../../src/modules/director/clock.words.js';
 
 /** A beat of about `count` words, distinct enough not to trip the repetition check by accident. */
 const words = (count: number, seed = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet') => {
@@ -122,6 +123,39 @@ describe('checkBeat', () => {
         expect(problems.length).toBeGreaterThan(1);
         // Length first: it is the one that changes what the beat has room to say.
         expect(problems[0]).toMatch(/too short/i);
+    });
+});
+
+// Only the `polished` mode runs this pass, so on a station writing `outlined` productions the
+// daypart is prevention alone. It is here for the stations that opt in, and because the complaint it
+// answers is the one thing in a beat a listener can check against their own window.
+describe('the half of the day a beat was told about', () => {
+    const afternoon = dayPart(Date.UTC(2026, 7, 13, 14, 30), 'UTC');
+    const evening = dayPart(Date.UTC(2026, 7, 13, 20, 0), 'UTC');
+
+    it('asks nothing of a beat that was never told when it airs', () => {
+        expect(beat(`${words(200)} tonight`)).toEqual([]);
+    });
+
+    it('reports a beat that calls the afternoon tonight', () => {
+        const problems = beat(`${words(200)} tonight`, { dayPart: afternoon });
+
+        expect(problems[0]).toMatch(/calls it "tonight" when it goes out this afternoon/i);
+    });
+
+    it('permits an evening called tonight, on the same line the break guard draws', () => {
+        expect(beat(`${words(200)} tonight`, { dayPart: evening })).toEqual([]);
+    });
+
+    // The file's own contract: the problems that change what the beat SAYS come before the ones
+    // that change how long it is, because one re-draft has to carry everything and a model reads a
+    // list with finite attention.
+    it('reports the daypart ahead of the length, because it changes what the beat says', () => {
+        const problems = beat(`tonight ${words(40)}`, { dayPart: afternoon, words: 200 });
+
+        expect(problems.length).toBeGreaterThan(1);
+        expect(problems[0]).toMatch(/goes out this afternoon/i);
+        expect(problems[1]).toMatch(/too short/i);
     });
 });
 

@@ -56,6 +56,14 @@ export interface OutlineRequest {
     items?: readonly string[];
     station?: string;
     /**
+     * What half of the day this will go out in, as the words a presenter would use.
+     *
+     * The outline gets it so that it does not PLAN a night-time programme for the afternoon — a
+     * throughline about winding down at the end of a long day is a beat brief every beat then
+     * obeys, and no rule in the beat prompt can undo one.
+     */
+    dayPart?: string;
+    /**
      * Who is on the programme and which of them has each beat, already decided.
      *
      * Stated rather than asked for, exactly as the beat count is. The outline's job is to plan
@@ -95,6 +103,18 @@ export interface BeatRequest {
     speaker?: CastMember;
     /** Who said the run-in, when it was somebody else. What turns a continuation into an answer. */
     previousSpeaker?: CastMember;
+    /**
+     * What half of the day this will go out in, as the words a presenter would use.
+     *
+     * Every beat gets it rather than only the first, because a beat is written in its own model call
+     * and knows nothing the prompt does not tell it. Measured before this existed: a call-in written
+     * at five to one in the afternoon said "tonight" six times in seven turns.
+     *
+     * The daypart and NOT the hour. `roughTime`'s windows are seven or eight minutes wide, and a
+     * production takes minutes to write and more to render, so an hour phrasing would be stale
+     * before anybody heard it. A daypart's window is hours.
+     */
+    dayPart?: string;
     /**
      * This is the first the listener has heard of this speaker.
      *
@@ -216,6 +236,7 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
         `The programme is called "${request.title}".`,
         ...(request.brief === undefined ? [] : ['', `What was asked for: ${request.brief}`]),
         ...(request.station === undefined ? [] : ['', `It goes out on ${request.station}.`]),
+        ...(request.dayPart === undefined ? [] : ['', `It goes out ${request.dayPart}, so do not plan it around any other part of the day.`]),
         ...speakerLines(request.speakers),
         ...(request.items === undefined || request.items.length === 0
             ? ['', 'You have been given no source material, so the content is yours to invent. Keep it to what you actually know.']
@@ -298,6 +319,16 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         // Beside the reactions, because they are the same KIND of instruction — the only two things
         // a beat may carry that are not words — and a model reading them together reads one idea.
         ...padRules(request.pads),
+        // Stated as a fact about the moment rather than as words to use, which is exactly how
+        // `break.prompt.ts` states it and for the same reason: this is context, and whoever is
+        // speaking says it in whatever words they have for it. The negative half is spelled out
+        // because the negative half is what it is guarding.
+        ...(request.dayPart === undefined
+            ? []
+            : [
+                  `- It is ${request.dayPart} where your listener is. Everything you say has to fit that: do not call it any other part of the day, ` +
+                      'and do not reach for the hour, the light or the weather to set a scene you have not been told about.',
+              ]),
         '- Do not end by summarising what you just said.',
     ].join('\n');
 

@@ -497,6 +497,29 @@ operation /pads/scan: {
     }
 }
 
+operation /pads/fetch: {
+    post: { # Fetches a sound from an address and puts it on a board. The operator names the address, so this is them choosing a file exactly as dropping one in the library is
+        name: Fetch pad
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.fetchPad
+        request: {
+            application/json: PadFetch
+        }
+        response: {
+            200: {
+                application/json: PadList
+            }
+            400:
+            409:
+            413:
+            415:
+            502:
+        }
+    }
+}
+
 operation /pads/{id}: {
     params: {
         id: uuid

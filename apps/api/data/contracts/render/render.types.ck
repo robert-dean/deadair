@@ -201,6 +201,18 @@ contract PadUpload: {
     label?: string(min=1, max=200) # What the console calls it. Derived from the filename when absent
 }
 
+# A sound the station is being told to go and get.
+#
+# The operator names the address, so this is them choosing a file exactly as dropping one in the
+# library is. Nothing inspects what comes back and nothing records a claim about its licence -- see
+# `docs/decisions/pad-licensing.md`, whose line is redistribution rather than use
+contract PadFetch: {
+    url: url # Where the audio is. Followed once, bounded, and refused unless what comes back is a format the station serves
+    board: string(min=1, max=200) # The directory it is filed under, which is also the set it joins
+    name?: string(min=1, max=200) # What a script will write. Derived from the address when absent
+    label?: string(min=1, max=200)
+}
+
 contract PadList: { # Every sound the station holds, and the sets over it
     pads: array(Pad)
     sets: array(PadSet)

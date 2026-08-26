@@ -1,6 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString, readContentType } from '../sdk-options.js';
 import type {
+    PadFetch,
     PadList,
     PadScanResult,
     PadSetMembership,
@@ -338,6 +339,19 @@ export class RenderClient {
     async scanThePadLibrary(): Promise<PadScanResult> {
         const result = await this.fetch(`/pads/scan`, { method: 'POST' });
         return await parseJson<PadScanResult>(result);
+    }
+
+    /**
+     * @name Fetch pad
+     * @description Fetches a sound from an address and puts it on a board. The operator names the address, so this is them choosing a file exactly as dropping one in the library is
+     */
+    async fetchPad(body: PadFetch): Promise<PadList> {
+        const result = await this.fetch(`/pads/fetch`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PadList>(result);
     }
 
     /**

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { RenderService } from '#src/modules/render/render.service.js';
 import {
+    PadFetch,
     PadList,
     PadScanResult,
     PadSetMembership,
@@ -391,8 +392,23 @@ RenderRouter.post('/pads/scan', requirePolicy({ policy: 'platform.manage' }), as
 });
 
 /**
+ * Fetches a sound from an address and puts it on a board. The operator names the address, so this is them choosing a file exactly as dropping one in the library is
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L501)
+ */
+RenderRouter.post('/pads/fetch', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, PadFetch);
+
+    const service = ctx.container.get(RenderService);
+    const result: PadList = await service.fetchPad(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Removes a sound the console put there, and the file it wrote for it
- * from [render.ck](file://./../../data/contracts/render/render.ck#L508)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L531)
  */
 RenderRouter.delete('/pads/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -412,7 +428,7 @@ RenderRouter.delete('/pads/:id', requirePolicy({ policy: 'platform.manage' }), a
 
 /**
  * Turns a sound down, or puts one back. Answers the whole rack, since one pad changing state is one row moving between two sections of the same page
- * from [render.ck](file://./../../data/contracts/render/render.ck#L528)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L551)
  */
 RenderRouter.put('/pads/:id/state', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -434,7 +450,7 @@ RenderRouter.put('/pads/:id/state', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * The sound itself, so an operator can hear what they dropped in
- * from [render.ck](file://./../../data/contracts/render/render.ck#L549)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L572)
  * anonymous access, no security required
  */
 RenderRouter.get('/pads/:id/audio', async ctx => {
@@ -461,7 +477,7 @@ RenderRouter.get('/pads/:id/audio', async ctx => {
 
 /**
  * Names a new set, or answers the one already under that key
- * from [render.ck](file://./../../data/contracts/render/render.ck#L579)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L602)
  */
 RenderRouter.post('/pads/sets', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, PadSetWrite);
@@ -476,7 +492,7 @@ RenderRouter.post('/pads/sets', requirePolicy({ policy: 'platform.manage' }), bo
 
 /**
  * Renames a set. The KEY moves with it, so every persona naming the old one stops finding it
- * from [render.ck](file://./../../data/contracts/render/render.ck#L600)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L623)
  */
 RenderRouter.put('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -498,7 +514,7 @@ RenderRouter.put('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }),
 
 /**
  * Removes a set and its memberships, and no pads at all
- * from [render.ck](file://./../../data/contracts/render/render.ck#L615)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L638)
  */
 RenderRouter.delete('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
@@ -518,7 +534,7 @@ RenderRouter.delete('/pads/sets/:id', requirePolicy({ policy: 'platform.manage' 
 
 /**
  * Puts a pad on a set or takes it off. Refused where the set already answers to that name, because a script writes a name
- * from [render.ck](file://./../../data/contracts/render/render.ck#L633)
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L656)
  */
 RenderRouter.put('/pads/sets/:id/pads', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(

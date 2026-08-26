@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { ActionIcon, Autocomplete, Badge, Button, Card, Group, Stack, Table, Text, TextInput, Tooltip } from '@mantine/core';
 import { Dropzone } from '@mantine/dropzone';
-import { IconTrash, IconUpload, IconVolume, IconX } from '@tabler/icons-react';
+import { IconTrash, IconUpload, IconVolume, IconWorldDownload, IconX } from '@tabler/icons-react';
 import type { PadSet } from '@deadair/sdk';
 
-import { useUploadPad } from '../../api/pads.queries';
+import { useFetchPad, useUploadPad } from '../../api/pads.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 
@@ -27,8 +27,10 @@ import { Eyebrow } from '../shared/eyebrow';
  */
 export function PadUploadCard({ sets }: { sets: PadSet[] }) {
     const upload = useUploadPad();
+    const grab = useFetchPad();
     const [board, setBoard] = useState(DEFAULT_BOARD);
     const [staged, setStaged] = useState<Staged[]>([]);
+    const [address, setAddress] = useState('');
 
     const stage = (files: File[]) =>
         setStaged(held => [...held, ...files.map(file => ({ file, name: tokenOf(file.name), label: labelOf(file.name) }))]);
@@ -50,12 +52,21 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
         setStaged([]);
     };
 
+    const fetchOne = async () => {
+        const url = address.trim();
+        if (url === '') return;
+
+        await grab.mutateAsync({ url, board });
+        setAddress('');
+    };
+
     return (
         <Card withBorder padding="md">
             <Stack gap="sm">
                 <Eyebrow>Add sounds</Eyebrow>
 
                 {upload.isError ? <ErrorAlert title="That sound did not go on the rack" error={upload.error} /> : undefined}
+                {grab.isError ? <ErrorAlert title="That address did not give up a sound" error={grab.error} /> : undefined}
 
                 <Group align="flex-end" gap="sm">
                     <Autocomplete
@@ -172,6 +183,30 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
                         </Group>
                     </>
                 )}
+
+                {/* The same door, for a sound that is already somewhere. The operator names the
+                    address, which is them choosing a file exactly as dropping one in the library is
+                    — nothing here inspects what comes back or records a claim about its licence. */}
+                <Group align="flex-end" gap="sm">
+                    <TextInput
+                        label="Or fetch one from an address"
+                        placeholder="https://example.com/airhorn.wav"
+                        description="Followed once, up to 25 MB, and refused unless what comes back is a format the station serves."
+                        value={address}
+                        onChange={event => setAddress(event.currentTarget.value)}
+                        onKeyDown={event => (event.key === 'Enter' ? void fetchOne() : undefined)}
+                        style={{ flex: 1 }}
+                    />
+                    <Button
+                        variant="default"
+                        leftSection={<IconWorldDownload size={16} />}
+                        loading={grab.isPending}
+                        disabled={address.trim() === ''}
+                        onClick={() => void fetchOne()}
+                    >
+                        Fetch
+                    </Button>
+                </Group>
             </Stack>
         </Card>
     );

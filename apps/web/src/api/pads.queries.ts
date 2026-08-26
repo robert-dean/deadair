@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Pad, PadList, PadSet, PadSetMembership, PadSetWrite, PadState } from '@deadair/sdk';
+import type { Pad, PadFetch, PadList, PadSet, PadSetMembership, PadSetWrite, PadState } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -64,9 +64,18 @@ export const useDeletePadSet = () => usePadSetWrite((id: string) => sdk.render.d
  * have it.
  */
 export function useUploadPad() {
+    return usePadArrival((body: FormData) => sdk.render.uploadPad(body));
+}
+
+/** The same, for a sound fetched from an address. Same outcome, same reason it is not a set write. */
+export function useFetchPad() {
+    return usePadArrival((body: PadFetch) => sdk.render.fetchPad(body));
+}
+
+function usePadArrival<TArgs>(mutationFn: (args: TArgs) => Promise<PadList>) {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (body: FormData) => sdk.render.uploadPad(body),
+        mutationFn,
         onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.pads.list() }),
     });
 }

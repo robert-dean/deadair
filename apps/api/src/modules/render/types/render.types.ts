@@ -325,11 +325,27 @@ export const PadUpload = z.strictObject({
 export type PadUpload = z.infer<typeof PadUpload>;
 
 /**
+ * A sound the station is being told to go and get.
+ *
+ * The operator names the address, so this is them choosing a file exactly as dropping one in the
+ * library is. Nothing inspects what comes back and nothing records a claim about its licence -- see
+ * `docs/decisions/pad-licensing.md`, whose line is redistribution rather than use
+ * generated from [PadFetch](file://./../../../../data/contracts/render/render.types.ck#L209)
+ */
+export const PadFetch = z.strictObject({
+    url: z.url().describe('Where the audio is. Followed once, bounded, and refused unless what comes back is a format the station serves'),
+    board: z.string().min(1).max(200).describe('The directory it is filed under, which is also the set it joins'),
+    name: z.string().min(1).max(200).optional().describe('What a script will write. Derived from the address when absent'),
+    label: z.string().min(1).max(200).optional(),
+});
+export type PadFetch = z.infer<typeof PadFetch>;
+
+/**
  * A named collection of pads: what a presenter is actually handed.
  *
  * One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
  * renaming a set unpoints every persona naming it — which is why `personas` says who those are
- * generated from [PadSet](file://./../../../../data/contracts/render/render.types.ck#L213)
+ * generated from [PadSet](file://./../../../../data/contracts/render/render.types.ck#L225)
  */
 export const PadSet = z.strictObject({
     id: z.uuid(),
@@ -354,7 +370,7 @@ export type PadSetInput = z.infer<typeof PadSetInput>;
 
 /**
  * A set an operator is naming, or renaming
- * generated from [PadSetWrite](file://./../../../../data/contracts/render/render.types.ck#L222)
+ * generated from [PadSetWrite](file://./../../../../data/contracts/render/render.types.ck#L234)
  */
 export const PadSetWrite = z.strictObject({
     key: z.string().min(1).max(200),
@@ -365,7 +381,7 @@ export type PadSetWrite = z.infer<typeof PadSetWrite>;
 
 /**
  * Which pad, and whether it is on the set
- * generated from [PadSetMembership](file://./../../../../data/contracts/render/render.types.ck#L228)
+ * generated from [PadSetMembership](file://./../../../../data/contracts/render/render.types.ck#L240)
  */
 export const PadSetMembership = z.strictObject({
     padId: z.uuid(),
@@ -375,7 +391,7 @@ export type PadSetMembership = z.infer<typeof PadSetMembership>;
 
 /**
  * Turning a pad down, or putting one back
- * generated from [PadState](file://./../../../../data/contracts/render/render.types.ck#L233)
+ * generated from [PadState](file://./../../../../data/contracts/render/render.types.ck#L245)
  */
 export const PadState = z.strictObject({
     state: z.enum(['active', 'rejected']),
@@ -384,7 +400,7 @@ export type PadState = z.infer<typeof PadState>;
 
 /**
  * What one pass over the pad library did
- * generated from [PadScanResult](file://./../../../../data/contracts/render/render.types.ck#L237)
+ * generated from [PadScanResult](file://./../../../../data/contracts/render/render.types.ck#L249)
  */
 export const PadScanResult = z.strictObject({
     scanned: z.coerce.number().int().min(0).describe('Audio files seen, whether or not anything changed'),
@@ -540,7 +556,7 @@ export type PronunciationList = z.infer<typeof PronunciationList>;
 
 /**
  * Every sound the station holds, and the sets over it
- * generated from [PadList](file://./../../../../data/contracts/render/render.types.ck#L204)
+ * generated from [PadList](file://./../../../../data/contracts/render/render.types.ck#L216)
  */
 export const PadList = z.strictObject({
     pads: z.array(Pad),

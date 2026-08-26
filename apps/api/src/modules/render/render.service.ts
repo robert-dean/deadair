@@ -21,6 +21,7 @@ import type {
     ScriptPromptMessage,
     SegmentCreate,
     SegmentList,
+    PadFetch,
     PadList,
     PadScanResult,
     PadSetMembership,
@@ -90,6 +91,16 @@ const SAMPLE_QUEUE_MS = 10_000;
  * answers with a 304.
  */
 const CACHE_CONTROL = 'public, max-age=86400';
+
+/**
+ * How long the station waits on an address an operator typed.
+ *
+ * Bounds getting the WHOLE thing rather than getting the response, unlike `host.fetch`'s own
+ * deadline: a pad is a short sound with a ceiling of 25 MB, so there is no legitimate case here of a
+ * body outliving the call that asked for it, and a request nobody is still watching is worse than a
+ * refusal somebody can read.
+ */
+const FETCH_TIMEOUT_MS = 30_000;
 
 /**
  * What the audio route hands the generated router.
@@ -466,6 +477,79 @@ export class RenderService {
         // Reported rather than swallowed, on `setPadMembership`'s argument: the sound IS in the
         // library, and a console that showed no difference would leave somebody wondering why a
         // persona pointed at this board cannot reach it.
+        if (contested) {
+            throw httpError(409).withDetails({
+                message: `"${pad.name}" is in the library, but the ${board} set already answers to that name and a script names a sound by name`,
+            });
+        }
+
+        return await this.listPads();
+    }
+
+    /**
+     * Goes and gets a sound from an address the operator typed.
+     *
+     * ## Why this is not the thing `pad-licensing.md` blocks
+     *
+     * That decision's Blocks line names "anything that fetches one on an operator's behalf", and its
+     * own closing rule is that the line is REDISTRIBUTION rather than use. What it is about is what
+     * this repository ships to everyone who installs it, where an unmet attribution obligation would
+     * travel to a self-hoster who never read it. An operator pasting an address is choosing a file,
+     * exactly as dropping one in the library is: nothing here inspects it, nothing records a claim
+     * about its licence, and nothing about it reaches anybody else's install.
+     *
+     * ## No allowlist, deliberately
+     *
+     * `host.fetch`'s per-upstream policy exists to protect an operator from a careless PLUGIN. This
+     * is the operator naming the address themselves, on a `platform.manage` route, on their own box —
+     * so a list of permitted hosts would be this station deciding where its own operator may keep
+     * their air horns. What is bounded instead is the shape of the answer: one request, a deadline, a
+     * byte ceiling read as the body arrives rather than after it, and a format the store can serve.
+     */
+    async fetchPad(write: PadFetch): Promise<PadList> {
+        const board = write.board.trim();
+        if (!boardIsSafe(board)) throw httpError(400).withDetails({ message: `"${board}" is not a name a board can have` });
+
+        const address = new URL(write.url);
+        const response = await fetch(address, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), redirect: 'follow' }).catch(error => {
+            throw httpError(502).withDetails({ message: `that address could not be reached (${errorText(error)})` });
+        });
+
+        if (!response.ok) {
+            void response.body?.cancel();
+            throw httpError(502).withDetails({ message: `that address answered ${response.status}` });
+        }
+
+        const ext = uploadExtension(decodePath(address.pathname), response.headers.get('content-type') ?? '');
+        if (ext === undefined) {
+            void response.body?.cancel();
+            throw httpError(415).withDetails({ message: `the station serves ${SEGMENT_EXTENSIONS.join(', ')}, and that address is none of them` });
+        }
+
+        const bytes = await readBounded(response);
+        if (bytes === undefined) throw httpError(413).withDetails({ message: `a pad may be at most ${MAX_PAD_BYTES / 1024 / 1024} MB` });
+        if (bytes.length === 0) throw httpError(502).withDetails({ message: 'that address answered with no audio' });
+
+        // DECODED first: a path is percent-encoded, so `Air%20Horn.wav` normalises to `air-20horn`
+        // read raw — a token nobody would type and nothing would guess. Decoding is best-effort
+        // because a malformed escape throws, and a name off the raw path beats a refused fetch.
+        const path = decodePath(address.pathname);
+
+        // The last path segment as the name, which is the same claim a filename makes one door over.
+        const name = write.name === undefined ? padNameOf(path) : padName(write.name);
+        if (name === undefined) {
+            throw httpError(400).withDetails({ message: 'that sound needs a name a script could write, and the address gave nothing to make one from' });
+        }
+
+        const { pad, contested } = await this.padLibrary.ingest({
+            bytes,
+            ext,
+            board,
+            name,
+            label: write.label?.trim() || labelFor(path),
+            source: PAD_SOURCES.url,
+        });
+
         if (contested) {
             throw httpError(409).withDetails({
                 message: `"${pad.name}" is in the library, but the ${board} set already answers to that name and a script names a sound by name`,
@@ -956,4 +1040,49 @@ function uploadExtension(filename: string, mimeType: string): SegmentExtension |
     // `extensionForMime` rather than a reverse map built here, because a second copy of that map is
     // a second thing that can fall behind the formats the store actually holds.
     return extensionForMime(mimeType);
+}
+
+/** A URL path as the characters it stands for, or as it stands where that cannot be read. */
+function decodePath(pathname: string): string {
+    try {
+        return decodeURIComponent(pathname);
+    } catch {
+        return pathname;
+    }
+}
+
+/**
+ * A body, up to the ceiling, and `undefined` past it.
+ *
+ * Counted as the chunks arrive rather than checked after: `content-length` is a claim the far end
+ * makes and may not make at all, so a station that trusted it would buffer a gigabyte before
+ * discovering it had been lied to. The reader is cancelled the moment the total goes over, which
+ * stops the transfer as well as the buffering.
+ */
+async function readBounded(response: Response): Promise<Buffer | undefined> {
+    const body = response.body;
+    if (body === null) return Buffer.alloc(0);
+
+    const reader = body.getReader();
+    const chunks: Buffer[] = [];
+    let held = 0;
+
+    try {
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            held += value.byteLength;
+            if (held > MAX_PAD_BYTES) {
+                await reader.cancel();
+                return undefined;
+            }
+
+            chunks.push(Buffer.from(value));
+        }
+    } finally {
+        reader.releaseLock();
+    }
+
+    return Buffer.concat(chunks);
 }

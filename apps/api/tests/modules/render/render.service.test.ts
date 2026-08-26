@@ -1,5 +1,5 @@
 import { IsHttpError } from '@maroonedsoftware/errors';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PluginError } from '@deadair/plugin-sdk';
 import type { SpeechVoice } from '@deadair/plugin-sdk';
 
@@ -731,5 +731,89 @@ describe('RenderService.deletePad', () => {
         expect(await status(render.deletePad(ID))).toBe(409);
         expect(remove).not.toHaveBeenCalled();
         expect(discard).not.toHaveBeenCalled();
+    });
+});
+
+// The third door. What is under test is the bounding — a body counted as it arrives rather than
+// trusted from a header — and the refusals, because everything past `ingest` is covered next door.
+describe('RenderService.fetchPad', () => {
+    const fetcher = (answer: () => Promise<Response>) => {
+        const ingest = vi.fn(async () => ({ pad: { id: 'pad-1', name: 'airhorn' }, outcome: 'created', contested: false }));
+        vi.stubGlobal('fetch', vi.fn(answer));
+
+        const render = new RenderService(
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            { list: vi.fn(async () => []) } as never,
+            { list: vi.fn(async () => []), setsFor: vi.fn(async () => new Map()), personasNaming: vi.fn(async () => []) } as never,
+            { ingest } as never,
+            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+        );
+
+        return { service: render, ingest };
+    };
+
+    /** An upstream handing back one chunk of the given size, with no content-length at all. */
+    const answering = (bytes: number, type = 'audio/wav') =>
+        async () =>
+            new Response(new Uint8Array(bytes), { status: 200, headers: { 'content-type': type } });
+
+    afterEach(() => vi.unstubAllGlobals());
+
+    it('takes what comes back and files it as fetched', async () => {
+        const { service: render, ingest } = fetcher(answering(64));
+
+        // Percent-encoded, which is what an address to a file with a space in its name looks like.
+        // Read raw it normalises to `air-20horn`, a token nobody would type and nothing would guess.
+        await render.fetchPad({ url: 'https://example.com/sounds/Air%20Horn.wav', board: 'wisecrack' });
+
+        expect(ingest).toHaveBeenCalledWith(
+            expect.objectContaining({ board: 'wisecrack', ext: 'wav', source: 'url', name: 'air-horn', label: 'Air Horn' }),
+        );
+    });
+
+    it('stops at the ceiling rather than buffering whatever the far end sends', async () => {
+        // No content-length on the response above, which is the point: the size is counted as the
+        // chunks arrive, because a header is a claim the far end makes and may not make at all.
+        const { service: render, ingest } = fetcher(answering(26 * 1024 * 1024));
+
+        expect(await status(render.fetchPad({ url: 'https://example.com/bed.wav', board: 'station' }))).toBe(413);
+        expect(ingest).not.toHaveBeenCalled();
+    });
+
+    it('refuses a format the store cannot serve', async () => {
+        const { service: render, ingest } = fetcher(async () => new Response(new Uint8Array(8), { status: 200, headers: { 'content-type': 'text/html' } }));
+
+        expect(await status(render.fetchPad({ url: 'https://example.com/airhorn', board: 'station' }))).toBe(415);
+        expect(ingest).not.toHaveBeenCalled();
+    });
+
+    it('answers 502 for an address that refused, rather than reporting it as the operator\'s mistake', async () => {
+        const { service: render } = fetcher(async () => new Response('nope', { status: 404 }));
+
+        expect(await status(render.fetchPad({ url: 'https://example.com/airhorn.wav', board: 'station' }))).toBe(502);
+    });
+
+    it('answers 502 for an address that could not be reached at all', async () => {
+        const { service: render } = fetcher(async () => {
+            throw new Error('getaddrinfo ENOTFOUND');
+        });
+
+        expect(await status(render.fetchPad({ url: 'https://example.invalid/airhorn.wav', board: 'station' }))).toBe(502);
+    });
+
+    it('refuses a board that would write outside the library before it fetches anything', async () => {
+        const { service: render } = fetcher(answering(64));
+
+        expect(await status(render.fetchPad({ url: 'https://example.com/airhorn.wav', board: '../../etc' }))).toBe(400);
+        expect(fetch).not.toHaveBeenCalled();
     });
 });

@@ -53,8 +53,11 @@ import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/sc
 import {
     DEFAULT_DIALOGUE_KINDS,
     DEFAULT_DIALOGUE_MINUTES,
+    DEFAULT_GAP_MS,
     DEFAULT_TARGET_MINUTES,
     DEFAULT_WRITING_MODE,
+    MAX_GAP_MS,
+    MIN_GAP_MS,
     PRODUCTION_KEYS,
 } from '#modules/productions/production.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -560,6 +563,16 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_DIALOGUE_MINUTES,
         help: 'The default length for a production that has callers in it, which is its own number because a turn is about a third of a beat: ten minutes of conversation is twenty-odd turns of a phone call rather than a longer one. Three minutes is about seven turns, which is a call.',
+    },
+    {
+        group: 'render',
+        key: PRODUCTION_KEYS.gapMs,
+        label: 'Pause between turns (ms)',
+        type: 'number',
+        min: MIN_GAP_MS,
+        max: MAX_GAP_MS,
+        default: DEFAULT_GAP_MS,
+        help: 'A production is written one beat at a time and then joined into a single piece of audio, and this is the silence put between the beats. Each one is trimmed to where it actually starts and stops first, so this is the whole pause rather than an addition to whatever the voice left behind. Two hundred is a beat between turns; past a second it is a break in the programme. It needs an analyzer that can join audio, and a station without one hears its productions as separate beats.',
     },
     {
         group: 'render',

@@ -462,7 +462,7 @@ export interface DeadairProductions {
   personaId: string | null;
   plan: Json | null;
   scheduledFor: DateTime | null;
-  state: Generated<"planned" | "outlining" | "drafting" | "checking" | "rendering" | "ready" | "aired" | "failed" | "cancelled">;
+  state: Generated<"planned" | "outlining" | "drafting" | "checking" | "rendering" | "stitching" | "ready" | "aired" | "failed" | "cancelled">;
   stationKey: Generated<string>;
   targetMs: number;
   title: string;

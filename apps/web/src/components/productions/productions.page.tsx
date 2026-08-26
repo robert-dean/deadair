@@ -194,6 +194,8 @@ function labelOf(production: Production): string {
             return 'checking it';
         case 'rendering':
             return 'speaking it';
+        case 'stitching':
+            return 'joining it up';
         case 'ready':
             return 'ready';
         case 'aired':

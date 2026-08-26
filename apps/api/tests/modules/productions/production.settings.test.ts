@@ -8,9 +8,12 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import {
     DEFAULT_DIALOGUE_MINUTES,
+    DEFAULT_GAP_MS,
     DEFAULT_TARGET_MINUTES,
     dialogueKinds,
+    MAX_GAP_MS,
     PRODUCTION_KEYS,
+    stationGapMs,
     stationTargetMs,
 } from '../../../src/modules/productions/production.settings.js';
 
@@ -68,5 +71,30 @@ describe('which kinds have callers', () => {
 
     it('is empty when an operator empties it, which is a station with no conversations', () => {
         expect([...dialogueKinds(config({ [PRODUCTION_KEYS.dialogueKinds]: '' }))]).toEqual([]);
+    });
+});
+
+describe('the pause between joined beats', () => {
+    it('is the station default when nobody has said', () => {
+        expect(stationGapMs(config())).toBe(DEFAULT_GAP_MS);
+    });
+
+    it('reads a figure an operator stored, which arrives as a string', () => {
+        expect(stationGapMs(config({ [PRODUCTION_KEYS.gapMs]: ' 350 ' }))).toBe(350);
+    });
+
+    it('takes zero, which is a station whose turns run straight into each other', () => {
+        expect(stationGapMs(config({ [PRODUCTION_KEYS.gapMs]: '0' }))).toBe(0);
+    });
+
+    it('CLAMPS rather than refusing, because this reads a row that is already stored', () => {
+        // The console refuses an out-of-range figure where somebody can see it change. Here, a
+        // setting that would not load stops the join behind it.
+        expect(stationGapMs(config({ [PRODUCTION_KEYS.gapMs]: '9000' }))).toBe(MAX_GAP_MS);
+        expect(stationGapMs(config({ [PRODUCTION_KEYS.gapMs]: '-40' }))).toBe(0);
+    });
+
+    it('falls back on something unparseable rather than joining with a NaN gap', () => {
+        expect(stationGapMs(config({ [PRODUCTION_KEYS.gapMs]: 'a beat' }))).toBe(DEFAULT_GAP_MS);
     });
 });

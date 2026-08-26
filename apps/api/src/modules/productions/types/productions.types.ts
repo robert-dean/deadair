@@ -65,7 +65,9 @@ export const Production = z.strictObject({
         .int()
         .min(1000)
         .describe('How long it should run. What the beat count and the per-beat word budgets are computed from'),
-    state: z.enum(['planned', 'outlining', 'drafting', 'checking', 'rendering', 'ready', 'aired', 'failed', 'cancelled']),
+    state: z
+        .enum(['planned', 'outlining', 'drafting', 'checking', 'rendering', 'stitching', 'ready', 'aired', 'failed', 'cancelled'])
+        .describe('`stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not'),
     error: z.string().max(2000).optional().describe('Why making it did not work'),
     scheduledFor: _ZodDatetime.optional().describe('When it should air. Absent means as soon as it is made'),
     cancelledAt: _ZodDatetime.optional(),

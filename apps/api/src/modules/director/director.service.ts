@@ -894,6 +894,13 @@ export class DirectorService {
      * `director` in `modules.ts` and a job reaching for this class would invert the module edge.
      * Reading the rows here needs nothing from that module and cannot be lost the way a message can.
      *
+     * **The same noticing is what asks for the JOIN.** Once every beat is spoken the beats can be
+     * made into one piece of audio, and the pass that discovers that is this one — so a production
+     * still `rendering` is moved to `stitching` and `render.stitch_production` is sent, and it comes
+     * back `ready` whether the join worked or not. Nothing about the join is required: a station
+     * with no analyzer, or one whose analyzer cannot join, reaches `ready` with no joined row and the
+     * beats go in as a block exactly as they always did.
+     *
      * Everything is swallowed, as with planting and break injection: a production that could not be
      * placed this pass is placed on the next one, and the records either side play regardless.
      */
@@ -901,7 +908,9 @@ export class DirectorService {
         try {
             await inScope(this.container, async scope => {
                 const productions = scope.get(ProductionRepository);
-                const waiting = (await productions.unfinished()).filter(production => production.state === 'rendering');
+                const waiting = (await productions.unfinished()).filter(
+                    production => production.state === 'rendering' || production.state === 'ready',
+                );
                 if (waiting.length === 0) return;
 
                 const segments = scope.get(SegmentRepository);
@@ -924,9 +933,21 @@ export class DirectorService {
                     // that the audio comes before the position.
                     if (!beats.every(beat => beat.state === 'ready')) continue;
 
+                    // Every beat is spoken and none of them has been joined yet, so ask for that
+                    // before looking for a slot. It is the same noticing this method already does one
+                    // stage earlier, and it is here rather than in the produce job because the beats
+                    // become joinable minutes after the last pass returned — when the RENDER jobs
+                    // behind them finish, which nothing else is watching.
+                    if (production.state === 'rendering') {
+                        if (await productions.moveTo(production.id, 'stitching', 'rendering')) {
+                            await this.jobs.send('render.stitch_production', { productionId: production.id });
+                        }
+                        continue;
+                    }
+
                     const at = this.slotForProduction(lineup);
-                    // No room yet. Left `rendering` rather than failed: the beats still exist, and
-                    // the next pass has a longer order to put them in.
+                    // No room yet. Left `ready` rather than failed: the audio still exists, and the
+                    // next pass has a longer order to put it in.
                     if (at === undefined) continue;
 
                     const result = lineup.insertGroup(
@@ -937,7 +958,7 @@ export class DirectorService {
                     );
                     if (!result.ok) continue;
 
-                    await productions.moveTo(production.id, 'aired', 'rendering');
+                    await productions.moveTo(production.id, 'aired', 'ready');
                     placed += 1;
                     this.logger.info('director: put a production into the running order', {
                         production: production.id,

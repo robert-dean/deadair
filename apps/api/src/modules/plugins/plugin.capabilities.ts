@@ -543,13 +543,20 @@ export const asLlmPlugin = (record: PluginRecord): LlmPlugin | undefined => {
 /**
  * The one method that earns the `analysis` capability.
  *
- * One, with no optional siblings, because there is nothing a measurement can
- * partially support: a plugin either answers about a track's audio or it is not
- * an analyzer. Where speech and llm have a `listVoices` / `listModels` that a
- * plugin may skip, an analyzer has nothing to enumerate — the shape of what it
- * produces is the schema version it reports, not a list it offers.
+ * One REQUIRED, because there is nothing a measurement can partially support: a
+ * plugin either answers about a track's audio or it is not an analyzer.
+ *
+ * `joinAudio` is the optional sibling and is deliberately not in this list. A
+ * plugin that only measures is a whole analyzer, and the station that wanted a
+ * join has somewhere to go without one — the production airs as its beats. Ask
+ * for it with {@link canJoinAudio} at the point of use rather than by narrowing
+ * the capability, which would take measurement away from an analyzer for want of
+ * something unrelated to it.
  */
 export const ANALYSIS_METHODS = ['analyzeTrack'] as const satisfies ReadonlyArray<keyof AnalysisProvider>;
+
+/** Whether this analyzer can also join audio, which is the optional half of the capability. */
+export const canJoinAudio = (plugin: AnalysisPlugin): boolean => typeof plugin.instance.joinAudio === 'function';
 
 /** A plugin narrowed to "can measure a track's audio, right now". */
 export interface AnalysisPlugin {

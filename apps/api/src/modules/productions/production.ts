@@ -14,7 +14,17 @@ import type { GatePriority } from '#modules/shared/gate.priority.js';
 import type { ProductionCast } from './production.cast.js';
 
 /** How far along making one is. Mirrors the check constraint in migration 0016. */
-export type ProductionState = 'planned' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'ready' | 'aired' | 'failed' | 'cancelled';
+export type ProductionState =
+    | 'planned'
+    | 'outlining'
+    | 'drafting'
+    | 'checking'
+    | 'rendering'
+    | 'stitching'
+    | 'ready'
+    | 'aired'
+    | 'failed'
+    | 'cancelled';
 
 /** Nothing else will be spent on a production in one of these. */
 const SETTLED: ReadonlySet<ProductionState> = new Set<ProductionState>(['aired', 'failed', 'cancelled']);

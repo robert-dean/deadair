@@ -96,12 +96,13 @@ create table deadair.productions (
     --   drafting   writing the beats
     --   checking   judging them and re-drafting at most once
     --   rendering  the beats are being spoken
-    --   ready      every beat has audio and the block can be placed
+    --   stitching  the spoken beats are being joined into one piece of audio
+    --   ready      the block can be placed: joined if that worked, as beats if it did not
     --   aired      it went out
     --   failed     making it did not work, and `error` says what happened
     --   cancelled  somebody stopped it, and no pass may spend anything else on it
     state text not null default 'planned' constraint productions_state_check check (
-        state in ('planned', 'outlining', 'drafting', 'checking', 'rendering', 'ready', 'aired', 'failed', 'cancelled')
+        state in ('planned', 'outlining', 'drafting', 'checking', 'rendering', 'stitching', 'ready', 'aired', 'failed', 'cancelled')
     ),
     error text,
     -- When it should air, for one the format clock asked for.
@@ -148,15 +149,31 @@ alter table deadair.segments add column production_id uuid references deadair.pr
 alter table deadair.segments add column production_ordinal integer
     constraint segments_production_ordinal_check check (production_ordinal is null or production_ordinal >= 0);
 
--- Both together or neither: a beat with no production is an ordinary segment, and a production_id
--- with no ordinal is a beat with no place in its own programme.
-alter table deadair.segments add constraint segments_production_check check ((production_id is null) = (production_ordinal is null));
+-- An ordinal requires a production: a beat with no programme is not a beat.
+--
+-- The other direction is deliberately open, and it is what the JOINED row is. Once every beat has
+-- been spoken the station asks its analyzer to join them into one piece of audio, and the result is
+-- a segment carrying this production_id with NO ordinal -- the whole production rather than a beat
+-- of it. That is one item in the running order instead of seven, and a pause between turns that
+-- somebody chose rather than the speech engine's own padding.
+--
+-- It is expressed this way, rather than as a column on `productions` pointing back here, because
+-- every guard that already says "a production beat is not an ordinary break" is written as
+-- `production_id is null` and the joined row wants all of them. `SegmentRepository.recast` is the one
+-- that matters: without it, a presenter changeover would reopen a finished programme to `planned` and
+-- wipe its script.
+alter table deadair.segments add constraint segments_production_check check (production_ordinal is null or production_id is not null);
 
 -- The read every pass makes: this production's beats, in order.
 create unique index segments_production_idx on deadair.segments (production_id, production_ordinal) where production_id is not null;
 
+-- At most one joined row per production. Nulls are distinct in a unique index, so the index above
+-- does not say this and a re-run of the join would otherwise mint a second whole-programme row.
+create unique index segments_production_joined_idx on deadair.segments (production_id) where production_id is not null and production_ordinal is null;
+
 -- migrate:down
 
+drop index if exists deadair.segments_production_joined_idx;
 drop index if exists deadair.segments_production_idx;
 alter table deadair.segments drop constraint if exists segments_production_check;
 alter table deadair.segments drop column if exists production_ordinal;

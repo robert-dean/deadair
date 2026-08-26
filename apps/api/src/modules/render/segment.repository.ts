@@ -219,6 +219,23 @@ export interface StrandedRelease {
     rendering: string[];
 }
 
+/**
+ * A production's beats as one row: audio first, like an import, and owned by the production.
+ *
+ * See {@link SegmentRepository.planJoined}. It carries no `voice` on purpose — a phone-in holds
+ * several — and no ordinal, which is what makes it the programme rather than a beat of it.
+ */
+export interface JoinedSegment {
+    productionId: string;
+    kind: string;
+    label: string;
+    /** The beats' words in order. Kept to be read, never to be spoken. */
+    script?: string;
+    audioChecksum: string;
+    audioExt: SegmentExtension;
+    durationMs?: number;
+}
+
 /** A segment as it is created from an imported file: audio first, everything else described. */
 export interface ImportedSegment {
     kind: string;
@@ -388,16 +405,77 @@ export class SegmentRepository extends DataRepository {
      * being shown the ones that are not.
      *
      * Ordered in SQL rather than by the caller, so the sequence cannot depend on which pass asked.
+     *
+     * A row with this production's id and NO ordinal is the JOINED programme rather than a beat of
+     * it, and it is excluded here rather than filtered by each caller: every pass counts what this
+     * answers, and the console reports its length as the beat count.
      */
     async beatsOf(productionId: string): Promise<Segment[]> {
         const rows = await this.db
             .selectFrom('deadair.segments')
             .select(SEGMENT_COLUMNS)
             .where('productionId', '=', productionId)
+            .where('productionOrdinal', 'is not', null)
             .orderBy('productionOrdinal', 'asc')
             .execute();
 
         return rows.map(row => toSegment(row as SegmentRow));
+    }
+
+    /**
+     * The whole production as one row, once its beats have been joined.
+     *
+     * The sibling of {@link beatsOf} and the exact complement of it: this production's id with NO
+     * ordinal. Absent means the join has not run, could not run, or the analyzer declined — three
+     * causes with one consequence, which is that the block airs as its beats.
+     */
+    async joinedOf(productionId: string): Promise<Segment | undefined> {
+        const row = await this.db
+            .selectFrom('deadair.segments')
+            .select(SEGMENT_COLUMNS)
+            .where('productionId', '=', productionId)
+            .where('productionOrdinal', 'is', null)
+            .executeTakeFirst();
+
+        return row === undefined ? undefined : toSegment(row);
+    }
+
+    /**
+     * A production's beats, joined into one row that is ready to air.
+     *
+     * Born `ready`, exactly as {@link importFile}'s row is and for the same reason: the audio came
+     * first and there is nothing left to produce. **That is a safety property rather than a
+     * shortcut.** `claimForRender` starts at `written`, so a row that began there would eventually
+     * be claimed by a retry sweep and hand a whole programme's script to the speech engine as one
+     * line, in one voice — every turn of a phone-in read by the presenter. `ready` is not claimable,
+     * so it cannot happen.
+     *
+     * The script is the beats' own words in order, kept for the console and for `/scripts`, and
+     * nothing will ever speak it. `voice` is deliberately absent: the row holds several.
+     */
+    async planJoined(joined: JoinedSegment): Promise<Segment> {
+        const row = await this.db
+            .insertInto('deadair.segments')
+            .values({
+                stationKey: this.identity.stationKey,
+                kind: joined.kind,
+                label: joined.label,
+                script: joined.script ?? null,
+                source: RENDER_SOURCE,
+                productionId: joined.productionId,
+                // No ordinal, which is what says this is the whole production rather than a beat of
+                // it. See the constraint in migration 0016.
+                productionOrdinal: null,
+                audioChecksum: joined.audioChecksum,
+                audioExt: joined.audioExt,
+                durationMs: joined.durationMs ?? null,
+                state: 'ready',
+            })
+            .returning(SEGMENT_COLUMNS)
+            .executeTakeFirstOrThrow();
+
+        await this.record(row.id, undefined, 'ready', 'the beats were joined into one');
+        return toSegment(row);
     }
 
     /** One segment, whatever state it is in. */
@@ -433,6 +511,11 @@ export class SegmentRepository extends DataRepository {
      * What the planner chooses from. `ready` is applied in SQL rather than filtered afterwards
      * because it is what the partial index is built on, and because a station whose library is
      * mostly half-rendered talk breaks should not drag them all across the wire to throw them away.
+     *
+     * **Nothing belonging to a production is on the shelf.** A production's kind is free text like
+     * any other (`callin`, `podcast`), so without this a band naming one would draw a single turn of
+     * a past phone-in and air it on its own — half a conversation, with nobody it was half of. The
+     * shelf is for the standalone things an operator recorded or the station wrote.
      */
     async listReady(kind: string): Promise<Segment[]> {
         const rows = await this.db
@@ -440,6 +523,7 @@ export class SegmentRepository extends DataRepository {
             .select(SEGMENT_COLUMNS)
             .where('kind', '=', kind)
             .where('state', '=', 'ready')
+            .where('productionId', 'is', null)
             .orderBy('createdAt', 'asc')
             .execute();
 
@@ -458,7 +542,16 @@ export class SegmentRepository extends DataRepository {
      * be thousands of half-rendered talk breaks, and the answer is a handful of words either way.
      */
     async readyKinds(): Promise<string[]> {
-        const rows = await this.db.selectFrom('deadair.segments').select('kind').distinct().where('state', '=', 'ready').execute();
+        const rows = await this.db
+            .selectFrom('deadair.segments')
+            .select('kind')
+            .distinct()
+            .where('state', '=', 'ready')
+            // The same exclusion, for the same reason: see {@link listReady}. A station that has
+            // ever made a phone-in would otherwise be told its `callin` band can be filled from the
+            // shelf, which is the console reporting the wrong answer to the one question this asks.
+            .where('productionId', 'is', null)
+            .execute();
 
         return rows.map(row => row.kind);
     }

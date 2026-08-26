@@ -121,13 +121,47 @@ try {
 
     let refused = false;
     try {
-        await sql`insert into deadair.segments (station_key, kind, label, production_id) values ('main', 'podcast', ${TITLE}, ${opened.id})`.execute(
-            db,
-        );
+        await sql`insert into deadair.segments (station_key, kind, label, production_ordinal) values ('main', 'podcast', ${TITLE}, 4)`.execute(db);
     } catch {
         refused = true;
     }
-    check(refused, 'a beat with no place in its own programme is refused by the table');
+    check(refused, 'a beat with no programme is refused by the table');
+
+    // ── the joined row is the programme rather than a beat of it ──────────────
+    // Its own kind, so the two shelf questions below are about THIS row rather than about whatever
+    // else this station happens to have lying about ready.
+    const JOINED_KIND = 'smoke-joined';
+    const joined = await segments.planJoined({
+        productionId: opened.id,
+        kind: JOINED_KIND,
+        label: `${TITLE} joined`,
+        script: 'beat 0 says something\n\nbeat 1 says something',
+        audioChecksum: 'smokechecksum0000000000000000000000000000000000000000000000000000',
+        audioExt: 'flac',
+        durationMs: 184_320,
+    });
+    check(joined.state === 'ready', 'a joined production is born ready, because `claimForRender` starts at `written` and must never re-speak it');
+    check(joined.voice === undefined, 'it carries no voice: a phone-in holds several');
+    check((await segments.beatsOf(opened.id)).length === 3, 'and it is NOT a beat, so every pass still counts three');
+    check((await segments.joinedOf(opened.id))?.id === joined.id, 'the director reads it back as the whole programme');
+    // A production's kind is free text like any other, so without these two a band naming one would
+    // draw a past programme — or a single turn of one — off the shelf and air it on its own.
+    check((await segments.listReady(JOINED_KIND)).length === 0, 'nothing belonging to a production is on the shelf');
+    check(!(await segments.readyKinds()).includes(JOINED_KIND), 'and the kinds the shelf can fill are asked the same question');
+
+    let secondRefused = false;
+    try {
+        await segments.planJoined({
+            productionId: opened.id,
+            kind: JOINED_KIND,
+            label: `${TITLE} joined again`,
+            audioChecksum: 'smokechecksum1111111111111111111111111111111111111111111111111111',
+            audioExt: 'flac',
+        });
+    } catch {
+        secondRefused = true;
+    }
+    check(secondRefused, 'a production cannot have TWO joined rows, which nulls being distinct in an index would otherwise allow');
 
     // ── cancellation is terminal, because a queue cannot cancel ───────────────
     const running = await open();

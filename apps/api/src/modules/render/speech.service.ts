@@ -7,7 +7,7 @@ import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { explainDefaultSpeaker, explainNoSpeaker, selectSpeechPlugin, SPEECH_PLUGIN_KEY } from './speech.settings.js';
-import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentExtension } from './segment.store.js';
+import { extensionForMime, SegmentStore, type SegmentExtension } from './segment.store.js';
 import { SpeechGate, type SpeechGateOptions } from './speech.gate.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { transposeForSpeech } from './speech.transpose.js';
@@ -22,11 +22,6 @@ import type { VoiceSampleStore } from './voice.sample.store.js';
  * which is exactly why a body is not bounded by the invocation that fetched it.
  */
 export const SPEAK_TIMEOUT_MS = 120_000;
-
-/** Reverse of {@link SEGMENT_CONTENT_TYPES}: what a plugin's declared mime is stored as. */
-const EXTENSION_BY_MIME = new Map<string, SegmentExtension>(
-    (Object.entries(SEGMENT_CONTENT_TYPES) as [SegmentExtension, string][]).map(([ext, mime]) => [mime, ext]),
-);
 
 /**
  * Let go of audio nobody is going to read, swallowing the failure.
@@ -322,7 +317,7 @@ export class SpeechService {
      * only place that knows it is not wanted.
      */
     private extensionOf(pluginId: string, handle: SpeechHandle): SegmentExtension {
-        const ext = EXTENSION_BY_MIME.get(handle.mime.split(';')[0]!.trim().toLowerCase());
+        const ext = extensionForMime(handle.mime);
         if (ext !== undefined) return ext;
 
         void cancelQuietly(handle.audio);

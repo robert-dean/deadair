@@ -1,8 +1,8 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { ANALYSIS_SCHEMA_VERSION, type AnalysisRef, type TrackAnalysis } from '@deadair/plugin-sdk';
-import { asAnalysisPlugin, type AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
+import { ANALYSIS_SCHEMA_VERSION, type AnalysisRef, type AudioJoin, type JoinedAudio, type TrackAnalysis } from '@deadair/plugin-sdk';
+import { asAnalysisPlugin, canJoinAudio, type AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
@@ -38,6 +38,15 @@ import { errorText } from '#modules/shared/error.text.js';
  * timeout is the one that fires and the error says what actually happened.
  */
 export const ANALYZE_INVOKE_TIMEOUT_MS = 6 * 60_000;
+
+/**
+ * How long a join may take, as the host's invocation deadline.
+ *
+ * Above the adapter's own `JOIN_TIMEOUT_MS` for {@link ANALYZE_INVOKE_TIMEOUT_MS}'s reason: the
+ * invoker caps the plugin's fetch budget at whatever the invocation has left, so the plugin's
+ * timeout has to be the one that fires or the error names the wrong thing.
+ */
+export const JOIN_INVOKE_TIMEOUT_MS = 4 * 60_000;
 
 /**
  * An override for one call, bypassing the settings this otherwise reads.
@@ -162,6 +171,49 @@ export class AnalysisService {
             });
         } catch (error) {
             this.logger.warn('analysis: could not measure a file', { id, error: errorText(error) });
+            return undefined;
+        }
+    }
+
+    /**
+     * Several pieces of audio as one, or `undefined` with the reason logged.
+     *
+     * The other thing that needs decoded PCM, and it is on this service for the same reason it is on
+     * that capability: the analyzer is already the adapter over the one program in this station that
+     * decodes. Nothing here interprets the bytes — they are a stream the caller writes straight into
+     * a store.
+     *
+     * **Answering `undefined` is an ordinary outcome**, and there are three ways to reach it: no
+     * analyzer at all, an analyzer that cannot join, and a join that failed. The caller has one
+     * answer to all three, which is why they are not told apart here: a production whose beats were
+     * not joined airs as its beats, exactly as it did before anything could join them.
+     *
+     * @param label - What this is, for the log line. Not read back.
+     * @param urls - The parts in order, each reachable from wherever the joining happens — a sidecar
+     *               container rather than this process.
+     */
+    async joinAudio(label: string, urls: readonly string[], gapMs: number): Promise<JoinedAudio | undefined> {
+        const analyzer = this.analyzer();
+        if (analyzer === undefined) return undefined;
+
+        if (!canJoinAudio(analyzer)) {
+            this.logger.info('analysis: the analyzer cannot join audio', { analyzer: analyzer.record.id, label });
+            return undefined;
+        }
+
+        const request: AudioJoin = { parts: urls.map(url => ({ url })), gapMs };
+
+        try {
+            return await this.invoker.invoke(
+                analyzer.record.id,
+                'analysis.joinAudio',
+                // Non-null because `canJoinAudio` is the check, one line up and inside the same
+                // synchronous stretch: nothing can unload a plugin between the two.
+                async () => analyzer.instance.joinAudio!(request),
+                { timeoutMs: JOIN_INVOKE_TIMEOUT_MS },
+            );
+        } catch (error) {
+            this.logger.warn('analysis: could not join audio', { label, parts: urls.length, error: errorText(error) });
             return undefined;
         }
     }

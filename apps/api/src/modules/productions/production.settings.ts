@@ -20,7 +20,31 @@ export const PRODUCTION_KEYS = {
     targetMinutes: 'render.productionMinutes',
     dialogueKinds: 'render.dialogueKinds',
     dialogueMinutes: 'render.dialogueMinutes',
+    gapMs: 'render.productionGapMs',
 } as const;
+
+/**
+ * How much silence goes between two beats when they are joined, in milliseconds.
+ *
+ * The one number this whole join exists to make settable. Before it, the pause between two turns of
+ * a phone-in was the speech engine's own leading and trailing silence plus whatever the transport
+ * added at the boundary — different per voice, per line, and per run, and adjustable by nobody.
+ *
+ * 200ms is a beat between turns rather than a pause. It is a starting point somebody has to listen
+ * to, not a measurement.
+ */
+export const DEFAULT_GAP_MS = 200;
+
+/**
+ * The band that gap may sit in.
+ *
+ * Zero is legitimate — a station that wants its turns to run straight into each other — and the
+ * ceiling is where a beat between turns has become a break in the programme, which is two items in
+ * a running order rather than one gap. Mirrors the analyzer's own limit, deliberately: a value past
+ * what the joiner will accept is a production that silently airs as beats.
+ */
+export const MIN_GAP_MS = 0;
+export const MAX_GAP_MS = 2000;
 
 /**
  * The kinds that put somebody on the phone, unless the station says otherwise.
@@ -99,6 +123,23 @@ export function stationWritingMode(config: AppConfig): WritingMode {
  * that had ever set the setting silently got the default back. See the `settingIsOn` gotcha in
  * CLAUDE.md, of which this is the numeric half.
  */
+/**
+ * The silence to put between joined beats, in milliseconds.
+ *
+ * CLAMPED rather than refused, which is the rule every resolver here follows: this reads a row that
+ * is already stored, and a setting that will not load stops the join behind it. The console refuses
+ * an out-of-range figure at the point somebody types one.
+ *
+ * Read as a string and parsed, for {@link stationTargetMs}'s reason: every layer of `AppConfig`
+ * holds text, so a stored `250` arrives as `'250'`.
+ */
+export function stationGapMs(config: AppConfig): number {
+    const set = Number(String(config.get(PRODUCTION_KEYS.gapMs, String(DEFAULT_GAP_MS))).trim());
+    if (!Number.isFinite(set)) return DEFAULT_GAP_MS;
+
+    return Math.min(MAX_GAP_MS, Math.max(MIN_GAP_MS, Math.round(set)));
+}
+
 export function stationTargetMs(config: AppConfig, kind?: string): number {
     const dialogue = kind !== undefined && dialogueKinds(config).has(kind.trim().toLowerCase());
     const key = dialogue ? PRODUCTION_KEYS.dialogueMinutes : PRODUCTION_KEYS.targetMinutes;

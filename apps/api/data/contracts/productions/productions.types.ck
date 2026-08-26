@@ -22,7 +22,7 @@ contract Production: {
     personaId?: string(max=100) # Who presents it. Absent falls back to the station's active persona when a pass runs
     writingMode: enum(quick, outlined, polished) # How many passes to spend on it
     targetMs: int(min=1000) # How long it should run. What the beat count and the per-beat word budgets are computed from
-    state: readonly enum(planned, outlining, drafting, checking, rendering, ready, aired, failed, cancelled)
+    state: readonly enum(planned, outlining, drafting, checking, rendering, stitching, ready, aired, failed, cancelled) # `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not
     error?: readonly string(max=2000) # Why making it did not work
     scheduledFor?: datetime # When it should air. Absent means as soon as it is made
     cancelledAt?: readonly datetime

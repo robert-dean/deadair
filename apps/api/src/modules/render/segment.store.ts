@@ -33,6 +33,24 @@ export function isSegmentExtension(value: string | undefined): value is SegmentE
     return value !== undefined && Object.hasOwn(SEGMENT_CONTENT_TYPES, value);
 }
 
+/** Reverse of {@link SEGMENT_CONTENT_TYPES}: what a declared media type is stored as. */
+const EXTENSION_BY_MIME = new Map<string, SegmentExtension>(
+    (Object.entries(SEGMENT_CONTENT_TYPES) as [SegmentExtension, string][]).map(([ext, mime]) => [mime, ext]),
+);
+
+/**
+ * What to file audio as, going by what whoever produced it says it is.
+ *
+ * `undefined` for anything the store cannot hold, which the caller has to treat as a refusal rather
+ * than guess at: the extension is what the content type is derived from on the way back out, and a
+ * wrong one fails as silence rather than as an error anybody sees.
+ *
+ * Here rather than in either caller because there are two now — a plugin that spoke and a plugin
+ * that joined — and a second copy of this map is a second thing that can fall behind the formats
+ * above it.
+ */
+export const extensionForMime = (mime: string): SegmentExtension | undefined => EXTENSION_BY_MIME.get(mime.split(';')[0]!.trim().toLowerCase());
+
 /**
  * Segment audio on disk.
  *

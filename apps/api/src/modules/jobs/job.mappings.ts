@@ -13,6 +13,7 @@ import { CacheTrackJob } from '#modules/playout/audio/cache.track.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { ReplanLineupJob } from '#modules/director/replan.lineup.job.js';
 import { ProduceProductionJob } from '#modules/productions/produce.production.job.js';
+import { StitchProductionJob } from '#modules/productions/stitch.production.job.js';
 import { ScheduleTickJob } from '#modules/schedule/schedule.tick.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
@@ -258,6 +259,19 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'director.produce': {
         job: ProduceProductionJob,
         policy: { retryLimit: 0, expiresIn: Duration.fromObject({ hours: 2 }) },
+    },
+
+    // No cron: a production is joined because the director noticed its last beat was spoken, and
+    // walking the table on a timer would re-attempt a join whose analyzer is down on every tick.
+    //
+    // NO retry, for `director.produce`'s reason one entry up: the row is the checkpoint. A run that
+    // failed has already left the production `ready` with no joined row, which is the state that
+    // airs it as beats — so a retry would find nothing in `stitching` to claim and do nothing.
+    // `expiresIn` sits above a decode of every beat of a feature-length programme, and well below
+    // anything an operator would call stuck.
+    'render.stitch_production': {
+        job: StitchProductionJob,
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 15 }) },
     },
 
     // EVERY MINUTE, and it must not be made coarser. A station zone can sit at a :30 or :45 offset

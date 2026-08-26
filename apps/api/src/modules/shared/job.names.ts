@@ -15,6 +15,7 @@ export type JobNames =
     | 'personas.distil_notes'
     | 'personas.write_stories'
     | 'render.segment'
+    | 'render.stitch_production'
     | 'render.prune_script_history'
     | 'activity.prune_events'
     | 'scrobble.flush';

@@ -40,7 +40,7 @@
             "deadair.facts.source": "'lead' | 'model'",
             "deadair.fact_extractions.source": "'lead' | 'model' | 'gloss'",
             "deadair.productions.writing_mode": "Generated<'quick' | 'outlined' | 'polished'>",
-            "deadair.productions.state": "Generated<'planned' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'ready' | 'aired' | 'failed' | 'cancelled'>",
+            "deadair.productions.state": "Generated<'planned' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'stitching' | 'ready' | 'aired' | 'failed' | 'cancelled'>",
             "deadair.schedule_slots.mode": "Generated<'rotation' | 'setlist' | 'feature'>",
             "deadair.schedule_slots.on_end": "Generated<'extend' | 'repeat' | 'stop'>",
             "deadair.clock_bands.at": "'clock' | 'interval'",

@@ -45,7 +45,8 @@ export interface Production {
     writingMode: 'quick' | 'outlined' | 'polished';
     /** How long it should run. What the beat count and the per-beat word budgets are computed from */
     targetMs: number;
-    state: 'planned' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'ready' | 'aired' | 'failed' | 'cancelled';
+    /** `stitching` is the beats being joined into one piece of audio, and it leads to `ready` whether that worked or not */
+    state: 'planned' | 'outlining' | 'drafting' | 'checking' | 'rendering' | 'stitching' | 'ready' | 'aired' | 'failed' | 'cancelled';
     /** Why making it did not work */
     error?: string;
     /** When it should air. Absent means as soon as it is made */

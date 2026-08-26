@@ -787,11 +787,20 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         production: Production,
         speaker: CastMember | undefined,
         firstTurn: boolean,
-    ): Promise<{ notebook?: PersonaNotesForPrompt; story?: PersonaStoryForPrompt }> {
+    ): Promise<{ notebook?: PersonaNotesForPrompt; story?: PersonaStoryForPrompt; preoccupation?: string }> {
         const key = speaker?.personaKey;
         if (key === undefined || PLAIN_KINDS.includes(production.kind.trim().toLowerCase())) return {};
 
-        const notebook = await this.notebookOf(key);
+        // The subject this character brought to the programme, decided at CAST time and read here on
+        // every one of their turns — which is what makes it the same subject all the way through.
+        // It joins the notebook rather than getting a method of its own because the guard above is
+        // the whole of what it needs, and a second copy of `PLAIN_KINDS` is a second thing to keep
+        // in step: a bulletin handed a standing subject of the presenter's will work it into the
+        // news, which is why `NEWS_SHAPE` leaves `allowsPreoccupation` off at the other end. Nothing
+        // is spent by reading it, so unlike the two below it is free on every turn.
+        const subject = speaker?.preoccupation === undefined ? {} : { preoccupation: speaker.preoccupation };
+
+        const notebook = { ...subject, ...(await this.notebookOf(key)) };
         // A story is offered on a speaker's FIRST turn alone, and only to somebody who rang in. It
         // is the most interesting thing in a prompt by a distance, so offering it on every turn is
         // a caller who tells the same anecdote three times in four minutes — and the presenter's

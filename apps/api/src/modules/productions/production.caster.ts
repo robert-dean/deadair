@@ -51,7 +51,7 @@ export class ProductionCaster {
      */
     async cast(production: Production, turns: number): Promise<ProductionCast> {
         // Who is presenting, resolved the one way everything resolves it.
-        const host = hostMember(await this.personas.presenting(production.personaId));
+        const host = hostMember(await this.personas.presenting(production.personaId), production.id);
         if (!this.wantsCallers(production.kind)) return [host];
 
         try {
@@ -62,7 +62,7 @@ export class ProductionCaster {
             const chosen = (await this.leastRecent(roster.map(persona => persona.id))).slice(0, wanted);
             const callers = chosen.flatMap(id => {
                 const persona = roster.find(candidate => candidate.id === id);
-                return persona === undefined ? [] : [callerMember(persona)];
+                return persona === undefined ? [] : [callerMember(persona, production.id)];
             });
 
             if (callers.length === 0) return [host];

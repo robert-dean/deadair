@@ -24,6 +24,7 @@
  * safe to have on a station that has never cast anybody.
  */
 
+import { preoccupationOf, type PersonaSheet } from '#modules/personas/persona.sheet.js';
 import { CALLER_TURN_WEIGHT, HOST_TURN_WEIGHT, TURN_BAND } from './production.plan.js';
 
 /** What a member of a cast is doing here. */
@@ -46,6 +47,20 @@ export interface CastMember {
     name?: string;
     /** The station voice that speaks them. Absent means the speech plugin's own default. */
     voice?: string;
+    /**
+     * The one thing this character has on its mind for this programme, from their sheet's
+     * `preoccupations`.
+     *
+     * **Chosen once, here, rather than per beat**, which is the whole of why it is stored on the cast
+     * rather than picked where a beat is written. Somebody who rang up about three different things
+     * over four minutes is not a person, and a presenter who changes what is bothering them between
+     * one turn and the next is the same failure in the station's own voice. The cast is already the
+     * place a programme's identity is settled once and read many times, so this belongs on it.
+     *
+     * Absent for a character with none, for a station presenting as nobody, and for every cast
+     * stored before this existed.
+     */
+    preoccupation?: string;
 }
 
 /** A cast, in the order it was assembled: the presenter first, then whoever rang in. */
@@ -159,9 +174,18 @@ export const TURNS_PER_CALLER = 5;
  */
 export const MAX_CALLERS = 3;
 
-/** The presenter as a cast member, or a station presenting as nobody in particular. */
-export function hostMember(persona: { id: string; key: string; djName?: string; voice?: string } | undefined): CastMember {
+/**
+ * The presenter as a cast member, or a station presenting as nobody in particular.
+ *
+ * `productionId` is what their preoccupation is spread over, so the whole programme carries one and
+ * the next programme carries a different one. Both people on a call rotate over the SAME id, which
+ * is deliberate and costs nothing: their lists are their own, so two characters landing on the same
+ * index are still on about two different things.
+ */
+export function hostMember(persona: PersonaToCast | undefined, productionId: string): CastMember {
     if (persona === undefined) return { role: 'host' };
+
+    const preoccupation = preoccupationOf(persona, productionId);
 
     return {
         role: 'host',
@@ -169,13 +193,23 @@ export function hostMember(persona: { id: string; key: string; djName?: string; 
         personaKey: persona.key,
         ...(persona.djName === undefined ? {} : { name: persona.djName }),
         ...(persona.voice === undefined ? {} : { voice: persona.voice }),
+        ...(preoccupation === undefined ? {} : { preoccupation }),
     };
 }
 
 /** A caller as a cast member. Same shape, different role, which is the whole of the difference here. */
-export function callerMember(persona: { id: string; key: string; djName?: string; voice?: string }): CastMember {
-    return { ...hostMember(persona), role: 'caller' };
+export function callerMember(persona: PersonaToCast, productionId: string): CastMember {
+    return { ...hostMember(persona, productionId), role: 'caller' };
 }
+
+/**
+ * What casting needs off a persona row.
+ *
+ * The sheet half is `PersonaSheet` itself rather than the one field read out of it, because
+ * `preoccupationOf` applies the sheet's own cap and normalizer and a narrower parameter here would
+ * be this file holding an opinion about which entries are eligible.
+ */
+type PersonaToCast = PersonaSheet & { id: string; key: string; djName?: string; voice?: string };
 
 /**
  * Read a stored cast back, keeping only what is usable.
@@ -200,6 +234,7 @@ export function coerceCast(raw: unknown): ProductionCast | undefined {
                     ...text('personaKey', entry.personaKey),
                     ...text('name', entry.name),
                     ...text('voice', entry.voice),
+                    ...text('preoccupation', entry.preoccupation),
                 } satisfies CastMember,
             ];
         });

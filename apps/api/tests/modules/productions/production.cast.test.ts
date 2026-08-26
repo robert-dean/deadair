@@ -20,8 +20,8 @@ import { planProduction, turnsFor } from '../../../src/modules/productions/produ
 const persona = (key: string) => ({ id: `id-${key}`, key, djName: key.toUpperCase(), voice: key });
 
 const cast = (callers: number): ProductionCast => [
-    hostMember(persona('classic')),
-    ...Array.from({ length: callers }, (_, index) => callerMember(persona(`caller${index}`))),
+    hostMember(persona('classic'), 'production-1'),
+    ...Array.from({ length: callers }, (_, index) => callerMember(persona(`caller${index}`), 'production-1')),
 ];
 
 describe('a cast', () => {
@@ -32,7 +32,7 @@ describe('a cast', () => {
     });
 
     it('carries the persona, the on-air name and the voice, because the row outlives the character', () => {
-        expect(callerMember(persona('theorist'))).toEqual({
+        expect(callerMember(persona('theorist'), 'production-1')).toEqual({
             role: 'caller',
             personaId: 'id-theorist',
             personaKey: 'theorist',
@@ -41,10 +41,42 @@ describe('a cast', () => {
         });
     });
 
+    describe('a preoccupation', () => {
+        const theorist = { ...persona('theorist'), preoccupations: ['the plant', 'the sky', 'the running order'] };
+
+        // The whole reason it is decided here rather than per beat: somebody who rang up about three
+        // different things over four minutes is not a person.
+        it('is one per programme, so every beat this character writes carries the same one', () => {
+            const first = callerMember(theorist, 'production-1');
+            const again = callerMember(theorist, 'production-1');
+
+            expect(first.preoccupation).toBeDefined();
+            expect(again.preoccupation).toBe(first.preoccupation);
+        });
+
+        it('is a different one on a different programme', () => {
+            const spread = new Set(['a', 'b', 'c', 'd', 'e', 'f'].map(id => callerMember(theorist, id).preoccupation));
+
+            expect(spread.size).toBeGreaterThan(1);
+        });
+
+        it('is absent for a character with none, which is every seed the station shipped with', () => {
+            expect(callerMember(persona('theorist'), 'production-1').preoccupation).toBeUndefined();
+        });
+
+        // The cast is a jsonb column and a snapshot: a programme resumed after a restart has to read
+        // back the subject its beats were already written against.
+        it('survives being stored and read back', () => {
+            const stored = coerceCast(JSON.parse(JSON.stringify([callerMember(theorist, 'production-1')])));
+
+            expect(stored?.[0]?.preoccupation).toBe(callerMember(theorist, 'production-1').preoccupation);
+        });
+    });
+
     it('has a host even when the station is presenting as nobody', () => {
         // An ordinary state: a station with no personas at all still makes productions, and the
         // speech plugin's own default voice reads them.
-        expect(hostMember(undefined)).toEqual({ role: 'host' });
+        expect(hostMember(undefined, 'production-1')).toEqual({ role: 'host' });
     });
 });
 

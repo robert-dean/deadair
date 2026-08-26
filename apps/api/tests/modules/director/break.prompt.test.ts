@@ -173,6 +173,33 @@ describe('breakPrompt', () => {
             expect(rules).not.toMatch(/soundboard/i);
         });
 
+        // The subject a character has on its mind, which is offered by the caller and permitted by
+        // the shape — the same division the rack above runs on.
+        it('tells a talk break what the character has been chewing over', () => {
+            const persona = { style: 'an overnight conspiracy host', quirks: ['Never about a real person'] };
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { persona, preoccupation: 'the pressing plant' }));
+
+            expect(rules).toContain('the pressing plant');
+        });
+
+        // `showsFacts`' argument one source further out: a bulletin handed a standing subject of the
+        // presenter's will work it into the news, and a subject that is not even trying to be true
+        // today is worse in that voice than a discography note is.
+        it('is refused one by a bulletin, whatever the character has on its mind', () => {
+            const persona = { style: 'an overnight conspiracy host' };
+            const withSubject = { persona, preoccupation: 'the pressing plant' };
+            const rules = system(breakPrompt({ kind: 'news', stories: [{ headline: 'Bridge reopens.' }] }, withSubject, NEWS_SHAPE));
+
+            expect(rules).not.toContain('the pressing plant');
+        });
+
+        it('says nothing about one for a character with nothing on its mind', () => {
+            const persona = { style: 'an overnight conspiracy host', quirks: ['Never about a real person'] };
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { persona }));
+
+            expect(rules).not.toMatch(/on your mind/i);
+        });
+
         it('does not still tell the model its brackets will be stripped', () => {
             const rules = system(prompt({ kind: 'talkbreak', previous, next }, { reactions: laughs }));
 

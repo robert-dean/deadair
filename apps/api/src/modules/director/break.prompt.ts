@@ -236,6 +236,20 @@ export interface BreakPromptShape {
      * something worse.
      */
     allowsPads?: boolean;
+    /**
+     * Whether this kind of break is told what the character has had on its mind.
+     *
+     * `PersonaSheet.preoccupations`, of which the caller has already chosen one. Off unless a shape
+     * says otherwise, and the ordinary talk break is the only one that says so: this is
+     * {@link BreakPromptShape.showsFacts}' argument one source further out. A bulletin handed a
+     * standing subject of the presenter's will work it into the news, and a subject that is not even
+     * trying to be true today is worse in that voice than a discography note is.
+     *
+     * A welcome is excluded on the narrower ground `allowsCues` uses: it is the station's front door,
+     * written before it is placed, and what a character has been chewing over is not what a listener
+     * arriving wants first.
+     */
+    allowsPreoccupation?: boolean;
 }
 
 /**
@@ -325,6 +339,8 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     // And the one place a soundboard belongs, on the same grounds read one step out: the link is
     // where the station gets to sound like itself.
     allowsPads: true,
+    // The one kind with somewhere to put a subject of its own. See `allowsPreoccupation`.
+    allowsPreoccupation: true,
 };
 
 /** How the station wants this break to sound, and how long it may run. */
@@ -359,6 +375,15 @@ export interface PromptSettings {
      * is `personaLines`' own guarantee held one level up.
      */
     notebook?: PersonaNotesForPrompt;
+    /**
+     * The one thing this character has had on its mind, from `PersonaSheet.preoccupations`.
+     *
+     * Chosen by the caller for {@link PromptSettings.notebook}'s reason, and rendered only where
+     * {@link BreakPromptShape.allowsPreoccupation} says so — the caller offers, the shape decides,
+     * which is `pads` beside it. Nothing is spent by choosing one, so unlike a story or a note there
+     * is no rotation here to spoil by asking twice.
+     */
+    preoccupation?: string;
     /**
      * The one story this break may draw on, from `deadair.persona_stories`.
      *
@@ -604,7 +629,12 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         role,
         // The sheet sits between the role and the rules, which leaves the grounding discipline in
         // the recency position it has always had.
-        ...(persona === undefined ? [] : personaLines(persona)),
+        // The shape's veto is applied HERE rather than by the caller that chose the subject, which
+        // is `offeredPads`' division: what a kind of break offers is a property of the kind, and a
+        // job that filtered on it would be a second opinion about the same question.
+        ...(persona === undefined
+            ? []
+            : personaLines(persona, shape.allowsPreoccupation === true && settings.preoccupation !== undefined ? { preoccupation: settings.preoccupation } : {})),
         // Immediately after the sheet, and inside the same block, because a trait IS a sheet line —
         // one this character grew into rather than one its author typed. Gated on the persona as
         // well as on the shape: a note about a character nobody is presenting has nothing to attach

@@ -15,7 +15,7 @@ import { PersonaNotesRepository } from '#modules/personas/persona.notes.reposito
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import { PersonaStoriesRepository } from '#modules/personas/persona.stories.repository.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
-import { storytellingOf } from '#modules/personas/persona.sheet.js';
+import { preoccupationOf, storytellingOf } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
 import { SegmentRepository, type PadHit } from '#modules/render/segment.repository.js';
@@ -35,6 +35,7 @@ import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { rotationOf } from '#modules/shared/rotation.js';
 
 /** How many recent scripts a writer is shown, so it can avoid repeating itself. */
 const RECENT_WINDOW = 6;
@@ -76,6 +77,23 @@ const STORY_MODES = new Map<string, 'offered' | 'told'>(
 /** Whether every record this break was shown came with nothing to say about it. See {@link WriteBreakJob.story}. */
 const nothingKnownAbout = (neighbours: Neighbours): boolean =>
     [neighbours.previous, neighbours.next].every(side => side === undefined || (side.track.facts?.length ?? 0) === 0);
+
+/**
+ * The one preoccupation this break is offered, spread over the segment id.
+ *
+ * A free function and not a method, because unlike the notebook, the story and the pads beside it
+ * this reads nothing: the list is already on the sheet the caller is holding. That is also why it is
+ * attached to every break regardless of kind — there is no rotation to spend and no query to waste,
+ * so the veto can live entirely in `BreakPromptShape.allowsPreoccupation` instead of being a rule
+ * this job holds a second copy of.
+ *
+ * Answers `{}` rather than `{ preoccupation: undefined }` so a character with an empty list produces
+ * a request byte-identical to one from before the field existed.
+ */
+function preoccupation(persona: Persona | undefined, segmentId: string): { preoccupation?: string } {
+    const chosen = preoccupationOf(persona, segmentId);
+    return chosen === undefined ? {} : { preoccupation: chosen };
+}
 
 export interface WriteBreakPayload {
     /**
@@ -290,6 +308,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // here rather than inside a writer for the reactions' own reason — one answer per break,
             // so every binding asked agrees about what this presenter had to hand.
             ...(await this.pads(persona)),
+            // The one subject this character has had on its mind, spread over the segment id so two
+            // breaks in a row are about different things and a re-offered break is about the same
+            // one. Attached whatever the kind is, because choosing costs nothing and spends nothing:
+            // which kinds are TOLD is `BreakPromptShape.allowsPreoccupation`, one file over, exactly
+            // as the pads above are offered here and vetoed there.
+            ...preoccupation(persona, segment.id),
             // What this break's words are worth at the one model slot. Absent for a planted break,
             // which is the gate's `air` default: it has a deadline like everything on air, and no
             // claim to jump the ones in front of it. A REQUESTED break is worth what its urgency
@@ -887,20 +911,6 @@ function neighboursOf(lineup: StationLineup, segmentId: string): Neighbours | un
         ...(previous === undefined ? {} : { previous }),
         ...(next === undefined ? {} : { next }),
     };
-}
-
-/**
- * Which fact a break starts at, from the one thing about it that is stable and its own.
- *
- * Not a random and not the clock: a break re-offered after a lost job has to be shown the same
- * record in the same words, or the retry becomes a second opinion. Any cheap spread over the id
- * will do — what matters is only that two breaks about the same artist rarely land on the same
- * number.
- */
-function rotationOf(segmentId: string): number {
-    let hash = 0;
-    for (const character of segmentId) hash = (hash * 31 + character.charCodeAt(0)) % 0xffff;
-    return hash;
 }
 
 /** A record beside a break, and WHICH LINE of the order it is. */

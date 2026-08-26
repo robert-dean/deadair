@@ -182,6 +182,9 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // And the rack, on the same terms: the caller answers what this character has to hand
             // and `TALK_BREAK_SHAPE.allowsPads` is what says a link is where it may be used.
             ...(request.pads === undefined ? {} : { pads: request.pads }),
+            // And the subject, on those same terms one more time: the caller says which one came
+            // round and `TALK_BREAK_SHAPE.allowsPreoccupation` says a link is where it may be raised.
+            ...(request.preoccupation === undefined ? {} : { preoccupation: request.preoccupation }),
         };
         // Named rather than defaulted: what this binding writes is a link between two records, and a
         // writer that said nothing about its shape would silently get that whatever it was.

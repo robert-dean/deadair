@@ -104,6 +104,15 @@ export interface BeatRequest {
     /** Who said the run-in, when it was somebody else. What turns a continuation into an answer. */
     previousSpeaker?: CastMember;
     /**
+     * What this speaker has on their mind for this programme, off `CastMember.preoccupation`.
+     *
+     * Carried on the request rather than read off {@link BeatRequest.speaker} here, so the one guard
+     * that withholds character material from a bulletin stays in the one place that already holds it
+     * (`PLAIN_KINDS`). The same subject reaches every beat this character writes, which is the whole
+     * point of it being decided when the cast was.
+     */
+    preoccupation?: string;
+    /**
      * What half of the day this will go out in, as the words a presenter would use.
      *
      * Every beat gets it rather than only the first, because a beat is written in its own model call
@@ -303,7 +312,12 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         ...(request.persona === undefined
             ? []
             : [
-                  ...personaLines(request.persona),
+                  // The speaker's own preoccupation, decided at cast time and the same on every beat
+                  // this character writes, which is the point of it being on the cast rather than
+                  // chosen here. See `CastMember.preoccupation`. Rendered wherever the caller sends
+                  // one: the kinds that may not have one are refused at that end, where the guard
+                  // that already withholds a notebook from a bulletin lives.
+                  ...personaLines(request.persona, request.preoccupation === undefined ? {} : { preoccupation: request.preoccupation }),
                   '',
                   // The single most important line in this prompt, and it took a live 24-beat run to
                   // find. A persona sheet is written in units of BREAKS — "about once a break",

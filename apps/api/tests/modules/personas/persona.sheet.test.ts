@@ -22,6 +22,7 @@ import {
     MIN_DICTION_MARKERS,
     personaLines,
     personaVoiceReminder,
+    preoccupationOf,
     PERSONA_SHEET_LIMITS,
     spentCatchphrases,
 } from '../../../src/modules/personas/persona.sheet.js';
@@ -48,6 +49,37 @@ describe('personaLines', () => {
         expect(lines[1]).toContain(`at least ${MIN_DICTION_MARKERS}`);
         // Not a list to work through: a break using all of them is a parody of the character.
         expect(lines[1]).toContain('never all at once');
+    });
+
+    describe('a preoccupation', () => {
+        const sheet = { quirks: ['Never about a real person'], preoccupations: ['the pressing plant', 'the sky over the transmitter'] };
+
+        // Under the quirks, because the quirks are the rules that govern whichever subject it is.
+        it('is rendered directly after the quirks, and only the one it was handed', () => {
+            const lines = personaLines(sheet, { preoccupation: 'the pressing plant' });
+
+            expect(lines[0]).toContain('Never about a real person');
+            expect(lines[1]).toContain('the pressing plant');
+            expect(lines.join('\n')).not.toContain('the sky over the transmitter');
+        });
+
+        // The whole bound the field is worth having under: a station with no model, or a kind of
+        // break that may not have one, writes the prompt it wrote before this existed.
+        it('leaves the sheet byte-identical when the caller sends none', () => {
+            expect(personaLines(sheet)).toEqual(personaLines({ quirks: sheet.quirks }));
+        });
+
+        // Offered rather than instructed. "Work at most one of them in" read as an order to work one
+        // in, and the same sentence here would make every break about the subject.
+        it('is a lean rather than an instruction, and says so in as many words', () => {
+            const lines = personaLines(sheet, { preoccupation: 'the pressing plant' });
+
+            expect(lines[1]).toMatch(/let it go if it does not/i);
+        });
+
+        it('is nothing at all when the caller hands over blank', () => {
+            expect(personaLines(sheet, { preoccupation: '   ' })).toEqual(personaLines({ quirks: sheet.quirks }));
+        });
     });
 
     // A marker falls most naturally in front of everything, which is the answer nine consecutive
@@ -105,6 +137,50 @@ describe('personaLines', () => {
         const lines = personaLines({ samples: ['one', 'two', 'three'] }, { maxExamples: 1 });
 
         expect(lines.filter(line => line.startsWith('- '))).toHaveLength(1);
+    });
+});
+
+describe('preoccupationOf', () => {
+    const sheet = { preoccupations: ['the plant', 'the sky', 'the running order'] };
+
+    // The whole feature: two breaks in a row are about different things without anything having to
+    // remember the first. Any spread will do, so this pins the PROPERTY rather than the mapping.
+    it('gives different ids different subjects', () => {
+        const spread = new Set(['a', 'b', 'c', 'd', 'e', 'f'].map(id => preoccupationOf(sheet, id)));
+
+        expect(spread.size).toBeGreaterThan(1);
+    });
+
+    // The reason it is a hash of the id and not a counter or a clock: a break re-offered after a
+    // lost job has to be handed the same material, or the retry becomes a second opinion.
+    it('gives one id the same subject every time', () => {
+        expect(preoccupationOf(sheet, 'segment-1')).toBe(preoccupationOf(sheet, 'segment-1'));
+    });
+
+    it('answers nothing for a character with none, and for no character at all', () => {
+        expect(preoccupationOf({}, 'segment-1')).toBeUndefined();
+        expect(preoccupationOf({ preoccupations: [] }, 'segment-1')).toBeUndefined();
+        expect(preoccupationOf(undefined, 'segment-1')).toBeUndefined();
+    });
+
+    // Through the sheet's own normalizer, so an entry `personaLines` would have dropped is never
+    // the one a caller is handed: an operator with a blank line in the box would otherwise get a
+    // break with nothing on its mind every few records.
+    it('never answers with an entry the sheet itself would drop', () => {
+        const messy = { preoccupations: ['  ', 'the plant', 'THE PLANT', ''] };
+        const answers = new Set(Array.from({ length: 40 }, (_, index) => preoccupationOf(messy, `segment-${index}`)));
+
+        expect(answers).toEqual(new Set(['the plant']));
+    });
+
+    // Past the cap the entry reaches no prompt, so a caller rotating over the raw column would hand
+    // over a subject the renderer had already thrown away.
+    it('offers nothing past the sheet cap', () => {
+        const long = { preoccupations: Array.from({ length: PERSONA_SHEET_LIMITS.preoccupations + 3 }, (_, index) => `subject ${index}`) };
+        const answers = new Set(Array.from({ length: 200 }, (_, index) => preoccupationOf(long, `segment-${index}`)));
+
+        expect(answers.size).toBeLessThanOrEqual(PERSONA_SHEET_LIMITS.preoccupations);
+        expect(answers).not.toContain(`subject ${PERSONA_SHEET_LIMITS.preoccupations}`);
     });
 });
 

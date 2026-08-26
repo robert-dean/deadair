@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SpeechCue } from '@deadair/plugin-sdk';
 
 import type { StoredBreakRequest } from '../../../src/modules/director/break.request.js';
-import type { BreakStory } from '../../../src/modules/director/break.writer.js';
+import type { BreakStory, BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
 import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import { WriteBreakJob } from '../../../src/modules/director/write.break.job.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
@@ -511,6 +511,54 @@ describe('WriteBreakJob', () => {
             await job.run({ segmentId: 'seg-1' });
 
             expect(personaStories.forPrompt).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('what the character has on its mind', () => {
+        const withSubjects = (preoccupations: string[]) =>
+            ({
+                id: 'p-1',
+                key: 'conspiracy',
+                label: 'Overnight host',
+                style: 'an overnight host',
+                kind: 'host',
+                active: true,
+                preoccupations,
+            }) as Persona;
+
+        /** One break's request, for whatever segment id the order was built around. */
+        const wrote = async (segmentId: string, preoccupations: string[]) => {
+            const { job, writers } = harness({
+                lineup: await lineupWithBreak(segmentId),
+                segment: planned({ id: segmentId }),
+                persona: withSubjects(preoccupations),
+            });
+            await job.run({ segmentId });
+
+            // The request as it was actually handed over. `write` is a bare `vi.fn`, so its recorded
+            // arguments are untyped and the shape has to be named here.
+            const [request] = writers.write.mock.calls[0] as unknown as [BreakWriteRequest];
+            return request.preoccupation;
+        };
+
+        const subjects = ['the pressing plant', 'the sky over the transmitter', 'the running order'];
+
+        // Which is the whole feature: consecutive breaks are about different things without anything
+        // having to remember the last one.
+        it('is spread over the segment id, so two breaks in a row are rarely the same', async () => {
+            const spread = new Set(await Promise.all(['seg-1', 'seg-2', 'seg-3', 'seg-4', 'seg-5'].map(id => wrote(id, subjects))));
+
+            expect(spread.size).toBeGreaterThan(1);
+        });
+
+        // The reason it is the id and not a counter: a break re-offered after a lost job has to be
+        // written from the same material, or the retry is a second opinion.
+        it('is the same one when the same break is written again', async () => {
+            expect(await wrote('seg-9', subjects)).toBe(await wrote('seg-9', subjects));
+        });
+
+        it('is absent for a character with none, which is every seed the station shipped with', async () => {
+            expect(await wrote('seg-1', [])).toBeUndefined();
         });
     });
 

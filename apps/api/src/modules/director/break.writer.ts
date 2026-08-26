@@ -282,6 +282,20 @@ export interface BreakWriteRequest {
      */
     pads?: readonly string[];
     /**
+     * The one thing this character has had on its mind, from `PersonaSheet.preoccupations`.
+     *
+     * Chosen by the caller for {@link BreakWriteRequest.persona}'s reason — which subject came round
+     * this time is a property of the moment rather than something each binding should decide for
+     * itself, and two bindings deciding it differently would make the floor and the model two
+     * characters.
+     *
+     * Unread by every deterministic writer, and this one is structural rather than a policy like the
+     * pads above it: a phrasing is a sentence an operator typed, with nowhere to put a subject. So a
+     * station with no model keeps its preoccupations and never says anything out of them, which is
+     * exactly where the notebook already sits.
+     */
+    preoccupation?: string;
+    /**
      * The last few things the station said, newest first.
      *
      * Not history for its own sake: a writer with a pool of phrasings needs to know which ones are

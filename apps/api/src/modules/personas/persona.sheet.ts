@@ -67,6 +67,11 @@
  * paying for a second generation to maybe get one.
  */
 
+// The one import here, and it keeps this file's promise: a hash over a string is as pure as the
+// rest of it. Shared rather than local because a break, a production and the facts all spread over
+// an id, and three copies of one modulo is three chances to get the empty-list case wrong.
+import { rotateInto } from '#modules/shared/rotation.js';
+
 /** How much a character says, below the station's ordinary length. See {@link PersonaSheet.brevity}. */
 export const PERSONA_BREVITIES = ['short', 'one-line'] as const;
 
@@ -226,6 +231,20 @@ export const DEFAULT_STORYTELLING: PersonaStorytelling = 'occasionally';
  */
 export const storytellingOf = (sheet: PersonaSheet | undefined): PersonaStorytelling =>
     sheet !== undefined && isPersonaStorytelling(sheet.storytelling) ? sheet.storytelling : DEFAULT_STORYTELLING;
+
+/**
+ * The one of this character's {@link PersonaSheet.preoccupations} that `rotationId` gets.
+ *
+ * Here rather than in each caller so the sheet's own normalizer and its own cap are what decide what
+ * is eligible — a list of seven has a seventh entry that reaches no prompt, and a caller rotating
+ * over the raw column would hand over the one thing `personaLines` would have dropped.
+ *
+ * The id is the caller's, and which id it is says what "in turn" means: a break passes the segment's,
+ * so consecutive breaks differ and a re-offered one repeats; a production passes its own, so every
+ * beat of one programme carries the same subject. See `rotationOf`.
+ */
+export const preoccupationOf = (sheet: PersonaSheet | undefined, rotationId: string): string | undefined =>
+    sheet === undefined ? undefined : rotateInto(cleanList(sheet.preoccupations, PERSONA_SHEET_LIMITS.preoccupations), rotationId);
 
 /**
  * The facets of a character beyond the one-line style, all optional.
@@ -440,6 +459,19 @@ export const MAX_SAMPLE_ECHO_WORDS = 5;
 export interface PersonaLineOptions {
     /** Example lines woven in. Defaults to {@link MAX_EXAMPLES}. */
     maxExamples?: number;
+    /**
+     * The one of {@link PersonaSheet.preoccupations} this moment gets, or absent for none at all.
+     *
+     * Chosen by the caller rather than here, which is `PersonaLineOptions`' shape for the reason
+     * every other handed-over material has it: what varies between one break and the next is a
+     * property of the MOMENT, and a sheet renderer that reached for a rotation would be a pure
+     * function of something it went and decided. A break spreads it over the segment id; a
+     * production picks once, at cast time, and every beat that speaker writes carries the same one.
+     *
+     * Not validated against the sheet's own list. A caller handing over a subject that is not on it
+     * is a caller that has decided something, which is the same latitude `maxExamples` already has.
+     */
+    preoccupation?: string;
 }
 
 /**
@@ -490,6 +522,20 @@ export function personaLines(sheet: PersonaSheet, opts: PersonaLineOptions = {})
 
     const quirks = cleanList(sheet.quirks, PERSONA_SHEET_LIMITS.quirks);
     if (quirks.length > 0) lines.push(`In character: ${joinClauses(quirks)}`);
+
+    // Directly under the quirks, because the quirks are what govern it: whatever a character may
+    // never do with a subject is stated immediately above whichever subject it has today.
+    //
+    // Offered rather than instructed, which is the notes' own lesson said again. "Work at most one
+    // of them in" read to a model as an order to work one in, and the same sentence here would
+    // produce a break that is about the preoccupation every time — which is a station with one
+    // subject again, only a different one each night. What is wanted is a lean.
+    const preoccupation = opts.preoccupation?.trim();
+    if (preoccupation !== undefined && preoccupation.length > 0) {
+        lines.push(
+            `Lately you have had this on your mind: ${preoccupation}. Bring it up if the moment gives you an opening, and let it go if it does not.`,
+        );
+    }
 
     const catchphrases = cleanList(sheet.catchphrases, PERSONA_SHEET_LIMITS.catchphrases);
     if (catchphrases.length > 0) {

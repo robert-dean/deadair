@@ -90,7 +90,7 @@ describe('the seeded personas', () => {
         // one: it is the default host, its dialect is ordinary warm English, and the markers it used
         // to carry were contractions that made its check pass on anything. See the comment on the
         // sheet, and `persona.markers.test.ts`, which is where that exemption is stated and held.
-        for (const persona of SEED_PERSONAS) {
+        for (const persona of SEED_CHARACTERS) {
             if ((persona.dictionMarkers?.length ?? 0) === 0) continue;
 
             expect(persona.dictionMarkers?.length ?? 0, `${persona.key} has too few markers to judge a break by`).toBeGreaterThanOrEqual(

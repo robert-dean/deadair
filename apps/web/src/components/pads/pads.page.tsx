@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { ActionIcon, Badge, Button, Card, Checkbox, Group, Stack, Table, Text, TextInput, Tooltip } from '@mantine/core';
-import { IconCheck, IconPencil, IconPlayerPauseFilled, IconPlayerPlay, IconPlus, IconRefresh, IconRotate, IconTrash, IconX } from '@tabler/icons-react';
+import {
+    IconCheck,
+    IconDownload,
+    IconPencil,
+    IconPlayerPauseFilled,
+    IconPlayerPlay,
+    IconPlus,
+    IconRefresh,
+    IconRotate,
+    IconTrash,
+    IconX,
+} from '@tabler/icons-react';
 import type { Pad, PadSet } from '@deadair/sdk';
 
 import {
@@ -378,6 +389,15 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore }: PadTab
                                         {preview.isPlaying(pad.id) ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlay size={16} />}
                                     </ActionIcon>
                                 </Tooltip>
+                                <Tooltip label="Download the file">
+                                    <ActionIcon
+                                        variant="subtle"
+                                        aria-label={`Download ${pad.label}`}
+                                        onClick={() => void download(pad)}
+                                    >
+                                        <IconDownload size={16} />
+                                    </ActionIcon>
+                                </Tooltip>
                                 {onReject ? (
                                     <Tooltip label="Take it out of use. Kept, so the next scan does not put it back.">
                                         <ActionIcon variant="subtle" color="red" aria-label={`Reject ${pad.label}`} onClick={() => onReject(pad.id)}>
@@ -399,6 +419,32 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore }: PadTab
             </Table.Tbody>
         </Table>
     );
+}
+
+/**
+ * Get one sound back off the station.
+ *
+ * Through the same blob URL the preview uses, because the audio route wants the console's bearer
+ * token and a plain `<a href>` carries none. Named after the pad rather than after the file it
+ * arrived as, since the name is what the station actually holds it under.
+ *
+ * Until `docs/todo/backup-and-restore.md` lands this is the only way out, which is why it is here at
+ * all: a rack an operator can fill and not empty is a one-way door.
+ */
+async function download(pad: Pad): Promise<void> {
+    const url = await fetchPadAudio(pad.id);
+
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    // The extension off the stored path, which is `<name>.<ext>` for anything this console wrote and
+    // the operator's own filename for anything they dropped. `audioExt` is deliberately not on the
+    // wire — see `toPadView` — so this is the honest source for it.
+    anchor.download = `${pad.name}.${pad.sourcePath?.split('.').pop() ?? 'mp3'}`;
+    anchor.click();
+
+    // Released on the next turn rather than immediately: revoking in the same tick as the click
+    // races the browser's own read of the blob, and a cancelled download looks like a broken button.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 /**

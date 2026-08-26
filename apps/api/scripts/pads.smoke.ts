@@ -216,6 +216,24 @@ try {
         check('rewriting the break takes its hit back off the row', (await segments.findById(hit))?.pads, []);
         // Nothing on the station has hit a pad now, so the count is everything ever written.
         check('so the spacing counts past it again', (await segments.breaksSincePad()) > 1, true);
+
+        // ── the claim, which is the one read that does not use SEGMENT_COLUMNS ──
+        say('the claim');
+
+        // `claimForRender` is hand-written SQL against a self-join, so a column added anywhere else
+        // never arrives in it. `pads` shipped missing from that list and NOTHING caught it: an
+        // absent value reads as an empty array, which is exactly what an ordinary break looks like,
+        // so every padded break rendered as plain words, with no error anywhere and every unit test
+        // passing — they build a Segment by hand and never come through this statement.
+        //
+        // This is the assertion that would have caught it. It lives here rather than in
+        // `apps/api/tests` because what is under test is a `returning` clause.
+        //
+        // Its own break, because claiming moves a row to `rendering` and the checks above want one
+        // they can still reopen.
+        const toRender = await wrote('zzsmoke claimed', 'words [sfx:rimshot]', [{ name: 'rimshot', padId: fresh[1]!.id }]);
+        const claimed = await segments.claimForRender(toRender);
+        check('a claim for rendering carries the hits with it', claimed?.pads, [{ name: 'rimshot', padId: fresh[1]!.id }]);
         throw new Rollback();
     });
 } catch (error) {

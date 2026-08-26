@@ -1169,6 +1169,24 @@ describe('WriteBreakJob putting a pad in by itself', () => {
         expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking', pads: [] }));
     });
 
+    it('never puts one in a BULLETIN, whatever the character has to hand', async () => {
+        // The veto `NEWS_SHAPE.allowsPads: false` puts on the model's offer, re-expressed for the
+        // floor — which makes no offer and would otherwise just append. It shipped without this and
+        // a bulletin went out ending "Then, UFO. [sfx:rimshot]", twice, which is the exact failure
+        // that flag exists to prevent arriving through the one door it does not cover.
+        const { job, segments } = harness({
+            lineup: await lineupWithBreak(),
+            segment: { id: 'seg-1', kind: 'news', state: 'planned', label: 'News', source: 'render', pads: [] } as never,
+            persona: withBoard as never,
+            pads: rack as never,
+            breaksSincePad: 40,
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ script: 'talking', pads: [] }));
+    });
+
     it('says nothing for a character with no board, however overdue it is', async () => {
         const { job, segments } = harness({ lineup: await lineupWithBreak(), pads: rack as never, breaksSincePad: 40 });
 

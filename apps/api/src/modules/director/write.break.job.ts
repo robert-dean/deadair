@@ -335,7 +335,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // the sound joined would not be the one the words were written for.
         // The FLOOR runs first, because it can only ever change a script that hit nothing — so what
         // `hits` resolves below is the finished words either way, whoever decided them.
-        const script = await this.floorPad(result, persona);
+        const script = await this.floorPad(result, persona, segment.kind);
         const pads = await this.hits(script, persona);
 
         if (
@@ -558,9 +558,22 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
      * The pad is the least recently hit, which is what `PadRepository.onBoard` already orders by, so
      * this takes the first and does not sort again.
      */
-    private async floorPad(result: { written: WrittenBreak; writer: string }, persona: Persona | undefined): Promise<string> {
+    private async floorPad(result: { written: WrittenBreak; writer: string }, persona: Persona | undefined, kind: string): Promise<string> {
         const script = result.written.script;
         if (result.writer !== DETERMINISTIC_WRITER) return script;
+
+        // The ordinary talk break ALONE, which is the same veto `BreakPromptShape.allowsPads` puts
+        // on the model's offer, re-expressed here because the floor never goes near a shape.
+        //
+        // It shipped without this and a bulletin ended "Then, UFO. [sfx:rimshot]" — twice, on air.
+        // Which is precisely what `NEWS_SHAPE.allowsPads: false` exists to prevent, arriving through
+        // the one door that flag does not cover: the offer is what a shape governs, and the floor
+        // makes no offer, it just appends.
+        //
+        // Keyed on the kind rather than on a shape lookup because there is no kind-to-shape registry
+        // and inventing one for this would be a second place the veto lives. A kind that later wants
+        // a sting says so here.
+        if (kind !== TALK_BREAK_KIND) return script;
 
         const board = persona?.soundboard;
         if (board === undefined || !padsAreOn(this.config)) return script;

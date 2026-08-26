@@ -1109,6 +1109,18 @@ export class SegmentRepository extends DataRepository {
          returning prior.state as from_state,
                    s.id, s.kind, s.state, s.label, s.script, s.source, s.source_path,
                    s.audio_checksum, s.audio_ext, s.duration_ms, s.error, s.voice, s.writer,
+                   -- The soundboard hits, which the render path splits and joins around. Spelled out
+                   -- because this is the one read in the file that does NOT go through
+                   -- SEGMENT_COLUMNS: the claim has to be a single statement against a self-join to
+                   -- see the prior state, so its column list is hand-written and a column added
+                   -- anywhere else never arrives here.
+                   --
+                   -- It shipped missing, and the failure is worth recording because nothing caught
+                   -- it. An absent value reads as an empty array, which is exactly what an ordinary
+                   -- break looks like, so a padded break rendered as plain words with no error
+                   -- anywhere and every test still passed -- they build a Segment by hand and never
+                   -- come through this statement at all.
+                   s.pads,
                    s.claims_item_id
         `.execute(this.db);
 

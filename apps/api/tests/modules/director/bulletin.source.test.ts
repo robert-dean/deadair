@@ -7,7 +7,15 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { NewsItem } from '@deadair/plugin-sdk';
 
-import { BULLETIN_KEYS, BulletinSource, CategoryWatch, DEFAULT_STORY_COUNT, ReadLog } from '../../../src/modules/director/bulletin.source.js';
+import {
+    BULLETIN_KEYS,
+    BulletinSource,
+    CategoryWatch,
+    DEFAULT_STORY_COUNT_MAX,
+    DEFAULT_STORY_COUNT_MIN,
+    MAX_STORY_COUNT,
+    ReadLog,
+} from '../../../src/modules/director/bulletin.source.js';
 import { NEWS_KIND } from '../../../src/modules/director/news.break.writer.js';
 import type { NewsService } from '../../../src/modules/news/news.service.js';
 import type { Topic } from '../../../src/modules/topics/topic.js';
@@ -83,7 +91,12 @@ function build(options: Options = {}, values: Record<string, unknown> = {}) {
     const topics = { list: vi.fn(async () => options.topics ?? []) } as unknown as TopicRepository;
     const watch = options.watch ?? new CategoryWatch(activity, logger);
 
-    return { source: new BulletinSource(news, options.read ?? new ReadLog(), topics, watch, config(values), logger), fetchItems, watch };
+    // The count is a RANGE now and almost every case below is about something else, so it is pinned
+    // to a fixed three unless the case sets its own ends. A test left to roll would pass or fail on
+    // the dice rather than on what it is checking.
+    const pinned = { [BULLETIN_KEYS.storiesMin]: 3, [BULLETIN_KEYS.storiesMax]: 3, ...values };
+
+    return { source: new BulletinSource(news, options.read ?? new ReadLog(), topics, watch, config(pinned), logger), fetchItems, watch };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -113,6 +126,53 @@ describe('which breaks get stories at all', () => {
     });
 });
 
+// A bulletin's structural length is how many stories it reads, in the way a production's is its
+// `target_ms` — the word ceiling is not, being a limit almost nothing reaches. Fixed, the station's
+// news is the same shape every half hour.
+describe('how many stories one bulletin reads', () => {
+    const rolls = (value: number) => () => value;
+    const headlines = Array.from({ length: 12 }, (_, at) => item(`Story ${at}`));
+
+    it('reads the station default range, both ends', async () => {
+        const fewest = build({ items: headlines }, { [BULLETIN_KEYS.storiesMin]: DEFAULT_STORY_COUNT_MIN, [BULLETIN_KEYS.storiesMax]: DEFAULT_STORY_COUNT_MAX });
+        const most = build({ items: headlines }, { [BULLETIN_KEYS.storiesMin]: DEFAULT_STORY_COUNT_MIN, [BULLETIN_KEYS.storiesMax]: DEFAULT_STORY_COUNT_MAX });
+
+        expect((await fewest.source.storiesFor(NEWS_KIND, undefined, NOW, rolls(0)))?.stories).toHaveLength(DEFAULT_STORY_COUNT_MIN);
+        expect((await most.source.storiesFor(NEWS_KIND, undefined, NOW, rolls(0.999)))?.stories).toHaveLength(DEFAULT_STORY_COUNT_MAX);
+    });
+
+    it('reads one length when both ends agree, which is how an operator asks for a fixed bulletin', async () => {
+        const { source } = build({ items: headlines }, { [BULLETIN_KEYS.storiesMin]: 3, [BULLETIN_KEYS.storiesMax]: 3 });
+
+        expect((await source.storiesFor(NEWS_KIND, undefined, NOW, rolls(0.999)))?.stories).toHaveLength(3);
+    });
+
+    it('reads the two ends as a pair however they were typed, rather than refusing them', async () => {
+        // The resolver rule: a row already stored costs the station its preference, never its
+        // ability to read the news. The console refuses the pair where somebody types it.
+        const { source } = build({ items: headlines }, { [BULLETIN_KEYS.storiesMin]: 5, [BULLETIN_KEYS.storiesMax]: 2 });
+
+        expect((await source.storiesFor(NEWS_KIND, undefined, NOW, rolls(0)))?.stories).toHaveLength(2);
+    });
+
+    it('clamps an end past the ceiling, so a typo cannot produce a ten-minute bulletin', async () => {
+        const many = Array.from({ length: 40 }, (_, at) => item(`Story ${at}`));
+        const { source } = build({ items: many }, { [BULLETIN_KEYS.storiesMin]: 900, [BULLETIN_KEYS.storiesMax]: 900 });
+
+        expect((await source.storiesFor(NEWS_KIND, undefined, NOW, rolls(0)))?.stories).toHaveLength(MAX_STORY_COUNT);
+    });
+
+    it('reaches down the page for the count it actually rolled, not for the fixed one', async () => {
+        // `OVERSAMPLE` multiplies whatever was asked for. A roll that reaches past the ask and an
+        // ask that reaches past the page are the same failure one step apart.
+        const { source, fetchItems } = build({ items: headlines }, { [BULLETIN_KEYS.storiesMin]: 2, [BULLETIN_KEYS.storiesMax]: 4 });
+
+        await source.storiesFor(NEWS_KIND, undefined, NOW, rolls(0.999));
+
+        expect(fetchItems).toHaveBeenCalledWith(expect.objectContaining({ limit: 4 * 4 }));
+    });
+});
+
 describe('what it asks for', () => {
     it('asks only for stories fresh enough to read as news', async () => {
         const { source, fetchItems } = build({}, { [BULLETIN_KEYS.maxAgeHours]: 6 });
@@ -137,7 +197,7 @@ describe('what it asks for', () => {
 
         await source.storiesFor(NEWS_KIND, undefined, NOW);
 
-        expect(fetchItems).toHaveBeenCalledWith(expect.objectContaining({ limit: DEFAULT_STORY_COUNT * 4 }));
+        expect(fetchItems).toHaveBeenCalledWith(expect.objectContaining({ limit: 3 * 4 }));
     });
 
     it('reads across every feed unless the operator named one', async () => {
@@ -151,7 +211,7 @@ describe('what it asks for', () => {
     });
 
     it('holds a mistyped count inside its bounds instead of reading a ten-minute bulletin', async () => {
-        const { source } = build({ items: Array.from({ length: 40 }, (_, at) => item(`Story ${at}`)) }, { [BULLETIN_KEYS.stories]: 500 });
+        const { source } = build({ items: Array.from({ length: 40 }, (_, at) => item(`Story ${at}`)) }, { [BULLETIN_KEYS.storiesMin]: 500, [BULLETIN_KEYS.storiesMax]: 500 });
 
         expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories.length).toBeLessThanOrEqual(8);
     });
@@ -184,7 +244,7 @@ describe('what a writer is handed', () => {
     });
 
     it('keeps the order the news came in, and cuts to the number asked for', async () => {
-        const { source } = build({ items: [item('First'), item('Second'), item('Third')] }, { [BULLETIN_KEYS.stories]: 2 });
+        const { source } = build({ items: [item('First'), item('Second'), item('Third')] }, { [BULLETIN_KEYS.storiesMin]: 2, [BULLETIN_KEYS.storiesMax]: 2 });
 
         expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories.map(one => one.headline)).toEqual(['First.', 'Second.']);
     });
@@ -244,7 +304,7 @@ describe('what the station has already read', () => {
     const three = [item('Bridge reopens after four years'), item('Council votes on the harbour'), item('Ferry service resumes')];
 
     it('reads a story once and then reaches past it', async () => {
-        const { source } = build({ items: [...three, item('Library extends its hours')] }, { [BULLETIN_KEYS.stories]: 3 });
+        const { source } = build({ items: [...three, item('Library extends its hours')] });
 
         const first = await source.storiesFor(NEWS_KIND, undefined, NOW);
         expect(first?.stories.map(story => story.headline)).toContain('Bridge reopens after four years.');
@@ -264,19 +324,19 @@ describe('what the station has already read', () => {
         const read = new ReadLog();
         const items = [...three, item('Library extends its hours')];
 
-        const first = build({ items, read }, { [BULLETIN_KEYS.stories]: 3 });
+        const first = build({ items, read });
         expect((await first.source.storiesFor(NEWS_KIND, undefined, NOW))?.stories.map(story => story.headline)).toEqual([
             'Bridge reopens after four years.',
             'Council votes on the harbour.',
             'Ferry service resumes.',
         ]);
 
-        const second = build({ items, read }, { [BULLETIN_KEYS.stories]: 3 });
+        const second = build({ items, read });
         expect((await second.source.storiesFor(NEWS_KIND, undefined, NOW))?.stories.map(story => story.headline)).toEqual([
             'Library extends its hours.',
         ]);
 
-        const third = build({ items, read }, { [BULLETIN_KEYS.stories]: 3 });
+        const third = build({ items, read });
         expect(await third.source.storiesFor(NEWS_KIND, undefined, NOW)).toEqual({ stories: [] });
     });
 
@@ -287,10 +347,10 @@ describe('what the station has already read', () => {
         const read = new ReadLog();
         const items = [...three, item('Library extends its hours')];
 
-        await build({ items, read }, { [BULLETIN_KEYS.stories]: 3 }).source.storiesFor(NEWS_KIND, undefined, NOW);
+        await build({ items, read }).source.storiesFor(NEWS_KIND, undefined, NOW);
         vi.clearAllMocks();
 
-        await build({ items, read }, { [BULLETIN_KEYS.stories]: 3 }).source.storiesFor(NEWS_KIND, undefined, NOW);
+        await build({ items, read }).source.storiesFor(NEWS_KIND, undefined, NOW);
 
         expect(logger.debug).toHaveBeenCalledWith(
             'director: read the news for a bulletin',
@@ -301,7 +361,7 @@ describe('what the station has already read', () => {
     it('declines the slot when everything in the window has been read', async () => {
         // Silence rather than a repeat, on the same argument the freshness window is on: a listener
         // cannot tell a station reading this morning's headlines again from one that is simply wrong.
-        const { source } = build({ items: three }, { [BULLETIN_KEYS.stories]: 3 });
+        const { source } = build({ items: three });
 
         await source.storiesFor(NEWS_KIND, undefined, NOW);
 
@@ -312,7 +372,7 @@ describe('what the station has already read', () => {
         // The one line here worth attention: a station whose clock asks for news every half hour and
         // whose publisher posts three stories a day is silent at most bulletins, and only this says
         // why. A `debug` line would leave that looking like the news feature being broken.
-        const { source } = build({ items: three }, { [BULLETIN_KEYS.stories]: 3 });
+        const { source } = build({ items: three });
 
         await source.storiesFor(NEWS_KIND, undefined, NOW);
         await source.storiesFor(NEWS_KIND, undefined, NOW);
@@ -323,7 +383,7 @@ describe('what the station has already read', () => {
     it('treats one story under two spellings as one story', async () => {
         // Two newsrooms carrying one headline is two ids and one thing a listener hears twice, which
         // is why the log is keyed on the words rather than on the publisher's id.
-        const { source } = build({ items: [item('Bridge reopens after four years')] }, { [BULLETIN_KEYS.stories]: 3 });
+        const { source } = build({ items: [item('Bridge reopens after four years')] });
         await source.storiesFor(NEWS_KIND, undefined, NOW);
 
         const { source: same } = build();
@@ -362,7 +422,7 @@ describe('what the bulletin is about', () => {
     ];
 
     it('reads only what belongs to the category the clock asked for', async () => {
-        const { source } = build({ items: page, topics: [technology, sport] }, { [BULLETIN_KEYS.stories]: 3 });
+        const { source } = build({ items: page, topics: [technology, sport] });
 
         const bulletin = await source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW);
 
@@ -418,7 +478,7 @@ describe('what the bulletin is about', () => {
     });
 
     it('covers whatever it finds when the band asked for nothing', async () => {
-        const { source } = build({ items: page, topics: [technology, sport] }, { [BULLETIN_KEYS.stories]: 3 });
+        const { source } = build({ items: page, topics: [technology, sport] });
 
         const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
 
@@ -429,7 +489,7 @@ describe('what the bulletin is about', () => {
     it('covers whatever it finds when the band names a category the station no longer holds', async () => {
         // Unreachable through the console, since deleting a category takes its bands with it. A row
         // edited by hand gets a general bulletin rather than a slot that can never be filled.
-        const { source } = build({ items: page, topics: [technology] }, { [BULLETIN_KEYS.stories]: 3 });
+        const { source } = build({ items: page, topics: [technology] });
 
         const bulletin = await source.storiesFor(NEWS_KIND, { topic: 'gardening' }, NOW);
 
@@ -446,7 +506,7 @@ describe('what the bulletin is about', () => {
             item('Rovers appoint a manager', { categories: ['Sport'] }),
             item('Semiconductor plant reopens'),
         ];
-        const { source } = build({ items: sporty, topics: [technology, sport] }, { [BULLETIN_KEYS.stories]: 3 });
+        const { source } = build({ items: sporty, topics: [technology, sport] });
 
         const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
 
@@ -461,7 +521,7 @@ describe('what the bulletin is about', () => {
         // Most stations will have categories covering a fraction of what their feeds carry, so
         // dropping the rest would silently narrow every bulletin to whatever happened to be
         // classified.
-        const { source } = build({ items: page, topics: [technology] }, { [BULLETIN_KEYS.stories]: 3 });
+        const { source } = build({ items: page, topics: [technology] });
 
         const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
 

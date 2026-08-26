@@ -51,18 +51,25 @@ import { NEWS_KIND } from './news.break.writer.js';
 /** The `deadair.settings` keys. In `rotation`, beside the station's other words. */
 export const BULLETIN_KEYS = {
     feed: 'rotation.newsFeed',
-    stories: 'rotation.newsStories',
+    storiesMin: 'rotation.newsStoriesMin',
+    storiesMax: 'rotation.newsStoriesMax',
     maxAgeHours: 'rotation.newsMaxAgeHours',
 } as const;
 
 /**
- * How many stories a bulletin reads when the operator has not said.
+ * How many stories a bulletin reads when the operator has not said, as the ends of a RANGE.
  *
  * Three is a headline round rather than a programme: at the length a voice reads, three headlines
  * and the words around them is most of a minute, and a station that stops for two minutes of news
- * every half hour is a news station that plays records.
+ * every half hour is a news station that plays records. Two and four are that, either side.
+ *
+ * A range because the story COUNT is a bulletin's structural length, in the way `targetMs` is a
+ * production's — the word ceiling is not, being a limit almost nothing reaches. A fixed count is a
+ * station whose every news bulletin is the same shape, which is the thing a listener notices without
+ * being able to say why.
  */
-export const DEFAULT_STORY_COUNT = 3;
+export const DEFAULT_STORY_COUNT_MIN = 2;
+export const DEFAULT_STORY_COUNT_MAX = 4;
 
 /**
  * How old a story may be and still be read as news, in hours.
@@ -75,7 +82,7 @@ export const DEFAULT_STORY_COUNT = 3;
 export const DEFAULT_MAX_AGE_HOURS = 12;
 
 /** Ceilings, so a typo in a settings box cannot produce a ten-minute bulletin. */
-const MAX_STORY_COUNT = 8;
+export const MAX_STORY_COUNT = 8;
 const MAX_AGE_HOURS = 168;
 
 /**
@@ -279,9 +286,15 @@ export class BulletinSource {
      * What this break has to report, or `undefined` when it is not that sort of break.
      *
      * `now` is a parameter rather than a call to the clock so the staleness window is testable, and
-     * because the caller already has the instant it is writing for.
+     * because the caller already has the instant it is writing for. `random` is one for the same
+     * reason: a test that cannot pin the roll is a test of nothing.
      */
-    async storiesFor(kind: string, context: BreakContext | undefined, now: number = Date.now()): Promise<Bulletin | undefined> {
+    async storiesFor(
+        kind: string,
+        context: BreakContext | undefined,
+        now: number = Date.now(),
+        random: () => number = Math.random,
+    ): Promise<Bulletin | undefined> {
         if (kind !== NEWS_KIND) return undefined;
 
         // Asked before anything else, so a station with no news plugin costs nothing and says
@@ -289,7 +302,11 @@ export class BulletinSource {
         // but a plugin can be uninstalled between planting and writing.
         if (!this.news.hasNews()) return { stories: [] };
 
-        const wanted = clamp(this.config.get(BULLETIN_KEYS.stories, DEFAULT_STORY_COUNT), 1, MAX_STORY_COUNT, DEFAULT_STORY_COUNT);
+        // Picked per bulletin rather than fixed, so the station's news is not the same shape every
+        // half hour. Spent immediately: `wanted` reaches both the ask below and `ReadLog`, so a
+        // bulletin that asked for four has rested four whether or not it airs — the inaccuracy
+        // `chooseFacts` documents, unchanged in kind by there being a range.
+        const wanted = this.howManyStories(random);
         const maxAgeHours = clamp(this.config.get(BULLETIN_KEYS.maxAgeHours, DEFAULT_MAX_AGE_HOURS), 1, MAX_AGE_HOURS, DEFAULT_MAX_AGE_HOURS);
         const feed = this.config.get(BULLETIN_KEYS.feed, '').trim();
 
@@ -382,6 +399,26 @@ export class BulletinSource {
             this.logger.info(`director: the news could not be read for a bulletin (${errorText(error)})`);
             return { stories: [] };
         }
+    }
+
+    /**
+     * How many stories THIS bulletin reads, out of the station's range.
+     *
+     * The two ends are read as an unordered pair rather than refused, on the resolver rule this
+     * whole file follows: a row that is already stored must cost the station its preference, never
+     * its ability to read the news. The console refuses the pair where somebody types it.
+     *
+     */
+    private howManyStories(random: () => number): number {
+        const low = clamp(this.config.get(BULLETIN_KEYS.storiesMin, DEFAULT_STORY_COUNT_MIN), 1, MAX_STORY_COUNT, DEFAULT_STORY_COUNT_MIN);
+        const high = clamp(this.config.get(BULLETIN_KEYS.storiesMax, DEFAULT_STORY_COUNT_MAX), 1, MAX_STORY_COUNT, DEFAULT_STORY_COUNT_MAX);
+
+        const from = Math.min(low, high);
+        const to = Math.max(low, high);
+
+        // Inclusive at both ends, or a range of 2 to 4 never reads four and the setting says
+        // something it does not mean.
+        return from + Math.min(to - from, Math.floor(random() * (to - from + 1)));
     }
 
     /**

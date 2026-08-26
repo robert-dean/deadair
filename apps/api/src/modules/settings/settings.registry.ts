@@ -13,7 +13,13 @@ import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.j
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
 import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.js';
-import { BULLETIN_KEYS, DEFAULT_MAX_AGE_HOURS, DEFAULT_STORY_COUNT } from '#modules/director/bulletin.source.js';
+import {
+    BULLETIN_KEYS,
+    DEFAULT_MAX_AGE_HOURS,
+    DEFAULT_STORY_COUNT_MAX,
+    DEFAULT_STORY_COUNT_MIN,
+    MAX_STORY_COUNT,
+} from '#modules/director/bulletin.source.js';
 import { CLOCK_KEYS } from '#modules/director/clock.words.js';
 import {
     BREAK_WORD_KEYS,
@@ -63,12 +69,16 @@ import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
 import {
     DEFAULT_DIALOGUE_KINDS,
-    DEFAULT_DIALOGUE_MINUTES,
+    DEFAULT_DIALOGUE_MINUTES_MAX,
+    DEFAULT_DIALOGUE_MINUTES_MIN,
     DEFAULT_GAP_MS,
-    DEFAULT_TARGET_MINUTES,
+    DEFAULT_TARGET_MINUTES_MAX,
+    DEFAULT_TARGET_MINUTES_MIN,
     DEFAULT_WRITING_MODE,
     MAX_GAP_MS,
+    MAX_PRODUCTION_MINUTES,
     MIN_GAP_MS,
+    MIN_PRODUCTION_MINUTES,
     PRODUCTION_KEYS,
 } from '#modules/productions/production.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -428,11 +438,23 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
-        key: BULLETIN_KEYS.stories,
-        label: 'Headlines in a news bulletin',
+        key: BULLETIN_KEYS.storiesMin,
+        label: 'Headlines in a news bulletin, fewest',
         type: 'number',
-        default: DEFAULT_STORY_COUNT,
-        help: 'How many stories the station reads when the clock above asks for news. Three is a headline round; a station that stops for two minutes every half hour is a news station that plays records.',
+        min: 1,
+        max: MAX_STORY_COUNT,
+        default: DEFAULT_STORY_COUNT_MIN,
+        help: 'How many stories the station reads when the clock asks for news. A range rather than a number, because the story count is what makes one bulletin longer than the next — a fixed one is a news round that is the same shape every half hour. Around three is a headline round; a station that stops for two minutes every half hour is a news station that plays records.',
+    },
+    {
+        group: 'rotation',
+        key: BULLETIN_KEYS.storiesMax,
+        label: 'Headlines in a news bulletin, most',
+        type: 'number',
+        min: 1,
+        max: MAX_STORY_COUNT,
+        default: DEFAULT_STORY_COUNT_MAX,
+        help: 'The other end. Set both to the same number for a bulletin that is always the same length.',
     },
     {
         group: 'rotation',
@@ -617,19 +639,43 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'render',
-        key: PRODUCTION_KEYS.targetMinutes,
-        label: 'How long a production runs (minutes)',
+        key: PRODUCTION_KEYS.targetMinutesMin,
+        label: 'How long a production runs, shortest (minutes)',
         type: 'number',
-        default: DEFAULT_TARGET_MINUTES,
-        help: 'The default length, which decides how many beats it has and how long each one is. Nothing about the timing is left to the model: asked to decide for itself it gives one subject one beat, which at ten minutes is a single beat asked to carry more words than any one answer contains.',
+        min: MIN_PRODUCTION_MINUTES,
+        max: MAX_PRODUCTION_MINUTES,
+        default: DEFAULT_TARGET_MINUTES_MIN,
+        help: 'The length a production is commissioned at, which decides how many beats it has and how long each one is. A range rather than a number, because a strand that is always exactly the same length is the one thing about a schedule a listener notices without being able to say why. Nothing about the timing is left to the model: asked to decide for itself it gives one subject one beat, which at ten minutes is a single beat asked to carry more words than any one answer contains.',
     },
     {
         group: 'render',
-        key: PRODUCTION_KEYS.dialogueMinutes,
-        label: 'How long a call-in runs (minutes)',
+        key: PRODUCTION_KEYS.targetMinutesMax,
+        label: 'How long a production runs, longest (minutes)',
         type: 'number',
-        default: DEFAULT_DIALOGUE_MINUTES,
-        help: 'The default length for a production that has callers in it, which is its own number because a turn is about a third of a beat: ten minutes of conversation is twenty-odd turns of a phone call rather than a longer one. Three minutes is about seven turns, which is a call.',
+        min: MIN_PRODUCTION_MINUTES,
+        max: MAX_PRODUCTION_MINUTES,
+        default: DEFAULT_TARGET_MINUTES_MAX,
+        help: 'The other end. Set both to the same number for a strand that is always the same length.',
+    },
+    {
+        group: 'render',
+        key: PRODUCTION_KEYS.dialogueMinutesMin,
+        label: 'How long a call-in runs, shortest (minutes)',
+        type: 'number',
+        min: MIN_PRODUCTION_MINUTES,
+        max: MAX_PRODUCTION_MINUTES,
+        default: DEFAULT_DIALOGUE_MINUTES_MIN,
+        help: 'Its own range, because a turn is a fraction of a beat: ten minutes of conversation is dozens of turns of a phone call rather than a longer one. Two to three minutes is a call.',
+    },
+    {
+        group: 'render',
+        key: PRODUCTION_KEYS.dialogueMinutesMax,
+        label: 'How long a call-in runs, longest (minutes)',
+        type: 'number',
+        min: MIN_PRODUCTION_MINUTES,
+        max: MAX_PRODUCTION_MINUTES,
+        default: DEFAULT_DIALOGUE_MINUTES_MAX,
+        help: 'The other end. Set both to the same number for a phone-in that is always the same length.',
     },
     {
         group: 'render',

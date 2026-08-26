@@ -17,9 +17,11 @@ import { isWritingMode } from './production.passes.js';
 /** The `deadair.settings` keys. In `render`, beside the other things the station makes. */
 export const PRODUCTION_KEYS = {
     writingMode: 'render.productionWritingMode',
-    targetMinutes: 'render.productionMinutes',
+    targetMinutesMin: 'render.productionMinutesMin',
+    targetMinutesMax: 'render.productionMinutesMax',
     dialogueKinds: 'render.dialogueKinds',
-    dialogueMinutes: 'render.dialogueMinutes',
+    dialogueMinutesMin: 'render.dialogueMinutesMin',
+    dialogueMinutesMax: 'render.dialogueMinutesMax',
     gapMs: 'render.productionGapMs',
 } as const;
 
@@ -82,22 +84,56 @@ export function dialogueKinds(config: AppConfig): Set<string> {
  */
 export const DEFAULT_WRITING_MODE: WritingMode = 'outlined';
 
-/** How long a production runs when nobody said, in minutes. */
-export const DEFAULT_TARGET_MINUTES = 10;
+/**
+ * How long a production runs when nobody said, in minutes, as the ends of a RANGE.
+ *
+ * A range rather than a number, and not only for the phone-in that prompted it: a documentary strand
+ * that is always precisely ten minutes is as mechanical as a phone-in that is always precisely
+ * three, and it is the one thing about a schedule a listener notices without being able to say why.
+ * Centred on the ten this used to be, so nothing about an existing station's programming moves.
+ */
+export const DEFAULT_TARGET_MINUTES_MIN = 8;
+export const DEFAULT_TARGET_MINUTES_MAX = 12;
 
 /**
  * How long a CONVERSATION runs when nobody said, in minutes.
  *
- * Its own number because a phone-in and a documentary are not the same length, and the arithmetic
- * makes the gap wider than it looks: a turn is a third of a beat, so ten minutes of dialogue is
- * twenty-three turns rather than eight — which is not a long phone-in, it is a different programme.
- * Three minutes is seven turns, which is a call.
+ * Its own range because a phone-in and a documentary are not the same length, and the arithmetic
+ * makes the gap wider than it looks: a turn is a fraction of a beat, so ten minutes of dialogue is
+ * dozens of turns rather than eight — which is not a long phone-in, it is a different programme.
+ *
+ * Two to three, which is where a call sits. It used to be a flat three; the lower end came down
+ * with the complaint that call-ins ran long, and having a range at all is what stops every one of
+ * them being the same programme at a different length.
  *
  * The better long-term shape is a length on the clock band row, since `deadair.clock_bands` is a
  * table now and a band saying its own length would kill this setting. That is the thing to do when a
  * THIRD kind of production appears rather than now.
  */
-export const DEFAULT_DIALOGUE_MINUTES = 3;
+export const DEFAULT_DIALOGUE_MINUTES_MIN = 2;
+export const DEFAULT_DIALOGUE_MINUTES_MAX = 3;
+
+/**
+ * The band a production's length may sit in, either end.
+ *
+ * One minute is where a programme stops being one, and two hours is where a `target_ms` typo becomes
+ * a block nothing else can be scheduled around. Shared with the console for the reason every range
+ * here is: the resolver CLAMPS, because it reads a row that is already stored, and the console
+ * REFUSES, because that is somebody typing one and a clamp there stores a figure they did not ask
+ * for and shows it back as though they had.
+ */
+export const MIN_PRODUCTION_MINUTES = 1;
+export const MAX_PRODUCTION_MINUTES = 120;
+
+/**
+ * How coarsely a length is picked out of its range.
+ *
+ * Thirty seconds, because the turn arithmetic quantises anyway — `beatCount` maps a band of word
+ * budgets onto the same turn count — so a finer step would produce lengths that come out identical
+ * and a coarser one would produce two or three possible programmes. At the dialogue band a
+ * thirty-second step moves the turn count by about two, which is audible.
+ */
+export const LENGTH_STEP_MS = 30_000;
 
 /**
  * The station's default writing mode, or the fallback.
@@ -111,18 +147,6 @@ export function stationWritingMode(config: AppConfig): WritingMode {
     return isWritingMode(set) ? set : DEFAULT_WRITING_MODE;
 }
 
-/**
- * The station's default length for a production of this kind, in milliseconds.
- *
- * Kind-aware because a conversation has its own default: without it a `callin` band commissions ten
- * minutes, which the turn arithmetic turns into twenty-three turns of a phone call.
- *
- * **Read as a STRING and parsed**, which is not defensiveness: every layer of `AppConfig` holds text,
- * so a stored `20` arrives as `'20'` and `Number.isFinite('20')` is false. This function read the
- * value straight and asked `Number.isFinite` of it for as long as it existed, which meant a station
- * that had ever set the setting silently got the default back. See the `settingIsOn` gotcha in
- * CLAUDE.md, of which this is the numeric half.
- */
 /**
  * The silence to put between joined beats, in milliseconds.
  *
@@ -140,11 +164,67 @@ export function stationGapMs(config: AppConfig): number {
     return Math.min(MAX_GAP_MS, Math.max(MIN_GAP_MS, Math.round(set)));
 }
 
-export function stationTargetMs(config: AppConfig, kind?: string): number {
+/**
+ * How long a production of this kind runs, in milliseconds, picked out of the station's range.
+ *
+ * Kind-aware because a conversation has its own range: without it a `callin` band commissions ten
+ * minutes, which the turn arithmetic turns into dozens of turns of a phone call.
+ *
+ * ## Why a resolver is allowed to be random here, and nowhere else
+ *
+ * Every other resolver in this tree is pure, and for a good reason: a setting that answers
+ * differently on two reads is a station that disagrees with itself. This one is safe because the
+ * answer is read ONCE and stored. `stationTargetMs` is called at commission — `ProductionsService`
+ * and `ProductionScheduler`, both of which put the result straight into `productions.target_ms` —
+ * and every pass afterwards reads the row. Nothing re-derives it, so there is nothing for a second
+ * roll to contradict.
+ *
+ * `random` is a parameter for {@link wordBudget}'s reason one file over: a test that cannot pin the
+ * roll is a test of nothing.
+ *
+ * **Read as a STRING and parsed**, which is not defensiveness: every layer of `AppConfig` holds text,
+ * so a stored `20` arrives as `'20'` and `Number.isFinite('20')` is false. This function read the
+ * value straight and asked `Number.isFinite` of it for as long as it existed, which meant a station
+ * that had ever set the setting silently got the default back. See the `settingIsOn` gotcha in
+ * CLAUDE.md, of which this is the numeric half.
+ */
+export function stationTargetMs(config: AppConfig, kind?: string, random: () => number = Math.random): number {
     const dialogue = kind !== undefined && dialogueKinds(config).has(kind.trim().toLowerCase());
-    const key = dialogue ? PRODUCTION_KEYS.dialogueMinutes : PRODUCTION_KEYS.targetMinutes;
-    const fallback = dialogue ? DEFAULT_DIALOGUE_MINUTES : DEFAULT_TARGET_MINUTES;
 
+    const low = minutesSetting(
+        config,
+        dialogue ? PRODUCTION_KEYS.dialogueMinutesMin : PRODUCTION_KEYS.targetMinutesMin,
+        dialogue ? DEFAULT_DIALOGUE_MINUTES_MIN : DEFAULT_TARGET_MINUTES_MIN,
+    );
+    const high = minutesSetting(
+        config,
+        dialogue ? PRODUCTION_KEYS.dialogueMinutesMax : PRODUCTION_KEYS.targetMinutesMax,
+        dialogue ? DEFAULT_DIALOGUE_MINUTES_MAX : DEFAULT_TARGET_MINUTES_MAX,
+    );
+
+    // Read as an unordered pair rather than refused, on this file's own rule: a resolver reads a row
+    // that is already stored, and a station whose two numbers are the wrong way round should get a
+    // range rather than an error. The console refuses the pair at the point somebody types it.
+    return pickWithin(Math.min(low, high) * 60_000, Math.max(low, high) * 60_000, random);
+}
+
+/**
+ * A length out of a range, on a {@link LENGTH_STEP_MS} boundary and never below the floor.
+ *
+ * Inclusive at both ends — a range of 2 to 3 has to be able to answer three minutes, or the setting
+ * says something it does not mean.
+ */
+function pickWithin(lowMs: number, highMs: number, random: () => number): number {
+    const steps = Math.floor((highMs - lowMs) / LENGTH_STEP_MS);
+    if (steps <= 0) return lowMs;
+
+    return lowMs + Math.min(steps, Math.floor(random() * (steps + 1))) * LENGTH_STEP_MS;
+}
+
+/** One end of a length range, in whole minutes, clamped into the band a programme can be. */
+function minutesSetting(config: AppConfig, key: string, fallback: number): number {
     const minutes = Number(String(config.get(key, String(fallback))).trim());
-    return Math.max(1, Number.isFinite(minutes) && minutes > 0 ? minutes : fallback) * 60_000;
+    const set = Number.isFinite(minutes) && minutes > 0 ? minutes : fallback;
+
+    return Math.min(MAX_PRODUCTION_MINUTES, Math.max(MIN_PRODUCTION_MINUTES, set));
 }

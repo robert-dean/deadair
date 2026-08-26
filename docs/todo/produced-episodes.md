@@ -258,10 +258,19 @@ The five decisions are. What sits on top of them, as of 2026-08-16:
     memory (`persona_notes` and `persona_stories` are keyed by a persona key and needed nothing new),
     and it is worth having on its own: a programme was invisible to `/scripts` and to
     `llm.captureWrites`.
-- **No `[SFX: …]` cues**, which v1 had. There is no foley layer in this tree at all — but the
-  performance cues are wider than they were: `SPEECH_CUES` is eight, and a caller may use all of them
-  where a presenter keeps the original four. That is delivery rather than foley, and the dog barking
-  behind the caller is still mixing that does not happen in Node.
+- ~~**No `[SFX: …]` cues**, which v1 had. There is no foley layer in this tree at all.~~ **There is
+  one as of 2026-08-26**, and it arrived from the SOUNDBOARD rather than from the episode: a break's
+  script carries `[sfx:airhorn]`, the render path splits at the marker and joins the takes around the
+  sound through `MixerProvider.join`, and `AudioJoin.overlays` is what lets one land ON the words
+  instead of after them. The performance cues widened separately — `SPEECH_CUES` is eight, and a
+  caller may use all of them where a presenter keeps the original four, which is delivery rather than
+  foley.
+  What is NOT built is this section's own case: a production BEAT carrying a cue. The machinery is
+  all there and the missing code is small — `production.prompt.ts` offering the cast's board, and
+  `ProduceProductionJob` doing what `RenderSegmentJob` already does — but the question it raises is
+  not, because a beat is one voice in a conversation and whether a CALLER may reach the station's own
+  soundboard is a decision about the fiction rather than about the audio. The dog barking behind that
+  caller is a third thing again: a bed under a whole turn wants a span rather than an anchor.
 
 ## What not to do, in one place
 

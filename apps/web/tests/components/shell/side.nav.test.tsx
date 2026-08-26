@@ -40,6 +40,7 @@ describe('SideNav', () => {
             'Voices',
             'Segments',
             'Pronunciations',
+            'Soundboard',
             'Scripts',
             'Plugins',
             'Check-up',

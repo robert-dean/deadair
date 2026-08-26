@@ -61,11 +61,20 @@ points at that file. Checked against the tree on 2026-08-11.
     - scoped since: `youtube-music.md` splits it into a catalog half that is ordinary plugin code
       and an audio half that is a second track fetcher and a sidecar
 - [~] add foley, sounds, etc (especially useful for "callers" so you hear background noise like a dog
-      barking) — the callers are real now (see above) and the DELIVERY half of this came with them:
-      `SPEECH_CUES` is eight, and a caller may cough, clear its throat, sniff or groan where a
-      presenter keeps the original four. The background noise is still blocked on the same thing it
-      always was — a dog barking under a voice is MIXING, and no decoding, mixing or encoding happens
-      in Node. It is Liquidsoap or the `analysis/` sidecar
+      barking) — the callers are real, the DELIVERY half came with them (`SPEECH_CUES` is eight, and
+      a caller may cough, clear its throat, sniff or groan where a presenter keeps the original
+      four), and the SOUNDBOARD landed 2026-08-26: `deadair.pads`, a board per persona, `[sfx:name]`
+      in a script, and the render path splitting at the marker to join the takes around the sound.
+      The mixing that was blocking this happens in the `analysis/` sidecar, as predicted, and never
+      in Node.
+      Two things are still open and the second is the one this line was actually asking for.
+      A production BEAT cannot carry a cue yet — the machinery is all there and the question is
+      about the fiction rather than the audio, since whether a caller may hit the station's own
+      soundboard is a decision nobody has made. And a dog barking BEHIND somebody is not a pad: a
+      pad is a sound at a MOMENT, and this is a bed running under a whole turn, so it wants
+      `AudioJoin.overlays` given a SPAN instead of an anchor. `MAX_OFFSET_MS` names that boundary in
+      as many words — past about three seconds a sound starting before the words end has stopped
+      being the same moment and become a second thing happening
 - [x] console/logs/activity feed — built 2026-08-13, with the silence diagnosis it was paired with
       in `station-intelligence.md` §8. `GET /activity` unions `station_events`, `segment_events` and
       `play_history`; the console draws it at `/activity`

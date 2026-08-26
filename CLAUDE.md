@@ -446,7 +446,14 @@ analyzer — which is precisely the "a capability that answers differently depen
 subsystem is asking" failure `plugin.selection.ts` exists to prevent. Filtering the analysis
 candidates on the method instead would have produced a second, disagreeing pick under one key. The
 one place `StitchProductionJob` still needs the ANALYZER is measuring the joined file's loudness,
-and since the split that is genuinely a second pick a station may not have. **The
+and since the split that is genuinely a second pick a station may not have. **`AudioJoin.overlays` is the
+second thing it can do**, added when the soundboard wanted it: an overlay is anchored to a JOIN
+rather than to a timestamp, because a caller knows which boundary it means and does not know how long
+the parts will come out, and a negative `offsetMs` is what pulls a sound under the tail of what came
+before. Nothing MOVES for an overlay, which is the whole difference from a part. Summing is where
+clipping starts, so `with_headroom` scales the buffer linearly rather than limiting it — a limiter
+changes the shape of the loud moment, which belongs to whoever masters the audio, and the station
+re-measures what it made anyway, so only the ratio the caller asked for survives either way. **The
 joined row is `production_id` with a NULL `production_ordinal`**, which is why migration 0016's
 constraint says an ordinal requires a production rather than both-or-neither: every guard that
 already says "a production beat is not an ordinary break" is written as `production_id is null` and
@@ -488,6 +495,42 @@ why every matcher built from the list orders the longest form first now that `cl
 The other half is that `readAnswer`'s tidying is `speakableScript` and BOTH paths call it: a
 production beat never had it, so `the album is *The Soft Parade*` went to an engine that reads
 asterisks.
+
+**A character also has a SOUNDBOARD, and a pad is deliberately not a segment.** `deadair.pads`
+(migration 0023) is the rack — short sounds filled from `media/pads/inbox/<board>/`, exactly as the
+segment inbox is filled and for its reason — and `personas.soundboard` names a board, which is
+`voice`'s indirection one level down: the sheet names a SLOT and the library says what it sounds
+like, so replacing the file under a pad changes what the station plays without touching a persona or
+a script. **It is its own table rather than a `segments.kind`**, and the reason is concrete:
+`readyKinds()` feeds `ClockService`, which offers every ready kind as a bookable clock band, so a
+kind of `pad` would put an air horn in the format-clock menu as an hour an operator can schedule
+around — the same failure the joined production row had to have patched out of `listReady` and
+`readyKinds`. Six things are load-bearing. **The identity is `(board, name)` rather than the
+checksum**, which is the whole difference from an ident: `SegmentRepository.importFile` dedups on
+bytes because two files are two idents, where a board has a slot and dropping a better air horn in
+under the same filename REPLACES what that slot holds, so the import answers three outcomes and
+clears the old measurements with it. **The cue rides inside the text** (`[sfx:airhorn]`) on
+`SPEECH_CUES`' stated argument — a sound happens at a PLACE in a sentence — but it is app-side in
+`render/pad.cues.ts` rather than in the plugin SDK, because no plugin ever sees one: the host reads
+it, strips it, and hands the mixer URLs. **Two orderings are easy to get backwards and both were.**
+`keepPads` runs BEFORE `speakableScript`'s bracket strip and the strip spares what it left, or a pad
+admitted afterwards is admitted into a script already emptied of pads; and `transposeForSpeech`
+removes pads FIRST, because `SPARE_CUES`' character class contains `[` and `]`, so a pad reaching it
+arrives at the engine as the bare text `sfx:airhorn` and is read aloud. **The hit is resolved at
+WRITE time onto `segments.pads`**, because a name is unique per board and only the writer held the
+presenting character's board — a renderer resolving it again would have to ask who is presenting NOW,
+which after a recast is somebody else with a different rack. **The join is an improvement and never a
+requirement**, which is `StitchProductionJob`'s "`ready` either way" one row down: no mixer, a refusal,
+a deleted pad, an unservable mime all fall back to speaking the script whole with the cue stripped.
+And **no pad landing means NO JOIN** — two takes still look joinable and are not, because the words
+were split for the sole purpose of putting a sound between them, so joining them without it produces
+a silent hole mid-sentence out of two separately-trimmed takes that no longer share their prosody.
+The deterministic floor (`render.padEveryBreaks`, 4) applies to the DETERMINISTIC writer alone: a
+model shown the rack and choosing not to reach for it has made a judgement about its own sentence,
+and appending a sound to words somebody else shaped is two rules that disagree. Its spacing is
+counted from the rows rather than held in memory, on `ReadLog`'s decision inverted — a read log has a
+twelve-hour half-life where this is a RHYTHM, and a station restarted every hour would hit a pad on
+the first break every time.
 
 **A character can be given ROPE, and what it buys is the station asking for more rather than
 accepting worse.** `personas.latitude` is `loose` / `unleashed` above the ordinary discipline, where

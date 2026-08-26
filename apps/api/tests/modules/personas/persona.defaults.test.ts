@@ -24,11 +24,16 @@ const next = { title: 'Pink Moon', artist: 'Nick Drake' };
 const withTemplates = SEED_PERSONAS.filter(persona => (persona.templates ?? '').trim().length > 0);
 
 /**
- * Both rosters, for the guards that were written after callers existed.
+ * Both rosters, and every guard about a SHEET now runs over it.
  *
- * The older cases above run over the hosts alone, which is where they were pointed when they were
- * written rather than a judgement that a caller's sheet cannot make the same mistakes — it can, and
- * widening them is worth doing on its own rather than as a side effect of adding a field.
+ * The sheet cases used to run over the hosts alone, which is where they were pointed when they were
+ * written rather than a judgement that a caller's sheet cannot make the same mistakes. It can, and it
+ * did: `dedication`'s first sample opened with its own signature word for word, which is the one
+ * phrase the sheet wanted back and had quietly forbidden itself.
+ *
+ * What stays on {@link SEED_PERSONAS} is the two claims that are about being a HOST rather than about
+ * a sheet: the phrasings below, since a caller carries none on purpose (`caller.defaults.ts` argues
+ * it), and the identity guards above, whose caller halves are held by `voice.slots.test.ts`.
  */
 const SEED_CHARACTERS = [...SEED_PERSONAS, ...SEED_CALLERS];
 
@@ -89,7 +94,9 @@ describe('the seeded personas', () => {
         // `classic` names none at all, which is a third state rather than a smaller version of this
         // one: it is the default host, its dialect is ordinary warm English, and the markers it used
         // to carry were contractions that made its check pass on anything. See the comment on the
-        // sheet, and `persona.markers.test.ts`, which is where that exemption is stated and held.
+        // sheet, and `persona.markers.test.ts`, which is where that exemption is stated and held. It
+        // is the host roster's alone — every caller names markers, because a caller with no dialect
+        // is a turn nothing can tell from the presenter's.
         for (const persona of SEED_CHARACTERS) {
             if ((persona.dictionMarkers?.length ?? 0) === 0) continue;
 
@@ -105,7 +112,7 @@ describe('the seeded personas', () => {
     // failed, including both of `wisecrack`'s, and the floor was what was wrong rather than the
     // writing. Anything that raises MIN_DICTION_MARKERS or tightens the match has to face this.
     it('write sample lines their own guard would let on air', () => {
-        for (const persona of SEED_PERSONAS) {
+        for (const persona of SEED_CHARACTERS) {
             for (const sample of persona.samples ?? []) {
                 expect(keepsCharacter(persona, sample), `${persona.key} would decline its own sample: "${sample}"`).toBe(true);
             }
@@ -117,7 +124,7 @@ describe('the seeded personas', () => {
     // to trip the echo rule has quietly forbidden the one phrase it wanted back — and it would look
     // from the console exactly like a model refusing to use it.
     it('write signatures long enough to say without echoing a sample line', () => {
-        for (const persona of SEED_PERSONAS) {
+        for (const persona of SEED_CHARACTERS) {
             for (const catchphrase of persona.catchphrases ?? []) {
                 const echoed = echoedSample(persona, catchphrase);
 
@@ -131,7 +138,7 @@ describe('the seeded personas', () => {
     // dialect's favour so an operator's sheet cannot be refused for obeying itself, but a seed
     // should not be posing the question. `wisecrack` shipped "Anyway" as both.
     it('carry no signature that is also one of their own diction markers', () => {
-        for (const persona of SEED_PERSONAS) {
+        for (const persona of SEED_CHARACTERS) {
             const markers = new Set((persona.dictionMarkers ?? []).map(marker => marker.toLowerCase()));
 
             for (const catchphrase of persona.catchphrases ?? []) {
@@ -182,7 +189,7 @@ describe('the seeded personas', () => {
     // `avoid` is now read back against what the model wrote, so a seed that forbids its own wording
     // declines every break that follows the example it was given.
     it('forbid no wording their own samples use', () => {
-        for (const persona of SEED_PERSONAS) {
+        for (const persona of SEED_CHARACTERS) {
             for (const sample of persona.samples ?? []) {
                 expect(avoidedWording(persona, sample), `${persona.key}'s sample uses wording it forbids: "${sample}"`).toEqual([]);
             }

@@ -565,6 +565,30 @@ counted from the rows rather than held in memory, on `ReadLog`'s decision invert
 twelve-hour half-life where this is a RHYTHM, and a station restarted every hour would hit a pad on
 the first break every time.
 
+**A pad has THREE doors and one library, and the file on disk is what makes that true.** Dropping
+files in `media/pads/<board>/` was the only way in, which is fine with a shell and is not fine on the
+production image, where that directory is inside a container an operator reaches through whatever
+share they set up — so `POST /pads` takes a multipart upload and `POST /pads/fetch` takes an address
+they typed. **Every door goes through `PadLibrary.ingest`, which WRITES THE FILE into that directory**,
+and that write is the one step in the seam that is not best-effort: the content store is rewritten
+from the library by every boot scan and `docs/todo/backup-and-restore.md` carries the directory, so
+bytes that reached only the store are a pad absent from every export and gone after a restore, with
+nothing logged. Four things are load-bearing. **The file is named after the NAME rather than after
+whatever arrived** (`<board>/<name>.<ext>`), because `padNameOf` runs on the filename at the next
+scan and a sound saved as `Air Horn (2).wav` under the name `airhorn` comes back as a SECOND pad; the
+same rule is why `padName` normalises a typed name identically to a filename's stem, and why the
+console shows the derived `[sfx:…]` token before it sends anything. **`pads.source` is now
+load-bearing** where migration 0023 left it as pure provenance: it decides whether the console may
+DELETE a pad, since reject-not-delete is an argument about the scan re-reading the directory and the
+answer to that is removing the file — which the console may do for a file it wrote (`upload`, `url`)
+and may not for one the operator dropped in (`library`), because deleting somebody else's file is not
+a thing a station does. **`boardIsSafe` is checked inside the seam** rather than at each door, since
+what is wanted is that nothing can escape the library root rather than that each caller remembered.
+And **the URL door is USE rather than redistribution**, which `pad-licensing.md` now says in as many
+words: an operator naming an address is choosing a file exactly as dropping one in is, there is
+deliberately no allowlist, and what that file still blocks is a CATALOGUE — a console panel that
+searches a sample library is this project steering somebody at files and vouching for them.
+
 **A character can be given ROPE, and what it buys is the station asking for more rather than
 accepting worse.** `personas.latitude` is `loose` / `unleashed` above the ordinary discipline, where
 `brevity` is `short` / `one-line` below it, and they are two fields because they are two kinds of

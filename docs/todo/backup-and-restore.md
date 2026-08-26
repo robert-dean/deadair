@@ -196,6 +196,20 @@ is kilobytes and a bed under a phone call is minutes of stereo — and `storage-
 argument and the warning. An export that took the idents and left the pads would be a station that
 came back with its recordings and no soundboard.
 
+**That directory now has two authors, and it stays authoritative because of a decision made to keep
+it so.** `POST /pads` and `POST /pads/fetch` let an operator put a sound on the rack from the browser,
+which they need on a real install because the directory is inside a container. Both go through
+`PadLibrary.ingest`, which **writes the file into `media/pads/<board>/`** as well as into the content
+store — and that write is the one step there that is not best-effort, precisely because of this
+design. A door that had stored only the bytes would have produced pads that were absent from every
+export and gone after a restore, with nothing logged anywhere. So phase 5 below is unchanged: carry
+the directory, ignore the store.
+
+Two smaller consequences. `media/pads/` no longer has an `inbox/` level in dev either — it never had
+one in the container — so there is one path in both worlds. And `pads.source` says who wrote each
+file (`library`, `upload`, `url`), which an import will want for its report and for nothing else: all
+three are the same thing on the far side of an archive, since what the export carries is the file.
+
 Everything else on disk is tier 2: track bytes are licensed, re-fetchable and already swept against a
 cap, art is re-derivable, rendered break audio is re-speakable from `script_history`'s words, and pad
 BYTES under `SEGMENT_DIR` are rewritten from the library by the boot scan — which is what makes the

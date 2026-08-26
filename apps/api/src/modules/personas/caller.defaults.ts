@@ -188,7 +188,12 @@ export const SEED_CALLERS: readonly PersonaDraft[] = (
             avoid: ['journey', 'blessed', 'my rock', 'angel', 'taken too soon'],
             background: 'You have been meaning to ring in for about four years and today you finally did it.',
             samples: [
-                'Sorry, I am all over the place. It is for my dad. He had it on in the van every single morning.',
+                // Opened with the catchphrase above, word for word, which made the signature
+                // unusable: `echoedSample` refuses a script carrying six consecutive words of a
+                // sample, and a seven-word catchphrase quoted here IS such a run — so the one phrase
+                // the sheet asks to be reused was the one phrase it would have declined. The apology
+                // stays, in the grammar rather than in the sentence. See `MAX_SAMPLE_ECHO_WORDS`.
+                'Sorry, my head is everywhere today. It is for my dad. He had it on in the van every single morning.',
                 'It is just a song, really. But he would know it in about two notes, so. Thank you. Thank you.',
                 'I did not think I would actually get through. Sorry. Can you say it is from Kirsty?',
             ],

@@ -525,6 +525,17 @@ a deleted pad, an unservable mime all fall back to speaking the script whole wit
 And **no pad landing means NO JOIN** — two takes still look joinable and are not, because the words
 were split for the sole purpose of putting a sound between them, so joining them without it produces
 a silent hole mid-sentence out of two separately-trimmed takes that no longer share their prosody.
+**A production BEAT can hit one too, and two rules do not transfer from the break.** A beat is sent to
+`render.segment` like any other segment, so the join was already underneath it; what is new is the
+offer and its budget. A CALLER is never offered a board — the fiction rather than a limitation, since
+the board is the station's and in the studio, so a drop on a phone turn means either the caller keeps
+one at home or the HOST hit it inside a beat the host does not own, and there is no row for that. And
+`MAX_PRODUCTION_PADS` is 2 rather than `MAX_PADS`' 1, because one-per-segment across twenty-five beats
+permits a drop on every turn — the failure that constant exists to prevent, arriving through a door it
+does not cover — and it is enforced by WITHDRAWING the offer, since each beat is its own model call
+and a budget in the prompt is a number nothing can honour. A re-draft is re-offered EXACTLY what its
+row already hit, which is the only option that neither lets the check pass overspend the budget nor
+has `speakable` strip the drop in silence.
 The deterministic floor (`render.padEveryBreaks`, 4) applies to the DETERMINISTIC writer alone: a
 model shown the rack and choosing not to reach for it has made a judgement about its own sentence,
 and appending a sound to words somebody else shaped is two rules that disagree. Its spacing is

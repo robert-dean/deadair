@@ -116,6 +116,22 @@ export interface BeatRequest {
      */
     reactions?: readonly SpeechCue[];
     /**
+     * The soundboard this speaker can reach for, by name, or absent for one who cannot.
+     *
+     * Absent for a CALLER always, and that is a fact about the fiction rather than a limitation. The
+     * board is the station's, in the studio, in front of the presenter; somebody on a telephone is
+     * somewhere else. A sound on their turn would mean either that they keep a soundboard at home —
+     * a specific comedic premise rather than a default — or that the station played it over the
+     * call, which is the HOST's action happening inside a beat the host does not own. There is no
+     * row for that, so there is no offer.
+     *
+     * Also absent once the programme has spent its ceiling, which is how the budget is kept: a beat
+     * is written in its own model call and cannot see what the other beats did, so telling it "one
+     * of two remaining" would be a number it has no way to honour. Withdrawing the offer is the
+     * enforcement. See `MAX_PRODUCTION_PADS`.
+     */
+    pads?: readonly string[];
+    /**
      * What this character has accumulated: what it has settled into, and what it has said before.
      *
      * The same two halves the break prompt carries and in the same two turns — a trait beside the
@@ -279,6 +295,9 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
         // rule has to name the swap and give it somewhere to go instead.
         ...groundingRules(request, caller, answering),
         ...reactionRules(request.reactions, caller),
+        // Beside the reactions, because they are the same KIND of instruction — the only two things
+        // a beat may carry that are not words — and a model reading them together reads one idea.
+        ...padRules(request.pads),
         '- Do not end by summarising what you just said.',
     ].join('\n');
 
@@ -403,6 +422,29 @@ function reactionRules(reactions: readonly SpeechCue[] | undefined, caller: bool
             (caller
                 ? 'At most one in a turn, and only where you would actually have done it. You are on a telephone, not in a studio.'
                 : 'At most one in a turn, and only where you would actually have done it. A presenter who laughs at everything is not funny.'),
+    ];
+}
+
+/**
+ * The soundboard rule, or nothing at all when this speaker has no board to reach for.
+ *
+ * `break.prompt.ts`'s own rule with one sentence removed and one added. Removed: "most breaks want
+ * none", which is advice about a forty-word link and is wrong about a programme, where the offer is
+ * withdrawn by the JOB once the ceiling is spent rather than left to the model's restraint. Added:
+ * that the sound is the studio's, because a beat is one voice in a conversation and the thing that
+ * makes a drop land is somebody in a room hitting a button.
+ *
+ * There is no `caller` parameter, unlike {@link reactionRules} beside it, and that is the point: a
+ * caller is never given one, so this is never called with anything to say to them. The decision is
+ * made where the board is resolved rather than re-litigated here.
+ */
+function padRules(pads: readonly string[] | undefined): string[] {
+    if (pads === undefined || pads.length === 0) return [];
+
+    const written = pads.map(name => `[sfx:${name}]`).join(', ');
+    return [
+        `- There is a soundboard in front of you: ${written}. Write one exactly like that, on its own, at the moment you hit it, and the sound is ` +
+            'PLAYED — do not describe it or say its name as words. At most one in this turn, and only where you would actually have reached for it.',
     ];
 }
 

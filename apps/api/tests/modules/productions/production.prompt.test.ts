@@ -157,6 +157,43 @@ describe('what a speaker may perform', () => {
     });
 });
 
+// The soundboard, which a production carries on the same terms a break does with one exception it
+// does not: a caller is never offered one. That is a fact about the fiction rather than a limit —
+// the board is the station's, in the studio, and somebody on a telephone is somewhere else.
+describe('the soundboard in a beat', () => {
+    it('offers a host the board, named exactly as a script has to write it', () => {
+        const system = systemOf(turn({ ...base, speaker: host, pads: ['airhorn', 'rimshot'] }));
+
+        expect(system).toContain('[sfx:airhorn], [sfx:rimshot]');
+        // The failure this closes is a model NARRATING the drop, which reads as somebody describing
+        // their own soundboard out loud.
+        expect(system).toContain('do not describe it or say its name as words');
+    });
+
+    it('says it is in front of them, because a beat is one voice in a room', () => {
+        const system = systemOf(turn({ ...base, speaker: host, pads: ['airhorn'] }));
+
+        expect(system).toContain('There is a soundboard in front of you');
+    });
+
+    it('says nothing about a soundboard when there is none to reach for', () => {
+        const system = systemOf(turn({ ...base, speaker: host }));
+
+        expect(system).not.toContain('soundboard');
+    });
+
+    // The job is what refuses a caller, so this is the belt to that braces: a prompt handed pads for
+    // somebody on the phone would still print them, and the reason it never is lives one file over.
+    // What this pins is that the two rules are separate — the reaction rule still adapts to a caller
+    // while the pad rule has no caller wording at all, because it is never shown to one.
+    it('keeps the pad rule and the reaction rule as two different instructions', () => {
+        const system = systemOf(turn({ ...base, speaker: dale, previousSpeaker: host, reactions: ['cough'] }));
+
+        expect(system).toContain('You are on a telephone, not in a studio');
+        expect(system).not.toContain('soundboard');
+    });
+});
+
 // A caller who has rung before. Everything here comes out of `persona_notes` and `persona_stories`,
 // which are keyed by a persona key and know nothing about breaks — so the only new thing a
 // production needed was to write its own history down.

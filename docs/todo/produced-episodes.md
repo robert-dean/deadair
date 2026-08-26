@@ -265,12 +265,20 @@ The five decisions are. What sits on top of them, as of 2026-08-16:
   instead of after them. The performance cues widened separately — `SPEECH_CUES` is eight, and a
   caller may use all of them where a presenter keeps the original four, which is delivery rather than
   foley.
-  What is NOT built is this section's own case: a production BEAT carrying a cue. The machinery is
-  all there and the missing code is small — `production.prompt.ts` offering the cast's board, and
-  `ProduceProductionJob` doing what `RenderSegmentJob` already does — but the question it raises is
-  not, because a beat is one voice in a conversation and whether a CALLER may reach the station's own
-  soundboard is a decision about the fiction rather than about the audio. The dog barking behind that
-  caller is a third thing again: a bed under a whole turn wants a span rather than an anchor.
+  **A production beat carries one too, as of the same day**, and it needed no new audio path at all:
+  a beat is sent to `render.segment` like any other segment, so the split-and-join was already
+  underneath it. What it needed was the offer, the budget and two decisions.
+  The decisions are the interesting part. **A CALLER is never offered a board**, which is the fiction
+  rather than a limitation — the board is the station's, in the studio, in front of the presenter,
+  and a sound on somebody's phone turn means either they keep a soundboard at home or the station
+  played it over the call, which is the HOST's action inside a beat the host does not own. There is
+  no row for that, so there is no offer. And **`MAX_PADS` does not transfer**: it is one per segment
+  and a production is fifteen to twenty-five of them, so copied straight across it permits a drop on
+  every turn, which is the exact failure it exists to prevent arriving through a door it does not
+  cover. `MAX_PRODUCTION_PADS` is two, and it is enforced by WITHDRAWING the offer rather than by a
+  budget in the prompt, because each beat is its own model call and cannot see what the others wrote.
+  The one thing still open is the dog barking BEHIND the caller, and it is a third thing again: a bed
+  under a whole turn wants `AudioJoin.overlays` given a span rather than an anchor.
 
 ## What not to do, in one place
 

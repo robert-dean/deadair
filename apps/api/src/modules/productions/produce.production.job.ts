@@ -15,7 +15,9 @@ import { spentCatchphrases } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository, type ScriptWrite } from '#modules/render/script.history.repository.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
-import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
+import { padsIn } from '#modules/render/pad.cues.js';
+import { PadRepository } from '#modules/render/pad.repository.js';
+import { SegmentRepository, type PadHit, type Segment } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { speakableScript } from '#modules/render/speakable.script.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -94,6 +96,27 @@ export const EMPTY_BEAT_RETRIES = 1;
  */
 export const PLAIN_KINDS: readonly string[] = ['news', 'bulletin'];
 
+/**
+ * How many soundboard hits ONE PROGRAMME may carry.
+ *
+ * `MAX_PADS` is one per segment and a production is fifteen to twenty-five of them, so copying that
+ * number straight across permits a drop on every single turn — which is precisely the failure it
+ * exists to prevent, arriving through a door it does not cover. "A soundboard is funny once" is a
+ * claim about a PROGRAMME rather than about a turn.
+ *
+ * Two rather than one, because a programme is long enough to have two moments in it, and low enough
+ * that the second is still a punchline rather than a running gag. It is a CEILING and not a target:
+ * most productions will hit none, because the offer only reaches a host with a board and the model
+ * is asked to use it only where it would actually have reached for one.
+ *
+ * Enforced by WITHDRAWING the offer rather than by counting the answers, which is the only mechanism
+ * available: each beat is its own model call and cannot see what the others wrote, so a budget in
+ * the prompt would be a number nothing could honour. Once the count is spent the rule vanishes from
+ * every prompt after it, exactly as `spentCatchphrases` withdraws a signature the programme has
+ * already used.
+ */
+export const MAX_PRODUCTION_PADS = 2;
+
 export interface ProducePayload {
     /**
      * Which production to work on.
@@ -136,6 +159,8 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // `persona_key` — the only way a character accumulates anything from a programme.
         private readonly history: ScriptHistoryRepository,
         private readonly personas: PersonaRepository,
+        // The rack a host reaches for. See {@link boardFor}: a caller never gets one.
+        private readonly pads: PadRepository,
         // What a character has accumulated. Both are keyed by a persona KEY and know nothing about
         // breaks, so a caller who has rung before reaches them without a line of new storage.
         private readonly notes: PersonaNotesRepository,
@@ -300,6 +325,11 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // because a caller who has said one thing has not used up their own.
         const written = new Map<number, string[]>();
 
+        // What the programme has spent off its soundboard, across every speaker. One count for the
+        // whole thing rather than one per character, because a listener hears a PROGRAMME: two hosts
+        // taking two drops each is four drops in ten minutes however it is divided up.
+        const hits: PadHit[] = [];
+
         for (const beat of plan.beats) {
             // Between beats rather than only at the start: a production is minutes of work, which is
             // exactly long enough for somebody to change their mind halfway through it.
@@ -317,6 +347,10 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             const persona = sheets.get(at);
             const mine = written.get(at) ?? [];
             const reactions = cuesFor(speaker?.role, engine);
+            // The board in front of this speaker, or nothing. Resolved per beat rather than once,
+            // because the offer is withdrawn the moment the programme spends its ceiling and a cast
+            // can put a caller in the middle of it.
+            const board = await this.boardFor(claimed, speaker, persona, hits.length);
             // Which of this character's signatures the programme has already spent. The measured
             // failure without it: "I said what I said" in 23 of 24 beats, because the sheet offers
             // its catchphrases to every beat and no beat could see what the others had done.
@@ -341,6 +375,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // does.
                 ...(mine.length === 0 ? { firstTurn: true } : {}),
                 ...(reactions.length === 0 ? {} : { reactions }),
+                ...(board.names.length === 0 ? {} : { pads: board.names }),
                 ...(await this.remembers(claimed, speaker, mine.length === 0)),
                 station,
             });
@@ -375,7 +410,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 // stage direction is a word in the audio — the first live call-in aired an album
                 // title with the asterisks still round it. The strip spares exactly the cues this
                 // speaker was offered.
-                script = speakable(answer.text, reactions);
+                script = speakable(answer.text, reactions, board.names);
                 attempts.push(this.attemptOf(claimed, { label, script, speaker, answer, messages: prompt }));
             }
 
@@ -389,10 +424,17 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 return false;
             }
 
+            // Resolved and RESTED before the row exists, on the break path's own terms: the board is
+            // in hand here and nowhere downstream, and a renderer resolving `[sfx:…]` for itself
+            // would have to ask who is presenting now rather than who spoke this turn.
+            const beatPads = await this.hits(board.name, script);
+            hits.push(...beatPads);
+
             const planned = await this.segments.plan({
                 kind: claimed.kind,
                 label,
                 script,
+                pads: beatPads,
                 writer: 'model',
                 productionId: claimed.id,
                 productionOrdinal: beat.ordinal,
@@ -481,6 +523,16 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         ...(previousAt === undefined || casting[previousAt] === undefined ? {} : { previousSpeaker: casting[previousAt]! }),
                         ...(firstTurnOf(plan, index, at) ? { firstTurn: true } : {}),
                         ...(reactions.length === 0 ? {} : { reactions }),
+                        // EXACTLY what this beat already hit, and never the whole board.
+                        //
+                        // Re-offering the rack would let the check pass add drops the drafting pass
+                        // budgeted against, in a loop that cannot see the other beats' rows — while
+                        // offering nothing at all would have `speakable` strip the cue and the
+                        // rewrite would lose the sound in silence. Offering back what is on the row
+                        // is the only option that is neither: this turn may keep its drop or drop it,
+                        // and cannot invent one. A re-draft is fixing a problem, and the soundboard
+                        // is not what was wrong with it.
+                        ...(beat.pads.length === 0 ? {} : { pads: beat.pads.map(hit => hit.name) }),
                         station,
                         correction: correctionNote(problems),
                     }),
@@ -490,7 +542,11 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 { budgetMs: BEAT_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
             );
 
-            const rewritten = speakable(answer.text, reactions);
+            const rewritten = speakable(
+                answer.text,
+                reactions,
+                beat.pads.map(hit => hit.name),
+            );
             // A re-draft that came back empty leaves the original in place. The first attempt passed
             // enough to be spoken, and a beat with problems is better than no beat at all — which is
             // the opposite of the drafting rule above, because there the alternative was a hole.
@@ -505,6 +561,11 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 script: rewritten,
                 label: beat.label,
                 writer: 'model',
+                // Whichever of them the rewrite actually kept. `writeScript` resets this column when
+                // it is not passed, so a re-draft that said nothing would take a drop off a turn that
+                // still asks for one — and the row is what the render path reads to decide what to
+                // join.
+                pads: beat.pads.filter(hit => padsIn(rewritten).includes(hit.name)),
                 ...(speaker?.personaId === undefined ? {} : { personaId: speaker.personaId }),
                 ...(speaker?.voice === undefined ? {} : { voice: speaker.voice }),
             });
@@ -591,6 +652,85 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
      * Best-effort throughout: a notebook that could not be read costs the notebook and never the
      * turn.
      */
+    /**
+     * The soundboard in front of this speaker, and the board's own name for resolving what they hit.
+     *
+     * Four vetoes, and each is a different kind of thing.
+     *
+     * **A CALLER never gets one**, which is the fiction rather than a limitation: the board is the
+     * station's, in the studio, in front of the presenter, and somebody on a telephone is somewhere
+     * else. A sound on their turn would mean either that they keep a soundboard at home — a specific
+     * comedic premise rather than a default — or that the station played it over the call, which is
+     * the HOST's action happening inside a beat the host does not own, and there is no row for that.
+     *
+     * **A PLAIN kind never gets one**, on `remembers`' argument one field over and `NEWS_SHAPE`'s one
+     * module over: a newsreader who hits an air horn after a story has done something worse than sigh
+     * over it.
+     *
+     * **A programme that has spent its ceiling gets none for the rest of its length.** See
+     * {@link MAX_PRODUCTION_PADS} for why withdrawal is the enforcement rather than a budget in the
+     * prompt.
+     *
+     * And a character with no `soundboard`, or one naming a board the library holds nothing on, has
+     * nothing to offer — two absences that must not be told apart, because both are a presenter with
+     * nothing to reach for.
+     *
+     * Best-effort like everything else read here: a rack that could not be read costs the programme
+     * its drops and never a beat.
+     */
+    private async boardFor(
+        production: Production,
+        speaker: CastMember | undefined,
+        persona: Persona | undefined,
+        spent: number,
+    ): Promise<{ name?: string; names: readonly string[] }> {
+        // `undefined` is a production with no cast at all, where the presenter says every word — so
+        // it is the host, and only an explicit `caller` is refused.
+        if (speaker?.role === 'caller') return { names: [] };
+        if (PLAIN_KINDS.includes(production.kind.trim().toLowerCase())) return { names: [] };
+        if (spent >= MAX_PRODUCTION_PADS) return { names: [] };
+
+        const name = persona?.soundboard;
+        if (name === undefined) return { names: [] };
+
+        try {
+            const rack = await this.pads.onBoard(name);
+            return rack.length === 0 ? { names: [] } : { name, names: rack.map(pad => pad.name) };
+        } catch (error) {
+            this.logger.debug(`productions: could not read the soundboard (${errorText(error)})`);
+            return { names: [] };
+        }
+    }
+
+    /**
+     * What a written beat actually hit, resolved against the board that offered it, and RESTED.
+     *
+     * `WriteBreakJob.hits`' twin and held to its rules: a name that resolves to nothing is dropped
+     * rather than failing the beat, and the rest happens at SELECTION, which is the inaccuracy
+     * `chooseFacts` documents — a production that is later cancelled has still spent its drops.
+     */
+    private async hits(board: string | undefined, script: string): Promise<PadHit[]> {
+        if (board === undefined) return [];
+
+        const names = padsIn(script);
+        if (names.length === 0) return [];
+
+        try {
+            const found: PadHit[] = [];
+            for (const name of names) {
+                const pad = await this.pads.named(board, name);
+                if (pad === undefined) continue;
+
+                found.push({ name, padId: pad.id });
+                await this.pads.markUsed(pad.id);
+            }
+            return found;
+        } catch (error) {
+            this.logger.warn(`productions: could not resolve a soundboard hit (${errorText(error)})`);
+            return [];
+        }
+    }
+
     private async remembers(
         production: Production,
         speaker: CastMember | undefined,
@@ -732,7 +872,16 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
  * above — a beat that has to be asked for again — so this flattens `undefined` to `''` rather than
  * making every call site carry the distinction.
  */
-const speakable = (text: string, reactions: readonly SpeechCue[]): string => speakableScript(text, { perform: reactions }) ?? '';
+/**
+ * One answer as words an engine may be handed.
+ *
+ * The pads are passed for the same reason the reactions are: `speakableScript` strips every
+ * bracketed run it was not told to spare, so a beat whose board was never mentioned here loses its
+ * drop between the model answering and the row being written — silently, with the cue gone before
+ * anything could resolve it.
+ */
+const speakable = (text: string, reactions: readonly SpeechCue[], pads: readonly string[] = []): string =>
+    speakableScript(text, { perform: reactions, pads }) ?? '';
 
 /**
  * Which of this character's signatures the rest of the programme has already used.

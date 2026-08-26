@@ -177,6 +177,16 @@ export interface PlannedSegment {
      */
     script?: string;
     voice?: string;
+    /**
+     * The soundboard pads these words hit, already resolved against a board.
+     *
+     * Only ever set where {@link PlannedSegment.script} is: a row planted before it has been written
+     * has no words for a hit to sit in. A production beat is the one caller that needs this on
+     * `plan` rather than on {@link SegmentRepository.writeScript}, because a beat's words are known
+     * when its row is created — a break's are not, which is why the break path resolves its hits one
+     * step later.
+     */
+    pads?: readonly PadHit[];
     /** What decided the words. See {@link Segment.writer}. */
     writer?: string;
     /** A note for the birth event, when there is one worth keeping. */
@@ -713,6 +723,7 @@ export class SegmentRepository extends DataRepository {
                 voice: planned.voice ?? null,
                 personaId: planned.personaId ?? null,
                 writer: planned.writer ?? null,
+                pads: JSON.stringify(planned.pads ?? []),
                 airsAt: planned.airsAt === undefined ? null : instant(planned.airsAt),
                 requestId: planned.requestId ?? null,
                 context: planned.context === undefined ? null : sql<string>`${JSON.stringify(planned.context)}::jsonb`,

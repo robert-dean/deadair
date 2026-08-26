@@ -67,10 +67,11 @@ points at that file. Checked against the tree on 2026-08-11.
       in a script, and the render path splitting at the marker to join the takes around the sound.
       The mixing that was blocking this happens in the `analysis/` sidecar, as predicted, and never
       in Node.
-      Two things are still open and the second is the one this line was actually asking for.
-      A production BEAT cannot carry a cue yet — the machinery is all there and the question is
-      about the fiction rather than the audio, since whether a caller may hit the station's own
-      soundboard is a decision nobody has made. And a dog barking BEHIND somebody is not a pad: a
+      A production BEAT carries one too, host-only: a caller is never offered a board, because the
+      board is in the studio and they are on a telephone, and the programme's ceiling is two rather
+      than the break's one-per-segment.
+      What is still open is the thing this line was actually asking for. A dog barking BEHIND
+      somebody is not a pad: a
       pad is a sound at a MOMENT, and this is a bed running under a whole turn, so it wants
       `AudioJoin.overlays` given a SPAN instead of an anchor. `MAX_OFFSET_MS` names that boundary in
       as many words — past about three seconds a sound starting before the words end has stopped

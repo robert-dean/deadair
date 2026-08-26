@@ -5,9 +5,14 @@ import { Logger } from '@maroonedsoftware/logger';
 import { isPluginError } from '@deadair/plugin-sdk';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
-import { resolvePlayoutBaseUrl, segmentAudioUrl } from '#modules/playout/playout.urls.js';
-import { SegmentRepository } from './segment.repository.js';
-import { SpeechService } from './speech.service.js';
+import { resolvePlayoutBaseUrl, segmentAudioUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
+import { splitOnPads, withoutPads } from './pad.cues.js';
+import { PadRepository } from './pad.repository.js';
+import { padGapMs } from './pad.settings.js';
+import { MixerService } from './mixer.service.js';
+import { SegmentRepository, type Segment } from './segment.repository.js';
+import { extensionForMime, SegmentStore } from './segment.store.js';
+import { SpeechService, type SpokenAudio } from './speech.service.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 export interface RenderSegmentPayload {
@@ -53,6 +58,12 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
     constructor(
         private readonly segments: SegmentRepository,
         private readonly speech: SpeechService,
+        // What joins a padded break's takes around its hit, and the store the result lands in. Both
+        // unused by the ordinary break, which is nearly all of them: a station with no soundboard
+        // resolves these and never calls them.
+        private readonly mixer: MixerService,
+        private readonly store: SegmentStore,
+        private readonly pads: PadRepository,
         // The analyzer, for how loud the result came out. A module later in the list than this one,
         // which is a lifecycle order rather than a wiring one: everything registers before anything
         // resolves, and this is resolved when a job runs.
@@ -98,7 +109,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         }
 
         try {
-            const audio = await this.speech.speak({ text: script, ...(segment.voice === undefined ? {} : { voice: segment.voice }) });
+            const audio = await this.produce(segment, script);
 
             // The words that went to the engine are kept beside the words on the row, because they
             // are not the same words and only one of them explains the audio. See `SpokenAudio`.
@@ -144,6 +155,131 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
             await this.segments.markFailed(segment.id, message, 'rendering');
             this.logger.warn('render: could not speak a segment', { job: this.context.id, segment: segment.id, error: message });
         }
+    }
+
+    /**
+     * The audio for one segment: one take, or several joined around a soundboard hit.
+     *
+     * The ordinary break is the first branch and is byte-identical to what this did before pads
+     * existed, which is the shape to keep — a station with no soundboard pays nothing for one.
+     *
+     * **The join is an improvement, never a requirement**, which is `StitchProductionJob`'s rule
+     * ("`ready` either way") applied one row down. Every way the join can fail — no mixer, a mixer
+     * that refused, a pad whose file has gone, a media type this store cannot hold — falls back to
+     * speaking the script whole with the cue stripped. A break that loses its drop is a break; a
+     * break that loses its audio is a hole in the hour.
+     */
+    private async produce(segment: Segment, script: string): Promise<SpokenAudio> {
+        if (segment.pads.length === 0) return await this.say(script, segment.voice);
+
+        try {
+            const padded = await this.joinAround(segment, script);
+            if (padded !== undefined) return padded;
+        } catch (error) {
+            this.logger.warn('render: could not join a break around its soundboard hit, so it airs as words', {
+                job: this.context.id,
+                segment: segment.id,
+                error: errorText(error),
+            });
+        }
+
+        // The fallback, and it has to strip the cue itself rather than leaning on
+        // `transposeForSpeech` doing it downstream: this is the one path where the words reaching
+        // the engine are deliberately not the words on the row.
+        return await this.say(withoutPads(script), segment.voice);
+    }
+
+    /** One take of speech, which is what this job did for every segment before soundboards. */
+    private async say(text: string, voice: string | undefined): Promise<SpokenAudio> {
+        return await this.speech.speak({ text, ...(voice === undefined ? {} : { voice }) });
+    }
+
+    /**
+     * Several takes and a pad, joined into one file, or `undefined` for anything that did not work.
+     *
+     * The parts are spoken one at a time through the same {@link SpeechGate} a single take goes
+     * through, so a padded break costs the engine no more concurrency than an ordinary one — it just
+     * takes two turns instead of one.
+     *
+     * The URLs are the station's own content-addressed route, for `StitchProductionJob`'s reason:
+     * the mixer runs in another container, so a path on this machine's disk is not something it can
+     * fetch. A take is not a segment and never will be, which is exactly why that route addresses the
+     * store rather than a row.
+     */
+    private async joinAround(segment: Segment, script: string): Promise<SpokenAudio | undefined> {
+        const parts = splitOnPads(script);
+        if (parts.length === 0) return undefined;
+
+        // Resolved from the ROW rather than by name against a board, because the row is what the
+        // writer decided under the character that was presenting then. See `segments.pads`.
+        const byName = new Map(segment.pads.map(hit => [hit.name, hit.padId]));
+
+        const base = resolvePlayoutBaseUrl(this.config);
+        const urls: string[] = [];
+        const spoken: string[] = [];
+        let placed = 0;
+
+        for (const part of parts) {
+            if (part.kind === 'pad') {
+                const padId = byName.get(part.name);
+                const pad = padId === undefined ? undefined : await this.pads.findById(padId);
+                // A pad deleted between the write and the render. Skipped rather than abandoning the
+                // join, because the rest of the break is still several takes that want joining and
+                // the alternative loses the sound AND the timing.
+                if (pad === undefined) {
+                    this.logger.info('render: a break hit a pad that is no longer there', { job: this.context.id, segment: segment.id, pad: part.name });
+                    continue;
+                }
+
+                urls.push(storedAudioUrl(base, pad.audioChecksum, pad.audioExt));
+                placed += 1;
+                continue;
+            }
+
+            const take = await this.say(part.text, segment.voice);
+            urls.push(storedAudioUrl(base, take.checksum, take.ext));
+            spoken.push(take.spokenText);
+        }
+
+        // No pad actually landed, so there is nothing for a join to be FOR.
+        //
+        // Worth stating because the naive reading is that two takes still want joining: they do not.
+        // The words were split for the sole purpose of putting a sound between them, and joining
+        // them without it produces a break with a silent hole mid-sentence where the drop should
+        // have been, out of two separately-trimmed takes that no longer share their prosody. One
+        // take of the whole script is strictly better, and that is what the caller falls back to.
+        if (placed === 0) return undefined;
+
+        const joined = await this.mixer.join(segment.label, urls, padGapMs(this.config));
+        if (joined === undefined) return undefined;
+
+        const ext = extensionForMime(joined.mime);
+        if (ext === undefined) {
+            // Nothing here can serve it, and storing bytes under a guessed extension is how a
+            // segment airs as silence. The stream is let go, because the plugin is holding a socket
+            // open on our behalf.
+            await joined.audio.cancel().catch(() => {});
+            this.logger.warn('render: the joined break came back as something the station cannot serve', {
+                job: this.context.id,
+                segment: segment.id,
+                mime: joined.mime,
+            });
+            return undefined;
+        }
+
+        const checksum = await this.store.writeStream(joined.audio, ext);
+
+        this.logger.info('render: joined a break around its soundboard hit', {
+            job: this.context.id,
+            segment: segment.id,
+            parts: urls.length,
+            ext,
+        });
+
+        // The spoken text is the TAKES' words in order and says nothing about the pad, which is
+        // right: this column is the record of what the engine was handed, and the engine was never
+        // handed the pad. What was hit is on `segments.pads`.
+        return { checksum, ext, pluginId: 'joined', spokenText: spoken.join(' ') };
     }
 
     /**

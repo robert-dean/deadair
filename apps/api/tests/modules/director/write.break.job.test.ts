@@ -203,6 +203,9 @@ describe('WriteBreakJob', () => {
             script: 'talking',
             label: 'Talk break: one into two',
             writer: 'deterministic',
+            // Always written, and empty for a break that hit nothing. It clears on a rewrite for
+            // `claimsItemId`'s reason: a hit describes the words it was written beside.
+            pads: [],
         });
         expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
     });
@@ -743,6 +746,7 @@ describe('WriteBreakJob', () => {
                 script: "You're listening to deadair.",
                 label: 'Welcome',
                 writer: 'deterministic',
+                pads: [],
             });
             expect(jobs.send).toHaveBeenCalledWith('render.segment', { segmentId: 'seg-1' });
         });

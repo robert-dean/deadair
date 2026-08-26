@@ -292,6 +292,52 @@ operation /segments/{id}/audio: {
     }
 }
 
+# One blob in the segment store, by its own checksum.
+#
+# This exists for the JOIN. A padded break is several takes of speech with a soundboard hit between
+# them, and the mixer is handed URLs rather than bytes -- so every part has to be fetchable from a
+# sidecar container. A production's beats already are, because a beat is a segment with an id; a TAKE
+# is not a segment and never will be, and neither is a pad.
+#
+# So this addresses the store the way the store addresses itself. It serves takes and pads through
+# one operation rather than two because both are the same thing at this layer: bytes under a
+# checksum. Which of them a caller wanted is a question the row answers, and no row is involved here.
+#
+# `security: none` for `/segments/{id}/audio`'s reason exactly -- the thing fetching it is a mixer in
+# another container with no session -- and the exposure is narrower than that route's, because a
+# checksum cannot be guessed or enumerated where a uuid at least appears in the console's own JSON.
+#
+# The extension is its own path segment rather than a suffix on the checksum, because the DSL binds
+# one parameter per segment. It is needed at all because the store files bytes under `<checksum>.<ext>`
+# and cannot find them from the hash alone.
+operation /audio/{checksum}/{ext}: {
+    params: {
+        checksum: string(min=64, max=64)
+        ext: string(min=1, max=8)
+    }
+    get: { # Audio out of the segment store, addressed by content rather than by row
+        name: Get stored audio
+        service: RenderService.getStoredAudio
+        security: none
+        response: {
+            200: {
+                audio/mpeg: binary
+                audio/wav: binary
+                audio/ogg: binary
+                audio/flac: binary
+                audio/mp4: binary
+                headers: {
+                    cache-control?: string
+                    etag?: string
+                }
+            }
+            # Content-addressed, so the bytes under a checksum are the same bytes forever and a
+            # conditional GET can always be answered. Produced by the middleware, as above.
+            304:
+        }
+    }
+}
+
 # How the station says a word.
 #
 # This was `render.pronunciations`, a `written => spoken` text setting, and it left the settings form

@@ -9,6 +9,9 @@ import { PluginError } from '@deadair/plugin-sdk';
 import { RenderSegmentJob } from '../../../src/modules/render/render.segment.job.js';
 import type { SegmentRepository, Segment } from '../../../src/modules/render/segment.repository.js';
 import type { SpeechService } from '../../../src/modules/render/speech.service.js';
+import type { MixerService } from '../../../src/modules/render/mixer.service.js';
+import type { SegmentStore } from '../../../src/modules/render/segment.store.js';
+import type { PadRepository } from '../../../src/modules/render/pad.repository.js';
 import type { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
@@ -22,6 +25,9 @@ const segment = (overrides: Partial<Segment> = {}): Segment =>
         label: 'Station ident',
         script: 'You are listening to Deadair.',
         source: 'render',
+        // Every real row has this, because `toSegment` fills it unconditionally. Spelled out here
+        // because the cast below is what lets a fixture skip a required field.
+        pads: [],
         ...overrides,
     }) as Segment;
 
@@ -31,6 +37,9 @@ function harness(
         speak?: () => Promise<unknown>;
         measure?: () => Promise<unknown>;
         released?: boolean;
+        join?: () => Promise<unknown>;
+        /** The pad the row names has been deleted since the words were written. */
+        padMissing?: boolean;
     } = {},
 ) {
     const claimed = 'claimed' in options ? options.claimed : segment();
@@ -53,12 +62,28 @@ function harness(
         measureAudio: vi.fn(options.measure ?? (async () => ({ schemaVersion: 1, complete: true, data: { integratedLufs: -24.5 } }))),
     } as unknown as AnalysisService;
 
+    // The join, and the two things it reaches for. Never called for a segment that hits no pad,
+    // which is every fixture here that does not say otherwise.
+    const mixer = {
+        join: vi.fn(options.join ?? (async () => ({ mime: 'audio/flac', audio: new ReadableStream<Uint8Array>(), durationMs: 4200 }))),
+    } as unknown as MixerService;
+
+    const store = { writeStream: vi.fn(async () => 'joined-checksum') } as unknown as SegmentStore;
+
+    const pads = {
+        findById: vi.fn(async (id: string) =>
+            options.padMissing
+                ? undefined
+                : { id, board: 'wisecrack', name: 'rimshot', label: 'Rimshot', audioChecksum: 'pad-sum', audioExt: 'mp3', source: 'library', state: 'active' },
+        ),
+    } as unknown as PadRepository;
+
     const config = { get: vi.fn((_key: string, fallback: string) => fallback) } as unknown as AppConfig;
 
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
-    const job = new RenderSegmentJob(segments, speech, analysis, config, { id: 'job-1' } as never, {} as never, logger as never);
+    const job = new RenderSegmentJob(segments, speech, mixer, store, pads, analysis, config, { id: 'job-1' } as never, {} as never, logger as never);
 
-    return { job, segments, speech, analysis, logger };
+    return { job, segments, speech, mixer, store, pads, analysis, logger };
 }
 
 describe('RenderSegmentJob', () => {
@@ -251,5 +276,92 @@ describe('RenderSegmentJob: measuring what it made', () => {
         expect(segments.markReady).toHaveBeenCalled();
         expect(segments.markFailed).not.toHaveBeenCalled();
         expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('could not measure'), expect.anything());
+    });
+});
+
+// The join. Everything here is about one rule: it makes a break BETTER and is never what stops one
+// airing. `StitchProductionJob` states it as "`ready` either way"; one row down it means that every
+// way the join can fail still leaves a segment with speakable audio on it.
+describe('RenderSegmentJob joining a break around a soundboard hit', () => {
+    const padded = () =>
+        segment({
+            script: 'Ambitious. [sfx:rimshot] They played it anyway.',
+            pads: [{ name: 'rimshot', padId: 'pad-1' }],
+        });
+
+    it('speaks the words either side and joins them around the pad', async () => {
+        const { job, speech, mixer, segments } = harness({ claimed: padded() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // Two takes, and neither of them carries the marker: the engine is never handed one.
+        expect(speech.speak).toHaveBeenCalledTimes(2);
+        expect(speech.speak).toHaveBeenNthCalledWith(1, { text: 'Ambitious.' });
+        expect(speech.speak).toHaveBeenNthCalledWith(2, { text: 'They played it anyway.' });
+
+        // Three parts in the order the sentence put them, with the pad in the middle.
+        const [, urls] = (mixer.join as unknown as { mock: { calls: [string, string[], number][] } }).mock.calls[0]!;
+        expect(urls).toHaveLength(3);
+        expect(urls[1]).toContain('pad-sum');
+
+        expect(segments.markReady).toHaveBeenCalledWith('seg-1', expect.objectContaining({ audioChecksum: 'joined-checksum', audioExt: 'flac' }));
+    });
+
+    it('records what the ENGINE was handed, which never includes the pad', async () => {
+        const { job, segments } = harness({ claimed: padded() });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        const [, ready] = (segments.markReady as unknown as { mock: { calls: [string, { spokenScript: string }][] } }).mock.calls[0]!;
+        expect(ready.spokenScript).not.toContain('sfx');
+    });
+
+    it('airs the words with the cue stripped when there is no mixer at all', async () => {
+        // `join` answering undefined is the ordinary state of a station that has installed no mixer.
+        const { job, speech, segments } = harness({ claimed: padded(), join: async () => undefined });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // The fallback is ONE take of the whole script, and it must not carry the marker: this is the
+        // one path where the words reaching the engine are deliberately not the words on the row.
+        expect(speech.speak).toHaveBeenLastCalledWith({ text: 'Ambitious. They played it anyway.' });
+        expect(segments.markReady).toHaveBeenCalled();
+        expect(segments.markFailed).not.toHaveBeenCalled();
+    });
+
+    it('airs the words when the join throws rather than failing the break', async () => {
+        const { job, segments } = harness({
+            claimed: padded(),
+            join: async () => {
+                throw new Error('the sidecar is not answering');
+            },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(segments.markReady).toHaveBeenCalled();
+        expect(segments.markFailed).not.toHaveBeenCalled();
+    });
+
+    it('airs the words when the pad has been deleted since the break was written', async () => {
+        const { job, mixer, segments } = harness({ claimed: padded(), padMissing: true });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        // No pad landed, so there is nothing for a join to be FOR. Joining the two halves anyway
+        // would put a silent hole mid-sentence where the drop should have been, out of two
+        // separately-trimmed takes that no longer share their prosody. One take is strictly better.
+        expect(mixer.join).not.toHaveBeenCalled();
+        expect(segments.markReady).toHaveBeenCalled();
+        expect(segments.markFailed).not.toHaveBeenCalled();
+    });
+
+    it('does not reach for the mixer at all for the ordinary break that hits nothing', async () => {
+        const { job, mixer, speech } = harness();
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(mixer.join).not.toHaveBeenCalled();
+        expect(speech.speak).toHaveBeenCalledTimes(1);
     });
 });

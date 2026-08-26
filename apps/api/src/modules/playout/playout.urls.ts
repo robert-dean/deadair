@@ -80,6 +80,18 @@ export function segmentAudioUrl(base: string, segmentId: string): string {
 }
 
 /**
+ * Where a mixer fetches one blob out of the segment store, by its own checksum.
+ *
+ * {@link segmentAudioUrl}'s sibling and built off the same parent, because it is the same module's
+ * route. What it exists for is the parts of a join that are NOT segments: a take of speech made on
+ * the way to a padded break, and a soundboard pad, neither of which has a row in `deadair.segments`
+ * and neither of which ever will.
+ */
+export function storedAudioUrl(base: string, checksum: string, ext: string): string {
+    return `${base.replace(/\/playout$/, '')}/audio/${checksum}/${ext}`;
+}
+
+/**
  * Where the player fetches the station's own copy of a record.
  *
  * Built off the playout base directly rather than off its parent, unlike

@@ -30,7 +30,7 @@ import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type Sc
 import { ratingFromColumn, ratingToColumn } from '../catalog/rating.js';
 import { SegmentLibrary } from './segment.library.js';
 import { SegmentRepository, type Segment } from './segment.repository.js';
-import { SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType, type SegmentExtension } from './segment.store.js';
+import { isSegmentExtension, SEGMENT_CONTENT_TYPES, SegmentStore, type SegmentContentType, type SegmentExtension } from './segment.store.js';
 import { SpeechService } from './speech.service.js';
 import { SAMPLE_TEXT, VoiceSampleStore } from './voice.sample.store.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -298,6 +298,43 @@ export class RenderService {
     }
 
     /**
+     * Audio out of the segment store, addressed by content rather than by row.
+     *
+     * The join's own route. A padded break is several takes with a soundboard hit between them, and
+     * the mixer is handed URLs rather than bytes — so every part has to be fetchable from a sidecar
+     * container. A production's beats already are, because a beat is a segment with an id; a take is
+     * not a segment and never will be, and neither is a pad.
+     *
+     * **The extension is checked before it is used, and that is a path-safety guard rather than a
+     * validation.** `checksum` and `ext` arrive from a URL, and the store composes a filename out of
+     * both. The contract bounds the checksum to 64 characters and this bounds the extension to the
+     * formats the store actually holds, so neither half can carry a separator or a `..` into a path
+     * join. `ContentStore` guards its own paths as well; this refuses earlier, with a 404 rather than
+     * a thrown path error.
+     *
+     * A miss is a 404 with no detail about which half missed, unlike the segment route above it. That
+     * route names a row an operator is looking at; this one is addressed by a hash, and a caller
+     * holding the wrong hash learns nothing useful from being told whether the file or the extension
+     * was the problem.
+     */
+    async getStoredAudio(checksum: string, ext: string): Promise<SegmentAudioResponse> {
+        const extension = ext.toLowerCase();
+        if (!isSegmentExtension(extension)) throw httpError(404).withDetails({ message: 'no such audio' });
+
+        const bytes = await this.store.read(checksum, extension);
+        if (bytes === undefined) throw httpError(404).withDetails({ message: 'no such audio' });
+
+        return {
+            contentType: SEGMENT_CONTENT_TYPES[extension],
+            body: bytes,
+            // Content-addressed, so these bytes are these bytes forever: the strongest cache header
+            // in the station, and the one place where `immutable` is a fact rather than a hope. The
+            // ETag is the checksum because it already IS one.
+            headers: { cacheControl: STORED_AUDIO_CACHE_CONTROL, etag: `"${checksum}"` },
+        };
+    }
+
+    /**
      * The voices the station can be asked to speak in.
      *
      * Answers rather than throwing when nothing can speak, with `reason` saying which of the two
@@ -490,6 +527,15 @@ export class RenderService {
  * The cost is one conditional request per click, which the conditional-GET middleware answers with
  * a bodyless 304 whenever the mapping has not moved.
  */
+/**
+ * A year, and `immutable`, which is a claim this station can make in exactly one place.
+ *
+ * Everywhere else a URL names a THING whose bytes can change under it — `/voices/{id}/sample`
+ * revalidates precisely because remapping a voice must not be answered out of a browser's cache.
+ * Here the URL names the BYTES. There is nothing for a re-fetch to discover.
+ */
+const STORED_AUDIO_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+
 const SAMPLE_CACHE_CONTROL = 'private, no-cache, must-revalidate';
 
 const sampleResponse = (body: Buffer, key: string, ext: SegmentExtension): SegmentAudioResponse => ({

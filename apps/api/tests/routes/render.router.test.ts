@@ -100,6 +100,7 @@ const ready = (checksum: string, ext: SegmentExtension): Segment => ({
     state: 'ready',
     label: 'Top of the hour',
     source: 'library',
+    pads: [],
     audioChecksum: checksum,
     audioExt: ext,
 });
@@ -150,7 +151,7 @@ describe('GET /segments/:id/audio', () => {
     });
 
     it('404s a segment that has no audio', async () => {
-        const base = await serve({ id: ID, kind: 'talkbreak', state: 'planned', label: 'A talk break', source: 'render' });
+        const base = await serve({ id: ID, kind: 'talkbreak', state: 'planned', label: 'A talk break', source: 'render', pads: [] });
 
         expect((await send(`${base}/segments/${ID}/audio`)).status).toBe(404);
     });
@@ -159,5 +160,50 @@ describe('GET /segments/:id/audio', () => {
         const base = await serve(ready('a'.repeat(64), 'mp3'));
 
         expect((await send(`${base}/segments/${ID}/audio`)).status).toBe(404);
+    });
+});
+
+// The join's own route, and the reason it exists: a padded break is several takes with a soundboard
+// hit between them, and the mixer runs in another container, so every part has to be fetchable. A
+// take is not a segment and never will be, and neither is a pad — so this addresses the store the
+// way the store addresses itself.
+describe('GET /audio/:checksum/:ext', () => {
+    it('serves bytes that no row names', async () => {
+        const checksum = await store.write(BYTES, 'mp3');
+        // Deliberately a segment the repository does NOT hold: nothing about this route consults a
+        // row, which is the whole point.
+        const base = await serve(undefined);
+
+        const response = await send(`${base}/audio/${checksum}/mp3`);
+
+        expect(response.status).toBe(200);
+        expect(response.headers['content-type']).toBe('audio/mpeg');
+        expect(response.headers['etag']).toBe(`"${checksum}"`);
+        expect(response.body.equals(BYTES)).toBe(true);
+    });
+
+    it('says the bytes can be cached forever, because a checksum names bytes rather than a thing', async () => {
+        const checksum = await store.write(BYTES, 'mp3');
+        const base = await serve(undefined);
+
+        const response = await send(`${base}/audio/${checksum}/mp3`);
+
+        expect(response.headers['cache-control']).toContain('immutable');
+    });
+
+    it('404s an extension the store does not serve rather than composing a path out of it', async () => {
+        const checksum = await store.write(BYTES, 'mp3');
+        const base = await serve(undefined);
+
+        // The path-safety half: both halves of the filename come from a URL, so a value that is not
+        // one of the store's own formats is refused before anything joins it to a path.
+        expect((await send(`${base}/audio/${checksum}/../../etc/passwd`)).status).not.toBe(200);
+        expect((await send(`${base}/audio/${checksum}/exe`)).status).toBe(404);
+    });
+
+    it('404s a checksum the store has never held', async () => {
+        const base = await serve(undefined);
+
+        expect((await send(`${base}/audio/${'0'.repeat(64)}/mp3`)).status).toBe(404);
     });
 });

@@ -100,3 +100,39 @@ export function keepPads(text: string, offered: Iterable<string>, ceiling: numbe
         .replace(/[^\S\n]+([.,!?;:])/g, '$1')
         .trim();
 }
+
+/** One piece of a script: words to speak, or a pad to play. */
+export type ScriptPart = { kind: 'words'; text: string } | { kind: 'pad'; name: string };
+
+/**
+ * A script as the sequence the render path has to produce.
+ *
+ * This is the whole reason a pad cue rides INSIDE the text rather than beside it. Where the hit
+ * happens is the difference between a presenter making a joke and landing it, and the only thing
+ * that knows where it happens is the position of the marker in the sentence.
+ *
+ * Empty runs of words are dropped, so a script that opens or closes on a hit produces no empty take:
+ * asking a speech engine for nothing is a request that either fails or returns a file of silence, and
+ * both cost more than not asking.
+ *
+ * Note what this deliberately does not do. It does not check the names against a board, and it does
+ * not enforce a ceiling — both happened at write time, and a script reaching the render path has
+ * already been through them. Doing either again here would be a second opinion able to disagree with
+ * the one the row was written under.
+ */
+export function splitOnPads(text: string): ScriptPart[] {
+    const parts: ScriptPart[] = [];
+    let at = 0;
+
+    for (const match of text.matchAll(padPattern())) {
+        const words = text.slice(at, match.index).trim();
+        if (words.length > 0) parts.push({ kind: 'words', text: words });
+        parts.push({ kind: 'pad', name: match[1]!.toLowerCase() });
+        at = match.index + match[0].length;
+    }
+
+    const rest = text.slice(at).trim();
+    if (rest.length > 0) parts.push({ kind: 'words', text: rest });
+
+    return parts;
+}

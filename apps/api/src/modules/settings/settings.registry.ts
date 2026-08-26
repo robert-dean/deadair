@@ -49,6 +49,7 @@ import {
     MAX_ANALYSIS_PACE_MS,
 } from '#modules/analysis/analysis.settings.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
+import { PAD_GAP_BOUNDS, PAD_GAP_KEY } from '#modules/render/pad.settings.js';
 import { SPEECH_PLUGIN_KEY } from '#modules/render/speech.settings.js';
 import { SCRIPT_HISTORY_DEFAULTS, SCRIPT_HISTORY_KEYS } from '#modules/render/script.history.settings.js';
 import {
@@ -535,6 +536,16 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: '',
         help: 'The plugin id that makes one piece of audio out of several, which is what lets a programme written turn by turn air as a single item with a pause you chose between the turns. Its own key rather than the measurement one, so a station can measure with one engine and join with another. Leave empty when only one plugin can. With none available a programme simply airs as its separate parts.',
+    },
+    {
+        group: 'render',
+        key: PAD_GAP_KEY,
+        label: 'Space around a soundboard hit (ms)',
+        type: 'number',
+        default: PAD_GAP_BOUNDS.default,
+        min: PAD_GAP_BOUNDS.min,
+        max: PAD_GAP_BOUNDS.max,
+        help: 'How much silence sits either side of a drop when a break is joined around one. Much shorter than the pause between a production\u2019s turns, and for the opposite reason: a rimshot lands on the beat after the line, and a fifth of a second in front of it is a presenter who missed their own cue. Zero butts it straight against the words.',
     },
     {
         group: 'render',

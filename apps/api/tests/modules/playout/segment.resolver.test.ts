@@ -21,6 +21,7 @@ const READY: Segment = {
     state: 'ready',
     label: 'Top of the hour',
     source: 'library',
+    pads: [],
     audioChecksum: 'a'.repeat(64),
     audioExt: 'mp3',
 };

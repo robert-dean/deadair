@@ -19,6 +19,7 @@ const READY: Segment = {
     state: 'ready',
     label: 'top of the hour',
     source: 'library',
+    pads: [],
     sourcePath: 'top-of-the-hour.mp3',
     audioChecksum: CHECKSUM,
     audioExt: 'mp3',
@@ -32,6 +33,7 @@ const PLANNED: Segment = {
     state: 'written',
     label: 'back-announce',
     source: 'render',
+    pads: [],
     script: 'That was Boards of Canada.',
 };
 
@@ -177,7 +179,7 @@ describe('RenderService.getSegmentAudio', () => {
 describe('RenderService.listSegments', () => {
     it('says whether each segment can actually be played, rather than handing out a filename', async () => {
         const { service: render } = service({
-            segments: [READY, { id: 'b', kind: 'talkbreak', state: 'planned', label: 'the news', source: 'render', script: 'Good evening' }],
+            segments: [READY, { id: 'b', kind: 'talkbreak', state: 'planned', label: 'the news', source: 'render', script: 'Good evening', pads: [] }],
         });
 
         const { segments } = await render.listSegments();

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { keepPads, MAX_PADS, padCue, padsIn, withoutPads } from '../../../src/modules/render/pad.cues.js';
+import { keepPads, MAX_PADS, padCue, padsIn, splitOnPads, withoutPads } from '../../../src/modules/render/pad.cues.js';
 import { speakableScript } from '../../../src/modules/render/speakable.script.js';
 import { transposeForSpeech } from '../../../src/modules/render/speech.transpose.js';
 
@@ -130,5 +130,39 @@ describe('a pad on the way to an engine', () => {
         // an empty reading means the transposition was wrong. A pad-only script is the one case that
         // can now reach it, and a segment that renders silence is a hole in the hour.
         expect(transposeForSpeech('[sfx:airhorn]')).toBe('[sfx:airhorn]');
+    });
+});
+
+describe('splitOnPads', () => {
+    it('puts the hit where the sentence put it, which is the whole point of a marker in the text', () => {
+        expect(splitOnPads('Ambitious. [sfx:rimshot] They played it anyway.')).toEqual([
+            { kind: 'words', text: 'Ambitious.' },
+            { kind: 'pad', name: 'rimshot' },
+            { kind: 'words', text: 'They played it anyway.' },
+        ]);
+    });
+
+    it('makes no empty take for a script that opens on a hit', () => {
+        // Asking an engine to speak nothing either fails or returns a file of silence, and both cost
+        // more than not asking.
+        expect(splitOnPads('[sfx:airhorn] Good evening.')).toEqual([
+            { kind: 'pad', name: 'airhorn' },
+            { kind: 'words', text: 'Good evening.' },
+        ]);
+    });
+
+    it('makes no empty take for one that closes on a hit either', () => {
+        expect(splitOnPads('Good evening. [sfx:airhorn]')).toEqual([
+            { kind: 'words', text: 'Good evening.' },
+            { kind: 'pad', name: 'airhorn' },
+        ]);
+    });
+
+    it('is one run of words for the ordinary break that hits nothing', () => {
+        expect(splitOnPads('Good evening.')).toEqual([{ kind: 'words', text: 'Good evening.' }]);
+    });
+
+    it('answers nothing at all for a script with nothing in it', () => {
+        expect(splitOnPads('   ')).toEqual([]);
     });
 });

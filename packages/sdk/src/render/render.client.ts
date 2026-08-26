@@ -212,6 +212,39 @@ export class RenderClient {
     }
 
     /**
+     * @name Get stored audio
+     * @description Audio out of the segment store, addressed by content rather than by row
+     */
+    async getStoredAudio(
+        checksum: string,
+        ext: string,
+    ): Promise<
+        | {
+              status: 200;
+              contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
+              data: Blob;
+              headers: { cacheControl?: string; etag?: string };
+          }
+        | { status: 304 }
+    > {
+        const result = await this.fetch(`/audio/${encodeURIComponent(checksum)}/${encodeURIComponent(ext)}`, {
+            method: 'GET',
+            expectStatuses: [304],
+        });
+        switch (result.status) {
+            case 304:
+                return { status: 304 };
+            default:
+                return {
+                    status: 200,
+                    contentType: readContentType(result) as 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4',
+                    data: await result.blob(),
+                    headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
+                };
+        }
+    }
+
+    /**
      * @name List pronunciations
      * @description The station's lexicon: what it says, what has been proposed to it, and what it has turned down
      */

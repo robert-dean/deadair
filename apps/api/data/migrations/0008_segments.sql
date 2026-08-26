@@ -130,6 +130,21 @@ create table deadair.segments (
     -- asks first when a station starts sounding flat, and it cannot be answered afterwards from a log
     -- line that has scrolled away. Unconstrained text for the same reason as `source`.
     writer text,
+    -- Which soundboard pads this break's script hits, as a jsonb array of `{name, padId}`, or an
+    -- empty array for the ordinary break that hits none.
+    --
+    -- RESOLVED at write time rather than at render time, which is the whole reason it is a column
+    -- instead of something the render path re-derives from the script. A pad name is unique per
+    -- BOARD and not across the station, so `[sfx:airhorn]` is answerable only by somebody holding the
+    -- presenter's board — and the writer is holding it, because it is what offered the name in the
+    -- first place. A renderer resolving it again would have to ask who is presenting NOW, which after
+    -- a recast is somebody else, and would join a different sound into words that were written for
+    -- this one.
+    --
+    -- Written together with the script for `claims_item_id`'s reason, in the same statement: it
+    -- describes those words, and one outliving a rewrite would play a sound for a sentence that is no
+    -- longer there.
+    pads jsonb not null default '[]'::jsonb,
     -- Which running-order line this break's words CLAIM will play next.
     --
     -- A break that says "coming up, X" is making a statement about the future: written when the

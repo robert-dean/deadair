@@ -20,6 +20,19 @@ import { isSegmentExtension, type SegmentExtension } from './segment.store.js';
 export type SegmentState = 'planned' | 'writing' | 'written' | 'rendering' | 'ready' | 'failed';
 
 /**
+ * One pad a script hits, as the row remembers it.
+ *
+ * Both halves are load-bearing and neither can be dropped for the other. The `name` is what the
+ * script actually carries, so the render path can find WHERE in the words it happens. The `padId` is
+ * what the writer resolved that name to against the board in force at the time, so what gets joined
+ * is the sound the words were written for even if the character has been recast since.
+ */
+export interface PadHit {
+    name: string;
+    padId: string;
+}
+
+/**
  * One thing the station can play that is not a record.
  *
  * `audioChecksum` and `audioExt` travel together, the way `ArtAsset`'s do: either there is audio
@@ -83,6 +96,16 @@ export interface Segment {
      * forward claim has to be written down rather than re-derived.
      */
     claimsItemId?: string;
+    /**
+     * The soundboard pads this break's script hits, resolved when the words were written.
+     *
+     * Empty for the ordinary break, which is nearly all of them. Resolved at WRITE time rather than
+     * re-derived here, because a pad name is unique per BOARD and only the writer was holding the
+     * presenting character's board — see the column comment in migration 0008. A renderer resolving
+     * `[sfx:airhorn]` for itself would have to ask who is presenting NOW, and after a recast that is
+     * somebody else with a different rack.
+     */
+    pads: PadHit[];
     /**
      * When this break is expected to AIR, as epoch millis, for one placed by a rule on the station
      * clock.
@@ -270,6 +293,8 @@ interface SegmentRow {
     context: unknown;
     productionId: string | null;
     productionOrdinal: number | null;
+    /** Read through {@link padHitsIn}, so an unreadable value is a break that hits nothing. */
+    pads: unknown;
 }
 
 const SEGMENT_COLUMNS = [
@@ -296,6 +321,7 @@ const SEGMENT_COLUMNS = [
     'context',
     'productionId',
     'productionOrdinal',
+    'pads',
 ] as const;
 
 /**
@@ -349,6 +375,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.voice == null ? {} : { voice: row.voice }),
         ...(row.writer == null ? {} : { writer: row.writer }),
         ...(row.claimsItemId == null ? {} : { claimsItemId: row.claimsItemId }),
+        pads: padHitsIn(row.pads),
         ...(row.requestId == null ? {} : { requestId: row.requestId }),
         // Read back defensively, like every other jsonb column here: a value that is not an object
         // is a context nothing can read, and no context and an unreadable one are one state to every
@@ -719,6 +746,7 @@ export class SegmentRepository extends DataRepository {
             claimsTime?: { from: number; until: number };
             personaId?: string;
             voice?: string;
+            pads?: readonly PadHit[];
         },
     ): Promise<boolean> {
         const result = await this.db
@@ -742,6 +770,11 @@ export class SegmentRepository extends DataRepository {
                 // Set together with the words, because it describes them: a claim is a statement
                 // the script makes, and one outliving a rewrite would be a promise about a
                 // sentence that is no longer there. Null clears it for the same reason.
+                // Written with the words for `claimsItemId`'s reason exactly: it describes THESE
+                // words, and a hit outliving a rewrite would play a sound for a sentence that is no
+                // longer there. Reset to empty rather than left alone, which is the same clearing
+                // the two claims below do.
+                pads: JSON.stringify(written.pads ?? []),
                 claimsItemId: written.claimsItemId ?? null,
                 // The same argument in the other dimension: a break naming a TIME is overtaken by
                 // the clock the way one naming the next record is overtaken by an edit. Written
@@ -1251,6 +1284,24 @@ export class SegmentRepository extends DataRepository {
  * characters — and a break with no context is an ordinary break, which is what an unreadable one
  * should look like too.
  */
+/**
+ * The pad column as something a caller can use, read back defensively like every jsonb column here.
+ *
+ * A row edited by hand, or one written before the column existed, is a break that hits nothing —
+ * which is the same answer as the ordinary break and needs no special case anywhere downstream. An
+ * entry missing either half is dropped rather than kept partially: half a hit is a sound with no
+ * place in the sentence, or a place with no sound, and both join to nothing.
+ */
+function padHitsIn(value: unknown): PadHit[] {
+    if (!Array.isArray(value)) return [];
+
+    return value.flatMap(entry => {
+        if (typeof entry !== 'object' || entry === null) return [];
+        const { name, padId } = entry as { name?: unknown; padId?: unknown };
+        return typeof name === 'string' && typeof padId === 'string' ? [{ name, padId }] : [];
+    });
+}
+
 function contextIn(value: unknown): { context?: BreakContext } {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
 

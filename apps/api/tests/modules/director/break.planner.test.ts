@@ -47,7 +47,7 @@ const track = (externalId: string): RundownTrack => ({
  */
 const clock = (now = Date.UTC(2026, 7, 13, 9, 0), from = 0): AirClock => ({ now, anchorAt: now, from });
 
-const recorded = (id: string, kind: string): Segment => ({ id, kind, state: 'ready', label: `${kind} ${id}`, source: 'library' });
+const recorded = (id: string, kind: string): Segment => ({ id, kind, state: 'ready', label: `${kind} ${id}`, source: 'library', pads: [] });
 const ident = (id: string): Segment => recorded(id, 'ident');
 
 /**

@@ -7,6 +7,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { EnrichmentReadService } from '#modules/enrichment/enrichment.read.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
+import { padsIn } from '#modules/render/pad.cues.js';
 import { PadRepository } from '#modules/render/pad.repository.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
@@ -16,7 +17,7 @@ import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import { storytellingOf } from '#modules/personas/persona.sheet.js';
 import type { Persona } from '#modules/personas/persona.js';
 import { ScriptHistoryRepository } from '#modules/render/script.history.repository.js';
-import { SegmentRepository } from '#modules/render/segment.repository.js';
+import { SegmentRepository, type PadHit } from '#modules/render/segment.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
@@ -325,6 +326,14 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // whoever the station currently is. Decided here, with the words, so a persona swapped
         // before the render cannot have this sentence read out by a different character.
         const voice = segment.voice ?? persona?.voice;
+
+        // What the script actually hit, resolved HERE because here is the only place the presenting
+        // character's board is in hand. See `segments.pads`: a pad name is unique per board and not
+        // across the station, so a renderer resolving `[sfx:airhorn]` for itself would have to ask
+        // who is presenting NOW — which after a recast is somebody else with a different rack, and
+        // the sound joined would not be the one the words were written for.
+        const pads = await this.hits(result.written.script, persona);
+
         if (
             !(await this.segments.writeScript(segmentId, {
                 ...result.written,
@@ -332,6 +341,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                 ...(claimsItemId === undefined ? {} : { claimsItemId }),
                 ...(persona === undefined ? {} : { personaId: persona.id }),
                 ...(voice === undefined ? {} : { voice }),
+                pads,
             }))
         ) {
             // The row moved out of `planned` while this was being written. Whoever moved it owns it.
@@ -515,6 +525,49 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         } catch (error) {
             this.logger.debug(`director: could not ask what the engine can perform (${errorText(error)})`);
             return {};
+        }
+    }
+
+    /**
+     * The pads a finished script hits, resolved against the board that offered them, and RESTED.
+     *
+     * Where {@link pads} above is the offer, this is the spend, and the split is the same one the
+     * notebook makes: a character's turn is used when something is actually chosen, and until the
+     * model answers nothing has been. So the rest happens here, at selection, which is the
+     * inaccuracy `chooseFacts` documents — a break dropped before its slot has still rested its pad,
+     * and the alternative is a second writer of `last_used_at` that can disagree with this one.
+     *
+     * A name that resolves to nothing is DROPPED rather than failing the break, which is the same
+     * bargain `keepPads` already struck one layer up: this is the narrow window where the board
+     * changed between the offer and the answer, and the words are fine — they are just going to air
+     * without their sound.
+     *
+     * Best-effort as a whole, like everything else read here: a rack that could not be reached costs
+     * the break its noise and never the break.
+     */
+    private async hits(script: string, persona: Persona | undefined): Promise<PadHit[]> {
+        const board = persona?.soundboard;
+        if (board === undefined) return [];
+
+        const names = padsIn(script);
+        if (names.length === 0) return [];
+
+        try {
+            const hits: PadHit[] = [];
+            for (const name of names) {
+                const pad = await this.padRepository.named(board, name);
+                if (pad === undefined) {
+                    this.logger.info('director: a break hit a pad the board no longer holds', { job: this.context.id, board, pad: name });
+                    continue;
+                }
+
+                hits.push({ name, padId: pad.id });
+                await this.padRepository.markUsed(pad.id);
+            }
+            return hits;
+        } catch (error) {
+            this.logger.warn(`director: could not resolve a soundboard hit (${errorText(error)})`);
+            return [];
         }
     }
 

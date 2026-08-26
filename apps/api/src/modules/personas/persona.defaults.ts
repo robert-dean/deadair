@@ -360,7 +360,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         key: 'howler',
         label: 'Midnight howler',
         voice: 'howler',
-        soundboard: 'howler',
+        soundboard: 'station',
         style: 'a gravel-throated late-night rock and roll shouter, part disc jockey and part preacher',
         djName: 'Sonny',
         diction: [
@@ -435,7 +435,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         key: 'countdown',
         label: 'Countdown host',
         voice: 'countdown',
-        soundboard: 'countdown',
+        soundboard: 'station',
         style: 'an earnest chart-countdown host who takes every record, and every listener, completely seriously',
         djName: 'Dale',
         diction: [
@@ -473,7 +473,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         key: 'wisecrack',
         label: 'Wisecracking host',
         voice: 'wisecrack',
-        soundboard: 'wisecrack',
+        soundboard: 'station',
         style: 'a dry, wisecracking host who finds every record slightly ridiculous and plays it anyway',
         djName: 'Fran',
         diction: [
@@ -532,7 +532,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         key: 'shockjock',
         label: 'Morning-zoo host',
         voice: 'shockjock',
-        soundboard: 'shockjock',
+        soundboard: 'station',
         style: 'a loud morning-zoo host who is rude about absolutely everything except the person listening',
         djName: 'Chaz',
         diction: [
@@ -653,7 +653,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         key: 'bossjock',
         label: 'Boss jock (late sixties to seventies)',
         voice: 'bossjock',
-        soundboard: 'bossjock',
+        soundboard: 'station',
         style: 'a fast, tight AM top-40 jock who never lets a second of dead air happen and treats every record as an event',
         djName: 'Johnny Dial',
         diction: [
@@ -908,7 +908,7 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         key: 'playbyplay',
         label: 'Play-by-play announcer',
         voice: 'playbyplay',
-        soundboard: 'playbyplay',
+        soundboard: 'station',
         style: 'a live sports commentator calling a four-minute record as though the result were still in doubt',
         djName: 'Mick Dunphy',
         diction: [

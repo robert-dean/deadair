@@ -41,18 +41,21 @@ describe('the seeded personas', () => {
         }
     });
 
-    it('name a soundboard only where it is a directory an operator could actually make', () => {
-        // A seeded board is a promise about a PATH: `media/pads/inbox/<board>/`. Nothing ships in
-        // one, and an empty rack is an ordinary state, so what this guards is only that the promise
-        // is keepable — a board with a space or a slash in it is a directory the scan would read as
-        // a different name, or as two.
+    it('name one shared soundboard rather than a set each, so a stock pack reaches all of them', () => {
+        // The seeds used to name their own key, which meant six directories an operator had to keep
+        // in step and a shared pack that reached nobody. They point at ONE set now, which is what
+        // sets bought: drop files in a single folder and every character that wants a rack has one.
+        //
+        // Still a promise about a PATH — the import makes the set named after the directory — so the
+        // key has to be a directory name. A space or a slash is a folder the scan reads as a
+        // different set, or as two.
         //
         // Deliberately not "every seed names one", which is the opposite call to `voice` above: a
-        // presenter without a rack is most of radio, and a board on every sheet would be nineteen
-        // empty directories implying the station wants filling.
+        // presenter without a rack is most of radio.
         for (const persona of SEED_PERSONAS) {
             if (persona.soundboard === undefined) continue;
-            expect(persona.soundboard, `${persona.key} names a board that is not a directory name`).toMatch(/^[a-z0-9-]+$/);
+            expect(persona.soundboard, `${persona.key} names a set that is not a directory name`).toMatch(/^[a-z0-9-]+$/);
+            expect(persona.soundboard, `${persona.key} should share the station's own set`).toBe('station');
         }
     });
 

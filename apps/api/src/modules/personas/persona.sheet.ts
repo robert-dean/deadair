@@ -327,12 +327,16 @@ export interface PersonaSheet {
      */
     storytelling?: PersonaStorytelling;
     /**
-     * Which soundboard this character has to hand, as a `deadair.pads.board`, or absent for a
+     * Which soundboard this character has to hand, as a `deadair.pad_sets.key`, or absent for a
      * presenter who works without one.
      *
      * {@link PersonaSheet.voice}'s shape and its argument: the sheet names a SLOT and the library
      * says what that slot sounds like, so replacing the file under a pad changes what the station
      * plays without touching a persona or a script.
+     *
+     * A SET rather than a directory, which is what lets one library be cut several ways: two
+     * characters can share most of a rack and differ on a pad, and a stock pack dropped in one
+     * folder can reach every character that wants one.
      *
      * **This word never reaches a model.** What does is the NAMES of the pads on the board, offered
      * the way `[laugh]` is — the shape's permission intersected with what the rack actually holds —

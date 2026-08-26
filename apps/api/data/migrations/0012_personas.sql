@@ -58,14 +58,26 @@ create table deadair.personas (
     -- This character's own break phrasings, one per line, in the syntax of
     -- `rotation.breakTemplates`. Empty means the station's global ones.
     templates text,
-    -- Which soundboard this character has to hand: a `deadair.pads.board`, or null for a presenter
+    -- Which soundboard this character has to hand: a `deadair.pad_sets.key`, or null for a presenter
     -- who works without one, which is what every persona here did before pads existed.
     --
-    -- **Not a foreign key**, on `persona_notes.persona_key`'s rule read the other way round: a board
-    -- exists exactly as long as pads are on it, so it is a name rather than a row and there is
-    -- nothing to reference. Emptying `media/pads/inbox/wisecrack/` and rejecting what it left leaves
-    -- this column naming a board with nothing on it, which is a presenter whose rack is empty and
-    -- must stay expressible.
+    -- **Not a foreign key**, and this one is against the precedent rather than with it:
+    -- `clock_bands.topic_id` references the table it points at, and a set IS a row so the same thing
+    -- was available here. What decides it is where the value comes from — personas are seeded
+    -- declaratively from `persona.defaults.ts` and a seed cannot name a uuid, so a key keeps the
+    -- seeds readable and lets a shipped persona point at a set nobody has filled yet.
+    --
+    -- It also keeps two absences as ONE state: a persona with no rack, and one naming a set that
+    -- does not exist. `PadRepository.onSet` answers both identically and deliberately, because both
+    -- are a presenter with nothing to reach for.
+    --
+    -- **Were it a foreign key it would be `on delete set null`, which is the opposite of the
+    -- `cascade` beside it in 0018.** A band that quietly lost its subject reads a GENERAL bulletin
+    -- under a category's name, so losing the band is the better failure; a persona that lost its
+    -- rack is a presenter without one, which is most of radio. Cascading would delete the character.
+    --
+    -- What a key costs is that renaming a set silently unpoints every persona naming it, so the
+    -- console asks `PadSetRepository.personasNaming` and says so first.
     --
     -- It is `voice`'s shape one column up, and deliberately: the persona names a SLOT, the library
     -- says what that slot sounds like, and swapping the file under a pad changes what the station

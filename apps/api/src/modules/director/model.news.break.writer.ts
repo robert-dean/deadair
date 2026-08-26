@@ -212,6 +212,9 @@ export class ModelNewsBreakWriter extends BreakWriter {
             // The same daypart the prompt stated, so a script is refused for contradicting it
             // only where it was actually told. See `AnswerGuard.dayPart`.
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
+            // Beside the daypart and off the same instant: the words are what the prompt stated and
+            // this is what the clock says, which is the half of the question a stretch cannot answer.
+            ...(request.moment === undefined ? {} : { moment: request.moment }),
         };
         const script = readAnswer(result.text, guard);
 

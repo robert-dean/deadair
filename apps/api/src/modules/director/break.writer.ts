@@ -416,6 +416,19 @@ export interface BreakWriteRequest {
      */
     dayPart?: RoughTime;
     /**
+     * The instant this break airs and the station's zone, for the guard rather than for the prompt.
+     *
+     * Nothing is TOLD this — {@link clock}, {@link greeting} and {@link dayPart} are how the moment
+     * reaches a model, and they are words. This is the same moment as a number, which is what lets a
+     * script be judged for naming a point in the day rather than a half of one: "midday" is the
+     * afternoon at ten past twelve and the afternoon at half past four, so no comparison of dayparts
+     * separates them and only the clock can. See `namesWrongTimeOfDay`.
+     *
+     * Off the same `airs_at` as the three above, in the same place, so a break that was told the time
+     * is a break that can be held to it.
+     */
+    moment?: { at: number; zone: string };
+    /**
      * Whether this break is going on air, or is being auditioned by somebody at the desk.
      *
      * Absent means `station`, which is every break the director plants or a request asks for. The

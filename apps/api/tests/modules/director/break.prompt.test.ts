@@ -1233,6 +1233,32 @@ describe('readAnswer, against the half of the day it was told', () => {
         expect(declined?.reason).toMatch(/wrong half of the day/i);
     });
 
+    // The half a stretch cannot reach. "Midday" is the afternoon at ten past twelve and still the
+    // afternoon at half past four, so the check above passes both — and the second one aired.
+    const moment = (hour: number) => ({ at: Date.UTC(2026, 7, 13, hour, 30), zone: 'UTC' });
+
+    it('declines a break that calls half past four midday', () => {
+        expect(readAnswer('Welcome to your midday news blast.', { dayPart: at(16), moment: moment(16) })).toBeUndefined();
+    });
+
+    it('takes the same words in the middle of the day', () => {
+        const script = 'Welcome to your midday news blast.';
+
+        expect(readAnswer(script, { dayPart: at(12), moment: moment(12) })).toBe(script);
+    });
+
+    it('asks nothing of it without the moment, exactly as it asks nothing without the daypart', () => {
+        const script = 'Welcome to your midday news blast.';
+
+        expect(readAnswer(script, { dayPart: at(16) })).toBe(script);
+    });
+
+    it('calls it the same fault, because a listener hears one thing either way', () => {
+        const declined = writeDecline('Welcome to your midday news blast.', { moment: moment(16) });
+
+        expect(declined?.fault).toBe('wrong-daypart');
+    });
+
     it('reports naming nothing ahead of the daypart, because it is the more basic fault', () => {
         // The two orders in `readAnswer` and `writeDecline` have to stay one story, and this is the
         // assertion that holds them together at the position the new check was inserted at.

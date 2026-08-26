@@ -54,7 +54,7 @@ import {
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
-import { contradictsDayPart, type RoughTime } from './clock.words.js';
+import { contradictsDayPart, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
 
 /**
  * What makes one KIND of break's prompt different from another's.
@@ -1508,6 +1508,19 @@ export interface AnswerGuard {
      */
     dayPart?: RoughTime;
     /**
+     * When this break airs and where the station is, for the half of the same question a stretch
+     * cannot answer.
+     *
+     * {@link AnswerGuard.dayPart} carries the words and their window; this carries the INSTANT, which
+     * is what {@link namesWrongTimeOfDay} needs to judge a word naming a point in the day rather than
+     * a half of it — "midday" is `afternoon` at ten past twelve and `afternoon` at half past four,
+     * and only one of those is a break worth airing. Both come off the same `airs_at`, in the same
+     * place, so a break judged by one is judged by the other.
+     *
+     * Absent asks nothing, exactly as an absent `dayPart` does and for the same reason.
+     */
+    moment?: { at: number; zone: string };
+    /**
      * The pads this break was offered, which are the only `[sfx:…]` runs its script may keep.
      *
      * The same list the prompt was built from, on {@link AnswerGuard.recent}'s bargain: the station
@@ -1657,8 +1670,16 @@ const cuesWrongly = (script: string, guard: AnswerGuard): boolean => guard.cues 
  *
  * The measurement behind refusing at all is in {@link contradictsDayPart}. The short version is that
  * the prompt asks and is obeyed most of the time, and the times it is not are all the same word.
+ *
+ * Two questions rather than one, because a daypart is a STRETCH and some words a break reaches for
+ * name a point inside one — "midday" is the afternoon at ten past twelve and still the afternoon at
+ * half past four, so no comparison of stretches will ever separate them. See
+ * {@link namesWrongTimeOfDay}. They share this predicate, and through it the `wrong-daypart` fault
+ * and its sentence, because they are the same thing to a listener: the station saying what time it
+ * is and being wrong.
  */
-const saysWrongDayPart = (script: string, guard: AnswerGuard): boolean => contradictsDayPart(script, guard.dayPart) !== undefined;
+const saysWrongDayPart = (script: string, guard: AnswerGuard): boolean =>
+    contradictsDayPart(script, guard.dayPart) !== undefined || namesWrongTimeOfDay(script, guard.moment?.at, guard.moment?.zone) !== undefined;
 
 /**
  * Why a cleaned script is not the persona speaking, or `undefined` when it is.

@@ -274,6 +274,11 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(clock === undefined ? {} : { clock }),
             ...(greeting === undefined ? {} : { greeting }),
             ...(part === undefined ? {} : { dayPart: part }),
+            // The same instant a fourth time, and the only one of the four nothing is TOLD. The three
+            // above are the moment as words, which is what a model can use; this is the moment as a
+            // number, which is what a guard needs to catch a script naming a point in the day rather
+            // than a half of one. See `namesWrongTimeOfDay`.
+            ...(segment.airsAt === undefined ? {} : { moment: { at: segment.airsAt, zone } }),
             ...(context === undefined ? {} : { context }),
             ...(bulletin === undefined ? {} : { stories: bulletin.stories }),
             // What the format clock asked this break to be ABOUT, resolved out of the context above

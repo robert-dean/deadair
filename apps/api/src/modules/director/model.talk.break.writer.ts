@@ -240,6 +240,9 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // — see `BreakPlanner.slotsFor` — which is why the talk break is where the word "tonight"
             // came out through twelve of thirty-nine consecutive MORNING breaks.
             ...(request.dayPart === undefined ? {} : { dayPart: request.dayPart }),
+            // Beside the daypart and off the same instant: the words are what the prompt stated and
+            // this is what the clock says, which is the half of the question a stretch cannot answer.
+            ...(request.moment === undefined ? {} : { moment: request.moment }),
             // Built from `settings` rather than from `request`, so the guard is judging EXACTLY what
             // the prompt offered — the shape's veto included. A guard handed the raw request would
             // keep a pad hit in a kind of break whose shape refused to offer one, which is the same

@@ -637,6 +637,13 @@ export class BreakPlanner {
             // to read the same stories twice — which is the only reason it was ever visible.
             if (servedAlready(items, projected, cursor, band.kind, target)) continue;
 
+            // Beside a break rather than on one: the line above covers the boundary's far side and
+            // this covers the near one. An anchored rule cannot move — that is the whole of what
+            // anchored means — so the occurrence is dropped rather than shifted, on the same terms
+            // it is dropped when the boundary itself is taken. `taken` is the same question asked
+            // about this pass, where the slot is a promise rather than a row.
+            if (items[at - 1]?.kind === 'segment' || blockedBy(taken).has(at)) continue;
+
             // The PROJECTED time rather than the target, and the difference is what the break will
             // SAY. A band asked for 14:14 and the boundary that can take it airs at 14:17, so words
             // written about 14:14 describe a moment that has passed by the time anybody hears them.
@@ -650,13 +657,15 @@ export class BreakPlanner {
             if (isAnchored(band)) continue;
 
             const counts = (item: StationLineupSegmentItem): boolean => item.segmentKind === band.kind;
-            for (const at of placementsFor(items, cursor, band.everyMs, counts, sameKind(slots, band.kind))) claim(at, band, projected[at]);
+            for (const at of placementsFor(items, cursor, band.everyMs, counts, sameKind(slots, band.kind), blockedBy(taken)))
+                claim(at, band, projected[at]);
         }
 
         // ── the station's own, last, because the floor goes last ───────────────
         if (rules.breakEveryMinutes > 0) {
             const pending = new Set(slots.filter(slot => slot.band === undefined || isStationKind(slot.band)).map(slot => slot.atIndex));
-            for (const at of placementsFor(items, cursor, rules.breakEveryMinutes * 60_000, isStationBreak, pending)) claim(at, undefined, projected[at]);
+            for (const at of placementsFor(items, cursor, rules.breakEveryMinutes * 60_000, isStationBreak, pending, blockedBy(taken)))
+                claim(at, undefined, projected[at]);
         }
 
         return slots.sort((left, right) => left.atIndex - right.atIndex);
@@ -1211,6 +1220,32 @@ const servedAlready = (
             Math.abs(projected[index]! - target) <= BAND_LATENESS_MS,
     );
 
+/**
+ * The boundaries no further slot may take, given the ones already claimed this pass.
+ *
+ * Each claim blocks itself and both its neighbours, because two breaks with no record between them
+ * is the thing every walk here already says it is avoiding — "two breaks back to back is worse than
+ * one boundary later" appears twice in this file — and nothing was enforcing it across rules. Each
+ * walk checks whether the boundary it CHOSE is free by reading `items`, and a slot claimed a moment
+ * earlier by a rule that ran first is not in `items`; it is a promise to insert one. So the station's
+ * own floor could take the boundary directly after an anchored bulletin, and the listener got a
+ * bulletin and a talk break with nothing in between. On the order this was found in there were
+ * three: news, talk break, news.
+ *
+ * Adjacency only, deliberately. A gap of one record between two breaks is a programming decision an
+ * operator can make with two bands, and nothing here should have an opinion about it — what a
+ * listener hears as a fault is the pair with no record at all.
+ */
+const blockedBy = (taken: ReadonlySet<number>): Set<number> => {
+    const blocked = new Set<number>();
+    for (const at of taken) {
+        blocked.add(at - 1);
+        blocked.add(at);
+        blocked.add(at + 1);
+    }
+    return blocked;
+};
+
 /** What the console calls a break of a kind nothing has named yet. */
 const labelFor = (kind: string): string => `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;
 
@@ -1240,6 +1275,13 @@ function placementsFor(
     // in the order yet, so the walk would otherwise plant a second one a moment later and the two
     // would air back to back.
     pending: ReadonlySet<number> = new Set(),
+    // Boundaries this slot may not take at all, because one has been claimed there or beside it this
+    // pass by ANY rule. See {@link blockedBy} for why adjacency counts and why this is separate from
+    // `pending`: that one is about whether a break resets this rule's clock, which is a different
+    // question with a different answer. Skipped exactly as a boundary already holding a break is —
+    // the walk carries on WITHOUT resetting its count, so the break lands at the next boundary it
+    // can rather than being lost for the whole interval.
+    blocked: ReadonlySet<number> = new Set(),
 ): number[] {
     let since = elapsedSinceLastOfKind(items, cursor, counts);
     const placements: number[] = [];
@@ -1269,6 +1311,25 @@ function placementsFor(
         // count when it reaches it: planting anyway is how a second pass over an order this has
         // already planted into doubles every one of them.
         if (items[at]!.kind === 'segment') continue;
+
+        // And never directly AFTER one. A break inserted at `at` sits between `items[at - 1]` and
+        // `items[at]`, so the check above covers one of its two neighbours and this covers the
+        // other — which is the one that was missing, and it is missing across PASSES rather than
+        // within one. A bulletin planted by an earlier pass is a segment this walk reaches, falls
+        // through (it belongs to another rule, so it neither counts nor resets), and then offers
+        // the boundary immediately after it as the next slot. Measured on the live station: news
+        // at index 24, a talk break at 25 planted four minutes later, and a second bulletin at 26
+        // half an hour after that. Three breaks, no records between them.
+        //
+        // Skipped without resetting the count, exactly as the two checks around it are: the break
+        // is overdue, so it takes the next boundary it legally can rather than waiting out another
+        // interval.
+        if (items[at - 1]?.kind === 'segment') continue;
+
+        // A boundary claimed this pass, or the one either side of it. The two checks above read
+        // `items`, which holds what earlier PASSES planted; a slot another rule claimed a moment
+        // ago in THIS pass is not in there yet, it is a promise to insert one.
+        if (blocked.has(at)) continue;
 
         // Too close to the cursor to be programmed: that part of the order is about to be handed
         // over. Deliberately WITHOUT resetting the count, so the break lands at the first position

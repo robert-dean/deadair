@@ -694,6 +694,44 @@ describe('BreakPlanner against the clock', () => {
         expect(kinds).toContain('ident');
     });
 
+    it('never puts a break in the gap directly after one an earlier pass planted', async () => {
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')], canWrite: true, idents: [ident('seg-1')] });
+        const lineup = await lineupOf(20);
+
+        // The bulletin goes in on its own pass, which is how it happens: planting runs on every
+        // boundary and the rules do not all want something on the same one.
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+        expect(segmentsAt(lineup)).toEqual([6]);
+
+        // Now the station's own spacing walks an order that already holds it. The bulletin belongs
+        // to another rule, so the walk neither counts it nor resets on it — and used to offer the
+        // boundary immediately after it, which is a bulletin and a talk break with no record in
+        // between. Measured live as three in a row.
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 30 }), eightPastNine());
+
+        const planted = segmentsAt(lineup);
+        expect(planted).not.toContain(7);
+        expect(planted[1]).toBe(8);
+    });
+
+    it('moves that break one boundary later rather than losing it for the interval', async () => {
+        // The other half, and the reason this is a skip rather than a refusal: an ordered station
+        // must not buy a silent half hour to avoid two breaks touching.
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')], canWrite: true, idents: [ident('seg-1')] });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 30 }), eightPastNine());
+
+        // Every gap between consecutive breaks holds at least one record.
+        const planted = segmentsAt(lineup);
+        for (const [index, at] of planted.entries()) {
+            if (index === 0) continue;
+            expect(at - planted[index - 1]!, `breaks at ${planted[index - 1]} and ${at} are back to back`).toBeGreaterThan(1);
+        }
+        expect(planted.length).toBeGreaterThan(2);
+    });
+
     it('says so once and plants nothing when the clock names a break nothing can produce', async () => {
         const { planner, plan } = build({ settings: utc(), bands: [at(30, 'weather')], idents: [ident('seg-1')] });
         const lineup = await lineupOf(20);

@@ -17,6 +17,7 @@ import {
     wordBudget,
     WORDS_PER_MINUTE,
 } from '../../../src/modules/productions/production.plan.js';
+import { speakerOrder, turnWeights } from '../../../src/modules/productions/production.cast.js';
 
 const minutes = (count: number) => count * 60_000;
 
@@ -204,5 +205,67 @@ describe('planning a dialogue', () => {
     it('leaves a monologue exactly as it was, which is what a station with no callers still gets', () => {
         expect(planProduction(minutes(10))).toEqual(planProduction(minutes(10), { dialogue: false }));
         expect(planProduction(minutes(10)).beats.every(beat => beat.speaker === undefined)).toBe(true);
+    });
+
+    // The size of a turn, which is what the complaint about call-ins running long was really about.
+    // At the old band a three-minute call was seven turns of about seventy words and the model hit
+    // that exactly — 58 to 78 across every turn of every call the station made. Seventy words is
+    // twenty-six seconds of uninterrupted speech, and seven of those alternating is two people
+    // reading paragraphs at each other.
+    it('writes a short call as a dozen-odd turns rather than seven paragraphs', () => {
+        const turns = planProduction(minutes(3), { dialogue: true }).beats;
+
+        expect(turns.length).toBeGreaterThanOrEqual(11);
+        for (const turn of turns) expect(turn.words).toBeLessThanOrEqual(TURN_BAND.max);
+    });
+});
+
+// The other half of the same failure: the budget was split EVENLY, so the host's "so what
+// happened?" was funded identically to the caller's story. A phone-in is asymmetrical in both
+// directions — the host asks and hands over, the caller answers.
+describe('weighting a dialogue by who is speaking', () => {
+    const cast = [{ role: 'host' as const }, { role: 'caller' as const }];
+
+    /** The plan as the job builds it: probe for the count, order the speakers, weight the budget. */
+    const call = (length: number) => {
+        const probe = planProduction(minutes(length), { dialogue: true });
+        const speakers = speakerOrder(cast, probe.beats.length);
+        return planProduction(minutes(length), { dialogue: true, speakers, weights: turnWeights(cast, speakers) });
+    };
+
+    it('gives a caller more room than the host who asked', () => {
+        const plan = call(3);
+        const host = plan.beats.filter(beat => beat.speaker === 0);
+        const caller = plan.beats.filter(beat => beat.speaker === 1);
+
+        expect(host.length).toBeGreaterThan(0);
+        expect(caller.length).toBeGreaterThan(0);
+        // Every caller turn is longer than every host turn: not an average, because a plan where the
+        // two overlap is one where some exchanges still sound like two speeches.
+        expect(Math.min(...caller.map(beat => beat.words))).toBeGreaterThan(Math.max(...host.map(beat => beat.words)));
+    });
+
+    it('spends the whole budget and no more, since the length is the operator’s', () => {
+        for (const length of [2, 3, 10]) {
+            const plan = call(length);
+            const spoken = plan.beats.reduce((total, beat) => total + beat.words, 0);
+
+            expect(spoken).toBeLessThanOrEqual(wordBudget(minutes(length), WORDS_PER_MINUTE, TURN_BAND));
+        }
+    });
+
+    it('falls back to an even split when the weights do not cover the plan', () => {
+        // The arithmetic disagreeing with itself. An even split is what every production before
+        // callers got and is never wrong, only unshaped.
+        const plan = planProduction(minutes(3), { dialogue: true, speakers: [0, 1, 0], weights: [1, 2] });
+        const widths = new Set(plan.beats.map(beat => beat.words));
+
+        expect(widths.size).toBeLessThanOrEqual(2);
+    });
+
+    it('never writes a turn of nothing, however the weights are tuned', () => {
+        const plan = planProduction(minutes(2), { dialogue: true, speakers: [0, 1, 0], weights: [0.001, 5, 0.001] });
+
+        expect(plan.beats.every(beat => beat.words >= 1)).toBe(true);
     });
 });

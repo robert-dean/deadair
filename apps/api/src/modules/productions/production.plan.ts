@@ -65,12 +65,39 @@ export const MONOLOGUE_BAND: WordBand = { min: MIN_WORDS, target: TARGET_WORDS, 
 /**
  * What one turn of a conversation is written in.
  *
- * Shorter than a beat by design and by a long way. Forty is about fifteen seconds, which is a real
- * answer; a hundred and ten is about forty, which is as long as anybody holds the floor on a
- * phone-in before the host comes back. The ceiling matters more than the floor here: a turn that
- * runs long does not read as a generous answer, it reads as somebody who cannot be interrupted.
+ * Shorter than a beat by design and by a long way. The ceiling matters more than the floor: a turn
+ * that runs long does not read as a generous answer, it reads as somebody who cannot be interrupted.
+ *
+ * ## Measured, and the first numbers were far too generous
+ *
+ * This was `{ 40, 70, 110 }`, which turned a three-minute call into seven turns of about seventy
+ * words — and the model hit that budget exactly, at 58 to 78 words across every turn of every
+ * phone-in the station made. Seventy words is twenty-six seconds of uninterrupted speech. Seven of
+ * those, alternating, is not a conversation: it is two people reading paragraphs at each other, and
+ * the operator's complaint about call-ins running long was really a complaint about this.
+ *
+ * Thirty words is about eleven seconds, which is an answer somebody gives on the phone. The floor at
+ * fifteen is where the HOST's turns live once the weights below are applied — "right, so what
+ * happened?" is a real turn and is eight words — and the ceiling at sixty is a caller with something
+ * to say, still short enough that the host coming back does not feel like an interruption.
  */
-export const TURN_BAND: WordBand = { min: 40, target: 70, max: 110 };
+export const TURN_BAND: WordBand = { min: 15, target: 30, max: 60 };
+
+/**
+ * How a turn's share of the budget differs by who is taking it.
+ *
+ * The other half of the same failure. `planProduction` divided the budget EVENLY, so the host's
+ * "so what happened?" was funded identically to the caller's story — which is not how a phone-in
+ * works in either direction: the host asks and hands over, and the caller answers.
+ *
+ * Multipliers rather than word counts, so they hold at any programme length and the budget stays the
+ * operator's. At the shipped dialogue length that is a host asking in about twenty words and a
+ * caller answering in about forty.
+ *
+ * They do not need to sum to anything: {@link planProduction} normalises them against the budget.
+ */
+export const HOST_TURN_WEIGHT = 0.7;
+export const CALLER_TURN_WEIGHT = 1.35;
 
 /**
  * A ceiling on beats, so a feature-length production cannot fan out into hundreds of model calls.
@@ -146,6 +173,15 @@ export interface PlanOptions {
     dialogue?: boolean;
     /** Who speaks each turn, as indexes into the cast. Shorter than the plan is padded with the first. */
     speakers?: readonly number[];
+    /**
+     * What each turn's share of the budget is worth, parallel to {@link speakers}.
+     *
+     * Numbers rather than roles, so this file stays pure arithmetic and learns nothing about who is
+     * on the programme — `production.cast.ts` is where role knowledge lives and `turnWeights` is
+     * what builds this. Absent, or shorter than the plan, falls back to an even split, which is what
+     * every production before callers got and is right for a monologue.
+     */
+    weights?: readonly number[];
     wordsPerMinute?: number;
 }
 
@@ -164,16 +200,45 @@ export function planProduction(targetMs: number, options: PlanOptions = {}): Pro
     const words = wordBudget(targetMs, options.wordsPerMinute ?? WORDS_PER_MINUTE, band);
     const count = options.dialogue === true ? oddly(beatCount(words, band)) : beatCount(words, band);
 
-    const each = Math.floor(words / count);
-    const spare = words - each * count;
+    const shares = divide(words, count, options.weights);
 
     return {
         beats: Array.from({ length: count }, (_, ordinal) => ({
             ordinal,
-            words: each + (ordinal < spare ? 1 : 0),
+            words: shares[ordinal]!,
             ...(options.speakers === undefined ? {} : { speaker: options.speakers[ordinal] ?? 0 }),
         })),
     };
+}
+
+/**
+ * A budget split across beats, weighted where the caller said how.
+ *
+ * The remainder is spread one word at a time across the EARLIEST beats rather than dumped on the
+ * last one, which would leave the final beat measurably longer than every other and, at the ceiling,
+ * outside the band the check judges it against. That was true of the even split and stays true here.
+ *
+ * Weights are normalised against the budget rather than taken as counts, so the operator's chosen
+ * length is what is divided up however the multipliers are tuned. Each share is floored at one word,
+ * since a beat of nothing is a beat nobody can write.
+ */
+function divide(words: number, count: number, weights: readonly number[] | undefined): number[] {
+    // No weights, or a list that does not cover the plan, is an even split — which is every
+    // production made before callers existed, and is right for one voice.
+    const usable = weights !== undefined && weights.length >= count && weights.every(weight => weight > 0);
+    if (!usable) {
+        const each = Math.floor(words / count);
+        const spare = words - each * count;
+        return Array.from({ length: count }, (_, ordinal) => Math.max(1, each + (ordinal < spare ? 1 : 0)));
+    }
+
+    const total = weights.slice(0, count).reduce((sum, weight) => sum + weight, 0);
+    const shares = Array.from({ length: count }, (_, ordinal) => Math.max(1, Math.floor((words * weights[ordinal]!) / total)));
+
+    let spare = words - shares.reduce((sum, share) => sum + share, 0);
+    for (let ordinal = 0; spare > 0; ordinal = (ordinal + 1) % count, spare--) shares[ordinal]! += 1;
+
+    return shares;
 }
 
 /**

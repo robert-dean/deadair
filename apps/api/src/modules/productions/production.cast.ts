@@ -24,6 +24,8 @@
  * safe to have on a station that has never cast anybody.
  */
 
+import { CALLER_TURN_WEIGHT, HOST_TURN_WEIGHT, TURN_BAND } from './production.plan.js';
+
 /** What a member of a cast is doing here. */
 export type CastRole = 'host' | 'caller';
 
@@ -93,6 +95,24 @@ export function speakerOrder(cast: ProductionCast, turns: number): number[] {
 }
 
 /**
+ * What each turn's share of the budget is worth, given who is taking it.
+ *
+ * Role knowledge lives here rather than in `production.plan.ts`, which is pure arithmetic and should
+ * stay that way — it takes the numbers and knows nothing about who produced them.
+ *
+ * The failure this answers is that the budget used to be split EVENLY, so a host turn and a caller
+ * turn were the same length. A phone-in is not symmetrical in either direction: the host asks a
+ * short question and hands over, and the caller answers at length. Measured before it, every turn of
+ * every call this station made came out between 58 and 78 words, host and caller alike, which is why
+ * none of them sounded like a conversation.
+ *
+ * A cast with no callers answers a flat list, which {@link planProduction} treats as an even split.
+ */
+export function turnWeights(cast: ProductionCast, speakers: readonly number[]): number[] {
+    return speakers.map(index => (cast[index]?.role === 'caller' ? CALLER_TURN_WEIGHT : HOST_TURN_WEIGHT));
+}
+
+/**
  * How many callers a production of this many turns wants.
  *
  * Arithmetic, and deliberately conservative: one caller for a short block, a second only once there
@@ -117,8 +137,19 @@ export function callerCount(turns: number, available: number): number {
  */
 export const MIN_TURNS_FOR_A_CALLER = 3;
 
-/** How many of a caller's own turns are worth casting a second caller for. */
-export const TURNS_PER_CALLER = 2;
+/**
+ * How many of a caller's own turns are worth casting a second caller for.
+ *
+ * **This has to move whenever {@link TURN_BAND} does, and it is not obvious that it does.** The
+ * number is a proxy for how much AIRTIME a caller gets, and it was calibrated against seventy-word
+ * turns: at two, a caller earned their place with two turns, which was most of three minutes.
+ *
+ * With turns at thirty words the same arithmetic casts two callers into an eleven-turn call and
+ * three into a fifteen-turn one — a switchboard inside three minutes, which is precisely the failure
+ * {@link MAX_CALLERS} is documented against, arriving through a door it does not cover. Five keeps a
+ * short call at one caller and starts casting a second only where there is genuinely room for both.
+ */
+export const TURNS_PER_CALLER = 5;
 
 /**
  * A ceiling on how many people are on one programme.

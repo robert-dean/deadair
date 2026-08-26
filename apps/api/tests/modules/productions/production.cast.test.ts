@@ -87,8 +87,18 @@ describe('callerCount', () => {
         expect(callerCount(5, 5)).toBe(1);
     });
 
+    // The scale moved with `TURN_BAND`. A turn is thirty words rather than seventy now, so a
+    // three-minute call is eleven turns where it used to be seven — and at the old
+    // `TURNS_PER_CALLER` that same call would have cast TWO people, with a fifteen-turn one casting
+    // three. A switchboard inside three minutes is the failure `MAX_CALLERS` is documented against,
+    // arriving through a door it does not cover.
+    it('still casts one for a call that merely has more turns in it', () => {
+        expect(callerCount(9, 5)).toBe(1);
+        expect(callerCount(15, 5)).toBe(1);
+    });
+
     it('casts a second only once there are turns for both of them', () => {
-        expect(callerCount(9, 5)).toBeGreaterThan(1);
+        expect(callerCount(21, 5)).toBeGreaterThan(1);
     });
 
     it('never casts more than the roster holds, or more than a listener can follow', () => {

@@ -24,7 +24,7 @@ import { speakableScript } from '#modules/render/speakable.script.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { checkBeat, correctionNote } from './production.checks.js';
-import { isDialogue, speakerOrder, type CastMember, type ProductionCast } from './production.cast.js';
+import { isDialogue, speakerOrder, turnWeights, type CastMember, type ProductionCast } from './production.cast.js';
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
 import { planProduction, turnsFor } from './production.plan.js';
@@ -873,7 +873,11 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
         // production it got before any of this: same band, same count, same word budgets.
         if (!isDialogue(casting)) return { plan: planProduction(production.targetMs), casting };
 
-        const plan = planProduction(production.targetMs, { dialogue: true, speakers: speakerOrder(casting, turns) });
+        const speakers = speakerOrder(casting, turns);
+        // Weighted rather than split evenly, which is the other half of what made a phone-in sound
+        // like two people trading paragraphs: the host asks in about twenty words and the caller
+        // answers in about forty. See `turnWeights`.
+        const plan = planProduction(production.targetMs, { dialogue: true, speakers, weights: turnWeights(casting, speakers) });
 
         return { plan, casting };
     }

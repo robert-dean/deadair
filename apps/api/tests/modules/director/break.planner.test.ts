@@ -535,6 +535,19 @@ describe('BreakPlanner against the clock', () => {
         from: 0,
     });
 
+    /**
+     * The same moment against an order whose records start five minutes earlier.
+     *
+     * What a pass sees after the head has moved and the tail has grown: the wall clock is where it
+     * was, so a band still wants half past nine, but every index projects five minutes earlier than
+     * it did — which is the whole of how one occurrence used to get planted twice.
+     */
+    const drifted = (): AirClock => ({
+        now: Date.UTC(2026, 7, 13, 9, 8),
+        anchorAt: Date.UTC(2026, 7, 13, 8, 55),
+        from: 0,
+    });
+
     /** The station's own clock, in UTC so a boundary in a test is the boundary it reads as. */
     const utc = (): Record<string, string> => ({ 'station.timezone': 'UTC' });
     const at = (minute: number, kind: string, hour?: number): ClockBand => ({ at: 'clock', minute, kind, ...(hour === undefined ? {} : { hour }) });
@@ -576,14 +589,63 @@ describe('BreakPlanner against the clock', () => {
     });
 
     it('leaves a band alone once its boundary already holds a break', async () => {
-        const { planner } = build({ settings: utc(), bands: [at(30, 'news')] });
+        // `canWrite` matters here and was missing: without it nothing can produce a `news` break at
+        // all, so both passes planted nothing and the case passed without ever reaching the guard it
+        // is named for.
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')], canWrite: true });
         const lineup = await lineupOf(20);
 
         await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
         const after = segmentsAt(lineup);
+        expect(after).toEqual([6]);
 
         expect(await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine())).toBe(0);
         expect(segmentsAt(lineup)).toEqual(after);
+    });
+
+    // The three below are one bug from three sides. A band's idempotence rested entirely on the test
+    // above — "is the boundary I chose already a break" — which holds only while the projection does,
+    // and the projection moves on every pass as the head is consumed and the tail is topped up. So
+    // the same occurrence landed on a different index, that index was free, and the station planted a
+    // second bulletin for a slot it was already covering.
+    it('plants nothing for an occurrence the order already serves, even once the boundary it would choose has moved', async () => {
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')], canWrite: true });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+        expect(segmentsAt(lineup)).toEqual([6]);
+
+        // The same order, five minutes further along: the bulletin at index 6 now projects 09:25 and
+        // is no longer the first boundary at or after half past. Index 8 is, and it is empty.
+        expect(await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), drifted())).toBe(0);
+        expect(segmentsAt(lineup)).toEqual([6]);
+    });
+
+    it('would otherwise have taken that moved boundary, which is what the case above is stopping', async () => {
+        // The control, and the reason the case above is not passing for a duller reason: against the
+        // same drifted clock and an order with no bulletin in it, index 7 is a boundary this band
+        // takes. So what stops it there is the occurrence already being served, not the walk running
+        // out of anywhere to go.
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')], canWrite: true });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), drifted());
+
+        expect(segmentsAt(lineup)).toEqual([7]);
+    });
+
+    it('plants the NEXT occurrence once the last one has been and gone', async () => {
+        // The other side of the same rule: recognising an occurrence as served must not swallow the
+        // one after it. Half past nine is served; half past ten is a different bulletin and an hour
+        // is well outside the window this recognises within.
+        const { planner } = build({ settings: utc(), bands: [at(30, 'news')], canWrite: true });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), eightPastNine());
+        const later: AirClock = { now: Date.UTC(2026, 7, 13, 9, 40), anchorAt: Date.UTC(2026, 7, 13, 9, 0), from: 0 };
+
+        expect(await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), later)).toBe(1);
+        expect(segmentsAt(lineup)).toEqual([6, 19]);
     });
 
     it('drops an occurrence whose boundary is inside the window the player already holds', async () => {

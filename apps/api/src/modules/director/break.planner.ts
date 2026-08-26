@@ -544,10 +544,17 @@ export class BreakPlanner {
      *
      * ## Nothing here remembers anything
      *
-     * Every rule is recomputed from the order as it stands, so two passes racing produce the same
-     * answer and a restart changes nothing. `taken` lives for the length of this call only, and its
-     * job is stopping two rules claiming one boundary in a single pass — across passes that is the
-     * order's own business, because by then the break is really in it.
+     * Every rule is recomputed from the order as it stands, so a restart changes nothing. `taken`
+     * lives for the length of this call only, and its job is stopping two rules claiming one
+     * boundary in a single pass — across passes that is the order's own business, because by then
+     * the break is really in it.
+     *
+     * That last sentence used to end "so two passes racing produce the same answer", and it was true
+     * of the two SPACING walks and false of the anchored one. A spacing rule asks a question about
+     * the order and reads its own answer back out of it; an anchored rule asks a question about the
+     * CLOCK, and what it reads back is a boundary index that moves as the tail grows. So the same
+     * occurrence landed on two indices on two passes and was planted twice. {@link servedAlready} is
+     * what makes the anchored walk read its own answer back the way the other two always did.
      */
     private slotsFor(lineup: StationLineup, rules: ResolvedRules, clock: AirClock, bands: readonly ClockBand[]): Slot[] {
         const items = lineup.all();
@@ -614,6 +621,21 @@ export class BreakPlanner {
             // leaves one alone — and correct even when it is somebody else's kind, because two
             // breaks in one gap is worse than a bulletin the DJ introduced.
             if (items[at]!.kind === 'segment') continue;
+
+            // An occurrence this order already serves, which is the question the line above only
+            // LOOKS like it asks. That one asks whether the boundary THIS pass chose is free, and
+            // that is idempotent only while the projection holds still — which it does not, because
+            // the tail is topped up continuously. So a later pass projects the same occurrence onto
+            // a different index, finds that one empty, and plants a second bulletin for a slot that
+            // is already covered. `nextOccurrence` reads the wall clock rather than the order, so
+            // `target` sits still while the index under it moves, which is what makes the two passes
+            // disagree about a question neither of them thinks it is asking.
+            //
+            // Measured on the live station: two news segments for one half past five, planted
+            // thirty-three minutes apart at indices 24 and 26, projected to air fifty-four seconds
+            // apart with a talk break between them. The second failed to write — `ReadLog` refusing
+            // to read the same stories twice — which is the only reason it was ever visible.
+            if (servedAlready(items, projected, cursor, band.kind, target)) continue;
 
             // The PROJECTED time rather than the target, and the difference is what the break will
             // SAY. A band asked for 14:14 and the boundary that can take it airs at 14:17, so words
@@ -1143,6 +1165,51 @@ const isStationBreak = (item: StationLineupSegmentItem): boolean => item.segment
 
 /** The slots this pass claimed for a kind, so a later rule for the same kind can see them. */
 const sameKind = (slots: readonly Slot[], kind: string): Set<number> => new Set(slots.filter(slot => slot.band === kind).map(slot => slot.atIndex));
+
+/**
+ * Whether the order already holds a break of `kind` for the occurrence at `target`.
+ *
+ * The cross-pass half of an anchored band's idempotence, and the half the walk never had. See the
+ * call site for the failure; what matters here is the shape of the question. A planted bulletin
+ * carries no record of which occurrence it was planted FOR — nothing stores that — so the only thing
+ * that can identify it afterwards is where it lands on the clock, and the tolerance for that is the
+ * one the walk already uses to decide a boundary is near enough to serve the occurrence at all.
+ * Anything the walk would have accepted as this occurrence's slot therefore counts as it, which is
+ * exactly the property that stops a second one going in.
+ *
+ * Three things are deliberate:
+ *
+ * - **The window is symmetric**, where {@link BAND_LATENESS_MS}'s other use is one-sided. That check
+ *   is about a boundary being too LATE to still be this bulletin; this one is about recognising a
+ *   bulletin already planted, and a projection that drifted can have moved it either side of the
+ *   target since.
+ * - **`segmentKind` must EQUAL the band's kind.** It is optional, and absent means the station's own
+ *   break (see the field), so an unlabelled segment must never be read as satisfying a band — that
+ *   would let one ident silence every bulletin behind it.
+ * - **From the cursor forward only.** A bulletin already behind the head belongs to an occurrence
+ *   that has been and gone, and the projection there describes the past.
+ *
+ * The consequence worth stating: two anchored bands of the SAME kind less than
+ * {@link BAND_LATENESS_MS} apart now collapse to one break rather than two. That is the intended
+ * reading — two bulletins ten minutes apart is the failure this exists to stop, whichever pair of
+ * rules asked for them — but it is a behaviour change and an operator who wrote both bands meant
+ * something by it.
+ */
+const servedAlready = (
+    items: readonly StationLineupItem[],
+    projected: readonly (number | undefined)[],
+    cursor: number,
+    kind: string,
+    target: number,
+): boolean =>
+    items.some(
+        (item, index) =>
+            index >= cursor &&
+            item.kind === 'segment' &&
+            item.segmentKind === kind &&
+            projected[index] !== undefined &&
+            Math.abs(projected[index]! - target) <= BAND_LATENESS_MS,
+    );
 
 /** What the console calls a break of a kind nothing has named yet. */
 const labelFor = (kind: string): string => `${kind.charAt(0).toUpperCase()}${kind.slice(1)}`;

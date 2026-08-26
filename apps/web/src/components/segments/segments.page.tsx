@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { ActionIcon, Button, Card, Group, Select, Stack, Table, Text, Textarea, TextInput, Tooltip } from '@mantine/core';
-import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
+import { IconPlayerPauseFilled, IconPlayerPlayFilled, IconTrash } from '@tabler/icons-react';
 import type { Segment } from '@deadair/sdk';
 
-import { fetchSegmentAudio, useCreateSegment, useScanSegments, useSegments } from '../../api/segments.queries';
+import { fetchSegmentAudio, useCreateSegment, useDeleteSegment, useScanSegments, useSegments } from '../../api/segments.queries';
 import { SegmentUploadCard } from './segment.upload.card';
 import { useVoices } from '../../api/voices.queries';
+import { ConfirmModal } from '../shared/confirm.modal';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
@@ -55,6 +56,8 @@ export function SegmentsPage() {
     const scan = useScanSegments();
     const [composing, setComposing] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [deleting, setDeleting] = useState<Segment | undefined>(undefined);
+    const remove = useDeleteSegment();
 
     const rows = segments.data?.segments ?? [];
     const kinds = [...new Set(rows.map(segment => segment.kind))].sort();
@@ -139,15 +142,29 @@ export function SegmentsPage() {
             {kinds.map(kind => (
                 <Stack key={kind} gap="xs">
                     <Eyebrow>{kind}</Eyebrow>
-                    <SegmentTable segments={rows.filter(segment => segment.kind === kind)} />
+                    <SegmentTable segments={rows.filter(segment => segment.kind === kind)} onDelete={setDeleting} />
                 </Stack>
             ))}
+
+            <ConfirmModal
+                opened={deleting !== undefined}
+                title={`Delete ${deleting?.label ?? ''}?`}
+                confirmLabel="Delete the recording"
+                onConfirm={async () => {
+                    if (deleting !== undefined) await remove.mutateAsync(deleting.id);
+                    setDeleting(undefined);
+                }}
+                onClose={() => setDeleting(undefined)}
+            >
+                The inbox file goes too, so the next scan does not read it back in. Anything the
+                station has already aired stays in the activity feed either way.
+            </ConfirmModal>
         </Stack>
     );
 }
 
 /** One kind's segments, with the state each is in and a way to hear the ones that have audio. */
-function SegmentTable({ segments }: { segments: Segment[] }) {
+function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: (segment: Segment) => void }) {
     const preview = useVoicePreview();
 
     return (
@@ -163,6 +180,7 @@ function SegmentTable({ segments }: { segments: Segment[] }) {
                     <Table.Th w={130}>State</Table.Th>
                     <Table.Th w={110}>Voice</Table.Th>
                     <Table.Th w={90}>Length</Table.Th>
+                    <Table.Th w={44} />
                 </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -222,6 +240,25 @@ function SegmentTable({ segments }: { segments: Segment[] }) {
                                 </Text>
                             </Table.Td>
                             <Table.Td className="da-num">{segment.durationMs === undefined ? '—' : formatDuration(segment.durationMs)}</Table.Td>
+                            <Table.Td>
+                                {/* Only for a recording the station was GIVEN. Anything it wrote and
+                                    spoke for itself is named by the running order and recorded in
+                                    the script history, and the way to have it again is a re-render
+                                    rather than a re-upload — so there is nothing here to take back. */}
+                                {segment.source === 'library' ? (
+                                    <Tooltip label="Remove it, and the inbox file behind it">
+                                        <ActionIcon
+                                            variant="subtle"
+                                            size="sm"
+                                            color="red"
+                                            aria-label={`Delete ${segment.label}`}
+                                            onClick={() => onDelete?.(segment)}
+                                        >
+                                            <IconTrash size={14} />
+                                        </ActionIcon>
+                                    </Tooltip>
+                                ) : undefined}
+                            </Table.Td>
                         </Table.Tr>
                     );
                 })}

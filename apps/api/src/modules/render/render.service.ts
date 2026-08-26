@@ -40,7 +40,7 @@ import { ScriptRatingsRepository } from './script.ratings.repository.js';
 import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
 import { ratingFromColumn, ratingToColumn } from '../catalog/rating.js';
 import { DEFAULT_KIND as DEFAULT_SEGMENT_KIND, labelFor, MAX_SEGMENT_BYTES, SegmentLibrary } from './segment.library.js';
-import { SegmentRepository, type Segment } from './segment.repository.js';
+import { LIBRARY_SOURCE, SegmentRepository, type Segment } from './segment.repository.js';
 import {
     extensionForMime,
     isSegmentExtension,
@@ -842,6 +842,51 @@ export class RenderService {
     /** Take whatever is in the inbox into the library. */
     async scanLibrary(): Promise<SegmentScanResult> {
         return await this.library.scan();
+    }
+
+    /**
+     * Removes a recording the operator gave the station, and the inbox file behind it.
+     *
+     * ## Why this deletes where a pad is only turned down
+     *
+     * `PadRepository.setState` refuses to delete a file the operator dropped in, and can afford to:
+     * a pad can be REJECTED, which is a decision that outlives the next scan and leaves the file
+     * alone. A segment has no such state. Without this, an unwanted ident cannot be removed by any
+     * route at all — while staying `ready`, and therefore staying bookable by a format-clock band
+     * through `readyKinds()`. So the answer here is the other one: take the row and the file
+     * together, whoever put the file there.
+     *
+     * ## A rendered segment is not the same object
+     *
+     * `source = 'render'` is the station's own speech. The running order names it, `script_history`
+     * holds what was written for it, and the way to have it again is a re-render rather than a
+     * re-upload — so this refuses one rather than offering a second meaning of the word. There is
+     * nothing on disk to take away in that case either.
+     *
+     * ## No guard against the live running order, deliberately
+     *
+     * `DirectorService.toPlayerItems` reads segments by id and skips any it does not find, under the
+     * rule its own comment states: a segment that is not `ready` is SKIPPED, never waited for. A
+     * deleted one takes that path, which is the path the station already handles and the reason it
+     * can hold something it has not finished making. Reaching from here into the director to ask
+     * permission would invert the module order for a case that is already benign.
+     */
+    async deleteSegment(id: string): Promise<SegmentList> {
+        const segment = await this.segments.findById(id);
+        if (segment === undefined) throw httpError(404).withDetails({ message: `segment "${id}" does not exist` });
+
+        if (segment.source !== LIBRARY_SOURCE) {
+            throw httpError(409).withDetails({
+                message: `"${segment.label}" is something the station wrote and spoke rather than a recording it was given, so there is nothing to take back. Re-render it instead`,
+            });
+        }
+
+        await this.library.discard(segment);
+        await this.segments.remove(id);
+
+        this.logger.info('render: took a recording out of the library', { segment: id, kind: segment.kind, file: segment.sourcePath });
+
+        return await this.listSegments();
     }
 
     /**

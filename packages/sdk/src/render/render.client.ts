@@ -200,6 +200,15 @@ export class RenderClient {
     }
 
     /**
+     * @name Delete segment
+     * @description Removes a recording and the inbox file behind it, so the next scan does not read it back in
+     */
+    async deleteSegment(id: string): Promise<SegmentList> {
+        const result = await this.fetch(`/segments/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return await parseJson<SegmentList>(result);
+    }
+
+    /**
      * @name Get segment audio
      * @description The audio of one segment
      */

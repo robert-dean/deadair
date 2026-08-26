@@ -288,6 +288,31 @@ operation /voices/preview: {
     }
 }
 
+# Removes a segment the operator gave the station, and the inbox file behind it.
+#
+# `library` only. A RENDERED segment is the station's own speech: the running order names it,
+# `script_history` records what was written for it, and the way to have it again is a re-render
+# rather than a re-upload -- so this refuses one rather than offering a second meaning of the word
+operation /segments/{id}: {
+    params: {
+        id: uuid
+    }
+    delete: { # Removes a recording and the inbox file behind it, so the next scan does not read it back in
+        name: Delete segment
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.deleteSegment
+        response: {
+            200: {
+                application/json: SegmentList
+            }
+            404:
+            409:
+        }
+    }
+}
+
 operation /segments/{id}/audio: {
     params: {
         id: uuid

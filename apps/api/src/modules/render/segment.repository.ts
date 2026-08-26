@@ -1292,6 +1292,30 @@ export class SegmentRepository extends DataRepository {
      * returns no row and this has to answer with the segment either way; nothing about it actually
      * changes.
      */
+    /**
+     * Take a segment out of the library for good.
+     *
+     * The narrow half of {@link importFile}, and the only DELETE on this table: everything else that
+     * takes a segment out of circulation marks it (`failed`) or splices it out of the running order,
+     * because the row is the record of something the station did. What makes this expressible is the
+     * caller deleting the inbox FILE in the same breath — without that, the next scan reads the
+     * recording straight back in.
+     *
+     * Which segments those are is `RenderService.deleteSegment`'s rule rather than this method's: a
+     * repository is not where a policy belongs. Nothing is orphaned either way — `segment_events`
+     * cascades, and `break_requests.segment_id` and `script_history.segment_id` are both
+     * `on delete set null`, so the record of what was written outlives the row it was written for.
+     */
+    async remove(id: string): Promise<boolean> {
+        const result = await this.db
+            .deleteFrom('deadair.segments')
+            .where('id', '=', id)
+            .where('stationKey', '=', this.identity.stationKey)
+            .executeTakeFirst();
+
+        return Number(result.numDeletedRows) > 0;
+    }
+
     async importFile(imported: ImportedSegment): Promise<{ segment: Segment; created: boolean }> {
         const existing = await this.db
             .selectFrom('deadair.segments')

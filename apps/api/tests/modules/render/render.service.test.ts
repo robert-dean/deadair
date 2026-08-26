@@ -918,3 +918,59 @@ describe('RenderService.uploadSegment', () => {
         expect(ingest).not.toHaveBeenCalled();
     });
 });
+
+// The one asymmetry with the soundboard: a pad can be turned down, so refusing to delete an
+// operator's own file costs nothing there. A segment has no such state, so refusing here would leave
+// an unwanted ident unremovable and still bookable by a format-clock band.
+describe('RenderService.deleteSegment', () => {
+    const deleter = (segment: Segment | undefined) => {
+        const findById = vi.fn(async () => segment);
+        const remove = vi.fn(async () => true);
+        const discard = vi.fn(async () => undefined);
+        const list = vi.fn(async () => []);
+
+        const render = new RenderService(
+            { findById, remove, list } as unknown as SegmentRepository,
+            {} as never,
+            { discard } as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
+        );
+
+        return { service: render, remove, discard };
+    };
+
+    it('takes the row and the inbox file together, because the scan re-reads the directory', async () => {
+        const { service: render, remove, discard } = deleter(READY);
+
+        await render.deleteSegment(ID);
+
+        expect(discard).toHaveBeenCalled();
+        expect(remove).toHaveBeenCalledWith(ID);
+    });
+
+    it('refuses something the station wrote and spoke for itself', async () => {
+        // Named by the running order and recorded in `script_history`, and the way to have it again
+        // is a re-render rather than a re-upload. There is nothing on disk to take away either.
+        const { service: render, remove, discard } = deleter({ ...READY, source: 'render' });
+
+        expect(await status(render.deleteSegment(ID))).toBe(409);
+        expect(remove).not.toHaveBeenCalled();
+        expect(discard).not.toHaveBeenCalled();
+    });
+
+    it('answers 404 for an id nobody has', async () => {
+        const { service: render } = deleter(undefined);
+
+        expect(await status(render.deleteSegment(ID))).toBe(404);
+    });
+});

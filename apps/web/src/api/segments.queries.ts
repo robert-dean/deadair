@@ -62,6 +62,21 @@ export function useUploadSegment() {
     });
 }
 
+/**
+ * Removes a recording the station was given, and the inbox file behind it.
+ *
+ * Answers the whole library rather than the row that went, so nothing refetches: the page draws every
+ * kind it holds, and a delete can empty a heading as well as a row.
+ */
+export function useDeleteSegment() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: string) => sdk.render.deleteSegment(id),
+        onSuccess: (list: SegmentList) => queryClient.setQueryData(queryKeys.segments.list(), list),
+    });
+}
+
 /** Reads the inbox for audio somebody dropped in, and imports what is not already known. */
 export function useScanSegments() {
     const queryClient = useQueryClient();

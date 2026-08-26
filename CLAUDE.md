@@ -582,12 +582,32 @@ load-bearing** where migration 0023 left it as pure provenance: it decides wheth
 DELETE a pad, since reject-not-delete is an argument about the scan re-reading the directory and the
 answer to that is removing the file — which the console may do for a file it wrote (`upload`, `url`)
 and may not for one the operator dropped in (`library`), because deleting somebody else's file is not
-a thing a station does. **`boardIsSafe` is checked inside the seam** rather than at each door, since
-what is wanted is that nothing can escape the library root rather than that each caller remembered.
+a thing a station does. **`subdirectoryIsSafe` is checked inside the seam** rather than at each door,
+since what is wanted is that nothing can escape the library root rather than that each caller
+remembered; it sits in `segment.store.ts` because both audio libraries take a directory name from
+somebody typing, and a second copy of a path rule is a second thing that can be relaxed by accident.
 And **the URL door is USE rather than redistribution**, which `pad-licensing.md` now says in as many
 words: an operator naming an address is choosing a file exactly as dropping one in is, there is
 deliberately no allowlist, and what that file still blocks is a CATALOGUE — a console panel that
 searches a sample library is this project steering somebody at files and vouching for them.
+
+**The SEGMENT inbox has the same two doors, and the two rules that differ are both about what a
+segment IS.** `POST /segments/upload` and `DELETE /segments/{id}` sit beside the scan and write into
+the same directory, on the archive argument above — `docs/todo/backup-and-restore.md` carries the
+inbox and the boot scan rewrites the store from it. What does NOT carry over is the naming: a pad's
+identity is `(board, name)` and a segment's is its CHECKSUM, so a second file under one name REPLACES
+a pad's slot and is a second SEGMENT. Writing it over the first would leave that row's `source_path`
+naming somebody else's bytes and the archive carrying those in place of the audio it plays, so
+`SegmentLibrary.ingest` writes `-2` beside it and leaves a byte-identical file exactly where it is.
+And where a pad may only be deleted by whoever wrote its file, **any `library` segment may be**: a
+pad can be REJECTED and a segment cannot, so refusing here would leave an unwanted ident unremovable
+by any route while staying `ready` and therefore bookable through `readyKinds()`. A `render` segment
+is refused instead, since the running order names it and `script_history` holds what was written for
+it — the way to have it again is a re-render. **Nothing guards the live running order**, deliberately:
+`toPlayerItems` skips a segment it cannot find, which is the path a not-ready segment already takes,
+and reaching from render into the director to ask permission would invert the module order for a case
+that is already benign. The one thing the console must say out loud is the KIND, because
+`readyKinds()` feeds the format clock and a kind nothing else uses becomes a bookable hour in silence.
 
 **A character can be given ROPE, and what it buys is the station asking for more rather than
 accepting worse.** `personas.latitude` is `loose` / `unleashed` above the ordinary discipline, where

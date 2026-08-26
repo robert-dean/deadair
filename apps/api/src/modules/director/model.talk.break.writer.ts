@@ -8,6 +8,7 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import {
     breakPrompt,
     maxWordsFor,
+    offeredPads,
     readAnswer,
     TALK_BREAK_SHAPE,
     writeDecline,
@@ -178,6 +179,9 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // offered: this writer passes what the engine can do, and `TALK_BREAK_SHAPE` is what says
             // a link between two records is a place to do it.
             ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
+            // And the rack, on the same terms: the caller answers what this character has to hand
+            // and `TALK_BREAK_SHAPE.allowsPads` is what says a link is where it may be used.
+            ...(request.pads === undefined ? {} : { pads: request.pads }),
         };
         // Named rather than defaulted: what this binding writes is a link between two records, and a
         // writer that said nothing about its shape would silently get that whatever it was.
@@ -228,6 +232,11 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // a bargain rather than a trick: the model is refused only for repeating something it
             // was shown and told not to repeat.
             ...(request.recent === undefined ? {} : { recent: request.recent }),
+            // Built from `settings` rather than from `request`, so the guard is judging EXACTLY what
+            // the prompt offered — the shape's veto included. A guard handed the raw request would
+            // keep a pad hit in a kind of break whose shape refused to offer one, which is the same
+            // class of disagreement `maxWordsFor` exists to prevent one field up.
+            pads: offeredPads(settings, TALK_BREAK_SHAPE),
         };
         const script = readAnswer(result.text, guard);
 

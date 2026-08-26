@@ -145,6 +145,33 @@ describe('breakPrompt', () => {
         // The punctuation rule shipped before any of this said brackets were stripped, which stopped
         // being true for exactly four spellings. A prompt that contradicts itself is worse than
         // either rule alone.
+        it('offers the rack beside it, since the two are the same kind of instruction', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { reactions: laughs, pads: ['airhorn', 'rimshot'] }));
+
+            // Named exactly as a script has to write them: `padCue` is the only spelling `padsIn`
+            // will find, so a model shown "air horn" and answering "(air horn)" has hit nothing.
+            expect(rules).toMatch(/\[sfx:airhorn\], \[sfx:rimshot\]/);
+            // The failure this closes is a model NARRATING the pad, which reads as somebody
+            // describing their own soundboard out loud.
+            expect(rules).toMatch(/do not describe it or say its name as words/i);
+        });
+
+        it('says nothing about a soundboard to a character with no rack', () => {
+            const rules = system(prompt({ kind: 'talkbreak', previous, next }, { reactions: laughs }));
+
+            expect(rules).not.toMatch(/soundboard/i);
+        });
+
+        // Two separate flags rather than one "may perform": a cue is the presenter being a person
+        // and a pad is the station's own noise. A bulletin refuses both, and a newsreader who hits
+        // an air horn after a story has done something worse than sigh over it.
+        it('is refused a rack by a bulletin, whatever the character has to hand', () => {
+            const withPads = { reactions: laughs, pads: ['airhorn'] };
+            const rules = system(breakPrompt({ kind: 'news', stories: [{ headline: 'Bridge reopens.' }] }, withPads, NEWS_SHAPE));
+
+            expect(rules).not.toMatch(/soundboard/i);
+        });
+
         it('does not still tell the model its brackets will be stripped', () => {
             const rules = system(prompt({ kind: 'talkbreak', previous, next }, { reactions: laughs }));
 

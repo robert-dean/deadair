@@ -268,6 +268,20 @@ export interface BreakWriteRequest {
      */
     reactions?: readonly SpeechCue[];
     /**
+     * The pads on this presenter's soundboard, by name, or absent for one with no rack.
+     *
+     * {@link BreakWriteRequest.reactions}' neighbour and read by the caller for its reason, with the
+     * two halves of "what is on offer" answered from opposite places: a reaction is a property of the
+     * ENGINE, and a pad is a property of this CHARACTER — `personas.soundboard` names a board, and
+     * the board holds what an operator dropped in a directory.
+     *
+     * Unread by every deterministic writer, exactly as reactions are, and the same sentence explains
+     * it: a template is a phrasing an operator typed, and a station that hits an air horn on a
+     * schedule is a station with a fault rather than a house style. What gives the floor a pad is the
+     * spacing rule, which is a decision about the BREAK rather than about the words.
+     */
+    pads?: readonly string[];
+    /**
      * The last few things the station said, newest first.
      *
      * Not history for its own sake: a writer with a pool of phrasings needs to know which ones are

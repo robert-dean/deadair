@@ -39,6 +39,7 @@
 
 import { SPEECH_CUES } from '@deadair/plugin-sdk';
 
+import { withoutPads } from './pad.cues.js';
 import { applyPronunciations, type Pronunciation } from './pronunciation.lexicon.js';
 
 /**
@@ -61,7 +62,19 @@ const SPARE_CUES = new RegExp(`\\[(${[...SPEECH_CUES].sort((left, right) => righ
 export function transposeForSpeech(text: string, entries: readonly Pronunciation[] = []): string {
     const original = text.trim();
 
-    let spoken = tidy(original);
+    // Pad hits come out FIRST, before any pass has a chance to mangle one into something speakable.
+    //
+    // This is not tidying, it is the boundary: a `[sfx:airhorn]` is performed by the JOIN, out of a
+    // file, and the engine's part in it is to say the words either side. There is no `SPARE_CUES`
+    // equivalent to hold it out of {@link settle}, and there must not be — that regex's character
+    // class contains `[` and `]`, so a pad reaching it would come out as the bare text `sfx:airhorn`
+    // and be READ ALOUD. Which is the whole failure this file exists to prevent, arriving through the
+    // one door it had not been closed on.
+    //
+    // Every pad, with no allow-list: what a character may hit was decided at write time by
+    // `keepPads`, and a script arriving here with a cue in it is a script that already passed that.
+    let spoken = withoutPads(original);
+    spoken = tidy(spoken);
     spoken = applyPronunciations(spoken, entries);
     spoken = saySymbols(spoken);
     spoken = sayNumbers(spoken);

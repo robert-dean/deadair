@@ -69,6 +69,8 @@ function harness(
         broadcastId?: string;
         /** For the one test that proves a broken history read still produces a break. */
         spokenThrows?: boolean;
+        /** What is on the presenting character's soundboard. Empty for every test that is not about one. */
+        pads?: { name: string }[];
     } = {},
 ) {
     const segments = {
@@ -104,6 +106,9 @@ function harness(
     // Who the station is right now. `undefined` unless a test asks otherwise, because a station
     // that has chosen no persona is the state every assertion below was written against.
     const personas = { presenting: vi.fn(async () => options.persona) };
+    // A rack with nothing on it, which is what every persona in these tests has: `pads` answers `{}`
+    // for an empty board, so the request is byte-identical to one built before soundboards existed.
+    const pads = { onBoard: vi.fn(async () => options.pads ?? []) };
     // What that character has accumulated. Empty unless a test asks otherwise, and never read at all
     // for a station presenting as nobody — which is what the `personaKey === undefined` guard buys
     // and what most assertions here were written against.
@@ -153,6 +158,7 @@ function harness(
         enrichment as never,
         bulletin as never,
         personas as never,
+        pads as never,
         notes as never,
         personaStories as never,
         plays as never,

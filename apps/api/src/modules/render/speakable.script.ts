@@ -22,6 +22,7 @@
  */
 
 import { SPEECH_CUES, type SpeechCue } from '@deadair/plugin-sdk';
+import { keepPads, MAX_PADS } from './pad.cues.js';
 
 /**
  * How many performance cues one script may carry.
@@ -44,6 +45,21 @@ export interface SpeakableOptions {
     perform: readonly SpeechCue[];
     /** How many of them to keep. Defaults to {@link MAX_REACTIONS}. */
     maxReactions?: number;
+    /** How many pad hits to keep. Defaults to {@link MAX_PADS}. */
+    maxPads?: number;
+    /**
+     * The pads this writer was offered, by name, which are the only `[sfx:…]` runs that survive.
+     *
+     * Required in the same sense `perform` is and defaulted to none rather than to the whole rack:
+     * a script that keeps a pad the writer was never offered is a break that reaches the render path
+     * asking for a sound this character does not have.
+     *
+     * A pad SURVIVES this pass where a reaction is merely spared it, and the difference matters. A
+     * reaction goes to the engine, which performs it. A pad goes no further than the stored script —
+     * `transposeForSpeech` takes it out on the way to the engine, and the render job reads it off the
+     * row to decide what to join. So this is what puts the hit on the record of what was written.
+     */
+    pads?: readonly string[];
 }
 
 /**
@@ -56,6 +72,7 @@ export interface SpeakableOptions {
 export function speakableScript(text: string, options: SpeakableOptions): string | undefined {
     const kept = new Set<string>(options.perform.map(cue => cue.toLowerCase()));
     const ceiling = options.maxReactions ?? MAX_REACTIONS;
+    const pads = options.pads ?? [];
     let script = text.trim();
 
     // A reasoning model that was told not to think out loud and did anyway. Take what follows the
@@ -74,8 +91,13 @@ export function speakableScript(text: string, options: SpeakableOptions): string
     // one, and note that it is a TRIM rather than a refusal, on `overusedWords`' argument: the words
     // are fine and only the notation is excessive, so declining would cost the station the model's
     // sentence over punctuation.
-    script = keepReactions(script, kept, ceiling)
-        .replace(/\[[^\]]*\]/g, match => (isReaction(match, kept) ? match.toLowerCase() : ' '))
+    //
+    // A pad hit is spared on exactly the same terms and for the same reason — `[sfx:airhorn]` has a
+    // FILE behind it where `[warmly]` has nothing — so it has to be decided BEFORE this strip rather
+    // than after it. The strip drops every bracketed run it does not recognise, so a pad admitted
+    // afterwards would be admitted into a script the strip had already emptied of pads.
+    script = keepPads(keepReactions(script, kept, ceiling), pads, options.maxPads ?? MAX_PADS)
+        .replace(/\[[^\]]*\]/g, match => (isReaction(match, kept) || isPad(match) ? match.toLowerCase() : ' '))
         .replace(/\*[^*]*\*/g, ' ')
         // A narrow list, and matched on the stem so "laughs" and "sighing" count. Parentheses are
         // deliberately NOT stripped wholesale: "(Don't Fear) The Reaper" is a title, and a
@@ -91,6 +113,15 @@ export function speakableScript(text: string, options: SpeakableOptions): string
     script = script.replace(/\s{2,}/g, ' ').trim();
     return script.length === 0 ? undefined : script;
 }
+
+/**
+ * Whether a bracketed run is a pad hit that {@link keepPads} has already approved.
+ *
+ * A shape test rather than a name test, and that is safe only because of the ordering above: by the
+ * time the strip runs, every `[sfx:…]` still in the script is one `keepPads` checked against the
+ * board and counted against the ceiling. Anything it refused is already gone.
+ */
+const isPad = (bracketed: string): boolean => /^\[sfx:[a-z0-9-]+\]$/i.test(bracketed);
 
 /** Whether a bracketed run is one this writer was offered, however it was capitalised. */
 const isReaction = (bracketed: string, kept: ReadonlySet<string>): boolean => kept.has(bracketed.slice(1, -1).trim().toLowerCase());

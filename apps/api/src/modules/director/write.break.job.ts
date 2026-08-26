@@ -7,6 +7,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { EnrichmentReadService } from '#modules/enrichment/enrichment.read.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
+import { PadRepository } from '#modules/render/pad.repository.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { PersonaNotesRepository } from '#modules/personas/persona.notes.repository.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
@@ -131,6 +132,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly enrichment: EnrichmentReadService,
         private readonly bulletin: BulletinSource,
         private readonly personas: PersonaRepository,
+        // The rack, read once per break beside the persona that names it. See {@link pads}.
+        private readonly padRepository: PadRepository,
         private readonly notes: PersonaNotesRepository,
         private readonly stories: PersonaStoriesRepository,
         private readonly plays: PlayHistoryRepository,
@@ -280,6 +283,11 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             // offer — and so a station that changed engine between two breaks writes for the one that
             // is installed now.
             ...(await this.reactions()),
+            // The other half of what is on offer, and it comes from the other side entirely: a
+            // reaction is a property of the engine and a pad is a property of the CHARACTER. Read
+            // here rather than inside a writer for the reactions' own reason — one answer per break,
+            // so every binding asked agrees about what this presenter had to hand.
+            ...(await this.pads(persona)),
             // What this break's words are worth at the one model slot. Absent for a planted break,
             // which is the gate's `air` default: it has a deadline like everything on air, and no
             // claim to jump the ones in front of it. A REQUESTED break is worth what its urgency
@@ -506,6 +514,34 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             return cues.length === 0 ? {} : { reactions: cues };
         } catch (error) {
             this.logger.debug(`director: could not ask what the engine can perform (${errorText(error)})`);
+            return {};
+        }
+    }
+
+    /**
+     * What is on this presenter's soundboard, or nothing at all.
+     *
+     * Best-effort exactly like {@link reactions} above it, and quiet for the same reason: most
+     * characters have no board, so a warning here would be a line per break forever on a station
+     * that is working correctly.
+     *
+     * Two absences that mean the same thing and must not be told apart by anything downstream: a
+     * persona with no `soundboard`, and one naming a board the library holds nothing on. Both are a
+     * presenter with nothing to hit, and the prompt says nothing about pads either way — see
+     * `padRules`, which is omitted entirely rather than saying "you have no sound effects".
+     *
+     * Nothing is RESTED here, which is where this differs from the notes and the story beside it. A
+     * pad is spent when one is actually chosen, and the model has not chosen yet: this is the offer.
+     * `RenderSegmentJob` is what marks the hit, because it is what reads the answer back.
+     */
+    private async pads(persona: Persona | undefined): Promise<{ pads?: readonly string[] }> {
+        if (persona?.soundboard === undefined) return {};
+
+        try {
+            const rack = await this.padRepository.onBoard(persona.soundboard);
+            return rack.length === 0 ? {} : { pads: rack.map(pad => pad.name) };
+        } catch (error) {
+            this.logger.debug(`director: could not read the soundboard (${errorText(error)})`);
             return {};
         }
     }

@@ -35,6 +35,7 @@
  */
 
 import { sentencesWithin, withoutCues, type LlmMessage, type SpeechCue } from '@deadair/plugin-sdk';
+import { padCue, withoutPads } from '#modules/render/pad.cues.js';
 import { MAX_REACTIONS, speakableScript, stripWrapping } from '#modules/render/speakable.script.js';
 import {
     characterFault,
@@ -222,6 +223,18 @@ export interface BreakPromptShape {
      * need not. The two compose because they are about different things.
      */
     allowsCues?: boolean;
+    /**
+     * Whether this kind of break may hit a pad at all.
+     *
+     * {@link BreakPromptShape.allowsCues}' neighbour and, for the talk break, its twin — but the two
+     * are separate flags rather than one "may perform" flag, because they are permissions over
+     * different things and a kind can want one without the other. A cue is the presenter being a
+     * person; a pad is the station's own noise, which is a house style rather than a mood. The
+     * bulletin refuses both and refuses them for the same reason stated twice: a newsreader who
+     * sighs over a story has editorialised it, and one who hits an air horn after it has done
+     * something worse.
+     */
+    allowsPads?: boolean;
 }
 
 /**
@@ -308,6 +321,9 @@ export const TALK_BREAK_SHAPE: BreakPromptShape = {
     // A link between two records is the presenter being a person, which is exactly what a cue is for.
     // See `allowsCues` for why the bulletin and the welcome are not.
     allowsCues: true,
+    // And the one place a soundboard belongs, on the same grounds read one step out: the link is
+    // where the station gets to sound like itself.
+    allowsPads: true,
 };
 
 /** How the station wants this break to sound, and how long it may run. */
@@ -402,6 +418,19 @@ export interface PromptSettings {
      * cost of getting it wrong here is a break that READS oddly rather than one that SOUNDS wrong.
      */
     reactions?: readonly SpeechCue[];
+    /**
+     * The pads this character can reach for, by name, or absent for one with no board.
+     *
+     * {@link PromptSettings.reactions}' shape and its rule about agreement — what the prompt offers
+     * and what the guard judges must be the same list — with the one difference being who performs
+     * it. A reaction goes to the ENGINE, so the risk of offering a bad one is a break that reads
+     * oddly. A pad goes to the JOIN, out of a file the station holds, so offering a name the board
+     * does not carry costs the break its sound and nothing else: `keepPads` drops it.
+     *
+     * Names rather than rows, because a name is the whole of what a model needs and the only part of
+     * a pad it could ever give back.
+     */
+    pads?: readonly string[];
 }
 
 /** The half of a persona a prompt uses: who they are, and how they speak. */
@@ -475,6 +504,47 @@ function reactionRules(settings: PromptSettings, shape: BreakPromptShape): strin
     return [
         `- You can do one thing that is not words: ${written}. Write it in square brackets exactly like that, at the point it happens, and it is performed rather than read out. ` +
             'At most one in a break, and only where you would actually have done it. A presenter who laughs at everything is not funny, and most breaks want none at all.',
+    ];
+}
+
+/**
+ * What pads this prompt may offer, which is the shape's permission and the rack's contents together.
+ *
+ * {@link offeredReactions}' intersection exactly. Both are vetoes and neither is a preference: a
+ * bulletin is not talked into an air horn by a well-stocked board, and a character with an empty
+ * rack is not given one by a kind of break that would have allowed it.
+ *
+ * **Exported because a writer has to build its guard from this call and not from the request**, which
+ * is {@link maxWordsFor}'s rule applied to a list instead of to a number. The prompt and the guard
+ * are written in different files and read at different moments, so a guard that intersected the
+ * request itself would keep a pad hit in a kind of break whose shape refused to offer one — and the
+ * symptom would be a bulletin with an air horn in it and nothing anywhere saying which of the two
+ * lists was wrong.
+ */
+export const offeredPads = (settings: PromptSettings, shape: BreakPromptShape): readonly string[] =>
+    shape.allowsPads === true ? (settings.pads ?? []) : [];
+
+/**
+ * The soundboard rule, or nothing at all when there is no rack to reach for.
+ *
+ * Nothing rather than a rule saying "you have no sound effects", on {@link reactionRules}' argument:
+ * a line of the prompt spent describing a facility the character was never given is a line further
+ * from the end, and the end is where the grounding rules are.
+ *
+ * Two things it says that the reaction rule does not have to. It names the pads EXACTLY as a script
+ * must write them, because `padCue` is the only spelling `padsIn` will find and a model shown
+ * "airhorn" that answers "(air horn)" has hit nothing. And it says the sound is PLAYED rather than
+ * spoken, because the failure it prevents is a model narrating the pad — "and then the air horn" —
+ * which reads as a person describing their own soundboard.
+ */
+function padRules(settings: PromptSettings, shape: BreakPromptShape): string[] {
+    const pads = offeredPads(settings, shape);
+    if (pads.length === 0) return [];
+
+    const written = pads.map(padCue).join(', ');
+    return [
+        `- You have a soundboard: ${written}. Write one exactly like that, on its own, at the moment you hit it, and the sound is PLAYED — ` +
+            'do not describe it or say its name as words. At most one in a break, and most breaks want none: a soundboard is funny once.',
     ];
 }
 
@@ -585,6 +655,10 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         // the engine's own sample scripts run about one cue per sentence — a style a local model may
         // well have been tuned on, and one that would be wall-to-wall on a 28-word break.
         ...reactionRules(settings, shape),
+        // Immediately after the reactions, because the two are the same KIND of instruction — the
+        // only two things a script may carry that are not words — and a model reading them together
+        // is reading one idea rather than two unrelated notations.
+        ...padRules(settings, shape),
         '- Do not greet the listener by name, promise anything you have not been told, or mention the time unless you are given it.',
         // Conditional and near the end, because it is the one rule here that is about the station's
         // own policy rather than about what a break IS. Both halves are needed: a model told only
@@ -1332,7 +1406,7 @@ const bareWords = (text: string): string =>
     // "laugh" for all three callers. Each would be wrong in its own way: `overusedWords` would tell a
     // station that laughs regularly it has a verbal tic, and the two matchers would find a word the
     // presenter never said. This is the one place all three agree on what a word is.
-    withoutCues(text)
+    withoutPads(withoutCues(text))
         .toLowerCase()
         .replace(/[‘’ʼ′]/g, "'")
         .replace(/[^a-z0-9']+/g, ' ')
@@ -1390,6 +1464,15 @@ export interface AnswerGuard {
      * {@link misCuedIn} asks nothing unless both are present.
      */
     cues?: BreakCues;
+    /**
+     * The pads this break was offered, which are the only `[sfx:…]` runs its script may keep.
+     *
+     * The same list the prompt was built from, on {@link AnswerGuard.recent}'s bargain: the station
+     * asks for something before it judges a script by it. Absent means none were offered, which
+     * takes every pad hit out — the right answer for a character with no board, and for a kind of
+     * break that does not allow one.
+     */
+    pads?: readonly string[];
 }
 
 /**
@@ -1403,7 +1486,7 @@ export interface AnswerGuard {
  * writer having declined — and the floor underneath then says something correct instead.
  */
 export function readAnswer(text: string, guard: AnswerGuard = {}): string | undefined {
-    const tidied = tidyAnswer(text);
+    const tidied = tidyAnswer(text, guard);
     if (tidied === undefined) return undefined;
 
     // The ceiling, which CUTS at a sentence and declines only what cannot be cut at one. Everything
@@ -1417,7 +1500,10 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // splits on whitespace, so `[laugh]` would spend one of a break's forty words; `overusedWords`
     // counts the scripts a word appears in, so a station that laughs often would be told it has a
     // verbal tic; and `namedRecordIn` would be handed a token no record can ever match.
-    const words = withoutCues(script);
+    // A pad comes out with them, and for all three of the same reasons: it would spend one of a
+    // break's forty words, teach `overusedWords` that this station has a verbal tic called "sfx", and
+    // hand `namedRecordIn` a token no record can match.
+    const words = withoutPads(withoutCues(script));
 
     // A break about no record in particular. Checked BEFORE the character, because the two faults
     // want opposite things done about them and this one is the more basic: a script that named
@@ -1448,7 +1534,8 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
  * Split out so {@link writeDecline} can tell an answer that was empty from one that was too long
  * without re-running the checks in a different order and reporting something that did not happen.
  */
-const tidyAnswer = (text: string): string | undefined => speakableScript(text, { perform: PRESENTER_CUES });
+const tidyAnswer = (text: string, guard: AnswerGuard = {}): string | undefined =>
+    speakableScript(text, { perform: PRESENTER_CUES, pads: guard.pads ?? [] });
 
 /**
  * How much of a run-long script is worth keeping before it stops being one.
@@ -1575,7 +1662,7 @@ export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-n
 export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFault; reason: string } | undefined {
     const reasoned = (fault: WriteFault) => ({ fault, reason: FAULT_REASONS[fault] });
 
-    const tidied = tidyAnswer(text);
+    const tidied = tidyAnswer(text, guard);
     if (tidied === undefined) return reasoned('nothing-said');
 
     // The same cut in the same position, and everything below reads what came back from it. A trim
@@ -1610,7 +1697,7 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
  * aired and {@link writeDecline} has the whole story about it.
  */
 export function writeTrim(text: string, guard: AnswerGuard): { kept: number; dropped: number; reason: string } | undefined {
-    const tidied = tidyAnswer(text);
+    const tidied = tidyAnswer(text, guard);
     if (tidied === undefined) return undefined;
 
     const fitted = fitToCeiling(tidied, guard);

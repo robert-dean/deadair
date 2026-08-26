@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActionIcon, Button, Card, Code, Divider, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import { ActionIcon, Autocomplete, Button, Card, Code, Divider, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
 import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
@@ -8,6 +8,7 @@ import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 type PersonaKind = NonNullable<PersonaInput['kind']>;
 
 import { useGeneratePersona } from '../../api/personas.queries';
+import { usePads } from '../../api/pads.queries';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { faultInTemplate, templateLines } from './template.vocabulary';
@@ -47,6 +48,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
     // character an operator has already cast would be a quieter change than it looks.
     const caller = kind === 'caller';
     const voices = useVoices(opened);
+    const pads = usePads();
     const generate = useGeneratePersona();
     const preview = useVoicePreview();
     const [description, setDescription] = useState('');
@@ -64,6 +66,10 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
     });
 
     const voiceOptions = (voices.data?.voices ?? []).map(voice => ({ value: voice.id, label: voice.label }));
+
+    // Answered from the PADS rather than from a list of board names, because a board exists exactly
+    // as long as something is on it — there is no table of boards to read and there should not be.
+    const boardOptions = [...new Set((pads.data?.pads ?? []).filter(pad => pad.state === 'active').map(pad => pad.board))].sort();
 
     return (
         /* A character sheet is fourteen fields and is read whole, which is why this is one scroll
@@ -207,6 +213,16 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                 {...form.getInputProps('voice')}
                             />
                         )}
+                        {/* An autocomplete rather than a Select, on the voices map's rule: the list is
+                            what the library currently HOLDS, and a board an operator is about to fill
+                            has to stay typeable. Naming a board that does not exist yet is a rack that
+                            is empty, which is an ordinary state. */}
+                        <Autocomplete
+                            label="Soundboard"
+                            description="The board this character can reach for, as the folder name under media/pads/inbox/. Leave empty for a presenter who works without one."
+                            data={boardOptions}
+                            {...form.getInputProps('soundboard')}
+                        />
                     </Group>
 
                     <Section title="How they speak" />
@@ -517,6 +533,7 @@ interface FormValues {
     style: string;
     djName: string;
     voice: string;
+    soundboard: string;
     background: string;
     brevity: string;
     latitude: string;
@@ -550,6 +567,7 @@ function valuesOf(persona: PersonaDraftView | undefined): FormValues {
         style: persona?.style ?? '',
         djName: persona?.djName ?? '',
         voice: persona?.voice ?? '',
+        soundboard: persona?.soundboard ?? '',
         background: persona?.background ?? '',
         brevity: persona?.brevity ?? '',
         latitude: persona?.latitude ?? '',
@@ -594,6 +612,7 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
         ...omitUndefined({
             djName: text(values.djName),
             voice: text(values.voice),
+            soundboard: text(values.soundboard),
             background: text(values.background),
             // '' is the station's usual length, which is an ABSENT field rather than a rung — the
             // same rule the on-air name follows.

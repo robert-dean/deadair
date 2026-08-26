@@ -65,8 +65,13 @@ create table deadair.pads (
     --
     -- The loudness matters more here than it does for a break, and in the opposite direction. A pad
     -- is mastered by whoever made it and an air horn is mastered LOUD, so joining one against a
-    -- speech take measured at -27 LUFS is how a soundboard takes somebody's ears off. What reads it
-    -- is the join, which is why it is worth measuring a two-second file at all.
+    -- speech take measured at -27 LUFS is how a soundboard takes somebody's ears off.
+    --
+    -- **What reads it today is a PERSON**, and that is worth stating rather than leaving to be
+    -- discovered: nothing computes an `AudioOverlay.gainDb` from this yet. It is measured on import
+    -- and reported on the soundboard page so an operator can see that their air horn is twelve
+    -- decibels hotter than the words it is about to land on, and re-master it or set the duck. An
+    -- earlier version of this comment said the join reads it, which was aspiration written as fact.
     duration_ms integer constraint pads_duration_check check (duration_ms is null or duration_ms >= 0),
     loudness_lufs double precision,
     -- Where it came from: 'library' for a file dropped into the inbox. Unconstrained text, like

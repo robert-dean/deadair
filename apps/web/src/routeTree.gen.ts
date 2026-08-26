@@ -17,6 +17,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as OnairRouteImport } from './routes/onair'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PadsRouteImport } from './routes/pads'
 import { Route as PersonasRouteImport } from './routes/personas'
 import { Route as ProductionsRouteImport } from './routes/productions'
 import { Route as PronunciationsRouteImport } from './routes/pronunciations'
@@ -75,6 +76,11 @@ const OnairRoute = OnairRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PadsRoute = PadsRouteImport.update({
+  id: '/pads',
+  path: '/pads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PersonasRoute = PersonasRouteImport.update({
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/news': typeof NewsRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
+  '/pads': typeof PadsRoute
   '/personas': typeof PersonasRoute
   '/productions': typeof ProductionsRoute
   '/pronunciations': typeof PronunciationsRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/news': typeof NewsRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
+  '/pads': typeof PadsRoute
   '/personas': typeof PersonasRoute
   '/productions': typeof ProductionsRoute
   '/pronunciations': typeof PronunciationsRoute
@@ -242,6 +250,7 @@ export interface FileRoutesById {
   '/news': typeof NewsRoute
   '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
+  '/pads': typeof PadsRoute
   '/personas': typeof PersonasRoute
   '/productions': typeof ProductionsRoute
   '/pronunciations': typeof PronunciationsRoute
@@ -273,6 +282,7 @@ export interface FileRouteTypes {
     | '/news'
     | '/onair'
     | '/onboarding'
+    | '/pads'
     | '/personas'
     | '/productions'
     | '/pronunciations'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/news'
     | '/onair'
     | '/onboarding'
+    | '/pads'
     | '/personas'
     | '/productions'
     | '/pronunciations'
@@ -331,6 +342,7 @@ export interface FileRouteTypes {
     | '/news'
     | '/onair'
     | '/onboarding'
+    | '/pads'
     | '/personas'
     | '/productions'
     | '/pronunciations'
@@ -361,6 +373,7 @@ export interface RootRouteChildren {
   NewsRoute: typeof NewsRoute
   OnairRoute: typeof OnairRoute
   OnboardingRoute: typeof OnboardingRoute
+  PadsRoute: typeof PadsRoute
   PersonasRoute: typeof PersonasRoute
   ProductionsRoute: typeof ProductionsRoute
   PronunciationsRoute: typeof PronunciationsRoute
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pads': {
+      id: '/pads'
+      path: '/pads'
+      fullPath: '/pads'
+      preLoaderRoute: typeof PadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/personas': {
@@ -585,6 +605,7 @@ const rootRouteChildren: RootRouteChildren = {
   NewsRoute: NewsRoute,
   OnairRoute: OnairRoute,
   OnboardingRoute: OnboardingRoute,
+  PadsRoute: PadsRoute,
   PersonasRoute: PersonasRoute,
   ProductionsRoute: ProductionsRoute,
   PronunciationsRoute: PronunciationsRoute,

@@ -1,6 +1,9 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString, readContentType } from '../sdk-options.js';
 import type {
+    PadList,
+    PadScanResult,
+    PadState,
     PronunciationList,
     PronunciationQuery,
     PronunciationStateWrite,
@@ -302,5 +305,68 @@ export class RenderClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<PronunciationList>(result);
+    }
+
+    /**
+     * @name List pads
+     * @description Every sound the station holds, board by board
+     */
+    async listPads(): Promise<PadList> {
+        const result = await this.fetch(`/pads`, { method: 'GET' });
+        return await parseJson<PadList>(result);
+    }
+
+    /**
+     * @name Scan the pad inbox
+     * @description Takes whatever audio is sitting in the pad inbox onto its board. Safe to repeat: a file nobody has touched is seen and left alone
+     */
+    async scanThePadInbox(): Promise<PadScanResult> {
+        const result = await this.fetch(`/pads/scan`, { method: 'POST' });
+        return await parseJson<PadScanResult>(result);
+    }
+
+    /**
+     * @name Set pad state
+     * @description Turns a sound down, or puts one back. Answers the whole rack, since one pad changing state is one row moving between two sections of the same page
+     */
+    async setPadState(id: string, body: PadState): Promise<PadList> {
+        const result = await this.fetch(`/pads/${encodeURIComponent(id)}/state`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PadList>(result);
+    }
+
+    /**
+     * @name Get pad audio
+     * @description The sound itself, so an operator can hear what they dropped in
+     */
+    async getPadAudio(
+        id: string,
+    ): Promise<
+        | {
+              status: 200;
+              contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
+              data: Blob;
+              headers: { cacheControl?: string; etag?: string };
+          }
+        | { status: 304 }
+    > {
+        const result = await this.fetch(`/pads/${encodeURIComponent(id)}/audio`, {
+            method: 'GET',
+            expectStatuses: [304],
+        });
+        switch (result.status) {
+            case 304:
+                return { status: 304 };
+            default:
+                return {
+                    status: 200,
+                    contentType: readContentType(result) as 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4',
+                    data: await result.blob(),
+                    headers: { cacheControl: result.headers.get('cache-control') ?? undefined, etag: result.headers.get('etag') ?? undefined },
+                };
+        }
     }
 }

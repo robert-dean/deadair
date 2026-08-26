@@ -248,6 +248,66 @@ export const PronunciationQuery = z.strictObject({
 export type PronunciationQuery = z.infer<typeof PronunciationQuery>;
 
 /**
+ * One sound on a soundboard, as the console draws it.
+ *
+ * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+ * than one, because a token for a model and prose for an operator are different things and the
+ * filename produces both
+ * generated from [Pad](file://./../../../../data/contracts/render/render.types.ck#L178)
+ */
+export const Pad = z.strictObject({
+    id: z.uuid(),
+    board: z.string().min(1).max(200).describe('Which rack this is on. A persona points at one by name'),
+    name: z.string().min(1).max(200).describe('What a script writes: `[sfx:airhorn]`'),
+    label: z.string().min(1).max(200),
+    durationMs: z.coerce.number().int().min(0).optional(),
+    loudnessLufs: z.coerce
+        .number()
+        .optional()
+        .describe('How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary'),
+    sourcePath: z.string().max(500).optional().describe('The file in the inbox it was imported from, so the console can say where it came from'),
+    lastUsedAt: _ZodDatetime.optional().describe('When it was last hit. Absent for one nothing has reached for yet'),
+    state: z.enum(['active', 'rejected']),
+});
+export type Pad = z.infer<typeof Pad>;
+
+export const PadInput = z.strictObject({
+    board: z.string().min(1).max(200).describe('Which rack this is on. A persona points at one by name'),
+    name: z.string().min(1).max(200).describe('What a script writes: `[sfx:airhorn]`'),
+    label: z.string().min(1).max(200),
+    durationMs: z.coerce.number().int().min(0).optional(),
+    loudnessLufs: z.coerce
+        .number()
+        .optional()
+        .describe('How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary'),
+    sourcePath: z.string().max(500).optional().describe('The file in the inbox it was imported from, so the console can say where it came from'),
+    lastUsedAt: _ZodDatetime.optional().describe('When it was last hit. Absent for one nothing has reached for yet'),
+    state: z.enum(['active', 'rejected']),
+});
+export type PadInput = z.infer<typeof PadInput>;
+
+/**
+ * Turning a pad down, or putting one back
+ * generated from [PadState](file://./../../../../data/contracts/render/render.types.ck#L194)
+ */
+export const PadState = z.strictObject({
+    state: z.enum(['active', 'rejected']),
+});
+export type PadState = z.infer<typeof PadState>;
+
+/**
+ * What one pass over the pad inbox did
+ * generated from [PadScanResult](file://./../../../../data/contracts/render/render.types.ck#L198)
+ */
+export const PadScanResult = z.strictObject({
+    scanned: z.coerce.number().int().min(0).describe('Audio files seen, whether or not anything changed'),
+    imported: z.coerce.number().int().min(0).describe('Sounds the station did not have before'),
+    replaced: z.coerce.number().int().min(0).describe('Slots whose file changed under them, which every script naming them now plays'),
+    skipped: z.coerce.number().int().min(0).describe('Files passed over: not audio, unreadable, or named something no script could write'),
+});
+export type PadScanResult = z.infer<typeof PadScanResult>;
+
+/**
  * Everything the station can play that is not a record
  * generated from [SegmentList](file://./../../../../data/contracts/render/render.types.ck#L29)
  */
@@ -383,6 +443,20 @@ export const PronunciationList = z.strictObject({
     pronunciations: z.array(Pronunciation),
 });
 export type PronunciationList = z.infer<typeof PronunciationList>;
+
+/**
+ * Every sound the station holds, board by board
+ * generated from [PadList](file://./../../../../data/contracts/render/render.types.ck#L190)
+ */
+export const PadList = z.strictObject({
+    pads: z.array(Pad),
+});
+export type PadList = z.infer<typeof PadList>;
+
+export const PadListInput = z.strictObject({
+    pads: z.array(PadInput),
+});
+export type PadListInput = z.infer<typeof PadListInput>;
 
 /**
  * generated from [ScriptHistoryPage](file://./../../../../data/contracts/render/render.types.ck#L111)

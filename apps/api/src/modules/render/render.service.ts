@@ -20,10 +20,16 @@ import type {
     ScriptPromptMessage,
     SegmentCreate,
     SegmentList,
+    PadList,
+    PadScanResult,
+    PadState,
     SegmentScanResult,
     Segment as SegmentView,
     VoiceList,
 } from './types/render.types.js';
+import { DateTime } from 'luxon';
+import { PadLibrary } from './pad.library.js';
+import { PadRepository, type Pad } from './pad.repository.js';
 import { PronunciationRepository } from './pronunciation.repository.js';
 import { ScriptRatingsRepository } from './script.ratings.repository.js';
 import { encodeScriptCursor, ScriptHistoryRepository, type HistoryTrack, type ScriptHistoryEntry } from './script.history.repository.js';
@@ -111,6 +117,10 @@ export class RenderService {
         private readonly ratings: ScriptRatingsRepository,
         private readonly context: AuthorizationContext,
         private readonly pronunciations: PronunciationRepository,
+        // The rack and the directory it fills from. Last, so every existing call site's positional
+        // arguments are untouched.
+        private readonly pads: PadRepository,
+        private readonly padLibrary: PadLibrary,
         private readonly logger: Logger,
     ) {}
 
@@ -294,6 +304,62 @@ export class RenderService {
             contentType: SEGMENT_CONTENT_TYPES[segment.audioExt],
             body: bytes,
             headers: { cacheControl: CACHE_CONTROL, etag: `"${segment.audioChecksum}"` },
+        };
+    }
+
+    /**
+     * Every sound the station holds, board by board.
+     *
+     * Every state, so a rejected pad is visible where an operator can put it back. That is the whole
+     * reason rejection is a state rather than a deletion — the inbox scan re-reads its directory, so
+     * a deleted row would be back on the next pass and the operator's decision would not survive it.
+     */
+    async listPads(): Promise<PadList> {
+        return { pads: (await this.pads.list()).map(toPadView) };
+    }
+
+    /** Takes whatever is in the pad inbox onto its board. */
+    async scanPads(): Promise<PadScanResult> {
+        return await this.padLibrary.scan();
+    }
+
+    /**
+     * Turns a sound down, or puts one back, and answers the whole rack.
+     *
+     * The whole rack rather than the row, exactly as the pronunciations routes do: one pad changing
+     * state is one row moving between two sections of the same page, and a caller handed only what
+     * it named is holding a list it has to refetch anyway.
+     */
+    async setPadState(id: string, write: PadState): Promise<PadList> {
+        if (!(await this.pads.setState(id, write.state))) {
+            throw httpError(404).withDetails({ message: `pad "${id}" does not exist` });
+        }
+
+        return await this.listPads();
+    }
+
+    /**
+     * The sound itself, so an operator can hear what they dropped in.
+     *
+     * By ROW rather than by checksum, unlike {@link getStoredAudio}, and the two coexist for the
+     * reason they are separate routes at all: this one is a console reading a list it is looking at,
+     * where that one is a mixer resolving a part of a join. A console holding an id should not have
+     * to learn a checksum to play a two-second file.
+     */
+    async getPadAudio(id: string): Promise<SegmentAudioResponse> {
+        const pad = await this.pads.findById(id);
+        if (pad === undefined) throw httpError(404).withDetails({ message: `pad "${id}" does not exist` });
+
+        const bytes = await this.store.read(pad.audioChecksum, pad.audioExt);
+        if (bytes === undefined) throw httpError(404).withDetails({ message: `pad "${id}" has no file` });
+
+        return {
+            contentType: SEGMENT_CONTENT_TYPES[pad.audioExt],
+            body: bytes,
+            // Revalidated rather than cached for a day, on `VoiceSampleStore`'s rule: this URL names
+            // a SLOT and the file under it is replaceable, so a browser answering the next click out
+            // of its own cache would play the sound an operator has just replaced.
+            headers: { cacheControl: SAMPLE_CACHE_CONTROL, etag: `"${pad.audioChecksum}"` },
         };
     }
 
@@ -640,5 +706,27 @@ function toAttempt(entry: ScriptHistoryEntry): ScriptAttempt {
         // Absent stays absent: nobody having said is a different answer from `neutral`, which is
         // somebody saying they have no opinion.
         ...(entry.rating === undefined ? {} : { rating: ratingFromColumn(entry.rating) }),
+    };
+}
+
+/**
+ * One pad as the console draws it.
+ *
+ * `audioChecksum` and `audioExt` are deliberately not on the wire: the console plays a pad through
+ * `/pads/{id}/audio`, which is a slot, and handing it the checksum would invite it to build a
+ * content-addressed URL that answers with the file that is there NOW rather than the one this row
+ * names. Same reason a voice sample is keyed on what the voice currently IS.
+ */
+function toPadView(pad: Pad) {
+    return {
+        id: pad.id,
+        board: pad.board,
+        name: pad.name,
+        label: pad.label,
+        state: pad.state,
+        ...(pad.durationMs === undefined ? {} : { durationMs: pad.durationMs }),
+        ...(pad.loudnessLufs === undefined ? {} : { loudnessLufs: pad.loudnessLufs }),
+        ...(pad.sourcePath === undefined ? {} : { sourcePath: pad.sourcePath }),
+        ...(pad.lastUsedAt === undefined ? {} : { lastUsedAt: DateTime.fromISO(pad.lastUsedAt) }),
     };
 }

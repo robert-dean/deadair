@@ -204,6 +204,70 @@ export interface PronunciationQuery {
 }
 
 /**
+ * One sound on a soundboard, as the console draws it.
+ *
+ * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+ * than one, because a token for a model and prose for an operator are different things and the
+ * filename produces both
+ * generated from [Pad](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L178)
+ */
+export interface Pad {
+    id: string;
+    /** Which rack this is on. A persona points at one by name */
+    board: string;
+    /** What a script writes: `[sfx:airhorn]` */
+    name: string;
+    label: string;
+    durationMs?: number;
+    /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
+    loudnessLufs?: number;
+    /** The file in the inbox it was imported from, so the console can say where it came from */
+    sourcePath?: string;
+    /** When it was last hit. Absent for one nothing has reached for yet */
+    lastUsedAt?: string;
+    state: 'active' | 'rejected';
+}
+
+export interface PadInput {
+    /** Which rack this is on. A persona points at one by name */
+    board: string;
+    /** What a script writes: `[sfx:airhorn]` */
+    name: string;
+    label: string;
+    durationMs?: number;
+    /** How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary */
+    loudnessLufs?: number;
+    /** The file in the inbox it was imported from, so the console can say where it came from */
+    sourcePath?: string;
+    /** When it was last hit. Absent for one nothing has reached for yet */
+    lastUsedAt?: string;
+    state: 'active' | 'rejected';
+}
+
+/**
+ * Turning a pad down, or putting one back
+ * generated from [PadState](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L194)
+ */
+export interface PadState {
+    state: 'active' | 'rejected';
+}
+
+/**
+ * What one pass over the pad inbox did
+ * generated from [PadScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L198)
+ */
+export interface PadScanResult {
+    /** Audio files seen, whether or not anything changed */
+    scanned: number;
+    /** Sounds the station did not have before */
+    imported: number;
+    /** Slots whose file changed under them, which every script naming them now plays */
+    replaced: number;
+    /** Files passed over: not audio, unreadable, or named something no script could write */
+    skipped: number;
+}
+
+/**
  * Everything the station can play that is not a record
  * generated from [SegmentList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L29)
  */
@@ -333,6 +397,18 @@ export interface ScriptHistorySummary {
  */
 export interface PronunciationList {
     pronunciations: Pronunciation[];
+}
+
+/**
+ * Every sound the station holds, board by board
+ * generated from [PadList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L190)
+ */
+export interface PadList {
+    pads: Pad[];
+}
+
+export interface PadListInput {
+    pads: PadInput[];
 }
 
 /**

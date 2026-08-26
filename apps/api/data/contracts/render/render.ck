@@ -429,3 +429,88 @@ operation /pronunciations/{id}/state: {
         }
     }
 }
+
+# The soundboard: the short sounds a presenter reaches for.
+#
+# Its own routes rather than a filter on `/segments`, because a pad is deliberately not a segment --
+# a segment is one airable element and an air horn is not one, which is why `readyKinds` would
+# otherwise offer "air horn" as a bookable clock band. See migration 0023.
+#
+# There is no create and no delete. A pad arrives by being dropped in `media/pads/inbox/<board>/`,
+# which is how the station already takes delivery of audio, and it leaves by being REJECTED rather
+# than removed: the scan re-reads that directory, so a deleted row would be back on the next pass.
+operation /pads: {
+    get: { # Every sound the station holds, board by board
+        name: List pads
+        security: {
+            policy: platform.view
+        }
+        service: RenderService.listPads
+        response: {
+            200: {
+                application/json: PadList
+            }
+        }
+    }
+}
+
+operation /pads/scan: {
+    post: { # Takes whatever audio is sitting in the pad inbox onto its board. Safe to repeat: a file nobody has touched is seen and left alone
+        name: Scan the pad inbox
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.scanPads
+        response: {
+            200: {
+                application/json: PadScanResult
+            }
+        }
+    }
+}
+
+operation /pads/{id}/state: {
+    params: {
+        id: uuid
+    }
+    put: { # Turns a sound down, or puts one back. Answers the whole rack, since one pad changing state is one row moving between two sections of the same page
+        name: Set pad state
+        security: {
+            policy: platform.manage
+        }
+        service: RenderService.setPadState
+        request: {
+            application/json: PadState
+        }
+        response: {
+            200: {
+                application/json: PadList
+            }
+        }
+    }
+}
+
+operation /pads/{id}/audio: {
+    params: {
+        id: uuid
+    }
+    get: { # The sound itself, so an operator can hear what they dropped in
+        name: Get pad audio
+        service: RenderService.getPadAudio
+        security: none
+        response: {
+            200: {
+                audio/mpeg: binary
+                audio/wav: binary
+                audio/ogg: binary
+                audio/flac: binary
+                audio/mp4: binary
+                headers: {
+                    cache-control?: string
+                    etag?: string
+                }
+            }
+            304:
+        }
+    }
+}

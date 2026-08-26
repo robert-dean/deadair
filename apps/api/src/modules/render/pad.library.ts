@@ -1,8 +1,12 @@
 import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { PadRepository } from './pad.repository.js';
+import { AnalysisService } from '#modules/analysis/analysis.service.js';
+import { resolvePlayoutBaseUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
+import { errorText } from '#modules/shared/error.text.js';
+import { PadRepository, type Pad } from './pad.repository.js';
 import { isSegmentExtension, SEGMENT_EXTENSIONS, SegmentStore } from './segment.store.js';
 
 /** What one pass over the pad inbox did. */
@@ -46,6 +50,9 @@ export class PadLibrary {
         private readonly store: SegmentStore,
         private readonly pads: PadRepository,
         private readonly root: string,
+        // How loud a pad came out, which nothing else can answer. See {@link measure}.
+        private readonly analysis: AnalysisService,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -142,11 +149,66 @@ export class PadLibrary {
         if (outcome === 'created') {
             result.imported += 1;
             this.logger.info('render: put a new pad on a board', { pad: pad.id, board: pad.board, name: pad.name });
+            await this.measure(pad);
         } else if (outcome === 'replaced') {
             result.replaced += 1;
             // Worth a line where `unchanged` is not: the station is already saying this name, and
             // what it now plays is a different sound.
             this.logger.info('render: a pad was replaced by a new file under the same name', { pad: pad.id, board: pad.board, name: pad.name });
+            // Measured again, because `importFile` cleared the old figures: they described the file
+            // that used to be in this slot, and levelling a new sound against the old one is the
+            // failure that column exists to prevent.
+            await this.measure(pad);
+        }
+    }
+
+    /**
+     * How long a pad runs and how loud it came out, best-effort.
+     *
+     * The same call the render path makes about a break and held to the same rule: **nothing here may
+     * cost the operator their pad.** A station with no analyzer measures nothing and plays everything,
+     * which is ordinary rather than a fault, so this is awaited and never thrown from.
+     *
+     * It matters more here than on a break and in the other direction. A break arrives at whatever
+     * level the speech engine produced, which is consistent; a pad is mastered by whoever made it, and
+     * an air horn is mastered LOUD. Without a figure the console can only say "—" beside a sound that
+     * is twelve decibels hotter than the words it is about to land on.
+     *
+     * **What reads it today is a person.** Nothing computes an `AudioOverlay.gainDb` from it; it is
+     * reported so an operator can see the mismatch and re-master or set the duck.
+     *
+     * **A short pad legitimately has no loudness at all**, and that is measured rather than assumed:
+     * integrated loudness to BS.1770 is gated in 400ms blocks, so a 350ms rimshot produces no block
+     * and the analyzer answers with cue points and peaks and no `integratedLufs`. Which is most
+     * pads. A dash in that column is therefore the honest answer for a short sound rather than a
+     * measurement that failed, and nothing here should ever invent one.
+     *
+     * The URL is the station's own content-addressed route, for the reason every other measurement
+     * uses one: the bytes measured are the bytes that will air, and it is reachable from a sidecar
+     * container where a path on this machine's disk is not.
+     */
+    private async measure(pad: Pad): Promise<void> {
+        try {
+            const url = storedAudioUrl(resolvePlayoutBaseUrl(this.config), pad.audioChecksum, pad.audioExt);
+            const result = await this.analysis.measureAudio(pad.id, url);
+            if (result === undefined) return;
+
+            // `durationMs` is a field of the ANALYSIS and `integratedLufs` is a field of its `data`
+            // blob, which is not a distinction to guess at: the first is what the analyzer measured
+            // the file to be, the second is one of the detectors' outputs. Read from the wrong half,
+            // this silently records nothing forever.
+            const durationMs = result.durationMs;
+            const loudnessLufs = result.data.integratedLufs;
+
+            await this.pads.measured(pad.id, {
+                ...(typeof durationMs === 'number' && Number.isFinite(durationMs) ? { durationMs } : {}),
+                ...(typeof loudnessLufs === 'number' && Number.isFinite(loudnessLufs) ? { loudnessLufs } : {}),
+            });
+        } catch (error) {
+            this.logger.warn('render: could not measure a pad; it will play at whatever level it was made at', {
+                pad: pad.id,
+                error: errorText(error),
+            });
         }
     }
 }
@@ -193,3 +255,4 @@ function labelFor(relative: string): string {
     const stem = name.slice(0, name.length - extname(name).length);
     return stem.replace(/[-_]+/g, ' ').trim() || stem;
 }
+

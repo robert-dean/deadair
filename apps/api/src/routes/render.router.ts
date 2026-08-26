@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { RenderService } from '#src/modules/render/render.service.js';
 import {
+    PadList,
+    PadScanResult,
+    PadState,
     PronunciationList,
     PronunciationQuery,
     PronunciationStateWrite,
@@ -340,4 +343,79 @@ RenderRouter.put('/pronunciations/:id/state', requirePolicy({ policy: 'platform.
     ctx.status = 200;
     ctx.type = 'application/json';
     ctx.body = result;
+});
+
+/**
+ * Every sound the station holds, board by board
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L443)
+ */
+RenderRouter.get('/pads', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const service = ctx.container.get(RenderService);
+    const result: PadList = await service.listPads();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Takes whatever audio is sitting in the pad inbox onto its board. Safe to repeat: a file nobody has touched is seen and left alone
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L458)
+ */
+RenderRouter.post('/pads/scan', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(RenderService);
+    const result: PadScanResult = await service.scanPads();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Turns a sound down, or puts one back. Answers the whole rack, since one pad changing state is one row moving between two sections of the same page
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L476)
+ */
+RenderRouter.put('/pads/:id/state', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const body = await parseAndValidate(ctx.parsedBody, PadState);
+
+    const service = ctx.container.get(RenderService);
+    const result: PadList = await service.setPadState(id, body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * The sound itself, so an operator can hear what they dropped in
+ * from [render.ck](file://./../../data/contracts/render/render.ck#L497)
+ * anonymous access, no security required
+ */
+RenderRouter.get('/pads/:id/audio', async ctx => {
+    const { id } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            id: z.uuid(),
+        }),
+    );
+
+    const service = ctx.container.get(RenderService);
+    const result: {
+        contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
+        body: Buffer;
+        headers: { cacheControl?: string; etag?: string };
+    } = await service.getPadAudio(id);
+
+    ctx.status = 200;
+    if (result.headers['cacheControl'] !== undefined) ctx.set('cache-control', String(result.headers['cacheControl']));
+    if (result.headers['etag'] !== undefined) ctx.set('etag', String(result.headers['etag']));
+    ctx.type = result.contentType;
+    ctx.body = result.body;
 });

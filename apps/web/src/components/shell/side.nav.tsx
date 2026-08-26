@@ -69,6 +69,9 @@ const GROUPS: NavGroup[] = [
             // Directly under Voices, because it is the same question one level down: that page is
             // which voice says it, this is how that voice says a particular name.
             { to: '/pronunciations', label: 'Pronunciations' },
+            // Beside Segments, which is the other half of "audio the station holds that it did not
+            // play": that page is the things it AIRS, this is the things it plays ON them.
+            { to: '/pads', label: 'Soundboard' },
             { to: '/scripts', label: 'Scripts' },
             { to: '/plugins', label: 'Plugins' },
         ],

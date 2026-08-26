@@ -3,6 +3,7 @@ import { Container, Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
+import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { MixerService } from './mixer.service.js';
 import { PadLibrary } from './pad.library.js';
 import { PadRepository } from './pad.repository.js';
@@ -117,7 +118,17 @@ export const RenderModule: ServerKitModule = {
         registry.register(PadRepository).useClass(PadRepository).asScoped();
         registry
             .register(PadLibrary)
-            .useFactory(container => new PadLibrary(container.get(SegmentStore), container.get(PadRepository), padInboxDir, container.get(Logger)))
+            .useFactory(
+                container =>
+                    new PadLibrary(
+                        container.get(SegmentStore),
+                        container.get(PadRepository),
+                        padInboxDir,
+                        container.get(AnalysisService),
+                        config,
+                        container.get(Logger),
+                    ),
+            )
             .asScoped();
 
         // Scoped with the repositories and the plugin registry it reads. It owns no loop and holds

@@ -169,3 +169,35 @@ contract PronunciationStateWrite: { # Accepting a proposal, turning one down, or
 contract PronunciationQuery: { # Which part of the lexicon to read
     state?: enum(active, suggested, rejected) # Absent is all of it
 }
+
+# One sound on a soundboard, as the console draws it.
+#
+# `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
+# than one, because a token for a model and prose for an operator are different things and the
+# filename produces both
+contract Pad: {
+    id: readonly uuid
+    board: string(min=1, max=200) # Which rack this is on. A persona points at one by name
+    name: string(min=1, max=200) # What a script writes: `[sfx:airhorn]`
+    label: string(min=1, max=200)
+    durationMs?: int(min=0)
+    loudnessLufs?: number # How loud it came out, once something measured it. Absent on a station with no analyzer, which is ordinary
+    sourcePath?: string(max=500) # The file in the inbox it was imported from, so the console can say where it came from
+    lastUsedAt?: datetime # When it was last hit. Absent for one nothing has reached for yet
+    state: enum(active, rejected)
+}
+
+contract PadList: { # Every sound the station holds, board by board
+    pads: array(Pad)
+}
+
+contract PadState: { # Turning a pad down, or putting one back
+    state: enum(active, rejected)
+}
+
+contract PadScanResult: { # What one pass over the pad inbox did
+    scanned: int(min=0) # Audio files seen, whether or not anything changed
+    imported: int(min=0) # Sounds the station did not have before
+    replaced: int(min=0) # Slots whose file changed under them, which every script naming them now plays
+    skipped: int(min=0) # Files passed over: not audio, unreadable, or named something no script could write
+}

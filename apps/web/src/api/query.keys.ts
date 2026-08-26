@@ -78,6 +78,13 @@ export const queryKeys = {
         list: () => ['pronunciations', 'list'] as const,
     },
     /**
+     * The soundboard. One key and no per-board slice: a board is a column of the same list rather
+     * than a page of its own, and every write answers with the whole rack.
+     */
+    pads: {
+        list: () => ['pads', 'list'] as const,
+    },
+    /**
      * Who the station can be. One key, and no per-persona form: every write answers with the whole
      * list, because putting one on air takes another off, so there is never a slice of this worth
      * invalidating on its own. Same shape as `settings` above and for the same reason.

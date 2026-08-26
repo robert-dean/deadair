@@ -419,6 +419,46 @@ describe('BreakPlanner writing its own breaks', () => {
         expect(plan).not.toHaveBeenCalled();
     });
 
+    // The bug this file's whole clock existed for and never covered: `airsAt` was passed only on the
+    // ANCHORED walk, so the station's own spacing floor — which plants the overwhelming majority of
+    // breaks — planted rows with no time on them. `WriteBreakJob` derives the clock, the greeting and
+    // the daypart from that column and skips all three when it is absent, so an ordinary talk break
+    // was written by a model that had not been told what half of the day it was. Measured live: 940
+    // talk breaks, not one with an `airs_at`, and "tonight" going out at seven in the morning.
+    it('stamps when an ordinary break will air, so its writer knows what part of the day it is', async () => {
+        const { planner, plan } = build({ canWrite: true });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+        const stamped = plan.mock.calls.map(([input]) => input.airsAt);
+        expect(stamped.length).toBeGreaterThan(0);
+        // Every one of them, and each a real projection rather than a placeholder: the order starts
+        // at nine and every record is five minutes, so a genuine boundary lands on a five-minute
+        // step. A stubbed `Date.now()` would not.
+        for (const airsAt of stamped) {
+            expect(airsAt).toBeGreaterThanOrEqual(Date.UTC(2026, 7, 13, 9, 0));
+            expect((airsAt! - Date.UTC(2026, 7, 13, 9, 0)) % (TRACK_MINUTES * 60_000)).toBe(0);
+        }
+    });
+
+    it('stamps a break the operator asked for on an interval too', async () => {
+        // The third walk, and it had the same hole as the spacing floor. An interval band is the
+        // operator saying "something every twenty minutes", which is no less entitled to know when
+        // it is speaking than a band that named an o'clock.
+        const { planner, plan } = build({
+            canWrite: true,
+            bands: [{ at: 'interval', everyMs: 4 * TRACK_MINUTES * 60_000, kind: 'sponsorspot' }],
+        });
+        const lineup = await lineupOf(20);
+
+        await planner.plant(lineup, rules({ breaks: true, breakEveryMinutes: 0 }), clock());
+
+        const spots = plan.mock.calls.filter(([input]) => input.kind === 'sponsorspot');
+        expect(spots.length).toBeGreaterThan(0);
+        expect(spots.every(([input]) => typeof input.airsAt === 'number')).toBe(true);
+    });
+
     it('fails the rows it planned when the order refuses them, rather than leaving them looking pending', async () => {
         const { planner, markFailed, send } = build({ canWrite: true });
         const lineup = await lineupOf(12);

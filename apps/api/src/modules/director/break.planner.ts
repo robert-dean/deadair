@@ -564,6 +564,17 @@ export class BreakPlanner {
         const taken = new Set<number>();
         const slots: Slot[] = [];
 
+        // `airsAt` is the PROJECTION at this index, and every one of the three walks below passes it
+        // now. It used to be the anchored walk's alone, on the reading that a time is what a
+        // SCHEDULED break is for — which is true of why the projection is computed and false about
+        // who needs it. What needs it is the writer: `WriteBreakJob` derives the clock, the greeting
+        // and the daypart from `segments.airs_at` and skips all three when there is none, so a break
+        // planted by the spacing floor was written by a model that had not been told what time of day
+        // it was. Measured on the live station: 940 talk breaks, none with an `airs_at`, against
+        // every news and welcome having one — and "tonight" going out at seven in the morning.
+        //
+        // Undefined is still an ordinary answer and is still dropped. `projectAirTimes` runs out past
+        // the end of the order, which is a slot the walk can reach and the clock cannot describe.
         const claim = (atIndex: number, band?: ClockBand, airsAt?: number): void => {
             if (taken.has(atIndex)) return;
             taken.add(atIndex);
@@ -617,13 +628,13 @@ export class BreakPlanner {
             if (isAnchored(band)) continue;
 
             const counts = (item: StationLineupSegmentItem): boolean => item.segmentKind === band.kind;
-            for (const at of placementsFor(items, cursor, band.everyMs, counts, sameKind(slots, band.kind))) claim(at, band);
+            for (const at of placementsFor(items, cursor, band.everyMs, counts, sameKind(slots, band.kind))) claim(at, band, projected[at]);
         }
 
         // ── the station's own, last, because the floor goes last ───────────────
         if (rules.breakEveryMinutes > 0) {
             const pending = new Set(slots.filter(slot => slot.band === undefined || isStationKind(slot.band)).map(slot => slot.atIndex));
-            for (const at of placementsFor(items, cursor, rules.breakEveryMinutes * 60_000, isStationBreak, pending)) claim(at);
+            for (const at of placementsFor(items, cursor, rules.breakEveryMinutes * 60_000, isStationBreak, pending)) claim(at, undefined, projected[at]);
         }
 
         return slots.sort((left, right) => left.atIndex - right.atIndex);
@@ -939,7 +950,15 @@ export class BreakPlanner {
             if (write) {
                 // A placeholder label. The writer replaces it with one naming the records it sits
                 // between, at the same moment and by the same hand as the script.
-                const segment = await this.segments.plan({ kind: TALK_BREAK_KIND, label: 'Talk break' });
+                //
+                // `airsAt` rides the row for `fillBand`'s reason exactly, and it is the ordinary
+                // break rather than the scheduled one that had been going without: the words are
+                // asked for on a later pass and nothing recomputes the projection in between.
+                const segment = await this.segments.plan({
+                    kind: TALK_BREAK_KIND,
+                    label: 'Talk break',
+                    ...(airsAt === undefined ? {} : { airsAt }),
+                });
                 placements.push({ segmentId: segment.id, atIndex, kind: TALK_BREAK_KIND, written: true });
                 previousKind = TALK_BREAK_KIND;
                 continue;

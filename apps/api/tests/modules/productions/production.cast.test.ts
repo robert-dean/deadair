@@ -32,44 +32,44 @@ describe('a cast', () => {
     });
 
     it('carries the persona, the on-air name and the voice, because the row outlives the character', () => {
-        expect(callerMember(persona('theorist'), 'production-1')).toEqual({
+        expect(callerMember(persona('skeptic'), 'production-1')).toEqual({
             role: 'caller',
-            personaId: 'id-theorist',
-            personaKey: 'theorist',
-            name: 'THEORIST',
-            voice: 'theorist',
+            personaId: 'id-skeptic',
+            personaKey: 'skeptic',
+            name: 'SKEPTIC',
+            voice: 'skeptic',
         });
     });
 
     describe('a preoccupation', () => {
-        const theorist = { ...persona('theorist'), preoccupations: ['the plant', 'the sky', 'the running order'] };
+        const skeptic = { ...persona('skeptic'), preoccupations: ['the plant', 'the sky', 'the running order'] };
 
         // The whole reason it is decided here rather than per beat: somebody who rang up about three
         // different things over four minutes is not a person.
         it('is one per programme, so every beat this character writes carries the same one', () => {
-            const first = callerMember(theorist, 'production-1');
-            const again = callerMember(theorist, 'production-1');
+            const first = callerMember(skeptic, 'production-1');
+            const again = callerMember(skeptic, 'production-1');
 
             expect(first.preoccupation).toBeDefined();
             expect(again.preoccupation).toBe(first.preoccupation);
         });
 
         it('is a different one on a different programme', () => {
-            const spread = new Set(['a', 'b', 'c', 'd', 'e', 'f'].map(id => callerMember(theorist, id).preoccupation));
+            const spread = new Set(['a', 'b', 'c', 'd', 'e', 'f'].map(id => callerMember(skeptic, id).preoccupation));
 
             expect(spread.size).toBeGreaterThan(1);
         });
 
         it('is absent for a character with none, which is every seed the station shipped with', () => {
-            expect(callerMember(persona('theorist'), 'production-1').preoccupation).toBeUndefined();
+            expect(callerMember(persona('skeptic'), 'production-1').preoccupation).toBeUndefined();
         });
 
         // The cast is a jsonb column and a snapshot: a programme resumed after a restart has to read
         // back the subject its beats were already written against.
         it('survives being stored and read back', () => {
-            const stored = coerceCast(JSON.parse(JSON.stringify([callerMember(theorist, 'production-1')])));
+            const stored = coerceCast(JSON.parse(JSON.stringify([callerMember(skeptic, 'production-1')])));
 
-            expect(stored?.[0]?.preoccupation).toBe(callerMember(theorist, 'production-1').preoccupation);
+            expect(stored?.[0]?.preoccupation).toBe(callerMember(skeptic, 'production-1').preoccupation);
         });
     });
 
@@ -149,8 +149,8 @@ describe('coerceCast', () => {
     });
 
     it('drops a member with no role, because that is not somebody', () => {
-        expect(coerceCast([{ personaKey: 'classic' }, { role: 'caller', personaKey: 'theorist' }])).toEqual([
-            { role: 'caller', personaKey: 'theorist' },
+        expect(coerceCast([{ personaKey: 'classic' }, { role: 'caller', personaKey: 'skeptic' }])).toEqual([
+            { role: 'caller', personaKey: 'skeptic' },
         ]);
     });
 

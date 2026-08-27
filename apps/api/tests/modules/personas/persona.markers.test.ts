@@ -75,7 +75,7 @@ const BUDGET: Record<string, { crossfire?: number; plain?: number; why: string }
 
     // Residue on the sheets that HAVE been rewritten, kept because removing it would cost the
     // character a word it genuinely owns.
-    cratedigger: { crossfire: 2, why: 'record vocabulary is shared with the theorist and the pedant by subject' },
+    cratedigger: { crossfire: 2, why: 'record vocabulary is shared with the pedant by subject' },
     latenight: { crossfire: 1, why: 'one collision with the night-shift caller, who is awake at the same hour' },
     pirate: { crossfire: 1, why: "`in'` is shared dialect with the howler" },
     playbyplay: { crossfire: 1, why: 'one collision with the night-shift caller' },

@@ -43,7 +43,7 @@ function build(options: { roster?: ReturnType<typeof caller>[]; heard?: Map<stri
 
 describe('casting a production', () => {
     it('casts the presenter alone for a kind that has no callers', async () => {
-        const { caster, personas } = build({ roster: [caller('theorist')] });
+        const { caster, personas } = build({ roster: [caller('skeptic')] });
 
         const cast = await caster.cast(production({ kind: 'podcast' }), 9);
 
@@ -54,19 +54,19 @@ describe('casting a production', () => {
     });
 
     it('casts somebody to ring in for a kind that does', async () => {
-        const { caster } = build({ roster: [caller('theorist')] });
+        const { caster } = build({ roster: [caller('skeptic')] });
 
         const cast = await caster.cast(production(), 9);
 
         expect(cast.map(member => member.role)).toEqual(['host', 'caller']);
-        expect(cast[1]?.personaKey).toBe('theorist');
+        expect(cast[1]?.personaKey).toBe('skeptic');
     });
 
     it('takes the least recently heard first, so a station with five callers has five', async () => {
         const { caster } = build({
-            roster: [caller('theorist'), caller('grumbler'), caller('pedant')],
+            roster: [caller('skeptic'), caller('grumbler'), caller('pedant')],
             heard: new Map([
-                ['id-theorist', 5_000],
+                ['id-skeptic', 5_000],
                 ['id-grumbler', 1_000],
             ]),
         });
@@ -94,13 +94,13 @@ describe('casting a production', () => {
     });
 
     it('casts nobody into a block too short to introduce them in', async () => {
-        const { caster } = build({ roster: [caller('theorist')] });
+        const { caster } = build({ roster: [caller('skeptic')] });
 
         expect(await caster.cast(production(), 1)).toHaveLength(1);
     });
 
     it('reads the kinds the operator actually named', async () => {
-        const { caster } = build({ roster: [caller('theorist')], kinds: 'podcast, PHONE-IN' });
+        const { caster } = build({ roster: [caller('skeptic')], kinds: 'podcast, PHONE-IN' });
 
         expect(await caster.cast(production({ kind: 'phone-in' }), 9)).toHaveLength(2);
         expect(await caster.cast(production({ kind: 'callin' }), 9)).toHaveLength(1);

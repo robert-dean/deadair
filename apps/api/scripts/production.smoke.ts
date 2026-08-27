@@ -86,7 +86,7 @@ try {
     const shape = planProduction(opened.targetMs);
     const saved = await productions.saveOutline(opened.id, { runners: ['the price'], beats: [{ title: 'One' }] }, shape, 'drafting', [
         { role: 'host', personaKey: 'classic', voice: 'classic' },
-        { role: 'caller', personaKey: 'theorist', name: 'Dale', voice: 'theorist' },
+        { role: 'caller', personaKey: 'skeptic', name: 'Dale', voice: 'skeptic' },
     ]);
     check(saved, 'the outline pass writes its answer and moves the production on');
 

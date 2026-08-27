@@ -12,14 +12,14 @@ import type { CastMember } from '../../../src/modules/productions/production.cas
 import type { Persona } from '../../../src/modules/personas/persona.js';
 
 const host: CastMember = { role: 'host', personaId: 'h1', personaKey: 'classic', name: 'Ray', voice: 'classic' };
-const dale: CastMember = { role: 'caller', personaId: 'c1', personaKey: 'theorist', name: 'Dale', voice: 'theorist' };
+const dale: CastMember = { role: 'caller', personaId: 'c1', personaKey: 'skeptic', name: 'Dale', voice: 'skeptic' };
 
 const sheet = (over: Partial<Persona> = {}): Persona => ({
     id: 'c1',
-    key: 'theorist',
+    key: 'skeptic',
     kind: 'caller',
-    label: 'Caller with a theory',
-    style: 'a listener who has worked something out',
+    label: 'Caller who wants proof',
+    style: 'a listener who wants to believe it and cannot get there without proof',
     active: false,
     ...over,
 });

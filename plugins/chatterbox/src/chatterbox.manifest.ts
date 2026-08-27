@@ -104,7 +104,7 @@ export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?
     // register rather than for filename, so switching engines does not change a
     // caller's sex or age, and no caller shares a clip with a host: the two are in
     // one production talking to each other.
-    { name: 'theorist', engine: 'Eli.wav' },
+    { name: 'skeptic', engine: 'Eli.wav' },
     { name: 'grumbler', engine: 'Henry.wav' },
     { name: 'dedication', engine: 'Alice.wav' },
     { name: 'pedant', engine: 'Elena.wav' },

@@ -1059,7 +1059,24 @@ across the draw and the resolver, because a floor that widened would hand the re
 resolver then drops. The three surfaces that apply it — the draw, `yearsFor` behind the resolver, and
 `TracksRepository.searchPlayable` — have to agree, and `apps/api/scripts/era.smoke.ts` is what holds
 them to it, since a record eligible for one and not the others is a refill that silently comes back
-short.
+short — which is why the expression itself is one exported fragment (`shared/release.year.ts`)
+rather than three copies of a `sql` template.
+
+**A record is dated by the EARLIER of its two claims, not by the more specific one.** The year sits
+on `deadair.tracks` and on `deadair.albums`, each written at ingest from whatever the payload that
+created the row carried and never overwritten, so a track first met through a reissue keeps the
+reissue's year for good while its own album row — filled later by another track off the original —
+has it right. It was `coalesce(track, album)`, preferring the track's as the narrower claim, and that
+is wrong in the one direction a period filter cannot afford. Measured on this station's library (766
+tracks, 630 albums): 41 records where the two disagree, **33 of them with the track dated LATER**, and
+every one sampled a reissue over an original the album row had — `All Along the Watchtower` at 2023
+against `Electric Ladyland` at 1968, `Purple Haze` at 1993 against `Are You Experienced` at 1967. So a
+station asked for the seventies was quietly refusing its own Hendrix, and nothing said so. `least`
+rather than `min` because Postgres's `least` ignores nulls and answers null only when both are, which
+is exactly the three cases wanted. The counterexample is a bogus LOW claim (one album in that library
+carries the 1900 floor `usableYear` accepts, so its two tracks now read as 1900 records) and it is the
+honest trade: a too-early year is a data error with a validated floor under it, and a too-late one is
+the ordinary unmarked shape of every remaster a provider sells.
 
 **Removing a break MARKS it; removing a record splices it.** `StationLineup.remove` is asymmetric on
 purpose. `BreakPlanner` is idempotent positionally and by nothing else — it counts records since the

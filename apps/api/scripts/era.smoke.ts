@@ -122,11 +122,16 @@ try {
         // The ordinary case on a library nothing has enriched, and the one this whole script exists
         // to pin.
         const undated = await work('undated');
-        // Both, disagreeing. The track's is the more specific claim and enrichment is what writes it,
-        // so `coalesce` has to take it over the album's.
+        // Both, disagreeing, with the ORIGINAL on the track: a 1975 recording whose album row is the
+        // 2011 anniversary edition it was resolved into.
         const both = await work('both', { year: 1975, albumYear: 2011 });
+        // The same disagreement the other way up, which is the shape this station's library actually
+        // holds and the one the old `coalesce` got wrong: the track was first met through a reissue
+        // and carries its year for good, while the album row — filled later, by another track off the
+        // original — has it right. Measured at 33 records against 8 of the shape above.
+        const reissued = await work('reissued', { year: 2011, albumYear: 1975 });
 
-        const ids = [seventies, nineties, fromAlbum, undated, both];
+        const ids = [seventies, nineties, fromAlbum, undated, both, reissued];
 
         // ── sample: what the deterministic draw may even see ──────────────────
         say('narrowing the draw');
@@ -143,15 +148,33 @@ try {
         // The decision the whole feature rests on. Backwards, a station narrowed to a decade over an
         // unenriched library plays nothing and looks like a thin catalogue.
         check('KEEPS a record the catalog has no year for at all', seventiesDraw.has(undated), true);
-        check("prefers the track's own year over its album's when they disagree", seventiesDraw.has(both), true);
+        // The EARLIER claim wins, whichever level it sits on. Both of these are one 1975 record with
+        // a 2011 reissue attached, and a station asked for the seventies wants both of them.
+        check('takes the earlier year when the album is the reissue', seventiesDraw.has(both), true);
+        check('and when the TRACK is the reissue', seventiesDraw.has(reissued), true);
+
+        const tensDraw = await drawn({ from: 2010, to: 2019 });
+        check('so a reissue is not offered as a record of its reissue decade', tensDraw.has(reissued), false);
 
         check('an open-ended start stands alone', (await drawn({ from: 1990 })).has(seventies), false);
         check('an open-ended end stands alone', (await drawn({ to: 1979 })).has(nineties), false);
         check('an undated record passes an open-ended bound too', (await drawn({ from: 1990 })).has(undated), true);
 
-        const unbounded = await drawn();
+        // Unioned over several draws, and that is not belt-and-braces. `sample` orders by `random()`
+        // under a ceiling of 500 rows, so on any library bigger than that an UNNARROWED draw is a
+        // lottery a fixture row loses about a third of the time — which is why these two checks
+        // failed intermittently against a real library and passed against an empty one. Every
+        // narrowed draw above is safe from it because a period leaves few enough rows to fit under
+        // the ceiling, so only the unbounded pair needs this.
+        const everDrawn = async (era?: { from?: number; to?: number }) => {
+            const seen = new Set<string>();
+            for (let attempt = 0; attempt < 8; attempt += 1) for (const id of await drawn(era)) seen.add(id);
+            return seen;
+        };
+
+        const unbounded = await everDrawn();
         check('no period narrows nothing', unbounded.has(seventies) && unbounded.has(nineties), true);
-        check('and neither does a window with no ends set', (await drawn({})).has(nineties), true);
+        check('and neither does a window with no ends set', (await everDrawn({})).has(nineties), true);
 
         // ── yearsFor: what the resolver judges a model's picks with ───────────
         say('judging a pick');
@@ -159,7 +182,8 @@ try {
         const years = await candidates.yearsFor(ids);
         check('reads a year off the track', years.get(seventies), 1975);
         check("reads it off the album when the track has none", years.get(fromAlbum), 1979);
-        check("prefers the track's own where both exist", years.get(both), 1975);
+        check('takes the earlier of two disagreeing claims', years.get(both), 1975);
+        check('whichever level the later one sits on', years.get(reissued), 1975);
         // Absent rather than a number, which is the distinction `PickResolver` acts on: "the catalog
         // has no year" and "this record is from 1900" are different facts.
         check('answers with NOTHING for a record it has no year for', years.has(undated), false);
@@ -177,6 +201,7 @@ try {
         // a model offered less than the station can play; the other way round is a refill that comes
         // back short with nothing saying why.
         check('and about an undated record', shown.has(`${TAG} undated`), true);
+        check('and about a reissue dated later than its own album', shown.has(`${TAG} reissued`), true);
 
         throw new Rollback();
     });

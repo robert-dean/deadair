@@ -6,6 +6,7 @@ import { CatalogListQuery, columnFor, directionFor, likeContains } from './catal
 import { catalogKey, normalizeKey } from './catalog.keys.js';
 import { artUrl } from './catalog.art.js';
 import { ratingFromColumn } from './rating.js';
+import { releasedYear } from '../shared/release.year.js';
 import type { Rating, TrackState } from './types/catalog.types.js';
 
 /** Database spelling, because {@link artUrl} is raw SQL and reads the column twice. */
@@ -351,9 +352,9 @@ export class TracksRepository extends DataRepository {
      * reissue, and plenty of rows have neither — so a record with no year is offered for any period.
      * That is the opposite call to `cleanOnly` beside it and deliberately: an advisory is a content
      * policy where silence must not read as consent, and a period is programming, where dropping a
-     * record the station owns for want of a tag costs the hour. The album's year is the fallback
-     * because a provider dates a release rather than a recording, so the two columns are the same
-     * fact arriving at whichever level the payload named.
+     * record the station owns for want of a tag costs the hour. Which of the two year columns
+     * answers is {@link releasedYear}'s decision, shared with the draw and the resolver so a record
+     * offered here cannot be one the draw would have refused.
      *
      * @param cleanOnly - Whether the station demands a positively `clean` copy. Null means the
      *   provider did not say and is excluded here too; see `advisory.policy.ts`.
@@ -366,7 +367,7 @@ export class TracksRepository extends DataRepository {
         // of years, and matching every title against '%%' is what makes that mean "the whole library,
         // narrowed to these years" rather than nothing at all.
         const matchesText = search.trim().length > 0;
-        const released = sql<number | null>`coalesce(deadair.tracks.year, deadair.albums.year)`;
+        const released = releasedYear;
 
         return await this.db
             .selectFrom('deadair.tracks')

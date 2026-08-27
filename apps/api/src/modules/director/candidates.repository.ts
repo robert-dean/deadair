@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import { DataRepository } from '#modules/data/data.repository.js';
 import { normalizeKey } from '#modules/catalog/catalog.keys.js';
+import { releasedYear } from '#modules/shared/release.year.js';
 import { ADVISORY_DEFAULT, advisoryRank, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
 
 /**
@@ -49,11 +50,13 @@ export interface EraWindow {
  *
  * It is the opposite call to `clean-only` in {@link CandidatesRepository.sample} beside it, and
  * deliberately: an advisory is a content policy where silence must not read as consent, and a period
- * is programming, where dropping a record the station owns for want of a tag costs the hour. The
- * album's year is the fallback because a provider dates a release rather than a recording.
+ * is programming, where dropping a record the station owns for want of a tag costs the hour. Which
+ * of the two year columns answers is {@link releasedYear}'s decision, shared with the other two
+ * period surfaces because a record eligible for one and not the others is a refill that silently
+ * runs short.
  */
 const withinEra = (era: EraWindow) => {
-    const released = sql<number | null>`coalesce(deadair.tracks.year, deadair.albums.year)`;
+    const released = releasedYear;
     const bounds = [
         ...(era.from === undefined ? [] : [sql`${released} >= ${era.from}`]),
         ...(era.to === undefined ? [] : [sql`${released} <= ${era.to}`]),
@@ -240,10 +243,10 @@ export class CandidatesRepository extends DataRepository {
      * generator that never touched this repository, and the period a broadcast was asked for has to
      * be true of every pick whatever named it.
      *
-     * The album's year is the fallback because a provider dates a RELEASE rather than a recording,
-     * so `tracks.year` and `albums.year` are the same fact arriving at whichever level the payload
-     * named. `coalesce` and not `least`: the track's is the more specific claim and enrichment is
-     * what writes it.
+     * Which of the two year columns answers is {@link releasedYear}'s decision — the EARLIER claim,
+     * because a record is dated by whichever release it was first seen through and a reissue is the
+     * later one. The draw and `search_music` read the same expression, since a record eligible for
+     * one and not the others is a refill that silently runs short.
      *
      * **A track with no year answers with nothing rather than a number**, and that distinction is
      * the whole point. "The catalog has no year for this" and "this record is from 1900" are
@@ -258,7 +261,7 @@ export class CandidatesRepository extends DataRepository {
             .selectFrom('deadair.tracks')
             .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
             .select('deadair.tracks.id as trackId')
-            .select(sql<number | null>`coalesce(deadair.tracks.year, deadair.albums.year)`.as('year'))
+            .select(releasedYear.as('year'))
             .where('deadair.tracks.id', 'in', [...trackIds])
             .execute();
 

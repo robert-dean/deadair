@@ -10,6 +10,8 @@ Every paragraph here records a measured failure and the fix that was chosen over
 Read the ones covering whatever you are about to change. The always-loaded index is
 [`CLAUDE.md`](../../CLAUDE.md).
 
+## Who owns the running order
+
 **One running order per station, owned by the director, and it is not a library.**
 `deadair.station_lineup` holds it as one jsonb document of items, each carrying its own state
 (`planned → handed → airing → played`, with `skipped` off the side). There is no cursor and no
@@ -39,6 +41,23 @@ broadcast was last on. The same file holds `stationKey`, which is on every stati
 the first migration: `play_history`'s three indexes lead with it because a repeat window and an
 artist cooldown are per-station questions, and the activity feed filters inside each arm of its union
 rather than over the result, so each arm keeps its own index.
+
+**Removing a break MARKS it; removing a record splices it.** `StationLineup.remove` is asymmetric on
+purpose. `BreakPlanner` is idempotent positionally and by nothing else — it counts records since the
+last segment already in the order — so a spliced-out break left a gap it could not tell from one
+never planted into, and it planted another one a boundary later. `removed` is that mark, it resets
+the walk's count like any other segment, and it ages out through `trimPast`. **It is its own state
+rather than a use of `skipped`**, which would have done the planner's job and nothing else:
+`skipped` is the station reaching an item and passing over it (no audio, nothing could resolve it, a
+push the player never took) and `removed` is an operator cutting one before its turn, and those are
+opposite facts on any page that has to say why the station is silent. Two things read the
+difference: `committedThrough` counts every non-`planned` state as the head EXCEPT `removed`,
+because a cut says nothing about how far the broadcast has got and counting it would freeze the
+order in front of it; and `DirectorService.collectRemoved` retires the segment row behind the cut,
+leaving a `ready` row alone and leaving any id still elsewhere in the order alone, since idents come
+from a shared library and the same row is legitimately at three slots in an hour.
+
+## What the order is asked for
 
 **The order also carries the operator's BRIEF, and that is why it is on the row rather than in a job
 payload.** `station_lineup.brief` is what they asked for in their own words ("heavy metal hits"), as
@@ -125,20 +144,7 @@ carries the 1900 floor `usableYear` accepts, so its two tracks now read as 1900 
 honest trade: a too-early year is a data error with a validated floor under it, and a too-late one is
 the ordinary unmarked shape of every remaster a provider sells.
 
-**Removing a break MARKS it; removing a record splices it.** `StationLineup.remove` is asymmetric on
-purpose. `BreakPlanner` is idempotent positionally and by nothing else — it counts records since the
-last segment already in the order — so a spliced-out break left a gap it could not tell from one
-never planted into, and it planted another one a boundary later. `removed` is that mark, it resets
-the walk's count like any other segment, and it ages out through `trimPast`. **It is its own state
-rather than a use of `skipped`**, which would have done the planner's job and nothing else:
-`skipped` is the station reaching an item and passing over it (no audio, nothing could resolve it, a
-push the player never took) and `removed` is an operator cutting one before its turn, and those are
-opposite facts on any page that has to say why the station is silent. Two things read the
-difference: `committedThrough` counts every non-`planned` state as the head EXCEPT `removed`,
-because a cut says nothing about how far the broadcast has got and counting it would freeze the
-order in front of it; and `DirectorService.collectRemoved` retires the segment row behind the cut,
-leaving a `ready` row alone and leaving any id still elsewhere in the order alone, since idents come
-from a shared library and the same row is legitimately at three slots in an hour.
+## Nothing airs until its bytes are here
 
 **A record is COMMITTED only once its audio is on this machine.** `DirectorService.withLocalAudio`
 cuts the commit pass's candidates at the first record `TrackAudioService.readyFor` does not answer
@@ -191,6 +197,8 @@ the first download hears the station say so — canned from `media/segments/inbo
 recorded one, `WarmUpWriter`'s own phrasings otherwise, one at a time, only with the gate open, and only
 while the wait is an ordinary one. It names no record, because the records it covers for are the ones
 `thin` may yet remove.
+
+## Where a record's audio comes from
 
 **The player fetches every record from the app, and the app is the only thing that fetches a provider.**
 `TrackAudioResolver` answers `/playout/audio/{sourceId}` for any binding that is `playable and

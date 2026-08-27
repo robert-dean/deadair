@@ -7,6 +7,8 @@ Every paragraph here records a measured failure and the fix that was chosen over
 Read the ones covering whatever you are about to change. The always-loaded index is
 [`CLAUDE.md`](../../CLAUDE.md).
 
+## The sheet
+
 **Who the station IS is a row, and it is a VOICE and nothing else.** `deadair.personas`, one active
 per station enforced by a partial unique index, with its own contract and its own console page — a
 table for the reason `docs/todo/station-moment.md` argues moods are one: a `ConfigField` describes
@@ -76,6 +78,8 @@ others). The slots are the persona KEYS rather than a second vocabulary, on `top
 list to keep straight instead of two and a mapping between them. Deleting a row from a plugin's map
 stays expressible, because an unmapped name still falls back to the engine's default and warns once.
 
+## What accumulates on top of it
+
 **A character also ACCUMULATES, and the two things it accumulates are two different claims.**
 `deadair.personas` is a sheet somebody wrote and a break is written against that sheet plus the last
 few scripts of this broadcast, so a host could never refer back to something it said last week or
@@ -143,6 +147,8 @@ where it is grounded in records this station holds, and there is nothing to veri
 so `suggested` and the operator IS the check. Both word ceilings involved are settings now with a
 declared MINIMUM (`rotation.breakWords`, `rotation.storyWords`, `break.words.ts`), because a ceiling
 set too low does not make a terse station, it hands every model break to the phrasings in silence.
+
+## How much rope
 
 **A character can be given ROPE, and what it buys is the station asking for more rather than
 accepting worse.** `personas.latitude` is `loose` / `unleashed` above the ordinary discipline, where

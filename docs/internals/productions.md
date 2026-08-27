@@ -7,6 +7,8 @@ Every paragraph here records a measured failure and the fix that was chosen over
 Read the ones covering whatever you are about to change. The always-loaded index is
 [`CLAUDE.md`](../../CLAUDE.md).
 
+## Casting, and what a caller may say
+
 **Somebody can PHONE IN, and everything about that is decided host-side rather than by the model.**
 `personas.kind` is `host` or `caller` — not null, defaulting to `host`, which is a correction to
 `docs/todo/personas.md` §1: it sketched the column nullable with a `(station_key, kind)` unique index
@@ -71,6 +73,8 @@ people were on it. And **the estimate
 that decides a cast is taken in the dialogue band** — the first live call-in of three minutes looked
 like two monologue beats, below the floor for casting anybody, so the station made a phone-in with
 nobody on it and nothing said why (`turnsFor`).
+
+## Writing, then airing
 
 **A beat is the unit of WRITING and the joined row is the unit of AIRING, and only the second half is
 new.** A beat has to be its own segment because it is one model call in one voice, and it used to be

@@ -8,6 +8,8 @@ Every paragraph here records a measured failure and the fix that was chosen over
 Read the ones covering whatever you are about to change. The always-loaded index is
 [`CLAUDE.md`](../../CLAUDE.md).
 
+## Who writes a break, and the floor under them
+
 **A kind of break has SEVERAL writers, and the last one is its floor.** `BreakWriterRegistry` is
 keyed by `segments.kind` and holds them in registration order, which IS preference order
 (`director.module.ts`): `ModelTalkBreakWriter` in front, `TalkBreakWriter` behind it. A writer that
@@ -17,6 +19,20 @@ declining early. **The floor cannot fail**, which is what makes a slow model cos
 rather than a silent station. The registry answers with every ATTEMPT rather than only the winner,
 because a model that declined and a floor that covered for it are two facts and the second alone
 reads as a station that never had a model.
+
+**The station's phrasings are the operator's.** `rotation.breakTemplates`, one per line, with the
+station's own five as the DEFAULT — so clearing the box restores them rather than producing a silent
+DJ, and the way to stop it talking stays `rotation.breaks`. `{{next.title}}` resolves through an
+explicit map in `break.templates.ts` (which is why `{{next.album}}` is one row to add when enrichment
+lands), `[[double brackets]]` mark a part dropped when it cannot be filled, and a template with an
+unknown placeholder is never used and is logged once, quoted. Two rules are the writer's rather than
+the operator's: a placeholder outside an optional chunk that cannot be filled means the phrasing does
+not apply, and a phrasing saying nothing about the record just finished is only offered where there
+is none.
+
+**A break is written when its slot comes near, not when it is planted.** Planting stays eager and runs to the end of the order, because the position is what keeps the spacing stable; `BreakPlanner.ripen` asks for the WORDS only within `WRITE_AHEAD` items of the cursor. That is the difference between an hour of forward planning and an hour of model and speech work an operator edit can throw away. Sending is free because the job claims the row first, so the director re-offers whatever is still `planned` on every boundary and a lost job heals itself — and an off-air station writes nothing at all. Note the ordering trap it was built around: the running order is written through a THROTTLE, so a job can pick up a break the persisted row does not hold yet; the neighbours are therefore read before the claim, and absent-from-the-order means early rather than has-no-neighbours. **That rule has exactly one exception, and reading it as absolute cost every welcome the station ever tried to give.** An `interrupt` or `next` REQUEST is rendered before it is injected, so `BreakPlanner.prepareRequested` gives its segment no position on purpose and `DirectorService.injectReady` finds it one once the audio exists — for which absent-from-the-order means neither early nor has-no-neighbours but not placed yet. `WriteBreakJob` therefore asks whether a request is behind the segment before it defers, and `injectReady` carries the re-offer that `ripen` cannot, since `ripen` walks the order and this break is deliberately outside it.
+
+## A claim needs its evidence
 
 **A FACT is a claim with its evidence attached, and it is not a plugin's payload.** `deadair.facts`
 holds one sentence each, extracted by the host out of prose a plugin handed over, with the span of
@@ -41,15 +57,13 @@ query, a provider fact's is `chooseFacts`'s `rotate`. The stamp is at SELECTION,
 before its slot still rests its facts; that inaccuracy is bought deliberately against a
 `segment_events` reader.
 
-**The station's phrasings are the operator's.** `rotation.breakTemplates`, one per line, with the
-station's own five as the DEFAULT — so clearing the box restores them rather than producing a silent
-DJ, and the way to stop it talking stays `rotation.breaks`. `{{next.title}}` resolves through an
-explicit map in `break.templates.ts` (which is why `{{next.album}}` is one row to add when enrichment
-lands), `[[double brackets]]` mark a part dropped when it cannot be filled, and a template with an
-unknown placeholder is never used and is logged once, quoted. Two rules are the writer's rather than
-the operator's: a placeholder outside an optional chunk that cannot be filled means the phrasing does
-not apply, and a phrasing saying nothing about the record just finished is only offered where there
-is none.
+**A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
+baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the
+words named, and `toPlayerItems` drops the break when that is no longer what plays next. The next
+record is offered to a writer only when it is the adjacent line, since a promise made across an
+intervening segment is the least trustworthy kind. Silence on one boundary beats a wrong fact.
+
+## What the prompt says, and what it left out
 
 **What buys a character room is what the break does not have to say, never the word ceiling.**
 Measured before changing anything: 2 of 137 captured answers reached `DEFAULT_MAX_WORDS` and the
@@ -117,6 +131,8 @@ never refuses, deliberately — `dictionMarkers` are asked for by name and count
 the cheapest way to pass the character check is to say the marker list again, and a check that
 declined over it would be refusing the character for being itself.
 
+## Bulletins
+
 **A bulletin does not read a story twice, and what it is not shown is as deliberate as what it is.**
 `BulletinSource` took the top `rotation.newsStoriesMin`–`Max` off a newest-first feed with nothing
 remembering
@@ -143,6 +159,8 @@ of a story (thin copy is a hole to leave open, not to fill — "Gravity is an in
 why Earth has its atmosphere and orbits the sun" aired as news, twice), and it STOPS when the stories
 stop, because one bulletin reported three stories correctly and then wrote twelve more sentences
 about the needle sliding into rhythm.
+
+## The format clock, and what a break is about
 
 **The format clock is ROWS, and what a break is ABOUT is the operator's own word.** `rotation.clockBands`
 was a settings box parsed line by line, which was right while a band was three tokens somebody could
@@ -194,11 +212,7 @@ is asked what each feed says it is and the stories are joined to it on the feed 
 station's opinion being stamped onto somebody else's entry — and the word is matched against the
 category's own key OR its label, since a category is written once and named twice.
 
-**A break's forward claim is checked before it airs.** "Coming up, X" is a statement about the future
-baked into audio that cannot be re-cut, so `segments.claims_item_id` records the lineup LINE the
-words named, and `toPlayerItems` drops the break when that is no longer what plays next. The next
-record is offered to a writer only when it is the adjacent line, since a promise made across an
-intervening segment is the least trustworthy kind. Silence on one boundary beats a wrong fact.
+## The record of what was written
 
 **Everything the station writes is kept.** `deadair.script_history`, one row per write ATTEMPT,
 append-only and with no `updated_at` — a correction is another attempt, which is another row. It
@@ -206,5 +220,3 @@ outlives its segment (`on delete set null`, denormalised), holds the writer, the
 the neighbours, the token counts and the duration, and is swept nightly against
 `render.scriptHistoryDays`. The prompt and the raw answer are kept only while `llm.captureWrites` is
 on, which is a switch for an evening of prompt tuning rather than a default.
-
-**A break is written when its slot comes near, not when it is planted.** Planting stays eager and runs to the end of the order, because the position is what keeps the spacing stable; `BreakPlanner.ripen` asks for the WORDS only within `WRITE_AHEAD` items of the cursor. That is the difference between an hour of forward planning and an hour of model and speech work an operator edit can throw away. Sending is free because the job claims the row first, so the director re-offers whatever is still `planned` on every boundary and a lost job heals itself — and an off-air station writes nothing at all. Note the ordering trap it was built around: the running order is written through a THROTTLE, so a job can pick up a break the persisted row does not hold yet; the neighbours are therefore read before the claim, and absent-from-the-order means early rather than has-no-neighbours. **That rule has exactly one exception, and reading it as absolute cost every welcome the station ever tried to give.** An `interrupt` or `next` REQUEST is rendered before it is injected, so `BreakPlanner.prepareRequested` gives its segment no position on purpose and `DirectorService.injectReady` finds it one once the audio exists — for which absent-from-the-order means neither early nor has-no-neighbours but not placed yet. `WriteBreakJob` therefore asks whether a request is behind the segment before it defers, and `injectReady` carries the re-offer that `ripen` cannot, since `ripen` walks the order and this break is deliberately outside it.

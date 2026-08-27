@@ -7,6 +7,8 @@ Every paragraph here records a measured failure and the fix that was chosen over
 Read the ones covering whatever you are about to change. The always-loaded index is
 [`CLAUDE.md`](../../CLAUDE.md).
 
+## Where the loop lives
+
 **The station's words are a plugin, and the loop around them is not.** `llm` capability,
 `plugins/llm` on the AI SDK's OpenAI-compatible provider so one plugin covers a local server and a
 hosted one alike. `llm.pluginId` picks it, mirroring `render.speechPluginId` including its DEFAULT —
@@ -20,6 +22,10 @@ whose sources are an explicit list (catalog search today). A tool declaration go
 call comes back, both plain JSON, so nothing executable crosses. **A station with no model plugin is
 an ordinary state, not a fault** — `canGenerate()` answers it without throwing, so a writer picks its
 deterministic binding.
+
+**One model slot, and it stays one.** `LlmGate` serializes because there is one process with one set of weights on one GPU. Two callers now want it at once — a refill holds it for minutes, a break wants it for seconds — and that is still not an argument for a pool: a second app-side slot relocates the queue to the model host, where there is no `maxWaitMs`, and that timeout is the entire mechanism by which a break writer gives up and lets the floor write. Widening the gate would remove the thing that keeps a slow model from costing a silent station while looking like it was helping. The asymmetry is PRIORITY, not throughput, and it is expressed by bounding the background job (`ModelSetGenerator.BUDGET_MS`), which needs nothing from the gate. **A model budget and degradation tiers are deliberately NOT built** (`docs/todo/station-intelligence.md` §2, deferred against its own ordering claim): every call goes through `LlmService`, so the retrofit is one file, the model is self-hosted so nothing is billed, and "no tier makes music stop" is already structural — the chain tops up and the writer registry falls through.
+
+## The tool loop
 
 **A tool call the model wrote as TEXT is still a tool call, and the loop re-issues it.** A
 conversation ends when a generation comes back with no tool calls, because that is what an answer
@@ -38,5 +44,3 @@ never be mistaken for a call. Two bounds: there is no rescue on the LAST step, w
 tools to force words is the point, and the replayed assistant turn carries empty content rather than
 the stray text, because the transcript is also the model's own record of what it did and it should be
 shown the shape to repeat, not the mistake. The raw text survives in the log line.
-
-**One model slot, and it stays one.** `LlmGate` serializes because there is one process with one set of weights on one GPU. Two callers now want it at once — a refill holds it for minutes, a break wants it for seconds — and that is still not an argument for a pool: a second app-side slot relocates the queue to the model host, where there is no `maxWaitMs`, and that timeout is the entire mechanism by which a break writer gives up and lets the floor write. Widening the gate would remove the thing that keeps a slow model from costing a silent station while looking like it was helping. The asymmetry is PRIORITY, not throughput, and it is expressed by bounding the background job (`ModelSetGenerator.BUDGET_MS`), which needs nothing from the gate. **A model budget and degradation tiers are deliberately NOT built** (`docs/todo/station-intelligence.md` §2, deferred against its own ordering claim): every call goes through `LlmService`, so the retrofit is one file, the model is self-hosted so nothing is billed, and "no tier makes music stop" is already structural — the chain tops up and the writer registry falls through.

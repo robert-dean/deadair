@@ -7,6 +7,8 @@ Every paragraph here records a measured failure and the fix that was chosen over
 Read the ones covering whatever you are about to change. The always-loaded index is
 [`CLAUDE.md`](../../CLAUDE.md).
 
+## The lease, and the audience above it
+
 **The mount is leased, not held.** `radio.liq` airs nothing unless the app is actively renewing a
 short claim (`POST /control/onair`, `CONTROL_TTL_S`, default 6s), and `PlayoutPusher` renews it on
 its reconcile only while `Rundown.hasProgramme()` **and** `AudienceWatch.gateOpen()`. So a crashed,
@@ -26,6 +28,8 @@ tighten) or `/status-json.xsl` on a 2.4 (which 2.5 deprecates). Whichever answer
 other is probed once per re-probe rather than once per poll. **The two documents carry the same facts
 in different shapes, and neither matches what upstream's source suggests** — `listenersForMount` is
 where that lives, and `docs/todo/icecast-2.5.md` records both measured payloads.
+
+## Knowing who is listening
 
 **The FEED is the mechanism and the poll is the failsafe.** `IcecastEventFeed` holds
 `/admin/eventfeed` open and `icecast.eventfeed.parse.ts` deliberately does not filter on the trigger,
@@ -54,6 +58,19 @@ worth knowing rather than working around — an operator with the console open i
 audience, so in `audience` mode a station with nobody actually tuned in stays silent while they
 watch it, which is the gate telling the truth rather than a fault.
 
+**Zero listeners and an Icecast that stopped answering are the same number and opposite facts.**
+`IcecastStatsClient.listeners()` returns `undefined` for "could not read" and documents that as
+deliberately not `0`; `AudienceWatch` used to discard it, so a dead stats endpoint read as an empty
+room and in `audience` mode the gate then never reopened — silent for good, console saying `ready`.
+`AudienceWatch.reading()` keeps `readAt` beside the count, stamped in `accept()` because that is the
+one place a poll and an event-feed message meet, and both are proof Icecast is alive. **The gate
+itself is deliberately unchanged**: an app that cannot see Icecast has no evidence anybody is there,
+and airing on a failed request would be the worse mistake. What that means in practice is that only a
+POSITIVE reading moves it — a failed poll leaves the last count standing rather than reading as an
+empty room — so an Icecast that dies while somebody is listening does not take the station off air.
+
+## Why it is quiet
+
 **Every gate that can silence the station says so, in ONE ordered answer.** `silence.diagnosis.ts` is
 eleven gates over a `StationFacts` snapshot, pure so the precedence can be tested without a stack, and
 `PlayoutStatus.silence` carries the verdict on the reading the console already polls — so the badge,
@@ -77,6 +94,8 @@ holding message and the station would otherwise report itself as broadcasting it
 cause CHANGE is logged on the edge, keyed like `StreamConfigWatch`'s warnings, and it is written to
 `deadair.station_events` on the same edge, which is what makes "why was the station quiet at 3am"
 answerable at all.
+
+## What happened
 
 **The activity feed is a union of three tables and owns only one of them.** `GET /activity` reads
 `deadair.station_events` (the station's own moments: a silence cause changing, an air toggle, a gap
@@ -114,17 +133,6 @@ own sentences and never a third party's text**: nothing here is redacted, which 
 every `detail` is written by app code, so an upstream body, a provider's response or a plugin's
 message must be summarized rather than quoted. That is also the line between this and `PluginLog`,
 which scrubs tokens and sits on `platform.manage` precisely because plugin output goes through it.
-
-**Zero listeners and an Icecast that stopped answering are the same number and opposite facts.**
-`IcecastStatsClient.listeners()` returns `undefined` for "could not read" and documents that as
-deliberately not `0`; `AudienceWatch` used to discard it, so a dead stats endpoint read as an empty
-room and in `audience` mode the gate then never reopened — silent for good, console saying `ready`.
-`AudienceWatch.reading()` keeps `readAt` beside the count, stamped in `accept()` because that is the
-one place a poll and an event-feed message meet, and both are proof Icecast is alive. **The gate
-itself is deliberately unchanged**: an app that cannot see Icecast has no evidence anybody is there,
-and airing on a failed request would be the worse mistake. What that means in practice is that only a
-POSITIVE reading moves it — a failed poll leaves the last count standing rather than reading as an
-empty room — so an Icecast that dies while somebody is listening does not take the station off air.
 
 **A heartbeat is not a health check.** `modules/shared/heartbeat.ts` is a map of name to two
 timestamps and holds no opinion about thresholds, because a five-second poll and a nightly sweep are

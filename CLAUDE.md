@@ -33,6 +33,18 @@ was shipped first and was wrong.
 | the model, the gate, the tool loop | [`docs/internals/llm.md`](docs/internals/llm.md) |
 | the Dockerfile, the image variants, CI | [`docs/internals/deployment.md`](docs/internals/deployment.md) |
 
+Each of those is sectioned, so the answer to one question is a heading rather than a file. Several
+tasks cross more than one of them, and for those the order matters:
+
+| Changing | Read, in this order |
+| --- | --- |
+| what a break says | `breaks.md`, then `personas.md` for whoever is saying it, `llm.md` for the loop that writes it, `render.md` for what becomes of the words |
+| what plays next | `programming.md`, then `director.md` for the order the pick lands in |
+| anything that airs, or fails to | `playout.md`, then `director.md` — the two answer different halves of "why is nothing playing" |
+| a setting, anywhere | `apps/api/CLAUDE.md`, both the string rule and the registry, before writing the first `config.get` |
+| a plugin, or a capability on the host | `packages/plugin-sdk/CLAUDE.md`, then its `README.md` |
+| the schema | the generated-output rule below first, because the types are not yours to edit |
+
 The long-form arguments are in `docs/decisions/`, and `docs/todo/` holds work designed against the
 real tree and then deliberately deferred. **Read `docs/todo/` before designing a station feature
 from scratch: the call may already have been made.**

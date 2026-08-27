@@ -31,12 +31,12 @@ describe('SideNav', () => {
             // One link, not two: the desk answers what Home and On air answered separately.
             'Desk',
             'Programme',
-            'Activity',
             'Library',
             // Eight links became one destination with tabs. The tabs themselves are covered in
             // `voice.page.test.tsx`; what belongs here is that the nav offers the way in.
             'Voice',
             'Plugins',
+            // The activity feed is a tab on Check-up now, not a nav link of its own.
             'Check-up',
             'Settings',
         ];

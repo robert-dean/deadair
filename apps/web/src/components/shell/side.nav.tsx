@@ -43,8 +43,10 @@ const ITEMS: Pick<NavItemProps, 'to' | 'label'>[] = [
     // arrive because the station said a name wrong, and every answer to THAT question is now on one
     // page.
     { to: '/voice', label: 'Voice' },
-    { to: '/activity', label: 'Activity' },
     { to: '/plugins', label: 'Plugins' },
+    // The activity feed is the second tab here now. Check-up says what the machinery is doing NOW
+    // and the feed says what it DID: an operator who finds a stalled loop on the first immediately
+    // wants the second, and had to go and find it in the nav.
     { to: '/checkup', label: 'Check-up' },
     { to: '/settings', label: 'Settings' },
 ];

@@ -66,16 +66,26 @@ body {
  *
  * Content areas never get this: a scanline over a table of track titles is decoration paid for in
  * legibility, which is the wrong trade on a page someone reads during a fault.
+ *
+ * ## It is a background, and it may not set `position`
+ *
+ * This was `position: relative` plus an inset `::after`, which is the ordinary way to lay a texture
+ * over an element — and it cost the console 52px at the top of every page for as long as it existed.
+ *
+ * The class has one caller and that caller is `AppShell.Header`. Mantine positions the header
+ * `fixed` and pays for it in `AppShell.Main`'s `padding-top`, which is `header-offset + padding`.
+ * This file loads AFTER Mantine's stylesheet, and `.da-scanlines` has the same specificity as
+ * Mantine's own `.m_3b16f56b` — so `position: relative` won on source order, dropped the header back
+ * into flow, and the page then paid for the header twice: 52px of flow plus 52px of padding that
+ * exists to clear a header no longer taking any room. The header also scrolled away with the page,
+ * which is the opposite of what a tally light is for.
+ *
+ * A background-image needs no containing block, so the whole class of bug goes with the pseudo
+ * element. The texture now paints between the background colour and the content rather than over
+ * the top of it, which at 2.5% white is not a difference anybody can see, and is marginally kinder
+ * to the text.
  */
 .da-scanlines {
-    position: relative;
-}
-
-.da-scanlines::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
     background-image: repeating-linear-gradient(to bottom, rgb(255 255 255 / 2.5%) 0 1px, transparent 1px 3px);
 }
 

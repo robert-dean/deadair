@@ -4,6 +4,19 @@
  * `theme.ts` owns everything expressible as a theme; this file owns the surfaces those values
  * point AT (`--da-*`), plus the keyframes, the chrome texture and the scrollbars. Loaded after
  * Mantine's stylesheet so the resolver's `var(--da-*)` references have something to resolve to.
+ *
+ * ## Every value here belongs to a theme
+ *
+ * `[data-da-theme]` on `<html>` is what selects between them, written by `theme.store.ts` and, one
+ * frame earlier, by the inline script in `index.html`. The `:root` block below is carbon, and it is
+ * unqualified rather than written as `[data-da-theme='carbon']` for one reason: it is what an
+ * install with no stored preference and no JavaScript yet gets. A theme that only exists behind an
+ * attribute is a theme that flashes.
+ *
+ * A value that differs between themes has to live in a variable here rather than inside the rule
+ * that uses it. That is not tidiness — a colour written into a `background-image` cannot be
+ * overridden by a theme without restating the whole rule, and the two below (`--da-bg-glow` and
+ * `--da-texture`) were both exactly that until they had to change.
  */
 
 :root {
@@ -26,6 +39,12 @@
     --da-phosphor: #2fd98c;
     --da-phosphor-glow: rgb(47 217 140 / 35%);
     --da-tally-glow: rgb(255 75 75 / 40%);
+
+    /* The lamp the desk is lit by: the far end of the body gradient, which recedes into `--da-bg`. */
+    --da-bg-glow: #10130f;
+
+    /* The scanline over the chrome. Light on dark here; a theme on paper wants the opposite sign. */
+    --da-texture: rgb(255 255 255 / 2.5%);
 
     /* One tracking value per idea, which is the whole point: the console had three different
        letter-spacings for the same uppercase label. */
@@ -51,7 +70,7 @@ body {
     /* Durations, counts and timecodes line up in columns without anything opting in. */
     font-variant-numeric: tabular-nums;
     /* A desk lit by its own lamps: barely a gradient, enough that the corners recede. */
-    background-image: radial-gradient(ellipse 120% 80% at 50% 0%, #10130f 0%, var(--da-bg) 60%);
+    background-image: radial-gradient(ellipse 120% 80% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
     background-attachment: fixed;
 }
 
@@ -86,7 +105,7 @@ body {
  * to the text.
  */
 .da-scanlines {
-    background-image: repeating-linear-gradient(to bottom, rgb(255 255 255 / 2.5%) 0 1px, transparent 1px 3px);
+    background-image: repeating-linear-gradient(to bottom, var(--da-texture) 0 1px, transparent 1px 3px);
 }
 
 /**

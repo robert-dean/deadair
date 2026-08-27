@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-mantine-color-scheme="dark">
+<html lang="en" data-da-theme="carbon" data-mantine-color-scheme="dark">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,16 +7,50 @@
         <title>deadair</title>
         <style>
             /*
-             * Painted before the bundle loads so there is no light flash. The hex is duplicated
-             * from `--da-bg` in src/tokens.css deliberately: this has to paint before any
-             * stylesheet exists, so it cannot read the token it is copying.
+             * Painted before the bundle loads so there is no flash of the wrong console. The hexes
+             * are duplicated from `--da-bg` in src/tokens.css deliberately: this has to paint
+             * before any stylesheet exists, so it cannot read the tokens it is copying. There are
+             * three of them now, for the same one reason.
              */
             html,
             body {
                 margin: 0;
                 background-color: #0c0e0d;
             }
+
+            html[data-da-theme='white'],
+            html[data-da-theme='white'] body {
+                background-color: #f4f1ea;
+            }
+
+            html[data-da-theme='neon'],
+            html[data-da-theme='neon'] body {
+                background-color: #04040a;
+            }
         </style>
+        <script>
+            /*
+             * The stored theme, applied before the first paint.
+             *
+             * Inline and blocking on purpose: `src/theme.store.ts` writes this same attribute, but
+             * it cannot run until the module graph has loaded, and every frame before that is a
+             * frame of carbon on a console somebody set to paper. The rules above are keyed on the
+             * attribute this sets, so the background and the scheme land together.
+             *
+             * The two names are duplicated from `themes.ts` for the reason the hexes above are: no
+             * module has loaded yet. Anything unrecognised falls through to carbon, which is what
+             * the markup already says.
+             */
+            try {
+                var stored = window.localStorage.getItem('da-theme');
+                if (stored === 'white' || stored === 'neon') {
+                    document.documentElement.setAttribute('data-da-theme', stored);
+                    document.documentElement.setAttribute('data-mantine-color-scheme', stored === 'white' ? 'light' : 'dark');
+                }
+            } catch (error) {
+                /* Site data is blocked. Carbon it is. */
+            }
+        </script>
     </head>
     <body>
         <div id="root"></div>

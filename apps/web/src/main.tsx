@@ -33,7 +33,7 @@ import './tokens.css';
 
 import { createQueryClient } from './api/query.client';
 import { routeTree } from './routeTree.gen';
-import { cssVariablesResolver, theme } from './theme';
+import { useTheme } from './theme.store';
 
 const queryClient = createQueryClient();
 
@@ -52,18 +52,34 @@ if (!rootElement) {
     throw new Error('Missing #root element in index.html');
 }
 
+/**
+ * The provider stack, in a component so the chosen theme can be read with a hook.
+ *
+ * `forceColorScheme` rather than Mantine's own scheme handling, still: the console does not offer a
+ * light/dark toggle, it offers three consoles, and which half of Mantine's variables each one draws
+ * from is a property of that theme rather than of the browser. `theme.store.ts` has already written
+ * `data-da-theme` for the stylesheet by the time this renders.
+ */
+function Console() {
+    const chosen = useTheme();
+
+    return (
+        <MantineProvider theme={chosen.mantine} cssVariablesResolver={chosen.resolver} forceColorScheme={chosen.scheme}>
+            {/* Top right, and that is the one thing about this that is not a default. It used
+                to be because the transport bar was fixed to the bottom edge; that bar is gone,
+                and the reason survived it — the tally now sits in the header at top LEFT, so
+                this corner is still the one where a stack of toasts cannot cover the state of
+                the station to tell you a setting saved. */}
+            <Notifications position="top-right" limit={3} />
+            <RouterProvider router={router} />
+        </MantineProvider>
+    );
+}
+
 createRoot(rootElement).render(
     <StrictMode>
         <QueryClientProvider client={queryClient}>
-            <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} forceColorScheme="dark">
-                {/* Top right, and that is the one thing about this that is not a default. It used
-                    to be because the transport bar was fixed to the bottom edge; that bar is gone,
-                    and the reason survived it — the tally now sits in the header at top LEFT, so
-                    this corner is still the one where a stack of toasts cannot cover the state of
-                    the station to tell you a setting saved. */}
-                <Notifications position="top-right" limit={3} />
-                <RouterProvider router={router} />
-            </MantineProvider>
+            <Console />
             {/* Compiles to a stub component unless NODE_ENV is "development", so it needs no guard. */}
             <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
         </QueryClientProvider>

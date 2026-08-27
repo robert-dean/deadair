@@ -9,6 +9,7 @@ type PersonaKind = NonNullable<PersonaInput['kind']>;
 const kindOf = (persona: Persona): PersonaKind => persona.kind ?? 'host';
 
 import {
+    exportPersonas,
     useCreatePersona,
     useDeletePersona,
     usePersonas,
@@ -83,6 +84,25 @@ export function PersonasPage() {
     // nothing to debounce: no request rides it, and a URL naming a filter over a client-side list
     // would be a link to somebody else's half-typed word.
     const [filter, setFilter] = useState('');
+    // A download is not state this app holds, so there is no query and no mutation behind it — only
+    // whether one is in flight, and what went wrong if it did. Keyed by persona id, with the roster
+    // export under `ROSTER`, so a failure lands on the card that asked for it rather than at the top
+    // of a list of fourteen. See `CardFailure`.
+    const [exporting, setExporting] = useState<string | undefined>(undefined);
+    const [exportFailure, setExportFailure] = useState<{ of: string; error: unknown } | undefined>(undefined);
+
+    const save = async (id?: string) => {
+        const of = id ?? ROSTER;
+        setExporting(of);
+        setExportFailure(undefined);
+        try {
+            await exportPersonas(id);
+        } catch (error) {
+            setExportFailure({ of, error });
+        } finally {
+            setExporting(undefined);
+        }
+    };
 
     const close = () => {
         setEditing(undefined);
@@ -117,6 +137,19 @@ export function PersonasPage() {
                 }
                 actions={
                     <>
+                        {/* The whole roster as one file: a backup an operator can keep, and the shape
+                            somebody else's station can read. It carries no id and nothing about who
+                            is on air, so nothing about this station travels with it. */}
+                        <Button
+                            variant="default"
+                            loading={exporting === ROSTER}
+                            disabled={all.length === 0}
+                            onClick={() => {
+                                void save();
+                            }}
+                        >
+                            Export all
+                        </Button>
                         {/* Safe to press twice: it writes only what is missing, overwrites nothing an
                             operator has rewritten, and puts nothing on air. That is what keeps it a
                             plain button rather than something behind a confirmation. */}
@@ -160,6 +193,12 @@ export function PersonasPage() {
                 rehearsing one and deleting one all report on the card that asked. */}
             {restore.error ? (
                 <ErrorAlert title="The station personas could not be restored" error={restore.error} fallback="Nothing was written." />
+            ) : undefined}
+
+            {/* Page-level for the same reason, and only for the ROSTER export: the button that asked
+                is up here. A single character's failure lands on its own card. */}
+            {exportFailure?.of === ROSTER ? (
+                <ErrorAlert title="The personas could not be exported" error={exportFailure.error} fallback="Nothing was saved." />
             ) : undefined}
 
             {personas.isPending ? (
@@ -267,12 +306,31 @@ export function PersonasPage() {
                                     persona's KEY rather than its id, since that is what
                                     `script_history` stamps: the rows outlive the character, so what
                                     it said survives it being deleted. */}
-                                    <Anchor
-                                        size="xs"
-                                        renderRoot={props => <Link to="/scripts" search={{ segment: '', persona: persona.key }} {...props} />}
-                                    >
-                                        What they&apos;ve said
-                                    </Anchor>
+                                    <Group gap="sm" wrap="nowrap">
+                                        <Anchor
+                                            size="xs"
+                                            renderRoot={props => <Link to="/scripts" search={{ segment: '', persona: persona.key }} {...props} />}
+                                        >
+                                            What they&apos;ve said
+                                        </Anchor>
+                                        {/* Here rather than in the row of buttons opposite, which is
+                                        already one action wider than fits — and honestly, because
+                                        this takes the character somewhere rather than doing
+                                        anything to it. What comes back is the sheet and the
+                                        stories, with no id and nothing saying who is on air, so it
+                                        can be read by any station. */}
+                                        <Anchor
+                                            component="button"
+                                            type="button"
+                                            size="xs"
+                                            disabled={exporting === persona.id}
+                                            onClick={() => {
+                                                void save(persona.id);
+                                            }}
+                                        >
+                                            {exporting === persona.id ? 'Saving…' : 'Export'}
+                                        </Anchor>
+                                    </Group>
 
                                     {persona.voice && preview.failureFor(persona.voice) ? (
                                         <Text size="xs" c={severityColor.failure}>
@@ -359,6 +417,8 @@ export function PersonasPage() {
                             {rehearse.error && rehearse.variables === persona.id ? (
                                 <CardFailure error={rehearse.error} fallback="Nothing was changed: a rehearsal writes no row and cannot air." />
                             ) : undefined}
+
+                            {exportFailure?.of === persona.id ? <CardFailure error={exportFailure.error} fallback="Nothing was saved." /> : undefined}
 
                             {/* Keyed on the persona it was actually run for rather than simply rendered
                             under whichever card is last: one result is held at a time, and a panel
@@ -474,6 +534,14 @@ function describeVoice(voiceId: string, voices: Voice[] | undefined): string {
 
 /** Below this many characters, a filter box is a control that costs more attention than it saves. */
 const FILTER_FROM = 6;
+
+/**
+ * What the roster export is keyed as, so one piece of state covers both buttons.
+ *
+ * A sentinel rather than a second pair of state variables, and it cannot collide with a persona id:
+ * those are uuids, and this is not one.
+ */
+const ROSTER = 'roster';
 
 /**
  * The roster, with whoever the station falls back to at the top.

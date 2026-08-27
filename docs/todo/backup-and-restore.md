@@ -1,13 +1,66 @@
 # Import and export for everything that is AUTHORED, and the backup that falls out of it
 
-Status: **not built.** This records the design so the next pass does not re-derive it, and in
-particular so nobody builds a worse `pg_dump`.
+Status: **one row of tier 1 is built, and only its export half.** Personas are exportable as a file
+(`GET /personas/export`, `GET /personas/{id}/export`); everything else below is still design, and in
+particular nobody has yet built a worse `pg_dump`.
 
 **Designed:** 2026-08-22, from the operator asking for import/export "for everything that makes
 sense, including the station settings, so we can provide a backup/restore feature too".
-**State of the tree:** 21 migrations, one station, one operator, no export surface anywhere. Nothing
-in `apps/api/data/contracts` reads or writes a file that is not media, and no route anywhere emits a
-document describing the station's configuration.
+**State of the tree when it was designed:** 21 migrations, one station, one operator, no export
+surface anywhere. Nothing in `apps/api/data/contracts` read or wrote a file that was not media, and
+no route emitted a document describing the station's configuration.
+
+## What is built, and the four things it settles for everything after it
+
+**Personas first**, because this file's own argument for building anything rather than documenting a
+`pg_dump` is the sharing case, and a character is the piece somebody would actually send somebody
+else. `apps/api/src/modules/personas/persona.file.ts` is the document and
+`persona.export.service.ts` is the read; the console has an Export beside each character and one for
+the roster. The import half — the parser, the dry run and the merge — is not built.
+
+Four decisions came out of building it, and each one is a rule for the rest of tier 1 rather than a
+detail of this row:
+
+1. **The document was already a contract.** `PersonaDraftView` is the sheet with `id` and `active`
+   deliberately absent, so `PersonaFilePersona` is that plus the two fields a MODEL is not asked for
+   and a real install always knows (`kind`, `soundboard`). What that buys is not brevity: an imported
+   file **cannot** change who is presenting and **cannot** collide with a row it did not mean,
+   enforced by the contract rather than by a guard somebody has to remember. Anything else in tier 1
+   with a `*DraftView`-shaped contract should be built on it for the same reason.
+2. **Rotation state is not part of the thing.** A story's `lastToldAt` and `timesTold` belong to the
+   station that told it, not to the character, and the same will be true of `pads.last_used_at` and
+   of a fact's cooldown. What a row IS and how often this install has spent it are two questions.
+3. **Provenance about the exporting station does not travel.** A story's `origin` and `source` are
+   dropped: whoever exported it stood behind it, and `source` names a catalogue the receiving install
+   does not have. The same argument will apply to `pads.source_path` and to `playlists.origin_plugin_id`
+   — except where the value is genuinely portable, which is the one thing to check per table.
+4. **A dangling reference is reported, never refused.** A persona's `voice` may map to nothing on the
+   far side and its `soundboard` may name a rack that does not exist, and migration 0012 already
+   settles the second: a persona naming a set that does not exist and a persona with no rack are ONE
+   state. So both travel and the import says which it got. Contrast `clock_bands.topic_id`, which
+   **cascades** and therefore has to refuse an unresolvable band — the difference is whether the
+   missing reference produces a presenter with nothing to reach for, or a general bulletin under a
+   category's name.
+
+## Three tables this file predates
+
+It was written against 21 migrations and there are now 24. Sorted against the four tiers:
+
+- **`persona_stories` + `persona_story_details` (0021): tier 1**, and built — authored fiction about a
+  character, which nothing can regenerate. Carried with the persona, keyed by `title` and by the
+  detail text, which is what `PersonaStoriesRepository.holds` / `holdsDetail` already match on.
+  `active` and `rejected` travel (a rejected proposal that is dropped is one the enrichment pass
+  re-proposes forever, which is `pronunciations`' argument one table over); `suggested` does not,
+  because nobody has decided it.
+- **`script_ratings` (0022): tier 3.** It cascades off `script_history` and the nightly
+  `render.scriptHistoryDays` sweep takes both, so a rating whose script did not travel is an orphan.
+- **`pads` / `pad_sets` / `pad_set_members` (0023): SPLIT, and this is the one that surprises.** A pad
+  ROW is derived from a file in the library directory — the boot scan rewrites the store from it — so
+  it travels with the file, in phase 5. The **set list and its membership are authored** and cannot be
+  regenerated from the directory at all, which is exactly what migration 0023 split `board`
+  (provenance) from `pad_sets` (the rack) in order to make expressible. So `pad_sets` and
+  `pad_set_members` belong in the JSON, with members referenced by pad `(board, name)`, and a member
+  the receiving install does not hold is a reported miss on the playlist's own terms.
 
 ## The thing this is FOR, stated first so the scope stays honest
 
@@ -36,12 +89,14 @@ Every table in `apps/api/data/migrations` sorts into one of four, and the sort i
 | What | Where |
 | --- | --- |
 | Station settings | `deadair.settings` (see the secrets section — this is where the difficulty is) |
-| Personas | `deadair.personas` |
+| Personas — **export built** | `deadair.personas` |
+| What has happened to a character — **export built** | `deadair.persona_stories`, `deadair.persona_story_details`, `active` and `rejected` only |
 | Topics (news categories, and whatever kinds come later) | `deadair.topics` |
 | The format clock | `deadair.clock_bands` |
 | The daypart schedule | `deadair.schedule_slots` |
 | The lexicon | `deadair.pronunciations`, `origin = 'operator'` and any `gloss` row the operator has accepted or rejected |
 | Saved playlists | `deadair.playlists`, `deadair.playlist_tracks` |
+| The soundboard's racks, but not its sounds | `deadair.pad_sets`, `deadair.pad_set_members`. The pad rows travel with their files, in phase 5 |
 | **Opinions** | `artists.rating`, `albums.rating`, `tracks.rating` — three columns on regenerable rows, which is why they are the hardest entry in this table |
 | Plugin configuration and decisions | `deadair.plugin_configs`, `deadair.plugin_grants` |
 | Recorded idents | `media/segments/inbox/`, on disk rather than in a table |
@@ -99,10 +154,27 @@ The same rule upward, for the references inside tier 1 itself, all of which are 
 
 Each tier-1 table already has a natural key of its own for identity on the way in: personas
 `(station_key, key)`, topics `(station_key, kind, key)`, pronunciations the partial unique index over
-`lower(btrim(written))`, schedule slots `(station_key, starts_at_minutes, days)`. **`clock_bands` has
-none** — its identity is `kind` plus the anchored/spacing shape plus `position` — so it is the one
-table whose merge has to be composite-keyed by hand or replaced wholesale. Decide that in phase 3 and
-write down which.
+`lower(btrim(written))`, schedule slots `(station_key, starts_at_minutes, days)`, pad sets
+`(station_key, key)`, and a persona's stories `personas.key` plus the story's own `title`.
+
+**Two tables have none, and they take opposite answers.** Both were left open above for phase 3;
+here they are.
+
+`clock_bands` is **replaced wholesale, never merged**. Its identity is `kind` plus the
+anchored/spacing shape plus `position`, and `position` IS precedence — so a row-by-row merge
+interleaves two operators' precedence orders into a clock that neither of them wrote and that
+neither can reason about. A file carrying bands replaces this station's band list in one statement;
+a file carrying none leaves it alone.
+
+`playlists` is **imported as a clone, never merged**, and that is not a new call: migration 0005
+already says it in as many words — *"An import is a clone, not a binding… there is deliberately no
+dedup on re-import"* — because importing the same upstream playlist twice is meant to yield two
+independent playlists. Inventing a merge here would be a second meaning for the word in one table.
+The one thing to carry that the entry above misses: a `playlist_tracks` row should export its
+`origin_plugin_id` / `origin_external_id` / `origin_snapshot` verbatim, so a record the target
+library does not hold lands as a **resolvable placeholder** rather than as a miss. The column exists
+for exactly this, and it turns "an honest miss count" into "a miss count plus rows that resolve
+themselves as the library grows".
 
 `station_key` is on every one of these and defaults to `'main'`. The export states the station it was
 taken from and the import states the one it is going to; they need not match, and when
@@ -238,6 +310,29 @@ justifies this file.
 ## Phases
 
 Each leaves the tree working and is one commit.
+
+**Personas run ahead of the rest**, on this file's own argument that the sharing case is what
+justifies building anything: 1a is built and lives in `PersonasModule` rather than waiting for a
+module that reaches ten tables. `persona.file.ts` is deliberately the shape the `personas` section of
+the wider export will re-export, so folding it in later is a call rather than a rewrite.
+
+1a. **Export, personas only.** ✅ Built. `GET /personas/export`, `GET /personas/{id}/export`, an
+    Export beside each character on the console and one for the roster.
+1b. **The parser and the dry run, personas only.** `POST /personas/import/preview`. A separate verb
+    from the import rather than a `dryRun` flag: both call one planner, so the "same code path"
+    guarantee below still holds, and the console can preview on file-select and offer Import as a
+    second, deliberate act. What the preview is FOR is the four things this station may not be able
+    to honour — an unmapped `voice`, a `soundboard` naming no rack, a phrasing naming a placeholder
+    that does not exist, and `dictionMarkers` no sample line uses. The last two reuse
+    `unknownPlaceholders` / `TEMPLATE_VOCABULARY` from `break.templates.ts` and `dictionMarkersIn`
+    from `persona.sheet.ts`, which `persona.writer.ts` already runs over a model's answer; an
+    imported sheet is the same problem through a different door and must not grow a second copy of
+    that vocabulary.
+1c. **Import, personas only, merge.** Through `PersonasService.create`/`update` and
+    `PersonaStoriesService`, deduped by the `holds` / `holdsDetail` checks that already exist for the
+    enrichment pass. It puts nobody on air.
+
+Then the rest of tier 1:
 
 1. **Export, JSON, tier 1 only, secrets redacted.** Read-only; nothing can be undone by it. Ends with
    a file an operator can keep, which is most of the value of the whole file.

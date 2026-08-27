@@ -4,6 +4,7 @@ options {
     }
     services: {
         PersonasService: "#src/modules/personas/personas.service.js"
+        PersonaExportService: "#src/modules/personas/persona.export.service.js"
         PersonaRehearsalService: "#src/modules/personas/persona.rehearsal.service.js"
         PersonaNotesService: "#src/modules/personas/persona.notes.service.js"
         PersonaStoriesService: "#src/modules/personas/persona.stories.service.js"
@@ -79,6 +80,57 @@ operation /personas/restore: {
             200: {
                 application/json: PersonaList
             }
+        }
+    }
+}
+
+# A character as a file, so it can be kept, edited by hand, or sent to somebody running their own
+# station. The whole roster or one of them; the same shape either way, so a file is a file.
+#
+# It carries no id and no `active`, which is not a decision made here: the file's persona is
+# `PersonaDraftView`, whose two absent fields are exactly those, so importing one can never change
+# who is on air and can never collide with a row it did not mean. What identifies a character across
+# two installs is its `key`.
+operation /personas/export: {
+    get: { # Every character this station holds, as one file
+        name: Export personas
+        security: {
+            # The read floor, as the persona list beside it: a character is prose the console already
+            # shows in full, and a file of them carries no credential and no station secret. This is
+            # the whole difference from the wider export in `docs/todo/backup-and-restore.md`, which
+            # sits on `platform.manage` because it names which secrets are set.
+            policy: platform.view
+        }
+        service: PersonaExportService.exportPersonas
+        response: {
+            200: {
+                application/json: PersonaFile
+                headers: {
+                    Content-Disposition?: string
+                }
+            }
+        }
+    }
+}
+
+operation /personas/{id}/export: {
+    params: {
+        id: string(min=1, max=100)
+    }
+    get: { # One character, its sheet and its stories, as a file
+        name: Export persona
+        security: {
+            policy: platform.view
+        }
+        service: PersonaExportService.exportPersona
+        response: {
+            200: {
+                application/json: PersonaFile
+                headers: {
+                    Content-Disposition?: string
+                }
+            }
+            404:
         }
     }
 }

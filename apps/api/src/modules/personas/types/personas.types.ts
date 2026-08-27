@@ -286,10 +286,20 @@ export const PersonaStoryState = z.strictObject({
 export type PersonaStoryState = z.infer<typeof PersonaStoryState>;
 
 /**
+ * One thing a story picked up after it was written, carried the same way and for the same reasons
+ * generated from [PersonaFileStoryDetail](file://./../../../../data/contracts/personas/personas.types.ck#L176)
+ */
+export const PersonaFileStoryDetail = z.strictObject({
+    detail: z.string().min(1).max(1000),
+    state: z.enum(['active', 'rejected']).optional(),
+});
+export type PersonaFileStoryDetail = z.infer<typeof PersonaFileStoryDetail>;
+
+/**
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L150)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L184)
  */
 export const PersonaRehearsalAttempt = z.strictObject({
     writer: z.string().min(1).max(100).describe('Which binding was asked, as `segments.writer` would record it'),
@@ -397,8 +407,28 @@ export const GeneratedPersona = z.strictObject({
 export type GeneratedPersona = z.infer<typeof GeneratedPersona>;
 
 /**
+ * Something that happened to this character, as a file carries it. No `origin` and no `source`,
+ * unlike the stored row: whoever exported this stood behind every story in it, so on the far side
+ * they are the receiving operator's own, and a sentence about where a proposal came from names a
+ * catalogue that station does not have
+ * generated from [PersonaFileStory](file://./../../../../data/contracts/personas/personas.types.ck#L169)
+ */
+export const PersonaFileStory = z.strictObject({
+    title: z.string().min(1).max(200),
+    story: z.string().min(1).max(4000),
+    state: z
+        .enum(['active', 'rejected'])
+        .optional()
+        .describe(
+            'Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet',
+        ),
+    details: z.array(PersonaFileStoryDetail),
+});
+export type PersonaFileStory = z.infer<typeof PersonaFileStory>;
+
+/**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L159)
+ * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L193)
  */
 export const PersonaRehearsal = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -430,3 +460,47 @@ export const PersonaStoryListInput = z.strictObject({
     stories: z.array(PersonaStoryInput),
 });
 export type PersonaStoryListInput = z.infer<typeof PersonaStoryListInput>;
+
+/**
+ * One character in a file. `PersonaDraftView` is the sheet with no id and not on air, which is
+ * exactly what travels, plus the two fields a model is deliberately not asked for and a real install
+ * always knows: what the character is FOR, and which rack it has to hand
+ * generated from [PersonaFilePersona](file://./../../../../data/contracts/personas/personas.types.ck#L159)
+ */
+export const PersonaFilePersona = PersonaDraftView.extend({
+    kind: z.enum(['host', 'caller']).optional().describe('Absent means `host`, as everywhere else'),
+    soundboard: z
+        .string()
+        .max(200)
+        .optional()
+        .describe(
+            'The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got',
+        ),
+    stories: z.array(PersonaFileStory),
+});
+export type PersonaFilePersona = z.infer<typeof PersonaFilePersona>;
+
+/**
+ * A character as a file: everything somebody would have to send to put this presenter on another
+ * station, and nothing that belongs to the station it came from
+ * generated from [PersonaFile](file://./../../../../data/contracts/personas/personas.types.ck#L149)
+ */
+export const PersonaFile = z.strictObject({
+    format: z
+        .string()
+        .min(1)
+        .max(50)
+        .describe(
+            'What shape this is, so a file from a later build says so rather than being read wrongly. The shapes below are what an import actually validates; this is for the human reading the failure',
+        ),
+    takenAt: z.string().min(1).max(40).describe('When it was exported, ISO-8601'),
+    station: z
+        .string()
+        .max(100)
+        .optional()
+        .describe(
+            'The station it was taken from. Provenance only: an import writes into whichever station it is running as, and the two need not match',
+        ),
+    personas: z.array(PersonaFilePersona),
+});
+export type PersonaFile = z.infer<typeof PersonaFile>;

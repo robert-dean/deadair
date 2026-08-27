@@ -213,10 +213,19 @@ export interface PersonaStoryState {
 }
 
 /**
+ * One thing a story picked up after it was written, carried the same way and for the same reasons
+ * generated from [PersonaFileStoryDetail](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L176)
+ */
+export interface PersonaFileStoryDetail {
+    detail: string;
+    state?: 'active' | 'rejected';
+}
+
+/**
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L150)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L184)
  */
 export interface PersonaRehearsalAttempt {
     /** Which binding was asked, as `segments.writer` would record it */
@@ -306,8 +315,23 @@ export interface GeneratedPersona {
 }
 
 /**
+ * Something that happened to this character, as a file carries it. No `origin` and no `source`,
+ * unlike the stored row: whoever exported this stood behind every story in it, so on the far side
+ * they are the receiving operator's own, and a sentence about where a proposal came from names a
+ * catalogue that station does not have
+ * generated from [PersonaFileStory](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L169)
+ */
+export interface PersonaFileStory {
+    title: string;
+    story: string;
+    /** Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet */
+    state?: 'active' | 'rejected';
+    details: PersonaFileStoryDetail[];
+}
+
+/**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L159)
+ * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L193)
  */
 export interface PersonaRehearsal {
     personaId: string;
@@ -336,4 +360,33 @@ export interface PersonaStoryList {
 export interface PersonaStoryListInput {
     personaId: string;
     stories: PersonaStoryInput[];
+}
+
+/**
+ * One character in a file. `PersonaDraftView` is the sheet with no id and not on air, which is
+ * exactly what travels, plus the two fields a model is deliberately not asked for and a real install
+ * always knows: what the character is FOR, and which rack it has to hand
+ * generated from [PersonaFilePersona](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L159)
+ */
+export interface PersonaFilePersona extends Omit<PersonaDraftView, 'soundboard'> {
+    /** Absent means `host`, as everywhere else */
+    kind?: 'host' | 'caller';
+    /** The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got */
+    soundboard?: string;
+    stories: PersonaFileStory[];
+}
+
+/**
+ * A character as a file: everything somebody would have to send to put this presenter on another
+ * station, and nothing that belongs to the station it came from
+ * generated from [PersonaFile](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L149)
+ */
+export interface PersonaFile {
+    /** What shape this is, so a file from a later build says so rather than being read wrongly. The shapes below are what an import actually validates; this is for the human reading the failure */
+    format: string;
+    /** When it was exported, ISO-8601 */
+    takenAt: string;
+    /** The station it was taken from. Provenance only: an import writes into whichever station it is running as, and the two need not match */
+    station?: string;
+    personas: PersonaFilePersona[];
 }

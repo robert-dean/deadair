@@ -6,6 +6,7 @@ import type { PluginDetail, PluginLogLevel } from '@deadair/sdk';
 import { sdk } from '../../api/client';
 import { pluginLogsOptions, useSetPluginLogLevel } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { downloadFilename, saveDownload } from '../shared/download';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatMomentFull, formatMomentStamp } from '../shared/feed.moment';
 import { PageSkeleton } from '../shared/page.skeleton';
@@ -24,18 +25,6 @@ const LEVEL_FILTER_DATA: { value: PluginLogLevel; label: string }[] = [
     { value: 'warn', label: 'Warn' },
     { value: 'error', label: 'Error' },
 ];
-
-/**
- * The filename to save the download under.
- *
- * `contentDisposition` comes back `undefined` whenever the response never carried the header —
- * a proxy stripped it, or the request failed before the server set it — so the id-based name is
- * what an operator gets rather than a download that silently fails to save.
- */
-function downloadFilename(contentDisposition: string | undefined, fallback: string): string {
-    const match = contentDisposition ? /filename="?([^";]+)"?/i.exec(contentDisposition) : null;
-    return match?.[1] ?? fallback;
-}
 
 export interface PluginLogsCardProps {
     plugin: PluginDetail;
@@ -59,21 +48,12 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
     async function download(): Promise<void> {
         setDownloading(true);
         setDownloadError(undefined);
-        let objectUrl: string | undefined;
         try {
             const { data, headers } = await sdk.plugins.downloadPluginLogs(plugin.id);
-            const blob = new Blob([data], { type: 'text/plain' });
-            objectUrl = URL.createObjectURL(blob);
-            const anchor = document.createElement('a');
-            anchor.href = objectUrl;
-            anchor.download = downloadFilename(headers.contentDisposition, `${plugin.id}.log`);
-            document.body.appendChild(anchor);
-            anchor.click();
-            anchor.remove();
+            saveDownload(data, downloadFilename(headers.contentDisposition, `${plugin.id}.log`), 'text/plain');
         } catch (error) {
             setDownloadError(apiErrorMessage(error, 'The log could not be downloaded.'));
         } finally {
-            if (objectUrl) URL.revokeObjectURL(objectUrl);
             setDownloading(false);
         }
     }

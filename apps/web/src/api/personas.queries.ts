@@ -13,6 +13,7 @@ import type {
     PersonaStoryWrite,
 } from '@deadair/sdk';
 
+import { downloadFilename, saveJsonDownload } from '../components/shared/download';
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
 
@@ -206,3 +207,21 @@ export const useGeneratePersona = () =>
     useMutation<GeneratedPersona, Error, string>({
         mutationFn: (description: string) => sdk.personas.generatePersona({ description }),
     });
+
+/**
+ * Save a character to the operator's disk: one of them, or the whole roster.
+ *
+ * A plain function rather than a query or a mutation, on `fetchVoiceSample`'s rule — nothing is
+ * cached, nothing is invalidated, and the result is a file rather than state this app holds. The
+ * caller owns reporting the failure, because where it belongs differs: one card for one character,
+ * the page header for the roster.
+ *
+ * The filename comes off the response's own `Content-Disposition` rather than being composed here.
+ * The server dates it, and a second opinion about what the file is called is a second thing to keep
+ * in step.
+ */
+export async function exportPersonas(id?: string): Promise<void> {
+    const { data, headers } = id === undefined ? await sdk.personas.exportPersonas() : await sdk.personas.exportPersona(id);
+
+    saveJsonDownload(data, downloadFilename(headers.contentDisposition, id === undefined ? 'personas.json' : `${id}.json`));
+}

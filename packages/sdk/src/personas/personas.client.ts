@@ -3,6 +3,7 @@ import { bigIntReplacer, parseJson } from '../sdk-options.js';
 import type {
     GeneratedPersona,
     Persona,
+    PersonaFile,
     PersonaInput,
     PersonaList,
     PersonaNoteList,
@@ -61,6 +62,26 @@ export class PersonasClient {
     async restoreStationPersonas(): Promise<PersonaList> {
         const result = await this.fetch(`/personas/restore`, { method: 'POST' });
         return await parseJson<PersonaList>(result);
+    }
+
+    /**
+     * @name Export personas
+     * @description Every character this station holds, as one file
+     */
+    async exportPersonas(): Promise<{ data: PersonaFile; headers: { contentDisposition?: string } }> {
+        const result = await this.fetch(`/personas/export`, { method: 'GET' });
+        const data = await parseJson<PersonaFile>(result);
+        return { data, headers: { contentDisposition: result.headers.get('Content-Disposition') ?? undefined } };
+    }
+
+    /**
+     * @name Export persona
+     * @description One character, its sheet and its stories, as a file
+     */
+    async exportPersona(id: string): Promise<{ data: PersonaFile; headers: { contentDisposition?: string } }> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/export`, { method: 'GET' });
+        const data = await parseJson<PersonaFile>(result);
+        return { data, headers: { contentDisposition: result.headers.get('Content-Disposition') ?? undefined } };
     }
 
     /**

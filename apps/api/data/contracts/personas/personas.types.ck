@@ -144,6 +144,40 @@ contract PersonaStoryState: { # Accepting a proposal, turning one down, or takin
     state: enum(active, suggested, rejected)
 }
 
+# A character as a file: everything somebody would have to send to put this presenter on another
+# station, and nothing that belongs to the station it came from
+contract PersonaFile: {
+    format: string(min=1, max=50) # What shape this is, so a file from a later build says so rather than being read wrongly. The shapes below are what an import actually validates; this is for the human reading the failure
+    takenAt: string(min=1, max=40) # When it was exported, ISO-8601
+    station?: string(max=100) # The station it was taken from. Provenance only: an import writes into whichever station it is running as, and the two need not match
+    personas: array(PersonaFilePersona)
+}
+
+# One character in a file. `PersonaDraftView` is the sheet with no id and not on air, which is
+# exactly what travels, plus the two fields a model is deliberately not asked for and a real install
+# always knows: what the character is FOR, and which rack it has to hand
+contract PersonaFilePersona: PersonaDraftView & {
+    kind?: enum(host, caller) # Absent means `host`, as everywhere else
+    soundboard?: string(max=200) # The board this character reaches for. Carried even though the receiving station may not hold it: a persona naming a rack that does not exist and one with no rack are the same state, and the import says which it got
+    stories: array(PersonaFileStory)
+}
+
+# Something that happened to this character, as a file carries it. No `origin` and no `source`,
+# unlike the stored row: whoever exported this stood behind every story in it, so on the far side
+# they are the receiving operator's own, and a sentence about where a proposal came from names a
+# catalogue that station does not have
+contract PersonaFileStory: {
+    title: string(min=1, max=200)
+    story: string(min=1, max=4000)
+    state?: enum(active, rejected) # Absent means `active`. A turned-down story travels so the enrichment pass does not propose it again on the far side; an undecided one does not travel at all, because nobody has decided it yet
+    details: array(PersonaFileStoryDetail)
+}
+
+contract PersonaFileStoryDetail: { # One thing a story picked up after it was written, carried the same way and for the same reasons
+    detail: string(min=1, max=1000)
+    state?: enum(active, rejected)
+}
+
 # One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
 # model that declined and a floor that covered for it are two facts, and the second on its own reads
 # as a station that never had a model configured

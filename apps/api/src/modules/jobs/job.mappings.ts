@@ -10,6 +10,7 @@ import { FactExtractionJob } from '#modules/enrichment/fact.extraction.job.js';
 import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { AnalysisJob } from '#modules/analysis/analysis.job.js';
 import { CacheTrackJob } from '#modules/playout/audio/cache.track.job.js';
+import { FETCH_PER_PASS } from '#modules/playout/audio/track.cache.planner.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { ReplanLineupJob } from '#modules/director/replan.lineup.job.js';
 import { ProduceProductionJob } from '#modules/productions/produce.production.job.js';
@@ -176,9 +177,25 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     // `expiresIn` sits above the fetch timeout plus the claim it holds, so a wedged
     // run is reclaimed rather than blocking the queue, and well below anything an
     // operator would call stuck.
+    //
+    // The ONE worker policy in this file, and it is a correction rather than a tuning. The ripener
+    // sends `FETCH_PER_PASS` records per pass and has always described that as two downloads at a
+    // time; a queue consumes one job at a time unless told otherwise, so the second fetch actually
+    // began when the first one ended and a cold running order filled at half the intended rate —
+    // which is the thing the constant was raised from one to escape. Matching the two numbers is
+    // what makes the comment true, and reading the constant rather than restating it is what keeps
+    // them from drifting apart again.
+    //
+    // It is safe to widen exactly here and nowhere else in this file. `TrackAudioService`
+    // de-duplicates by source id in memory, so a wider queue cannot start a second download of the
+    // same record, and the ceiling stays the ripener's own per-pass cap rather than becoming a new
+    // one. The queues either side of it are the opposite case: `render.segment` and
+    // `director.write_break` serialize on `SpeechGate` and `LlmGate`, so a second worker there would
+    // hold a claimed job against its `expiresIn` while waiting for a resource it cannot have.
     'playout.cache_track': {
         job: CacheTrackJob,
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 15 }) },
+        worker: { concurrency: FETCH_PER_PASS },
     },
 
     // The other end of the job above: what the station keeps, bounded. Every fifteen

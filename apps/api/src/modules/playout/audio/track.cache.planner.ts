@@ -17,8 +17,16 @@ import { CACHE_AHEAD, TrackAudioService } from './track.audio.service.js';
  * commit a record whose audio is missing: at one per pass a cold running order fills more slowly
  * than it drains, and the thing that runs out is not the cache but the station's willingness to
  * commit anything. Still small, because every fetch is a whole record off a rate-limited credential.
+ *
+ * **Two SENDS are only two downloads where two workers consume them**, which is why this is exported
+ * and read again by `playout.cache_track`'s worker policy in `job.mappings.ts`. A queue runs one job
+ * at a time unless somebody says otherwise, so for as long as that policy did not exist the second
+ * record's fetch began when the first one's finished — the paragraph above described the sends and
+ * not the bytes, and a cold order filled at exactly the one-per-pass rate it was raised to escape.
+ * The de-duplication is what makes the wider queue safe rather than merely faster: it bounds the
+ * concurrency at what this pass asked for instead of at what the backlog holds.
  */
-const FETCH_PER_PASS = 2;
+export const FETCH_PER_PASS = 2;
 
 /** What one pass of the ripener did, and what it found that no fetch is going to fix. */
 export interface RipenResult {

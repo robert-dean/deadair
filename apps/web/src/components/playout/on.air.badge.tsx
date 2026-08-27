@@ -12,10 +12,10 @@ export interface OnAirBadgeProps {
  * The tally light: is this station broadcasting right now?
  *
  * It used to work the answer out here, from `streamUp`, `onAir`, `audience` and `queuedCount`. That
- * was three partial inferences across this file and `transport.bar.tsx`, and none of them could tell
- * apart the pair that matters most: an empty room and an Icecast that stopped answering are the same
- * listener count, and in `audience` mode the second one is permanent silence. The station names its
- * own cause now, and this only draws it.
+ * was three partial inferences spread across this file and the transport strip, and none of them
+ * could tell apart the pair that matters most: an empty room and an Icecast that stopped answering
+ * are the same listener count, and in `audience` mode the second one is permanent silence. The
+ * station names its own cause now, and this only draws it.
  *
  * The cause-to-word mapping moved to `silence.reading.ts` when the header grew a tally of its own:
  * two copies of it is two places for "ready" to quietly become "off air" in one of them, which is

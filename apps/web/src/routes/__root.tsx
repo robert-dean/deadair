@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AppShell, Box, Burger, Button, Group, ScrollArea, Text } from '@mantine/core';
-import { useDisclosure, useLocalStorage } from '@mantine/hooks';
+import { useDisclosure } from '@mantine/hooks';
 import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import type { OnboardingRequirement } from '@deadair/sdk';
@@ -12,18 +12,13 @@ import { resolveAuthRedirect } from '../auth/auth.gate';
 import { restoreSession } from '../auth/session.bootstrap';
 import { apiErrorMessage } from '../api/sdk.error';
 import { isAuthenticated, isSessionActive, useSession } from '../auth/session.store';
-import { useStationAir } from '../api/director.queries';
 import { usePlayoutStatus } from '../api/playout.queries';
 import { useStationAttention } from '../api/station.queries';
 import { ErrorAlert } from '../components/shared/error.alert';
-import { hasTransportToShow, TRANSPORT_HEIGHT, TRANSPORT_HEIGHT_EXPANDED, TransportBar } from '../components/playout/transport.bar';
 import { SideNav } from '../components/shell/side.nav';
 import { StationMark } from '../components/shell/station.mark';
 import { StationClock } from '../components/shell/station.clock';
 import { StationTally } from '../components/shell/station.tally';
-
-/** Where the transport's open/shut state is remembered between visits. */
-const TRANSPORT_EXPANDED_KEY = 'deadair.transport.expanded';
 
 /** Everything the router's gates need. Supplied once in `main.tsx`. */
 export interface RouterContext {
@@ -40,22 +35,12 @@ export function RootLayout() {
     const navigate = useNavigate();
     const logout = useLogoutMutation();
     const [logoutError, setLogoutError] = useState<string | undefined>(undefined);
-    // Polled here rather than inside the bar: AppShell reserves the footer's height
-    // whether or not its contents render, so the shell is what has to know whether
-    // the station has anything to say.
+    // Polled here rather than on each page: the header's tally draws from it on every screen, and
+    // the desk reads the same key from the same cache rather than issuing its own request.
     const playout = usePlayoutStatus(signedIn);
-    const transport = hasTransportToShow(playout.data) ? playout.data : undefined;
-    // What the station is airing against. Read here rather than in the bar because the
-    // shell is where the polling lives, and it is already reading the transport beside it.
-    const air = useStationAir(signedIn);
-    // The nav's badges, from the same answer the home page draws as a list — one query, one cache,
-    // so a badge saying two and a list showing three is not a state this console can reach.
+    // The nav's badges, from the same answer the desk draws as a list — one query, one cache, so a
+    // badge saying two and a list showing three is not a state this console can reach.
     const attention = useStationAttention(signedIn);
-    // Here rather than in the bar for the same reason as the polling: the footer's
-    // height is reserved by the shell, so the shell is what has to know how much.
-    // Remembered, because an operator who wants the running order in front of them
-    // wants it there on the next page too.
-    const [transportExpanded, setTransportExpanded] = useLocalStorage({ key: TRANSPORT_EXPANDED_KEY, defaultValue: false });
     // Phone only: on a desk the nav is always there, and this stays false for its whole life.
     const [navOpened, navDrawer] = useDisclosure(false);
 
@@ -78,7 +63,6 @@ export function RootLayout() {
         <AppShell
             header={{ height: 52 }}
             navbar={signedIn ? { width: 204, breakpoint: 'sm', collapsed: { mobile: !navOpened } } : undefined}
-            footer={transport ? { height: transportExpanded ? TRANSPORT_HEIGHT_EXPANDED : TRANSPORT_HEIGHT } : undefined}
             padding="md"
         >
             <AppShell.Header className="da-scanlines">
@@ -150,18 +134,6 @@ export function RootLayout() {
                 ) : undefined}
                 <Outlet />
             </AppShell.Main>
-            {transport ? (
-                <AppShell.Footer withBorder={false}>
-                    <TransportBar
-                        status={transport}
-                        airMode={air.data?.airMode}
-                        expanded={transportExpanded}
-                        onToggleExpanded={() => {
-                            setTransportExpanded(open => !open);
-                        }}
-                    />
-                </AppShell.Footer>
-            ) : undefined}
         </AppShell>
     );
 }

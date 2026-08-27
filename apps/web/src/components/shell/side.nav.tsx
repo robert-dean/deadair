@@ -24,9 +24,11 @@ const GROUPS: NavGroup[] = [
     {
         title: 'Air',
         items: [
-            { to: '/', label: 'Home' },
-            { to: '/onair', label: 'On air' },
-            // Beside On air rather than under Station: both answer "what is the station playing",
+            // Home and On air were two links and one question. The landing page was a masthead and
+            // a list of faults, and the operator's next click was always the running order — so the
+            // first page was a toll gate on the second, and both drew the tally in different words.
+            { to: '/', label: 'Desk' },
+            // Beside the desk rather than under Station: both answer "what is the station playing",
             // one now and one later, and an operator who wants to change tonight arrives with the
             // same question as one changing this minute. What is under Station is who plays it.
             { to: '/schedule', label: 'Schedule' },
@@ -137,7 +139,12 @@ function countByRoute(items: readonly AttentionItem[]): Map<string, { count: num
     const counts = new Map<string, { count: number; severity: Severity }>();
 
     for (const item of items) {
-        const page = `/${item.route.split('/')[1] ?? ''}`;
+        const first = `/${item.route.split('/')[1] ?? ''}`;
+        // The station still routes broadcast faults at `/onair`, which is no longer a link: the
+        // desk answers that question now. Without this the badge counted against a nav entry that
+        // does not exist, which is a fault reported nowhere — the exact failure the badges exist
+        // to prevent.
+        const page = first === '/onair' ? '/' : first;
         const existing = counts.get(page);
         const severity = item.severity as Severity;
 

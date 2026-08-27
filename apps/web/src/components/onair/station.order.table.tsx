@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionIcon, Badge, Box, Button, Group, Table, Text, Tooltip } from '@mantine/core';
-import { IconArrowBarToUp, IconX } from '@tabler/icons-react';
+import { IconArrowBarToUp, IconChevronDown, IconX } from '@tabler/icons-react';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
 import { RatingControl } from '../catalog/rating.control';
@@ -27,6 +27,16 @@ export interface StationOrderTableProps {
     onRate?: (trackId: string, rating: Rating) => void;
     /** Which record's rating is being written, so its row can say so rather than looking ignored. */
     ratingTrackId?: string;
+    /**
+     * Whether the history behind the item on air starts folded away behind a count.
+     *
+     * The desk turns this on and the On-air page does not, and the difference is what each is for.
+     * An hour of played records is how somebody reviewing a broadcast reads where the station got
+     * to; on a landing page it is an hour of scrolling in front of the four rows that have not
+     * happened yet. Folded rather than dropped — which item was skipped and where is exactly what an
+     * operator opens this to find.
+     */
+    collapseHistory?: boolean;
 }
 
 /** `artists.join(', ')`, but without a stray separator when the array is documented-empty. */
@@ -136,6 +146,22 @@ function Title({ item, id }: { item: StationOrderItem; id?: string }) {
  */
 function anchorOf(items: StationOrderItem[]): StationOrderItem | undefined {
     return items.find(item => item.state === 'airing') ?? items.find(item => item.state === 'planned' || item.state === 'handed');
+}
+
+/**
+ * What the folded history is called, counting only what it actually holds.
+ *
+ * A broadcast that has only just started has history with nothing skipped in it, and "0 skipped" on
+ * the desk is a zero an operator has to read and discard. Each clause appears when there is one.
+ */
+function historyLabel(played: number, passed: number): string {
+    const clauses: string[] = [];
+    if (played > 0) clauses.push(played === 1 ? '1 played earlier' : `${played} played earlier`);
+    if (passed > 0) clauses.push(passed === 1 ? '1 skipped' : `${passed} skipped`);
+    // Neither, and yet there are rows behind the anchor: they are removals and hand-overs, which
+    // are the two states that are neither played nor passed over. Naming the count is honest where
+    // naming a state would not be.
+    return clauses.length > 0 ? clauses.join(', ') : 'Earlier in this broadcast';
 }
 
 /** How near the pinned position counts as being back at it, in px. */
@@ -279,9 +305,24 @@ function usePinnedToAir(anchorId: string | undefined, itemCount: number) {
  * position used to be an integer that could disagree with what actually aired, and it is now a fact
  * on each item that the player itself reported.
  */
-export function StationOrderTable({ items, onRemove, removingItemId, onMove, onRate, ratingTrackId }: StationOrderTableProps) {
+export function StationOrderTable({ items, onRemove, removingItemId, onMove, onRate, ratingTrackId, collapseHistory = false }: StationOrderTableProps) {
     const editable = onRemove !== undefined || onMove !== undefined;
     const anchor = anchorOf(items);
+    const [historyOpen, setHistoryOpen] = useState(false);
+
+    // Everything before the row the order is read from. Taken by POSITION rather than by state,
+    // because that is what "behind us" means here: a removed item sitting among the planned ones is
+    // still ahead, and folding it away would hide the row that explains why a slot is empty.
+    const anchorAt = anchor ? items.indexOf(anchor) : -1;
+    const folding = collapseHistory && !historyOpen && anchorAt > 0;
+    const history = folding ? items.slice(0, anchorAt) : [];
+    const shown = folding ? items.slice(anchorAt) : items;
+
+    // Counted off the folded rows themselves, so the sentence cannot disagree with what opening it
+    // reveals. `skipped` and `unavailable` are one word here: an operator deciding whether to look
+    // wants to know something did not play, and the row says which of the two it was.
+    const played = history.filter(item => item.state === 'played').length;
+    const passed = history.filter(item => item.state === 'skipped' || item.state === 'unavailable').length;
     // Destructured rather than kept as one object: the refs have to reach `ref=` as plain
     // identifiers for the hooks lint to see them as refs rather than as a read during render.
     const { portRef, headRef, anchorRef, pinnable, pin, handlers } = usePinnedToAir(anchor?.id, items.length);
@@ -293,6 +334,22 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
         // that must stay put while an operator is reading a fault. The vertical bound is what lets
         // the order be held against the item on air rather than against the top of the document.
         <Box pos="relative">
+            {/* Above the table rather than as a first row, so it survives the port's own scrolling
+                and stays where an operator left it. */}
+            {folding ? (
+                <Button
+                    variant="subtle"
+                    color="gray"
+                    size="compact-sm"
+                    fullWidth
+                    justify="flex-start"
+                    rightSection={<IconChevronDown size={14} stroke={1.8} />}
+                    onClick={() => setHistoryOpen(true)}
+                    aria-expanded={false}
+                >
+                    {historyLabel(played, passed)}
+                </Button>
+            ) : undefined}
             <Box
                 ref={portRef}
                 className={classes.port}
@@ -316,7 +373,7 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                        {items.map((item, index) => {
+                        {shown.map((item, index) => {
                             const state = STATE_LABEL[item.state];
                             // A segment is the station's own words, and a record the catalog has never seen
                             // has no row to hold an opinion — a station can air one it never ingested.
@@ -344,8 +401,11 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                                     opacity={opacityFor(item)}
                                 >
                                     <Table.Td>
+                                        {/* Numbered against the WHOLE order rather than the rows on
+                                            screen: with the history folded away, a first visible row
+                                            called 1 would quietly renumber the broadcast. */}
                                         <Text size="xs" c="dimmed" className="da-num">
-                                            {index + 1}
+                                            {index + 1 + (folding ? anchorAt : 0)}
                                         </Text>
                                     </Table.Td>
                                     {/* `maxWidth` rather than `minWidth` is what actually caps this: a table

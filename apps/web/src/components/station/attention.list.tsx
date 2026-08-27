@@ -1,4 +1,4 @@
-import { Anchor, Box, Card, Divider, Group, Stack, Text } from '@mantine/core';
+import { Box, Button, Card, Divider, Group, Stack, Text } from '@mantine/core';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { AttentionItem } from '@deadair/sdk';
 
@@ -73,11 +73,20 @@ function Row({ item }: { item: AttentionItem }) {
                 </Stack>
             </Group>
 
+            {/* The fix, ON the row that reports the problem, which is the whole reason this list is
+                worth landing on: a sentence saying spotify will not start, with the page that can
+                reconnect it a nav-hunt away, is a sentence an operator reads and then goes looking.
+                A button rather than a text link for the same reason — it is the row's action.
+
+                It is deliberately labelled with the DESTINATION rather than with the remedy. The
+                station sends a route and no verb, so a button reading "Reconnect Spotify" would be
+                this console inventing a claim about what the click does; "Plugin →" is exactly what
+                it does. See the note in `desk.page.tsx`. */}
             {destination ? (
-                <Anchor
-                    component="span"
-                    size="sm"
-                    style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                <Button
+                    variant="light"
+                    size="compact-sm"
+                    style={{ flexShrink: 0 }}
                     renderRoot={props =>
                         destination.params ? (
                             <Link to={destination.to} params={destination.params} {...props} />
@@ -87,7 +96,7 @@ function Row({ item }: { item: AttentionItem }) {
                     }
                 >
                     {destination.label} →
-                </Anchor>
+                </Button>
             ) : undefined}
         </Group>
     );
@@ -106,8 +115,11 @@ function destinationOf(route: string): Destination | undefined {
     if (plugin?.[1]) return { to: '/plugins/$id', params: { id: plugin[1] }, label: 'Plugin' };
 
     switch (route) {
+        // The station still names `/onair` for anything about the broadcast. The desk is where that
+        // is answered now, and it is also where this list is drawn — so the row points at the
+        // running order further down the same page rather than at a page that is on its way out.
         case '/onair':
-            return { to: '/onair', label: 'On air' };
+            return { to: '/', label: 'Desk' };
         case '/schedule':
             return { to: '/schedule', label: 'Schedule' };
         case '/catalog':

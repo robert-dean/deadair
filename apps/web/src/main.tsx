@@ -55,9 +55,11 @@ createRoot(rootElement).render(
     <StrictMode>
         <QueryClientProvider client={queryClient}>
             <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} forceColorScheme="dark">
-                {/* Top right, and that is the one thing about this that is not a default: the
-                    transport bar is fixed to the bottom edge, and a stack of toasts over the tally
-                    strip would cover the state of the station to tell you a setting saved. */}
+                {/* Top right, and that is the one thing about this that is not a default. It used
+                    to be because the transport bar was fixed to the bottom edge; that bar is gone,
+                    and the reason survived it — the tally now sits in the header at top LEFT, so
+                    this corner is still the one where a stack of toasts cannot cover the state of
+                    the station to tell you a setting saved. */}
                 <Notifications position="top-right" limit={3} />
                 <RouterProvider router={router} />
             </MantineProvider>

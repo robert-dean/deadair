@@ -26,8 +26,8 @@ describe('SideNav', () => {
         render(<SideNav />);
 
         const labels = [
-            'Home',
-            'On air',
+            // One link, not two: the desk answers what Home and On air answered separately.
+            'Desk',
             'Schedule',
             'Activity',
             'Catalog',

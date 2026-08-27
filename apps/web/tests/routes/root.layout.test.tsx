@@ -46,7 +46,7 @@ describe('RootLayout', () => {
         render(<RootLayout />);
 
         expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument();
-        expect(screen.queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Desk' })).not.toBeInTheDocument();
     });
 
     it('shows the nav and Logout for a live session', () => {
@@ -54,7 +54,7 @@ describe('RootLayout', () => {
         render(<RootLayout />);
 
         expect(logoutButton()).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Desk' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Playlists' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
     });
@@ -64,7 +64,7 @@ describe('RootLayout', () => {
         render(<RootLayout />);
 
         expect(screen.queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument();
-        expect(screen.queryByRole('link', { name: 'Home' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Desk' })).not.toBeInTheDocument();
     });
 
     it('clears the session and routes to /login on a successful logout, saying nothing failed', async () => {

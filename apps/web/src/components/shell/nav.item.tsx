@@ -1,4 +1,4 @@
-import { Badge, NavLink } from '@mantine/core';
+import { Badge, NavLink, Text } from '@mantine/core';
 import { Link, type LinkProps } from '@tanstack/react-router';
 
 import { severityColor, type Severity } from '../shared/status';
@@ -15,6 +15,14 @@ export interface NavItemProps {
      */
     to: LinkProps['to'];
     label: string;
+    /**
+     * The key that reaches this destination, drawn in the gutter as the design puts it there.
+     *
+     * Decoration for a screen reader and a real binding for everybody else: the letter is only ever
+     * drawn beside a destination the shell has actually bound in `useHotkeys`, and a hint for a key
+     * that does nothing is worse than no hint at all.
+     */
+    hint?: string;
     /** Closes the drawer on a phone, where following a link should not leave the nav over the page. */
     onNavigate?: () => void;
     /** How many things on this page need somebody, and the worst of them. Absent means nothing does. */
@@ -39,11 +47,22 @@ export interface NavItemProps {
  * So the label is written out only when there IS attention, and a link with nothing waiting keeps
  * its plain name rather than announcing that nothing is wrong with it.
  */
-export function NavItem({ to, label, onNavigate, attention }: NavItemProps) {
+export function NavItem({ to, label, hint, onNavigate, attention }: NavItemProps) {
     return (
         <NavLink
             classNames={{ root: classes.item, label: classes.label }}
             label={label}
+            // `aria-hidden` for the same reason the badge is: a section left visible is folded into
+            // the link's accessible name, and "D Desk" is a label with a keycap stuck on the front
+            // of it rather than a destination. Sighted operators lose nothing — the letter IS the
+            // shortcut, and a screen reader user reaching this link is already on it.
+            leftSection={
+                hint === undefined ? undefined : (
+                    <Text aria-hidden component="span" ff="monospace" size="xs" c="var(--da-text-dimmed)" w={12} ta="center">
+                        {hint}
+                    </Text>
+                )
+            }
             aria-label={
                 attention === undefined
                     ? undefined

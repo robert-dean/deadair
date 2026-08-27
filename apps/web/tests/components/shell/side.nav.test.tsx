@@ -24,7 +24,7 @@ describe('SideNav', () => {
         }
     });
 
-    it('offers every page the console has', () => {
+    it('offers the four destinations, and only those', () => {
         render(<SideNav />);
 
         const labels = [
@@ -35,15 +35,35 @@ describe('SideNav', () => {
             // Eight links became one destination with tabs. The tabs themselves are covered in
             // `voice.page.test.tsx`; what belongs here is that the nav offers the way in.
             'Voice',
-            // The activity feed is a tab on Check-up now, not a nav link of its own.
-            'Check-up',
-            // Plugins is a section of Settings now, reached from its section list.
-            'Settings',
         ];
         for (const label of labels) {
             expect(screen.getByRole('link', { name: label })).toBeInTheDocument();
         }
+        // Check-up and Settings are in `nav.footer.tsx`, pinned under a rule at the bottom of the
+        // rail. Nobody opens the console to look at either; they arrive from something that sent
+        // them, and a list that mixes them with Library reads as though there were a choice.
         expect(screen.getAllByRole('link')).toHaveLength(labels.length);
+        expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
+    });
+
+    /**
+     * The letter is a shortcut affordance, not part of the destination's name.
+     *
+     * Mantine folds a section into the link's accessible name the same way it does the badge, so an
+     * unguarded hint renames "Desk" to "D Desk" — a label with a keycap stuck on the front of it.
+     */
+    it('draws the key beside each destination without putting it in the name', () => {
+        render(<SideNav />);
+
+        for (const [hint, label] of [
+            ['D', 'Desk'],
+            ['P', 'Programme'],
+            ['L', 'Library'],
+            ['V', 'Voice'],
+        ]) {
+            expect(screen.getByText(hint as string)).toBeInTheDocument();
+            expect(screen.getByRole('link', { name: label })).toBeInTheDocument();
+        }
     });
 
     /**
@@ -59,8 +79,8 @@ describe('SideNav', () => {
     });
 
     it('counts what needs somebody against the page that can act on it', () => {
-        // A row pointing at one plugin's own page counts against SETTINGS, which is where plugins
-        // live now. Two rows on the catalog is one badge saying 2 on Library.
+        // Two rows on the catalog is one badge saying 2 on Library. The third counts against
+        // Settings, which is not in this list — it badges the footer, covered in its own test.
         render(
             <SideNav
                 attention={[
@@ -72,7 +92,7 @@ describe('SideNav', () => {
         );
 
         expect(screen.getByText('2')).toBeInTheDocument();
-        expect(screen.getByText('1')).toBeInTheDocument();
+        expect(screen.queryByText('1')).not.toBeInTheDocument();
     });
 
     it('says what a badge means in words, rather than sticking its number on the name', () => {

@@ -1,4 +1,7 @@
 import type { LinkProps } from '@tanstack/react-router';
+import type { AttentionItem } from '@deadair/sdk';
+
+import type { Severity } from '../shared/status';
 
 export interface AttentionDestination {
     to: LinkProps['to'];
@@ -21,9 +24,10 @@ export interface AttentionDestination {
  *
  * ## One table, two readers
  *
- * `attention.list.tsx` draws the link on the row and `side.nav.tsx` counts the badge on the nav.
- * They were separate before and could disagree about where a fault belonged; a badge pointing at
- * one page while the row linked to another is worse than either alone. Both read this now.
+ * `attention.list.tsx` draws the link on the row and the nav counts the badge from it — `side.nav.tsx`
+ * for the four destinations, `nav.footer.tsx` for Check-up and Settings. They were separate before
+ * and could disagree about where a fault belonged; a badge pointing at one page while the row linked
+ * to another is worse than either alone. All of them read this now.
  *
  * ## An unknown route draws no link rather than a broken one
  *
@@ -34,7 +38,6 @@ export interface AttentionDestination {
 export function attentionDestinationOf(route: string): AttentionDestination | undefined {
     const plugin = /^\/plugins\/(.+)$/.exec(route);
     if (plugin?.[1]) return { to: '/plugins/$id', params: { id: plugin[1] }, label: 'Plugin' };
-
 
     switch (route) {
         // The station still names `/onair` for anything about the broadcast. The desk is where that
@@ -80,4 +83,41 @@ export function attentionNavPageOf(route: string): string | undefined {
     // plugin badged a link that is no longer in the nav, which is a fault reported nowhere.
     if (destination.to === '/plugins/$id' || destination.to === '/plugins') return '/settings';
     return destination.to as string;
+}
+
+/** How many things want somebody on a page, and how bad the worst of them is. */
+export interface AttentionCount {
+    count: number;
+    severity: Severity;
+}
+
+/**
+ * Which page each thing belongs to, and how bad the worst of them is.
+ *
+ * Here rather than in `side.nav.tsx` because the rail and its footer are two components drawing one
+ * answer: the destinations badge from the same map that Check-up and Settings badge from, and a
+ * second copy of this walk is a second place for the two halves of one nav to disagree.
+ *
+ * A row whose destination is not a page in the nav is simply not counted anywhere — it is still on
+ * the desk, which is the surface that has to be complete.
+ */
+export function attentionCounts(items: readonly AttentionItem[]): Map<string, AttentionCount> {
+    const worst: Record<Severity, number> = { failure: 0, warning: 1, notice: 2 };
+    const counts = new Map<string, AttentionCount>();
+
+    for (const item of items) {
+        // Read from the same table the rows link with, so a badge on one nav entry and a row
+        // pointing at another is not a state this console can reach.
+        const page = attentionNavPageOf(item.route);
+        if (page === undefined) continue;
+        const existing = counts.get(page);
+        const severity = item.severity as Severity;
+
+        counts.set(page, {
+            count: (existing?.count ?? 0) + 1,
+            severity: existing && worst[existing.severity] <= worst[severity] ? existing.severity : severity,
+        });
+    }
+
+    return counts;
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { AppShell, Box, Button, Group, ScrollArea, Text, useMantineTheme } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { AppShell, Box, Group, ScrollArea, Text, useMantineTheme } from '@mantine/core';
+import { useHotkeys, useMediaQuery } from '@mantine/hooks';
 import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import type { OnboardingRequirement } from '@deadair/sdk';
@@ -15,8 +15,9 @@ import { isAuthenticated, isSessionActive, useSession } from '../auth/session.st
 import { usePlayoutStatus } from '../api/playout.queries';
 import { useStationAttention } from '../api/station.queries';
 import { ErrorAlert } from '../components/shared/error.alert';
+import { NavFooter } from '../components/shell/nav.footer';
 import { PhoneTabs } from '../components/shell/phone.tabs';
-import { SideNav } from '../components/shell/side.nav';
+import { DESTINATION_KEYS, SideNav } from '../components/shell/side.nav';
 import { StationMark } from '../components/shell/station.mark';
 import { StationClock } from '../components/shell/station.clock';
 import { StationTally } from '../components/shell/station.tally';
@@ -53,6 +54,24 @@ export function RootLayout() {
     // its nav somewhere else for a frame, where the reverse is 64px of empty bar on a desk.
     const phone = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`, false);
 
+    // The letters drawn in the rail's gutter, bound to the destinations that draw them. Read off
+    // `DESTINATION_KEYS` rather than restated here, so a hint the nav shows and a key the shell
+    // listens for cannot come apart.
+    //
+    // Single letters are safe because `useHotkeys` ignores events originating in an INPUT, TEXTAREA
+    // or SELECT — the catalog's search box takes a `d` and keeps it. Guarded on `signedIn` so the
+    // login page has no shortcuts to a shell that is not drawn.
+    useHotkeys(
+        signedIn
+            ? DESTINATION_KEYS.map(key => [
+                  key.hint.toLowerCase(),
+                  () => {
+                      void navigate({ to: key.to });
+                  },
+              ])
+            : [],
+    );
+
     async function handleLogout(): Promise<void> {
         let failure: string | undefined;
         try {
@@ -88,21 +107,10 @@ export function RootLayout() {
                         as one more control. The clock stays right, where a clock belongs. */}
                     {signedIn ? <StationTally status={playout.data} /> : undefined}
                     <Box style={{ flex: 1, minWidth: 0 }} />
-                    {signedIn ? (
-                        <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
-                            <StationClock />
-                            <Button
-                                variant="subtle"
-                                size="compact-sm"
-                                loading={logout.isPending}
-                                onClick={() => {
-                                    void handleLogout();
-                                }}
-                            >
-                                Logout
-                            </Button>
-                        </Group>
-                    ) : undefined}
+                    {/* The clock, and nothing else. Logout was here and is in the rail's footer
+                        now: the header's right edge is the one place an operator looks for the
+                        station's own state, and a control for ending your session is not that. */}
+                    {signedIn ? <StationClock /> : undefined}
                 </Group>
             </AppShell.Header>
             {signedIn ? (
@@ -122,6 +130,17 @@ export function RootLayout() {
                         test. Layout that depends on the shell belongs to the shell. */}
                     <AppShell.Section grow component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0 }}>
                         <SideNav attention={attention.data?.items} />
+                    </AppShell.Section>
+                    {/* Its own section, below the growing one, which is what pins it to the bottom
+                        of the rail — see `nav.footer.tsx` for why it cannot do that itself. */}
+                    <AppShell.Section>
+                        <NavFooter
+                            attention={attention.data?.items}
+                            loggingOut={logout.isPending}
+                            onLogout={() => {
+                                void handleLogout();
+                            }}
+                        />
                     </AppShell.Section>
                 </AppShell.Navbar>
             ) : undefined}

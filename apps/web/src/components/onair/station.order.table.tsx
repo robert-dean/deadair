@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActionIcon, Badge, Box, Button, Group, Table, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Badge, Box, Button, Card, Group, Stack, Table, Text, Tooltip, useMantineTheme } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconArrowBarToUp, IconChevronDown, IconX } from '@tabler/icons-react';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
@@ -309,6 +310,10 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
     const editable = onRemove !== undefined || onMove !== undefined;
     const anchor = anchorOf(items);
     const [historyOpen, setHistoryOpen] = useState(false);
+    const theme = useMantineTheme();
+    // `false` while unknown, which is the desk: a table drawn for a frame and replaced is cheaper
+    // than a phone layout flashing on every desktop load.
+    const phone = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`, false);
 
     // Everything before the row the order is read from. Taken by POSITION rather than by state,
     // because that is what "behind us" means here: a removed item sitting among the planned ones is
@@ -350,9 +355,31 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                     {historyLabel(played, passed)}
                 </Button>
             ) : undefined}
+            {/* The phone gets rows rather than a table that scrolls sideways. Six columns at 375px
+                is a horizontal scrollbar under a vertical one, and the two facts somebody checks
+                from bed — what is on, and what is next — are the two that end up off the right edge.
+                Same data, same order, same states; only the shape differs.
+
+                Chosen with a media QUERY rather than `hiddenFrom`, which would leave both in the
+                document: an hour of running order rendered twice is a real cost on the device least
+                able to pay it, and every title would answer to a query twice over. */}
+            {phone ? (
+                <Stack gap={6}>
+                    {shown.map(item => (
+                        <PhoneRow
+                            key={item.id}
+                            item={item}
+                            {...(onRemove && !isSpent(item.state) ? { onRemove: () => onRemove(item) } : {})}
+                            removing={removingItemId === item.id}
+                        />
+                    ))}
+                </Stack>
+            ) : undefined}
+
             <Box
                 ref={portRef}
                 className={classes.port}
+                display={phone ? 'none' : undefined}
                 // Focusable so the scroll keys reach it at all, and named so a screen reader says
                 // what the region is before reading an hour of it.
                 tabIndex={0}
@@ -589,5 +616,75 @@ export function StationOrderTable({ items, onRemove, removingItemId, onMove, onR
                 </Button>
             ) : undefined}
         </Box>
+    );
+}
+
+/**
+ * One item of the running order, on a phone.
+ *
+ * Deliberately not the table's row with columns hidden. What survives a 375px width is a different
+ * SELECTION, not a narrower one: the state matters more than the album, the duration matters more
+ * than the credit, and the artwork earns its place because it is how somebody recognises a record
+ * at a glance. A row that dropped columns until it fit would keep the ones that happened to be
+ * leftmost.
+ */
+function PhoneRow({ item, onRemove, removing }: { item: StationOrderItem; onRemove?: () => void; removing: boolean }) {
+    const state = STATE_LABEL[item.state];
+    const airing = item.state === 'airing';
+
+    return (
+        <Card
+            withBorder={false}
+            padding="xs"
+            radius="sm"
+            opacity={opacityFor(item)}
+            style={{
+                background: airing ? 'var(--da-raised)' : 'transparent',
+                boxShadow: airing ? 'inset 3px 0 0 var(--mantine-color-red-6)' : undefined,
+            }}
+        >
+            <Group gap="sm" wrap="nowrap">
+                <Artwork src={item.artworkUrl} alt={item.title} size={36} radius="xs" />
+                <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
+                    <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                        <Text size="sm" fw={airing ? 600 : 400} truncate>
+                            {item.title}
+                        </Text>
+                        {item.kind === 'segment' ? (
+                            <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                                segment
+                            </Badge>
+                        ) : undefined}
+                    </Group>
+                    <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                        <Text size="xs" c="dimmed" truncate>
+                            {formatArtists(item.artists)}
+                        </Text>
+                        {state ? (
+                            <Text
+                                size="xs"
+                                c={state.colour}
+                                ff="monospace"
+                                tt="uppercase"
+                                style={{ letterSpacing: 'var(--da-tracking-eyebrow)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                            >
+                                {state.label}
+                            </Text>
+                        ) : undefined}
+                    </Group>
+                </Stack>
+                <Text size="xs" c="dimmed" className="da-num" style={{ flexShrink: 0 }}>
+                    {formatDuration(item.durationMs)}
+                </Text>
+                {/* 44px, because this is the one destructive control on a surface being used with a
+                    thumb. Nothing at all on a spent item, rather than a disabled affordance that
+                    could only ever answer 422. */}
+                {onRemove ? (
+                    <ActionIcon variant="subtle" color="red" w={44} h={44} aria-label={`Drop ${item.title}`} loading={removing} onClick={onRemove}>
+                        <IconX size={16} stroke={1.8} />
+                    </ActionIcon>
+                ) : undefined}
+            </Group>
+        </Card>
     );
 }

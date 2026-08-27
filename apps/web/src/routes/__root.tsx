@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { AppShell, Box, Burger, Button, Group, ScrollArea, Text } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { AppShell, Box, Button, Group, ScrollArea, Text, useMantineTheme } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import type { OnboardingRequirement } from '@deadair/sdk';
@@ -15,6 +15,7 @@ import { isAuthenticated, isSessionActive, useSession } from '../auth/session.st
 import { usePlayoutStatus } from '../api/playout.queries';
 import { useStationAttention } from '../api/station.queries';
 import { ErrorAlert } from '../components/shared/error.alert';
+import { PhoneTabs } from '../components/shell/phone.tabs';
 import { SideNav } from '../components/shell/side.nav';
 import { StationMark } from '../components/shell/station.mark';
 import { StationClock } from '../components/shell/station.clock';
@@ -28,6 +29,7 @@ export interface RouterContext {
 const REVOKE_FAILED = 'You were signed out on this device, but the server did not confirm the session was revoked.';
 
 export function RootLayout() {
+    const theme = useMantineTheme();
     const session = useSession();
     // The same predicate the auth gate uses: a token that exists but has expired is not a session,
     // and offering Logout for one would promise something the shell cannot deliver.
@@ -41,8 +43,15 @@ export function RootLayout() {
     // The nav's badges, from the same answer the desk draws as a list — one query, one cache, so a
     // badge saying two and a list showing three is not a state this console can reach.
     const attention = useStationAttention(signedIn);
-    // Phone only: on a desk the nav is always there, and this stays false for its whole life.
-    const [navOpened, navDrawer] = useDisclosure(false);
+    // The phone gets a bar across the bottom rather than a drawer behind a burger. A drawer is two
+    // gestures to reach any page — open it, then choose — and it covers the thing you were looking
+    // at while you decide.
+    //
+    // `useMediaQuery` rather than CSS alone because `AppShell` reserves the footer's height in
+    // layout whether or not its contents render, so the shell has to KNOW rather than just hide it.
+    // The fallback is `false`, which is the desktop: a first paint with no bar is a page that has
+    // its nav somewhere else for a frame, where the reverse is 64px of empty bar on a desk.
+    const phone = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`, false);
 
     async function handleLogout(): Promise<void> {
         let failure: string | undefined;
@@ -62,15 +71,13 @@ export function RootLayout() {
     return (
         <AppShell
             header={{ height: 52 }}
-            navbar={signedIn ? { width: 204, breakpoint: 'sm', collapsed: { mobile: !navOpened } } : undefined}
+            navbar={signedIn ? { width: 204, breakpoint: 'sm', collapsed: { mobile: true } } : undefined}
+            footer={signedIn && phone ? { height: 64 } : undefined}
             padding="md"
         >
             <AppShell.Header className="da-scanlines">
                 <Group h="100%" px="md" gap="md" wrap="nowrap">
                     <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
-                        {signedIn ? (
-                            <Burger opened={navOpened} onClick={navDrawer.toggle} hiddenFrom="sm" size="sm" aria-label="Navigation" />
-                        ) : undefined}
                         <StationMark />
                         <Text ff="heading" fw={700} tt="uppercase" style={{ letterSpacing: 'var(--da-tracking-wordmark)' }}>
                             deadair
@@ -114,7 +121,7 @@ export function RootLayout() {
                         context and throws without it, and the nav is rendered bare in its own
                         test. Layout that depends on the shell belongs to the shell. */}
                     <AppShell.Section grow component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0 }}>
-                        <SideNav onNavigate={navDrawer.close} attention={attention.data?.items} />
+                        <SideNav attention={attention.data?.items} />
                     </AppShell.Section>
                 </AppShell.Navbar>
             ) : undefined}
@@ -134,6 +141,11 @@ export function RootLayout() {
                 ) : undefined}
                 <Outlet />
             </AppShell.Main>
+            {signedIn && phone ? (
+                <AppShell.Footer withBorder={false}>
+                    <PhoneTabs />
+                </AppShell.Footer>
+            ) : undefined}
         </AppShell>
     );
 }

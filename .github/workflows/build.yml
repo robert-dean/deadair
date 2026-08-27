@@ -142,3 +142,90 @@ jobs:
 
             - name: Test
               run: pnpm exec vitest run --shard=${{ matrix.shard }}/4
+
+    # Whether what is COMMITTED is what the inputs actually produce.
+    #
+    # The contracts, the permission types and the Kysely types are generated and checked in, and the
+    # build job above is explicitly forbidden from regenerating them — a build that silently rewrites
+    # its own source hides exactly the mistake this repository is most exposed to, which is an edited
+    # `.ck` or `.perm` or migration merged without the output beside it. Nothing was checking the
+    # other half either, so the two could disagree indefinitely and the first symptom would be a
+    # route answering a shape the SDK does not have.
+    #
+    # So this job regenerates all three into a throwaway checkout and fails if anything moved. It is
+    # the only job here that may run `codegen`, and it may because the database it needs is its own:
+    # a service container migrated from zero, which is a second thing worth knowing — `migrate:up`
+    # from an empty database is otherwise only ever exercised on somebody's laptop.
+    #
+    # `git status --porcelain` rather than `git diff` because a generator that starts writing
+    # somewhere NEW is the same failure as one whose output changed, and an untracked file does not
+    # show up in a diff. Everything the job itself writes (`.env`, `.turbo`, `.contractkit/`) is
+    # already ignored.
+    generated:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        services:
+            # The same major the station runs. `postgres` is the owner here because a throwaway
+            # database has no runtime path to protect; `0000_initial.sql` creates `app_user` itself,
+            # so nothing has to be provisioned before the walk.
+            postgres:
+                image: postgres:17
+                env:
+                    POSTGRES_USER: postgres
+                    POSTGRES_PASSWORD: postgres
+                    POSTGRES_DB: deadair
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U postgres"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v6
+
+            - name: Setup Node
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 26
+                  cache: pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            # kysely-codegen reads its address out of `apps/api/.env` (`envFile` in
+            # `.kysely-codegenrc.json`) and dbmate reads `DATABASE_URL`, so one ignored file answers
+            # both. It names the service container, which is reachable on localhost because the job
+            # itself runs on the host rather than in a container.
+            - name: Point the generators at the throwaway database
+              run: printf 'DATABASE_URL=postgres://postgres:postgres@localhost:5432/deadair?sslmode=disable\n' > apps/api/.env
+
+            - name: Regenerate the permission types
+              run: pnpm build:permissions
+
+            - name: Regenerate the contracts, the routers and the SDK
+              run: pnpm build:contracts
+
+            - name: Walk the migrations from zero
+              run: pnpm migrate:up
+
+            - name: Regenerate the Kysely types
+              run: pnpm build:datatypes
+
+            - name: Fail on anything that moved
+              run: |
+                  if [ -n "$(git status --porcelain)" ]; then
+                      echo "::error::Generated output does not match its inputs. Run 'pnpm codegen' (needs a live database) and commit the result."
+                      git status --porcelain
+                      git --no-pager diff
+                      exit 1
+                  fi
+                  echo "Generated output matches its inputs."

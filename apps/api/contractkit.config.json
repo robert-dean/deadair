@@ -1,5 +1,5 @@
 {
-    "rootDir": "~/projects/deadair/",
+    "rootDir": "../..",
     "cache": ".contractkit/cache",
     "prettier": true,
     "patterns": ["apps/api/data/contracts/**/*.ck"],

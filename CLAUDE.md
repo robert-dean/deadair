@@ -80,6 +80,12 @@ exists.
 (`pnpm build:permissions`). Kysely types come from `pnpm build:datatypes` (enum override sync, then
 kysely-codegen). `pnpm rebuild:data` rolls the schema all the way down and back up. Never hand-edit
 any of it. Migrations are dbmate SQL under `apps/api/data/migrations`, schema `deadair`.
+**CI regenerates all three and fails on anything that moved** (the `generated` job, which is the only
+one allowed to run codegen because the database it walks from zero is its own service container), so
+an edited `.ck`, `.perm` or migration merged without its output beside it is now a red check rather
+than a route answering a shape the SDK does not have. That job is also why
+`contractkit.config.json` names its root RELATIVELY: it was an absolute path under one home
+directory, which resolved on exactly one machine and matched there only because macOS ignores case.
 
 **Sessions outlive the database.** Sessions and refresh-token families live in Redis, actors live in
 Postgres, so a schema rebuild wipes one store and not the other and leaves browsers holding tokens

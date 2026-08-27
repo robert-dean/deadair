@@ -1,9 +1,8 @@
-import { Card, Stack, Text, Title } from '@mantine/core';
+import { Box, Card, Stack, Text, Title } from '@mantine/core';
 import type { StationSettingDescriptor, StationSettings } from '@deadair/sdk';
 
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { ErrorAlert } from '../shared/error.alert';
-import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
@@ -64,7 +63,7 @@ export function SettingsPage() {
         // The width matters as much as the shape: this page is a column of cards inside `maw={720}`,
         // and a full-width placeholder is a different page than the one that replaces it.
         return (
-            <Stack gap="lg" maw={720}>
+            <Stack gap="lg">
                 <PageSkeleton variant="rows" count={4} />
             </Stack>
         );
@@ -77,28 +76,23 @@ export function SettingsPage() {
     const data = settings.data;
 
     return (
-        <Stack gap="lg" maw={720}>
-            <PageHeader
-                title="Settings"
-                description={
-                    <Text size="sm" c="dimmed">
-                        The station itself. A plugin&rsquo;s own configuration lives on that plugin&rsquo;s page.
-                    </Text>
-                }
-            />
-
+        <Stack gap="lg">
             {GROUPS.map(group => (
                 <SettingsGroupCard key={group.key} group={group} settings={data} />
             ))}
 
+            {/* Last, and read-only: everything above is something to change, and this is the number
+                the one limit up there is set against. */}
+            <Box id="storage" style={{ scrollMarginTop: 76 }}>
+                <StorageCard />
+            </Box>
+
             {/* Below the station's own settings, because these are questions somebody else asked:
                 every card above is a decision the operator went looking for, and this is one waiting
                 for them. Draws nothing when no plugin has asked for anything. */}
-            <PluginGrantsCard />
-
-            {/* Last, and read-only: everything above is something to change, and this is the number
-                the one limit up there is set against. */}
-            <StorageCard />
+            <Box id="grants" style={{ scrollMarginTop: 76 }}>
+                <PluginGrantsCard />
+            </Box>
         </Stack>
     );
 }
@@ -119,7 +113,9 @@ function SettingsGroupCard({ group, settings }: SettingsGroupCardProps) {
     if (fields.length === 0) return undefined;
 
     return (
-        <Card padding="lg">
+        // The anchor the section list jumps to. `scrollMarginTop` clears the sticky header, which
+        // would otherwise land on top of the heading it just scrolled to.
+        <Card padding="lg" id={group.key} style={{ scrollMarginTop: 76 }}>
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">

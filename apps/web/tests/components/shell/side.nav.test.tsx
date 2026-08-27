@@ -35,9 +35,9 @@ describe('SideNav', () => {
             // Eight links became one destination with tabs. The tabs themselves are covered in
             // `voice.page.test.tsx`; what belongs here is that the nav offers the way in.
             'Voice',
-            'Plugins',
             // The activity feed is a tab on Check-up now, not a nav link of its own.
             'Check-up',
+            // Plugins is a section of Settings now, reached from its section list.
             'Settings',
         ];
         for (const label of labels) {
@@ -59,8 +59,8 @@ describe('SideNav', () => {
     });
 
     it('counts what needs somebody against the page that can act on it', () => {
-        // A row pointing at one plugin's own page counts against Plugins, because the first segment
-        // is the page. Two rows on the catalog is one badge saying 2.
+        // A row pointing at one plugin's own page counts against SETTINGS, which is where plugins
+        // live now. Two rows on the catalog is one badge saying 2 on Library.
         render(
             <SideNav
                 attention={[

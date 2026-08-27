@@ -1,0 +1,28 @@
+/*
+ * Two fields to a row where there is room, and one where there is not.
+ *
+ * Two rather than `auto-fit`, which is what this was first: on a wide window auto-fit found room
+ * for three, and three columns of fields whose help text runs to different lengths is three ragged
+ * baselines instead of two. The inputs cannot be made to line up across a row without subgrid
+ * reaching inside Mantine's own markup, so the honest lever is fewer columns.
+ *
+ * A CSS module because this is a breakpoint, which the `style` prop cannot say. The same form is
+ * rendered in a settings card and in a plugin's modal, and both want this rule.
+ */
+.fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--mantine-spacing-md);
+    align-items: start;
+}
+
+@media (min-width: 48em) {
+    .fields {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* A field whose CONTENT is wider than half a row: a paragraph, a table of rows, a bag of pills. */
+.wide {
+    grid-column: 1 / -1;
+}

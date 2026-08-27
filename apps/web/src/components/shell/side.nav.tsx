@@ -43,11 +43,12 @@ const ITEMS: Pick<NavItemProps, 'to' | 'label'>[] = [
     // arrive because the station said a name wrong, and every answer to THAT question is now on one
     // page.
     { to: '/voice', label: 'Voice' },
-    { to: '/plugins', label: 'Plugins' },
     // The activity feed is the second tab here now. Check-up says what the machinery is doing NOW
     // and the feed says what it DID: an operator who finds a stalled loop on the first immediately
     // wants the second, and had to go and find it in the nav.
     { to: '/checkup', label: 'Check-up' },
+    // Plugins is a section of Settings now: a plugin is a thing you configure, and its own
+    // configuration was already the other half of that page.
     { to: '/settings', label: 'Settings' },
 ];
 

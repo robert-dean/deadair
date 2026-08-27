@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
     ActionIcon,
+    Box,
     Anchor,
     Autocomplete,
     Button,
@@ -29,6 +30,7 @@ import type { ConfigFieldColumn, ConfigFieldDescriptor, ConfigFieldOption } from
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
 import { columnSuggestionKey, useDeclaredOptions } from './declared.options';
+import classes from './config.fields.form.module.css';
 
 /** One row of a `list` field. Every cell is a string; the column decides the control, not the value. */
 type FieldRow = Record<string, string>;
@@ -634,7 +636,24 @@ export function ConfigFieldsForm({
             <Stack gap="md">
                 {failure ? <ErrorAlert title={failureTitle}>{failure}</ErrorAlert> : undefined}
 
-                {fields.map((field, index) => renderField(field, index))}
+                {/* Two columns where there is room, which is what the wider settings layout bought.
+                    `auto-fit` rather than a fixed two, so this is one rule for a wide window, a
+                    narrow one, and a plugin form in a modal — all of which render this component.
+
+                    A field that is WIDE by nature spans the row: a list, a table of rows, a note and
+                    a multiselect are all things whose content is longer than a label, and halving
+                    them to keep a grid tidy is the layout winning an argument against the content. */}
+                <Box className={classes.fields}>
+                    {fields.map((field, index) => {
+                        const rendered = renderField(field, index);
+                        if (rendered === undefined) return undefined;
+                        return (
+                            <Box key={field.key} className={FULL_WIDTH_TYPES.has(field.type) ? classes.wide : undefined}>
+                                {rendered}
+                            </Box>
+                        );
+                    })}
+                </Box>
 
                 <Group justify="space-between" gap="md">
                     {/* One control for the form rather than one per field, because the suggestions
@@ -665,6 +684,15 @@ export function ConfigFieldsForm({
         </form>
     );
 }
+
+/**
+ * The field types that take a whole row.
+ *
+ * Everything else is a label and one control and sits happily in half a card. These are the ones
+ * whose CONTENT is wider than that: a note is a paragraph, a list and a rows table grow downward
+ * and sideways, and a multiselect holds an unbounded number of pills.
+ */
+const FULL_WIDTH_TYPES = new Set(['note', 'list', 'rows', 'multiselect']);
 
 interface RowsFieldProps {
     field: ConfigFieldDescriptor;

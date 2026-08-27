@@ -35,6 +35,7 @@ export function attentionDestinationOf(route: string): AttentionDestination | un
     const plugin = /^\/plugins\/(.+)$/.exec(route);
     if (plugin?.[1]) return { to: '/plugins/$id', params: { id: plugin[1] }, label: 'Plugin' };
 
+
     switch (route) {
         // The station still names `/onair` for anything about the broadcast. The desk is where that
         // is answered now, and it is also where this list is drawn — so the row points at the
@@ -54,6 +55,7 @@ export function attentionDestinationOf(route: string): AttentionDestination | un
             return { to: '/catalog/tracks', label: 'Library' };
         case '/plugins':
             return { to: '/plugins', label: 'Plugins' };
+        // Everything below lands on Settings in the nav: plugins are a section of it now.
         case '/settings':
             return { to: '/settings', label: 'Settings' };
         default:
@@ -73,5 +75,9 @@ export function attentionNavPageOf(route: string): string | undefined {
     if (!destination) return undefined;
     // A plugin's own page counts against Plugins in the nav: the nav has no entry per plugin, and
     // the first segment is what the link list is keyed on.
-    return destination.to === '/plugins/$id' ? '/plugins' : (destination.to as string);
+    // Plugins is a section of Settings rather than a nav entry of its own, so anything about a
+    // plugin — the list or one plugin's own page — counts against Settings. Without this a failed
+    // plugin badged a link that is no longer in the nav, which is a fault reported nowhere.
+    if (destination.to === '/plugins/$id' || destination.to === '/plugins') return '/settings';
+    return destination.to as string;
 }

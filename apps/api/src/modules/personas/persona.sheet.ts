@@ -450,11 +450,17 @@ const REMINDER_CLAUSES = 2;
  * Now that {@link personaLines} names them, a hit is a followed instruction.
  *
  * What settled it is that two declined the station's OWN writing. Six of the twenty sample lines in
- * `persona.defaults.ts` carry exactly one marker, including both of `wisecrack`'s — so the prompt
- * handed a model two examples, told it to reuse their grammar, and the guard refused what came
- * back. A sheet whose diction says "one aside per record, and only one" cannot also be asked for two
- * marked words in fifteen. A floor its author's own reference lines fail is measuring the floor
- * rather than the script.
+ * `persona.defaults.ts` carried exactly one marker at the time, including both of `wisecrack`'s — so
+ * the prompt handed a model two examples, told it to reuse their grammar, and the guard refused what
+ * came back. A sheet whose diction says "one aside per record, and only one" cannot also be asked
+ * for two marked words in fifteen. A floor its author's own reference lines fail is measuring the
+ * floor rather than the script.
+ *
+ * The roster has grown and that sheet has been rewritten since, and the shape of the measurement did
+ * not move: 22 of the 72 sample lines across both rosters still carry exactly one, two of them
+ * `wisecrack`'s. Which is the point rather than a coincidence — the seeds are editable rows, so a
+ * floor that held only while nobody rewrote a sample was never the floor.
+ * `persona.defaults.test.ts` is what would catch it coming back.
  *
  * One still catches the failure this exists for, which is a break that came back in flat plain
  * English with no trace of the character at all.
@@ -465,14 +471,20 @@ export const MIN_DICTION_MARKERS = 1;
  * How many consecutive words a script may share with one of the sheet's {@link PersonaSheet.samples}.
  *
  * Five, so a script may pick up a signature phrase or a turn of grammar and may not pick up a
- * sentence. Every catchphrase on every seeded persona is five words or fewer, which is what sets
- * this: the shortest thing a persona is allowed to reuse has to fit under it, and the shortest thing
- * it is not allowed to reuse — a sample clause — has to not.
+ * sentence: the shortest thing a persona is allowed to reuse has to fit under it, and the shortest
+ * thing it is not allowed to reuse — a sample clause — has to not.
  *
- * The bound is on the catchphrase AND on where it appears, which is the half a word count hides. A
- * five-word signature quoted inside a sample line picks up whatever word sits next to it and becomes
- * a six-word run, so the check would then refuse every script that used the signature the same sheet
- * asks for. Hence the rule the seeds follow: a catchphrase never appears verbatim in a sample.
+ * This paragraph used to add that every seeded catchphrase is five words or fewer, offered as what
+ * SET the number. It was not true when it was written and it is not true now — `playbyplay` and
+ * `dedication` both run to seven — and the interesting part is that nothing broke, which is what
+ * gives away that the word count was never the bound.
+ *
+ * The bound is on where a signature APPEARS. A five-word one quoted inside a sample line picks up
+ * whatever word sits next to it and becomes a six-word run, so the check would then refuse every
+ * script that used the signature the same sheet asks for — and a seven-word one that appears in no
+ * sample costs nothing at all. Hence the rule the seeds actually follow, which is the one held by a
+ * test (`persona.defaults.test.ts`) rather than by a census in a comment: a catchphrase never
+ * appears verbatim in a sample.
  *
  * A run rather than the whole line, because the observed failure is not always a clean copy. "Okay
  * that was rough and I picked it, so that's on me" came back once entire and once truncated at "I
@@ -813,10 +825,13 @@ export function echoedSample(sheet: PersonaSheet, script: string): string | unde
  * about what a listener has actually heard rather than about a counter. A persona with no
  * catchphrases, or a station with nothing behind it, spends nothing.
  *
- * **A catchphrase that is also a diction marker can never be spent.** The seeded `wisecrack` carries
+ * **A catchphrase that is also a diction marker can never be spent.** The seeded `wisecrack` shipped
  * "Anyway" as both, which is a sheet contradicting itself: the marker line asks for that word in
  * every break and the catchphrase line rations it, and without this the guard would refuse a script
- * for obeying the first. Diction wins, on the argument this whole file is built on — a quirk applies
+ * for obeying the first. That sheet no longer carries the word in either field, and
+ * `persona.defaults.test.ts` now refuses a seed that poses the question at all — but this stays,
+ * because the sheet it has to hold for is the one an operator writes, where nothing checks anything.
+ * Diction wins, on the argument this whole file is built on — a quirk applies
  * to the sentences it fits and diction applies to every sentence there will ever be, so a word doing
  * both jobs is doing the bigger one.
  */

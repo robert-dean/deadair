@@ -68,8 +68,7 @@ const BUDGET: Record<string, { crossfire?: number; plain?: number; why: string }
     slacker: { crossfire: 6, why: 'flat filler is the character, and other sheets use filler too' },
     grumbler: { crossfire: 6, why: 'a caller speaks in filler by design' },
     gumshoe: { crossfire: 5, plain: 1, why: '`listen` is ordinary English' },
-    shockjock: { crossfire: 5, why: 'shares its loud register with the howler and the wisecrack' },
-    wisecrack: { crossfire: 3, why: 'dry hedges overlap the slacker and the grumbler' },
+    shockjock: { crossfire: 3, why: 'shares its loud register with the howler, and its filler with the slacker and the grumbler' },
     pedant: { crossfire: 2, why: 'formal register overlaps the other callers' },
     forecast: { plain: 1, why: '`good` is a forecast term and an ordinary adjective' },
 

@@ -30,7 +30,7 @@ describe('SideNav', () => {
         const labels = [
             // One link, not two: the desk answers what Home and On air answered separately.
             'Desk',
-            'Schedule',
+            'Programme',
             'Activity',
             'Library',
             // Eight links became one destination with tabs. The tabs themselves are covered in

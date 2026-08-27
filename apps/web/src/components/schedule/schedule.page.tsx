@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { Stack, Text } from '@mantine/core';
+import { Stack, Text, Title } from '@mantine/core';
 import { DayView, WeekView, type ScheduleEventData } from '@mantine/schedule';
 import type { ScheduleSlot, ScheduleSlotInput, ScheduleTimetable } from '@deadair/sdk';
 
 import { usePersonas } from '../../api/personas.queries';
 import { useCreateSlot, useCurrentSlot, useDeleteSlot, useSchedule, useTimetable, useUpdateSlot } from '../../api/schedule.queries';
+import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
-import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { ClockPanel } from './clock.panel';
 import { OnNowStrip } from './on.now.strip';
@@ -61,18 +61,37 @@ import { SustainingPanel } from './sustaining.panel';
  * source — a playlist or a brief and a period, with no times and no days, which is a slot with the
  * when-half taken off. It is stored as station settings and was drawn on the settings page for as
  * long as that was true of it, which put the answer to "what plays in the white space on this grid"
- * on a card about rotation rules two pages away. `SustainingPanel` is it, behind a fold under the
- * grid.
+ * on a card about rotation rules two pages away. `SustainingPanel` is it, on its own tab: it is a
+ * whole answer with five fields, and under the grid it competed with the week it applies to.
  *
  * ## A bulletin is not a slot
  *
- * The other half of the station's clock is the format clock at the foot of this page, which anchors
- * what the station SAYS inside an hour — a bulletin at half past, an ident at the top. The grid is
+ * The other half of the station's clock is the format clock, on the Today tab, which anchors what
+ * the station SAYS inside an hour — a bulletin at half past, an ident at the top. The grid is
  * what it plays between them. They share a page because they are one question with two answers, and
  * the format clock was a settings box for as long as a band was three tokens somebody could hold in
  * their head.
  */
-export function SchedulePage() {
+/** The three questions a programme page answers, in the order they are asked. */
+export const PROGRAMME_TABS = [
+    { key: 'today', label: 'Today' },
+    { key: 'week', label: 'Week' },
+    { key: 'sustaining', label: 'Sustaining' },
+] as const satisfies readonly DestinationTab<string>[];
+
+export type ProgrammeTab = (typeof PROGRAMME_TABS)[number]['key'];
+
+/** Whether a string off the URL is a tab this destination has. */
+export function isProgrammeTab(value: unknown): value is ProgrammeTab {
+    return typeof value === 'string' && PROGRAMME_TABS.some(tab => tab.key === value);
+}
+
+export interface SchedulePageProps {
+    tab: ProgrammeTab;
+    onSelect: (tab: ProgrammeTab) => void;
+}
+
+export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
     const schedule = useSchedule();
     const current = useCurrentSlot();
     // For the host's name on the strip. Cached for half a minute and fetched once on mount, which is
@@ -178,16 +197,15 @@ export function SchedulePage() {
 
     return (
         <Stack gap="lg">
-            <PageHeader
-                title="Schedule"
-                description={
-                    <Text c="dimmed" size="sm">
-                        What the station plays at each stretch of the day, on its own clock. Blocks may leave gaps, and the hours nothing covers play
-                        the sustaining source set under the grid. Changing a block takes effect when it next comes round, and the record playing at a
-                        boundary always finishes.
-                    </Text>
-                }
-            />
+            <Stack gap="xxs">
+                <Title order={1}>Programme</Title>
+                <Text c="dimmed" size="sm" maw={760}>
+                    Two questions on one destination: what the station plays across the day, and what it says inside the hour. Changing a block takes
+                    effect when it next comes round, and the record playing at a boundary always finishes.
+                </Text>
+            </Stack>
+
+            <DestinationTabs tabs={PROGRAMME_TABS} active={tab} onSelect={onSelect} label="Programme" />
 
             {schedule.error ? (
                 <ErrorAlert title="The schedule could not be loaded" error={schedule.error} fallback="The station's day is unavailable." />
@@ -203,22 +221,24 @@ export function SchedulePage() {
                 <ErrorAlert title="That change could not be saved" error={update.error} fallback="The schedule is as it was." />
             ) : undefined}
 
-            {/* Above the grid, because "what is on" is the question somebody arrives with and reading
-                it off a week of columns is work. The takeover note lives inside it now, on the block
-                it is about, rather than as a loose paragraph here. */}
-            {current.data ? <OnNowStrip current={current.data} slots={slots} personas={personas.data?.personas ?? []} /> : undefined}
+            {/* On Today, because "what is on" is the question somebody arrives with and reading it
+                off a week of columns is work. The takeover note lives inside it, on the block it is
+                about, rather than as a loose paragraph here. */}
+            {tab === 'today' && current.data ? (
+                <OnNowStrip current={current.data} slots={slots} personas={personas.data?.personas ?? []} />
+            ) : undefined}
 
-            {schedule.isPending || timetable.isPending ? <PageSkeleton variant="card" /> : undefined}
+            {tab === 'week' && (schedule.isPending || timetable.isPending) ? <PageSkeleton variant="card" /> : undefined}
 
-            {schedule.data && slots.length === 0 ? (
+            {tab === 'week' && schedule.data && slots.length === 0 ? (
                 <EmptyState>
                     This station has no schedule, which is an ordinary state rather than a fault: it keeps playing whatever you put on until you put
-                    something else on. Click any hour below to add a block there. A bulletin or an ident inside the hour is the format clock at the
-                    foot of this page, not a block here.
+                    something else on. Click any hour below to add a block there. A bulletin or an ident inside the hour is the format clock under
+                    Today, not a block here.
                 </EmptyState>
             ) : undefined}
 
-            {from === undefined ? undefined : (
+            {tab !== 'week' || from === undefined ? undefined : (
                 <Stack gap="sm">
                     {view === 'week' ? (
                         <WeekView
@@ -249,13 +269,14 @@ export function SchedulePage() {
                 </Stack>
             )}
 
-            {/* The hours no block claims, directly under the grid that draws them empty: this is
-                still what the station PLAYS, where the format clock below is what it says. */}
-            <SustainingPanel />
+            {/* Its own tab rather than a fold under the grid. What plays through an unclaimed hour
+                is a whole answer with five fields of its own — a playlist, or a brief and a period —
+                and it was competing for attention with the week it applies to. */}
+            {tab === 'sustaining' ? <SustainingPanel /> : undefined}
 
-            {/* The other half of "what happens when", under the grid rather than beside it: a band
-                is a rule about every hour and has no place on a week. */}
-            <ClockPanel />
+            {/* The other half of "what happens when", and the reason Today is a tab rather than the
+                day grid: a band is a rule about every hour and has no place on a week. */}
+            {tab === 'today' ? <ClockPanel /> : undefined}
 
             <SlotEditor
                 // Keyed, so opening a different slot — or the same hour on a different day — builds

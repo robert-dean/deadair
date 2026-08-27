@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActionIcon, Badge, Button, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Badge, Box, Button, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowDown, IconArrowUp, IconPlus } from '@tabler/icons-react';
 import type { ClockBand, ClockBandInput } from '@deadair/sdk';
 
@@ -8,6 +8,7 @@ import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 import { severityColor } from '../shared/status';
 import { BandEditor, type BandTarget } from './band.editor';
+import { FormatClockDial } from './format.clock.dial';
 
 /**
  * The station's format clock, on the page that already answers "what happens when".
@@ -47,6 +48,8 @@ export function ClockPanel() {
     // them means anything.
     const producible = new Set(clock.data?.producibleKinds ?? []);
     const canProduce = (kind: string) => clock.data === undefined || producible.has(kind);
+    // The complement, for the dial: it marks what will be passed over rather than what will run.
+    const unproducible = new Set(bands.filter(band => !canProduce(band.kind)).map(band => band.kind));
 
     const close = () => {
         setEditing(undefined);
@@ -127,75 +130,87 @@ export function ClockPanel() {
                     </Text>
                 ) : undefined}
 
+                {/* The dial beside the list rather than instead of it. The list is the editor —
+                    a band is four fields and you cannot type into a circle — and the dial is the
+                    one thing rows cannot show: the SHAPE of an hour, and whether three rules have
+                    piled up inside four minutes. It drops below the list on a narrow window, where
+                    a 220px circle beside a table is two cramped columns. */}
                 {bands.length > 0 ? (
-                    <Table verticalSpacing="xs" highlightOnHover>
-                        <Table.Tbody>
-                            {bands.map((band, index) => (
-                                <Table.Tr key={band.id} style={{ cursor: 'pointer' }} onClick={() => setEditing({ kind: 'edit', band })}>
-                                    <Table.Td w={110} className="da-num">
-                                        <Text size="sm" c={band.enabled ? undefined : 'dimmed'}>
-                                            {whenOf(band)}
-                                        </Text>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Text size="sm" c={band.enabled ? undefined : 'dimmed'}>
-                                            {band.kind}
-                                            {band.topicLabel === undefined ? '' : ` · ${band.topicLabel}`}
-                                        </Text>
-                                    </Table.Td>
-                                    <Table.Td w={170}>
-                                        {/* A rule switched off says nothing about whether the
+                    <Group align="flex-start" gap="xl" wrap="wrap">
+                        <Box visibleFrom="md" style={{ flexShrink: 0 }}>
+                            <FormatClockDial bands={bands} unproducible={unproducible} />
+                        </Box>
+                        <Box style={{ flex: 1, minWidth: 320 }}>
+                            <Table verticalSpacing="xs" highlightOnHover>
+                                <Table.Tbody>
+                                    {bands.map((band, index) => (
+                                        <Table.Tr key={band.id} style={{ cursor: 'pointer' }} onClick={() => setEditing({ kind: 'edit', band })}>
+                                            <Table.Td w={110} className="da-num">
+                                                <Text size="sm" c={band.enabled ? undefined : 'dimmed'}>
+                                                    {whenOf(band)}
+                                                </Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="sm" c={band.enabled ? undefined : 'dimmed'}>
+                                                    {band.kind}
+                                                    {band.topicLabel === undefined ? '' : ` · ${band.topicLabel}`}
+                                                </Text>
+                                            </Table.Td>
+                                            <Table.Td w={170}>
+                                                {/* A rule switched off says nothing about whether the
                                             station could honour it, so only one of these is ever
                                             worth drawing: what an operator does about a band that
                                             is off is turn it on. */}
-                                        {!band.enabled ? (
-                                            <Badge size="xs" variant="light" color="gray">
-                                                Off
-                                            </Badge>
-                                        ) : canProduce(band.kind) ? undefined : (
-                                            <Tooltip
-                                                multiline
-                                                maw={320}
-                                                label={`Nothing on this station can make a ${band.kind}. The slot is claimed and then passed over, so the station plays on rather than saying anything.`}
-                                            >
-                                                {/* `tt="none"` because the badge carries a
+                                                {!band.enabled ? (
+                                                    <Badge size="xs" variant="light" color="gray">
+                                                        Off
+                                                    </Badge>
+                                                ) : canProduce(band.kind) ? undefined : (
+                                                    <Tooltip
+                                                        multiline
+                                                        maw={320}
+                                                        label={`Nothing on this station can make a ${band.kind}. The slot is claimed and then passed over, so the station plays on rather than saying anything.`}
+                                                    >
+                                                        {/* `tt="none"` because the badge carries a
                                                     sentence rather than a one-word state, and
                                                     Mantine's uppercase default made it wide enough
                                                     to be truncated to "NOTHING CAN PRODUCE T…". */}
-                                                <Badge size="xs" variant="light" color={severityColor.notice} tt="none">
-                                                    nothing can produce this
-                                                </Badge>
-                                            </Tooltip>
-                                        )}
-                                    </Table.Td>
-                                    <Table.Td w={80}>
-                                        {/* The arrows are the only control on the row: everything else
+                                                        <Badge size="xs" variant="light" color={severityColor.notice} tt="none">
+                                                            nothing can produce this
+                                                        </Badge>
+                                                    </Tooltip>
+                                                )}
+                                            </Table.Td>
+                                            <Table.Td w={80}>
+                                                {/* The arrows are the only control on the row: everything else
                                             about a band is edited in the sheet the row opens. */}
-                                        <Group gap={2} justify="flex-end" onClick={event => event.stopPropagation()}>
-                                            <ActionIcon
-                                                size="sm"
-                                                variant="subtle"
-                                                aria-label="Move up"
-                                                disabled={index === 0}
-                                                onClick={() => void move(index, -1)}
-                                            >
-                                                <IconArrowUp size={14} />
-                                            </ActionIcon>
-                                            <ActionIcon
-                                                size="sm"
-                                                variant="subtle"
-                                                aria-label="Move down"
-                                                disabled={index === bands.length - 1}
-                                                onClick={() => void move(index, 1)}
-                                            >
-                                                <IconArrowDown size={14} />
-                                            </ActionIcon>
-                                        </Group>
-                                    </Table.Td>
-                                </Table.Tr>
-                            ))}
-                        </Table.Tbody>
-                    </Table>
+                                                <Group gap={2} justify="flex-end" onClick={event => event.stopPropagation()}>
+                                                    <ActionIcon
+                                                        size="sm"
+                                                        variant="subtle"
+                                                        aria-label="Move up"
+                                                        disabled={index === 0}
+                                                        onClick={() => void move(index, -1)}
+                                                    >
+                                                        <IconArrowUp size={14} />
+                                                    </ActionIcon>
+                                                    <ActionIcon
+                                                        size="sm"
+                                                        variant="subtle"
+                                                        aria-label="Move down"
+                                                        disabled={index === bands.length - 1}
+                                                        onClick={() => void move(index, 1)}
+                                                    >
+                                                        <IconArrowDown size={14} />
+                                                    </ActionIcon>
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
+                        </Box>
+                    </Group>
                 ) : undefined}
             </Stack>
 

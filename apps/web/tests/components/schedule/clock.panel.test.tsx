@@ -42,7 +42,9 @@ describe('ClockPanel', () => {
 
         render(<ClockPanel />);
 
-        await screen.findByText(/news/);
+        // `findAllByText`: the band's kind is on its row AND on the dial beside it, which is the
+        // point of the dial. The claim here is about the warning, not the count.
+        await screen.findAllByText(/news/);
         expect(screen.queryByText('nothing can produce this')).toBeNull();
     });
 

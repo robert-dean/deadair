@@ -32,7 +32,7 @@ const ITEMS: Pick<NavItemProps, 'to' | 'label'>[] = [
     { to: '/', label: 'Desk' },
     // Beside the desk: both answer "what is the station playing", one now and one later, and an
     // operator changing tonight arrives with the same question as one changing this minute.
-    { to: '/schedule', label: 'Schedule' },
+    { to: '/schedule', label: 'Programme' },
     // Four links became one destination with tabs. They are all answers to "what can this station
     // put on", and an operator arriving with that question had to already know whether the answer
     // was a record, a playlist, a chart or a story. Each tab is still its own route, so nothing

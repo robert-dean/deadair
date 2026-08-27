@@ -46,7 +46,7 @@ export function attentionDestinationOf(route: string): AttentionDestination | un
         case '/personas':
             return { to: '/voice', search: { tab: 'characters' }, label: 'Voice' };
         case '/schedule':
-            return { to: '/schedule', label: 'Schedule' };
+            return { to: '/schedule', label: 'Programme' };
         // The Library's Tracks tab rather than its Artists one, which is what `/catalog` resolves
         // to as a route. Everything the station reports here is about RECORDS — benched copies,
         // unmeasured audio — and the readiness bar that answers it is on Tracks.

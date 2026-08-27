@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActionIcon, Autocomplete, Button, Card, Code, Divider, Group, Modal, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import { ActionIcon, Autocomplete, Button, Card, Code, Divider, Drawer, Group, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
 import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
@@ -7,10 +7,11 @@ import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 /** What a character is for. Mirrors the API's own enum; absent there means `host`. */
 type PersonaKind = NonNullable<PersonaInput['kind']>;
 
-import { useGeneratePersona } from '../../api/personas.queries';
+import { useGeneratePersona, useRehearsePersona } from '../../api/personas.queries';
 import { usePads } from '../../api/pads.queries';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
+import { PersonaRehearsalPanel } from './persona.rehearsal';
 import { faultInTemplate, templateLines } from './template.vocabulary';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
@@ -51,6 +52,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
     const pads = usePads();
     const generate = useGeneratePersona();
     const preview = useVoicePreview();
+    const rehearse = useRehearsePersona();
     const [description, setDescription] = useState('');
 
     const form = useForm<FormValues>({
@@ -77,16 +79,22 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
         /* A character sheet is fourteen fields and is read whole, which is why this is one scroll
            rather than tabs: a field behind a tab is a field an author does not know is there. What
            that costs without help is the Save button, which sits under the fourteenth field and is
-           therefore off screen for the whole of the editing. So the FIELDS scroll and the buttons
-           do not. Inline rather than in `theme.components` because this is the one modal long
-           enough to need it; the day a second one is, it moves. */
-        <Modal
+           therefore off screen for the whole of the editing. So the FIELDS scroll and the footer
+           does not.
+
+           A right-hand sheet rather than a centred modal. The fields are a tall column and a modal
+           made them a tall column in the middle of a dimmed page, with the roster behind it doing
+           nothing; anchored to the edge, the sheet is as tall as the window by default and the list
+           it was opened from stays where it was. Inline rather than in `theme.components` because
+           this is the one sheet long enough to need it; the day a second one is, it moves. */
+        <Drawer
             opened={opened}
             onClose={onClose}
             title={titleFor(persona, caller)}
-            size="xl"
+            position="right"
+            size={620}
             styles={{
-                content: { maxHeight: 'calc(100vh - 6rem)', display: 'flex', flexDirection: 'column' },
+                content: { display: 'flex', flexDirection: 'column' },
                 // `minHeight: 0` is what actually makes the scroll happen: a flex child's default
                 // floor is its content, so without it the body grows past the content's max height
                 // instead of overflowing inside it.
@@ -152,7 +160,10 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         </Card>
                     ) : undefined}
 
-                    <Section title="Who they are" />
+                    <Section
+                        title="Who they are"
+                        blurb='The half of a character the model is told about. Everything here completes "You are …".'
+                    />
 
                     <Group grow align="flex-start">
                         <TextInput label="Name" placeholder="Late-night companion" {...form.getInputProps('label')} />
@@ -167,12 +178,93 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         {...form.getInputProps('style')}
                     />
 
+                    <TextInput
+                        label="On-air name"
+                        description="Overrides the station's presenter name while this persona is on air. Leave empty to keep it."
+                        {...form.getInputProps('djName')}
+                    />
+
+                    <Textarea
+                        label="True about them"
+                        description="A couple of grounded facts they may mention about themselves."
+                        rows={2}
+                        {...form.getInputProps('background')}
+                    />
+
+                    <Section
+                        title="How they talk"
+                        blurb="The dialect, and the words that prove a break came back in character. A break carrying none of them is rewritten from the phrasings below."
+                    />
+
+                    <Textarea
+                        label="How they speak"
+                        description="The dialect, one rule per line. This applies to EVERY sentence, including the ones stating a plain fact."
+                        placeholder={'Always contract: "you\'re", "that\'s"\nSpeak to one person, not a crowd'}
+                        rows={5}
+                        {...form.getInputProps('diction')}
+                    />
+
+                    <Textarea
+                        label="Words that prove it"
+                        description="One per line. A break that comes back carrying none of these is treated as out of character and the phrasings below write it instead. An entry ending in an apostrophe matches as a suffix, so in' catches every dropped g. Leave empty to check nothing."
+                        placeholder={"ye\naye\nmatey\nin'"}
+                        rows={4}
+                        {...form.getInputProps('dictionMarkers')}
+                    />
+
+                    <Textarea
+                        label="In character"
+                        description="What they always and never do on air, one per line."
+                        rows={4}
+                        {...form.getInputProps('quirks')}
+                    />
+
                     <Group grow align="flex-start">
-                        <TextInput
-                            label="On-air name"
-                            description="Overrides the station's presenter name while this persona is on air. Leave empty to keep it."
-                            {...form.getInputProps('djName')}
+                        <Textarea
+                            label="Signature phrases"
+                            description="One per line. Asked for sparingly: at most one, and not every break."
+                            rows={3}
+                            {...form.getInputProps('catchphrases')}
                         />
+                        <Textarea label="Never say" description="One per line." rows={3} {...form.getInputProps('avoid')} />
+                    </Group>
+
+                    {/* A caller has no floor and should not have one: phrasings are what the STATION
+                        says when the model declines, and a phone-in whose caller was written by a
+                        template is a phone-in with nobody on the phone. So the section is not drawn
+                        rather than drawn and ignored. */}
+                    {caller ? undefined : (
+                        <>
+                            <Section
+                                title="What they fall back on"
+                                blurb="Most breaks are not written by a model. These are the words the station uses when it declines — a character with none falls back to plain English."
+                            />
+
+                            <Textarea
+                                label="Their own phrasings"
+                                description="One per line, in the same syntax as the station's break phrasings. These are what the station says when the model declines, which is most breaks — so a character with none falls back to plain English."
+                                placeholder="That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]"
+                                rows={6}
+                                {...form.getInputProps('templates')}
+                            />
+
+                            <TemplateFaults raw={form.values.templates} />
+                        </>
+                    )}
+
+                    <Textarea
+                        label="Lines in their voice"
+                        description="One per line. Used as examples for the model, which is asked to reuse the grammar and never the sentences."
+                        rows={3}
+                        {...form.getInputProps('samples')}
+                    />
+
+                    <Section
+                        title="How far they go"
+                        blurb="Dials with real consequences on air. Each one only ever asks for LESS than the station's own setting — nothing here can loosen what the station always sends."
+                    />
+
+                    <Group grow align="flex-start">
                         {voiceOptions.length > 0 ? (
                             <Select
                                 label="Voice"
@@ -229,51 +321,6 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         />
                     </Group>
 
-                    <Section title="How they speak" />
-
-                    <Textarea
-                        label="How they speak"
-                        description="The dialect, one rule per line. This applies to EVERY sentence, including the ones stating a plain fact."
-                        placeholder={'Always contract: "you\'re", "that\'s"\nSpeak to one person, not a crowd'}
-                        rows={5}
-                        {...form.getInputProps('diction')}
-                    />
-
-                    <Textarea
-                        label="Words that prove it"
-                        description="One per line. A break that comes back carrying none of these is treated as out of character and the phrasings below write it instead. An entry ending in an apostrophe matches as a suffix, so in' catches every dropped g. Leave empty to check nothing."
-                        placeholder={"ye\naye\nmatey\nin'"}
-                        rows={4}
-                        {...form.getInputProps('dictionMarkers')}
-                    />
-
-                    <Section title="What they do and never do" />
-
-                    <Textarea
-                        label="In character"
-                        description="What they always and never do on air, one per line."
-                        rows={4}
-                        {...form.getInputProps('quirks')}
-                    />
-
-                    <Textarea
-                        label="What they keep coming back to"
-                        description="One subject per line. Only ONE of these reaches any break, chosen in turn, so a longer list is more variety rather than more to say at once. These are subjects; the rules about how they behave belong above."
-                        placeholder={'the pressing plant\nthe session that booked four hours\nthe running order of this station'}
-                        rows={4}
-                        {...form.getInputProps('preoccupations')}
-                    />
-
-                    <Group grow align="flex-start">
-                        <Textarea
-                            label="Signature phrases"
-                            description="One per line. Asked for sparingly: at most one, and not every break."
-                            rows={3}
-                            {...form.getInputProps('catchphrases')}
-                        />
-                        <Textarea label="Never say" description="One per line." rows={3} {...form.getInputProps('avoid')} />
-                    </Group>
-
                     <Group grow align="flex-start">
                         <Select
                             label="How much they say"
@@ -321,38 +368,12 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     </Text>
 
                     <Textarea
-                        label="True about them"
-                        description="A couple of grounded facts they may mention about themselves."
-                        rows={2}
-                        {...form.getInputProps('background')}
+                        label="What they keep coming back to"
+                        description="One subject per line. Only ONE of these reaches any break, chosen in turn, so a longer list is more variety rather than more to say at once. These are subjects; the rules about how they behave belong above."
+                        placeholder={'the pressing plant\nthe session that booked four hours\nthe running order of this station'}
+                        rows={4}
+                        {...form.getInputProps('preoccupations')}
                     />
-
-                    <Textarea
-                        label="Lines in their voice"
-                        description="One per line. Used as examples for the model, which is asked to reuse the grammar and never the sentences."
-                        rows={3}
-                        {...form.getInputProps('samples')}
-                    />
-
-                    {/* A caller has no floor and should not have one: phrasings are what the STATION
-                        says when the model declines, and a phone-in whose caller was written by a
-                        template is a phone-in with nobody on the phone. So the section is not drawn
-                        rather than drawn and ignored. */}
-                    {caller ? undefined : (
-                        <>
-                            <Section title="What the station says when the model declines" />
-
-                            <Textarea
-                                label="Their own phrasings"
-                                description="One per line, in the same syntax as the station's break phrasings. These are what the station says when the model declines, which is most breaks — so a character with none falls back to plain English."
-                                placeholder="That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]"
-                                rows={6}
-                                {...form.getInputProps('templates')}
-                            />
-
-                            <TemplateFaults raw={form.values.templates} />
-                        </>
-                    )}
 
                     <UnusedMarkers markers={form.values.dictionMarkers} samples={form.values.samples} />
                 </Stack>
@@ -361,22 +382,58 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     The standing-rules sentence comes with it rather than staying at the bottom of
                     the fields: it is about what SAVING does, so it belongs beside the button that
                     does it. */}
-                <Group justify="space-between" align="flex-end" wrap="nowrap" pt="md" mt="md" style={{ borderTop: '1px solid var(--da-border)' }}>
-                    <Text c="dimmed" size="xs">
-                        Nothing here can loosen the rules the station always sends: never name a record it was not given, and be certain or say
-                        nothing. Saving is heard on the next break the station writes — one already written or being spoken keeps the words it has.
-                    </Text>
-                    <Group wrap="nowrap">
-                        <Button variant="subtle" onClick={onClose}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" loading={saving}>
-                            Save
-                        </Button>
+                <Stack gap="sm" pt="md" mt="md" style={{ borderTop: '1px solid var(--da-border)' }}>
+                    {/* The rehearsal is pinned to the footer so the effect of an edit is audible from
+                        where it is made, rather than from a button on a card behind this sheet.
+
+                        It rehearses what is SAVED, and says so. The API's rehearsal takes a persona
+                        id and reads the stored row — there is no endpoint that would speak a draft —
+                        so a button here claiming to include unsaved edits would be the sheet lying
+                        about what an operator is hearing. Offered only on a character that exists,
+                        because a new one has no row to read. */}
+                    {persona ? (
+                        <Group gap="sm" wrap="nowrap" align="center">
+                            <Button
+                                variant="default"
+                                size="compact-sm"
+                                loading={rehearse.isPending}
+                                onClick={() => rehearse.mutate(persona.id)}
+                                style={{ flexShrink: 0 }}
+                            >
+                                Hear a rehearsal
+                            </Button>
+                            <Text size="xs" c="dimmed">
+                                Speaks this character as it was last SAVED. Save first to hear an edit.
+                            </Text>
+                        </Group>
+                    ) : undefined}
+
+                    {rehearse.error ? (
+                        <ErrorAlert title="Nothing was spoken" error={rehearse.error} fallback="The station could not rehearse this character." />
+                    ) : undefined}
+
+                    {rehearse.data ? (
+                        <PersonaRehearsalPanel rehearsal={rehearse.data} {...(persona?.voice === undefined ? {} : { voice: persona.voice })} />
+                    ) : undefined}
+
+                    <Group justify="space-between" align="flex-end" wrap="nowrap">
+                        <Text c="dimmed" size="xs">
+                            Nothing here can loosen the rules the station always sends: never name a record it was not given, and be certain or say
+                            nothing. Saving is heard on the next break the station writes — one already written or being spoken keeps the words it
+                            has.
+                        </Text>
+                        <Group wrap="nowrap">
+                            <Button variant="subtle" onClick={onClose}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" loading={saving}>
+                                Save
+                            </Button>
+                        </Group>
                     </Group>
-                </Group>
+                </Stack>
             </form>
-        </Modal>
+        </Drawer>
     );
 }
 
@@ -453,9 +510,23 @@ function GenerationNotes({ generated }: { generated: { droppedMarkers: string[];
     );
 }
 
-/** One divider with a name on it, so fourteen boxes read as four questions. */
-function Section({ title }: { title: string }) {
-    return <Divider my="xs" label={<Eyebrow>{title}</Eyebrow>} labelPosition="left" />;
+/**
+ * One heading, so fourteen boxes read as four questions.
+ *
+ * The blurb is what turns a divider into a question. "How far they go" over four dropdowns is a
+ * label; the sentence under it — that each one only ever asks for LESS than the station's own
+ * setting — is the thing an operator needs before touching any of them, and it was previously
+ * spread across four separate field descriptions that nobody reads in order.
+ */
+function Section({ title, blurb }: { title: string; blurb: string }) {
+    return (
+        <Stack gap={2} mt="xs">
+            <Divider mb={2} label={<Eyebrow>{title}</Eyebrow>} labelPosition="left" />
+            <Text size="xs" c="dimmed">
+                {blurb}
+            </Text>
+        </Stack>
+    );
 }
 
 /**

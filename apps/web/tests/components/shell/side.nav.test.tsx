@@ -14,11 +14,13 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 describe('SideNav', () => {
-    it('groups the destinations under the four headings', () => {
+    it('is flat, because a heading over one destination is a heading arguing with itself', () => {
+        // The groups were the right answer to nineteen links. With the pages behind them folded
+        // into tabs, the work they did happens a level down on each destination's tab strip.
         render(<SideNav />);
 
-        for (const group of ['Air', 'Library', 'Station', 'System']) {
-            expect(screen.getByText(group)).toBeInTheDocument();
+        for (const group of ['Air', 'Station', 'System']) {
+            expect(screen.queryByText(group)).not.toBeInTheDocument();
         }
     });
 
@@ -30,10 +32,7 @@ describe('SideNav', () => {
             'Desk',
             'Schedule',
             'Activity',
-            'Catalog',
-            'Playlists',
-            'Charts',
-            'News',
+            'Library',
             // Eight links became one destination with tabs. The tabs themselves are covered in
             // `voice.page.test.tsx`; what belongs here is that the nav offers the way in.
             'Voice',
@@ -78,12 +77,12 @@ describe('SideNav', () => {
 
     it('says what a badge means in words, rather than sticking its number on the name', () => {
         // Mantine folds a `rightSection` into the link's accessible name, so an unguarded badge
-        // renames "Catalog" to "Catalog 4" for a screen reader. The badge stays hidden and the link
+        // renames "Library" to "Library 4" for a screen reader. The badge stays hidden and the link
         // carries the sentence instead, so the shortcut exists for somebody not looking at it.
         render(<SideNav attention={[{ code: 'benchedCopies', severity: 'warning', title: 'a', detail: 'a', route: '/catalog' }]} />);
 
-        expect(screen.getByRole('link', { name: 'Catalog, 1 thing needs attention' })).toBeInTheDocument();
-        expect(screen.queryByRole('link', { name: 'Catalog 1' })).not.toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Library, 1 thing needs attention' })).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Library 1' })).not.toBeInTheDocument();
     });
 
     it('counts in the plural when there is more than one', () => {
@@ -96,21 +95,21 @@ describe('SideNav', () => {
             />,
         );
 
-        expect(screen.getByRole('link', { name: 'Catalog, 2 things need attention' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Library, 2 things need attention' })).toBeInTheDocument();
     });
 
     /** A link with nothing waiting keeps its plain name rather than announcing that nothing is wrong. */
     it('leaves a link with nothing waiting exactly as it was', () => {
         render(<SideNav />);
 
-        expect(screen.getByRole('link', { name: 'Catalog' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Library' })).toBeInTheDocument();
     });
 
     it('tells the shell to shut the drawer once a link is followed', async () => {
         const onNavigate = vi.fn();
         render(<SideNav onNavigate={onNavigate} />);
 
-        await setupUser().click(screen.getByRole('link', { name: 'Catalog' }));
+        await setupUser().click(screen.getByRole('link', { name: 'Library' }));
 
         expect(onNavigate).toHaveBeenCalled();
     });

@@ -55,7 +55,7 @@ describe('RootLayout', () => {
 
         expect(logoutButton()).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Desk' })).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Playlists' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Library' })).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
     });
 

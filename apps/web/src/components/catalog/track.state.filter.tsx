@@ -1,4 +1,4 @@
-import { Chip, Group, Text, Tooltip } from '@mantine/core';
+import { Box, Card, Chip, Group, Stack, Text, Tooltip } from '@mantine/core';
 import type { TrackStateCounts } from '@deadair/sdk';
 
 import type { TrackStateParam } from './catalog.page.params';
@@ -69,28 +69,62 @@ export function TrackStateFilter({ counts, value, onChange }: TrackStateFilterPr
     // table down and then jump it back up.
     if (counts === undefined) return undefined;
 
+    // The proportions the bar draws. Only the three that are a claim about readiness: what can air
+    // now, what is here but unmeasured, and what has been written off. "Never needed yet" is the
+    // rest and is drawn as the track behind them, because it is not a state so much as the absence
+    // of one.
+    const ready = counts.total === 0 ? 0 : (counts.cached / counts.total) * 100;
+    const unmeasured = counts.total === 0 ? 0 : (Math.max(0, counts.cached - counts.measured) / counts.total) * 100;
+    const benched = counts.total === 0 ? 0 : (counts.benched / counts.total) * 100;
+
     return (
-        <Group gap="xs" align="center">
-            <Text size="sm" c="dimmed" className="da-num">
-                {counts.total} records
-            </Text>
-            {FILTERS.map(filter => {
-                const count = filter.count(counts);
-                return (
-                    <Tooltip key={filter.state} label={filter.help} multiline w={260}>
-                        <Chip
-                            size="xs"
-                            checked={value === filter.state}
-                            disabled={count === 0 && value !== filter.state}
-                            onChange={checked => {
-                                onChange(checked ? filter.state : '');
-                            }}
-                        >
-                            <span className="da-num">{count}</span> {filter.label}
-                        </Chip>
-                    </Tooltip>
-                );
-            })}
-        </Group>
+        <Card withBorder padding="md">
+            <Stack gap="xs">
+                {/* The sentence first, because it is what an operator came for. Five chips each
+                    holding a number made the reader do the division: the question is never "how
+                    many are cached", it is "how much of my library can go out right now". */}
+                <Group justify="space-between" align="baseline" gap="md" wrap="wrap">
+                    <Text size="sm">
+                        <span className="da-num" style={{ fontWeight: 600 }}>
+                            {counts.cached.toLocaleString()}
+                        </span>{' '}
+                        of <span className="da-num">{counts.total.toLocaleString()}</span> records are ready to air right now.
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                        The rest are fetched when the station wants them.
+                    </Text>
+                </Group>
+
+                <Group gap={0} h={8} style={{ borderRadius: 4, overflow: 'hidden', background: 'var(--da-border)' }} aria-hidden>
+                    <Box w={`${ready}%`} h="100%" bg="teal.4" />
+                    <Box w={`${unmeasured}%`} h="100%" bg="yellow.4" />
+                    <Box w={`${benched}%`} h="100%" bg="orange.4" />
+                </Group>
+
+                {/* The chips keep their whole job as filters, and lose only the arithmetic. A chip
+                    with nothing behind it stays drawn and disabled: zero benched records is a fact
+                    worth seeing, and a list that changed shape as the numbers moved would be
+                    unreadable. */}
+                <Group gap="xs" align="center">
+                    {FILTERS.map(filter => {
+                        const count = filter.count(counts);
+                        return (
+                            <Tooltip key={filter.state} label={filter.help} multiline w={260}>
+                                <Chip
+                                    size="xs"
+                                    checked={value === filter.state}
+                                    disabled={count === 0 && value !== filter.state}
+                                    onChange={checked => {
+                                        onChange(checked ? filter.state : '');
+                                    }}
+                                >
+                                    <span className="da-num">{count.toLocaleString()}</span> {filter.label}
+                                </Chip>
+                            </Tooltip>
+                        );
+                    })}
+                </Group>
+            </Stack>
+        </Card>
     );
 }

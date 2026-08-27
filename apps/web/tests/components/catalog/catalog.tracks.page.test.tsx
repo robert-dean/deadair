@@ -247,8 +247,11 @@ describe('CatalogTracksPage', () => {
             />,
         );
 
-        expect(await screen.findByText('919 records')).toBeInTheDocument();
-        expect(screen.getByText('345')).toBeInTheDocument();
+        // The sentence an operator actually came for, rather than five chips each holding a number
+        // and leaving the division to the reader.
+        expect(await screen.findByText(/records are ready to air right now/)).toBeInTheDocument();
+        expect(screen.getAllByText('345').length).toBeGreaterThan(0);
+        expect(screen.getByText('919')).toBeInTheDocument();
         // The unmeasured chip counts the COMPLEMENT of what the API reports, because the filter an
         // operator wants is the records the walk has not reached.
         expect(screen.getByText('703')).toBeInTheDocument();

@@ -1,75 +1,52 @@
-import { Box, Stack } from '@mantine/core';
+import { Stack } from '@mantine/core';
 import type { AttentionItem } from '@deadair/sdk';
 
-import { Eyebrow } from '../shared/eyebrow';
 import type { Severity } from '../shared/status';
 import { attentionNavPageOf } from './attention.destination';
 import { NavItem, type NavItemProps } from './nav.item';
-import classes from './side.nav.module.css';
-
-interface NavGroup {
-    title: string;
-    items: Pick<NavItemProps, 'to' | 'label'>[];
-}
 
 /**
- * The console's pages, grouped by the question an operator arrives with.
+ * The console's destinations, in the order an operator meets them.
  *
- * Eleven flat links across a 56px header had outgrown the row, and flat is also what made the
- * dead one invisible. The grouping is not alphabetisation: AIR is what is happening now, LIBRARY
- * is what there is to play, STATION is who plays it and how, SYSTEM is the machinery. Activity
- * sits under AIR rather than with the machinery because it answers the question On air raises
- * when the station is not doing what was expected.
+ * ## Why this is flat again
+ *
+ * It was eleven links across a header, then nineteen in four groups. The groups were the right
+ * answer to nineteen: flat is what had made the dead link invisible, and AIR / LIBRARY / STATION /
+ * SYSTEM named the question each page answered.
+ *
+ * They stopped earning their keep the moment the pages behind them became tabs. A heading over one
+ * item is not a grouping, and "LIBRARY › Library" is a heading arguing with its own contents. The
+ * work the headings did is now done a level down, by the tab strip on each destination — which is
+ * the better place for it, because a tab is visible from inside the thing it belongs to.
+ *
+ * ## The order is the day, not the alphabet
+ *
+ * The desk is where every visit starts. The schedule is the same question later. Library and Voice
+ * are what the station plays and who plays it. What is left is the machinery, and it is last
+ * because an operator who needs it has gone looking.
  */
-const GROUPS: NavGroup[] = [
-    {
-        title: 'Air',
-        items: [
-            // Home and On air were two links and one question. The landing page was a masthead and
-            // a list of faults, and the operator's next click was always the running order — so the
-            // first page was a toll gate on the second, and both drew the tally in different words.
-            { to: '/', label: 'Desk' },
-            // Beside the desk rather than under Station: both answer "what is the station playing",
-            // one now and one later, and an operator who wants to change tonight arrives with the
-            // same question as one changing this minute. What is under Station is who plays it.
-            { to: '/schedule', label: 'Schedule' },
-            { to: '/activity', label: 'Activity' },
-        ],
-    },
-    {
-        title: 'Library',
-        items: [
-            { to: '/catalog', label: 'Catalog' },
-            { to: '/playlists', label: 'Playlists' },
-            // Beside the library rather than under Air: a chart is a list of records to look at,
-            // which is the question this group answers, and nothing here reaches the running order.
-            { to: '/charts', label: 'Charts' },
-            // Beside the charts for the same reason: this is material the station draws on rather
-            // than anything it is currently doing, and both answer "what is there to talk about".
-            { to: '/news', label: 'News' },
-        ],
-    },
-    {
-        // Eight links became one destination with tabs. They were eight because each is a real
-        // thing with its own table — but an operator does not arrive wanting "the pronunciations
-        // page", they arrive because the station said a name wrong, and every answer to THAT
-        // question now sits on one page. Subjects is in there too: it is not speech, but it is what
-        // the station has to talk about, which is the same question one step back.
-        title: 'Station',
-        items: [
-            { to: '/voice', label: 'Voice' },
-            { to: '/plugins', label: 'Plugins' },
-        ],
-    },
-    {
-        title: 'System',
-        items: [
-            // Under System rather than Air: this is a page about the machinery, beside the plugins
-            // and the settings, where the home page's list is the one about the broadcast.
-            { to: '/checkup', label: 'Check-up' },
-            { to: '/settings', label: 'Settings' },
-        ],
-    },
+const ITEMS: Pick<NavItemProps, 'to' | 'label'>[] = [
+    // Home and On air were two links and one question. The landing page was a masthead and a list
+    // of faults, and the operator's next click was always the running order — so the first page was
+    // a toll gate on the second, and both drew the tally in different words.
+    { to: '/', label: 'Desk' },
+    // Beside the desk: both answer "what is the station playing", one now and one later, and an
+    // operator changing tonight arrives with the same question as one changing this minute.
+    { to: '/schedule', label: 'Schedule' },
+    // Four links became one destination with tabs. They are all answers to "what can this station
+    // put on", and an operator arriving with that question had to already know whether the answer
+    // was a record, a playlist, a chart or a story. Each tab is still its own route, so nothing
+    // lost its URL state or its loader — see `library.shell.tsx`.
+    { to: '/catalog/tracks', label: 'Library' },
+    // Eight links became one destination with tabs. They were eight because each is a real thing
+    // with its own table — but an operator does not arrive wanting "the pronunciations page", they
+    // arrive because the station said a name wrong, and every answer to THAT question is now on one
+    // page.
+    { to: '/voice', label: 'Voice' },
+    { to: '/activity', label: 'Activity' },
+    { to: '/plugins', label: 'Plugins' },
+    { to: '/checkup', label: 'Check-up' },
+    { to: '/settings', label: 'Settings' },
 ];
 
 export interface SideNavProps {
@@ -89,22 +66,15 @@ export function SideNav({ onNavigate, attention = [] }: SideNavProps) {
     const counts = countByRoute(attention);
 
     return (
-        <Stack gap="md" py="xs">
-            {GROUPS.map(group => (
-                <Box key={group.title}>
-                    <Box className={classes.groupLabel}>
-                        <Eyebrow>{group.title}</Eyebrow>
-                    </Box>
-                    {group.items.map(item => (
-                        <NavItem
-                            key={item.label}
-                            to={item.to}
-                            label={item.label}
-                            onNavigate={onNavigate}
-                            attention={typeof item.to === 'string' ? counts.get(item.to) : undefined}
-                        />
-                    ))}
-                </Box>
+        <Stack gap={2} py="xs">
+            {ITEMS.map(item => (
+                <NavItem
+                    key={item.label}
+                    to={item.to}
+                    label={item.label}
+                    onNavigate={onNavigate}
+                    attention={typeof item.to === 'string' ? counts.get(item.to) : undefined}
+                />
             ))}
         </Stack>
     );

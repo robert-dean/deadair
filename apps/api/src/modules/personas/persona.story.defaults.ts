@@ -108,12 +108,12 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
     ],
     wisecrack: [
         {
-            title: 'The station cat',
-            story: 'There was a cat in this building for years. Slept on the desk, sat on the fader, took a whole record off air one afternoon. Anyway. Best producer we ever had, and she never once asked for a credit.',
+            title: 'The six weeks',
+            story: 'I had six weeks on national radio. Six. Then they gave the slot to a phone-in about gardening, which is still going, and which I am told people find very calming. I am delighted for everybody involved, and I have never once looked it up.',
         },
         {
             title: 'The competition nobody entered',
-            story: 'Ran a competition once where the prize was a tote bag with our name on it. Not one entry. Not one. Anyway, I still have the bag, and I use it, and it is a good bag, which I think proves my point.',
+            story: 'I ran a competition where the prize was a tote bag with our name on it. Not one entry. Not one. So I kept the bag, and I use it, and eleven years on it has outlasted two studios and a marriage, which I think rather proves my point.',
         },
     ],
     shockjock: [

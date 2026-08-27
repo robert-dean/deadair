@@ -10,7 +10,12 @@ its community pages rather than its source. The counts below describe the first 
 they were; the second pass is its own section, near the bottom, and it changes the ordering at the
 end.
 
-**Status: a survey, and nothing in it is built.** It is written down for the reason
+**Revised again:** 2026-08-27, after a third pass over the same station five days later, which is
+long enough for it to have cut two releases. That pass is its own section too, and it does two things
+the others did not: it CORRECTS a claim made here, and it records a bug this tree had that the survey
+missed because it was looking for missing features rather than for wrong ones.
+
+**Status: three of these are built now, and the rest is still a survey.** It was written down for the reason
 [stream-server-alternatives.md](stream-server-alternatives.md) is: the pass was done once and should
 not have to be done again. The findings are stated on their own terms rather than as a comparison,
 because a reference to somebody else's tree dates badly and cannot be checked by whoever reads this
@@ -258,6 +263,76 @@ already specifies as `inSeason`, down to a `from > to` interval wrapping the yea
 only because a second implementation reaching the same shape independently is evidence the shape is
 right, not because anything is missing.
 
+## The third pass, and the two things it corrected
+
+Five days after the first two. The station in question shipped two releases in that window, which is
+the first finding and the one that governs how the rest of this file should be read: **a claim here
+about what the other implementation does NOT have goes stale faster than anything else in it.** What
+it does, and why, holds. What it lacks was true on a Saturday.
+
+**A correction: the station check-up IS built here, and this file said it was not.** `StationModule`
+sits at the bottom of `modules.ts` reading the silence diagnosis, the running order, the library's
+state and the plugin host, and `/checkup` in the console draws it. It was written after the first
+pass and the survey was never revised, so the section above titled "the three the operator would
+feel, none of which exist here" describes two. The two rules that section said to copy exactly were
+both kept: it adds no probing infrastructure of its own, and each section is guarded separately.
+
+**A bug this tree had, which the survey walked past twice.** The other implementation judges a
+record's era through a resolver rather than through the raw year, because a reissue's own release
+date is untrusted, and it hardened that guard again in this window against anthologies that carry no
+compilation flag. Reading that as a feature comparison finds nothing: this tree has an era window,
+it has been built for weeks, and `never-play-rules.md` even reaches the same seasonal shape
+independently. Reading it as a QUESTION about our own data found a live fault.
+
+The mechanism here is not theirs. The year sits on `deadair.tracks` and on `deadair.albums`, each
+written at ingest from whatever payload created that row and neither ever overwritten, so a record is
+dated by whichever release it was first SEEN through. A track first met on a reissue keeps the
+reissue's year for good, while its own album row, filled later by another track off the original, has
+it right. All three period surfaces read `coalesce(track, album)`, preferring the track's claim as
+the narrower one, which is wrong in the one direction a period filter cannot afford.
+
+Measured on this station's own library, 766 tracks and 630 albums: **41 records where the two levels
+disagree, 33 of them with the track dated later.** Every one sampled was a reissue over an original
+the album row already had. `All Along the Watchtower` at 2023 against `Electric Ladyland` at 1968,
+`Purple Haze` at 1993 against `Are You Experienced` at 1967, `Tiny Dancer` at 1989 against `Madman
+Across The Water` at 1971. A station asked for the seventies was refusing its own Hendrix and nothing
+anywhere said so.
+
+**Why it survived a measurement that was already done** is the part worth keeping. `MusicTrack.year`
+in the plugin SDK carries a measured note saying reissue skew is real, rare and not a reason to
+distrust the field: of 63 tracks whose title names a remaster year, 61 came through dated to the
+original. That measurement is correct and it is about the wrong thing. It looked at what ONE provider
+sends for one track, where the fault is the DISAGREEMENT between two rows written at different times
+from different payloads, which nobody had queried. A measurement that answers a narrower question
+than the one you have is worse than none, because it closes the question.
+
+It is fixed: `modules/shared/release.year.ts` takes `least(track, album)`, the earlier claim, as one
+exported fragment the draw, the resolver and the search tool all read. The counterexample is a bogus
+LOW claim, and it is bounded where reissue skew is not: one album in that library carries the 1900
+floor `usableYear` accepts, so its two tracks now read as 1900 records. A too-early year is a data
+error with a validated floor under it, and a too-late one is the ordinary unmarked shape of every
+remaster a provider sells. `era.smoke.ts` covers both directions.
+
+**Three convergences, each one evidence rather than a gap.** In the same window the other
+implementation aligned its daypart context, spaced artists out on its agent path with name-variant
+folding, and shipped a dead-air trim on track edges. The first two are decisions already made here
+and reached from the other end. The third is not, and its two rules should be in hand before the beat
+layer at rank 2 below is started, because both look like polish and are not: silence has to be
+measured against an ABSOLUTE floor rather than the track's own loud level, or a quiet intro reads as
+silence and the cut eats music; and a trimmed head moves every timestamp measured from byte zero
+while a trimmed tail moves every end-relative one, so the shift belongs in one place that every
+consumer resolves through rather than as a local subtraction at each of them.
+
+**Two things that are not features, which is why neither earlier pass saw them.** Their always-loaded
+agent file is 25KB and the reasoning lives in scoped files read on arrival, totalling around 209KB.
+This tree had the same content model and the opposite loading strategy: one 153KB file in every
+session whatever the question was. Taken, and it is now 10KB with the rest under `docs/internals/`
+and beside the package each part describes. And their merge gate runs drift checks on generated
+artifacts, which this tree had no equivalent of despite committing three kinds of generated output.
+Taken as the `generated` CI job, which found two things immediately: an absolute path in
+`contractkit.config.json` that resolved on exactly one machine, and an SDK that had already drifted
+from its contracts.
+
 ## What is deliberately not wanted
 
 Recording these stops the survey being re-run to reach the same answer.
@@ -285,17 +360,22 @@ Recording these stops the survey being re-run to reach the same answer.
 
 ## Worth taking, in order
 
-Revised after the second pass, with the original reasons kept.
+Revised after the second pass, with the original reasons kept, and marked after the third.
 
-1. **The licensing page**, first because it is an afternoon, it is prose rather than engineering, and
-   it is the only entry whose timing is set by something outside this repo.
+1. ~~**The licensing page**~~, first because it is an afternoon, it is prose rather than engineering,
+   and it is the only entry whose timing is set by something outside this repo. **Built 2026-08-27**,
+   as [`docs/licensing.md`](../licensing.md), alongside the README and LICENSE it turned out to be
+   the front half of: a repository meant to ship for other people to run had no front door at all.
 2. **The beat layer**, because it is one measurement pass that settles three deferred entries: the
    ending-shaped fade above, the talk-up limit in [track-analysis.md](track-analysis.md), and the
-   vocal-onset half of [track-lyrics.md](track-lyrics.md).
-3. **The station check-up**, because everything it reads already exists and it is the answer to a
-   question the operator asks at three in the morning.
+   vocal-onset half of [track-lyrics.md](track-lyrics.md). Now also carries the trim rules from the
+   third pass, which arrive with it whether or not anybody plans for them.
+3. ~~**The station check-up**~~, because everything it reads already exists and it is the answer to a
+   question the operator asks at three in the morning. **Already built** when this was written and
+   the survey did not know it; see the third pass.
 4. **Trace correlation**, small, and it is what makes the check-up and the usage surface readable
-   rather than merely present.
+   rather than merely present. Promoted in practice by 3 landing: there is now a page that assembles
+   an answer, and no way to read one decision's calls as a unit underneath it.
 5. **Persona chattiness**, one nullable column and one term in a walk, decided about silence first.
 6. **Operator-authored break kinds**, which is the largest of the second-pass findings and the only
    one that adds a surface rather than a field.
@@ -303,3 +383,9 @@ Revised after the second pass, with the original reasons kept.
    file currently marked blocked. Do not start it without the calibration rule above, and do not build
    the map first: it has nothing to draw.
 8. The small ones, in any order, none of which is a day's work.
+
+**The lesson of the third pass, which is worth more than any entry above.** Two passes over the same
+station asked "what does it have that we do not", and the answer both times was a list of features.
+The third asked "what does it GUARD that we do not" and the first thing it looked at was a live bug
+here, in code that had been reviewed, documented and measured. The other implementation is most
+useful as a list of questions to ask of this tree, and least useful as a list of things to build.

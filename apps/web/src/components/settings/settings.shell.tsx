@@ -16,6 +16,10 @@ import classes from './settings.shell.module.css';
  */
 export const SETTINGS_SECTIONS = [
     { id: 'station', label: 'Station' },
+    // Second, and the only one on this page that changes nothing about the station. It is here
+    // because "how do I make this readable in daylight" is a question an operator brings to
+    // Settings, and the card itself says plainly that it is remembered on this browser alone.
+    { id: 'appearance', label: 'Appearance' },
     { id: 'rotation', label: 'Rotation' },
     { id: 'playout', label: 'Playout' },
     { id: 'render', label: 'Voice and audio' },
@@ -75,9 +79,7 @@ export function SettingsShell({ active, children }: SettingsShellProps) {
                                 // From the plugins page these are on another route, so they carry
                                 // the operator back rather than pointing at anchors that are not
                                 // in this document.
-                                renderRoot={
-                                    active === 'settings' ? undefined : props => <Link to="/settings" hash={section.id} {...props} />
-                                }
+                                renderRoot={active === 'settings' ? undefined : props => <Link to="/settings" hash={section.id} {...props} />}
                             >
                                 {section.label}
                             </Anchor>

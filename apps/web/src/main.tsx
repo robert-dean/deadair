@@ -8,6 +8,11 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 
 // Self-hosted rather than fetched: the console is expected to run on a LAN beside the station,
 // where a request to a font CDN is a request that may simply not complete.
+//
+// All three themes' faces are imported here, eagerly, and that costs almost nothing: an import
+// brings in `@font-face` DECLARATIONS, and a browser fetches a woff2 only when rendered text
+// actually matches one. An operator on carbon never downloads Syne. Lazily importing per theme
+// would buy a few KB of CSS and pay for it in a frame of fallback type on every theme switch.
 import '@fontsource/chakra-petch/500.css';
 import '@fontsource/chakra-petch/600.css';
 import '@fontsource/chakra-petch/700.css';
@@ -17,6 +22,25 @@ import '@fontsource/ibm-plex-sans/600.css';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import '@fontsource/ibm-plex-mono/600.css';
+// Studio White: a serif masthead over a grotesque, which is what a paper console reads as.
+import '@fontsource/newsreader/400.css';
+import '@fontsource/newsreader/500.css';
+import '@fontsource/newsreader/600.css';
+import '@fontsource/public-sans/400.css';
+import '@fontsource/public-sans/500.css';
+import '@fontsource/public-sans/600.css';
+import '@fontsource/public-sans/700.css';
+// Neon Transmitter.
+import '@fontsource/syne/600.css';
+import '@fontsource/syne/700.css';
+import '@fontsource/syne/800.css';
+import '@fontsource/space-grotesk/400.css';
+import '@fontsource/space-grotesk/500.css';
+import '@fontsource/space-grotesk/600.css';
+import '@fontsource/space-grotesk/700.css';
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/500.css';
+import '@fontsource/jetbrains-mono/600.css';
 
 // This order is required rather than conventional: `@mantine/schedule` builds on `@mantine/dates`,
 // which builds on core, and each expects the one below it to have been laid down first. Loaded out

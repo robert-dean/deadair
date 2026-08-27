@@ -1,9 +1,11 @@
+import { Fragment } from 'react';
 import { Box, Card, Stack, Text, Title } from '@mantine/core';
 import type { StationSettingDescriptor, StationSettings } from '@deadair/sdk';
 
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { AppearanceCard } from './appearance.card';
 import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
 import { StorageCard } from './storage.card';
@@ -78,7 +80,13 @@ export function SettingsPage() {
     return (
         <Stack gap="lg">
             {GROUPS.map(group => (
-                <SettingsGroupCard key={group.key} group={group} settings={data} />
+                <Fragment key={group.key}>
+                    <SettingsGroupCard group={group} settings={data} />
+                    {/* Second, straight after Station, which is where the section list puts it.
+                        It is the one card here that writes nothing to the station — see
+                        `appearance.card.tsx` for why it belongs among the ones that do. */}
+                    {group.key === 'station' ? <AppearanceCard /> : undefined}
+                </Fragment>
             ))}
 
             {/* Last, and read-only: everything above is something to change, and this is the number

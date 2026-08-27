@@ -46,6 +46,12 @@
     /* The scanline over the chrome. Light on dark here; a theme on paper wants the opposite sign. */
     --da-texture: rgb(255 255 255 / 2.5%);
 
+    /* What a panel does beyond having an edge, which on a desk is nothing. Only one console glows,
+       and it says so for itself below. Declared here so `theme.ts`'s Card default can name it
+       unconditionally rather than every theme having to remember to switch it off. */
+    --da-glow-panel: none;
+    --da-glow-edge: none;
+
     /* One tracking value per idea, which is the whole point: the console had three different
        letter-spacings for the same uppercase label. */
     --da-tracking-eyebrow: 0.08em;
@@ -59,6 +65,72 @@
        it, with the thing that needs it. */
     --da-fast: 120ms;
     --da-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/*
+ * Studio White: daylight and paper.
+ *
+ * Not carbon inverted. The accent, the tally and the three status hues are all DARKER than their
+ * carbon counterparts rather than lighter, because contrast on paper runs the other way and a
+ * phosphor green that reads as an instrument on a black desk reads as highlighter on a white one.
+ * The same is true of the ramp names: `--da-border-strong` is darker than `--da-border` here, which
+ * is the same claim it makes in carbon — more contrast against the page — and the opposite hex.
+ *
+ * The tally stays red. It is the one colour in this console that means the same thing in every
+ * room, and a paper theme that made it maroon would be a theme with an opinion about the studio.
+ */
+:root[data-da-theme='white'] {
+    --da-bg: #f4f1ea;
+    --da-panel: #ffffff;
+    --da-raised: #efebe1;
+    --da-border: #ddd6c8;
+    --da-border-strong: #c3b9a5;
+
+    --da-text: #18160f;
+    --da-text-secondary: #56504a;
+    --da-text-dimmed: #7d7469;
+
+    --da-phosphor: #0e7247;
+    /* Weaker than carbon's 35%: the same alpha over white is a highlighter stripe through a
+       selection rather than a tint behind one. */
+    --da-phosphor-glow: rgb(14 114 71 / 18%);
+    --da-tally-glow: rgb(200 31 34 / 28%);
+
+    --da-bg-glow: #fbf9f4;
+    /* Dark on light, and fainter than carbon's: a rule 1px in 3 reads much louder on paper. */
+    --da-texture: rgb(24 22 15 / 3%);
+}
+
+/*
+ * Neon Transmitter: cyan, magenta and hard edges on ink.
+ *
+ * The one theme where a panel does something other than have an edge. The glow is three shadows
+ * because it is doing three jobs — a hairline of the accent, a bloom outward, and a magenta wash
+ * pulled INWARD from the corners — and dropping any of them leaves a card that looks like it has a
+ * mistake in it rather than a light behind it.
+ */
+:root[data-da-theme='neon'] {
+    --da-bg: #04040a;
+    --da-panel: #0a0a16;
+    --da-raised: #12122a;
+    --da-border: #241f52;
+    --da-border-strong: #392f7a;
+
+    --da-text: #e8f9ff;
+    --da-text-secondary: #9fb6d6;
+    --da-text-dimmed: #6b7ba6;
+
+    --da-phosphor: #00f0ff;
+    --da-phosphor-glow: rgb(0 240 255 / 35%);
+    --da-tally-glow: rgb(255 30 70 / 50%);
+
+    /* Violet rather than a darker ink: the desk is lit from above by something that is not the
+       accent, which is what stops the whole screen reading as one hue. */
+    --da-bg-glow: #12063a;
+    --da-texture: rgb(0 240 255 / 4%);
+
+    --da-glow-panel: 0 0 0 1px rgb(0 240 255 / 5%), 0 0 18px -8px rgb(0 240 255 / 35%), inset 0 0 22px -16px rgb(255 31 208 / 40%);
+    --da-glow-edge: 0 0 12px -4px rgb(0 240 255 / 30%);
 }
 
 html,

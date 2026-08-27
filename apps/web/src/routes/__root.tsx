@@ -31,6 +31,18 @@ export interface RouterContext {
 
 const REVOKE_FAILED = 'You were signed out on this device, but the server did not confirm the session was revoked.';
 
+/**
+ * Whether the page is showing anything the operator has to dismiss before they can act on it.
+ *
+ * Asked of the DOM rather than of a piece of state, because the answer has to cover every modal
+ * surface in the console at once — the command palette, the character editor's sheet, the slot
+ * editor, the band dialog — and no component knows about the others. Mantine draws all of them
+ * through `Modal`, which is `role="dialog"` on the content, so one selector is the whole question.
+ */
+function noDialogOpen(): boolean {
+    return document.querySelector('[role="dialog"]') === null;
+}
+
 export function RootLayout() {
     const theme = useMantineTheme();
     const session = useSession();
@@ -60,14 +72,18 @@ export function RootLayout() {
     // `DESTINATION_KEYS` rather than restated here, so a hint the nav shows and a key the shell
     // listens for cannot come apart.
     //
-    // Single letters are safe because `useHotkeys` ignores events originating in an INPUT, TEXTAREA
-    // or SELECT — the catalog's search box takes a `d` and keeps it. Guarded on `signedIn` so the
-    // login page has no shortcuts to a shell that is not drawn.
+    // Two guards, and neither is optional for a single-letter binding. `useHotkeys` already ignores
+    // events originating in an INPUT, TEXTAREA or SELECT, so the catalog's search box takes a `d`
+    // and keeps it — but a sheet or a dialog is full of controls that are none of those, and a `v`
+    // pressed with focus on the character editor's Save button would navigate away from unsaved
+    // edits. `noDialogOpen` is what stops that. `signedIn` is the second: the login page has no
+    // shortcuts to a shell that is not drawn.
     useHotkeys(
         signedIn
             ? DESTINATION_KEYS.map(key => [
                   key.hint.toLowerCase(),
                   () => {
+                      if (!noDialogOpen()) return;
                       void navigate({ to: key.to });
                   },
               ])

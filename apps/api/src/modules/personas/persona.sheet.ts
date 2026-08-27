@@ -465,9 +465,14 @@ export const MIN_DICTION_MARKERS = 1;
  * How many consecutive words a script may share with one of the sheet's {@link PersonaSheet.samples}.
  *
  * Five, so a script may pick up a signature phrase or a turn of grammar and may not pick up a
- * sentence. Every catchphrase on every seeded persona is four words or fewer, which is what sets
+ * sentence. Every catchphrase on every seeded persona is five words or fewer, which is what sets
  * this: the shortest thing a persona is allowed to reuse has to fit under it, and the shortest thing
  * it is not allowed to reuse — a sample clause — has to not.
+ *
+ * The bound is on the catchphrase AND on where it appears, which is the half a word count hides. A
+ * five-word signature quoted inside a sample line picks up whatever word sits next to it and becomes
+ * a six-word run, so the check would then refuse every script that used the signature the same sheet
+ * asks for. Hence the rule the seeds follow: a catchphrase never appears verbatim in a sample.
  *
  * A run rather than the whole line, because the observed failure is not always a clean copy. "Okay
  * that was rough and I picked it, so that's on me" came back once entire and once truncated at "I

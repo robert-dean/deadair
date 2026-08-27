@@ -77,7 +77,6 @@ const BUDGET: Record<string, { crossfire?: number; plain?: number; why: string }
     // character a word it genuinely owns.
     cratedigger: { crossfire: 2, why: 'record vocabulary is shared with the theorist and the pedant by subject' },
     latenight: { crossfire: 1, why: 'one collision with the night-shift caller, who is awake at the same hour' },
-    conspiracy: { crossfire: 1, why: '`signal` is also the automaton speaking literally' },
     pirate: { crossfire: 1, why: "`in'` is shared dialect with the howler" },
     playbyplay: { crossfire: 1, why: 'one collision with the night-shift caller' },
     // Its catchphrase is stock radio phrasing, and `keepsCharacter` counts a catchphrase as

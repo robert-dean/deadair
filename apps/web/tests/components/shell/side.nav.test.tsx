@@ -34,14 +34,9 @@ describe('SideNav', () => {
             'Playlists',
             'Charts',
             'News',
-            'Personas',
-            'Subjects',
-            'Productions',
-            'Voices',
-            'Segments',
-            'Pronunciations',
-            'Soundboard',
-            'Scripts',
+            // Eight links became one destination with tabs. The tabs themselves are covered in
+            // `voice.page.test.tsx`; what belongs here is that the nav offers the way in.
+            'Voice',
             'Plugins',
             'Check-up',
             'Settings',

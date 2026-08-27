@@ -3,6 +3,7 @@ import type { AttentionItem } from '@deadair/sdk';
 
 import { Eyebrow } from '../shared/eyebrow';
 import type { Severity } from '../shared/status';
+import { attentionNavPageOf } from './attention.destination';
 import { NavItem, type NavItemProps } from './nav.item';
 import classes from './side.nav.module.css';
 
@@ -49,32 +50,14 @@ const GROUPS: NavGroup[] = [
         ],
     },
     {
-        // Personas beside Voices, because the two are halves of the same question: who the station
-        // is, and what it sounds like saying it. A persona picks one of these voices. Scripts is
-        // the third half of it and belongs here rather than under Air beside Activity: it answers
-        // how a persona actually SOUNDS, which is what an operator asks while writing one, and the
-        // activity feed already carries the same breaks as moments in a broadcast.
+        // Eight links became one destination with tabs. They were eight because each is a real
+        // thing with its own table — but an operator does not arrive wanting "the pronunciations
+        // page", they arrive because the station said a name wrong, and every answer to THAT
+        // question now sits on one page. Subjects is in there too: it is not speech, but it is what
+        // the station has to talk about, which is the same question one step back.
         title: 'Station',
         items: [
-            { to: '/personas', label: 'Personas' },
-            // Beside Personas rather than under Air with the schedule: a subject is part of what the
-            // station HAS to say — the categories a bulletin can cover, the places a weather break
-            // can be about — where the format clock on the schedule page is when it says it.
-            { to: '/topics', label: 'Subjects' },
-            // Beside Personas and Scripts, which are the other two halves of what the station says:
-            // one is who it is, one is what it said, and this is what it makes at length.
-            { to: '/productions', label: 'Productions' },
-            { to: '/voices', label: 'Voices' },
-            // Beside the voices, which is the other half of the same question: that page is who
-            // the station sounds like, and this one is what it has already recorded.
-            { to: '/segments', label: 'Segments' },
-            // Directly under Voices, because it is the same question one level down: that page is
-            // which voice says it, this is how that voice says a particular name.
-            { to: '/pronunciations', label: 'Pronunciations' },
-            // Beside Segments, which is the other half of "audio the station holds that it did not
-            // play": that page is the things it AIRS, this is the things it plays ON them.
-            { to: '/pads', label: 'Soundboard' },
-            { to: '/scripts', label: 'Scripts' },
+            { to: '/voice', label: 'Voice' },
             { to: '/plugins', label: 'Plugins' },
         ],
     },
@@ -139,12 +122,12 @@ function countByRoute(items: readonly AttentionItem[]): Map<string, { count: num
     const counts = new Map<string, { count: number; severity: Severity }>();
 
     for (const item of items) {
-        const first = `/${item.route.split('/')[1] ?? ''}`;
-        // The station still routes broadcast faults at `/onair`, which is no longer a link: the
-        // desk answers that question now. Without this the badge counted against a nav entry that
-        // does not exist, which is a fault reported nowhere — the exact failure the badges exist
-        // to prevent.
-        const page = first === '/onair' ? '/' : first;
+        // Read from the same table the rows link with, so a badge on one nav entry and a row
+        // pointing at another is not a state this console can reach. A route it does not recognise
+        // is counted nowhere — it is still on the desk, which is the surface that has to be
+        // complete.
+        const page = attentionNavPageOf(item.route);
+        if (page === undefined) continue;
         const existing = counts.get(page);
         const severity = item.severity as Severity;
 

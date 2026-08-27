@@ -1,7 +1,8 @@
 import { Box, Button, Card, Divider, Group, Stack, Text } from '@mantine/core';
-import { Link, type LinkProps } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import type { AttentionItem } from '@deadair/sdk';
 
+import { attentionDestinationOf } from '../shell/attention.destination';
 import { EmptyState } from '../shared/empty.state';
 import { severityColor, type Severity } from '../shared/status';
 
@@ -54,7 +55,7 @@ export function AttentionList({ items }: { items: readonly AttentionItem[] }) {
 }
 
 function Row({ item }: { item: AttentionItem }) {
-    const destination = destinationOf(item.route);
+    const destination = attentionDestinationOf(item.route);
 
     return (
         <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md" p="md">
@@ -90,6 +91,8 @@ function Row({ item }: { item: AttentionItem }) {
                     renderRoot={props =>
                         destination.params ? (
                             <Link to={destination.to} params={destination.params} {...props} />
+                        ) : destination.search ? (
+                            <Link to={destination.to} search={destination.search} {...props} />
                         ) : (
                             <Link to={destination.to} {...props} />
                         )
@@ -100,37 +103,4 @@ function Row({ item }: { item: AttentionItem }) {
             ) : undefined}
         </Group>
     );
-}
-
-interface Destination {
-    to: LinkProps['to'];
-    params?: Record<string, string>;
-    /** Where this goes, named as the nav names it. */
-    label: string;
-}
-
-/** A path the station sent as a route this console actually has, or nothing. */
-function destinationOf(route: string): Destination | undefined {
-    const plugin = /^\/plugins\/(.+)$/.exec(route);
-    if (plugin?.[1]) return { to: '/plugins/$id', params: { id: plugin[1] }, label: 'Plugin' };
-
-    switch (route) {
-        // The station still names `/onair` for anything about the broadcast. The desk is where that
-        // is answered now, and it is also where this list is drawn — so the row points at the
-        // running order further down the same page rather than at a page that is on its way out.
-        case '/onair':
-            return { to: '/', label: 'Desk' };
-        case '/schedule':
-            return { to: '/schedule', label: 'Schedule' };
-        case '/catalog':
-            return { to: '/catalog', label: 'Catalog' };
-        case '/plugins':
-            return { to: '/plugins', label: 'Plugins' };
-        case '/personas':
-            return { to: '/personas', label: 'Personas' };
-        case '/settings':
-            return { to: '/settings', label: 'Settings' };
-        default:
-            return undefined;
-    }
 }

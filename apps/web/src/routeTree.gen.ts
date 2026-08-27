@@ -26,6 +26,7 @@ import { Route as ScriptsRouteImport } from './routes/scripts'
 import { Route as SegmentsRouteImport } from './routes/segments'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TopicsRouteImport } from './routes/topics'
+import { Route as VoiceRouteImport } from './routes/voice'
 import { Route as VoicesRouteImport } from './routes/voices'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
@@ -123,6 +124,11 @@ const TopicsRoute = TopicsRouteImport.update({
   path: '/topics',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VoiceRoute = VoiceRouteImport.update({
+  id: '/voice',
+  path: '/voice',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VoicesRoute = VoicesRouteImport.update({
   id: '/voices',
   path: '/voices',
@@ -198,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/segments': typeof SegmentsRoute
   '/settings': typeof SettingsRoute
   '/topics': typeof TopicsRoute
+  '/voice': typeof VoiceRoute
   '/voices': typeof VoicesRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/segments': typeof SegmentsRoute
   '/settings': typeof SettingsRoute
   '/topics': typeof TopicsRoute
+  '/voice': typeof VoiceRoute
   '/voices': typeof VoicesRoute
   '/catalog': typeof CatalogIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
@@ -259,6 +267,7 @@ export interface FileRoutesById {
   '/segments': typeof SegmentsRoute
   '/settings': typeof SettingsRoute
   '/topics': typeof TopicsRoute
+  '/voice': typeof VoiceRoute
   '/voices': typeof VoicesRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
@@ -291,6 +300,7 @@ export interface FileRouteTypes {
     | '/segments'
     | '/settings'
     | '/topics'
+    | '/voice'
     | '/voices'
     | '/catalog/'
     | '/playlists/'
@@ -321,6 +331,7 @@ export interface FileRouteTypes {
     | '/segments'
     | '/settings'
     | '/topics'
+    | '/voice'
     | '/voices'
     | '/catalog'
     | '/playlists'
@@ -351,6 +362,7 @@ export interface FileRouteTypes {
     | '/segments'
     | '/settings'
     | '/topics'
+    | '/voice'
     | '/voices'
     | '/catalog/'
     | '/playlists/'
@@ -382,6 +394,7 @@ export interface RootRouteChildren {
   SegmentsRoute: typeof SegmentsRoute
   SettingsRoute: typeof SettingsRoute
   TopicsRoute: typeof TopicsRoute
+  VoiceRoute: typeof VoiceRoute
   VoicesRoute: typeof VoicesRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
@@ -516,6 +529,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TopicsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/voice': {
+      id: '/voice'
+      path: '/voice'
+      fullPath: '/voice'
+      preLoaderRoute: typeof VoiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/voices': {
       id: '/voices'
       path: '/voices'
@@ -614,6 +634,7 @@ const rootRouteChildren: RootRouteChildren = {
   SegmentsRoute: SegmentsRoute,
   SettingsRoute: SettingsRoute,
   TopicsRoute: TopicsRoute,
+  VoiceRoute: VoiceRoute,
   VoicesRoute: VoicesRoute,
   CatalogIndexRoute: CatalogIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,

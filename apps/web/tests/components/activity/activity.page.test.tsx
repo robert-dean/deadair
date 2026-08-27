@@ -101,7 +101,7 @@ describe('ActivityPage', () => {
         render(<ActivityPage />);
 
         expect(screen.getByRole('link', { name: 'the record' })).toHaveAttribute('href', '/catalog/tracks/trk_1');
-        expect(screen.getByRole('link', { name: 'what was said' })).toHaveAttribute('href', '/scripts?segment=seg_1');
+        expect(screen.getByRole('link', { name: 'what was said' })).toHaveAttribute('href', '/voice?tab=said&segment=seg_1');
     });
 
     // Most of the feed is the station talking about itself: a gate opening is about neither a record

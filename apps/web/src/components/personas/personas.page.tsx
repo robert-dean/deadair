@@ -318,7 +318,7 @@ export function PersonasPage() {
                                     <Group gap="sm" wrap="nowrap">
                                         <Anchor
                                             size="xs"
-                                            renderRoot={props => <Link to="/scripts" search={{ segment: '', persona: persona.key }} {...props} />}
+                                            renderRoot={props => <Link to="/voice" search={{ tab: 'said', segment: '', persona: persona.key }} {...props} />}
                                         >
                                             What they&apos;ve said
                                         </Anchor>

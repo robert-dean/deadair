@@ -154,7 +154,7 @@ export function ScriptsPage({ segmentId, personaKey }: ScriptsPageProps = {}) {
                 card and then paged through has to be able to tell this from the whole history. */}
             {segmentId === undefined && personaKey === undefined ? undefined : (
                 <Group gap="xs">
-                    <Anchor renderRoot={props => <Link to="/scripts" search={{ segment: '', persona: '' }} {...props} />} size="sm">
+                    <Anchor renderRoot={props => <Link to="/voice" search={{ tab: 'said', segment: '', persona: '' }} {...props} />} size="sm">
                         Read everything the station has written
                     </Anchor>
                 </Group>

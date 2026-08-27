@@ -15,19 +15,10 @@ import { Route as ChartsRouteImport } from './routes/charts'
 import { Route as CheckupRouteImport } from './routes/checkup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as NewsRouteImport } from './routes/news'
-import { Route as OnairRouteImport } from './routes/onair'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as PadsRouteImport } from './routes/pads'
-import { Route as PersonasRouteImport } from './routes/personas'
-import { Route as ProductionsRouteImport } from './routes/productions'
-import { Route as PronunciationsRouteImport } from './routes/pronunciations'
 import { Route as ScheduleRouteImport } from './routes/schedule'
-import { Route as ScriptsRouteImport } from './routes/scripts'
-import { Route as SegmentsRouteImport } from './routes/segments'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as TopicsRouteImport } from './routes/topics'
 import { Route as VoiceRouteImport } from './routes/voice'
-import { Route as VoicesRouteImport } from './routes/voices'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
@@ -69,34 +60,9 @@ const NewsRoute = NewsRouteImport.update({
   path: '/news',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OnairRoute = OnairRouteImport.update({
-  id: '/onair',
-  path: '/onair',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PadsRoute = PadsRouteImport.update({
-  id: '/pads',
-  path: '/pads',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PersonasRoute = PersonasRouteImport.update({
-  id: '/personas',
-  path: '/personas',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProductionsRoute = ProductionsRouteImport.update({
-  id: '/productions',
-  path: '/productions',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PronunciationsRoute = PronunciationsRouteImport.update({
-  id: '/pronunciations',
-  path: '/pronunciations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ScheduleRoute = ScheduleRouteImport.update({
@@ -104,34 +70,14 @@ const ScheduleRoute = ScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ScriptsRoute = ScriptsRouteImport.update({
-  id: '/scripts',
-  path: '/scripts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SegmentsRoute = SegmentsRouteImport.update({
-  id: '/segments',
-  path: '/segments',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TopicsRoute = TopicsRouteImport.update({
-  id: '/topics',
-  path: '/topics',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const VoiceRoute = VoiceRouteImport.update({
   id: '/voice',
   path: '/voice',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const VoicesRoute = VoicesRouteImport.update({
-  id: '/voices',
-  path: '/voices',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CatalogIndexRoute = CatalogIndexRouteImport.update({
@@ -193,19 +139,10 @@ export interface FileRoutesByFullPath {
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
   '/news': typeof NewsRoute
-  '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
-  '/pads': typeof PadsRoute
-  '/personas': typeof PersonasRoute
-  '/productions': typeof ProductionsRoute
-  '/pronunciations': typeof PronunciationsRoute
   '/schedule': typeof ScheduleRoute
-  '/scripts': typeof ScriptsRoute
-  '/segments': typeof SegmentsRoute
   '/settings': typeof SettingsRoute
-  '/topics': typeof TopicsRoute
   '/voice': typeof VoiceRoute
-  '/voices': typeof VoicesRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
@@ -224,19 +161,10 @@ export interface FileRoutesByTo {
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
   '/news': typeof NewsRoute
-  '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
-  '/pads': typeof PadsRoute
-  '/personas': typeof PersonasRoute
-  '/productions': typeof ProductionsRoute
-  '/pronunciations': typeof PronunciationsRoute
   '/schedule': typeof ScheduleRoute
-  '/scripts': typeof ScriptsRoute
-  '/segments': typeof SegmentsRoute
   '/settings': typeof SettingsRoute
-  '/topics': typeof TopicsRoute
   '/voice': typeof VoiceRoute
-  '/voices': typeof VoicesRoute
   '/catalog': typeof CatalogIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
   '/plugins': typeof PluginsIndexRoute
@@ -256,19 +184,10 @@ export interface FileRoutesById {
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
   '/news': typeof NewsRoute
-  '/onair': typeof OnairRoute
   '/onboarding': typeof OnboardingRoute
-  '/pads': typeof PadsRoute
-  '/personas': typeof PersonasRoute
-  '/productions': typeof ProductionsRoute
-  '/pronunciations': typeof PronunciationsRoute
   '/schedule': typeof ScheduleRoute
-  '/scripts': typeof ScriptsRoute
-  '/segments': typeof SegmentsRoute
   '/settings': typeof SettingsRoute
-  '/topics': typeof TopicsRoute
   '/voice': typeof VoiceRoute
-  '/voices': typeof VoicesRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
@@ -289,19 +208,10 @@ export interface FileRouteTypes {
     | '/checkup'
     | '/login'
     | '/news'
-    | '/onair'
     | '/onboarding'
-    | '/pads'
-    | '/personas'
-    | '/productions'
-    | '/pronunciations'
     | '/schedule'
-    | '/scripts'
-    | '/segments'
     | '/settings'
-    | '/topics'
     | '/voice'
-    | '/voices'
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
@@ -320,19 +230,10 @@ export interface FileRouteTypes {
     | '/checkup'
     | '/login'
     | '/news'
-    | '/onair'
     | '/onboarding'
-    | '/pads'
-    | '/personas'
-    | '/productions'
-    | '/pronunciations'
     | '/schedule'
-    | '/scripts'
-    | '/segments'
     | '/settings'
-    | '/topics'
     | '/voice'
-    | '/voices'
     | '/catalog'
     | '/playlists'
     | '/plugins'
@@ -351,19 +252,10 @@ export interface FileRouteTypes {
     | '/checkup'
     | '/login'
     | '/news'
-    | '/onair'
     | '/onboarding'
-    | '/pads'
-    | '/personas'
-    | '/productions'
-    | '/pronunciations'
     | '/schedule'
-    | '/scripts'
-    | '/segments'
     | '/settings'
-    | '/topics'
     | '/voice'
-    | '/voices'
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
@@ -383,19 +275,10 @@ export interface RootRouteChildren {
   CheckupRoute: typeof CheckupRoute
   LoginRoute: typeof LoginRoute
   NewsRoute: typeof NewsRoute
-  OnairRoute: typeof OnairRoute
   OnboardingRoute: typeof OnboardingRoute
-  PadsRoute: typeof PadsRoute
-  PersonasRoute: typeof PersonasRoute
-  ProductionsRoute: typeof ProductionsRoute
-  PronunciationsRoute: typeof PronunciationsRoute
   ScheduleRoute: typeof ScheduleRoute
-  ScriptsRoute: typeof ScriptsRoute
-  SegmentsRoute: typeof SegmentsRoute
   SettingsRoute: typeof SettingsRoute
-  TopicsRoute: typeof TopicsRoute
   VoiceRoute: typeof VoiceRoute
-  VoicesRoute: typeof VoicesRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
   PluginsIndexRoute: typeof PluginsIndexRoute
@@ -452,46 +335,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NewsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/onair': {
-      id: '/onair'
-      path: '/onair'
-      fullPath: '/onair'
-      preLoaderRoute: typeof OnairRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/onboarding': {
       id: '/onboarding'
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pads': {
-      id: '/pads'
-      path: '/pads'
-      fullPath: '/pads'
-      preLoaderRoute: typeof PadsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/personas': {
-      id: '/personas'
-      path: '/personas'
-      fullPath: '/personas'
-      preLoaderRoute: typeof PersonasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/productions': {
-      id: '/productions'
-      path: '/productions'
-      fullPath: '/productions'
-      preLoaderRoute: typeof ProductionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pronunciations': {
-      id: '/pronunciations'
-      path: '/pronunciations'
-      fullPath: '/pronunciations'
-      preLoaderRoute: typeof PronunciationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/schedule': {
@@ -501,20 +349,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScheduleRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/scripts': {
-      id: '/scripts'
-      path: '/scripts'
-      fullPath: '/scripts'
-      preLoaderRoute: typeof ScriptsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/segments': {
-      id: '/segments'
-      path: '/segments'
-      fullPath: '/segments'
-      preLoaderRoute: typeof SegmentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -522,25 +356,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/topics': {
-      id: '/topics'
-      path: '/topics'
-      fullPath: '/topics'
-      preLoaderRoute: typeof TopicsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/voice': {
       id: '/voice'
       path: '/voice'
       fullPath: '/voice'
       preLoaderRoute: typeof VoiceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/voices': {
-      id: '/voices'
-      path: '/voices'
-      fullPath: '/voices'
-      preLoaderRoute: typeof VoicesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/catalog/': {
@@ -623,19 +443,10 @@ const rootRouteChildren: RootRouteChildren = {
   CheckupRoute: CheckupRoute,
   LoginRoute: LoginRoute,
   NewsRoute: NewsRoute,
-  OnairRoute: OnairRoute,
   OnboardingRoute: OnboardingRoute,
-  PadsRoute: PadsRoute,
-  PersonasRoute: PersonasRoute,
-  ProductionsRoute: ProductionsRoute,
-  PronunciationsRoute: PronunciationsRoute,
   ScheduleRoute: ScheduleRoute,
-  ScriptsRoute: ScriptsRoute,
-  SegmentsRoute: SegmentsRoute,
   SettingsRoute: SettingsRoute,
-  TopicsRoute: TopicsRoute,
   VoiceRoute: VoiceRoute,
-  VoicesRoute: VoicesRoute,
   CatalogIndexRoute: CatalogIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,
   PluginsIndexRoute: PluginsIndexRoute,

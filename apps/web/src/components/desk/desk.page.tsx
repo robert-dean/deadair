@@ -77,7 +77,16 @@ export function DeskPage() {
 
     return (
         <Stack gap="xl">
-            {playout.data ? <OnAirNow status={playout.data} order={loaded} standingDown={standingDown} /> : <PageSkeleton variant="card" />}
+            {playout.data ? (
+                <OnAirNow
+                    status={playout.data}
+                    order={loaded}
+                    standingDown={standingDown}
+                    {...(air.data?.airMode === undefined ? {} : { airMode: air.data.airMode })}
+                />
+            ) : (
+                <PageSkeleton variant="card" />
+            )}
 
             <Stack gap="sm">
                 <Group gap="sm" align="baseline">
@@ -113,7 +122,13 @@ export function DeskPage() {
                     {items.length > 0 ? (
                         <Group gap="xs" wrap="wrap">
                             <Tooltip label="Shuffles everything the player is not already holding." multiline maw={320}>
-                                <Button variant="default" size="compact-md" loading={shuffle.isPending} disabled={planned < 2} onClick={() => shuffle.mutate()}>
+                                <Button
+                                    variant="default"
+                                    size="compact-md"
+                                    loading={shuffle.isPending}
+                                    disabled={planned < 2}
+                                    onClick={() => shuffle.mutate()}
+                                >
                                     Shuffle
                                 </Button>
                             </Tooltip>

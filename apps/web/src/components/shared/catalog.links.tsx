@@ -67,7 +67,7 @@ export function ScriptLink({ id, children, ...props }: CatalogLinkProps) {
     if (id === undefined) return <Plain {...props}>{children}</Plain>;
 
     return (
-        <Anchor renderRoot={anchor => <Link to="/scripts" search={{ segment: id }} {...anchor} />} {...props}>
+        <Anchor renderRoot={anchor => <Link to="/voice" search={{ tab: 'said', segment: id }} {...anchor} />} {...props}>
             {children}
         </Anchor>
     );

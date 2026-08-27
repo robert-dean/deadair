@@ -1,14 +1,17 @@
+// These were the On-air page's tests. The desk owns every one of these behaviours now — the page
+// itself is gone — so they moved rather than being deleted with it.
+//
 // The state on each item is the point of this page. What is tested is that it says where the
 // station has got to without ever claiming an item the player is merely holding is playing — that
 // mistake is a track ahead of the stream, and it is what the whole shape exists to prevent — and
 // that an item beyond editing is offered no control that could only answer 422.
 
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import type { StationOrder, StationOrderItem } from '@deadair/sdk';
 
-import { OnAirPage } from '../../../src/components/onair/on.air.page';
+import { DeskPage } from '../../../src/components/desk/desk.page';
 import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
 import { stationAir } from '../../utils/station.fixture';
 import { render, screen, waitFor } from '../../utils/render';
@@ -40,6 +43,8 @@ vi.mock('../../../src/api/client', () => ({
         topics: { listTopics: () => Promise.resolve({ topics: [] }) },
         playout: { stopPlayout: () => stopPlayout(), startPlayout: () => startPlayout(), getPlayoutStatus: () => getPlayoutStatus() },
         catalog: { rateTrack: (...args: unknown[]) => rateTrack(...args) },
+        station: { readStationAttention: () => Promise.resolve({ items: [] }) },
+        personas: { listPersonas: () => Promise.resolve({ personas: [] }) },
     },
 }));
 
@@ -95,11 +100,19 @@ const order = (overrides: Partial<StationOrder> = {}): StationOrder => ({
     ...overrides,
 });
 
+beforeEach(() => {
+    // The desk draws the transport panel above the running order, so every case needs a reading
+    // even when it is asserting about the order. The On-air page these tests came from only used
+    // the transport for its silence panel, so most of them never set one.
+    getPlayoutStatus.mockResolvedValue(playoutStatus());
+    getStationAir.mockResolvedValue(stationAir());
+});
+
 afterEach(() => {
     vi.clearAllMocks();
 });
 
-describe('OnAirPage', () => {
+describe('DeskPage: the running order and the broadcast controls', () => {
     it('draws where each item has got to, and calls a handed item handed rather than playing', async () => {
         // The pusher runs a lead ahead of the listener by design, so an item the player is holding
         // may be two records from being heard. A console that called it "playing" would be a track
@@ -107,14 +120,18 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order());
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByText('Late shift')).toBeInTheDocument();
-        // Twice: the station badge and the item the player says is producing audio.
-        expect(screen.getAllByText('on air')).toHaveLength(2);
+        // Once, not twice: the station's own tally moved into the header, so the only "on air" on
+        // this page is the item the player says is producing audio.
+        expect(screen.getAllByText('on air')).toHaveLength(1);
         expect(screen.getByText('handed over')).toBeInTheDocument();
-        expect(screen.getByText('played')).toBeInTheDocument();
-        expect(screen.getByText(/1 still to come/)).toBeInTheDocument();
+
+        // What is behind us is folded on the desk, so it is a count until asked for. Opening it is
+        // part of the claim: the states still have to be told apart once they are on screen.
+        await userEvent.click(screen.getByRole('button', { name: /1 played earlier/ }));
+        expect(await screen.findByText('played')).toBeInTheDocument();
     });
 
     it('calls a break the operator cut removed rather than skipped', async () => {
@@ -133,7 +150,7 @@ describe('OnAirPage', () => {
         );
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
         expect(screen.getByText('removed')).toBeInTheDocument();
@@ -156,7 +173,7 @@ describe('OnAirPage', () => {
         getStationAir.mockResolvedValue(stationAir());
         rateTrack.mockResolvedValue({ id: 'trk_1', title: 'Windowlicker', rating: 'liked' });
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
         expect(screen.queryByRole('radio', { name: 'Like Talk break' })).not.toBeInTheDocument();
@@ -178,7 +195,7 @@ describe('OnAirPage', () => {
         getStationAir.mockResolvedValue(stationAir());
         rateTrack.mockResolvedValue({ id: 'trk_9', title: 'Xtal', rating: 'disliked' });
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
         await userEvent.click(screen.getByRole('radio', { name: 'Dislike Xtal' }));
@@ -210,7 +227,7 @@ describe('OnAirPage', () => {
         );
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
         expect(screen.getByRole('link', { name: 'Windowlicker' })).toHaveAttribute('href', '/catalog/tracks/trk_1');
@@ -225,7 +242,7 @@ describe('OnAirPage', () => {
         );
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
         expect(screen.getByText('Uningested')).toBeInTheDocument();
@@ -246,10 +263,10 @@ describe('OnAirPage', () => {
         );
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
-        expect(screen.getByRole('link', { name: 'Talk break' })).toHaveAttribute('href', '/scripts?segment=seg_1');
+        expect(screen.getByRole('link', { name: 'Talk break' })).toHaveAttribute('href', '/voice?tab=said&segment=seg_1');
         expect(screen.queryByRole('link', { name: 'A segment the library no longer holds' })).not.toBeInTheDocument();
     });
 
@@ -257,7 +274,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order());
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
         expect(screen.getByRole('button', { name: 'Drop Ageispolis' })).toBeInTheDocument();
@@ -271,7 +288,7 @@ describe('OnAirPage', () => {
         getStationAir.mockResolvedValue(stationAir());
         removeARunningOrderItem.mockResolvedValue(order({ items: order().items.slice(0, 3) }));
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await userEvent.click(await screen.findByRole('button', { name: 'Drop Ageispolis' }));
 
         await waitFor(() => expect(removeARunningOrderItem).toHaveBeenCalledWith('item-4'));
@@ -298,7 +315,7 @@ describe('OnAirPage', () => {
         );
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByText('Talk break')).toBeInTheDocument();
         expect(screen.getByText('will skip')).toBeInTheDocument();
@@ -317,7 +334,7 @@ describe('OnAirPage', () => {
         );
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByText('model')).toBeInTheDocument();
         expect(screen.getByText('deterministic')).toBeInTheDocument();
@@ -327,7 +344,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'seg-1', kind: 'segment', title: 'Top of the hour', artists: [] })] }));
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByText('Top of the hour')).toBeInTheDocument();
         expect(screen.queryByText('deterministic')).not.toBeInTheDocument();
@@ -341,7 +358,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'item-1', title: 'Windowlicker' })] }));
         getStationAir.mockResolvedValue(stationAir({ active: false }));
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
         expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
@@ -354,7 +371,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'item-1', title: 'Windowlicker' })] }));
         getStationAir.mockResolvedValue(stationAir({ active: true }));
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
         expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
@@ -365,7 +382,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'item-1' }), orderItem({ id: 'item-2', title: 'Xtal' })] }));
         getStationAir.mockResolvedValue(stationAir({ active: false }));
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
         expect(screen.getByRole('button', { name: 'Shuffle' })).toBeEnabled();
@@ -378,7 +395,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'item-1' }), orderItem({ id: 'item-2', title: 'Xtal' })] }));
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await screen.findByText('Late shift');
 
         expect(screen.getByRole('button', { name: 'Take a call' })).toBeEnabled();
@@ -388,7 +405,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ state: 'airing' })] }));
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByRole('button', { name: 'Shuffle' })).toBeDisabled();
     });
@@ -399,7 +416,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ state: 'airing' })] }));
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByRole('button', { name: 'Shuffle' })).toBeDisabled();
         expect(screen.getByRole('button', { name: 'Replan' })).toBeEnabled();
@@ -409,7 +426,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ brief: 'ambient only' }));
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await userEvent.click(await screen.findByRole('button', { name: 'Replan' }));
 
         const box = await screen.findByLabelText('What it should play');
@@ -430,7 +447,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ brief: 'ambient only' }));
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
         await userEvent.click(await screen.findByRole('button', { name: 'Replan' }));
         await screen.findByLabelText('What it should play');
 
@@ -446,7 +463,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [], name: '' }));
         getStationAir.mockResolvedValue(stationAir({ active: false }));
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByText('Tell the station what to play')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Go on air' })).toBeDisabled();
@@ -465,7 +482,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order());
         getStationAir.mockResolvedValue(stationAir({ active: false }));
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         const open = await screen.findByRole('button', { name: /Tell the station what to play instead/ });
         await userEvent.click(open);
@@ -481,7 +498,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order({ brief: 'heavy metal hits' }));
         getStationAir.mockResolvedValue(stationAir());
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByText('asked for: heavy metal hits')).toBeInTheDocument();
     });
@@ -492,7 +509,7 @@ describe('OnAirPage', () => {
         getTheRunningOrder.mockResolvedValue(order());
         getStationAir.mockResolvedValue(stationAir({ airMode: 'audience' }));
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByText('when somebody is listening')).toBeInTheDocument();
     });
@@ -504,7 +521,7 @@ describe('OnAirPage', () => {
         getStationAir.mockResolvedValue(stationAir());
         getPlayoutStatus.mockResolvedValue(playoutStatus({ silence: stationSilence('streamUnreachable') }));
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByText('The stream is not reachable')).toBeInTheDocument();
     });
@@ -516,7 +533,7 @@ describe('OnAirPage', () => {
         getStationAir.mockResolvedValue(stationAir());
         getPlayoutStatus.mockResolvedValue(playoutStatus({ silence: stationSilence('noProgramme') }));
 
-        render(<OnAirPage />);
+        render(<DeskPage />);
 
         expect(await screen.findByText('Ruled out')).toBeInTheDocument();
         expect(screen.getByText('The stream is not reachable')).toBeInTheDocument();

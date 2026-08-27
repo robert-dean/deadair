@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Box, Button, Card, Collapse, Group, Progress, Stack, Text, Tooltip } from '@mantine/core';
+import { Badge, Box, Button, Card, Collapse, Group, Progress, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { PlayoutStatus, StationOrder } from '@deadair/sdk';
 
+import { useSetAirMode } from '../../api/director.queries';
 import { useStartPlayout, useStopPlayout, useSkipCurrent } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { usePlayhead } from '../playout/playhead';
+import { SilenceDiagnosisPanel } from '../playout/silence.diagnosis.panel';
 import { readSilence } from '../playout/silence.reading';
 import { StaleConfigAlert } from '../playout/stale.config.alert';
 import { Artwork } from '../shared/artwork';
@@ -20,6 +22,12 @@ export interface OnAirNowProps {
     order?: StationOrder;
     /** Whether the station has been stood down, which decides whether the second button starts or stops. */
     standingDown: boolean;
+    /**
+     * What the station is airing against: `audience` goes on air only while somebody is listening,
+     * `always` whenever there is a programme. Absent while the air reading has not arrived, which is
+     * not the same as `audience` — the control draws nothing rather than a value nobody chose.
+     */
+    airMode?: 'audience' | 'always';
 }
 
 /**
@@ -39,11 +47,12 @@ export interface OnAirNowProps {
  * a question nobody asked while the station is working — and the moment it is worth reading is the
  * moment something is wrong, which is when the panel below draws itself open anyway.
  */
-export function OnAirNow({ status, order, standingDown }: OnAirNowProps) {
+export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps) {
     const [why, setWhy] = useState(false);
     const skip = useSkipCurrent();
     const stop = useStopPlayout();
     const start = useStartPlayout();
+    const setAirMode = useSetAirMode();
 
     const { nowPlaying, upNext, queuedCount, silence } = status;
     const reading = readSilence(silence);
@@ -102,6 +111,24 @@ export function OnAirNow({ status, order, standingDown }: OnAirNowProps) {
                                 </Group>
                             ) : undefined}
                         </Group>
+
+                        {/* Shown rather than only accepted, because it is still WORKING: every
+                            refill for the rest of this broadcast is programmed against it, so an
+                            operator wondering why the station keeps choosing what it chooses is
+                            looking at the answer. It had a badge on the old On-air page and this
+                            panel replaced that page without it, which made a live instruction
+                            invisible. */}
+                        {order?.brief ? (
+                            <Tooltip
+                                multiline
+                                maw={360}
+                                label="Every refill of this broadcast is programmed against this until the station is put on air again."
+                            >
+                                <Badge size="sm" variant="light" color="grape" tt="none" style={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
+                                    asked for: {order.brief}
+                                </Badge>
+                            </Tooltip>
+                        ) : undefined}
 
                         {nowPlaying ? (
                             <Group gap="sm" align="baseline" wrap="nowrap" style={{ minWidth: 0 }}>
@@ -208,39 +235,44 @@ export function OnAirNow({ status, order, standingDown }: OnAirNowProps) {
                 <ErrorAlert key={message}>{message}</ErrorAlert>
             ))}
 
+            {/* `SilenceDiagnosisPanel` rather than a list of gates drawn here.
+
+                The design draws this as two columns of dots and sentences, and a first pass built
+                exactly that — which quietly dropped the REMEDY. The panel carries, per fault, what
+                would clear it, and a `docker` command comes with a copy button because the app
+                cannot restart a sibling container. An operator chasing silence at 2am wants that
+                line more than they want a tidy grid, and it is the one thing a dot cannot say. */}
             <Collapse expanded={why}>
-                <Card withBorder padding="md">
-                    <Stack gap="sm">
-                        <Text size="sm" c="dimmed">
-                            {silence.detail}
-                        </Text>
-                        {/* Two columns, because seven gates in one column is a scroll on the panel
-                            that is supposed to be a glance. */}
-                        <Box
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                                columnGap: 'var(--mantine-spacing-lg)',
-                                rowGap: 4,
-                            }}
-                        >
-                            {silence.checks.map(check => (
-                                <Group key={check.code} gap="xs" wrap="nowrap" align="flex-start">
-                                    <Box
-                                        w={6}
-                                        h={6}
-                                        mt={7}
-                                        bg={check.state === 'ok' ? 'teal.4' : check.state === 'waiting' ? 'blue.4' : 'yellow.4'}
-                                        style={{ borderRadius: '50%', flexShrink: 0 }}
-                                    />
-                                    <Text size="xs" c="dimmed" style={{ minWidth: 0 }}>
-                                        {check.detail}
-                                    </Text>
-                                </Group>
-                            ))}
-                        </Box>
-                    </Stack>
-                </Card>
+                <Stack gap="sm">
+                    {/* What the mount lease is renewed against, and the literal answer to the
+                        question this disclosure asks. It is a station setting rather than a
+                        transport command, and it lived on the transport strip for exactly that
+                        reason: this is where somebody asks why nothing is going out.
+
+                        Deleting the strip deleted the only control for it anywhere in the console,
+                        which is how a station stuck in `audience` mode with nobody listening became
+                        a thing an operator could see and not change. */}
+                    {airMode ? (
+                        <Group gap="sm" wrap="nowrap">
+                            <Text size="sm" c="dimmed" style={{ flexShrink: 0 }}>
+                                On air
+                            </Text>
+                            <SegmentedControl
+                                size="xs"
+                                value={airMode}
+                                disabled={setAirMode.isPending}
+                                onChange={value => setAirMode.mutate({ airMode: value as 'audience' | 'always' })}
+                                data={[
+                                    { value: 'audience', label: 'when somebody is listening' },
+                                    { value: 'always', label: 'always' },
+                                ]}
+                                aria-label="What puts the station on air"
+                            />
+                        </Group>
+                    ) : undefined}
+
+                    <SilenceDiagnosisPanel silence={silence} />
+                </Stack>
             </Collapse>
         </Stack>
     );

@@ -1,6 +1,9 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
     GeneratedPersona,
+    PersonaFile,
+    PersonaImportPlan,
+    PersonaImportResult,
     PersonaInput,
     PersonaList,
     PersonaNoteList,
@@ -224,4 +227,28 @@ export async function exportPersonas(id?: string): Promise<void> {
     const { data, headers } = id === undefined ? await sdk.personas.exportPersonas() : await sdk.personas.exportPersona(id);
 
     saveJsonDownload(data, downloadFilename(headers.contentDisposition, id === undefined ? 'personas.json' : `${id}.json`));
+}
+
+/**
+ * What a file would do here, and then doing it.
+ *
+ * Two mutations rather than one with a flag, mirroring the two routes and for their reason: a
+ * preview is something the console does the moment a file is chosen, and an import is a second,
+ * deliberate act. Neither touches the persona cache on its own — the preview writes nothing at all,
+ * and the import answers with the whole roster, which is what {@link useListWrite} already does with
+ * every other write in this file.
+ */
+export const usePreviewPersonaImport = () =>
+    useMutation<PersonaImportPlan, Error, PersonaFile>({
+        mutationFn: (file: PersonaFile) => sdk.personas.previewPersonaImport(file),
+    });
+
+export function useImportPersonas() {
+    const queryClient = useQueryClient();
+    return useMutation<PersonaImportResult, Error, PersonaFile>({
+        mutationFn: (file: PersonaFile) => sdk.personas.importPersonas(file),
+        onSuccess: (result: PersonaImportResult) => {
+            queryClient.setQueryData(queryKeys.personas.list(), result.personas);
+        },
+    });
 }

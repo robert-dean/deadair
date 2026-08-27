@@ -1,8 +1,7 @@
 # Import and export for everything that is AUTHORED, and the backup that falls out of it
 
-Status: **one row of tier 1 is built, and only its export half.** Personas are exportable as a file
-(`GET /personas/export`, `GET /personas/{id}/export`); everything else below is still design, and in
-particular nobody has yet built a worse `pg_dump`.
+Status: **one row of tier 1 is built, end to end.** Personas export, preview and import as a file;
+everything else below is still design, and in particular nobody has yet built a worse `pg_dump`.
 
 **Designed:** 2026-08-22, from the operator asking for import/export "for everything that makes
 sense, including the station settings, so we can provide a backup/restore feature too".
@@ -14,11 +13,11 @@ no route emitted a document describing the station's configuration.
 
 **Personas first**, because this file's own argument for building anything rather than documenting a
 `pg_dump` is the sharing case, and a character is the piece somebody would actually send somebody
-else. `apps/api/src/modules/personas/persona.file.ts` is the document and
-`persona.export.service.ts` is the read; the console has an Export beside each character and one for
-the roster. The import half — the parser, the dry run and the merge — is not built.
+else. `persona.file.ts` is the document, `persona.file.plan.ts` decides what a file would do here,
+and `persona.export.service.ts` / `persona.import.service.ts` are the two ends. The console has an
+Export beside each character, an Export all and an Import that previews before it writes.
 
-Four decisions came out of building it, and each one is a rule for the rest of tier 1 rather than a
+Five decisions came out of building it, and each one is a rule for the rest of tier 1 rather than a
 detail of this row:
 
 1. **The document was already a contract.** `PersonaDraftView` is the sheet with `id` and `active`
@@ -34,7 +33,12 @@ detail of this row:
    dropped: whoever exported it stood behind it, and `source` names a catalogue the receiving install
    does not have. The same argument will apply to `pads.source_path` and to `playlists.origin_plugin_id`
    — except where the value is genuinely portable, which is the one thing to check per table.
-4. **A dangling reference is reported, never refused.** A persona's `voice` may map to nothing on the
+4. **The only LOSS a merge can cause is a field an update CLEARS**, and it has to be named field by
+   field. An update replaces the sheet, so anything this station has filled in that the file leaves
+   out simply goes — and "this character would be rewritten" does not say that. Every other part of a
+   merge is additive, stories included. Whatever else in tier 1 grows a row-level update owes the
+   same notice; the shape is `filledFields` plus a diff, and it is cheap.
+5. **A dangling reference is reported, never refused.** A persona's `voice` may map to nothing on the
    far side and its `soundboard` may name a rack that does not exist, and migration 0012 already
    settles the second: a persona naming a set that does not exist and a persona with no rack are ONE
    state. So both travel and the import says which it got. Contrast `clock_bands.topic_id`, which
@@ -316,21 +320,19 @@ justifies building anything: 1a is built and lives in `PersonasModule` rather th
 module that reaches ten tables. `persona.file.ts` is deliberately the shape the `personas` section of
 the wider export will re-export, so folding it in later is a call rather than a rewrite.
 
-1a. **Export, personas only.** ✅ Built. `GET /personas/export`, `GET /personas/{id}/export`, an
-    Export beside each character on the console and one for the roster.
-1b. **The parser and the dry run, personas only.** `POST /personas/import/preview`. A separate verb
-    from the import rather than a `dryRun` flag: both call one planner, so the "same code path"
-    guarantee below still holds, and the console can preview on file-select and offer Import as a
-    second, deliberate act. What the preview is FOR is the four things this station may not be able
-    to honour — an unmapped `voice`, a `soundboard` naming no rack, a phrasing naming a placeholder
-    that does not exist, and `dictionMarkers` no sample line uses. The last two reuse
-    `unknownPlaceholders` / `TEMPLATE_VOCABULARY` from `break.templates.ts` and `dictionMarkersIn`
-    from `persona.sheet.ts`, which `persona.writer.ts` already runs over a model's answer; an
-    imported sheet is the same problem through a different door and must not grow a second copy of
-    that vocabulary.
-1c. **Import, personas only, merge.** Through `PersonasService.create`/`update` and
-    `PersonaStoriesService`, deduped by the `holds` / `holdsDetail` checks that already exist for the
-    enrichment pass. It puts nobody on air.
+1a. **Export, personas only.** ✅ Built.
+1b. **The dry run, personas only.** ✅ Built as `POST /personas/import/preview` — a separate verb
+    rather than a `dryRun` flag, since both call one planner so the "same code path" guarantee below
+    still holds, and two verbs let the console preview on file-select and offer Import as a second,
+    deliberate act. The four content notices reuse `unusablePhrasing` from `break.templates.ts` and
+    `unearnedMarkers` from `persona.sheet.ts`, both of which `persona.writer.ts` already runs over a
+    model's answer — an imported sheet is the same problem through a different door, and the two
+    callers want OPPOSITE things done with it, which is exactly why the rules live in one place.
+1c. **Import, personas only, merge.** ✅ Built. Through the REPOSITORIES rather than
+    `PersonasService`, and that is not a shortcut: the "write through the services" rule below exists
+    for the settings reload and the plugin reinit, and a persona row has neither. What is shared is
+    `draftOf`, the one piece of that service that decides what a blank optional field means. All or
+    nothing, on `SettingsService.write`'s posture. It puts nobody on air.
 
 Then the rest of tier 1:
 

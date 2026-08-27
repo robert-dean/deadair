@@ -348,8 +348,14 @@ function isUniqueViolation(error: unknown): boolean {
  * `id` and `active` are `readonly` in the contract and so are absent from what a client may send;
  * `active` moves only through {@link PersonasService.setActive}, which is what keeps "one persona is
  * on air" a fact the database enforces rather than one every write has to remember.
+ *
+ * Exported for `persona.import.service.ts`, which has the same job to do from a file: a
+ * `PersonaFilePersona` is a `PersonaDraftView` plus `kind`, `soundboard` and its stories, so it is
+ * exactly this shape with one extra field. Sharing it rather than writing a second mapper is what
+ * stops the two disagreeing about which blank fields mean "unset" — a distinction with no symptom
+ * except a character whose djName is the empty string.
  */
-function draftOf(body: PersonaInput): PersonaDraft {
+export function draftOf(body: PersonaInput): PersonaDraft {
     const text = (value: string | undefined): string | undefined => {
         const trimmed = value?.trim();
         return trimmed === undefined || trimmed.length === 0 ? undefined : trimmed;

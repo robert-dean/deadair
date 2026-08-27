@@ -299,11 +299,11 @@ export type PersonaFileStoryDetail = z.infer<typeof PersonaFileStoryDetail>;
  * Something to know before pressing Import. Not a refusal: every one of these describes a state the
  * station can be in perfectly well, and the point of saying it is that each one is otherwise
  * discovered by putting the character on air
- * generated from [PersonaImportNotice](file://./../../../../data/contracts/personas/personas.types.ck#L210)
+ * generated from [PersonaImportNotice](file://./../../../../data/contracts/personas/personas.types.ck#L224)
  */
 export const PersonaImportNotice = z.strictObject({
     kind: z
-        .enum(['format', 'duplicate', 'on-air', 'voice', 'soundboard', 'phrasing', 'markers'])
+        .enum(['format', 'duplicate', 'on-air', 'clears', 'voice', 'soundboard', 'phrasing', 'markers'])
         .describe('Which sort, so a console can group or ignore by it rather than parsing the sentence'),
     message: z.string().min(1).max(500).describe("The whole of it, in the station's own words, because its destination is a person"),
 });
@@ -316,7 +316,7 @@ export type PersonaImportNoticeInput = z.infer<typeof PersonaImportNoticeInput>;
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L226)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L241)
  */
 export const PersonaRehearsalAttempt = z.strictObject({
     writer: z.string().min(1).max(100).describe('Which binding was asked, as `segments.writer` would record it'),
@@ -469,7 +469,7 @@ export type PersonaImportEntryInput = z.infer<typeof PersonaImportEntryInput>;
 
 /**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L235)
+ * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L250)
  */
 export const PersonaRehearsal = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -571,3 +571,32 @@ export const PersonaFile = z.strictObject({
     personas: z.array(PersonaFilePersona),
 });
 export type PersonaFile = z.infer<typeof PersonaFile>;
+
+/**
+ * What importing actually did, with the plan it did it from.
+ *
+ * All or nothing: a file whose import failed part-way leaves the station exactly as it was, on
+ * `PUT /settings`' own rule. The preview is what stands between an operator and a surprise, so a
+ * partial landing would be the one outcome nothing had described
+ * generated from [PersonaImportResult](file://./../../../../data/contracts/personas/personas.types.ck#L212)
+ */
+export const PersonaImportResult = z.strictObject({
+    plan: PersonaImportPlan.describe('What it decided to do, notices and all, so the answer carries its own explanation'),
+    created: z.coerce.number().int().min(0),
+    updated: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .describe(
+            'Characters whose sheet was rewritten. An update replaces the sheet and ADDS stories; it never deletes one the operator here wrote',
+        ),
+    storiesWritten: z.coerce.number().int().min(0),
+    detailsWritten: z.coerce.number().int().min(0),
+    personas: PersonaList.describe(
+        "The roster as it now stands, on this file's own rule: every mutation answers the whole list, because more than the named row can change",
+    ),
+});
+export type PersonaImportResult = z.infer<typeof PersonaImportResult>;
+
+export const PersonaImportResultInput = z.strictObject({});
+export type PersonaImportResultInput = z.infer<typeof PersonaImportResultInput>;

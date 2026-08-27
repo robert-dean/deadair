@@ -31,6 +31,7 @@ import { notifyDone } from '../shared/notify';
 import { severityColor, toneColor } from '../shared/status';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
+import { PersonaImportModal } from './persona.import';
 import { PersonaNotesPanel } from './persona.notes';
 import { PersonaStoriesPanel } from './persona.stories';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
@@ -88,6 +89,9 @@ export function PersonasPage() {
     // whether one is in flight, and what went wrong if it did. Keyed by persona id, with the roster
     // export under `ROSTER`, so a failure lands on the card that asked for it rather than at the top
     // of a list of fourteen. See `CardFailure`.
+    // Its own dialog rather than a drop zone on the page, because taking a file in is three steps —
+    // choose, read what it would do, do it — and none of them belongs beside a roster.
+    const [importing, setImporting] = useState(false);
     const [exporting, setExporting] = useState<string | undefined>(undefined);
     const [exportFailure, setExportFailure] = useState<{ of: string; error: unknown } | undefined>(undefined);
 
@@ -149,6 +153,11 @@ export function PersonasPage() {
                             }}
                         >
                             Export all
+                        </Button>
+                        {/* The other half of Export, and the reason either exists: a character in a
+                            file is the thing somebody would actually send somebody else. */}
+                        <Button variant="default" onClick={() => setImporting(true)}>
+                            Import
                         </Button>
                         {/* Safe to press twice: it writes only what is missing, overwrites nothing an
                             operator has rewritten, and puts nothing on air. That is what keeps it a
@@ -448,6 +457,8 @@ export function PersonasPage() {
                 saving={create.isPending || update.isPending}
                 error={create.error ?? update.error ?? undefined}
             />
+
+            <PersonaImportModal opened={importing} onClose={() => setImporting(false)} />
 
             <PersonaDeleteModal
                 {...(deleting === undefined ? {} : { persona: deleting })}

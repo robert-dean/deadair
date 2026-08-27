@@ -5,6 +5,7 @@ import type {
     Persona,
     PersonaFile,
     PersonaImportPlan,
+    PersonaImportResult,
     PersonaInput,
     PersonaList,
     PersonaNoteList,
@@ -96,6 +97,19 @@ export class PersonasClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return await parseJson<PersonaImportPlan>(result);
+    }
+
+    /**
+     * @name Import personas
+     * @description Writes a file into this station, merging by key, and answers with what it did
+     */
+    async importPersonas(body: PersonaFile): Promise<PersonaImportResult> {
+        const result = await this.fetch(`/personas/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaImportResult>(result);
     }
 
     /**

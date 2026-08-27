@@ -43,8 +43,14 @@ import type { PersonaFile, PersonaFilePersona, PersonaImportEntry, PersonaImport
  * stories each of them holds, and the two vocabularies a sheet can point at.
  */
 export interface StationSnapshot {
-    /** Every persona key this station holds, and whether it is the one presenting. */
-    personas: ReadonlyMap<string, { label: string; active: boolean }>;
+    /**
+     * Every persona key this station holds: what it is called, whether it is presenting, and which
+     * of its optional sheet fields are filled in.
+     *
+     * The last of those is what {@link SHEET_FIELDS} is for. An update REPLACES the sheet, so a field
+     * the file leaves out is a field this station loses, and "Rewrite" on its own does not say that.
+     */
+    personas: ReadonlyMap<string, { label: string; active: boolean; filled: ReadonlySet<string> }>;
     /** Story handles per persona key, lower-cased and trimmed, with the details each already holds. */
     stories: ReadonlyMap<string, ReadonlyMap<string, ReadonlySet<string>>>;
     /**
@@ -65,6 +71,43 @@ export interface StationSnapshot {
      * station has no soundboards at all.
      */
     soundboards?: ReadonlySet<string>;
+}
+
+/**
+ * The optional fields of a sheet, and what each one is called to somebody reading a warning.
+ *
+ * `key`, `label` and `style` are not here because they are required: a file always carries them, so
+ * they can never be the thing an update quietly takes away. Everything else can.
+ */
+export const SHEET_FIELDS: ReadonlyArray<readonly [keyof PersonaFilePersona, string]> = [
+    ['djName', 'the name it goes by on air'],
+    ['voice', 'its voice'],
+    ['soundboard', 'its soundboard'],
+    ['background', 'its background'],
+    ['brevity', 'how much it says'],
+    ['latitude', 'how much room it is given'],
+    ['storytelling', 'how readily it tells a story'],
+    ['templates', 'its own phrasings'],
+    ['diction', 'its diction'],
+    ['dictionMarkers', 'its diction markers'],
+    ['quirks', 'its quirks'],
+    ['preoccupations', 'its preoccupations'],
+    ['catchphrases', 'its catchphrases'],
+    ['avoid', 'the wording it avoids'],
+    ['samples', 'its sample lines'],
+];
+
+/** Which of {@link SHEET_FIELDS} a sheet actually has something in. An empty list is not a value. */
+export function filledFields(sheet: Partial<Record<keyof PersonaFilePersona, unknown>>): Set<string> {
+    return new Set(
+        SHEET_FIELDS.filter(([field]) => {
+            const value = sheet[field];
+            if (value === undefined) return false;
+            if (Array.isArray(value)) return value.length > 0;
+
+            return String(value).trim().length > 0;
+        }).map(([field]) => field),
+    );
 }
 
 /** Match a story handle the way the store's own partial unique index does. */
@@ -165,9 +208,26 @@ function entryFor(persona: PersonaFilePersona, station: StationSnapshot): Person
 function personaNotices(
     persona: PersonaFilePersona,
     station: StationSnapshot,
-    held: { label: string; active: boolean } | undefined,
+    held: { label: string; active: boolean; filled: ReadonlySet<string> } | undefined,
 ): PersonaImportNotice[] {
     const notices: PersonaImportNotice[] = [];
+
+    // An update REPLACES the sheet, so a field this station has filled in and the file leaves out is
+    // one that goes. "Rewrite" does not say that on its own, and this is the only loss an import can
+    // cause: everything else about a merge is additive, stories included. Named field by field rather
+    // than as a warning about updates in general, because which fields matter is the operator's
+    // judgement — losing a djName is nothing and losing eight sample lines is the character.
+    if (held !== undefined) {
+        const carried = filledFields(persona);
+        const lost = SHEET_FIELDS.filter(([field]) => held.filled.has(field) && !carried.has(field)).map(([, name]) => name);
+
+        if (lost.length > 0) {
+            notices.push({
+                kind: 'clears',
+                message: `this file says nothing about ${list(lost)}, and an import replaces the sheet — so what is here now would go`,
+            });
+        }
+    }
 
     // First, because it is the one an operator most needs to see before pressing anything: this
     // rewrites the sheet the station is currently speaking from. Not a fault and not refused — the
@@ -221,3 +281,9 @@ function personaNotices(
 
 /** A line short enough to sit inside a sentence, since a phrasing can be most of a paragraph. */
 const trimmed = (line: string): string => (line.length <= 80 ? line : `${line.slice(0, 79)}…`);
+
+/** Several things as a person would say them, because these sentences are read rather than parsed. */
+function list(items: readonly string[]): string {
+    if (items.length <= 1) return items[0] ?? '';
+    return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}

@@ -163,6 +163,31 @@ operation /personas/import/preview: {
     }
 }
 
+# Takes a file in. MERGE: a character this station holds under the same key has its sheet rewritten
+# and its stories added to, and one it does not is created. Nothing is ever deleted — a story the
+# operator here wrote and the file has never heard of stays exactly where it is.
+#
+# It puts NOBODY on air, and needs no way to: `PUT /personas/{id}/active` is the one path, and it
+# already tells the show that is running. So an imported character arrives beside the others and
+# takes over when somebody says so.
+#
+# All or nothing. The preview above is what stands between an operator and a surprise, so a file that
+# landed half way would be the one outcome nothing had described.
+operation /personas/import: {
+    post: { # Writes a file into this station, merging by key, and answers with what it did
+        name: Import personas
+        service: PersonaImportService.import
+        request: {
+            application/json: PersonaFile
+        }
+        response: {
+            200: {
+                application/json: PersonaImportResult
+            }
+        }
+    }
+}
+
 operation /personas/{id}: {
     params: {
         id: string(min=1, max=100)

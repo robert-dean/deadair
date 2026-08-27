@@ -44,6 +44,15 @@ const empty = (over: Partial<StationSnapshot> = {}): StationSnapshot => ({
 
 const kinds = (notices: readonly { kind: string }[]): string[] => notices.map(notice => notice.kind);
 
+/**
+ * A character this station already holds.
+ *
+ * `filled` is which of its optional sheet fields have something in them, which is what decides
+ * whether an update would quietly clear one. Empty by default, so a case that is not about that says
+ * nothing about it.
+ */
+const holding = (label: string, active = false, filled: string[] = []) => ({ label, active, filled: new Set(filled) });
+
 describe('what would happen to each character', () => {
     it('creates a key this station does not hold', () => {
         const plan = planImport(file([entry()]), empty());
@@ -52,7 +61,7 @@ describe('what would happen to each character', () => {
     });
 
     it('updates a key it does', () => {
-        const station = empty({ personas: new Map([['overnight', { label: 'Whoever this is', active: false }]]) });
+        const station = empty({ personas: new Map([['overnight', holding('Whoever this is')]]) });
 
         expect(planImport(file([entry()]), station).personas[0]?.outcome).toBe('update');
     });
@@ -61,7 +70,7 @@ describe('what would happen to each character', () => {
     // held/new split is what says an import is additive rather than a replacement.
     it('counts a story this station already holds separately from a new one', () => {
         const station = empty({
-            personas: new Map([['overnight', { label: 'The overnight host', active: false }]]),
+            personas: new Map([['overnight', holding('The overnight host')]]),
             stories: new Map([['overnight', new Map([['the barstow lights', new Set<string>()]])]]),
         });
         const plan = planImport(
@@ -80,7 +89,7 @@ describe('what would happen to each character', () => {
     // a story the import is then going to skip.
     it('matches a story handle case-insensitively and untrimmed, as the store does', () => {
         const station = empty({
-            personas: new Map([['overnight', { label: 'x', active: false }]]),
+            personas: new Map([['overnight', holding('x')]]),
             stories: new Map([['overnight', new Map([['the barstow lights', new Set<string>()]])]]),
         });
         const plan = planImport(file([entry({ stories: [story('  The BARSTOW Lights ')] })]), station);
@@ -96,7 +105,7 @@ describe('what would happen to each character', () => {
 
     it('splits the details of a story it already holds', () => {
         const station = empty({
-            personas: new Map([['overnight', { label: 'x', active: false }]]),
+            personas: new Map([['overnight', holding('x')]]),
             stories: new Map([['overnight', new Map([['the barstow lights', new Set(['the third one held still'])]])]]),
         });
         const plan = planImport(file([entry({ stories: [story('The Barstow lights', ['The third one held still', 'new'])] })]), station);
@@ -131,15 +140,45 @@ describe('what is worth saying about the file', () => {
 
 describe('what this station cannot honour', () => {
     it('says when a file would rewrite the character on air', () => {
-        const station = empty({ personas: new Map([['overnight', { label: 'The overnight host', active: true }]]) });
+        const station = empty({ personas: new Map([['overnight', holding('The overnight host', true)]]) });
 
         expect(kinds(planImport(file([entry()]), station).personas[0]!.notices)).toEqual(['on-air']);
     });
 
     it('says nothing about a character that is merely held', () => {
-        const station = empty({ personas: new Map([['overnight', { label: 'x', active: false }]]) });
+        const station = empty({ personas: new Map([['overnight', holding('x')]]) });
 
         expect(planImport(file([entry()]), station).personas[0]?.notices).toEqual([]);
+    });
+
+    // The only LOSS an import can cause, and the one "Rewrite" does not say on its own: an update
+    // replaces the sheet, so a field this station has filled in and the file leaves out is a field
+    // that goes. Everything else about a merge is additive, stories included.
+    it('names what an update would clear, field by field', () => {
+        const station = empty({ personas: new Map([['overnight', holding('x', false, ['samples', 'templates'])]]) });
+        const notices = planImport(file([entry()]), station).personas[0]!.notices;
+
+        expect(kinds(notices)).toEqual(['clears']);
+        expect(notices[0]?.message).toContain('its own phrasings');
+        expect(notices[0]?.message).toContain('its sample lines');
+    });
+
+    it('says nothing about a field the file carries', () => {
+        const station = empty({ personas: new Map([['overnight', holding('x', false, ['samples'])]]) });
+
+        expect(planImport(file([entry({ samples: ['Stay up.'] })]), station).personas[0]?.notices).toEqual([]);
+    });
+
+    // An empty list is not a value. A file carrying `samples: []` is a file saying nothing about
+    // samples, which is exactly what an export of a character with none produces.
+    it('treats an empty list in the file as saying nothing', () => {
+        const station = empty({ personas: new Map([['overnight', holding('x', false, ['samples'])]]) });
+
+        expect(kinds(planImport(file([entry({ samples: [] })]), station).personas[0]!.notices)).toEqual(['clears']);
+    });
+
+    it('says nothing about clearing when the character is new here', () => {
+        expect(planImport(file([entry()]), empty()).personas[0]?.notices).toEqual([]);
     });
 
     it('names a voice the engine does not map', () => {

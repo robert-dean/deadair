@@ -1,12 +1,14 @@
 import { Injectable } from 'injectkit';
+import { httpError } from '@maroonedsoftware/errors';
 import { PadSetRepository } from '#modules/render/pad.set.repository.js';
 import { SpeechService } from '#modules/render/speech.service.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { Logger } from '@maroonedsoftware/logger';
 import { PersonaRepository } from './persona.repository.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
-import { detailHandle, planImport, storyHandle, type StationSnapshot } from './persona.file.plan.js';
-import type { PersonaFile, PersonaImportPlan } from './types/personas.types.js';
+import { detailHandle, filledFields, planImport, storyHandle, type StationSnapshot } from './persona.file.plan.js';
+import { draftOf, PersonasService } from './personas.service.js';
+import type { PersonaFile, PersonaFilePersona, PersonaImportPlan, PersonaImportResult } from './types/personas.types.js';
 
 /**
  * Taking a character IN: what a file would do here, and — once the import half lands — doing it.
@@ -32,6 +34,10 @@ import type { PersonaFile, PersonaImportPlan } from './types/personas.types.js';
 export class PersonaImportService {
     constructor(
         private readonly personas: PersonaRepository,
+        // For the ANSWER alone, which is the roster in the shape the console reads and which this
+        // has no business mapping a second time. Every write in this area answers the whole list,
+        // because more than the named row can change; an import is the extreme case of that.
+        private readonly roster: PersonasService,
         private readonly stories: PersonaStoriesRepository,
         private readonly speech: SpeechService,
         private readonly padSets: PadSetRepository,
@@ -59,6 +65,135 @@ export class PersonaImportService {
     }
 
     /**
+     * Write a file into this station.
+     *
+     * MERGE, and the word is doing work: a character held under the same key has its SHEET rewritten
+     * and its stories ADDED to, and nothing is ever deleted. A story the operator here wrote and the
+     * file has never heard of stays exactly where it is, which is what makes importing somebody's
+     * character safe to do on top of your own edits to it.
+     *
+     * ## Why this writes through the repositories rather than `PersonasService`
+     *
+     * `docs/todo/backup-and-restore.md` says an import writes through the SERVICES, and states the
+     * two reasons: a settings write has to defer `configStore.reload()` through `AfterCommit`, and a
+     * `plugin_configs` write has to reinit the plugin. **Neither has an analogue here.** A persona
+     * row has no deferred side effect and nothing watches the table — the one thing that reaches the
+     * running show is `setActive`, which this deliberately never calls. So the rule has nothing to
+     * bite on, and going through a surface that answers the whole roster on every write would be
+     * twenty-four full list reads to import twenty-four characters.
+     *
+     * What IS shared is the one piece of that service worth sharing: `draftOf`, which decides what a
+     * blank optional field means. A second mapper would be a second opinion about whether a djName
+     * somebody left empty is unset or is the empty string, and that difference has no symptom.
+     *
+     * ## All or nothing
+     *
+     * Nothing is caught. A failure part-way leaves the station exactly as it was, because the request
+     * runs in one transaction — `SettingsService.write`'s posture, and right for the same reason: the
+     * preview is what stands between an operator and a surprise, so a file that landed half way would
+     * be the one outcome nothing had described to them.
+     *
+     * ## It puts nobody on air
+     *
+     * There is no code here that could, and none is wanted. `PUT /personas/{id}/active` is the one
+     * path and it already tells the show that is running, through a `recast` posted after the commit.
+     * An imported character arrives beside the others and takes over when somebody says so.
+     */
+    async import(file: PersonaFile): Promise<PersonaImportResult> {
+        const plan = planImport(file, await this.snapshot(file));
+
+        let created = 0;
+        let updated = 0;
+        let storiesWritten = 0;
+        let detailsWritten = 0;
+
+        // Read once and kept, rather than `find`ing per character: the plan already decided which
+        // keys exist, and this is the map from those keys to the ids the repositories want.
+        const held = new Map((await this.personas.list()).map(persona => [persona.key, persona.id]));
+
+        for (const persona of file.personas) {
+            const id = held.get(persona.key);
+            const saved = id === undefined ? await this.personas.create(draftOf(persona)) : await this.personas.update(id, draftOf(persona));
+            if (id === undefined) created += 1;
+            else updated += 1;
+
+            // A persona that vanished between the read above and this write is somebody deleting a
+            // character mid-import. Nothing to write its stories against, and the transaction is
+            // about to be rolled back anyway.
+            if (saved === undefined) throw httpError(409).withDetails({ message: `"${persona.key}" was deleted while this file was being imported` });
+
+            const written = await this.writeStories(persona);
+            storiesWritten += written.stories;
+            detailsWritten += written.details;
+        }
+
+        this.logger.info('personas: imported a persona file', {
+            format: file.format,
+            from: file.station,
+            created,
+            updated,
+            stories: storiesWritten,
+            details: detailsWritten,
+        });
+
+        return { plan, created, updated, storiesWritten, detailsWritten, personas: await this.roster.list() };
+    }
+
+    /**
+     * One character's stories and details, skipping whatever this station already holds.
+     *
+     * Deduped by `holds` / `holdsDetail`, which are the checks the enrichment pass already uses and
+     * which match the way the store's own partial unique index does. Asked rather than caught,
+     * because the index does not cover `rejected` — a story turned down here and re-offered by a file
+     * would otherwise be an unhandled constraint violation rather than a row that is already there.
+     *
+     * A `rejected` story is written and then set, because `add` takes a state and the SERVICE-shaped
+     * path does not. Carrying that state is what stops the enrichment pass proposing it again on this
+     * station, which is `pronunciations`' argument one table over.
+     */
+    private async writeStories(persona: PersonaFilePersona): Promise<{ stories: number; details: number }> {
+        if (persona.stories.length === 0) return { stories: 0, details: 0 };
+
+        // Read once for the character rather than asked per story, which is what `holds` and
+        // `holdsDetail` would each cost. Those two are the definition of the match and this agrees
+        // with them by using the same handles the planner keys on — see `persona.file.plan.ts`.
+        const held = new Map((await this.stories.list(persona.key)).map(story => [storyHandle(story.title), story]));
+
+        let stories = 0;
+        let details = 0;
+
+        for (const story of persona.stories) {
+            let row = held.get(storyHandle(story.title));
+
+            if (row === undefined) {
+                row = await this.stories.add({
+                    personaKey: persona.key,
+                    title: story.title,
+                    story: story.story,
+                    // Whoever exported this stood behind it, so on this side it is the receiving
+                    // operator's own — `PersonaStoryWrite`'s "always theirs", one install further
+                    // out. See `persona.file.ts` for why `origin` does not travel.
+                    origin: 'operator',
+                    // Carried so the enrichment pass does not propose here what was turned down
+                    // there, which is `pronunciations`' argument one table over.
+                    state: story.state ?? 'active',
+                });
+                stories += 1;
+            }
+
+            const carried = new Set(row.details.map(detail => detailHandle(detail.detail)));
+            for (const detail of story.details) {
+                if (carried.has(detailHandle(detail.detail))) continue;
+
+                await this.stories.addDetail({ storyId: row.id, detail: detail.detail, origin: 'operator', state: detail.state ?? 'active' });
+                details += 1;
+            }
+        }
+
+        return { stories, details };
+    }
+
+    /**
      * What this station holds, read once for the whole file.
      *
      * The stories are read only for keys this station actually has, because a character it does not
@@ -67,7 +202,7 @@ export class PersonaImportService {
      */
     private async snapshot(file: PersonaFile): Promise<StationSnapshot> {
         const held = await this.personas.list();
-        const personas = new Map(held.map(persona => [persona.key, { label: persona.label, active: persona.active }]));
+        const personas = new Map(held.map(persona => [persona.key, { label: persona.label, active: persona.active, filled: filledFields(persona) }]));
 
         const wanted = file.personas.map(persona => persona.key).filter(key => personas.has(key));
         const stories = new Map(await Promise.all(wanted.map(async key => [key, await this.storiesFor(key)] as const)));

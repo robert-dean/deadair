@@ -20,6 +20,7 @@ import { hasTransportToShow, TRANSPORT_HEIGHT, TRANSPORT_HEIGHT_EXPANDED, Transp
 import { SideNav } from '../components/shell/side.nav';
 import { StationMark } from '../components/shell/station.mark';
 import { StationClock } from '../components/shell/station.clock';
+import { StationTally } from '../components/shell/station.tally';
 
 /** Where the transport's open/shut state is remembered between visits. */
 const TRANSPORT_EXPANDED_KEY = 'deadair.transport.expanded';
@@ -75,14 +76,14 @@ export function RootLayout() {
 
     return (
         <AppShell
-            header={{ height: 56 }}
-            navbar={signedIn ? { width: 208, breakpoint: 'sm', collapsed: { mobile: !navOpened } } : undefined}
+            header={{ height: 52 }}
+            navbar={signedIn ? { width: 204, breakpoint: 'sm', collapsed: { mobile: !navOpened } } : undefined}
             footer={transport ? { height: transportExpanded ? TRANSPORT_HEIGHT_EXPANDED : TRANSPORT_HEIGHT } : undefined}
             padding="md"
         >
             <AppShell.Header className="da-scanlines">
-                <Group h="100%" px="md" justify="space-between" wrap="nowrap">
-                    <Group gap="sm" wrap="nowrap">
+                <Group h="100%" px="md" gap="md" wrap="nowrap">
+                    <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
                         {signedIn ? (
                             <Burger opened={navOpened} onClick={navDrawer.toggle} hiddenFrom="sm" size="sm" aria-label="Navigation" />
                         ) : undefined}
@@ -91,8 +92,13 @@ export function RootLayout() {
                             deadair
                         </Text>
                     </Group>
+                    {/* Beside the wordmark rather than out at the right edge: this is what the
+                        station IS at this moment, so it reads as part of the identity rather than
+                        as one more control. The clock stays right, where a clock belongs. */}
+                    {signedIn ? <StationTally status={playout.data} /> : undefined}
+                    <Box style={{ flex: 1, minWidth: 0 }} />
                     {signedIn ? (
-                        <Group gap="sm" wrap="nowrap">
+                        <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
                             <StationClock />
                             <Button
                                 variant="subtle"

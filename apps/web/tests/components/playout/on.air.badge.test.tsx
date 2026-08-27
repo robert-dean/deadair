@@ -10,7 +10,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { listenerLabel, OnAirBadge } from '../../../src/components/playout/on.air.badge';
+import { OnAirBadge } from '../../../src/components/playout/on.air.badge';
+import { listenerLabel } from '../../../src/components/playout/silence.reading';
 import { stationSilence } from '../../utils/playout.fixture';
 import { render, screen } from '../../utils/render';
 

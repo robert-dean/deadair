@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@contractkit/prettier-plugin':
-        specifier: ^0.14.1
-        version: 0.14.1(prettier@3.9.6)
+        specifier: ^0.14.2
+        version: 0.14.2(prettier@3.9.6)
       '@types/node':
         specifier: ^26.1.2
         version: 26.1.2
@@ -48,44 +48,44 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@maroonedsoftware/appconfig':
-        specifier: ^2.5.0
-        version: 2.5.0(pg@8.22.0)(yaml@2.9.0)
+        specifier: ^2.5.1
+        version: 2.5.1(pg@8.22.0)(yaml@2.9.0)
       '@maroonedsoftware/authentication':
-        specifier: ^4.30.6
-        version: 4.30.6(ioredis@6.0.0)
+        specifier: ^4.30.7
+        version: 4.30.7(ioredis@6.0.0)
       '@maroonedsoftware/cache':
         specifier: ^0.4.5
         version: 0.4.5(ioredis@6.0.0)
       '@maroonedsoftware/encryption':
-        specifier: ^0.5.10
-        version: 0.5.10
+        specifier: ^0.5.11
+        version: 0.5.11
       '@maroonedsoftware/errors':
-        specifier: ^1.8.5
-        version: 1.8.5
+        specifier: ^1.9.0
+        version: 1.9.0
       '@maroonedsoftware/eventbus':
         specifier: ^0.1.7
         version: 0.1.7
       '@maroonedsoftware/jobbroker':
-        specifier: ^1.11.5
-        version: 1.11.5(pg-boss@12.27.0)
+        specifier: ^1.12.0
+        version: 1.12.0(pg-boss@12.27.0)
       '@maroonedsoftware/koa':
-        specifier: ^3.0.9
-        version: 3.0.9(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)
+        specifier: ^3.0.10
+        version: 3.0.10(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)
       '@maroonedsoftware/kysely':
-        specifier: ^0.7.8
-        version: 0.7.8
+        specifier: ^0.7.9
+        version: 0.7.9
       '@maroonedsoftware/logger':
         specifier: ^1.1.8
         version: 1.1.8
       '@maroonedsoftware/multipart':
-        specifier: ^1.3.5
-        version: 1.3.5
+        specifier: ^1.3.6
+        version: 1.3.6
       '@maroonedsoftware/permissions':
         specifier: ^0.2.8
         version: 0.2.8
       '@maroonedsoftware/policies':
-        specifier: ^0.6.5
-        version: 0.6.5
+        specifier: ^0.6.6
+        version: 0.6.6
       '@maroonedsoftware/serverfeed':
         specifier: ^0.1.5
         version: 0.1.5(@maroonedsoftware/logger@1.1.8)
@@ -93,8 +93,8 @@ importers:
         specifier: ^1.11.5
         version: 1.11.5
       '@maroonedsoftware/zod':
-        specifier: ^0.5.5
-        version: 0.5.5
+        specifier: ^0.5.6
+        version: 0.5.6
       injectkit:
         specifier: ^1.7.0
         version: 1.7.0
@@ -133,11 +133,11 @@ importers:
         version: 4.4.3
     devDependencies:
       '@contractkit/cli':
-        specifier: ^0.10.6
-        version: 0.10.6(prettier@3.9.6)
+        specifier: ^0.10.7
+        version: 0.10.7(prettier@3.9.6)
       '@contractkit/plugin-typescript':
-        specifier: ^0.31.1
-        version: 0.31.1
+        specifier: ^0.31.2
+        version: 0.31.2
       '@deadair/plugin-musicbrainz':
         specifier: workspace:*
         version: link:../../plugins/musicbrainz
@@ -709,8 +709,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@contractkit/cli@0.10.6':
-    resolution: {integrity: sha512-nZGcDEau/KTOTY3xAsOEJuA0tP0eSAeqmszSarG/MRDLa0AqvmWbxnpRkQkHNVqBtqGA/w8jWhvOK+Ng/O3ABA==}
+  '@contractkit/cli@0.10.7':
+    resolution: {integrity: sha512-n4Htg3MUCpZMBkT5PIEaov93WZZ1lu04ZtsKMeaa+Nxm4z0+MmZJNZlWV++ijQ9qdq5AokNLXajc5s/CnSHN/g==}
     hasBin: true
     peerDependencies:
       prettier: '>=3.0.0'
@@ -718,17 +718,17 @@ packages:
       prettier:
         optional: true
 
-  '@contractkit/core@0.26.0':
-    resolution: {integrity: sha512-oNBsx2r+5ZSf8FJwQ0wf5O+fJuLHLHFRgcp+nsW4kTA61XArMZTap37DF+2QHCiGAdMapDPrZiTFjKPSH/V9VA==}
+  '@contractkit/core@0.26.1':
+    resolution: {integrity: sha512-X5cmvCa7kXSJeWvb0MSyzOVwEJOvelh0dSUVwOm9vHnq9GJTgBZ0+kyY1vz/mewONMCNuaBOUDt8bhmrCwVTEA==}
 
-  '@contractkit/openapi-to-ck@0.10.1':
-    resolution: {integrity: sha512-HKGOR0776kaAYzHT5Lzw/s6F/yFyxL1Uz7HA9KPaTumLlIy01E9d3Wvt535fDd7pZzpoJqLH91aP/HHu+qc09w==}
+  '@contractkit/openapi-to-ck@0.10.2':
+    resolution: {integrity: sha512-O02aOwQU1azMFtmMxxHRGggm8hhHTYVa52G+KQkB34c8eGrBySEi1t3oF6EMe8uQ9myUL4yjXs1qNdZvvueW7A==}
 
-  '@contractkit/plugin-typescript@0.31.1':
-    resolution: {integrity: sha512-gsHEwWBu2En43B4jK8yPAaQ27qAYfBgfs9I+Wiqkd4mrJM7yXqBXh3ONKpCsko/NFubu3MOj8tEOwtXkXxLcWQ==}
+  '@contractkit/plugin-typescript@0.31.2':
+    resolution: {integrity: sha512-mhDEoMoWNOgVKEw1Wp1Oe1/xTJ69hLeAJoFbNpj1XLzr8SvlFjPr1HTY9xOHrp4Mvd8qP9kdeMHYzHOjLmkqNA==}
 
-  '@contractkit/prettier-plugin@0.14.1':
-    resolution: {integrity: sha512-PJky/dNDuB8+5Txb+OIapPeZKigpzVLOhBJ8gRE48xz24KZPfV5QCK37QEzo1n2zQChZRv38aM3HmUSJihN7vQ==}
+  '@contractkit/prettier-plugin@0.14.2':
+    resolution: {integrity: sha512-7tpKmR+ReCAB3IadY0XBYh+W9V2gdN8iE+nfK+LJJmHsltTOkxxDM6eta39iXxNWQIXReNimjwsVtPnosxkMAA==}
     peerDependencies:
       prettier: ^3.0.0
 
@@ -1177,8 +1177,8 @@ packages:
     peerDependencies:
       react: ^19.2.0
 
-  '@maroonedsoftware/appconfig@2.5.0':
-    resolution: {integrity: sha512-w//AoI3GLNIDZiSH5SMw+XCmSWPjIxBNcELoHCJFTqPwJbHDvCQiSQ9LWUxEUXLvjCw3rLCDXjEIC6Ck6KOWVw==}
+  '@maroonedsoftware/appconfig@2.5.1':
+    resolution: {integrity: sha512-YRVe2hXHNKHERKcSQnygjkN851yT/xYCqsGgbjkdyHaHpJK5G6kpPo6SoHbA4oCnkERK9kbl7efz56OCbesk1g==}
     engines: {node: '>=22'}
     peerDependencies:
       '@aws-sdk/client-secrets-manager': ^3.1057.0
@@ -1195,8 +1195,8 @@ packages:
       yaml:
         optional: true
 
-  '@maroonedsoftware/authentication@4.30.6':
-    resolution: {integrity: sha512-oYRoMC6nssAhaBWSFpUqRqSeLk2Gua1fk5TyHlSyOPuhFzc/pP0iADsvE2j/Af/fTv3QVwm6NzBmFdCYwNZP2Q==}
+  '@maroonedsoftware/authentication@4.30.7':
+    resolution: {integrity: sha512-vwzTsBupT+qKDoJpWeEitUOI0k5ePo3y+0eHLVi5H0bkrfqEBDHriqhlhZI7bpK9YMW9LeVcaUS4hh3p3bxw/A==}
     engines: {node: '>=22'}
 
   '@maroonedsoftware/cache@0.4.5':
@@ -1208,29 +1208,29 @@ packages:
       ioredis:
         optional: true
 
-  '@maroonedsoftware/encryption@0.5.10':
-    resolution: {integrity: sha512-e1FLOPdJYLUnYZqBXcqyZ9Eo6oJII9L6FUXKNWoLhvP7kDxXWkvHbfodISoZd+tB2eYqaGVoUd+He6X28/j9Dw==}
+  '@maroonedsoftware/encryption@0.5.11':
+    resolution: {integrity: sha512-hw8wYKFVmzFGxnn3yZ3227SvxdfTIYh2aPEDsYuR8M87yiFqSSBbZEJ5wEf0K9X7RaBEKOUwNbnBmcxkqKvi/Q==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/errors@1.8.5':
-    resolution: {integrity: sha512-jRNvqjRDzsNlKE89H2qjp9Chup6xnyEQh95IJiA4n2lL4R5P4n5Des2gttXiCBIXjHSLxMVQArm8pOhO55QD4A==}
+  '@maroonedsoftware/errors@1.9.0':
+    resolution: {integrity: sha512-m0Ahsvc9HeNoBdiZI2awARlHryV7Ji/v+qak01+85+QrHoyZEQVmb1PR+XTBOy2PxbdtBxTlWLfBGQOqoclAoQ==}
     engines: {node: '>=22'}
 
   '@maroonedsoftware/eventbus@0.1.7':
     resolution: {integrity: sha512-rEEI4hcFesKP6ayRroIJJGpBWqBJNfjjWY6CPaHkBai52c6Nssh1LsELl9+m6Nv3PJK2KliPRQMs6Mt2WxiY9Q==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/jobbroker@1.11.5':
-    resolution: {integrity: sha512-hWlzdO2LS7db5QdX374RDgVJrW0mFs3oDTedKgnM8Izd3ooLOCVg3L22uD/I2F6yapB4bVmBHynfw2EL4x6Vcg==}
+  '@maroonedsoftware/jobbroker@1.12.0':
+    resolution: {integrity: sha512-akZPxxnyLMBAposKG5LRafN0C0iAWNgmr8kgn6RDFV2UQJ09CPvR9YWvf6aRjefOOpfc7sWQIefuv6rJL1w/3g==}
     engines: {node: '>=22'}
     peerDependencies:
-      pg-boss: ^12.5.4
+      pg-boss: ^12.21.0
     peerDependenciesMeta:
       pg-boss:
         optional: true
 
-  '@maroonedsoftware/koa@3.0.9':
-    resolution: {integrity: sha512-QOLwA96mVIZ0TIwLtzPUvIZace+jumqK06TMDkI/QRsyGa9KMlP5HJTeekzR0nF5gN5C0KchmRW6u04ehBdnLQ==}
+  '@maroonedsoftware/koa@3.0.10':
+    resolution: {integrity: sha512-3TLiSvyPnQqQcFSPb32tk42hGrS48BJBc8WRQmyWc7HeBio2zYMezeKMmoEnlq/EBpcq/r+3OT3PPw1KX8kkPA==}
     engines: {node: '>=22'}
     peerDependencies:
       '@koa/cors': ^5.0.0
@@ -1241,16 +1241,16 @@ packages:
       '@maroonedsoftware/serverfeed':
         optional: true
 
-  '@maroonedsoftware/kysely@0.7.8':
-    resolution: {integrity: sha512-b1xaW/fCqJYE9IrYzD5Jkla2Jt7naXzutZVlGE0Y9RvpGOF3L4z/tdgGz4TB0ns9YNnJ3EKb6s43a3eT/lkTyA==}
+  '@maroonedsoftware/kysely@0.7.9':
+    resolution: {integrity: sha512-hGC6/ufH9cuyLZpDGZRbnPbHjssxTHVMpxp27ImOE8HwJ7LKAb9aIhyDeWSAsjLPkJJCBz5t/96u9Sk/PJB+nQ==}
     engines: {node: '>=22'}
 
   '@maroonedsoftware/logger@1.1.8':
     resolution: {integrity: sha512-wCA2pNoz+4Hu4pIc9+dKlCdc19gUbep6XicdvN9CL0vK8aaybvgEWgCIT30rYVOHTpNI1kgZv91ibZkbHugULg==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/multipart@1.3.5':
-    resolution: {integrity: sha512-aWWjQo0PnbmrarT2SUyup0k0qfgbzDe58atlqrKYJoNT/o34pXeSoDJByU01pUKf00cgLNr0J024KwrHP4174g==}
+  '@maroonedsoftware/multipart@1.3.6':
+    resolution: {integrity: sha512-gGub+uQ/+vvtqHJ4MXPenSzL9ZycAKohoYK7PEdv6SAEgWHoKneCut/S41JKmpTm6/pulzseF+BIidYAfKcCuA==}
     engines: {node: '>=22'}
 
   '@maroonedsoftware/permissions-dsl@0.5.5':
@@ -1262,8 +1262,8 @@ packages:
     resolution: {integrity: sha512-Bv7BWoRWQS5uRtulD5kH/LEAeUBU1N1n/DQT8gOA7917TKrjbMuvJTYfae033CtQNneHqQ0ACsBnPAe2S5zW7g==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/policies@0.6.5':
-    resolution: {integrity: sha512-xgt4s3QwDx4gKUXeJX5whV6XIl10Ft5oVLMieN1VRUWy86MtzDDIkFpWxOL0bfgrREiJai5N1QKk/BXJxjwJBA==}
+  '@maroonedsoftware/policies@0.6.6':
+    resolution: {integrity: sha512-d/uADGxCYJUw9WZjNbIJyAEYZgMWNMMbcGarfXXKP2SCRNZXprak/dHx37rb2T8ZS70tPJkVsBFQnlpZ7H1yPg==}
     engines: {node: '>=22'}
 
   '@maroonedsoftware/serverfeed@0.1.5':
@@ -1279,8 +1279,8 @@ packages:
     resolution: {integrity: sha512-hkH6nYsz+CdBcexBRzlv2ve0h+6VlkEGbWJXhqofPOBhrnThIfkUYwCPnFDnWRB7ZyL4ImLSQnXmHMvlTuJ6QQ==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/zod@0.5.5':
-    resolution: {integrity: sha512-EGDa/ltaQHV6yqQvjSRiT7Hmd2JCkFcV5LBTrTDdJCMcyViQbskgL9BdBpo3ritWfD2YbceCdabBbJFvaUxfYA==}
+  '@maroonedsoftware/zod@0.5.6':
+    resolution: {integrity: sha512-cXP6Kbw4DahvHfdrV+RrgToaZdEZ9zCEgXb4jIihvIeeyMjpMOuETYVXEC+1hgb/rgMUrzOJwTsOOAGyi1YJkA==}
     engines: {node: '>=22'}
 
   '@napi-rs/wasm-runtime@0.2.12':
@@ -5000,31 +5000,31 @@ snapshots:
   '@cbor-extract/cbor-extract-win32-x64@2.2.2':
     optional: true
 
-  '@contractkit/cli@0.10.6(prettier@3.9.6)':
+  '@contractkit/cli@0.10.7(prettier@3.9.6)':
     dependencies:
-      '@contractkit/core': 0.26.0
-      '@contractkit/openapi-to-ck': 0.10.1
+      '@contractkit/core': 0.26.1
+      '@contractkit/openapi-to-ck': 0.10.2
       glob: 13.0.6
     optionalDependencies:
       prettier: 3.9.6
 
-  '@contractkit/core@0.26.0':
+  '@contractkit/core@0.26.1':
     dependencies:
       ohm-js: 17.5.0
 
-  '@contractkit/openapi-to-ck@0.10.1':
+  '@contractkit/openapi-to-ck@0.10.2':
     dependencies:
-      '@contractkit/core': 0.26.0
+      '@contractkit/core': 0.26.1
       '@scalar/openapi-parser': 0.26.1
       yaml: 2.9.0
 
-  '@contractkit/plugin-typescript@0.31.1':
+  '@contractkit/plugin-typescript@0.31.2':
     dependencies:
-      '@contractkit/core': 0.26.0
+      '@contractkit/core': 0.26.1
 
-  '@contractkit/prettier-plugin@0.14.1(prettier@3.9.6)':
+  '@contractkit/prettier-plugin@0.14.2(prettier@3.9.6)':
     dependencies:
-      '@contractkit/core': 0.26.0
+      '@contractkit/core': 0.26.1
       prettier: 3.9.6
 
   '@csstools/color-helpers@6.1.0': {}
@@ -5373,9 +5373,9 @@ snapshots:
     dependencies:
       react: 19.2.8
 
-  '@maroonedsoftware/appconfig@2.5.0(pg@8.22.0)(yaml@2.9.0)':
+  '@maroonedsoftware/appconfig@2.5.1(pg@8.22.0)(yaml@2.9.0)':
     dependencies:
-      '@maroonedsoftware/errors': 1.8.5
+      '@maroonedsoftware/errors': 1.9.0
       '@maroonedsoftware/logger': 1.1.8
       deepmerge-ts: 7.1.6
       dotenv: 17.4.2
@@ -5384,13 +5384,13 @@ snapshots:
       pg: 8.22.0
       yaml: 2.9.0
 
-  '@maroonedsoftware/authentication@4.30.6(ioredis@6.0.0)':
+  '@maroonedsoftware/authentication@4.30.7(ioredis@6.0.0)':
     dependencies:
       '@maroonedsoftware/cache': 0.4.5(ioredis@6.0.0)
-      '@maroonedsoftware/encryption': 0.5.10
-      '@maroonedsoftware/errors': 1.8.5
+      '@maroonedsoftware/encryption': 0.5.11
+      '@maroonedsoftware/errors': 1.9.0
       '@maroonedsoftware/logger': 1.1.8
-      '@maroonedsoftware/policies': 0.6.5
+      '@maroonedsoftware/policies': 0.6.6
       '@maroonedsoftware/utilities': 1.11.5
       '@node-rs/argon2': 2.1.0
       '@zxcvbn-ts/core': 4.2.0
@@ -5417,39 +5417,39 @@ snapshots:
     optionalDependencies:
       ioredis: 6.0.0
 
-  '@maroonedsoftware/encryption@0.5.10':
+  '@maroonedsoftware/encryption@0.5.11':
     dependencies:
-      '@maroonedsoftware/errors': 1.8.5
+      '@maroonedsoftware/errors': 1.9.0
       '@node-rs/argon2': 2.1.0
       injectkit: 1.7.0
       luxon: 3.7.2
 
-  '@maroonedsoftware/errors@1.8.5': {}
+  '@maroonedsoftware/errors@1.9.0': {}
 
   '@maroonedsoftware/eventbus@0.1.7':
     dependencies:
       injectkit: 1.7.0
 
-  '@maroonedsoftware/jobbroker@1.11.5(pg-boss@12.27.0)':
+  '@maroonedsoftware/jobbroker@1.12.0(pg-boss@12.27.0)':
     dependencies:
-      '@maroonedsoftware/errors': 1.8.5
+      '@maroonedsoftware/errors': 1.9.0
       '@maroonedsoftware/logger': 1.1.8
       injectkit: 1.7.0
       luxon: 3.7.2
     optionalDependencies:
       pg-boss: 12.27.0
 
-  '@maroonedsoftware/koa@3.0.9(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)':
+  '@maroonedsoftware/koa@3.0.10(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)':
     dependencies:
       '@hapi/bourne': 4.0.1
       '@koa/cors': 5.0.0
       '@koa/router': 15.7.0(koa@3.2.1)
-      '@maroonedsoftware/appconfig': 2.5.0(pg@8.22.0)(yaml@2.9.0)
-      '@maroonedsoftware/authentication': 4.30.6(ioredis@6.0.0)
-      '@maroonedsoftware/errors': 1.8.5
+      '@maroonedsoftware/appconfig': 2.5.1(pg@8.22.0)(yaml@2.9.0)
+      '@maroonedsoftware/authentication': 4.30.7(ioredis@6.0.0)
+      '@maroonedsoftware/errors': 1.9.0
       '@maroonedsoftware/logger': 1.1.8
-      '@maroonedsoftware/multipart': 1.3.5
-      '@maroonedsoftware/policies': 0.6.5
+      '@maroonedsoftware/multipart': 1.3.6
+      '@maroonedsoftware/policies': 0.6.6
       '@maroonedsoftware/utilities': 1.11.5
       co-body: 6.2.0
       inflation: 2.1.0
@@ -5468,9 +5468,9 @@ snapshots:
       - pg
       - yaml
 
-  '@maroonedsoftware/kysely@0.7.8':
+  '@maroonedsoftware/kysely@0.7.9':
     dependencies:
-      '@maroonedsoftware/errors': 1.8.5
+      '@maroonedsoftware/errors': 1.9.0
       '@maroonedsoftware/utilities': 1.11.5
       injectkit: 1.7.0
       kysely: 0.29.5
@@ -5483,10 +5483,10 @@ snapshots:
     dependencies:
       injectkit: 1.7.0
 
-  '@maroonedsoftware/multipart@1.3.5':
+  '@maroonedsoftware/multipart@1.3.6':
     dependencies:
       '@fastify/busboy': 3.2.2
-      '@maroonedsoftware/errors': 1.8.5
+      '@maroonedsoftware/errors': 1.9.0
 
   '@maroonedsoftware/permissions-dsl@0.5.5':
     dependencies:
@@ -5501,9 +5501,9 @@ snapshots:
       injectkit: 1.7.0
       zod: 4.4.3
 
-  '@maroonedsoftware/policies@0.6.5':
+  '@maroonedsoftware/policies@0.6.6':
     dependencies:
-      '@maroonedsoftware/errors': 1.8.5
+      '@maroonedsoftware/errors': 1.9.0
       injectkit: 1.7.0
       luxon: 3.7.2
 
@@ -5515,9 +5515,9 @@ snapshots:
 
   '@maroonedsoftware/utilities@1.11.5': {}
 
-  '@maroonedsoftware/zod@0.5.5':
+  '@maroonedsoftware/zod@0.5.6':
     dependencies:
-      '@maroonedsoftware/errors': 1.8.5
+      '@maroonedsoftware/errors': 1.9.0
       zod: 4.4.3
 
   '@napi-rs/wasm-runtime@0.2.12':

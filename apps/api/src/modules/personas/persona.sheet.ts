@@ -688,6 +688,40 @@ export function dictionMarkersIn(markers: readonly string[] | undefined, script:
 }
 
 /**
+ * How many sample lines a marker may be earned from.
+ *
+ * Higher than {@link PERSONA_SHEET_LIMITS}`.samples`, which is what gets STORED. A sheet that wrote
+ * six lines in character has given six lines of evidence about which words it reaches for, and
+ * throwing half of it away before judging would make the marker check depend on how many examples a
+ * prompt or a file happens to carry. Bounded rather than unbounded only so a runaway list cannot
+ * make {@link unearnedMarkers} quadratic.
+ */
+export const MAX_SAMPLES_JUDGED = 12;
+
+/**
+ * The markers a sheet CLAIMS that its own sample lines never use.
+ *
+ * The one check on a persona that nothing downstream can make. By the time a break declines for
+ * missing diction, the sheet has been on air for an evening and the symptom — every model break
+ * falling to the phrasings — is indistinguishable from a model that is switched off.
+ *
+ * The samples are the evidence and the marker list is the claim, so where they disagree the claim is
+ * what gives way. Two callers want opposite things done with the answer, which is why this is here
+ * rather than inline in either: `persona.writer.ts` DROPS an unearned marker, which is right for a
+ * model that named its six most unusual words and then never used one of them again, and an import
+ * REPORTS it, because a sheet somebody wrote is theirs to correct.
+ *
+ * Judged one marker at a time against each sample line whole, so a marker earned by the fifth line
+ * is still earned.
+ */
+export function unearnedMarkers(markers: readonly string[] | undefined, samples: readonly string[] | undefined): string[] {
+    const named = cleanList(markers, PERSONA_SHEET_LIMITS.dictionMarkers);
+    const written = cleanList(samples, MAX_SAMPLES_JUDGED);
+
+    return named.filter(marker => !written.some(sample => dictionMarkersIn([marker], sample).length > 0));
+}
+
+/**
  * Whether a script still sounds like the persona that was asked for.
  *
  * True for a sheet that named no markers, and deliberately: a persona whose author gave nothing to

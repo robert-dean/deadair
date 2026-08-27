@@ -198,7 +198,7 @@ const isComment = (line: string): boolean => line.trimStart().startsWith('#');
  * other greets somebody who missed it — and each has to restore ITS own when the box is cleared.
  */
 export function parseTemplates(raw: string | undefined, fallback: readonly string[] = DEFAULT_TEMPLATES): readonly string[] {
-    const lines = linesOf(raw);
+    const lines = phrasingLines(raw);
     return lines.length > 0 ? lines : fallback;
 }
 
@@ -216,14 +216,20 @@ export function parseTemplates(raw: string | undefined, fallback: readonly strin
  * operator's, and clearing both restores the station's own five rather than silencing the DJ.
  */
 export function resolveTemplates(persona: string | undefined, station: string | undefined): readonly string[] {
-    const fromPersona = linesOf(persona);
+    const fromPersona = phrasingLines(persona);
     if (fromPersona.length > 0) return fromPersona;
 
     return parseTemplates(station);
 }
 
-/** One blob of phrasings as lines: trimmed, comments dropped, blanks dropped. */
-function linesOf(raw: string | undefined): string[] {
+/**
+ * One blob of phrasings as lines: trimmed, comments dropped, blanks dropped.
+ *
+ * Exported because the import preview has to judge exactly the lines {@link resolveTemplates} will
+ * actually reach for — a preview that counted a comment as a broken phrasing, or missed one because
+ * it split differently, would be reporting on a pool the station does not have.
+ */
+export function phrasingLines(raw: string | undefined): string[] {
     return (raw ?? '')
         .split('\n')
         .map(line => line.trim())
@@ -259,6 +265,38 @@ export function unknownPlaceholders(template: string): string[] {
  */
 export function hasStrayBracket(template: string): boolean {
     return /[[\]]/.test(template.replace(/\[\[.*?\]\]/gs, ''));
+}
+
+/**
+ * Why a phrasing cannot be used, or nothing when it can.
+ *
+ * The three ways, in one place, because two callers now have to agree about them and they want
+ * OPPOSITE things done with the answer. `persona.writer.ts` DROPS an unusable line, which is right
+ * for a model's output — five good phrasings and one broken one is five phrasings, and asking again
+ * is a click. An import REPORTS it, because that line is somebody's writing and the operator is the
+ * one who decides whether to fix it or lose it.
+ *
+ * A second copy of these three rules is the failure worth avoiding here: every one of them is
+ * invisible in production. A phrasing that names a placeholder nothing can fill is never picked and
+ * looks exactly like one the station has simply never happened to reach for.
+ *
+ * The reason is a sentence rather than a code, because its destination is a person reading a
+ * preview. The offending placeholders are named; a stray bracket is not, for the reason
+ * {@link hasStrayBracket} gives.
+ */
+export function unusablePhrasing(template: string): string | undefined {
+    const unknown = unknownPlaceholders(template);
+    if (unknown.length > 0) return `it names ${unknown.map(name => `{{${name}}}`).join(', ')}, which this station cannot fill`;
+
+    // A lone bracket is TEXT: it survives to the script and gets read out, which is why this is a
+    // fault rather than a formatting quibble.
+    if (hasStrayBracket(template)) return 'it carries a single bracket, which would be read out as part of the line';
+
+    // Not a phrasing at all but one fixed sentence, which the station would say between every pair
+    // of records it ever played.
+    if (!template.includes('{{')) return 'it names nothing about the records, so it would be the same sentence every time';
+
+    return undefined;
 }
 
 /**

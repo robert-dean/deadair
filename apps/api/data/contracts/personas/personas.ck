@@ -5,6 +5,7 @@ options {
     services: {
         PersonasService: "#src/modules/personas/personas.service.js"
         PersonaExportService: "#src/modules/personas/persona.export.service.js"
+        PersonaImportService: "#src/modules/personas/persona.import.service.js"
         PersonaRehearsalService: "#src/modules/personas/persona.rehearsal.service.js"
         PersonaNotesService: "#src/modules/personas/persona.notes.service.js"
         PersonaStoriesService: "#src/modules/personas/persona.stories.service.js"
@@ -131,6 +132,33 @@ operation /personas/{id}/export: {
                 }
             }
             404:
+        }
+    }
+}
+
+# What a file WOULD do here, written nowhere.
+#
+# Its own verb rather than a `dryRun` flag on the import, and the two call one planner so "the same
+# code path" is still literally true. What two verbs buy is the console: it can preview the moment a
+# file is chosen and offer Import as a second, deliberate act, rather than making an operator opt out
+# of writing.
+#
+# What the preview is FOR is the half a file cannot answer for itself. Which characters are new here
+# and which would be rewritten is one; the other is the four things this station may not be able to
+# honour — a voice its engine does not map, a soundboard it does not hold, a phrasing naming a value
+# it cannot fill, and markers the character's own sample lines never use. None of them refuses an
+# import, and every one of them is otherwise found out by putting the character on air.
+operation /personas/import/preview: {
+    post: { # Reads a file and reports what importing it would create, rewrite and skip. Writes nothing
+        name: Preview persona import
+        service: PersonaImportService.preview
+        request: {
+            application/json: PersonaFile
+        }
+        response: {
+            200: {
+                application/json: PersonaImportPlan
+            }
         }
     }
 }

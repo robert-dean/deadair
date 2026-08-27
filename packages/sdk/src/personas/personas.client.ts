@@ -4,6 +4,7 @@ import type {
     GeneratedPersona,
     Persona,
     PersonaFile,
+    PersonaImportPlan,
     PersonaInput,
     PersonaList,
     PersonaNoteList,
@@ -82,6 +83,19 @@ export class PersonasClient {
         const result = await this.fetch(`/personas/${encodeURIComponent(id)}/export`, { method: 'GET' });
         const data = await parseJson<PersonaFile>(result);
         return { data, headers: { contentDisposition: result.headers.get('Content-Disposition') ?? undefined } };
+    }
+
+    /**
+     * @name Preview persona import
+     * @description Reads a file and reports what importing it would create, rewrite and skip. Writes nothing
+     */
+    async previewPersonaImport(body: PersonaFile): Promise<PersonaImportPlan> {
+        const result = await this.fetch(`/personas/import/preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaImportPlan>(result);
     }
 
     /**

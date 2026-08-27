@@ -4,6 +4,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { PersonaRepository } from './persona.repository.js';
 import { PersonaDistilService } from './persona.distil.service.js';
 import { PersonaExportService } from './persona.export.service.js';
+import { PersonaImportService } from './persona.import.service.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
 import { PersonaNotesService } from './persona.notes.service.js';
 import { PersonaRehearsalService } from './persona.rehearsal.service.js';
@@ -42,6 +43,10 @@ export const PersonasModule: ServerKitModule = {
         // and nothing else: handing a character over is a read, and the half that takes one back is
         // its own service beside this one rather than a second mode of it.
         registry.register(PersonaExportService).useClass(PersonaExportService).asScoped();
+        // Beside it, and the mirror image: it reads the same two repositories plus the render
+        // module's voices and soundboards, which are the two vocabularies a sheet can point at.
+        // Reaching FORWARD in `modules.ts`, which that list permits at request time and only there.
+        registry.register(PersonaImportService).useClass(PersonaImportService).asScoped();
         // Scoped like the rest, and resolved by a cron job rather than by a request. It reaches
         // FORWARDS into `RenderModule` for the script history, which is the same thing
         // `PersonaRehearsalService` does into the director and is fine for the same reason: this

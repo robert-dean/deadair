@@ -33,25 +33,22 @@
  * have is dropped BY THE LINE, because five good phrasings and one broken one is five phrasings.
  */
 
-import { hasStrayBracket, TEMPLATE_VOCABULARY, unknownPlaceholders, unwrapTemplate } from '#modules/director/break.templates.js';
+import { TEMPLATE_VOCABULARY, unusablePhrasing, unwrapTemplate } from '#modules/director/break.templates.js';
 import { jsonObjects, parseLooseJson, withoutThinking } from '#modules/shared/json.objects.js';
 import type { LlmMessage } from '@deadair/plugin-sdk';
 import { DEFAULT_PERSONA_KIND, type PersonaDraft } from './persona.js';
 import type { PersonaStoryDraft } from './persona.story.js';
-import { dictionMarkersIn, isPersonaBrevity, isPersonaLatitude, isPersonaStorytelling, PERSONA_SHEET_LIMITS } from './persona.sheet.js';
+import {
+    isPersonaBrevity,
+    isPersonaLatitude,
+    isPersonaStorytelling,
+    MAX_SAMPLES_JUDGED,
+    PERSONA_SHEET_LIMITS,
+    unearnedMarkers,
+} from './persona.sheet.js';
 
 /** How long a description may be. Long enough for a paragraph, short enough not to be a script. */
 export const MAX_DESCRIPTION = 2000;
-
-/**
- * How many sample lines a marker may be earned from.
- *
- * Higher than `PERSONA_SHEET_LIMITS.samples`, which is what gets STORED. A model that wrote six lines
- * in character has given six lines of evidence about which words it reaches for, and throwing half of
- * it away before judging would make the marker check depend on how many examples a prompt happens to
- * carry. Bounded rather than unbounded only so a runaway answer cannot make this quadratic.
- */
-const MAX_SAMPLES_JUDGED = 12;
 
 /**
  * Which model writes a persona.
@@ -305,7 +302,10 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     const named = list(raw.dictionMarkers, PERSONA_SHEET_LIMITS.dictionMarkers);
     // Judged against the character's own lines, which is the one check nothing downstream can make:
     // by the time a break declines for missing diction, the sheet has been on air for an evening.
-    const markers = named.filter(marker => written.some(sample => dictionMarkersIn([marker], sample).length > 0));
+    // The judgement is `persona.sheet.ts`'s, shared with the import preview, which REPORTS the same
+    // markers this DROPS — a model's list is cheap to ask for again and a person's is not.
+    const unearned = new Set(unearnedMarkers(named, written));
+    const markers = named.filter(marker => !unearned.has(marker));
 
     // Checked rather than taken, so a model answering "terse" or "brief" leaves the field unset —
     // which is the station's ordinary length and the right answer for a value nothing recognises.
@@ -322,12 +322,10 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     // of the phrasing — a line refused for marks that were never meant to be there would be a line
     // thrown away over punctuation.
     const phrasings = lines(raw.templates).map(unwrapTemplate);
-    // Three ways a phrasing is unusable, and only the first was being caught. A lone bracket is TEXT
-    // that reaches the script and gets read out, and `unknownPlaceholders` cannot see it because it
-    // only ever inspects `{{…}}` — so `[Mate] That was …` passed every check the station had while
-    // being certain to air wrongly. The third is a phrasing with no placeholder at all, which is not
-    // a phrasing: it is one fixed sentence the station would say between every pair of records.
-    const templates = phrasings.filter(line => unknownPlaceholders(line).length === 0 && !hasStrayBracket(line) && line.includes('{{'));
+    // Three ways a phrasing is unusable, and only the first was being caught for a long time. They
+    // live in `break.templates.ts` with the vocabulary they are about, shared with the import
+    // preview, which REPORTS what this DROPS for the reason the markers above are shared.
+    const templates = phrasings.filter(line => unusablePhrasing(line) === undefined);
 
     return {
         draft: {

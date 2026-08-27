@@ -296,10 +296,27 @@ export const PersonaFileStoryDetail = z.strictObject({
 export type PersonaFileStoryDetail = z.infer<typeof PersonaFileStoryDetail>;
 
 /**
+ * Something to know before pressing Import. Not a refusal: every one of these describes a state the
+ * station can be in perfectly well, and the point of saying it is that each one is otherwise
+ * discovered by putting the character on air
+ * generated from [PersonaImportNotice](file://./../../../../data/contracts/personas/personas.types.ck#L210)
+ */
+export const PersonaImportNotice = z.strictObject({
+    kind: z
+        .enum(['format', 'duplicate', 'on-air', 'voice', 'soundboard', 'phrasing', 'markers'])
+        .describe('Which sort, so a console can group or ignore by it rather than parsing the sentence'),
+    message: z.string().min(1).max(500).describe("The whole of it, in the station's own words, because its destination is a person"),
+});
+export type PersonaImportNotice = z.infer<typeof PersonaImportNotice>;
+
+export const PersonaImportNoticeInput = z.strictObject({});
+export type PersonaImportNoticeInput = z.infer<typeof PersonaImportNoticeInput>;
+
+/**
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L184)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../data/contracts/personas/personas.types.ck#L226)
  */
 export const PersonaRehearsalAttempt = z.strictObject({
     writer: z.string().min(1).max(100).describe('Which binding was asked, as `segments.writer` would record it'),
@@ -427,8 +444,32 @@ export const PersonaFileStory = z.strictObject({
 export type PersonaFileStory = z.infer<typeof PersonaFileStory>;
 
 /**
+ * One character in a file, and what would become of it here
+ * generated from [PersonaImportEntry](file://./../../../../data/contracts/personas/personas.types.ck#L195)
+ */
+export const PersonaImportEntry = z.strictObject({
+    key: z.string().min(1).max(100).describe('What identifies this character across two installs'),
+    label: z.string().min(1).max(200),
+    kind: z.enum(['host', 'caller']).optional(),
+    outcome: z
+        .enum(['create', 'update'])
+        .describe(
+            'Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote',
+        ),
+    storiesNew: z.coerce.number().int().min(0),
+    storiesHeld: z.coerce.number().int().min(0).describe('Already here under the same handle, so importing would skip them'),
+    detailsNew: z.coerce.number().int().min(0),
+    detailsHeld: z.coerce.number().int().min(0),
+    notices: z.array(PersonaImportNotice),
+});
+export type PersonaImportEntry = z.infer<typeof PersonaImportEntry>;
+
+export const PersonaImportEntryInput = z.strictObject({});
+export type PersonaImportEntryInput = z.infer<typeof PersonaImportEntryInput>;
+
+/**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L193)
+ * generated from [PersonaRehearsal](file://./../../../../data/contracts/personas/personas.types.ck#L235)
  */
 export const PersonaRehearsal = z.strictObject({
     personaId: z.string().min(1).max(100),
@@ -479,6 +520,32 @@ export const PersonaFilePersona = PersonaDraftView.extend({
     stories: z.array(PersonaFileStory),
 });
 export type PersonaFilePersona = z.infer<typeof PersonaFilePersona>;
+
+/**
+ * What importing a file WOULD do, worked out against this station and written nowhere.
+ *
+ * The same code the import itself runs, so what this reports is what will happen rather than a second
+ * opinion about it. It answers two questions an operator cannot get from the file alone: which
+ * characters are new here and which would be rewritten, and what this station cannot honour about them
+ * generated from [PersonaImportPlan](file://./../../../../data/contracts/personas/personas.types.ck#L186)
+ */
+export const PersonaImportPlan = z.strictObject({
+    format: z
+        .string()
+        .min(1)
+        .max(50)
+        .describe(
+            'What the file said it was. Reported rather than enforced: this repo edits migrations in place, so a version stamp cannot promise a shape, and the shapes are what was actually validated',
+        ),
+    station: z.string().max(100).optional().describe('The station it was taken from, when it said'),
+    takenAt: z.string().max(40).optional().describe('When it was taken, when it said'),
+    notices: z.array(PersonaImportNotice).describe('About the FILE rather than any one character in it'),
+    personas: z.array(PersonaImportEntry),
+});
+export type PersonaImportPlan = z.infer<typeof PersonaImportPlan>;
+
+export const PersonaImportPlanInput = z.strictObject({});
+export type PersonaImportPlanInput = z.infer<typeof PersonaImportPlanInput>;
 
 /**
  * A character as a file: everything somebody would have to send to put this presenter on another

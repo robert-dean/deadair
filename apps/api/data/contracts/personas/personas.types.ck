@@ -178,6 +178,48 @@ contract PersonaFileStoryDetail: { # One thing a story picked up after it was wr
     state?: enum(active, rejected)
 }
 
+# What importing a file WOULD do, worked out against this station and written nowhere.
+#
+# The same code the import itself runs, so what this reports is what will happen rather than a second
+# opinion about it. It answers two questions an operator cannot get from the file alone: which
+# characters are new here and which would be rewritten, and what this station cannot honour about them
+contract PersonaImportPlan: {
+    format: readonly string(min=1, max=50) # What the file said it was. Reported rather than enforced: this repo edits migrations in place, so a version stamp cannot promise a shape, and the shapes are what was actually validated
+    station?: readonly string(max=100) # The station it was taken from, when it said
+    takenAt?: readonly string(max=40) # When it was taken, when it said
+    notices: readonly array(PersonaImportNotice) # About the FILE rather than any one character in it
+    personas: readonly array(PersonaImportEntry)
+}
+
+# One character in a file, and what would become of it here
+contract PersonaImportEntry: {
+    key: readonly string(min=1, max=100) # What identifies this character across two installs
+    label: readonly string(min=1, max=200)
+    kind?: readonly enum(host, caller)
+    outcome: readonly enum(create, update) # Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote
+    storiesNew: readonly int(min=0)
+    storiesHeld: readonly int(min=0) # Already here under the same handle, so importing would skip them
+    detailsNew: readonly int(min=0)
+    detailsHeld: readonly int(min=0)
+    notices: readonly array(PersonaImportNotice)
+}
+
+# Something to know before pressing Import. Not a refusal: every one of these describes a state the
+# station can be in perfectly well, and the point of saying it is that each one is otherwise
+# discovered by putting the character on air
+contract PersonaImportNotice: {
+    kind: readonly enum(
+        format,
+        duplicate,
+        on-air,
+        voice,
+        soundboard,
+        phrasing,
+        markers
+    ) # Which sort, so a console can group or ignore by it rather than parsing the sentence
+    message: readonly string(min=1, max=500) # The whole of it, in the station's own words, because its destination is a person
+}
+
 # One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
 # model that declined and a floor that covered for it are two facts, and the second on its own reads
 # as a station that never had a model configured

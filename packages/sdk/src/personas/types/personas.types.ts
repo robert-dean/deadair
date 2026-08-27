@@ -222,10 +222,25 @@ export interface PersonaFileStoryDetail {
 }
 
 /**
+ * Something to know before pressing Import. Not a refusal: every one of these describes a state the
+ * station can be in perfectly well, and the point of saying it is that each one is otherwise
+ * discovered by putting the character on air
+ * generated from [PersonaImportNotice](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L210)
+ */
+export interface PersonaImportNotice {
+    /** Which sort, so a console can group or ignore by it rather than parsing the sentence */
+    kind: 'format' | 'duplicate' | 'on-air' | 'voice' | 'soundboard' | 'phrasing' | 'markers';
+    /** The whole of it, in the station's own words, because its destination is a person */
+    message: string;
+}
+
+export interface PersonaImportNoticeInput {}
+
+/**
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L184)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L226)
  */
 export interface PersonaRehearsalAttempt {
     /** Which binding was asked, as `segments.writer` would record it */
@@ -330,8 +345,29 @@ export interface PersonaFileStory {
 }
 
 /**
+ * One character in a file, and what would become of it here
+ * generated from [PersonaImportEntry](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L195)
+ */
+export interface PersonaImportEntry {
+    /** What identifies this character across two installs */
+    key: string;
+    label: string;
+    kind?: 'host' | 'caller';
+    /** Whether this station holds a character under this key already. An update rewrites the sheet and adds stories; it never deletes one the operator here wrote */
+    outcome: 'create' | 'update';
+    storiesNew: number;
+    /** Already here under the same handle, so importing would skip them */
+    storiesHeld: number;
+    detailsNew: number;
+    detailsHeld: number;
+    notices: PersonaImportNotice[];
+}
+
+export interface PersonaImportEntryInput {}
+
+/**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L193)
+ * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L235)
  */
 export interface PersonaRehearsal {
     personaId: string;
@@ -375,6 +411,28 @@ export interface PersonaFilePersona extends Omit<PersonaDraftView, 'soundboard'>
     soundboard?: string;
     stories: PersonaFileStory[];
 }
+
+/**
+ * What importing a file WOULD do, worked out against this station and written nowhere.
+ *
+ * The same code the import itself runs, so what this reports is what will happen rather than a second
+ * opinion about it. It answers two questions an operator cannot get from the file alone: which
+ * characters are new here and which would be rewritten, and what this station cannot honour about them
+ * generated from [PersonaImportPlan](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L186)
+ */
+export interface PersonaImportPlan {
+    /** What the file said it was. Reported rather than enforced: this repo edits migrations in place, so a version stamp cannot promise a shape, and the shapes are what was actually validated */
+    format: string;
+    /** The station it was taken from, when it said */
+    station?: string;
+    /** When it was taken, when it said */
+    takenAt?: string;
+    /** About the FILE rather than any one character in it */
+    notices: PersonaImportNotice[];
+    personas: PersonaImportEntry[];
+}
+
+export interface PersonaImportPlanInput {}
 
 /**
  * A character as a file: everything somebody would have to send to put this presenter on another

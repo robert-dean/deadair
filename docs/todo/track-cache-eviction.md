@@ -30,7 +30,7 @@ A 320kbps Ogg is roughly 8–10 MB for a four-minute record; a FLAC from a Navid
 MB. At 581 catalog tracks that is somewhere between 5 GB and 20 GB for the whole library, which is
 not alarming — the shape of the problem is not the current catalogue, it is that **discovery has no
 ceiling**. `PickResolver.identify` ingests records from providers that were never in a playlist
-(`CLAUDE.md`, the discovery gotcha), so the set of records the station can fetch is the provider's
+(`docs/internals/programming.md`, the discovery rule), so the set of records the station can fetch is the provider's
 catalogue rather than the operator's library.
 
 Measured again on the day it was built: 919 catalog tracks, 345 of them held, 3.5 GB. The library had

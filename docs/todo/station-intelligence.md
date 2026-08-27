@@ -167,7 +167,7 @@ tools themselves. Both answered with records that could air, so the split stoppe
 versus not and became what the station HAS versus what it can GET — a PREFERENCE the descriptions
 carried and the model had to arbitrate. **That arbitration is now gone** (2026-08-20): `search_music`
 answers from both and marks every row `owned`, because the preference was real and the decision was
-one the host could make itself. See the CLAUDE.md gotcha for what is load-bearing in it.
+one the host could make itself. See `docs/internals/programming.md` for what is load-bearing in it.
 
 **The operator can now say what an hour should be**, which is the other half of this entry that was
 never written down here because it did not exist: `station_lineup.brief`, free text, set when the
@@ -175,7 +175,7 @@ station goes on air and re-read on every refill, in the user turn of `setPrompt`
 thing that says what to play: `llm.setPersona` was retired into a persona's `music` line, and that
 line has since been deleted too, because a second prose description of the music made a local model
 split the difference between the two. A period (`era_from`/`era_to`) rides beside it as the one
-structured half a brief can have — see the personas and era gotchas in CLAUDE.md. Measured on the station's own `gpt-oss-radio`: asked for
+structured half a brief can have — see `docs/internals/personas.md` and the period rule in `docs/internals/director.md`. Measured on the station's own `gpt-oss-radio`: asked for
 "heavy metal hits" it named 23 of 24 in four searches and 85 seconds, `finish: 'stop'`, and four of
 those were records the library did not hold and Spotify did.
 
@@ -262,7 +262,7 @@ Three things are worth recording so this is not re-derived:
 
 Which is to say: worth doing only on a card that is measurably contended, and worth measuring before
 designing. `LlmGate` and `SpeechGate` being two independent gates over one physical card is the
-related idea, and a bigger one — see the "one model slot" gotcha in CLAUDE.md, which argues against
+related idea, and a bigger one — see "one model slot" in `docs/internals/llm.md`, which argues against
 widening a gate and says nothing yet about narrowing across two.
 
 ## 3. Ending-aware transitions

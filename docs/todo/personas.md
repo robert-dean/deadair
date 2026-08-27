@@ -1,7 +1,7 @@
 # Personas: what is left after the character sheet
 
 **Scoped 2026-08-15**, against the tree as it stood with the news bulletin in flight. Who the station
-IS is built and is described in CLAUDE.md: `deadair.personas` (migration 0012), the sheet and its
+IS is built and is described in `docs/internals/personas.md`: `deadair.personas` (migration 0012), the sheet and its
 diction split (`persona.sheet.ts`), the templates chain, the voice on the row, the
 one-active partial unique index, `PersonaRepository.presenting`, the console page and editor, and the
 four seeds in `persona.defaults.ts`. None of that is re-opened here.
@@ -45,7 +45,7 @@ Since 2026-08-21 both bundled speech plugins ship a map covering every seeded pe
 question this section asks is now a real one with an audible answer, the row to point at already
 exists on both engines, and none of the work below is blocked on a voice to reach for — what is
 missing is only the `kind` column and the precedence, which is what this section was always about.
-See the speech and persona gotchas in CLAUDE.md.
+See `docs/internals/render.md` and `docs/internals/personas.md`.
 
 **The seam is a `kind` on `deadair.personas`**, and the precedence stays in the one place it already
 lives. **The column landed on 2026-08-25 with the caller work, and it is NOT NULL with a default of
@@ -304,4 +304,4 @@ Two decisions, neither settled:
   Deleting the field deleted the rule, and `SetInputs.persona` went with it: the record chooser no
   longer learns who is presenting. **A persona is a voice.** What an hour plays is the brief, plus
   the one structured half a brief can have — `era_from`/`era_to`, which is what lets a decade reach
-  the deterministic draw as well as the model. See the personas and era gotchas in CLAUDE.md.
+  the deterministic draw as well as the model. See `docs/internals/personas.md` and the period rule in `docs/internals/director.md`.

@@ -9,7 +9,7 @@ not re-derive it, and so nobody trusts a control that does not exist.
 ## What was claimed, and what is actually there
 
 Nine places said or implied that row-level security enforces isolation here. The load-bearing
-version, in the root `CLAUDE.md`, read: *the runtime pool connects as the non-owner `app_user` role
+version, then in the root `CLAUDE.md` and now in `apps/api/CLAUDE.md`, read: *the runtime pool connects as the non-owner `app_user` role
 so RLS actually enforces*. Three middleware comments went further and described an
 `app.actor_org_id` GUC being pinned per request for org-isolation policies to read.
 

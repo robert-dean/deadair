@@ -88,7 +88,7 @@ What this piece was, kept because it is what a second listening place would need
 **The audience gate needs no change and is already right for this.** `playout.airMode: audience`
 means a phone connecting is what puts the station on air and disconnecting is what takes it off,
 which is exactly the desired behaviour for something listened to in transit. See
-[audience-gated-air](../../CLAUDE.md) and `stream/README.md`.
+[audience-gated-air](../internals/playout.md) and `stream/README.md`.
 
 Related and already written down: `from-v1.md` covers the previous station's push destinations, and
 `stream-formats.md` covers the mounts this tree does not serve. A phone on a mobile connection is

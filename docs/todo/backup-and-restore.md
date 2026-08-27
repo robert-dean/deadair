@@ -121,7 +121,7 @@ should be said out loud on the console rather than quietly.
 `actors_password_factors_archive`, `permissions_relation_tuples`, the Redis session store,
 `station_lineup`, `station_air`, `segments`, `break_requests`, `scrobble_queue`. Exporting credential
 material is a category error, sessions already outlive the database and are flushed on any reset
-(root `CLAUDE.md`), and the running order is memory-authoritative with the row as its record — an
+(`docs/internals/director.md`), and the running order is memory-authoritative with the row as its record — an
 imported one describes a broadcast nothing is driving. The restore path for identity is the one that
 already exists: onboarding mints an admin when `adminExists()` is false.
 
@@ -143,7 +143,7 @@ The same rule upward, for the references inside tier 1 itself, all of which are 
 
 - `schedule_slots.persona_id` → the persona's `key`.
 - `clock_bands.topic_id` → the topic's `kind` + `key`. Note this one **cascades** rather than
-  nulling, deliberately (root `CLAUDE.md`), so an import that fails to resolve a topic must refuse
+  nulling, deliberately (`docs/internals/breaks.md`), so an import that fails to resolve a topic must refuse
   the band rather than import it subjectless — a general bulletin under a category's name is exactly
   what that cascade exists to prevent.
 - `pronunciations.subject_kind` + `subject_id` → the catalog natural key, or dropped: a lexicon entry

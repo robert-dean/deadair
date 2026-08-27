@@ -189,7 +189,7 @@ predicted at the end of this item: an `llm` capability in the plugin SDK, `modul
 `LlmGate`, the tool loop and `ToolRegistry` host-side, and an `llm.pluginId` setting mirroring
 `render.speechPluginId` including its refusal to guess. `LlmService.canGenerate()` answers "no model
 installed" without throwing, which is what lets a writer pick its deterministic binding rather than
-fail. See the CLAUDE.md section on it for what stayed host-side and why. What follows is the
+fail. See `docs/internals/llm.md` for what stayed host-side and why. What follows is the
 reasoning that produced it.
 
 Today "LLM" exists only as

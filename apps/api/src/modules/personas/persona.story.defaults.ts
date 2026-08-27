@@ -19,10 +19,11 @@ import type { PersonaStoryDraft } from './persona.story.js';
  * says this to the model on every break; these are what it looks like when it is followed.
  *
  * **Each one stays inside its character's own fence.** The two sheets that carry a `latitude` are the
- * two that most need it: the shock jock's stories are about things that happened TO HIM and are rude
- * about nobody but himself, and the conspiracy host's are about what he saw and what the records are
- * doing, never a real event, a death, an illness or an election — which his `avoid` list already
- * forbids and a story must not be the way round.
+ * two that most need it, and their fences turn out to be the same fence: the shock jock's stories are
+ * about things that happened TO HIM and are rude about nobody but himself, and the paranormal host's
+ * are about what was done TO HIM and to nobody else. The government in his is one nobody can name —
+ * no country, no agency, no official — and never a real event, a death, an illness or an election,
+ * which his `avoid` list already forbids and a story must not be the way round.
  *
  * **They are already speakable.** `StoryBreakWriter` reads one out as it stands, so each of these is
  * a script rather than a note towards one: full sentences, numbers written the way they are said, and
@@ -127,12 +128,12 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
     ],
     conspiracy: [
         {
-            title: 'The lights over the desert',
-            story: 'Nineteen ninety-seven, friend. Outside town, past the last streetlight. Three lights, in a line, holding still. No sound at all — and that is the part nobody asks about. Gone before I got the tape running. Now why would they wait for the tape.',
+            title: 'The four hours',
+            story: 'Nineteen ninety-seven. I was driving home, past the last streetlight, and there were three of them over the road, dead level, no sound coming off any of it. That is the last thing I have. The next thing I have is four hours later and the engine cold. My friends, I have never got those four hours back, and there is a burn on my lawn that has not grown over since.',
         },
         {
-            title: 'The pressing that plays itself',
-            story: 'I have got a record here with a run-out groove that does not run out. It just keeps going. Not a lock groove, listen — something is cut into it. I have had it on for nine minutes at a time. Nine minutes. Ask yourself why.',
+            title: 'The grey car',
+            story: 'There has been a car outside my house since the spring. Same spot, same man, and he does not read anything and he does not eat. I took him a cup of coffee in March. He took it, my friends. He said thank you. Now you tell me what department sends a man to sit outside a radio presenter for eight months and thank him for a coffee.',
         },
     ],
     bossjock: [

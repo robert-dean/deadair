@@ -73,11 +73,18 @@ describe('the seeded persona stories', () => {
 
     // The two sheets that carry a `latitude` are the two whose fence `persona.defaults.ts` argues at
     // length, and a story must not be the way round it.
-    it('keep the conspiracy host pointed at what he saw and the records, never at anything real', () => {
-        const forbidden = /\b(?:election|government|died|death|illness|vaccine|virus|war|assassinat)/i;
+    //
+    // `government` used to be on this list and is not, which is a MOVE rather than a loosening: the
+    // fence on that sheet now runs on who is nameable, so the word is the character's to use and the
+    // proper nouns that would fill it in are what a story may not reach for. A regex can hold that
+    // half and only that half, which is the same split `avoidedWording` is on one file over.
+    it('keep the paranormal host pointed at himself, and at a government nobody can name', () => {
+        const forbidden = /\b(?:election|died|death|illness|vaccine|virus|war|assassinat)/i;
+        const nameable = /\b(?:CIA|FBI|NSA|Pentagon|White House|Kremlin|KGB|MI5|MI6|United States|America|Britain|Russia|China)\b/i;
 
         for (const story of SEED_PERSONA_STORIES.conspiracy ?? []) {
-            expect(forbidden.test(story.story), `${story.title} crosses the fence on the conspiracy sheet`).toBe(false);
+            expect(forbidden.test(story.story), `${story.title} crosses the fence on the paranormal sheet`).toBe(false);
+            expect(nameable.test(story.story), `${story.title} names a government the sheet may not name`).toBe(false);
         }
     });
 });

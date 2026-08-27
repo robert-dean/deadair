@@ -48,13 +48,14 @@ by the CONSOLE against the station's own tables — the third way a form learns 
 only one a plugin cannot answer for itself, since a news plugin has no way to learn which categories
 this station holds.
 
-**A CELL's choices can also come from the plugin, which is the second of those three ways reaching
-one column rather than one field.** `suggestConfigOptions()` publishes under
-`columnSuggestionKey(fieldKey, columnKey)` — `voices.engine`, a dot-joined pair that cannot collide
-with a field key because a column key may not contain one — and the form merges it exactly where it
-merges a resolved `optionsFrom`. Both speech plugins fill their engine-voice column this way, which
-is the difference between a table an operator can complete and one that requires knowing `af_heart`
-by heart. **A cell with choices renders as an AUTOCOMPLETE and not a select**, deliberately: the
-server's list is what it currently holds rather than the whole vocabulary, so a Kokoro blend
-expression and a Chatterbox clip added since the last refresh both have to stay typeable. Being
-unable to name a voice the server HAS is a worse failure than naming one it does not.
+**A CELL's choices can also come from the plugin, which is the second of those three ways reaching one column
+rather than one field.** `suggestConfigOptions()` publishes under `columnSuggestionKey(fieldKey, columnKey)` —
+`voices.engine`, a dot-joined pair that cannot collide with a field key because a column key may not contain
+one — and the form merges it exactly where it merges a resolved `optionsFrom`. Both speech plugins fill their
+engine-voice column this way, which is the difference between a table an operator can complete and one that
+requires knowing `af_heart` by heart.
+
+**A cell with choices renders as an AUTOCOMPLETE and not a select**, deliberately: the server's list is what
+it currently holds rather than the whole vocabulary, so a Kokoro blend expression and a Chatterbox clip added
+since the last refresh both have to stay typeable. Being unable to name a voice the server HAS is a worse
+failure than naming one it does not.

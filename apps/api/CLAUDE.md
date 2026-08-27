@@ -10,22 +10,22 @@ Read the ones covering whatever you are about to change. The always-loaded index
 
 ## A setting is a string, and that is the whole of it
 
-**Every layer of `AppConfig` holds STRINGS, so an on/off setting is read through `settingIsOn` and
-never as a boolean.** `AppConfigSourcePostgres.load()` snapshots each `deadair.settings` row as the
-raw text of its `value` column and parses nothing (its `tryParseJson` serves only the single-key
-`get()` behind a `${pg:…}` reference, which is not the path a module read takes); dotenv is the same.
-So `config.get(key, false)` answers the STRING `'false'`, which is truthy — every switch written that
-way could be turned on and never back off, in silence, with the console showing the change and the
-table holding it. That was live in six places, including `rotation.discover` and all three `llm.*`
-model switches, and in `OTP_DEV_BYPASS`, where `false` in a `.env` ENABLED the bypass and only the
-positive `NODE_ENV` allowlist beside it kept that from mattering. `modules/shared/setting.flags.ts`
-owns the vocabulary now (`true/1/yes/on`, `false/0/no/off`, anything else and the empty string take
-the declared default rather than `false`, because a value nobody can parse is a setting nobody set).
-Numbers have the same problem and the same shape of answer: `resolveAnalysisConcurrency`,
-`resolveRetentionDays`, `maxOutputTokens`. **A test that hands over a real boolean proves nothing
-here** — it passes either way — so a switch's off-case is tested with the string, and a config double
-that coerces on the way out is worse than no double at all: `model.set.generator.test.ts` had one for
-as long as it existed and hid this bug the whole time.
+**Every layer of `AppConfig` holds STRINGS, so an on/off setting is read through `settingIsOn` and never as a
+boolean.** `AppConfigSourcePostgres.load()` snapshots each `deadair.settings` row as the raw text of its
+`value` column and parses nothing (its `tryParseJson` serves only the single-key `get()` behind a `${pg:…}`
+reference, which is not the path a module read takes); dotenv is the same. So `config.get(key, false)` answers
+the STRING `'false'`, which is truthy — every switch written that way could be turned on and never back off,
+in silence, with the console showing the change and the table holding it. That was live in six places,
+including `rotation.discover` and all three `llm.*` model switches, and in `OTP_DEV_BYPASS`, where `false` in
+a `.env` ENABLED the bypass and only the positive `NODE_ENV` allowlist beside it kept that from mattering.
+`modules/shared/setting.flags.ts` owns the vocabulary now (`true/1/yes/on`, `false/0/no/off`, anything else
+and the empty string take the declared default rather than `false`, because a value nobody can parse is a
+setting nobody set). Numbers have the same problem and the same shape of answer: `resolveAnalysisConcurrency`,
+`resolveRetentionDays`, `maxOutputTokens`.
+
+**A test that hands over a real boolean proves nothing here** — it passes either way — so a switch's off-case
+is tested with the string, and a config double that coerces on the way out is worse than no double at all:
+`model.set.generator.test.ts` had one for as long as it existed and hid this bug the whole time.
 
 **`deadair.settings` is a layer of `AppConfig`, so reading a setting needs no scope.** `setup.server.ts`
 builds a boot snapshot (dotenv only, for the log store and the database credentials), then an
@@ -45,33 +45,34 @@ same request** — Postgres holds notifications until COMMIT — so `SettingsSer
 answer from the write rather than re-reading. Writing a setting anywhere else has to do the same or
 the operator's change will not take.
 
-**Settings are declared in `settings.registry.ts`** as the plugin SDK's `ConfigField`, which is what
-lets one console component render both a plugin's settings and the station's. `GET`/`PUT /settings`
-are the operator surface; a `secret` is reported as a configured-boolean and never as a value. The
-registry is not where a setting is READ — each module keeps its typed resolver (`resolveStreamSettings`,
-`parseAirMode`, `stationRules`) and shares the registry's defaults so the two cannot disagree. A row
-nobody declared is left alone rather than deleted. **A `number` shares its RANGE for the same reason
-it shares its default, and the two sides of that range answer differently on purpose**: the resolver
-CLAMPS, because it is reading a row that is already stored and a setting that refuses to load stops
-the walk behind it, while `serializeSetting` REFUSES, because that is somebody typing one and a clamp
-there stores a figure they did not ask for and shows it back as though they had. The console clamps
-too, where the number visibly changes in front of them. Undeclared bounds were how
-`analysis.concurrency` accepted 400 and ran at 32. Still constants, deliberately: the four mixer
-knobs, because the real work there is a Liquidsoap restart (`docs/todo/mixer-settings-in-db.md`).
+**Settings are declared in `settings.registry.ts`** as the plugin SDK's `ConfigField`, which is what lets one
+console component render both a plugin's settings and the station's. `GET`/`PUT /settings` are the operator
+surface; a `secret` is reported as a configured-boolean and never as a value. The registry is not where a
+setting is READ — each module keeps its typed resolver (`resolveStreamSettings`, `parseAirMode`,
+`stationRules`) and shares the registry's defaults so the two cannot disagree. A row nobody declared is left
+alone rather than deleted.
 
-**Some lengths are RANGES, and the resolvers behind them are the only ones here allowed to be
-random.** `render.productionMinutesMin`/`Max`, `render.dialogueMinutesMin`/`Max` and
-`rotation.newsStoriesMin`/`Max`, because a programme that is always exactly the same length is the
-one thing about a schedule a listener notices without being able to say why. What makes a
-non-deterministic resolver safe here and nowhere else is that the answer is read ONCE and stored —
-`stationTargetMs` is called at commission and goes straight into `productions.target_ms`, and every
-pass afterwards reads the row — so there is nothing for a second roll to contradict; `random` is a
-parameter for the reason `storiesFor`'s `now` is one. Both ends are read as an unordered PAIR and
-clamped, on the resolver rule above. **Which lengths are worth ranging is measured rather than
-assumed**: a BREAK is given a ceiling rather than a budget and the model stops where it stops, so
-talk breaks already span 3 to 100 words around a median of 28 and randomising `rotation.breakWords`
-would be a no-op — only a production's `target_ms` and a bulletin's story COUNT are the mechanical
-kind, which is why those two got it and the word ceilings did not.
+**A `number` shares its RANGE for the same reason it shares its default, and the two sides of that range
+answer differently on purpose**: the resolver CLAMPS, because it is reading a row that is already stored and a
+setting that refuses to load stops the walk behind it, while `serializeSetting` REFUSES, because that is
+somebody typing one and a clamp there stores a figure they did not ask for and shows it back as though they
+had. The console clamps too, where the number visibly changes in front of them. Undeclared bounds were how
+`analysis.concurrency` accepted 400 and ran at 32. Still constants, deliberately: the four mixer knobs,
+because the real work there is a Liquidsoap restart (`docs/todo/mixer-settings-in-db.md`).
+
+**Some lengths are RANGES, and the resolvers behind them are the only ones here allowed to be random.**
+`render.productionMinutesMin`/`Max`, `render.dialogueMinutesMin`/`Max` and `rotation.newsStoriesMin`/`Max`,
+because a programme that is always exactly the same length is the one thing about a schedule a listener
+notices without being able to say why. What makes a non-deterministic resolver safe here and nowhere else is
+that the answer is read ONCE and stored — `stationTargetMs` is called at commission and goes straight into
+`productions.target_ms`, and every pass afterwards reads the row — so there is nothing for a second roll to
+contradict; `random` is a parameter for the reason `storiesFor`'s `now` is one. Both ends are read as an
+unordered PAIR and clamped, on the resolver rule above.
+
+**Which lengths are worth ranging is measured rather than assumed**: a BREAK is given a ceiling rather than a
+budget and the model stops where it stops, so talk breaks already span 3 to 100 words around a median of 28
+and randomising `rotation.breakWords` would be a no-op — only a production's `target_ms` and a bulletin's
+story COUNT are the mechanical kind, which is why those two got it and the word ceilings did not.
 
 ## Reading and writing the database
 
@@ -99,7 +100,30 @@ session and answer 401 instead of letting it through as a user who holds no perm
 
 ## Module lifecycle
 
-**Module lifecycle order is load-bearing, and SHUTDOWN runs in REVERSE registration order.** The list in `apps/api/src/modules/modules.ts` is ordered deliberately and the comments there explain each placement. `PluginsModule` sits after everything its host reaches into, and `PlaylistsModule` after `PluginsModule`. Work the first request does not depend on belongs in `ready()`, after the socket is up, not in `start()`. ServerKit walks ONE list both ways, forwards to build and backwards to tear down, so a module releases what it holds while everything it depends on is still alive — which is what you want almost everywhere and means the position is simply a dependency order. **The counter-intuitive half is at the TOP of the list: a module that must close LAST registers FIRST.** `LoggingModule` is first so the log store closes after every other module's shutdown logging has flushed through `DeadairLogger`, and `DataConnectionsModule` is second so the pools outlive every module that writes during its own teardown — `DataModule` has to register early because everything resolves what it registers, and closing in its own position is what once left every module tearing down against a destroyed driver, losing the director's flush of the running order, which is a guarantee rather than a nicety, on nine of the shutdowns in one log. Both are shutdown-only modules, so sitting ahead of `HealthModule` costs boot nothing. `JobsModule` sits after `PluginsModule` for the same reason read the other way: registering later is what stops the workers before the plugin instances under them are disposed. And **no hook may cost the others their teardown, or the process its exit**: the reversal did not touch this, the shutdown loop still catches nothing and bounds nothing, unlike the `ready` loop above it, so `withBoundedShutdown` wraps every hook at the list. A hook that hung left fourteen processes in that log still running their loops after being told to stop, one of them probing Liquidsoap for hours on a rotated secret. `apps/api/tests/modules/modules.test.ts` holds the whole ordering, and reads every assertion through a `tearsDownBefore` helper rather than through raw positions.
+**Module lifecycle order is load-bearing, and SHUTDOWN runs in REVERSE registration order.** The list in
+`apps/api/src/modules/modules.ts` is ordered deliberately and the comments there explain each placement.
+`PluginsModule` sits after everything its host reaches into, and `PlaylistsModule` after `PluginsModule`. Work
+the first request does not depend on belongs in `ready()`, after the socket is up, not in `start()`. ServerKit
+walks ONE list both ways, forwards to build and backwards to tear down, so a module releases what it holds
+while everything it depends on is still alive — which is what you want almost everywhere and means the
+position is simply a dependency order.
+
+**The counter-intuitive half is at the TOP of the list: a module that must close LAST registers FIRST.**
+`LoggingModule` is first so the log store closes after every other module's shutdown logging has flushed
+through `DeadairLogger`, and `DataConnectionsModule` is second so the pools outlive every module that writes
+during its own teardown — `DataModule` has to register early because everything resolves what it registers,
+and closing in its own position is what once left every module tearing down against a destroyed driver, losing
+the director's flush of the running order, which is a guarantee rather than a nicety, on nine of the shutdowns
+in one log. Both are shutdown-only modules, so sitting ahead of `HealthModule` costs boot nothing.
+`JobsModule` sits after `PluginsModule` for the same reason read the other way: registering later is what
+stops the workers before the plugin instances under them are disposed.
+
+And **no hook may cost the others their teardown, or the process its exit**: the reversal did not touch this,
+the shutdown loop still catches nothing and bounds nothing, unlike the `ready` loop above it, so
+`withBoundedShutdown` wraps every hook at the list. A hook that hung left fourteen processes in that log still
+running their loops after being told to stop, one of them probing Liquidsoap for hours on a rotated secret.
+`apps/api/tests/modules/modules.test.ts` holds the whole ordering, and reads every assertion through a
+`tearsDownBefore` helper rather than through raw positions.
 
 **Logging is process-level and predates DI.** `RotatingLogStore` is constructed in
 `setup.server.ts` before any container exists, published through `setLogStore`, and wrapped by
@@ -118,22 +142,24 @@ by `PluginsModule`, which tears down long before it.
 ## Plugins, from the host side
 
 **A capability with several plugins and no setting picks the FIRST, and says so.** `selectPlugin`
-(`modules/plugins/plugin.selection.ts`) is one rule shared by `render.speechPluginId`,
-`llm.pluginId` and `analysis.pluginId`, because a capability that answers differently depending on
-which subsystem is asking is the failure that file exists to prevent. It used to answer nothing here,
-arguing that a pick the operator did not make looks deliberate — which weighs a wrong-looking choice
-against SILENCE, and for speech silence is what it cost: installing a second TTS plugin took the
-station off the air until somebody visited a settings page, while everywhere else the station has
-this choice it degrades instead (the writer registry falls through, the set chain tops up, the floor
-cannot fail). The objection is answered by SAYING SO — `explainDefaultPick` names what was chosen and
-what it was chosen over, written once on the edge (`defaultPickIsNews`, module state because all
-three services are SCOPED and `speaker()` runs on every commit pass). Three things stay true. **A
-setting naming a plugin that is not a candidate still answers nothing without falling back**, because
-that is an instruction where the other is a default, and quietly using a different engine is how a
-station ends up wrong with nothing in the log. **"First" means `byPluginId` order**, so every caller
-sorts — `AnalysisService.candidates` was the one that did not, which "first" made load-bearing rather
-than tidy. And `explainNoPlugin` now has two branches rather than three, since several-and-none-chosen
-is no longer a refusal.
+(`modules/plugins/plugin.selection.ts`) is one rule shared by `render.speechPluginId`, `llm.pluginId` and
+`analysis.pluginId`, because a capability that answers differently depending on which subsystem is asking is
+the failure that file exists to prevent. It used to answer nothing here, arguing that a pick the operator did
+not make looks deliberate — which weighs a wrong-looking choice against SILENCE, and for speech silence is
+what it cost: installing a second TTS plugin took the station off the air until somebody visited a settings
+page, while everywhere else the station has this choice it degrades instead (the writer registry falls
+through, the set chain tops up, the floor cannot fail). The objection is answered by SAYING SO —
+`explainDefaultPick` names what was chosen and what it was chosen over, written once on the edge
+(`defaultPickIsNews`, module state because all three services are SCOPED and `speaker()` runs on every commit
+pass). Three things stay true.
+
+**A setting naming a plugin that is not a candidate still answers nothing without falling back**, because that
+is an instruction where the other is a default, and quietly using a different engine is how a station ends up
+wrong with nothing in the log.
+
+**"First" means `byPluginId` order**, so every caller sorts — `AnalysisService.candidates` was the one that
+did not, which "first" made load-bearing rather than tidy. And `explainNoPlugin` now has two branches rather
+than three, since several-and-none-chosen is no longer a refusal.
 
 **Nothing watches `plugin_configs`.** A plugin's configuration changes only through
 `PluginsService`, and every route there that writes one reinitializes the plugin itself. There is no

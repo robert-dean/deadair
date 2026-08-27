@@ -10,57 +10,126 @@ Read the ones covering whatever you are about to change. The always-loaded index
 
 ## How a pick is made
 
-**What the station PLAYS has several generators too, and that chain tops up rather than falling through.** `SetGeneratorChain` is registration order as preference order, exactly like the writer registry (`ModelSetGenerator` in front, `CatalogSetGenerator` behind it, `llm.setGenerator` off by default). The one difference is load-bearing: a break is one sentence and is all-or-nothing, so the writer registry takes the first answer and stops, but a set is `count` picks and a model that named six of fifteen has done most of the job. So each binding is asked for what is still MISSING and the floor finishes the rest, which is why a partial answer is kept rather than discarded. Songs already chosen thread down as `avoidSongKeys`; artists deliberately do NOT, because excluding every artist already queued starves a long rotation of its own library — an artist is spaced within a batch and cooled down once they actually air, which are the two places it can be judged against something real. **The floor cannot fail**, so keep it last. The ONE thing that suspends that guarantee is
-`rotation.briefOnly`, off by default: with it on, a generator declaring `SetGenerator.ignoresBrief`
-(only `CatalogSetGenerator` does) is not asked while a brief is in force, so a station told "flamenco
-guitar" runs short rather than finishing the hour with whatever else the library holds. Three bounds
-make that safe to have at all — it applies only where there IS a brief, since an unbriefed station's
-floor is not a mismatch but the station itself; the similarity binding is deliberately NOT marked,
-because its seeds are records that actually aired and so it draws from the brief's own results
-(**that argument does NOT stretch to a PERIOD**, and both middle bindings filter on one themselves —
-see the period rule in `director.md`); and a
-refill it actually cost records says so on the activity feed, because a station that ran dry with a
-full library is otherwise two facts with nothing connecting them.
+**What the station PLAYS has several generators too, and that chain tops up rather than falling through.**
+`SetGeneratorChain` is registration order as preference order, exactly like the writer registry
+(`ModelSetGenerator` in front, `CatalogSetGenerator` behind it, `llm.setGenerator` off by default). The one
+difference is load-bearing: a break is one sentence and is all-or-nothing, so the writer registry takes the
+first answer and stops, but a set is `count` picks and a model that named six of fifteen has done most of the
+job. So each binding is asked for what is still MISSING and the floor finishes the rest, which is why a
+partial answer is kept rather than discarded. Songs already chosen thread down as `avoidSongKeys`; artists
+deliberately do NOT, because excluding every artist already queued starves a long rotation of its own library
+— an artist is spaced within a batch and cooled down once they actually air, which are the two places it can
+be judged against something real.
+
+**The floor cannot fail**, so keep it last. The ONE thing that suspends that guarantee is
+`rotation.briefOnly`, off by default: with it on, a generator declaring `SetGenerator.ignoresBrief` (only
+`CatalogSetGenerator` does) is not asked while a brief is in force, so a station told "flamenco guitar" runs
+short rather than finishing the hour with whatever else the library holds. Three bounds make that safe to have
+at all — it applies only where there IS a brief, since an unbriefed station's floor is not a mismatch but the
+station itself; the similarity binding is deliberately NOT marked, because its seeds are records that actually
+aired and so it draws from the brief's own results (**that argument does NOT stretch to a PERIOD**, and both
+middle bindings filter on one themselves — see the period rule in `director.md`); and a refill it actually
+cost records says so on the activity feed, because a station that ran dry with a full library is otherwise two
+facts with nothing connecting them.
 
 **A pick is judged where it becomes a track, never inside the generator that named it.** A `SetGenerator` pick is a NAME, so any binding that is not the catalog draw hands over titles nothing has judged — and a dislike is an INSTRUCTION no lineup may turn off, so a generator able to route around it airs a record the operator forbade. The rules therefore run in `PickResolver.resolve(picks, rules)`, the one step every pick from every source passes through. `CatalogSetGenerator` still filters before its own draw and that is NOT redundancy: filtering early keeps the draw from spending its weight on candidates that cannot air, filtering at the resolver makes the rules true for a generator that never read the catalog, and neither is safe to delete because the other exists. `applyRules` composes the three that decide whether a candidate may air; `spaceArtists` runs last and separately, because a batch spaced before its unplayable tracks are dropped closes the gap back up and puts one artist back on its own heels.
 
-**A pick the catalog has never seen is looked up at a provider and INGESTED, and the order of that against the rules is load-bearing.** The library holds what the account's playlists carry, because playlists are the only enumeration a provider offers, so a perfectly good pick outside them used to be dropped. `PickResolver.identify` now falls to `ProviderTrackLookup`, and a hit becomes a real `deadair.tracks` row with a binding — it has to, because the player fetches every record through `track_sources`, so a copy with no binding has no URL. The lookup is STRICT (normalized title and lead artist must both match exactly; duration only breaks a tie), because a near-miss does not error, it airs the wrong record while the console says otherwise. It is bounded per resolve (`MAX_DISCOVERIES`, counted as attempts) since every miss searches every provider, and gated by `rotation.discover`, on by default because off makes the path inert. **Ingest happens BEFORE the rules run**, which is what makes a newly ingested record by a disliked artist get dropped rather than aired for want of an opinion. The other half is `track_sources.origin`: the sync's `markMissingTrackSources` only judges `origin = 'sync'`, because the sweep is an argument about what a playlist WALK saw and a discovered copy is in no playlist — without it the first sync after a discovery benched everything the station found for itself. A walk that later sees a discovered copy moves it into the sweep; a lookup never moves a synced one out. What judges a discovered copy instead is fetching it, via the four-failure bench in `TrackAudioService`.
+**A pick the catalog has never seen is looked up at a provider and INGESTED, and the order of that against the
+rules is load-bearing.** The library holds what the account's playlists carry, because playlists are the only
+enumeration a provider offers, so a perfectly good pick outside them used to be dropped.
+`PickResolver.identify` now falls to `ProviderTrackLookup`, and a hit becomes a real `deadair.tracks` row with
+a binding — it has to, because the player fetches every record through `track_sources`, so a copy with no
+binding has no URL. The lookup is STRICT (normalized title and lead artist must both match exactly; duration
+only breaks a tie), because a near-miss does not error, it airs the wrong record while the console says
+otherwise. It is bounded per resolve (`MAX_DISCOVERIES`, counted as attempts) since every miss searches every
+provider, and gated by `rotation.discover`, on by default because off makes the path inert.
+
+**Ingest happens BEFORE the rules run**, which is what makes a newly ingested record by a disliked artist get
+dropped rather than aired for want of an opinion. The other half is `track_sources.origin`: the sync's
+`markMissingTrackSources` only judges `origin = 'sync'`, because the sweep is an argument about what a
+playlist WALK saw and a discovered copy is in no playlist — without it the first sync after a discovery
+benched everything the station found for itself. A walk that later sees a discovered copy moves it into the
+sweep; a lookup never moves a synced one out. What judges a discovered copy instead is fetching it, via the
+four-failure bench in `TrackAudioService`.
 
 ## The station's opinion, and the policy over it
 
 **An opinion is held at three levels and inherits DOWNWARD in both directions.** `artists`, `albums` and `tracks` each carry a `rating` of `-1 / 0 / 1`, written from the console through `PUT /catalog/{artists,albums,tracks}/{id}/rating` (`platform.manage`; the wire spells it `liked / neutral / disliked` and `catalog/rating.ts` is the only place that meets the column, because the ORDERING is what the SQL below needs and nothing outside the database reads it as a number). `CandidatesRepository.effectiveRating` is the one expression that collapses the three into one, and it is **not** a `least()`: a dislike anywhere wins outright, because a dislike is an instruction no lineup may turn off, and otherwise the strongest LIKE carries, because liking an artist means play more of them and liking one song means play that song more. It was a plain `least()` for as long as it existed, which got the veto right and silently swallowed the other half — a liked song on an unrated record by an unrated artist came out `0`, so `weightOf` doubled nothing an operator could produce without rating all three levels identically, and liking a record did nothing whatsoever. Both `sample` and `ratingsFor` go through it so the draw and the resolver cannot disagree. Nothing unit-tests it, since it is SQL: `apps/api/scripts/rating.smoke.ts` is what covers it, against the real database.
 
-**An advisory is a LABEL on a COPY, and the policy over it is not a rotation rule.** `track_sources.advisory` is `explicit` / `clean` / null, per BINDING rather than per track because a clean edit and the explicit original collapse to one `deadair.tracks` row (`resolveTrack` matches on `title_key` + artist and the edit's own ISRC misses) and stay two copies — the binding IS the version, so `rotation.advisory` (`prefer-explicit` / `prefer-clean` / `clean-only`) is almost entirely binding selection in `CandidatesRepository.bindingsFor`, and a work left with no eligible binding falls into the existing "nothing can play this" drop rather than a second mechanism. Four things are load-bearing. It is named for the LABEL and not the words — nothing here reads a lyric, Spotify is passing on a marking — so **`lyrics` stays reserved for the text**, which `docs/todo/track-lyrics.md` wants for a thing the station may read and never say; `content_rating` was rejected because `tracks.rating` already means the operator's `-1/0/1` opinion. It is read at the point of use and deliberately **not on `ResolvedRules`**, because `NO_RULES` zeroes that bag and a setlist — whose whole mechanism is starting from the rules off — would silently begin swearing; it follows `rejectDisliked` instead. The advisory **outranks the operator's provider preference**, since the policy is a rule about content and the provider list is a preference about delivery, and ranked the other way a `prefer-clean` station whose clean copy sits on the second-choice provider is handed the explicit one from the first with nothing saying why. And `clean-only` demands a **positive `clean`**: most providers never mark anything, so a library from one of them plays nothing, which is the honest answer and is paid for in the setting's help text and in `AdvisoryWatch` — it tells that state apart from an empty catalog by asking the same draw again with the policy off, and writes one `station_events` row on the edge. The presenter side is separate and asymmetric on purpose: `speaksClean` is true for BOTH non-default states, because a preference is only a lean about which copy to play when there is a clean twin to choose, and a presenter always has the choice of their own words. Nothing checks the model's answer against it. `apps/api/scripts/advisory.smoke.ts` covers the SQL. **The operator's own account-level explicit filter is reported and never enforced** — the plugin reads `explicit_content.filter_enabled` and `filter_locked` off a profile call it already makes — because the audio comes through the shim rather than the Web API and whether that filter binds on the fetch path is unmeasured; see `docs/todo/clean-copy-matching.md`, which also holds the deferred matcher for a clean copy the playlists never carried.
+**An advisory is a LABEL on a COPY, and the policy over it is not a rotation rule.** `track_sources.advisory`
+is `explicit` / `clean` / null, per BINDING rather than per track because a clean edit and the explicit
+original collapse to one `deadair.tracks` row (`resolveTrack` matches on `title_key` + artist and the edit's
+own ISRC misses) and stay two copies — the binding IS the version, so `rotation.advisory` (`prefer-explicit` /
+`prefer-clean` / `clean-only`) is almost entirely binding selection in `CandidatesRepository.bindingsFor`, and
+a work left with no eligible binding falls into the existing "nothing can play this" drop rather than a second
+mechanism. Four things are load-bearing. It is named for the LABEL and not the words — nothing here reads a
+lyric, Spotify is passing on a marking — so **`lyrics` stays reserved for the text**, which
+`docs/todo/track-lyrics.md` wants for a thing the station may read and never say; `content_rating` was
+rejected because `tracks.rating` already means the operator's `-1/0/1` opinion. It is read at the point of use
+and deliberately **not on `ResolvedRules`**, because `NO_RULES` zeroes that bag and a setlist — whose whole
+mechanism is starting from the rules off — would silently begin swearing; it follows `rejectDisliked` instead.
+The advisory **outranks the operator's provider preference**, since the policy is a rule about content and the
+provider list is a preference about delivery, and ranked the other way a `prefer-clean` station whose clean
+copy sits on the second-choice provider is handed the explicit one from the first with nothing saying why. And
+`clean-only` demands a **positive `clean`**: most providers never mark anything, so a library from one of them
+plays nothing, which is the honest answer and is paid for in the setting's help text and in `AdvisoryWatch` —
+it tells that state apart from an empty catalog by asking the same draw again with the policy off, and writes
+one `station_events` row on the edge. The presenter side is separate and asymmetric on purpose: `speaksClean`
+is true for BOTH non-default states, because a preference is only a lean about which copy to play when there
+is a clean twin to choose, and a presenter always has the choice of their own words. Nothing checks the
+model's answer against it. `apps/api/scripts/advisory.smoke.ts` covers the SQL.
+
+**The operator's own account-level explicit filter is reported and never enforced** — the plugin reads
+`explicit_content.filter_enabled` and `filter_locked` off a profile call it already makes — because the audio
+comes through the shim rather than the Web API and whether that filter binds on the fetch path is unmeasured;
+see `docs/todo/clean-copy-matching.md`, which also holds the deferred matcher for a clean copy the playlists
+never carried.
 
 ## What the model is offered
 
 **ONE search tool, because the split between two was a decision the host could make itself.**
-`MusicSearchTool` (`search_music`) reads `deadair.tracks` and fans out over the provider plugins in
-one answer, and every row carries `owned`. It was two tools — `search_library` and `search_catalog` —
-and choosing wrongly used to be silent and fatal, because a provider pick matched no catalog row and
-was dropped. `PickResolver`'s lookup rung ended that, and in ending it turned the split into a
-PREFERENCE the model had to arbitrate on every call using no information the host lacks. That
-arbitration is where briefed refills died: told to search the library first and reach past it only
-when it could not fill the ask, a model briefed `artists like mitch murder` against a library of rock
-and metal searched the LIBRARY for one synthwave neighbour after another, got nothing every time, and
-ran out of tool steps before it answered. So the preference is now a field rather than a choice: an
-owned record is catalogued, bound, usually on disk and measured, and an unowned one is fetched when
-it is chosen. Four things are load-bearing. **`ownership` matches the resolver's own keys**
-(`title_key` + `artist_key`, the same ones `CandidatesRepository.findByName` uses), because `owned`
-has to be the claim `PickResolver.identify` will act on rather than a looser one that reads as free
-and costs a download. **Bans narrow BOTH halves now** — `dislikedArtistKeys` is a second read
-precisely because a provider row by a banned artist joins to no catalog row and the first cannot see
-it — while **rotation rules still narrow neither**, since variety is enforced at the point of choice
-and pre-filtering returns a worse pool on a small library. **The providers are reached only when the
-library comes up short** (`THIN`), or always if the operator sets `llm.alwaysSearchProviders`; the
-default is not merely thrift, because break writers share this tool and theirs check a record already
-in the catalog, so under the default a break write never waits on a provider. And **`OWNED_SHARE`
-reserves room for the provider half**, or a brief the library HALF matches fills the answer with
-owned records and the failure moves from the model's choice into the ordering. A second tool,
-`StationTasteTool` (`station_taste`), answers what the operator has liked and disliked; it reports
-and never enforces, and `ModelSetGenerator` also puts a short version straight in its prompt so a
-model that cannot drive tools still gets the steer.
+`MusicSearchTool` (`search_music`) reads `deadair.tracks` and fans out over the provider plugins in one
+answer, and every row carries `owned`. It was two tools — `search_library` and `search_catalog` — and choosing
+wrongly used to be silent and fatal, because a provider pick matched no catalog row and was dropped.
+`PickResolver`'s lookup rung ended that, and in ending it turned the split into a PREFERENCE the model had to
+arbitrate on every call using no information the host lacks. That arbitration is where briefed refills died:
+told to search the library first and reach past it only when it could not fill the ask, a model briefed
+`artists like mitch murder` against a library of rock and metal searched the LIBRARY for one synthwave
+neighbour after another, got nothing every time, and ran out of tool steps before it answered. So the
+preference is now a field rather than a choice: an owned record is catalogued, bound, usually on disk and
+measured, and an unowned one is fetched when it is chosen. Four things are load-bearing.
+
+**`ownership` matches the resolver's own keys** (`title_key` + `artist_key`, the same ones
+`CandidatesRepository.findByName` uses), because `owned` has to be the claim `PickResolver.identify` will act
+on rather than a looser one that reads as free and costs a download.
+
+**Bans narrow BOTH halves now** — `dislikedArtistKeys` is a second read precisely because a provider row by a
+banned artist joins to no catalog row and the first cannot see it — while **rotation rules still narrow
+neither**, since variety is enforced at the point of choice and pre-filtering returns a worse pool on a small
+library.
+
+**The providers are reached only when the library comes up short** (`THIN`), or always if the operator sets
+`llm.alwaysSearchProviders`; the default is not merely thrift, because break writers share this tool and
+theirs check a record already in the catalog, so under the default a break write never waits on a provider.
+
+And **`OWNED_SHARE` reserves room for the provider half**, or a brief the library HALF matches fills the
+answer with owned records and the failure moves from the model's choice into the ordering. A second tool,
+`StationTasteTool` (`station_taste`), answers what the operator has liked and disliked; it reports and never
+enforces, and `ModelSetGenerator` also puts a short version straight in its prompt so a model that cannot
+drive tools still gets the steer.
 
 **The search answers with the LEAD artist, never a credit line, and that is a correctness rule rather than a formatting one.** The model is told to copy a title and artist back exactly, because `ProviderTrackLookup` is strict — and the two steps that then judge the pick both match on the lead artist alone: `PickResolver.identify` keys it off the MATCHED ROW's title and lead (`songKey(found.title, [found.artist])`, so the keys are the ones `play_history` will be written with rather than the words that went looking) and the lookup compares `normalizeKey(track.artists[0])`. The provider fan-out answered `artists.join(', ')` for as long as it existed, so every collaboration it returned was named correctly by the model and then dropped as "not in the catalog" — a live run resolved every solo credit and lost every duet. The other credits ride in `featuring`, which is shown and never copied. Anything new that hands a model a record to name owes the same shape. The related bound is that it must offer enough rows to fill an OVERSAMPLED batch (`MAX_RESULTS` is 25): a model shown ten records and asked for two dozen pads the answer with repeats, `SetGeneratorChain` discards them, and `CatalogSetGenerator` — which cannot act on a brief — quietly fills half the hour.
 
-**An item's `artists` is a display credit and its `artist` is the identity, and nothing may take one for the other.** `RundownTrack.artists` is a list because a provider gives one, but half the producers only ever have the credit as a single string: an item built from a playlist holds `['USHER','Lil Jon','Ludacris']` and one `PickResolver` resolved holds `['USHER, Lil Jon, Ludacris']`. So `artists[0]` is the lead only by luck, which is why `artist` exists beside it and why every key comes off that — `play_history`, `songKeysOf` (the generator's avoid list) and the scrobbler. It was `artists[0]` in all three for as long as they existed, so the writer stored `drake wizkid kyla` as one artist while every reader asked about `drake`: no repeat window or artist cooldown could match a collaboration, and Last.fm was sent a credit line as an artist name. **Nothing showed** — the only symptom of a rotation rule that never matches is a station that repeats itself, which is the failure `rotation.keys.ts` opens by warning about. `PickResolver` fills `artist` from the catalog row it MATCHED (or the provider row it just ingested), never from the pick that went looking, so the keys a record is judged by are the ones it will air under.
+**An item's `artists` is a display credit and its `artist` is the identity, and nothing may take one for the
+other.** `RundownTrack.artists` is a list because a provider gives one, but half the producers only ever have
+the credit as a single string: an item built from a playlist holds `['USHER','Lil Jon','Ludacris']` and one
+`PickResolver` resolved holds `['USHER, Lil Jon, Ludacris']`. So `artists[0]` is the lead only by luck, which
+is why `artist` exists beside it and why every key comes off that — `play_history`, `songKeysOf` (the
+generator's avoid list) and the scrobbler. It was `artists[0]` in all three for as long as they existed, so
+the writer stored `drake wizkid kyla` as one artist while every reader asked about `drake`: no repeat window
+or artist cooldown could match a collaboration, and Last.fm was sent a credit line as an artist name.
+
+**Nothing showed** — the only symptom of a rotation rule that never matches is a station that repeats itself,
+which is the failure `rotation.keys.ts` opens by warning about. `PickResolver` fills `artist` from the catalog
+row it MATCHED (or the provider row it just ingested), never from the pick that went looking, so the keys a
+record is judged by are the ones it will air under.

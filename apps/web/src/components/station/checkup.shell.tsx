@@ -5,12 +5,18 @@ import { useNavigate } from '@tanstack/react-router';
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmbeddedPage } from '../shared/page.header';
 
-const CHECKUP_TABS = [
+export const CHECKUP_TABS = [
     { key: 'machinery', label: 'Machinery' },
     { key: 'history', label: 'What it has been doing' },
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type CheckupTab = (typeof CHECKUP_TABS)[number]['key'];
+
+/** Where each tab goes, so the palette and the tab strip cannot disagree about it. */
+export const CHECKUP_ROUTES: Record<CheckupTab, '/checkup' | '/activity'> = {
+    machinery: '/checkup',
+    history: '/activity',
+};
 
 export interface CheckupShellProps {
     active: CheckupTab;
@@ -45,7 +51,7 @@ export function CheckupShell({ active, children }: CheckupShellProps) {
                 active={active}
                 label="Check-up"
                 onSelect={key => {
-                    void navigate({ to: key === 'machinery' ? '/checkup' : '/activity' });
+                    void navigate({ to: CHECKUP_ROUTES[key] });
                 }}
             />
 

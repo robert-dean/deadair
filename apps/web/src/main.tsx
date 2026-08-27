@@ -26,6 +26,7 @@ import '@mantine/dates/styles.css';
 import '@mantine/schedule/styles.css';
 import '@mantine/dropzone/styles.css';
 import '@mantine/notifications/styles.css';
+import '@mantine/spotlight/styles.css';
 // LAST, after every Mantine stylesheet: the theme's variable resolver points at `--da-*`, which this
 // defines, and the console's own surfaces have to win over the packages'.
 import './tokens.css';

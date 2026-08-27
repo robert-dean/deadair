@@ -15,7 +15,7 @@ import { EmbeddedPage } from '../shared/page.header';
  * pages losing the loader that makes it arrive warm. The destination is what changed; the pages
  * underneath are still pages.
  */
-const LIBRARY_TABS = [
+export const LIBRARY_TABS = [
     { key: 'tracks', label: 'Tracks' },
     { key: 'artists', label: 'Artists' },
     { key: 'playlists', label: 'Playlists' },
@@ -64,7 +64,7 @@ export function LibraryShell({ active, children }: LibraryShellProps) {
                     // Each tab is its own route, so this is a real navigation rather than a state
                     // change: the back button steps between them and every page keeps the loader
                     // that makes it arrive warm.
-                    void navigate({ to: ROUTES[key] });
+                    void navigate({ to: LIBRARY_ROUTES[key] });
                 }}
             />
 
@@ -74,8 +74,13 @@ export function LibraryShell({ active, children }: LibraryShellProps) {
     );
 }
 
-/** Where each tab goes. Separate from the tab list so the labels stay free of route strings. */
-const ROUTES: Record<LibraryTab, '/catalog/tracks' | '/catalog' | '/playlists' | '/charts' | '/news'> = {
+/**
+ * Where each tab goes. Separate from the tab list so the labels stay free of route strings.
+ *
+ * Exported because the command palette navigates to these too, and a second copy of this table is a
+ * second place for a tab and its route to come apart.
+ */
+export const LIBRARY_ROUTES: Record<LibraryTab, '/catalog/tracks' | '/catalog' | '/playlists' | '/charts' | '/news'> = {
     tracks: '/catalog/tracks',
     artists: '/catalog',
     playlists: '/playlists',

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { AppShell, Box, Group, ScrollArea, Text, useMantineTheme } from '@mantine/core';
+import { AppShell, Box, Button, Group, Kbd, ScrollArea, Text, useMantineTheme } from '@mantine/core';
 import { useHotkeys, useMediaQuery } from '@mantine/hooks';
+import { spotlight } from '@mantine/spotlight';
 import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import type { OnboardingRequirement } from '@deadair/sdk';
@@ -15,6 +16,7 @@ import { isAuthenticated, isSessionActive, useSession } from '../auth/session.st
 import { usePlayoutStatus } from '../api/playout.queries';
 import { useStationAttention } from '../api/station.queries';
 import { ErrorAlert } from '../components/shared/error.alert';
+import { JumpTo } from '../components/shell/jump.to';
 import { NavFooter } from '../components/shell/nav.footer';
 import { PhoneTabs } from '../components/shell/phone.tabs';
 import { DESTINATION_KEYS, SideNav } from '../components/shell/side.nav';
@@ -107,10 +109,26 @@ export function RootLayout() {
                         as one more control. The clock stays right, where a clock belongs. */}
                     {signedIn ? <StationTally status={playout.data} /> : undefined}
                     <Box style={{ flex: 1, minWidth: 0 }} />
-                    {/* The clock, and nothing else. Logout was here and is in the rail's footer
-                        now: the header's right edge is the one place an operator looks for the
-                        station's own state, and a control for ending your session is not that. */}
-                    {signedIn ? <StationClock /> : undefined}
+                    {/* The way to anywhere, and the clock. Logout was in this corner and is in the
+                        rail's footer now: the header's right edge is where an operator looks for
+                        the state of the station and the way to move around it, and a control for
+                        ending your session is neither. */}
+                    {signedIn ? (
+                        <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
+                            <Button
+                                variant="default"
+                                size="compact-sm"
+                                fw={400}
+                                c="dimmed"
+                                onClick={spotlight.open}
+                                rightSection={<Kbd size="xs">⌘K</Kbd>}
+                                visibleFrom="sm"
+                            >
+                                Jump to anything
+                            </Button>
+                            <StationClock />
+                        </Group>
+                    ) : undefined}
                 </Group>
             </AppShell.Header>
             {signedIn ? (
@@ -165,6 +183,10 @@ export function RootLayout() {
                     <PhoneTabs />
                 </AppShell.Footer>
             ) : undefined}
+            {/* Rendered rather than opened: the component registers `mod + K` itself, and one copy
+                inside the shell is what makes the shortcut work from every page. Guarded on the
+                session because every place it can go is behind one. */}
+            {signedIn ? <JumpTo /> : undefined}
         </AppShell>
     );
 }

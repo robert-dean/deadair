@@ -11,6 +11,7 @@
 **/routeTree.gen.ts
 **/.kysely-codegenrc.json
 **/modules/data/db.ts
+**/*.mp3
 
 # Prose, wrapped by hand and argued over line by line. Prettier reflows it and
 # rewrites its tables, so a one-paragraph edit to a decision doc arrives as a

@@ -2,6 +2,7 @@ import type { Logger } from '@maroonedsoftware/logger';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DeadairLogger } from '../../src/logging/deadair.logger.js';
+import { runInTrace } from '../../src/modules/shared/trace.context.js';
 import type { RotatingLogStore } from '../../src/logging/rotating.log.store.js';
 
 interface RecordedInnerCall {
@@ -182,5 +183,56 @@ describe('DeadairLogger', () => {
         expect(innerCalls).toHaveLength(2);
         expect(storeCalls).toHaveLength(2);
         expect(storeCalls.map(c => c.message)).toEqual(['one', 'two']);
+    });
+
+    // The stored half carries the decision a line belongs to; the stdout half deliberately does not.
+    // A file interleaves four concurrent decisions and the id is the only way to pull one out, which
+    // is the whole of "nothing correlates one decision's calls"; a terminal somebody is watching is
+    // already showing one thing at a time and an id on every line of it is noise.
+    describe('the trace a line belongs to', () => {
+        it('stamps the stored line and leaves stdout alone', async () => {
+            await runInTrace({ id: 'job-7', kind: 'director.refill_lineup' }, async () => {
+                logger.info('programming an hour', { brief: 'rap hits' });
+            });
+
+            expect(storeCalls[0]?.meta).toEqual({ brief: 'rap hits', trace: 'job-7' });
+            expect(innerCalls[0]?.optionalParams).toEqual([{ brief: 'rap hits' }]);
+        });
+
+        it('stamps a line that carried no meta of its own', async () => {
+            await runInTrace({ id: 'job-7', kind: 'k' }, async () => {
+                logger.warn('the model chose nothing');
+            });
+
+            expect(storeCalls[0]?.meta).toEqual({ trace: 'job-7' });
+        });
+
+        it('stamps an Error alongside the fields the store adds for one', async () => {
+            const error = new Error('kaboom');
+            error.stack = ['Error: kaboom', '    at run (/repo/apps/api/src/thing.ts:1:1)'].join('\n');
+
+            await runInTrace({ id: 'job-7', kind: 'k' }, async () => {
+                logger.error(error);
+            });
+
+            expect(storeCalls[0]?.meta).toMatchObject({ trace: 'job-7', errorName: 'Error' });
+        });
+
+        it('adds nothing outside a trace, rather than an empty field', () => {
+            // Startup, shutdown and anything a plugin does on a timer of its own. A blank `trace`
+            // would read as a decision nobody could find rather than as no decision.
+            logger.info('Setting up Analysis');
+
+            expect(storeCalls[0]?.meta).toBeUndefined();
+        });
+
+        it('never overwrites a trace the caller chose', async () => {
+            // Nothing passes one today. It costs nothing to be sure this can only ever add.
+            await runInTrace({ id: 'job-7', kind: 'k' }, async () => {
+                logger.info('replaying', { trace: 'job-1' });
+            });
+
+            expect(storeCalls[0]?.meta).toEqual({ trace: 'job-1' });
+        });
     });
 });

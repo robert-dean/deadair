@@ -1,5 +1,27 @@
 import type { Logger } from '@maroonedsoftware/logger';
+import { currentTrace } from '#modules/shared/trace.context.js';
 import type { RotatingLogStore } from './rotating.log.store.js';
+
+/**
+ * Add the decision this line belongs to, if it belongs to one.
+ *
+ * On the STORED half only, never on stdout: the wrapped logger's output is what somebody watches
+ * live, and an id on every line of it is noise to a reader who is already looking at one thing
+ * happening. The file is where lines from four concurrent decisions are interleaved and where the
+ * id is the only way to pull one out — which is the whole of `comparable-stations.md`'s "nothing
+ * correlates one decision's calls".
+ *
+ * A caller's own `trace` wins, which costs nothing today (nobody passes one) and means this can
+ * never overwrite a field somebody chose. Outside a trace the key is absent rather than empty: a
+ * startup line and a job line should not look like the same thing with one blank.
+ */
+function withTrace(meta: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+    const trace = currentTrace();
+    if (trace === undefined) return meta;
+    if (meta !== undefined && 'trace' in meta) return meta;
+
+    return { ...meta, trace: trace.id };
+}
 
 /**
  * Wraps another {@link Logger} and tees every call to both the wrapped logger (stdout,
@@ -58,7 +80,8 @@ export class DeadairLogger implements Logger {
      */
     private append(level: string, message: unknown, optionalParams: unknown[]): void {
         const [meta] = optionalParams;
-        const metaRecord = meta && typeof meta === 'object' && !Array.isArray(meta) ? { ...(meta as Record<string, unknown>) } : undefined;
+        const given = meta && typeof meta === 'object' && !Array.isArray(meta) ? { ...(meta as Record<string, unknown>) } : undefined;
+        const metaRecord = withTrace(given);
 
         if (typeof message === 'string') {
             this.store.append(undefined, level, message, metaRecord);

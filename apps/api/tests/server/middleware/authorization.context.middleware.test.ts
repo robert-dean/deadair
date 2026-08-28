@@ -17,6 +17,7 @@ import { DeadairPermissionsTupleRepository } from '../../../src/modules/permissi
 import { PermissionsService } from '../../../src/modules/permissions/permissions.service.js';
 import { REFRESH_COOKIE_NAME } from '../../../src/modules/authentication/refresh.cookie.js';
 import { authorizationContextMiddleware } from '../../../src/server/middleware/authorization.context.middleware.js';
+import { currentTrace } from '../../../src/modules/shared/trace.context.js';
 
 const ACTOR_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -29,7 +30,7 @@ interface Harness {
     overrides: Map<unknown, unknown>;
 }
 
-const harness = (options: { path?: string; actorExists?: boolean; relations?: string[] } = {}): Harness => {
+const harness = (options: { path?: string; method?: string; actorExists?: boolean; relations?: string[] } = {}): Harness => {
     const existsActive = vi.fn().mockResolvedValue(options.actorExists ?? true);
     const deleteSession = vi.fn().mockResolvedValue(undefined);
     const cookieSet = vi.fn();
@@ -47,6 +48,7 @@ const harness = (options: { path?: string; actorExists?: boolean; relations?: st
     ]);
 
     const ctx = {
+        method: options.method ?? 'POST',
         path: options.path ?? '/plugins/rescan',
         requestId: 'req-1',
         ipAddress: '203.0.113.1',
@@ -121,5 +123,47 @@ describe('authorizationContextMiddleware', () => {
         expect(h.next).toHaveBeenCalledOnce();
         expect(h.existsActive).not.toHaveBeenCalled();
         expect((h.overrides.get(AuthorizationContext) as AuthorizationContext).actor.kind).toBe('system');
+    });
+
+    // The request half of the trace root. The job half is in `job.trace.test.ts`; both exist so that
+    // every log line and every span downstream can say which decision it belongs to, and the id is
+    // the one already in the audit trail rather than a second one invented here.
+    describe('the trace it opens', () => {
+        it('runs the rest of the request inside a trace named by the request id', async () => {
+            const h = harness({ method: 'GET', path: '/plugins' });
+            let seen: ReturnType<typeof currentTrace>;
+            h.next.mockImplementation(async () => {
+                seen = currentTrace();
+            });
+
+            await authorizationContextMiddleware()(h.ctx, h.next);
+
+            // The same `requestId` handed to the envelope, which is what makes a log line and an
+            // `app.request_id` GUC name one decision instead of two.
+            expect(seen).toEqual({ id: 'req-1', kind: 'GET /plugins' });
+            expect((h.overrides.get(AuthorizationContext) as AuthorizationContext).request.requestId).toBe('req-1');
+        });
+
+        it('closes the trace before the response leaves, even when the route throws', async () => {
+            // Koa reuses the thread for the next request. A trace that outlived a failed one would
+            // file the following request's lines under it.
+            const h = harness();
+            h.next.mockRejectedValue(new Error('the route blew up'));
+
+            await expect(authorizationContextMiddleware()(h.ctx, h.next)).rejects.toThrow('the route blew up');
+            expect(currentTrace()).toBeUndefined();
+        });
+
+        it('opens no trace when the actor check rejects the request', async () => {
+            // The 401 is thrown before `next`, so there is no decision to name: nothing downstream
+            // runs. Asserted so that a future reordering that moved the trace above the check would
+            // be a visible change rather than a silent one.
+            const h = harness({ actorExists: false });
+
+            await authorizationContextMiddleware()(h.ctx, h.next).catch(() => undefined);
+
+            expect(h.next).not.toHaveBeenCalled();
+            expect(currentTrace()).toBeUndefined();
+        });
     });
 });

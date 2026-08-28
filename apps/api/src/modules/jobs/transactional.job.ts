@@ -4,6 +4,7 @@ import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { KyselyTransactionConnectionProvider, PgBossConnectionProvider } from '@maroonedsoftware/jobbroker/pgboss';
 import { DB } from '#modules/data/db.js';
 import { overrideJobActor } from './job.authorization.js';
+import { runInTrace } from '#modules/shared/trace.context.js';
 
 /**
  * The job-side counterpart of `auditContextMiddleware`.
@@ -64,24 +65,32 @@ export abstract class TransactionalJob<Payload extends object = object> implemen
         const db = scope.get(Kysely<DB>);
         const context = scope.get(JobContext);
 
-        await db.transaction().execute(async trx => {
-            // Mirrors auditContextMiddleware. There is no user and no IP behind a
-            // job, so the queue name stands in as the actor and the job id as the
-            // correlation id — the same role `ctx.requestId` plays for a request.
-            await sql`
-                select set_config('app.actor_type', 'job', true),
-                       set_config('app.actor_id', ${context.name}, true),
-                       set_config('app.request_id', ${context.id}, true),
-                       set_config('app.actor_ip', ${null}, true)
-            `.execute(trx);
+        // Outside the transaction rather than inside it, unlike `PlainJob` where there is no
+        // transaction to be outside of. Opening one is part of what this job DOES — it is the whole
+        // reason this class exists — so a line about the transaction failing belongs to the
+        // decision, and a trace that started after `BEGIN` would not have it. The id is the same one
+        // the `app.request_id` GUC below is about to be set to, deliberately: the trace and the
+        // audit trail name a decision the same way or there is no point to either.
+        await runInTrace({ id: context.id, kind: context.name }, async () => {
+            await db.transaction().execute(async trx => {
+                // Mirrors auditContextMiddleware. There is no user and no IP behind a
+                // job, so the queue name stands in as the actor and the job id as the
+                // correlation id — the same role `ctx.requestId` plays for a request.
+                await sql`
+                    select set_config('app.actor_type', 'job', true),
+                           set_config('app.actor_id', ${context.name}, true),
+                           set_config('app.request_id', ${context.id}, true),
+                           set_config('app.actor_ip', ${null}, true)
+                `.execute(trx);
 
-            scope.override(Kysely<DB>, trx);
-            scope.override(PgBossConnectionProvider, new KyselyTransactionConnectionProvider(trx));
-            // The DI-side counterpart of the GUCs above: same job, same identity,
-            // told to the permission model instead of to Postgres.
-            overrideJobActor(scope, context);
+                scope.override(Kysely<DB>, trx);
+                scope.override(PgBossConnectionProvider, new KyselyTransactionConnectionProvider(trx));
+                // The DI-side counterpart of the GUCs above: same job, same identity,
+                // told to the permission model instead of to Postgres.
+                overrideJobActor(scope, context);
 
-            await this.execute(payload, signal);
+                await this.execute(payload, signal);
+            });
         });
     }
 

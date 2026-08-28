@@ -8,6 +8,7 @@ import { clearRefreshCookie } from '#modules/authentication/refresh.cookie.js';
 import { AuthorizationContext, type Actor } from '#modules/permissions/authorization.context.js';
 import { DeadairPermissionsTupleRepository } from '#modules/permissions/permissions.repository.js';
 import { PLATFORM_NAMESPACE, PLATFORM_OBJECT_ID, isPlatformRoleName, type PlatformRoleName } from '#modules/permissions/platform.roles.js';
+import { runInTrace } from '#modules/shared/trace.context.js';
 
 // `@maroonedsoftware/authentication` exposes a flat `AuthenticationContext`:
 // `{ actorId, actorType, claims, roles, factors, ... }`. We collapse it into
@@ -103,6 +104,15 @@ export const authorizationContextMiddleware: () => ServerKitMiddleware = () => {
             }),
         );
 
-        await next();
+        // The request half of the trace root, using the same `ctx.requestId` handed to the envelope
+        // one line above. Here rather than in its own middleware because this is where the id is
+        // already being read, and a second middleware whose only job was to re-read it would be one
+        // more thing to get the order of wrong. Everything downstream of `next()` — the route, the
+        // services it resolves, the plugins they invoke — answers this trace.
+        //
+        // `kind` is the method and path rather than the matched route, which would be better and is
+        // not reachable from here: routing has not happened yet. A path with an id in it is still
+        // the right decision to have named, and a reader searching by id never sees this field.
+        await runInTrace({ id: ctx.requestId, kind: `${ctx.method} ${ctx.path}` }, async () => await next());
     };
 };

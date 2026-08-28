@@ -2,6 +2,7 @@ import { Container, Injectable, ScopedContainer } from 'injectkit';
 import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { overrideJobActor } from './job.authorization.js';
+import { runInTrace } from '#modules/shared/trace.context.js';
 
 /**
  * The base class for a job that deliberately does NOT wrap itself in a
@@ -68,9 +69,16 @@ export abstract class PlainJob<Payload extends object = object> implements Job<P
         protected readonly logger: Logger,
     ) {}
 
+    /**
+     * The trace opens around `execute` rather than around the whole method, so the actor override is
+     * outside it. That is deliberate and it is the only ordering that reads right: the override is
+     * setup for the work, not part of it, and a line logged while installing an actor belongs to
+     * the runner rather than to the decision. `JobContext.id` is the id because it already is the
+     * correlation id — see {@link runInTrace}.
+     */
     async run(payload?: Payload, signal?: AbortSignal): Promise<void> {
         overrideJobActor(this.container as ScopedContainer, this.context);
-        await this.execute(payload, signal);
+        await runInTrace({ id: this.context.id, kind: this.context.name }, async () => await this.execute(payload, signal));
     }
 
     /**

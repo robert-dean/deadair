@@ -230,12 +230,19 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                         ) : undefined}
                     </Stack>
 
-                    <Stack gap="xs" w={172} style={{ flexShrink: 0 }}>
-                        <Group gap="xs" grow wrap="nowrap">
+                    {/* Wide enough for the longest thing the right-hand button ever says, which is
+                        "Confirm stop", and the same width whatever it is saying. Both halves of
+                        that matter: `grow` split the row evenly and clipped the armed label to
+                        "Confirr", and sizing to the content instead would move Skip out from under
+                        the pointer between the press that arms Stop and the press that fires it —
+                        which is the one moment on this page when nothing may move. */}
+                    <Stack gap="xs" w={214} style={{ flexShrink: 0 }}>
+                        <Group gap="xs" wrap="nowrap">
                             <Tooltip label="Ends the track on air. The next one starts immediately.">
                                 <Button
                                     variant="default"
                                     h={44}
+                                    style={{ flex: 1 }}
                                     loading={skip.isPending}
                                     // Nothing on air is nothing to cut, and a skip needs a stream to take it.
                                     disabled={!status.streamUp || !nowPlaying}
@@ -250,7 +257,7 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                                     multiline
                                     maw={320}
                                 >
-                                    <Button h={44} loading={start.isPending} onClick={() => start.mutate()}>
+                                    <Button h={44} w={124} loading={start.isPending} onClick={() => start.mutate()}>
                                         Start
                                     </Button>
                                 </Tooltip>
@@ -270,6 +277,7 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                                         color="red"
                                         variant={stopping.armed ? 'filled' : 'outline'}
                                         h={44}
+                                        w={124}
                                         loading={stop.isPending}
                                         onClick={stopping.press}
                                     >

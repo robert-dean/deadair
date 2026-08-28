@@ -147,6 +147,34 @@ describe('DeskPage', () => {
         await waitFor(() => expect(stopPlayout).toHaveBeenCalled());
     });
 
+    it('keeps Skip and Stop exactly where they were once Stop is armed', async () => {
+        // Found on the running console: `grow` split the row evenly, which left 46px of text room
+        // and clipped "Confirm stop" to "Confirr". Sizing the button to its content fixes the
+        // clipping and introduces a worse bug — Skip slides out from under the pointer between the
+        // press that arms Stop and the press that fires it, so the second press lands on a control
+        // that has moved. The width is therefore fixed and the same in both states.
+        arrange();
+        const user = setupUser();
+        render(<DeskPage />);
+
+        // Geometry only. The colour is meant to change — outline to filled — and asserting the
+        // whole `style` attribute would fail on exactly the difference the arming is for.
+        const box = (name: string) => {
+            const { width, height } = (screen.getByRole('button', { name }) as HTMLElement).style;
+            return { width, height };
+        };
+
+        await screen.findByRole('button', { name: 'Stop' });
+        const stopBefore = box('Stop');
+        const skipBefore = box('Skip');
+        expect(stopBefore.width).not.toBe('');
+
+        await user.click(screen.getByRole('button', { name: 'Stop' }));
+
+        expect(box('Confirm stop')).toEqual(stopBefore);
+        expect(box('Skip')).toEqual(skipBefore);
+    });
+
     it('forgets an armed Stop on its own', async () => {
         // A Stop left armed on a console nobody is looking at is a Stop that fires on the next
         // stray press, which is the thing arming it exists to prevent, arriving a minute later.

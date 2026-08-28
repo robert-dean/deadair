@@ -131,6 +131,23 @@ create table deadair.personas (
     -- `story` kind is an operator asking for one in as many words, and it outranks whatever this
     -- says. See `persona.sheet.ts`.
     storytelling text,
+    -- How OFTEN this character talks: null for the station's own interval, two rungs below it and
+    -- two above. `brevity` says how long a break is and `latitude` says how much room the character
+    -- gets; neither says how often it happens, and until this column that was `rotation.breaks` and
+    -- the format clock alone — station-wide, so every character on the roster shared one setting.
+    -- A host that talks over every boundary and one that says a line an hour are the same character
+    -- at two settings, which is exactly what a per-row rung is for.
+    --
+    -- **The quietest rung is not silence, and that is a decision rather than an oversight.**
+    -- `rotation.breaks` off is already how an operator stops the station talking. A persona that
+    -- could switch itself off would be a second switch that can disagree with the first, with
+    -- nothing in a log saying which one held — so `reserved` is half as often and never none.
+    --
+    -- It scales the station's OWN floor and nothing else. A clock band asking for news at nine is an
+    -- operator asking in as many words and outranks a habit, which is the same asymmetry
+    -- `storytelling` already has against a `story` band. See `persona.sheet.ts` and
+    -- `break.planner.ts`.
+    chattiness text,
     -- What this character is FOR: `host` is the station's own voice, `caller` is somebody who phones
     -- in to a production and is never the station.
     --

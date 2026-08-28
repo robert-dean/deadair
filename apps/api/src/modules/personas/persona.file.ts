@@ -87,6 +87,7 @@ export function personaForFile(persona: Persona, stories: readonly PersonaStory[
             background: persona.background,
             brevity: persona.brevity,
             latitude: persona.latitude,
+            chattiness: persona.chattiness,
             storytelling: persona.storytelling,
             templates: persona.templates,
             diction: mutable(persona.diction),

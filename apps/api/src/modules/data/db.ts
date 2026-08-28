@@ -371,6 +371,7 @@ export interface DeadairPersonas {
   background: string | null;
   brevity: string | null;
   catchphrases: Generated<Json>;
+  chattiness: string | null;
   createdAt: Generated<DateTime>;
   diction: Generated<Json>;
   dictionMarkers: Generated<Json>;

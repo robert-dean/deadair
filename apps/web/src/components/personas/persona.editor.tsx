@@ -354,6 +354,20 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             allowDeselect={false}
                             {...form.getInputProps('storytelling')}
                         />
+
+                        <Select
+                            label="How often they talk"
+                            description="Scales the gap your station leaves between its own breaks. It does not touch anything on your clock: a band asking for news at nine is you asking in as many words. There is no silent setting — turning breaks off is a station setting, and two switches for one thing would disagree."
+                            data={[
+                                { value: '', label: "Ordinary — the station's own interval" },
+                                { value: 'relentless', label: 'Relentless — twice as often' },
+                                { value: 'chatty', label: 'Chatty — a little more often' },
+                                { value: 'sparing', label: 'Sparing — a little less often' },
+                                { value: 'reserved', label: 'Reserved — half as often' },
+                            ]}
+                            allowDeselect={false}
+                            {...form.getInputProps('chattiness')}
+                        />
                     </Group>
 
                     {/* The two compose, and neither control can say so on its own: a terse character
@@ -361,7 +375,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         what they have actually asked for. Each field's own description explains what
                         it does; this says what the combination comes to. */}
                     <Text size="xs" c="dimmed">
-                        {voiceReadout(form.values.brevity, form.values.latitude, form.values.storytelling)}
+                        {voiceReadout(form.values.brevity, form.values.latitude, form.values.storytelling, form.values.chattiness)}
                     </Text>
 
                     <Textarea
@@ -446,7 +460,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
  * with what gets measured on air, and a number repeated here would be a second claim about them that
  * nothing keeps true.
  */
-function voiceReadout(brevity: string, latitude: string, storytelling: string): string {
+function voiceReadout(brevity: string, latitude: string, storytelling: string, chattiness: string): string {
     const length =
         brevity === 'one-line'
             ? 'one line'
@@ -473,7 +487,20 @@ function voiceReadout(brevity: string, latitude: string, storytelling: string): 
               ? ' It works one of its own stories into most breaks.'
               : ' It reaches for one of its own stories when the station knows nothing about the records.';
 
-    return `${manner}, in ${length}. The station's content rules and its refusals are unchanged either way.${stories}`;
+    // Frequency is the one of the four that is not about a break at all — it is about how many
+    // there are — so it leads with "and" rather than joining the sentence about how one sounds.
+    const often =
+        chattiness === '' || chattiness === 'ordinary'
+            ? ''
+            : chattiness === 'relentless'
+              ? ' It talks twice as often as the station would on its own.'
+              : chattiness === 'chatty'
+                ? ' It talks a little more often than the station would on its own.'
+                : chattiness === 'sparing'
+                  ? ' It talks a little less often than the station would on its own.'
+                  : ' It talks half as often as the station would on its own.';
+
+    return `${manner}, in ${length}. The station's content rules and its refusals are unchanged either way.${stories}${often}`;
 }
 
 /**
@@ -617,6 +644,7 @@ interface FormValues {
     background: string;
     brevity: string;
     latitude: string;
+    chattiness: string;
     storytelling: string;
     templates: string;
     diction: string;
@@ -652,6 +680,7 @@ function valuesOf(persona: PersonaDraftView | undefined): FormValues {
         background: persona?.background ?? '',
         brevity: persona?.brevity ?? '',
         latitude: persona?.latitude ?? '',
+        chattiness: persona?.chattiness ?? '',
         storytelling: persona?.storytelling ?? '',
         templates: persona?.templates ?? '',
         diction: linesOf(persona?.diction),
@@ -685,6 +714,12 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
     const latitude: PersonaInput['latitude'] = values.latitude === 'loose' || values.latitude === 'unleashed' ? values.latitude : undefined;
     const storytelling: PersonaInput['storytelling'] =
         values.storytelling === 'never' || values.storytelling === 'often' ? values.storytelling : undefined;
+    // `ordinary` is the default and is sent as absent, matching how every other rung on this form
+    // treats its middle: a stored value that means "unchanged" is a row saying what a null already says.
+    const chattiness: PersonaInput['chattiness'] =
+        values.chattiness === 'reserved' || values.chattiness === 'sparing' || values.chattiness === 'chatty' || values.chattiness === 'relentless'
+            ? values.chattiness
+            : undefined;
 
     return {
         key: values.key.trim(),
@@ -706,6 +741,7 @@ function draftOf(values: FormValues, kind: PersonaKind): PersonaInput {
             // rung rather than the bottom one. `occasionally` is what a character with nothing set
             // does, so it is the one option in the select with no value behind it — a persona that
             // never mentions its own past is a decision and is stored as `never`.
+            chattiness,
             storytelling,
             // Not trimmed per line: the phrasings are parsed by the API the same way the station's
             // own setting is, and a blank line between two of them is somebody spacing their list.

@@ -383,6 +383,7 @@ export function draftOf(body: PersonaInput): PersonaDraft {
             // Threaded here and in `toView` as of the caller work. It was in `toDraftView` alone, so
             // a generated sheet could carry it and an operator's own save silently cleared it and
             // the editor never drew it back — the field worked for seeds and for nothing else.
+            chattiness: body.chattiness,
             storytelling: body.storytelling,
             templates: text(body.templates),
             diction: list(body.diction),
@@ -411,6 +412,7 @@ function toView(persona: Persona): PersonaView {
             background: persona.background,
             brevity: persona.brevity,
             latitude: persona.latitude,
+            chattiness: persona.chattiness,
             storytelling: persona.storytelling,
             templates: persona.templates,
             diction: mutable(persona.diction),
@@ -451,6 +453,7 @@ function toDraftView(draft: PersonaDraft): PersonaDraftView {
             background: draft.background,
             brevity: draft.brevity,
             latitude: draft.latitude,
+            chattiness: draft.chattiness,
             storytelling: draft.storytelling,
             templates: draft.templates,
             diction: mutable(draft.diction),

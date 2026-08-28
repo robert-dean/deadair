@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import { isPersonaBrevity, isPersonaLatitude, isPersonaStorytelling } from './persona.sheet.js';
+import { isPersonaBrevity, isPersonaChattiness, isPersonaLatitude, isPersonaStorytelling } from './persona.sheet.js';
 import { DEFAULT_PERSONA_KIND, isPersonaKind, type Persona, type PersonaDraft } from './persona.js';
 
 /**
@@ -266,6 +266,7 @@ function columnsOf(draft: PersonaDraft) {
         soundboard: draft.soundboard ?? null,
         brevity: draft.brevity ?? null,
         latitude: draft.latitude ?? null,
+        chattiness: draft.chattiness ?? null,
         storytelling: draft.storytelling ?? null,
         diction: jsonOf(draft.diction),
         dictionMarkers: jsonOf(draft.dictionMarkers),
@@ -307,6 +308,7 @@ function toPersona(row: {
     soundboard: string | null;
     brevity: string | null;
     latitude: string | null;
+    chattiness: string | null;
     storytelling: string | null;
     diction: unknown;
     dictionMarkers: unknown;
@@ -341,6 +343,7 @@ function toPersona(row: {
         // otherwise put an unknown rung in front of a model as an instruction.
         ...(isPersonaBrevity(row.brevity) ? { brevity: row.brevity } : {}),
         ...(isPersonaLatitude(row.latitude) ? { latitude: row.latitude } : {}),
+        ...(isPersonaChattiness(row.chattiness) ? { chattiness: row.chattiness } : {}),
         ...(isPersonaStorytelling(row.storytelling) ? { storytelling: row.storytelling } : {}),
         ...list(row.diction, 'diction'),
         ...list(row.dictionMarkers, 'dictionMarkers'),

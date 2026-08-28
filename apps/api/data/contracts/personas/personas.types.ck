@@ -23,6 +23,7 @@ contract Persona: {
     background?: string(max=2000) # A couple of grounded facts they may self-reference
     brevity?: enum(short, one-line) # How much this character says. Absent for the station's ordinary length; the rung above it is `latitude`, which is a different kind of thing rather than a longer one
     latitude?: enum(loose, unleashed) # How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal
+    chattiness?: enum(reserved, sparing, ordinary, chatty, relentless) # How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree
     storytelling?: enum(never, occasionally, often) # How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says
     samples?: array(string(min=1, max=500)) # Lines in their own voice, used as examples and as a console preview
     templates?: string(max=20000) # This character's own break phrasings, one per line. Empty means the station's global ones
@@ -57,6 +58,7 @@ contract PersonaDraftView: {
     background?: string(max=2000)
     brevity?: enum(short, one-line)
     latitude?: enum(loose, unleashed)
+    chattiness?: enum(reserved, sparing, ordinary, chatty, relentless)
     storytelling?: enum(never, occasionally, often)
     samples?: array(string(min=1, max=500))
     templates?: string(max=20000)

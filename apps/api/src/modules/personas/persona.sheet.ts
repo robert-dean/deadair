@@ -177,6 +177,61 @@ export const latitudeOf = (sheet: PersonaSheet | undefined): PersonaLatitude | u
     sheet !== undefined && isPersonaLatitude(sheet.latitude) ? sheet.latitude : undefined;
 
 /**
+ * How OFTEN this character talks.
+ *
+ * The third of the three things a sheet says about a break and the last to exist. `brevity` is how
+ * LONG one is and `latitude` is how much ROOM the character gets inside it; how often one happens at
+ * all was `rotation.breaks` and the format clock, station-wide, so every character on the roster
+ * shared one setting. A host that talks over every boundary and one that says a line an hour are the
+ * same character at two settings, where a short break and a licensed one are two different kinds of
+ * claim — which is why this is a third column rather than a rung on either of those.
+ */
+export const PERSONA_CHATTINESS = ['reserved', 'sparing', 'ordinary', 'chatty', 'relentless'] as const;
+
+export type PersonaChattiness = (typeof PERSONA_CHATTINESS)[number];
+
+/** Whether a stored value is a rung, so a hand-edited row cannot decide how often the station talks. */
+export const isPersonaChattiness = (value: unknown): value is PersonaChattiness => PERSONA_CHATTINESS.includes(value as PersonaChattiness);
+
+/** What a sheet with nothing set means: the station's own interval, unscaled. */
+export const DEFAULT_CHATTINESS: PersonaChattiness = 'ordinary';
+
+/**
+ * What each rung does to the station's own spacing floor, as a multiplier on the interval.
+ *
+ * Above 1 is a longer gap and so a quieter station. The two below are deliberately not symmetric
+ * with the two above: halving an interval doubles the talking, and doubling it only halves it, so
+ * `relentless` at 0.5 is a bigger move than `reserved` at 2 and that is the right way round — the
+ * hazard on a station is a character that will not shut up, not one that is a bit quiet.
+ *
+ * **There is no rung at zero, and that is the bound this file had to settle before it was built.**
+ * `rotation.breaks` off is already how an operator stops the station talking. A persona that could
+ * switch itself off would be a second switch able to disagree with the first, with nothing in a log
+ * saying which one held — so the quietest rung is half as often and never none.
+ */
+export const CHATTINESS_SPACING: Record<PersonaChattiness, number> = {
+    reserved: 2,
+    sparing: 1.5,
+    ordinary: 1,
+    chatty: 0.75,
+    relentless: 0.5,
+};
+
+/**
+ * The rung in force, with {@link DEFAULT_CHATTINESS} behind an unset or nonsense one.
+ *
+ * Like {@link storytellingOf} and unlike the two rungs above it, this never reaches a model: it is a
+ * host decision about whether there is a break to write at all, taken before there is a prompt. A
+ * reader looking for its wording in {@link personaLines} will not find any.
+ *
+ * **It scales the station's own floor and nothing else.** A clock band is an operator asking for a
+ * break at a time in as many words, and a habit does not get to overrule an instruction — the same
+ * asymmetry `storytelling` has against a `story` band, and `latitude` has against `BreakPromptShape`.
+ */
+export const chattinessOf = (sheet: PersonaSheet | undefined): PersonaChattiness =>
+    sheet !== undefined && isPersonaChattiness(sheet.chattiness) ? sheet.chattiness : DEFAULT_CHATTINESS;
+
+/**
  * How readily this character works one of its own stories into an ordinary talk break.
  *
  * The stories themselves are `deadair.persona_stories`, because they accumulate and a sheet cannot
@@ -379,6 +434,18 @@ export interface PersonaSheet {
      *   moves where that cut falls rather than whether a long break survives at all.
      */
     latitude?: PersonaLatitude;
+    /**
+     * How often this character talks, or absent for the station's own interval unscaled.
+     *
+     * The third thing a sheet says about a break, and the one that was station-wide until it existed:
+     * `brevity` is how long, `latitude` is how much room, and how OFTEN was `rotation.breaks` and the
+     * format clock for every character at once.
+     *
+     * Read through {@link chattinessOf}, which is where the rungs are argued and where the bound is —
+     * the quietest is half as often and never silence, because `rotation.breaks` is already that
+     * switch and two switches for one thing can disagree.
+     */
+    chattiness?: PersonaChattiness;
     /**
      * How readily this character works one of its own stories into an ordinary talk break, or absent
      * for {@link DEFAULT_STORYTELLING}.

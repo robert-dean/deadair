@@ -86,6 +86,7 @@ export const SHEET_FIELDS: ReadonlyArray<readonly [keyof PersonaFilePersona, str
     ['background', 'its background'],
     ['brevity', 'how much it says'],
     ['latitude', 'how much room it is given'],
+    ['chattiness', 'how often it talks'],
     ['storytelling', 'how readily it tells a story'],
     ['templates', 'its own phrasings'],
     ['diction', 'its diction'],

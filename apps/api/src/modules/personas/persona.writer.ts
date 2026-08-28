@@ -41,6 +41,7 @@ import type { PersonaStoryDraft } from './persona.story.js';
 import {
     isPersonaBrevity,
     isPersonaLatitude,
+    isPersonaChattiness,
     isPersonaStorytelling,
     MAX_SAMPLES_JUDGED,
     PERSONA_SHEET_LIMITS,
@@ -166,6 +167,7 @@ export function personaPrompt(description: string): LlmMessage[] {
                 '  "background": "a couple of grounded facts they may mention about themselves",',
                 '  "brevity": "omit this unless the character is notably terse; \\"short\\" for one who says less than most, \\"one-line\\" for one who barely speaks",',
                 '  "latitude": "omit this unless the character is one that has to be allowed to run: \\"loose\\" for one who follows a thought wherever it goes, \\"unleashed\\" for one who does that and says it however they like",',
+                '  "chattiness": "how often this character talks, scaling the gap the station leaves between breaks: \\"reserved\\", \\"sparing\\", \\"ordinary\\", \\"chatty\\" or \\"relentless\\". Omit it for ordinary. There is no silent option.",',
                 '  "storytelling": "how often they bring up something that happened to them: \\"never\\", \\"occasionally\\" or \\"often\\". Omit it for occasionally.",',
                 '  "stories": [{"title": "a short handle, never said out loud", "story": "two or three sentences of something that happened to this character, in their own voice, as told on air"}],',
                 `  "templates": ["five phrasings in this character's voice, one string each. Values you may use: ${TEMPLATE_VALUES.join(' ')}"]`,
@@ -316,6 +318,7 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
     const latitude = isPersonaLatitude(raw.latitude) ? raw.latitude : undefined;
     // Same treatment again. A model answering "sometimes" leaves the rung unset, which reads as
     // `occasionally` — the default, and the one an unset field should mean.
+    const chattiness = isPersonaChattiness(raw.chattiness) ? raw.chattiness : undefined;
     const storytelling = isPersonaStorytelling(raw.storytelling) ? raw.storytelling : undefined;
 
     // Unwrapped BEFORE it is judged, because the quotes are the model's packaging rather than part
@@ -341,6 +344,7 @@ function draftFrom(raw: Record<string, unknown>): GeneratedPersona | undefined {
                 background: text(raw.background),
                 brevity,
                 latitude,
+                chattiness,
                 storytelling,
                 // Empty means the station's own phrasings, which is a legitimate persona and the
                 // right answer for one whose every generated line was malformed.

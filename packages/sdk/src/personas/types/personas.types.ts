@@ -35,6 +35,8 @@ export interface Persona {
     brevity?: 'short' | 'one-line';
     /** How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal */
     latitude?: 'loose' | 'unleashed';
+    /** How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree */
+    chattiness?: 'reserved' | 'sparing' | 'ordinary' | 'chatty' | 'relentless';
     /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
     storytelling?: 'never' | 'occasionally' | 'often';
     /** Lines in their own voice, used as examples and as a console preview */
@@ -77,6 +79,8 @@ export interface PersonaInput {
     brevity?: 'short' | 'one-line';
     /** How much room this character is given, above the station's ordinary discipline: a bigger word ceiling, a licence to follow the thought instead of making one point, and at `unleashed` no restraint on how it says it. Offered only by the ordinary talk break, always outranked by the station's content policy, and it switches off no refusal */
     latitude?: 'loose' | 'unleashed';
+    /** How often this character talks, as a scale on the station's own interval between breaks. Absent is `ordinary`, which is that interval unchanged. The quietest rung is half as often and never silence: turning the station's breaks off is a station setting, and two switches for one thing can disagree */
+    chattiness?: 'reserved' | 'sparing' | 'ordinary' | 'chatty' | 'relentless';
     /** How readily this character works one of its own stories into an ordinary talk break. Absent is `occasionally`, which offers one only where the station knows nothing about the records either side. The stories themselves are their own list, and a `story` band on the clock outranks this whatever it says */
     storytelling?: 'never' | 'occasionally' | 'often';
     /** Lines in their own voice, used as examples and as a console preview */
@@ -87,7 +91,7 @@ export interface PersonaInput {
 
 /**
  * A description of a character, in the operator's own words
- * generated from [PersonaRequest](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L37)
+ * generated from [PersonaRequest](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L38)
  */
 export interface PersonaRequest {
     description: string;
@@ -97,7 +101,7 @@ export interface PersonaRequest {
  * A persona as a form's contents rather than a row: no id and not on air, because nothing has been
  * saved. The console opens this in the editor and the operator saves it through POST /personas, which
  * is what keeps generating a way of filling in the form rather than a second writer of the table
- * generated from [PersonaDraftView](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L44)
+ * generated from [PersonaDraftView](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L45)
  */
 export interface PersonaDraftView {
     key: string;
@@ -115,6 +119,7 @@ export interface PersonaDraftView {
     background?: string;
     brevity?: 'short' | 'one-line';
     latitude?: 'loose' | 'unleashed';
+    chattiness?: 'reserved' | 'sparing' | 'ordinary' | 'chatty' | 'relentless';
     storytelling?: 'never' | 'occasionally' | 'often';
     samples?: string[];
     templates?: string;
@@ -125,7 +130,7 @@ export interface PersonaDraftView {
  * different claims: `said` records something it actually put on air and carries the script as its
  * evidence, so it is a record and goes straight into use; `trait` infers who the character is
  * becoming, which nothing can verify, so a model's arrives `suggested` and the operator is the check
- * generated from [PersonaNote](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L77)
+ * generated from [PersonaNote](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L79)
  */
 export interface PersonaNote {
     id: string;
@@ -155,7 +160,7 @@ export interface PersonaNoteInput {
 
 /**
  * A note an operator is writing by hand. Always active and always theirs; a proposal is something only the distil pass creates
- * generated from [PersonaNoteWrite](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L94)
+ * generated from [PersonaNoteWrite](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L96)
  */
 export interface PersonaNoteWrite {
     kind: 'said' | 'trait';
@@ -164,7 +169,7 @@ export interface PersonaNoteWrite {
 
 /**
  * Accepting a proposal, turning one down, or taking a note out of use without losing it
- * generated from [PersonaNoteState](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L99)
+ * generated from [PersonaNoteState](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L101)
  */
 export interface PersonaNoteState {
     state: 'active' | 'suggested' | 'rejected';
@@ -172,7 +177,7 @@ export interface PersonaNoteState {
 
 /**
  * One thing a story has picked up since it was written. A row rather than a rewrite, so an invented clause can be turned down without losing the story
- * generated from [PersonaStoryDetail](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L120)
+ * generated from [PersonaStoryDetail](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L122)
  */
 export interface PersonaStoryDetail {
     id: string;
@@ -189,7 +194,7 @@ export interface PersonaStoryDetailInput {
 
 /**
  * A story an operator is writing by hand. Always active and always theirs; a proposal is something only the enrichment pass creates
- * generated from [PersonaStoryWrite](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L134)
+ * generated from [PersonaStoryWrite](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L136)
  */
 export interface PersonaStoryWrite {
     title: string;
@@ -198,7 +203,7 @@ export interface PersonaStoryWrite {
 
 /**
  * One thing to add to a story that already exists
- * generated from [PersonaStoryDetailWrite](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L139)
+ * generated from [PersonaStoryDetailWrite](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L141)
  */
 export interface PersonaStoryDetailWrite {
     detail: string;
@@ -206,7 +211,7 @@ export interface PersonaStoryDetailWrite {
 
 /**
  * Accepting a proposal, turning one down, or taking a story out of the rotation without losing it
- * generated from [PersonaStoryState](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L143)
+ * generated from [PersonaStoryState](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L145)
  */
 export interface PersonaStoryState {
     state: 'active' | 'suggested' | 'rejected';
@@ -214,7 +219,7 @@ export interface PersonaStoryState {
 
 /**
  * One thing a story picked up after it was written, carried the same way and for the same reasons
- * generated from [PersonaFileStoryDetail](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L176)
+ * generated from [PersonaFileStoryDetail](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L178)
  */
 export interface PersonaFileStoryDetail {
     detail: string;
@@ -225,7 +230,7 @@ export interface PersonaFileStoryDetail {
  * Something to know before pressing Import. Not a refusal: every one of these describes a state the
  * station can be in perfectly well, and the point of saying it is that each one is otherwise
  * discovered by putting the character on air
- * generated from [PersonaImportNotice](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L224)
+ * generated from [PersonaImportNotice](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L226)
  */
 export interface PersonaImportNotice {
     /** Which sort, so a console can group or ignore by it rather than parsing the sentence */
@@ -240,7 +245,7 @@ export interface PersonaImportNoticeInput {}
  * One writer's turn at a rehearsal. Every writer asked is reported and not only the one that won: a
  * model that declined and a floor that covered for it are two facts, and the second on its own reads
  * as a station that never had a model configured
- * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L241)
+ * generated from [PersonaRehearsalAttempt](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L243)
  */
 export interface PersonaRehearsalAttempt {
     /** Which binding was asked, as `segments.writer` would record it */
@@ -256,7 +261,7 @@ export interface PersonaRehearsalAttempt {
 }
 
 /**
- * generated from [PersonaList](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L32)
+ * generated from [PersonaList](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L33)
  */
 export interface PersonaList {
     personas: Persona[];
@@ -268,7 +273,7 @@ export interface PersonaListInput {
 
 /**
  * One character's whole notebook, oldest first, in every state
- * generated from [PersonaNoteList](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L89)
+ * generated from [PersonaNoteList](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L91)
  */
 export interface PersonaNoteList {
     personaId: string;
@@ -285,7 +290,7 @@ export interface PersonaNoteListInput {
  * checked as one: `source` says where a proposal came from, for the operator reading it, and nothing
  * downstream reads it as evidence — see `persona.story.ts` for why that is the load-bearing difference
  * from a fact
- * generated from [PersonaStory](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L107)
+ * generated from [PersonaStory](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L109)
  */
 export interface PersonaStory {
     id: string;
@@ -317,7 +322,7 @@ export interface PersonaStoryInput {
 
 /**
  * What a model wrote, and what had to be dropped to make it usable
- * generated from [GeneratedPersona](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L66)
+ * generated from [GeneratedPersona](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L68)
  */
 export interface GeneratedPersona {
     persona: PersonaDraftView;
@@ -334,7 +339,7 @@ export interface GeneratedPersona {
  * unlike the stored row: whoever exported this stood behind every story in it, so on the far side
  * they are the receiving operator's own, and a sentence about where a proposal came from names a
  * catalogue that station does not have
- * generated from [PersonaFileStory](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L169)
+ * generated from [PersonaFileStory](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L171)
  */
 export interface PersonaFileStory {
     title: string;
@@ -346,7 +351,7 @@ export interface PersonaFileStory {
 
 /**
  * One character in a file, and what would become of it here
- * generated from [PersonaImportEntry](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L195)
+ * generated from [PersonaImportEntry](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L197)
  */
 export interface PersonaImportEntry {
     /** What identifies this character across two installs */
@@ -367,7 +372,7 @@ export interface PersonaImportEntryInput {}
 
 /**
  * What a persona says when it is asked for a break it will never air
- * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L250)
+ * generated from [PersonaRehearsal](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L252)
  */
 export interface PersonaRehearsal {
     personaId: string;
@@ -386,7 +391,7 @@ export interface PersonaRehearsal {
 
 /**
  * Every story one character holds, oldest first, in every state
- * generated from [PersonaStoryList](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L129)
+ * generated from [PersonaStoryList](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L131)
  */
 export interface PersonaStoryList {
     personaId: string;
@@ -402,7 +407,7 @@ export interface PersonaStoryListInput {
  * One character in a file. `PersonaDraftView` is the sheet with no id and not on air, which is
  * exactly what travels, plus the two fields a model is deliberately not asked for and a real install
  * always knows: what the character is FOR, and which rack it has to hand
- * generated from [PersonaFilePersona](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L159)
+ * generated from [PersonaFilePersona](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L161)
  */
 export interface PersonaFilePersona extends Omit<PersonaDraftView, 'soundboard'> {
     /** Absent means `host`, as everywhere else */
@@ -418,7 +423,7 @@ export interface PersonaFilePersona extends Omit<PersonaDraftView, 'soundboard'>
  * The same code the import itself runs, so what this reports is what will happen rather than a second
  * opinion about it. It answers two questions an operator cannot get from the file alone: which
  * characters are new here and which would be rewritten, and what this station cannot honour about them
- * generated from [PersonaImportPlan](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L186)
+ * generated from [PersonaImportPlan](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L188)
  */
 export interface PersonaImportPlan {
     /** What the file said it was. Reported rather than enforced: this repo edits migrations in place, so a version stamp cannot promise a shape, and the shapes are what was actually validated */
@@ -437,7 +442,7 @@ export interface PersonaImportPlanInput {}
 /**
  * A character as a file: everything somebody would have to send to put this presenter on another
  * station, and nothing that belongs to the station it came from
- * generated from [PersonaFile](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L149)
+ * generated from [PersonaFile](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L151)
  */
 export interface PersonaFile {
     /** What shape this is, so a file from a later build says so rather than being read wrongly. The shapes below are what an import actually validates; this is for the human reading the failure */
@@ -455,7 +460,7 @@ export interface PersonaFile {
  * All or nothing: a file whose import failed part-way leaves the station exactly as it was, on
  * `PUT /settings`' own rule. The preview is what stands between an operator and a surprise, so a
  * partial landing would be the one outcome nothing had described
- * generated from [PersonaImportResult](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L212)
+ * generated from [PersonaImportResult](file://./../../../../../apps/api/data/contracts/personas/personas.types.ck#L214)
  */
 export interface PersonaImportResult {
     /** What it decided to do, notices and all, so the answer carries its own explanation */

@@ -75,8 +75,20 @@ export type SilenceCause =
 export type SilenceState = 'ok' | 'waiting' | 'fault';
 
 /**
+ * One mount the station is publishing right now
+ * generated from [PlayoutMount](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L79)
+ */
+export interface PlayoutMount {
+    format: 'mp3' | 'opus' | 'aac' | 'flac';
+    /** Same-origin path, on the same terms as `PlayoutStatus.mountPath` */
+    path: string;
+    /** Absent for FLAC, which is lossless and has no rate to set */
+    bitrateKbps?: number;
+}
+
+/**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L92)
+ * generated from [PlayoutAiredQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L99)
  */
 export interface PlayoutAiredQuery {
     /** The id the app put on the pushed uri's `annotate:` metadata */
@@ -85,7 +97,7 @@ export interface PlayoutAiredQuery {
 
 /**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L96)
+ * generated from [PlayoutStarveQuery](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L103)
  */
 export interface PlayoutStarveQuery {
     /** `starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again */
@@ -136,15 +148,17 @@ export interface StationSilence {
 
 /**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L79)
+ * generated from [PlayoutStatus](file://./../../../../../apps/api/data/contracts/playout/playout.types.ck#L85)
  */
 export interface PlayoutStatus {
     /** Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds */
     streamUp: boolean;
     /** Whether the station is actually broadcasting. deadair holds the mount on a lease it renews only while it has a programme, so a reachable stream with nothing to play is up and NOT on air: it is connected, and airing silence */
     onAir: boolean;
-    /** Same-origin path of the Icecast mount, for a console that wants to monitor what it is driving. A path rather than a URL: the browser reaches Icecast through whatever edge served the SPA, never at the address the app itself uses */
+    /** Same-origin path of the Icecast MP3 mount, which is always published and is the one a console names when it can only name one. A path rather than a URL: the browser reaches Icecast through whatever edge served the SPA, never at the address the app itself uses */
     mountPath: string;
+    /** Every mount being published, MP3 first, so a console can offer the others rather than implying the station is only on one. Never empty: MP3 has no switch. A format the operator has not switched on is absent rather than present and disabled, because every consumer of this wants the mounts that are actually there */
+    mounts: PlayoutMount[];
     nowPlaying?: PlayoutNowPlaying;
     /** Waiting here, in order. Excludes what the player already holds */
     upNext: PlayoutItem[];

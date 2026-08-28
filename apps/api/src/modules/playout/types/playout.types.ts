@@ -83,8 +83,19 @@ export const SilenceState = z.enum(['ok', 'waiting', 'fault']);
 export type SilenceState = z.infer<typeof SilenceState>;
 
 /**
+ * One mount the station is publishing right now
+ * generated from [PlayoutMount](file://./../../../../data/contracts/playout/playout.types.ck#L79)
+ */
+export const PlayoutMount = z.strictObject({
+    format: z.enum(['mp3', 'opus', 'aac', 'flac']),
+    path: z.string().min(1).max(200).describe('Same-origin path, on the same terms as `PlayoutStatus.mountPath`'),
+    bitrateKbps: z.coerce.number().int().min(1).optional().describe('Absent for FLAC, which is lossless and has no rate to set'),
+});
+export type PlayoutMount = z.infer<typeof PlayoutMount>;
+
+/**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L92)
+ * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L99)
  */
 export const PlayoutAiredQuery = z.strictObject({
     item: z.string().min(1).max(100).describe("The id the app put on the pushed uri's `annotate:` metadata"),
@@ -93,7 +104,7 @@ export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
 
 /**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](file://./../../../../data/contracts/playout/playout.types.ck#L96)
+ * generated from [PlayoutStarveQuery](file://./../../../../data/contracts/playout/playout.types.ck#L103)
  */
 export const PlayoutStarveQuery = z.strictObject({
     state: z
@@ -162,7 +173,7 @@ export type StationSilence = z.infer<typeof StationSilence>;
 
 /**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](file://./../../../../data/contracts/playout/playout.types.ck#L79)
+ * generated from [PlayoutStatus](file://./../../../../data/contracts/playout/playout.types.ck#L85)
  */
 export const PlayoutStatus = z.strictObject({
     streamUp: z
@@ -178,7 +189,12 @@ export const PlayoutStatus = z.strictObject({
         .min(1)
         .max(200)
         .describe(
-            'Same-origin path of the Icecast mount, for a console that wants to monitor what it is driving. A path rather than a URL: the browser reaches Icecast through whatever edge served the SPA, never at the address the app itself uses',
+            'Same-origin path of the Icecast MP3 mount, which is always published and is the one a console names when it can only name one. A path rather than a URL: the browser reaches Icecast through whatever edge served the SPA, never at the address the app itself uses',
+        ),
+    mounts: z
+        .array(PlayoutMount)
+        .describe(
+            'Every mount being published, MP3 first, so a console can offer the others rather than implying the station is only on one. Never empty: MP3 has no switch. A format the operator has not switched on is absent rather than present and disabled, because every consumer of this wants the mounts that are actually there',
         ),
     nowPlaying: PlayoutNowPlaying.optional(),
     upNext: z.array(PlayoutItem).describe('Waiting here, in order. Excludes what the player already holds'),

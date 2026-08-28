@@ -64,6 +64,28 @@ describe('CheckupPage', () => {
         expect(screen.getByText('581')).toBeInTheDocument();
     });
 
+    it('lists every mount the station publishes, not just the one it is named by', async () => {
+        allWell();
+        getPlayoutStatus.mockResolvedValue(
+            playoutStatus({
+                mounts: [
+                    { format: 'mp3', path: '/live.mp3', bitrateKbps: 128 },
+                    { format: 'opus', path: '/live.opus', bitrateKbps: 160 },
+                    { format: 'flac', path: '/live.flac' },
+                ],
+            }),
+        );
+
+        render(<CheckupPage />);
+
+        expect(await screen.findByText('/live.opus')).toBeInTheDocument();
+        expect(screen.getByText('/live.flac')).toBeInTheDocument();
+        expect(screen.getByText('160 kbps')).toBeInTheDocument();
+        // FLAC has no bitrate to report, and that is a fact about the format rather than a
+        // figure nobody filled in, so it says so instead of leaving a gap.
+        expect(screen.getByText('lossless')).toBeInTheDocument();
+    });
+
     /**
      * A loop that has registered and never finished a pass is a different fact from one that
      * stopped, which is why the contract carries `startedAt` beside `lastBeat`.

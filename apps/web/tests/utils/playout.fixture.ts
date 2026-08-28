@@ -82,6 +82,10 @@ export function playoutStatus(overrides: Partial<PlayoutStatus> = {}): PlayoutSt
         streamUp: true,
         onAir: true,
         mountPath: '/live.mp3',
+        // The station as it comes: MP3 alone, since every other format is opt-in. A test
+        // about the others overrides this rather than the fixture pretending to a station
+        // nobody has configured.
+        mounts: [{ format: 'mp3', path: '/live.mp3', bitrateKbps: 128 }],
         nowPlaying: {
             item: playoutItem(),
             startedAt: 1_700_000_000_000,

@@ -1,6 +1,6 @@
-import { Card, Group, Progress, Stack, Table, Text } from '@mantine/core';
+import { Button, Card, Code, CopyButton, Group, Progress, Stack, Table, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
-import type { PluginSummary, StationHeartbeat } from '@deadair/sdk';
+import type { PlayoutMount, PluginSummary, StationHeartbeat } from '@deadair/sdk';
 
 import { usePlayoutStatus } from '../../api/playout.queries';
 import { pluginsListOptions } from '../../api/plugins.queries';
@@ -73,6 +73,7 @@ export function CheckupPage() {
                             <Fact label="Stream" value={playout.data.streamUp ? 'up' : 'unreachable'} />
                             <Fact label="Queued" value={String(playout.data.queuedCount)} />
                         </Group>
+                        <Mounts mounts={playout.data.mounts} />
                         {/* A container running config that was replaced is never the CAUSE of a
                             silence, and is the reason the next attempt to go on air will fail. */}
                         {playout.data.staleStreamConfig.map(warning => (
@@ -286,6 +287,46 @@ function Plugins({ plugins }: { plugins: PluginSummary[] }) {
 }
 
 /** One figure, labelled. */
+/**
+ * Where the station can be listened to, one line per mount.
+ *
+ * The whole point of the copy button is that it hands over a URL rather than the PATH the status
+ * carries. The path is what the app knows — the station is reached through whatever edge served
+ * this console, and the app cannot name that edge — but a path is not something an operator can
+ * paste into a Sonos or a car stereo, and pasting it somewhere it does not work is the failure
+ * this list exists to prevent. `window.location.origin` is the browser answering the one question
+ * the server cannot.
+ *
+ * MP3 is always here and always first, so this is never empty and never needs an empty state.
+ */
+function Mounts({ mounts }: { mounts: PlayoutMount[] }) {
+    return (
+        <Stack gap="xxs">
+            <Eyebrow>Listen</Eyebrow>
+            {mounts.map(mount => (
+                <Group key={mount.path} gap="xs" wrap="nowrap">
+                    <Text size="xs" fw={600} tt="uppercase" w={38}>
+                        {mount.format}
+                    </Text>
+                    <Code>{mount.path}</Code>
+                    {/* FLAC has no bitrate to report, which is a fact about the format rather than
+                        a figure nobody filled in, so it says what it is instead of going blank. */}
+                    <Text size="xs" c="dimmed">
+                        {mount.bitrateKbps === undefined ? 'lossless' : `${mount.bitrateKbps} kbps`}
+                    </Text>
+                    <CopyButton value={`${window.location.origin}${mount.path}`}>
+                        {({ copied, copy }) => (
+                            <Button size="compact-xs" variant="subtle" color={copied ? 'green' : undefined} onClick={copy}>
+                                {copied ? 'Copied' : 'Copy'}
+                            </Button>
+                        )}
+                    </CopyButton>
+                </Group>
+            ))}
+        </Stack>
+    );
+}
+
 function Fact({ label, value }: { label: string; value: string }) {
     return (
         <Stack gap={0}>

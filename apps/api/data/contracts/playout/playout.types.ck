@@ -76,10 +76,17 @@ contract StationSilence: { # Why the station cannot be heard, as one answer
     checks: array(SilenceCheck) # Every gate, in the order they are judged, so a console can say what it ruled out. A `configNotAdopted` fault appears here and is never the cause, because a station can air perfectly well while it is true
 }
 
+contract PlayoutMount: { # One mount the station is publishing right now
+    format: enum(mp3, opus, aac, flac)
+    path: string(min=1, max=200) # Same-origin path, on the same terms as `PlayoutStatus.mountPath`
+    bitrateKbps?: int(min=1) # Absent for FLAC, which is lossless and has no rate to set
+}
+
 contract PlayoutStatus: { # The station's transport, as one reading
     streamUp: boolean # Whether Liquidsoap's control API is answering at all. False means nothing can air, whatever the running order holds
     onAir: boolean # Whether the station is actually broadcasting. deadair holds the mount on a lease it renews only while it has a programme, so a reachable stream with nothing to play is up and NOT on air: it is connected, and airing silence
-    mountPath: string(min=1, max=200) # Same-origin path of the Icecast mount, for a console that wants to monitor what it is driving. A path rather than a URL: the browser reaches Icecast through whatever edge served the SPA, never at the address the app itself uses
+    mountPath: string(min=1, max=200) # Same-origin path of the Icecast MP3 mount, which is always published and is the one a console names when it can only name one. A path rather than a URL: the browser reaches Icecast through whatever edge served the SPA, never at the address the app itself uses
+    mounts: array(PlayoutMount) # Every mount being published, MP3 first, so a console can offer the others rather than implying the station is only on one. Never empty: MP3 has no switch. A format the operator has not switched on is absent rather than present and disabled, because every consumer of this wants the mounts that are actually there
     nowPlaying?: PlayoutNowPlaying
     upNext: array(PlayoutItem) # Waiting here, in order. Excludes what the player already holds
     queuedCount: int(min=0) # How many items are waiting in total, of which `upNext` is the head

@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { StreamService } from '#modules/stream/stream.service.js';
+import { streamMounts } from '#modules/stream/stream.settings.js';
 import { StreamConfigWatch } from '#modules/stream/stream.staleness.js';
 import { TrackAudioService } from './audio/track.audio.service.js';
 import type { TrackContentType } from './audio/track.store.js';
@@ -116,14 +117,22 @@ export class PlayoutService {
         // actually airs next. Counted from the same list, so `queuedCount` and
         // `upNext` can never disagree about what is coming.
         const upcoming = this.rundown.upcoming();
-        // The mount is a setting, so the console follows it rather than keeping a second
-        // copy that drifts. A PATH, not a URL: `stream.icecastHost` names Icecast as the
+        // The mounts are settings, so the console follows them rather than keeping a second
+        // copy that drifts. PATHS, not URLs: `stream.icecastHost` names Icecast as the
         // app's containers see it, which is not an address a browser can reach.
-        const { mount } = await this.stream.settings();
+        //
+        // Through `streamMounts` rather than assembled here, because four other things read
+        // the same list — the config renderer, the audience gate, the edge and this — and a
+        // console offering a mount the renderer did not write is worse than offering none.
+        const settings = await this.stream.settings();
+        const mounts = streamMounts(settings);
         const silence = await this.diagnoseSilence();
 
         return {
-            mountPath: mount,
+            // The MP3 mount, which is always published and is the one to name when only one
+            // can be named. `mounts` carries the rest.
+            mountPath: settings.mount,
+            mounts,
             // Reachability is the honest answer to "can anything air right now".
             // A running order with no stream to hand it to plays nothing, and a
             // console that showed a queue without saying so would be lying by omission.

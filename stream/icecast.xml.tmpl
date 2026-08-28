@@ -13,9 +13,18 @@
 
   <limits>
     <clients>100</clients>
-    <!-- Headroom for a future live/harbor source alongside the main mount. -->
-    <sources>4</sources>
-    <queue-size>524288</queue-size>
+    <!-- Four format mounts (MP3 always, Opus/AAC/FLAC as the operator switches them on) plus
+         headroom for a future live/harbor source. -->
+    <sources>8</sources>
+    <!-- SLOW-CLIENT TOLERANCE, and it is counted in BYTES rather than seconds, which is the whole
+         reason it is rendered rather than written here as a literal.
+         A fixed 524288 is ~32s at 128 kbps and ~4.7s at a FLAC mount's ~900 kbps, so a station
+         that switched on a lossless mount would start dropping listeners the MP3 mount had been
+         carrying without complaint — and the fault would present as "the new high-quality mount
+         keeps cutting people off" rather than as a buffer nobody re-derived.
+         So the app sizes it from the HIGHEST enabled bitrate, in seconds. See
+         apps/api/src/modules/stream/stream.config.ts. -->
+    <queue-size>{{QUEUE_SIZE}}</queue-size>
     <client-timeout>30</client-timeout>
     <header-timeout>15</header-timeout>
     <source-timeout>10</source-timeout>
@@ -23,11 +32,16 @@
          The burst is BACKLOG: a listener starts that far behind the live edge and stays there for
          the whole session, so it is also how late the mount answers anything an operator does on
          air. Measured at the mount, the old 65536 was handing out ~4s of it.
-         8192 B ≈ 0.5s at 128 kbps: still enough to prime a decoder on connect, and roughly the
-         smallest that starts cleanly across browsers. Raise it if a player takes visibly longer
-         to start on a poor connection — that is the trade this number makes, and nothing else. -->
+         ~0.5s of it: still enough to prime a decoder on connect, and roughly the smallest that
+         starts cleanly across browsers. Raise it if a player takes visibly longer to start on a
+         poor connection — that is the trade this number makes, and nothing else.
+         Bytes again, so it is rendered too — but from the MP3 mount's bitrate ALONE, and
+         deliberately not from the highest. This is the global default and the burst is latency
+         everybody pays: sizing it for a FLAC mount would hand every MP3 listener seconds of
+         backlog to buy a lossless listener half of one. A mount whose own bitrate makes this
+         value too short in TIME carries its own override; see the blocks below. -->
     <burst-on-connect>1</burst-on-connect>
-    <burst-size>8192</burst-size>
+    <burst-size>{{BURST_SIZE}}</burst-size>
   </limits>
 
   <authentication>
@@ -76,6 +90,27 @@
          carries `source-listeners-changed` on every change in either direction with an authoritative
          count, so both edges are already known without holding anybody's connection open. -->
   </mount>
+
+  <!-- The optional format mounts: one block per format the operator switched on, and nothing at
+       all when none is. Rendered, because which of them exist is a setting.
+
+       Each carries its OWN credentials rather than inheriting them. Icecast does have a
+       default-typed mount block for exactly this, and it was the obvious way to write it — but a
+       default block does not merge with a normal-typed one, so it would have had to cover the
+       optional mounts while the MP3 mount above kept its own copy anyway, and it could not give
+       a FLAC mount the longer burst it needs without handing the same burst to Opus and AAC.
+       One self-contained block per mount costs some repetition in a file nobody hand-edits and
+       makes each mount's numbers its own.
+       (Written without angle brackets on purpose: a mount element quoted in prose is one a grep
+       for the mounts this file declares would count as a real one, and one such grep is the test
+       that holds this file to the number of mounts the settings asked for.)
+
+       Credentials at all, rather than none, because a mount that declares none has nothing to
+       authorise a mount-scoped admin command against: /admin/metadata answers 401 to the source
+       password AND the admin one, and every ICY title update for that mount is silently refused.
+       That is the failure the block above records at length, and it would come straight back on
+       three new mounts at once. -->
+{{EXTRA_MOUNTS}}
 
   <fileserve>1</fileserve>
   <!-- Paths match the libretime/icecast image (built from source, prefix /usr,

@@ -81,7 +81,7 @@ import {
     MIN_PRODUCTION_MINUTES,
     PRODUCTION_KEYS,
 } from '#modules/productions/production.settings.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { AAC_BITRATES, OPUS_BITRATES, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
 
@@ -208,6 +208,48 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Bitrate (kbps)',
         type: 'string',
         default: STREAM_DEFAULTS.bitrate,
+        help: 'The MP3 mount, which every listener can play and which is the one the station is always on.',
+    },
+    {
+        group: 'station',
+        key: STREAM_KEYS.opusEnabled,
+        label: 'Also publish Opus',
+        type: 'boolean',
+        default: STREAM_DEFAULTS.opusEnabled,
+        help: 'The best quality per bit of any format here, and the one for a browser or a modern player. Hardware radios and car head units generally cannot play it, which is why MP3 stays whatever you choose here. The mount is the MP3 one with its extension swapped.',
+    },
+    {
+        group: 'station',
+        key: STREAM_KEYS.opusBitrate,
+        label: 'Opus bitrate (kbps)',
+        type: 'select',
+        default: STREAM_DEFAULTS.opusBitrate,
+        options: OPUS_BITRATES.map(value => ({ value, label: `${value} kbps` })),
+        help: 'A fixed set rather than free text, because the encoder takes this figure when the stream script is read and not as something it can be handed later.',
+    },
+    {
+        group: 'station',
+        key: STREAM_KEYS.aacEnabled,
+        label: 'Also publish AAC',
+        type: 'boolean',
+        default: STREAM_DEFAULTS.aacEnabled,
+        help: 'The format that widens hardware reach: a Sonos takes MP3 or AAC and nothing else, and most players that cannot manage Opus can manage this.',
+    },
+    {
+        group: 'station',
+        key: STREAM_KEYS.aacBitrate,
+        label: 'AAC bitrate (kbps)',
+        type: 'select',
+        default: STREAM_DEFAULTS.aacBitrate,
+        options: AAC_BITRATES.map(value => ({ value, label: `${value} kbps` })),
+    },
+    {
+        group: 'station',
+        key: STREAM_KEYS.flacEnabled,
+        label: 'Also publish FLAC',
+        type: 'boolean',
+        default: STREAM_DEFAULTS.flacEnabled,
+        help: 'Lossless, and worth having only when the records themselves are: a FLAC of a decoded lossy file is a perfect copy of a lossy file at seven times the bandwidth. Costs roughly 900 kbps per listener.',
     },
     {
         group: 'station',

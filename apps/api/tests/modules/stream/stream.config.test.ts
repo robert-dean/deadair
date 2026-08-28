@@ -49,6 +49,13 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
     publicUrl: '',
     mount: '/live.mp3',
     bitrate: '128',
+    // The unconfigured station: MP3 alone, which is what every case here assumes unless
+    // it says otherwise.
+    opusEnabled: false,
+    opusBitrate: '160',
+    aacEnabled: false,
+    aacBitrate: '192',
+    flacEnabled: false,
     hostname: '',
     location: '',
     language: '',
@@ -241,6 +248,132 @@ describe('writeStreamConfig', () => {
         // not override. The two halves of that pair are here and there.
         expect(xml).toContain('<username>source</username>');
         expect(xml).toContain(`<password>${sourcePassword}</password>`);
+    });
+
+    it('renders no extra mount blocks for a station that publishes MP3 alone', () => {
+        const { configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir: shippedAssetsDir(), configDir });
+
+        const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
+
+        // One mount, and no leftover token where the others would go.
+        expect(xml.match(/<mount type=/g)).toHaveLength(1);
+        expect(xml).not.toContain('{{EXTRA_MOUNTS}}');
+    });
+
+    it('gives every extra mount its own credentials, so its metadata updates are not refused', () => {
+        // The same failure as the MP3 mount's block above, which would come straight back
+        // on three mounts at once: a mount that declares no username and password has
+        // nothing to authorise a mount-scoped /admin/metadata against, and every ICY title
+        // for it is accepted by Liquidsoap and then silently dropped.
+        //
+        // Against the SHIPPED template, for the reason the case above is.
+        const { configDir } = dirs();
+        const render = writeStreamConfig({
+            settings: settings({ opusEnabled: true, aacEnabled: true, flacEnabled: true }),
+            playout: playout(),
+            assetsDir: shippedAssetsDir(),
+            configDir,
+        });
+        expect(render).toBeDefined();
+
+        const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
+        const sourcePassword = /<source-password>(.*?)<\/source-password>/.exec(xml)?.[1];
+
+        expect(xml.match(/<mount type=/g)).toHaveLength(4);
+        for (const path of ['/live.opus', '/live.aac', '/live.flac']) {
+            const block = new RegExp(`<mount type="normal">\\s*<mount-name>${path.replace('.', '\\.')}</mount-name>[\\s\\S]*?</mount>`).exec(
+                xml,
+            )?.[0];
+            expect(block).toBeTruthy();
+            expect(block).toContain('<username>source</username>');
+            expect(block).toContain(`<password>${sourcePassword}</password>`);
+        }
+    });
+
+    it('leaves the buffers exactly as they were for an unchanged station', () => {
+        // The sizes are derived now rather than written as literals, and the derivation has
+        // to agree with the committed cold-boot config at the default bitrate — otherwise
+        // every station re-renders on upgrade and the staleness check reports a config
+        // change nobody made.
+        const { configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir: shippedAssetsDir(), configDir });
+
+        const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
+        expect(xml).toContain('<queue-size>524288</queue-size>');
+        expect(xml).toContain('<burst-size>8192</burst-size>');
+    });
+
+    it('grows the queue for a lossless mount, which is the trap the byte count sets', () => {
+        // `queue-size` is BYTES. Left at 524288 a FLAC mount has 4.7s of slow-client
+        // tolerance where the MP3 mount had 32, so a station that switched lossless on
+        // would start dropping listeners it had been carrying — and the fault reads as
+        // "the new high-quality mount keeps cutting people off".
+        const { configDir } = dirs();
+        writeStreamConfig({ settings: settings({ flacEnabled: true }), playout: playout(), assetsDir: shippedAssetsDir(), configDir });
+
+        const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
+        const queue = Number(/<queue-size>(\d+)<\/queue-size>/.exec(xml)?.[1]);
+
+        // ~900 kbps for 20 seconds, and comfortably more than the MP3-only figure.
+        expect(queue).toBe(Math.ceil(((900 * 1000) / 8) * 20));
+        expect(queue).toBeGreaterThan(524_288);
+    });
+
+    it('does not make every listener pay for the lossless mount is burst', () => {
+        // The burst is BACKLOG: a listener starts that far behind the live edge and stays
+        // there. Sizing the global one for FLAC would hand every MP3 listener seconds of
+        // latency to buy a lossless listener half of one, so the global stays the MP3
+        // mount's and FLAC carries its own.
+        const { configDir } = dirs();
+        writeStreamConfig({ settings: settings({ flacEnabled: true }), playout: playout(), assetsDir: shippedAssetsDir(), configDir });
+
+        const xml = readFileSync(join(configDir, 'icecast.xml'), 'utf8');
+        const limits = /<limits>[\s\S]*?<\/limits>/.exec(xml)?.[0] ?? '';
+        const flac = /<mount type="normal">\s*<mount-name>\/live\.flac<\/mount-name>[\s\S]*?<\/mount>/.exec(xml)?.[0] ?? '';
+
+        expect(limits).toContain('<burst-size>8192</burst-size>');
+        expect(Number(/<burst-size>(\d+)<\/burst-size>/.exec(flac)?.[1])).toBe(Math.ceil(((900 * 1000) / 8) * 0.5));
+    });
+
+    it('writes every optional mount key, in a fixed order, even with all of them off', () => {
+        // Two failures in one. A key that appears only when it is non-default is a key an
+        // operator cannot find when they go looking for why their mount is not there. And a
+        // key ORDER that moves with the settings changes the config stamp, which is the hash
+        // the staleness check compares a running container against.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        const raw = readFileSync(join(configDir, 'radio.env'), 'utf8');
+        const env = parseEnv(raw);
+
+        expect(env.get('STREAM_MOUNT_OPUS')).toBe('');
+        expect(env.get('STREAM_MOUNT_AAC')).toBe('');
+        expect(env.get('STREAM_MOUNT_FLAC')).toBe('');
+        expect(raw.indexOf('STREAM_MOUNT_OPUS')).toBeLessThan(raw.indexOf('STREAM_MOUNT_AAC'));
+        expect(raw.indexOf('STREAM_MOUNT_AAC')).toBeLessThan(raw.indexOf('STREAM_MOUNT_FLAC'));
+    });
+
+    it('hands liquidsoap the derived paths rather than making it derive them again', () => {
+        // Doing the extension swap twice, in two languages, is how the app comes to be
+        // counting listeners on a mount Liquidsoap called something else.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({
+            settings: settings({ mount: '/wbcn.mp3', opusEnabled: true, flacEnabled: true }),
+            playout: playout(),
+            assetsDir,
+            configDir,
+        });
+
+        const env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
+
+        expect(env.get('STREAM_MOUNT_OPUS')).toBe('/wbcn.opus');
+        expect(env.get('STREAM_OPUS_BITRATE')).toBe('160');
+        expect(env.get('STREAM_MOUNT_FLAC')).toBe('/wbcn.flac');
+        // Lossless: there is no bitrate to set, and an empty value says so.
+        expect(env.get('STREAM_FLAC_BITRATE')).toBe('');
+        // Off, and an empty path is how that is spelled.
+        expect(env.get('STREAM_MOUNT_AAC')).toBe('');
     });
 
     // The listener hooks are gone: `/admin/eventfeed` reports every change in the count in either

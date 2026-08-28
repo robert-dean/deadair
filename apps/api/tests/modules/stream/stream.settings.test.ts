@@ -9,7 +9,14 @@ import { randomBytes } from 'node:crypto';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { describe, expect, it } from 'vitest';
 
-import { ensureStreamSecrets, resolveStreamSettings, STREAM_KEYS, STREAM_SECRET_KEYS } from '../../../src/modules/stream/stream.settings.js';
+import {
+    ensureStreamSecrets,
+    mountPathFor,
+    resolveStreamSettings,
+    STREAM_KEYS,
+    STREAM_SECRET_KEYS,
+    streamMounts,
+} from '../../../src/modules/stream/stream.settings.js';
 import type { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 
@@ -117,5 +124,90 @@ describe('resolveStreamSettings', () => {
 
         expect(settings.title).toBe('Deadair');
         expect(settings.genre).toBe('');
+    });
+});
+
+describe('mountPathFor', () => {
+    it('swaps the extension of the MP3 mount', () => {
+        expect(mountPathFor('/live.mp3', 'opus')).toBe('/live.opus');
+        expect(mountPathFor('/live.mp3', 'aac')).toBe('/live.aac');
+        expect(mountPathFor('/live.mp3', 'flac')).toBe('/live.flac');
+    });
+
+    it('leaves the MP3 mount exactly as the operator wrote it', () => {
+        // It is the setting, not a derivation of one. A station whose mount is `/stream`
+        // must not have it silently become `/stream.mp3`.
+        expect(mountPathFor('/stream', 'mp3')).toBe('/stream');
+        expect(mountPathFor('/live.mp3', 'mp3')).toBe('/live.mp3');
+    });
+
+    it('follows a renamed mount, which is the whole reason it derives', () => {
+        expect(mountPathFor('/wbcn.mp3', 'opus')).toBe('/wbcn.opus');
+    });
+
+    it('appends rather than replacing when the mount has no extension', () => {
+        expect(mountPathFor('/live', 'opus')).toBe('/live.opus');
+    });
+
+    it('does not mistake a directory dot for an extension', () => {
+        // The `.` is before the last slash, so there is no extension to swap and the
+        // format is appended. Cutting at the last dot regardless would produce
+        // `/v1.opus` and lose the mount name entirely.
+        expect(mountPathFor('/v1.2/live', 'opus')).toBe('/v1.2/live.opus');
+    });
+});
+
+describe('streamMounts', () => {
+    /** The station as it comes: MP3 and nothing else. */
+    const base = () => resolveStreamSettings(settingsConfig().config, encryption);
+
+    it('publishes MP3 alone until the operator asks for more', () => {
+        expect(streamMounts(base())).toEqual([{ format: 'mp3', path: '/live.mp3', bitrateKbps: 128 }]);
+    });
+
+    it('adds each format the operator switched on, MP3 always first', () => {
+        const { config } = settingsConfig({
+            [STREAM_KEYS.opusEnabled]: 'true',
+            [STREAM_KEYS.aacEnabled]: 'true',
+            [STREAM_KEYS.flacEnabled]: 'true',
+        });
+
+        expect(streamMounts(resolveStreamSettings(config, encryption))).toEqual([
+            { format: 'mp3', path: '/live.mp3', bitrateKbps: 128 },
+            { format: 'opus', path: '/live.opus', bitrateKbps: 160 },
+            { format: 'aac', path: '/live.aac', bitrateKbps: 192 },
+            // No bitrate: FLAC is lossless and has none to set.
+            { format: 'flac', path: '/live.flac' },
+        ]);
+    });
+
+    it('reads a switch that is stored OFF as off', () => {
+        // The case a test handing over a real boolean cannot make: every layer of the
+        // config holds strings, and `'false'` is truthy. Read as a boolean this switch
+        // could be turned on and never back off, in silence.
+        const { config } = settingsConfig({ [STREAM_KEYS.opusEnabled]: 'false' });
+
+        expect(streamMounts(resolveStreamSettings(config, encryption))).toHaveLength(1);
+    });
+
+    it('takes an operator word for yes that is not the console word', () => {
+        const { config } = settingsConfig({ [STREAM_KEYS.opusEnabled]: 'on' });
+
+        expect(streamMounts(resolveStreamSettings(config, encryption)).map(mount => mount.format)).toEqual(['mp3', 'opus']);
+    });
+
+    it('falls back to the declared bitrate rather than publishing a mount with none', () => {
+        // A row edited by hand into something unparseable. The encoder needs a number,
+        // and refusing to publish the mount over it would be a worse answer than the
+        // default the console would have offered.
+        const { config } = settingsConfig({ [STREAM_KEYS.opusEnabled]: 'yes', [STREAM_KEYS.opusBitrate]: 'loud' });
+
+        expect(streamMounts(resolveStreamSettings(config, encryption))[1]?.bitrateKbps).toBe(160);
+    });
+
+    it('derives every mount from a renamed stream.mount', () => {
+        const { config } = settingsConfig({ [STREAM_KEYS.mount]: '/wbcn.mp3', [STREAM_KEYS.aacEnabled]: 'true' });
+
+        expect(streamMounts(resolveStreamSettings(config, encryption)).map(mount => mount.path)).toEqual(['/wbcn.mp3', '/wbcn.aac']);
     });
 });

@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * The `deadair.settings` keys backing the stream config.
@@ -19,6 +20,26 @@ export const STREAM_KEYS = {
     publicUrl: 'stream.publicUrl',
     mount: 'stream.mount',
     bitrate: 'stream.bitrate',
+    /**
+     * The optional format mounts, each off by default.
+     *
+     * MP3 is unconditional and is `mount` above: a Sonos, a car head unit and a
+     * hardware radio take MP3, AAC or nothing, so it is the compatibility FLOOR
+     * rather than a preference. Everything here is an addition beside it, and each
+     * one costs an encoder running 24/7 in the stream container whether or not
+     * anybody is listening to it — which is why none of them is on for a station
+     * that never asked.
+     *
+     * Their mount paths are DERIVED from `stream.mount` rather than being settings
+     * of their own; see {@link streamMounts}. Four more paths to keep in step by
+     * hand is four more ways for the edge and the renderer to disagree.
+     */
+    opusEnabled: 'stream.opusEnabled',
+    opusBitrate: 'stream.opusBitrate',
+    aacEnabled: 'stream.aacEnabled',
+    aacBitrate: 'stream.aacBitrate',
+    /** Lossless TRANSPORT, which is only worth anything when the sources are lossless too. */
+    flacEnabled: 'stream.flacEnabled',
     /** Hostname Icecast advertises in its own config. */
     hostname: 'stream.hostname',
     /**
@@ -90,8 +111,14 @@ export interface StreamSettings {
     description: string;
     genre: string;
     publicUrl: string;
+    /** The MP3 mount, which is always published. Every other mount's path is derived from it. */
     mount: string;
     bitrate: string;
+    opusEnabled: boolean;
+    opusBitrate: string;
+    aacEnabled: boolean;
+    aacBitrate: string;
+    flacEnabled: boolean;
     /** Hostname Icecast advertises. Empty means "derive it from publicUrl, else localhost". */
     hostname: string;
     /** Where the station broadcasts from. Empty renders no `<location>`. */
@@ -134,6 +161,16 @@ export const STREAM_DEFAULTS = {
     publicUrl: '',
     mount: '/live.mp3',
     bitrate: '128',
+    // Off, every one of them: an encoder the operator did not ask for is CPU spent
+    // permanently on a mount nobody has been told exists.
+    opusEnabled: false,
+    // 160 because Opus is near-transparent there and this station's sources are
+    // already lossy, so spending more bits re-encoding them buys nothing audible.
+    opusBitrate: '160',
+    aacEnabled: false,
+    // Roughly MP3 320's quality at fewer bits, and the tier hardware players expect.
+    aacBitrate: '192',
+    flacEnabled: false,
     hostname: '',
     location: '',
     language: '',
@@ -179,6 +216,15 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         publicUrl: values.get(STREAM_KEYS.publicUrl) ?? STREAM_DEFAULTS.publicUrl,
         mount: values.get(STREAM_KEYS.mount) ?? STREAM_DEFAULTS.mount,
         bitrate: values.get(STREAM_KEYS.bitrate) ?? STREAM_DEFAULTS.bitrate,
+        // Through `settingIsOn` and never through the `values` map above, because every
+        // layer of the config holds STRINGS: a switch read as `values.get(key) === 'true'`
+        // would be a fourth private coercion, and one read as a boolean would be `'false'`,
+        // which is truthy — the switch that can be turned on and never back off.
+        opusEnabled: settingIsOn(config, STREAM_KEYS.opusEnabled, STREAM_DEFAULTS.opusEnabled),
+        opusBitrate: values.get(STREAM_KEYS.opusBitrate) ?? STREAM_DEFAULTS.opusBitrate,
+        aacEnabled: settingIsOn(config, STREAM_KEYS.aacEnabled, STREAM_DEFAULTS.aacEnabled),
+        aacBitrate: values.get(STREAM_KEYS.aacBitrate) ?? STREAM_DEFAULTS.aacBitrate,
+        flacEnabled: settingIsOn(config, STREAM_KEYS.flacEnabled, STREAM_DEFAULTS.flacEnabled),
         hostname: values.get(STREAM_KEYS.hostname) ?? STREAM_DEFAULTS.hostname,
         location: values.get(STREAM_KEYS.location) ?? STREAM_DEFAULTS.location,
         language: values.get(STREAM_KEYS.language) ?? STREAM_DEFAULTS.language,
@@ -190,6 +236,111 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         spotifyShimSecret: decrypt(values.get(STREAM_KEYS.spotifyShimSecret)),
         playoutBridgeSecret: decrypt(values.get(STREAM_KEYS.playoutBridgeSecret)),
     };
+}
+
+/**
+ * The bitrates the optional encoders may be set to, as a closed set.
+ *
+ * Closed because of how Liquidsoap reads an encoder: `%opus(bitrate=…)` and its AAC
+ * sibling want a literal at the moment the script is PARSED, not a value that can be
+ * handed in, so `radio.liq` selects between fixed encoders rather than interpolating
+ * a number into one. A free-text setting would therefore be a figure an operator can
+ * type and the stream cannot honour, which is worse than a shorter menu.
+ *
+ * So these are shared: the console offers exactly this list, and the branch in
+ * `radio.liq` covers exactly this list. Adding a value means adding it in both, and
+ * `stream.config.test.ts` is where they are held to each other.
+ */
+export const OPUS_BITRATES = ['96', '128', '160', '192', '256'] as const;
+export const AAC_BITRATES = ['96', '128', '160', '192', '256', '320'] as const;
+
+/** The formats the station can publish. `mp3` is always one of them. */
+export type StreamFormat = 'mp3' | 'opus' | 'aac' | 'flac';
+
+/** One mount the station publishes, as everything downstream needs to see it. */
+export interface StreamMount {
+    format: StreamFormat;
+    /** Same-origin path, leading slash included. */
+    path: string;
+    /**
+     * The encoder's bitrate in kbps, or `undefined` for a format that has none.
+     *
+     * FLAC is the one without: it is lossless, so its rate is whatever the material
+     * needs. {@link FLAC_ASSUMED_KBPS} is what the buffer sizing uses in its place.
+     */
+    bitrateKbps?: number;
+}
+
+/**
+ * What a FLAC mount costs per listener, for the sizing that has to assume something.
+ *
+ * FLAC has no bitrate to read, and the Icecast buffers that have to be sized against
+ * one are counted in BYTES. Stereo 44.1 kHz FLAC of ordinary music lands around here;
+ * it is used only to size a buffer generously, so being wrong by a hundred kbps costs
+ * a slightly roomier queue and nothing else.
+ */
+export const FLAC_ASSUMED_KBPS = 900;
+
+/**
+ * The mount path for a format, derived from the MP3 mount by swapping the extension.
+ *
+ * Derived rather than configured, and that is the whole design: four more settings
+ * would be four more values for the renderer, the audience gate, the edge and the
+ * console to disagree about, and an operator would have to keep them in step by hand
+ * for no benefit anybody could name. A mount with no extension keeps its own name for
+ * MP3 and gains one for the rest, which is the only sane reading of `/live`.
+ */
+export function mountPathFor(mount: string, format: StreamFormat): string {
+    if (format === 'mp3') return mount;
+
+    const cut = mount.lastIndexOf('.');
+    const slash = mount.lastIndexOf('/');
+    const stem = cut > slash + 1 ? mount.slice(0, cut) : mount;
+    return `${stem}.${format}`;
+}
+
+/**
+ * Every mount this station publishes right now, MP3 first.
+ *
+ * The single source of truth for "which mounts exist", which four things need and
+ * which none of them may work out for itself: the renderer writes a `<mount>` block
+ * and an `output.icecast` per entry, the audience gate sums listeners across them,
+ * the console lists them, and the staleness check asks about the first. Two of those
+ * deriving the list separately is how a listener on a mount nobody counted stops
+ * holding the station on air.
+ *
+ * A format that is switched off is ABSENT rather than present-and-disabled, because
+ * every consumer wants the same thing from this: the mounts that are actually there.
+ */
+export function streamMounts(settings: StreamSettings): StreamMount[] {
+    const bitrate = (raw: string, fallback: number): number => {
+        const parsed = Number.parseInt(raw, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    };
+
+    const mounts: StreamMount[] = [{ format: 'mp3', path: settings.mount, bitrateKbps: bitrate(settings.bitrate, Number(STREAM_DEFAULTS.bitrate)) }];
+    if (settings.opusEnabled) {
+        mounts.push({
+            format: 'opus',
+            path: mountPathFor(settings.mount, 'opus'),
+            bitrateKbps: bitrate(settings.opusBitrate, Number(STREAM_DEFAULTS.opusBitrate)),
+        });
+    }
+    if (settings.aacEnabled) {
+        mounts.push({
+            format: 'aac',
+            path: mountPathFor(settings.mount, 'aac'),
+            bitrateKbps: bitrate(settings.aacBitrate, Number(STREAM_DEFAULTS.aacBitrate)),
+        });
+    }
+    if (settings.flacEnabled) mounts.push({ format: 'flac', path: mountPathFor(settings.mount, 'flac') });
+
+    return mounts;
+}
+
+/** What one mount costs a listener per second, in bytes. FLAC is assumed; see {@link FLAC_ASSUMED_KBPS}. */
+export function bytesPerSecond(mount: StreamMount): number {
+    return ((mount.bitrateKbps ?? FLAC_ASSUMED_KBPS) * 1000) / 8;
 }
 
 /** A strong secret that is safe unquoted in XML, a shell-sourced env file and a URL. */

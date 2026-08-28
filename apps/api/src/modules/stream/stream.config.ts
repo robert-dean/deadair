@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { StreamSettings } from './stream.settings.js';
+import { type StreamMount, type StreamSettings, bytesPerSecond, streamMounts } from './stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -44,6 +44,72 @@ function xml(value: string): string {
 /** Single-quote a value for a shell-sourced env file. */
 function shell(value: string): string {
     return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * How much slow-client tolerance a mount gets, in seconds of its own audio.
+ *
+ * The number the old byte literal happened to be worth at 128 kbps was ~32s, which
+ * was generous and never a complaint; 20 is the same order and rounder. What matters
+ * is that it is stated in SECONDS somewhere, because the config field is bytes and
+ * that is the whole trap.
+ */
+const QUEUE_SECONDS = 20;
+
+/** How much audio a listener is handed on connect, in seconds. This is latency; see the template. */
+const BURST_SECONDS = 0.5;
+
+/**
+ * The Icecast buffer sizes for a set of mounts, in the bytes Icecast wants.
+ *
+ * The queue takes the HIGHEST enabled bitrate because it is one global number and has
+ * to be big enough for the hungriest mount. The burst takes the MP3 mount's alone
+ * because it is backlog every listener pays for, and a mount that needs more says so
+ * in its own block.
+ *
+ * Never smaller than what a 128 kbps station used to get, so switching a format on can
+ * only ever make these roomier. A station that changes nothing renders the same
+ * numbers it always did, which is also what keeps the config generation stable.
+ */
+export function bufferSizes(mounts: StreamMount[]): { queue: number; burst: number } {
+    const hungriest = Math.max(...mounts.map(bytesPerSecond));
+    const primary = bytesPerSecond(mounts[0] ?? { format: 'mp3', path: '', bitrateKbps: 128 });
+
+    return {
+        queue: Math.max(524_288, Math.ceil(hungriest * QUEUE_SECONDS)),
+        burst: Math.max(8_192, Math.ceil(primary * BURST_SECONDS)),
+    };
+}
+
+/**
+ * The `<mount>` blocks for every format beside MP3, or an empty string when there are
+ * none.
+ *
+ * Self-contained on purpose, credentials included: see the comment this renders under
+ * in `icecast.xml.tmpl` for why inheriting them through `<mount type="default">` was
+ * tried and rejected.
+ *
+ * A mount whose own bitrate makes the global burst too SHORT in time gets its own,
+ * which in practice means FLAC: 8192 bytes is half a second at 128 kbps and seven
+ * hundredths of one at 900, and below about a tenth of a second players start raggedly.
+ */
+function extraMountBlocks(mounts: StreamMount[], sourcePassword: string, globalBurst: number): string {
+    return mounts
+        .slice(1)
+        .map(mount => {
+            const own = Math.ceil(bytesPerSecond(mount) * BURST_SECONDS);
+            const burst = own > globalBurst ? `\n    <burst-size>${own}</burst-size>` : '';
+
+            return [
+                `  <mount type="normal">`,
+                `    <mount-name>${xml(mount.path)}</mount-name>`,
+                `    <username>source</username>`,
+                `    <password>${xml(sourcePassword)}</password>`,
+                `    <public>0</public>${burst}`,
+                `  </mount>`,
+            ].join('\n');
+        })
+        .join('\n\n');
 }
 
 /** Hostname Icecast advertises: from the public URL, else the configured one, else localhost. */
@@ -293,7 +359,17 @@ export function writeStreamConfig({
         return undefined;
     }
 
+    // Every mount the station publishes, MP3 first. Derived once and used for all three
+    // of the things this function decides — the `<mount>` blocks, the buffer sizes and
+    // the encoder switches in radio.env — so they cannot come to disagree about which
+    // mounts exist.
+    const mounts = streamMounts(settings);
+    const { queue, burst } = bufferSizes(mounts);
+
     const tokens: Record<string, string> = {
+        QUEUE_SIZE: String(queue),
+        BURST_SIZE: String(burst),
+        EXTRA_MOUNTS: extraMountBlocks(mounts, sourcePassword, burst),
         SOURCE_PASSWORD: xml(sourcePassword),
         RELAY_PASSWORD: xml(sourcePassword),
         ADMIN_PASSWORD: xml(adminPassword),
@@ -317,6 +393,28 @@ export function writeStreamConfig({
             `ICECAST_SOURCE_PASSWORD=${shell(sourcePassword)}`,
             `STREAM_MOUNT=${shell(settings.mount)}`,
             `STREAM_BITRATE=${shell(settings.bitrate)}`,
+            // The optional format mounts, as a fixed pair each that radio.liq reads at startup.
+            //
+            // An EMPTY PATH is how "off" is spelled, rather than a separate enable flag beside
+            // it. The two could disagree, and the one that would win is not the one an operator
+            // reading this file would expect: a mount with no path is a mount that cannot be
+            // published whatever a flag says.
+            //
+            // The path is written out rather than derived on the far side. The derivation is a
+            // string operation on a setting, and doing it twice in two languages is how the app
+            // comes to be counting listeners on a mount Liquidsoap called something else.
+            //
+            // All three pairs, in a fixed order, whether or not any is on. Two reasons and both
+            // have bitten: a key that appears only when it is non-default is a key an operator
+            // cannot find when they go looking for why their mount is not there, and a key ORDER
+            // that moves with the settings changes the config stamp — which is the hash the
+            // staleness check compares a running container against — for a station that turned
+            // one format off and another on and is running exactly what it was.
+            ...(['opus', 'aac', 'flac'] as const).flatMap(format => {
+                const mount = mounts.find(candidate => candidate.format === format);
+                const name = format.toUpperCase();
+                return [`STREAM_MOUNT_${name}=${shell(mount?.path ?? '')}`, `STREAM_${name}_BITRATE=${shell(String(mount?.bitrateKbps ?? ''))}`];
+            }),
             `STREAM_NAME=${shell(settings.title)}`,
             `STREAM_DESCRIPTION=${shell(settings.description)}`,
             `STREAM_GENRE=${shell(settings.genre)}`,
@@ -387,6 +485,7 @@ export function writeStreamConfig({
         return undefined;
     }
 
-    log(`rendered icecast.xml + radio.env to ${configDir} (mount ${settings.mount}, ${settings.bitrate}k, generation ${render.radio.stamp})`);
+    const served = mounts.map(mount => `${mount.path}${mount.bitrateKbps === undefined ? '' : ` ${mount.bitrateKbps}k`}`).join(', ');
+    log(`rendered icecast.xml + radio.env to ${configDir} (${served}; queue ${queue}B, burst ${burst}B; generation ${render.radio.stamp})`);
     return render;
 }

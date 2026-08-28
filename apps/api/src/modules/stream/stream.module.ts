@@ -7,6 +7,7 @@ import { IcecastEventFeed } from './icecast.eventfeed.client.js';
 import { IcecastStatsClient } from './icecast.stats.client.js';
 import { SpotifyShimClient } from './spotify.shim.client.js';
 import { StreamService } from './stream.service.js';
+import { streamMounts } from './stream.settings.js';
 import { StreamConfigWatch } from './stream.staleness.js';
 
 /**
@@ -85,10 +86,16 @@ export const StreamModule: ServerKitModule = {
             // the rendered icecast.xml was built from a moment ago — including the admin
             // password, because 2.5 serves the stats document from under `/admin/` and the
             // roles it ships deny anonymous.
+            // Every mount, not just the MP3 one: somebody listening on Opus is as much an
+            // audience as somebody on MP3, and a gate that could not see them would take an
+            // audience-gated station off the air with a listener on it.
             container.get(IcecastStatsClient).useMounts({
                 host: settings.icecastHost,
                 port: settings.icecastPort,
                 mount: settings.mount,
+                alsoMounts: streamMounts(settings)
+                    .slice(1)
+                    .map(mount => mount.path),
                 adminPassword: settings.adminPassword,
             });
 

@@ -37,7 +37,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
         return (
             <Stack gap="md" align="flex-start">
                 <ErrorAlert title="Plugin unavailable" error={plugin.error} fallback={`No plugin with the id "${id}" answered.`} />
-                <Anchor renderRoot={props => <Link to="/plugins" {...props} />} size="sm">
+                <Anchor renderRoot={(props: object) => <Link to="/plugins" {...props} />} size="sm">
                     Back to plugins
                 </Anchor>
             </Stack>
@@ -51,7 +51,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
         <Stack gap="lg" maw={720}>
             {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                 router's own types, and with them the check that this route still exists. */}
-            <Anchor renderRoot={props => <Link to="/plugins" {...props} />} size="sm">
+            <Anchor renderRoot={(props: object) => <Link to="/plugins" {...props} />} size="sm">
                 <Group gap="xxs" wrap="nowrap">
                     <IconArrowLeft size={14} stroke={1.8} />
                     Plugins

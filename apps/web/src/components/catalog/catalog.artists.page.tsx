@@ -10,7 +10,7 @@ import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { SortableTh } from '../shared/sortable.th';
 import type { CatalogSort } from '@deadair/sdk';
-import type { CatalogListOrder } from './catalog.page.params';
+import { CATALOG_ALBUM_DEFAULTS, CATALOG_TRACK_DEFAULTS, type CatalogListOrder } from './catalog.page.params';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
@@ -53,7 +53,7 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
                 <CatalogSearch value={search} placeholder="Search artists" onChange={onSearchChange} />
                 {/* The flat list is the only way to find a song whose artist the operator does not
                     already know, so it needs a way in that is not the address bar. */}
-                <Anchor renderRoot={props => <Link to="/catalog/tracks" {...props} />} size="sm">
+                <Anchor renderRoot={(props: object) => <Link to="/catalog/tracks" search={CATALOG_TRACK_DEFAULTS} {...props} />} size="sm">
                     Browse all tracks
                 </Anchor>
             </Group>
@@ -102,7 +102,7 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
                                         {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
                                             the router's own types, and with them the check that `params` matches the path. */}
                                         <Anchor
-                                            renderRoot={props => <Link to="/catalog/artists/$artistId" params={{ artistId: artist.id }} {...props} />}
+                                            renderRoot={(props: object) => <Link to="/catalog/artists/$artistId" params={{ artistId: artist.id }} search={CATALOG_ALBUM_DEFAULTS} {...props} />}
                                         >
                                             {artist.name}
                                         </Anchor>

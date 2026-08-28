@@ -72,7 +72,10 @@ describe('ChartsPage', () => {
         render(<ChartsPage />);
 
         const link = await screen.findByRole('link', { name: 'Find in catalog' });
-        expect(link).toHaveAttribute('href', '/catalog/tracks?search=Vaka');
+        // The mock router below has no `stripSearchParams`, so the defaults a real console
+        // strips back out of the URL are spelled out here. Verified in the browser: the href
+        // this actually renders is the short one.
+        expect(link).toHaveAttribute('href', '/catalog/tracks?page=0&search=Vaka&state=&sortBy=title&sort=asc&pageSize=50');
     });
 
     it('reads a chart the operator picks instead of the first one', async () => {

@@ -1,6 +1,8 @@
 import { Anchor, Text, type TextProps } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 
+import { CATALOG_ALBUM_DEFAULTS, CATALOG_ALBUM_TRACK_DEFAULTS } from '../catalog/catalog.page.params';
+
 /**
  * What every one of these takes: the id to go to, the words to draw, and whatever shaping the row
  * around them already applies.
@@ -39,7 +41,7 @@ export function TrackLink({ id, children, ...props }: CatalogLinkProps) {
     if (id === undefined) return <Plain {...props}>{children}</Plain>;
 
     return (
-        <Anchor renderRoot={anchor => <Link to="/catalog/tracks/$trackId" params={{ trackId: id }} {...anchor} />} {...props}>
+        <Anchor renderRoot={(anchor: object) => <Link to="/catalog/tracks/$trackId" params={{ trackId: id }} {...anchor} />} {...props}>
             {children}
         </Anchor>
     );
@@ -50,7 +52,7 @@ export function ArtistLink({ id, children, ...props }: CatalogLinkProps) {
     if (id === undefined) return <Plain {...props}>{children}</Plain>;
 
     return (
-        <Anchor renderRoot={anchor => <Link to="/catalog/artists/$artistId" params={{ artistId: id }} {...anchor} />} {...props}>
+        <Anchor renderRoot={(anchor: object) => <Link to="/catalog/artists/$artistId" params={{ artistId: id }} search={CATALOG_ALBUM_DEFAULTS} {...anchor} />} {...props}>
             {children}
         </Anchor>
     );
@@ -67,7 +69,7 @@ export function ScriptLink({ id, children, ...props }: CatalogLinkProps) {
     if (id === undefined) return <Plain {...props}>{children}</Plain>;
 
     return (
-        <Anchor renderRoot={anchor => <Link to="/voice" search={{ tab: 'said', segment: id }} {...anchor} />} {...props}>
+        <Anchor renderRoot={(anchor: object) => <Link to="/voice" search={{ tab: 'said', segment: id, persona: '' }} {...anchor} />} {...props}>
             {children}
         </Anchor>
     );
@@ -78,7 +80,7 @@ export function AlbumLink({ id, children, ...props }: CatalogLinkProps) {
     if (id === undefined) return <Plain {...props}>{children}</Plain>;
 
     return (
-        <Anchor renderRoot={anchor => <Link to="/catalog/albums/$albumId" params={{ albumId: id }} {...anchor} />} {...props}>
+        <Anchor renderRoot={(anchor: object) => <Link to="/catalog/albums/$albumId" params={{ albumId: id }} search={CATALOG_ALBUM_TRACK_DEFAULTS} {...anchor} />} {...props}>
             {children}
         </Anchor>
     );

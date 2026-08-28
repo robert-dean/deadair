@@ -11,7 +11,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
-import type { TrackListOrder } from './catalog.page.params';
+import { CATALOG_SEARCH_DEFAULTS, type TrackListOrder } from './catalog.page.params';
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
@@ -46,7 +46,7 @@ export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDet
                             {`Back to ${album.data.artistName}`}
                         </ArtistLink>
                     ) : (
-                        <Anchor renderRoot={props => <Link to="/catalog" {...props} />} size="sm">
+                        <Anchor renderRoot={(props: object) => <Link to="/catalog" search={CATALOG_SEARCH_DEFAULTS} {...props} />} size="sm">
                             Back to catalog
                         </Anchor>
                     )}

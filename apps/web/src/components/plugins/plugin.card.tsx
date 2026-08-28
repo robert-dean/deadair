@@ -81,7 +81,7 @@ export function PluginCard({ plugin }: PluginCardProps) {
                     />
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
-                    <Anchor renderRoot={props => <Link to="/plugins/$id" params={{ id: plugin.id }} {...props} />} size="sm">
+                    <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: plugin.id }} {...props} />} size="sm">
                         Configure
                     </Anchor>
                 </Group>

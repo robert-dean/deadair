@@ -15,6 +15,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { StatusLamp } from '../shared/status.lamp';
 import type { StatusTone } from '../shared/status';
 import { Artwork } from '../shared/artwork';
+import { CATALOG_TRACK_DEFAULTS } from './catalog.page.params';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
 import { TrackClearMenu } from './track.clear.menu';
@@ -101,7 +102,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
                 <Stack gap="xxs">
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
-                    <Anchor renderRoot={props => <Link to="/catalog/tracks" {...props} />} size="sm">
+                    <Anchor renderRoot={(props: object) => <Link to="/catalog/tracks" search={CATALOG_TRACK_DEFAULTS} {...props} />} size="sm">
                         Back to tracks
                     </Anchor>
                     <PageHeader

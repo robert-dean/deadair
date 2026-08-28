@@ -14,7 +14,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { SortableTh } from '../shared/sortable.th';
 import { CatalogPagination } from './catalog.pagination';
 import type { TrackSort } from '@deadair/sdk';
-import type { TrackListOrder, TrackStateParam } from './catalog.page.params';
+import { CATALOG_SEARCH_DEFAULTS, type TrackListOrder, type TrackStateParam } from './catalog.page.params';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
 import { TrackStateFilter } from './track.state.filter';
@@ -83,7 +83,7 @@ export function CatalogTracksPage({
             <Stack gap="xxs">
                 {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                     router's own types, and with them the check that `params` matches the path. */}
-                <Anchor renderRoot={props => <Link to="/catalog" {...props} />} size="sm">
+                <Anchor renderRoot={(props: object) => <Link to="/catalog" search={CATALOG_SEARCH_DEFAULTS} {...props} />} size="sm">
                     Back to catalog
                 </Anchor>
                 <PageHeader

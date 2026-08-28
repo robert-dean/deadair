@@ -64,7 +64,7 @@ export function VoicesPage() {
                             {/* `renderRoot` rather than `component={Link}`: the polymorphic form
                                 erases the router's own types, and with them the check that `params`
                                 matches the path. */}
-                            <Anchor renderRoot={props => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />}>{pluginId}</Anchor>, where
+                            <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />}>{pluginId}</Anchor>, where
                             what each of these maps to is set.
                         </Text>
                     ) : (
@@ -134,7 +134,7 @@ export function VoicesPage() {
             {pluginId && (voices.data?.voices.length ?? 0) > 0 ? (
                 <Text c="dimmed" size="xs">
                     A voice that sounds wrong is a mapping to change:{' '}
-                    <Anchor size="xs" renderRoot={props => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />}>
+                    <Anchor size="xs" renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />}>
                         edit the voice table in {pluginId}&apos;s settings
                     </Anchor>
                     .

@@ -92,7 +92,7 @@ export function SettingsShell({ active, children }: SettingsShellProps) {
                             px={10}
                             fw={active === 'plugins' ? 600 : undefined}
                             style={{ borderLeft: `2px solid ${active === 'plugins' ? 'var(--da-phosphor)' : 'transparent'}` }}
-                            renderRoot={props => <Link to="/plugins" {...props} />}
+                            renderRoot={(props: object) => <Link to="/plugins" {...props} />}
                         >
                             Plugins
                         </Anchor>

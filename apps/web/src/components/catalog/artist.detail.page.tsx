@@ -15,7 +15,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
-import type { CatalogListOrder } from './catalog.page.params';
+import { CATALOG_SEARCH_DEFAULTS, type CatalogListOrder } from './catalog.page.params';
 import { CatalogPagination } from './catalog.pagination';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
@@ -45,7 +45,7 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange }: Artist
                 <Stack gap="xxs">
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
-                    <Anchor renderRoot={props => <Link to="/catalog" {...props} />} size="sm">
+                    <Anchor renderRoot={(props: object) => <Link to="/catalog" search={CATALOG_SEARCH_DEFAULTS} {...props} />} size="sm">
                         Back to catalog
                     </Anchor>
                     <PageHeader

@@ -193,7 +193,7 @@ export function DeskPage() {
                         action={
                             /* `renderRoot` rather than `component={Link}`: the polymorphic form
                                erases the router's own types, and with them the check on `params`. */
-                            <Anchor renderRoot={props => <Link to="/playlists" {...props} />} size="sm">
+                            <Anchor renderRoot={(props: object) => <Link to="/playlists" {...props} />} size="sm">
                                 Browse playlists
                             </Anchor>
                         }

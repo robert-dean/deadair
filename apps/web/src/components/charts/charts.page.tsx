@@ -8,6 +8,7 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { CATALOG_TRACK_DEFAULTS } from '../catalog/catalog.page.params';
 
 /**
  * What the rest of the world is playing.
@@ -150,7 +151,7 @@ export function ChartsPage() {
                                                 contract carries no catalog id and should not: this
                                                 asks the question rather than pretending to know. */}
                                             <Anchor
-                                                renderRoot={props => <Link to="/catalog/tracks" search={{ search: record.title }} {...props} />}
+                                                renderRoot={(props: object) => <Link to="/catalog/tracks" search={{ ...CATALOG_TRACK_DEFAULTS, search: record.title }} {...props} />}
                                                 size="xs"
                                             >
                                                 Find in catalog

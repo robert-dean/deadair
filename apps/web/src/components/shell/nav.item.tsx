@@ -77,7 +77,11 @@ export function NavItem({ to, label, hint, onNavigate, attention }: NavItemProps
             }
             // `onClick` is pulled out of the spread rather than set beside it: the props Mantine
             // hands back land last, so an `onClick` written before them is silently discarded.
-            renderRoot={({ onClick, ...props }) => (
+            //
+            // Annotated for the reason every `renderRoot` in this console is: Mantine hands back
+            // `any`, and spreading an `any` into a `Link` switches off the check that `to` is a
+            // route that exists. This is the nav, so that check is the one worth having most.
+            renderRoot={({ onClick, ...props }: { onClick?: React.MouseEventHandler<HTMLAnchorElement> }) => (
                 <Link
                     to={to}
                     onClick={event => {

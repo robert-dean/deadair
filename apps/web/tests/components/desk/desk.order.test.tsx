@@ -233,7 +233,10 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         await screen.findByText('Late shift');
 
         expect(screen.getByRole('link', { name: 'Windowlicker' })).toHaveAttribute('href', '/catalog/tracks/trk_1');
-        expect(screen.getByRole('link', { name: 'Aphex Twin' })).toHaveAttribute('href', '/catalog/artists/art_1');
+        // The mock router below has no `stripSearchParams`, so the defaults a real console
+        // strips back out of the URL are spelled out here. Verified in the browser: the href
+        // this actually renders is the short one.
+        expect(screen.getByRole('link', { name: 'Aphex Twin' })).toHaveAttribute('href', '/catalog/artists/art_1?page=0&sortBy=name&sort=asc&pageSize=50');
     });
 
     // The station can air a record it never ingested, and a record can be ingested outside any
@@ -268,7 +271,7 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         render(<DeskPage />);
         await screen.findByText('Late shift');
 
-        expect(screen.getByRole('link', { name: 'Talk break' })).toHaveAttribute('href', '/voice?tab=said&segment=seg_1');
+        expect(screen.getByRole('link', { name: 'Talk break' })).toHaveAttribute('href', '/voice?tab=said&segment=seg_1&persona=');
         expect(screen.queryByRole('link', { name: 'A segment the library no longer holds' })).not.toBeInTheDocument();
     });
 

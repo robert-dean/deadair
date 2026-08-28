@@ -52,7 +52,7 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
                         {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                             router's own types, and with them the check that `params` matches the path. */}
                         <Anchor
-                            renderRoot={props => (
+                            renderRoot={(props: object) => (
                                 <Link
                                     to="/playlists/$pluginId/$playlistId"
                                     params={{ pluginId: playlist.pluginId, playlistId: playlist.id }}

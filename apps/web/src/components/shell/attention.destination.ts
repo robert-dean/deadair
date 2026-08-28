@@ -1,13 +1,22 @@
 import type { LinkProps } from '@tanstack/react-router';
 import type { AttentionItem } from '@deadair/sdk';
 
+import { CATALOG_TRACK_DEFAULTS } from '../catalog/catalog.page.params';
 import type { Severity } from '../shared/status';
 
+/**
+ * Where a row goes, in the router's own props rather than in strings of this file's invention.
+ *
+ * `params` and `search` were `Record<string, string>` here, which type-checked a plugin id against
+ * a route expecting an album id and a tab against a destination that has none. The router already
+ * knows every path, every param name and every tab: taking the shape from it is what makes this
+ * table checkable at all, and it is spread into `Link` whole so no call site restates it.
+ */
+type AttentionLink = Pick<LinkProps, 'to' | 'params' | 'search'>;
+
 export interface AttentionDestination {
-    to: LinkProps['to'];
-    params?: Record<string, string>;
-    /** The tab, for a destination that has them. */
-    search?: Record<string, string>;
+    /** Spread straight into a `Link`. Carries the tab for a destination that has them. */
+    link: AttentionLink;
     /** Where this goes, named as the nav names it. */
     label: string;
 }
@@ -37,30 +46,30 @@ export interface AttentionDestination {
  */
 export function attentionDestinationOf(route: string): AttentionDestination | undefined {
     const plugin = /^\/plugins\/(.+)$/.exec(route);
-    if (plugin?.[1]) return { to: '/plugins/$id', params: { id: plugin[1] }, label: 'Plugin' };
+    if (plugin?.[1]) return { link: { to: '/plugins/$id', params: { id: plugin[1] } }, label: 'Plugin' };
 
     switch (route) {
         // The station still names `/onair` for anything about the broadcast. The desk is where that
         // is answered now, and it is also where this list is drawn — so the row points at the
         // running order further down the same page.
         case '/onair':
-            return { to: '/', label: 'Desk' };
+            return { link: { to: '/' }, label: 'Desk' };
         // A persona is a tab on Voice rather than a page. The row lands on the tab that holds it,
         // not on the destination's default, because an operator sent here has a specific complaint.
         case '/personas':
-            return { to: '/voice', search: { tab: 'characters' }, label: 'Voice' };
+            return { link: { to: '/voice', search: { tab: 'characters', segment: '', persona: '' } }, label: 'Voice' };
         case '/schedule':
-            return { to: '/schedule', label: 'Programme' };
+            return { link: { to: '/schedule', search: { tab: 'today' } }, label: 'Programme' };
         // The Library's Tracks tab rather than its Artists one, which is what `/catalog` resolves
         // to as a route. Everything the station reports here is about RECORDS — benched copies,
         // unmeasured audio — and the readiness bar that answers it is on Tracks.
         case '/catalog':
-            return { to: '/catalog/tracks', label: 'Library' };
+            return { link: { to: '/catalog/tracks', search: CATALOG_TRACK_DEFAULTS }, label: 'Library' };
         case '/plugins':
-            return { to: '/plugins', label: 'Plugins' };
+            return { link: { to: '/plugins' }, label: 'Plugins' };
         // Everything below lands on Settings in the nav: plugins are a section of it now.
         case '/settings':
-            return { to: '/settings', label: 'Settings' };
+            return { link: { to: '/settings' }, label: 'Settings' };
         default:
             return undefined;
     }
@@ -81,8 +90,8 @@ export function attentionNavPageOf(route: string): string | undefined {
     // Plugins is a section of Settings rather than a nav entry of its own, so anything about a
     // plugin — the list or one plugin's own page — counts against Settings. Without this a failed
     // plugin badged a link that is no longer in the nav, which is a fault reported nowhere.
-    if (destination.to === '/plugins/$id' || destination.to === '/plugins') return '/settings';
-    return destination.to as string;
+    if (destination.link.to === '/plugins/$id' || destination.link.to === '/plugins') return '/settings';
+    return destination.link.to as string;
 }
 
 /** How many things want somebody on a page, and how bad the worst of them is. */

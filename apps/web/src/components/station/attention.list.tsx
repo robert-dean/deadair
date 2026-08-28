@@ -88,15 +88,11 @@ function Row({ item }: { item: AttentionItem }) {
                     variant="light"
                     size="compact-sm"
                     style={{ flexShrink: 0 }}
-                    renderRoot={props =>
-                        destination.params ? (
-                            <Link to={destination.to} params={destination.params} {...props} />
-                        ) : destination.search ? (
-                            <Link to={destination.to} search={destination.search} {...props} />
-                        ) : (
-                            <Link to={destination.to} {...props} />
-                        )
-                    }
+                    // Spread whole rather than picked apart into three branches, one per shape a
+                    // destination might have. The branches existed because `params` and `search`
+                    // were loose records here and could not be handed to a typed `Link` together;
+                    // they are the router's own props now, so there is one shape and one arm.
+                    renderRoot={(props: object) => <Link {...destination.link} {...props} />}
                 >
                     {destination.label} →
                 </Button>

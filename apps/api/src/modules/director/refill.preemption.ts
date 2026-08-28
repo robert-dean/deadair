@@ -29,11 +29,11 @@ export class RefillPreemption {
     /**
      * Say that a break took the model back mid-conversation.
      *
-     * Called by `ModelSetGenerator` off `LlmConversation.preempted`, which is set only where the
-     * loop abandoned a step that had ALREADY asked for tools. A model that simply had nothing to
-     * say does not come through here, and must not: this is the one signal that distinguishes work
-     * the station interrupted from work the model declined to do, and a retry is only owed to the
-     * first.
+     * Called by `ModelSetGenerator` off `LlmConversation.finishReason === 'preempted'`, which the
+     * loop answers only where it abandoned a step that had ALREADY asked for tools. A model that
+     * simply had nothing to say does not come through here, and must not: this is the one signal
+     * that distinguishes work the station interrupted from work the model declined to do, and a
+     * retry is only owed to the first.
      */
     mark(): void {
         this.preempted = true;

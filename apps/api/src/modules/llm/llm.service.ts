@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import {
     collectGeneration,
     PluginError,
+    type LlmFinishReason,
     type LlmHandle,
     type LlmMessage,
     type LlmModelInfo,
@@ -58,6 +59,31 @@ export const MAX_TOOL_STEPS = 4;
 
 /** How much of a stray tool call is quoted when one is re-issued. Enough to see the shape. */
 const STRAY_LOG_CHARS = 200;
+
+/**
+ * Why a conversation ended: whatever the provider reported, plus the one reason only the station can
+ * give.
+ *
+ * **`'preempted'` exists because the wire vocabulary has no word for it and the nearest one is a
+ * lie.** A generation the gate takes back is not a generation that hit its ceiling, but a provider
+ * that was cut off mid-stream reports `length`, and for a long time this loop passed that straight
+ * on with a `preempted` boolean beside it to correct the record. Two spellings of one fact, and the
+ * corrective half was the one that got dropped: every log line and every `set-*.json` capture wrote
+ * `finish` alone, so the on-disk record of a preempted refill was indistinguishable from a model
+ * that ran out of room.
+ *
+ * That is not hypothetical and it has cost two diagnoses. A `classic banjo` refill preempted 4.6
+ * seconds in was reported as `finish=length searches=0` and accused of not using its tools, when it
+ * had asked to search and been cut off before the calls ran. And of the ten empty set captures that
+ * survive on this install, every one says `length` and both that can still be attributed to a log
+ * line were preemptions — while `DEFAULT_MAX_OUTPUT_TOKENS` was raised to 12,000 arguing from
+ * exactly that shape. See `docs/todo/station-intelligence.md` §2.
+ *
+ * So the reason carries it. A caller that wants "did the model run out of room" asks for `'length'`
+ * and gets an answer that is true, and a caller that logs the reason and nothing else — which is all
+ * of them — reports what happened.
+ */
+export type ConversationFinishReason = LlmFinishReason | 'preempted';
 
 /**
  * What a model is told when the loop has run out of steps.
@@ -189,7 +215,16 @@ export interface LlmConverseOptions extends LlmCallOptions {
  * library, while a model that never searched and answered anyway is a model failing to use what it
  * was given. Only the second is worth counting against it.
  */
-export interface LlmConversation extends LlmResult {
+export interface LlmConversation extends Omit<LlmResult, 'finishReason'> {
+    /**
+     * What ended the conversation, in a vocabulary that can say the station did it.
+     *
+     * `LlmResult.finishReason` is the plugin SDK's and describes what a PROVIDER reported, so
+     * `'preempted'` can never come from one and does not belong there. It is overridden here for the
+     * same reason the two fields below are declared here: the loop is the host's, and so is the only
+     * thing that knows a generation was abandoned rather than finished.
+     */
+    finishReason: ConversationFinishReason;
     /** How many tool calls the loop actually ran, across every step. */
     toolCallsMade: number;
     /**
@@ -207,23 +242,6 @@ export interface LlmConversation extends LlmResult {
      * to store — the one caller that reads it does so only while `llm.captureWrites` is on.
      */
     transcript: readonly LlmMessage[];
-    /**
-     * Whether the station took the model back before this conversation had finished.
-     *
-     * A fact about the LOOP rather than about the generation, which is why it is here and not on
-     * `LlmResult.finishReason`: the model did nothing wrong and its own answer was never truncated.
-     * The abort surfaces as `finishReason: 'length'` because that is the nearest thing the wire
-     * vocabulary has, and on its own it is a lie a reader cannot see through — "the model ran out of
-     * room" and "a break wanted the model" are opposite facts wanting opposite fixes.
-     *
-     * It cost a live diagnosis. A `classic banjo` refill was preempted 4.6 seconds in and reported as
-     * `finish=length searches=0`, over which `ModelSetGenerator` printed "the model chose nothing and
-     * never searched the library; it is not using its tools" — while the model had in fact ASKED to
-     * search and been cut off before the calls ran. Reaching the abort branch requires the step to
-     * have produced tool calls, so `toolCallsMade` staying 0 is the station's doing rather than the
-     * model's, and the one binding that accuses a model of laziness must be able to tell.
-     */
-    preempted: boolean;
 }
 
 /** Fold one generation's usage into a conversation's running total. */
@@ -516,9 +534,11 @@ export class LlmService {
                     searches: toolCallsMade,
                 });
                 // No text, because there is none: what the model had said so far belongs to a
-                // generation nobody drained. `preempted` is how the caller tells this apart from a
-                // model that genuinely had nothing to say — see {@link LlmConversation.preempted}.
-                return { text: '', toolCalls: [], usage, toolCallsMade, transcript: messages, finishReason: 'length', preempted: true };
+                // generation nobody drained. The provider would report this as `length`; it is
+                // reported as what it is, so that a caller telling it apart from a model with
+                // nothing to say does not have to know to ask a second question. See
+                // {@link ConversationFinishReason}.
+                return { text: '', toolCalls: [], usage, toolCallsMade, transcript: messages, finishReason: 'preempted' };
             }
             addUsage(usage, result.usage);
 
@@ -526,7 +546,7 @@ export class LlmService {
             // for a tool there — as a call or as text — is answered by ending the conversation,
             // which is the whole point of withdrawing the declarations.
             if (lastStep) {
-                return { ...result, usage, toolCallsMade, transcript: messages, preempted: false };
+                return { ...result, usage, toolCallsMade, transcript: messages };
             }
 
             // A tool call the model wrote as TEXT rather than as a call is still a tool call, and
@@ -564,7 +584,7 @@ export class LlmService {
                     continue;
                 }
 
-                return { ...result, usage, toolCallsMade, transcript: messages, preempted: false };
+                return { ...result, usage, toolCallsMade, transcript: messages };
             }
 
             if (signal.aborted) {
@@ -576,7 +596,7 @@ export class LlmService {
                 // would have taken us), so what is being abandoned is a model that ASKED to search.
                 // `toolCallsMade` therefore stays at whatever ran BEFORE this step, and a caller
                 // reading 0 there is reading the station's interruption rather than an idle model —
-                // which is why {@link LlmConversation.preempted} exists and why it is set here.
+                // which is why the finish reason is overridden here rather than passed through.
                 this.logger.info('llm: a conversation ran out of budget mid-loop', {
                     plugin: plugin.record.id,
                     step,
@@ -584,7 +604,7 @@ export class LlmService {
                     // refill; one at step 3 costs the answer and keeps the searching.
                     wanted: asked.length,
                 });
-                return { ...result, usage, toolCallsMade, transcript: messages, finishReason: 'length', preempted: true };
+                return { ...result, usage, toolCallsMade, transcript: messages, finishReason: 'preempted' };
             }
 
             // The assistant turn AND its calls, as one message. A model that cannot see its own

@@ -52,8 +52,6 @@ interface Options {
     stylesFail?: boolean;
     /** What the model was shown, for the capture switch. */
     transcript?: LlmConversation['transcript'];
-    /** Whether a break took the model back before the refill finished. */
-    preempted?: boolean;
 }
 
 /** An empty side of the operator's taste: nothing said, and nothing hidden behind a limit. */
@@ -69,7 +67,6 @@ function build(options: Options = {}) {
             finishReason: options.finishReason ?? 'stop',
             usage: { totalTokens: 500 },
             transcript: options.transcript ?? [],
-            preempted: options.preempted ?? false,
         };
     });
 
@@ -298,7 +295,7 @@ describe('ModelSetGenerator', () => {
         // the library; it is not using its tools". The model had ASKED to search and been cut off:
         // the abort branch is only reachable from a step that produced tool calls, so 0 searches
         // there is the station's doing. Yielding to a break is what this binding is FOR.
-        const { generator } = build({ enabled: true, preempted: true, toolCallsMade: 0, finishReason: 'length', text: '' });
+        const { generator } = build({ enabled: true, toolCallsMade: 0, finishReason: 'preempted', text: '' });
 
         expect(await generator.generate(inputs(5))).toEqual([]);
         expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('not using its tools'));
@@ -306,14 +303,16 @@ describe('ModelSetGenerator', () => {
     });
 
     it('does not tell the operator to raise the ceiling when the station took the model off it', async () => {
-        // The other half of the same correction, left ungated when the branch below was fixed. A
-        // preempted call reports `length`, because from the provider's side being cut off and
-        // running out of allowance are one thing — so this fired "the model ran out of room ...
-        // limit=12000 setting=llm.setMaxTokens" over a refill that was nowhere near the ceiling,
-        // 18ms before the line saying a break had taken the model. Measured on 19 August, where
-        // the run had used about 290 of the 12,000 tokens it was accused of exhausting.
+        // The other half of the same correction. This used to need a guard, because a preempted
+        // call reported `length` — from the provider's side, being cut off and running out of
+        // allowance are one thing — so this fired "the model ran out of room ... limit=12000
+        // setting=llm.setMaxTokens" over a refill nowhere near the ceiling, 18ms before the line
+        // saying a break had taken the model. Measured on 19 August, where the run had used about
+        // 290 of the 12,000 tokens it was accused of exhausting. The guard is gone now and the test
+        // is not: `'length'` means the ceiling because nothing else answers it any more, and this
+        // is what would notice if something started to again.
         vi.mocked(logger.warn).mockClear();
-        const { generator } = build({ enabled: true, preempted: true, toolCallsMade: 0, finishReason: 'length', text: '' });
+        const { generator } = build({ enabled: true, toolCallsMade: 0, finishReason: 'preempted', text: '' });
 
         await generator.generate(inputs(5));
 
@@ -325,7 +324,7 @@ describe('ModelSetGenerator', () => {
         // The signal the job reads to plan again. It travels beside the picks rather than in them
         // because every generator in the chain answers the same shape and only this one can be
         // preempted -- see `RefillPreemption`.
-        const { generator, preemption } = build({ enabled: true, preempted: true, toolCallsMade: 0, text: '' });
+        const { generator, preemption } = build({ enabled: true, toolCallsMade: 0, finishReason: 'preempted', text: '' });
 
         await generator.generate(inputs(5));
 
@@ -335,7 +334,7 @@ describe('ModelSetGenerator', () => {
     it('asks for nothing when the model simply had nothing to say', async () => {
         // The distinction the retry rests on: a model that searched and found nothing has ANSWERED,
         // and asking it again would produce the same answer at twice the cost.
-        const { generator, preemption } = build({ enabled: true, preempted: false, toolCallsMade: 3, text: '[]' });
+        const { generator, preemption } = build({ enabled: true, toolCallsMade: 3, text: '[]' });
 
         await generator.generate(inputs(5));
 
@@ -345,7 +344,7 @@ describe('ModelSetGenerator', () => {
     it('still names an idle model when nothing preempted it', async () => {
         // The other side of the same line: a model that had the whole budget, never searched and
         // answered anyway IS failing to drive what it was given, and it will do it again.
-        const { generator } = build({ enabled: true, preempted: false, toolCallsMade: 0, text: '' });
+        const { generator } = build({ enabled: true, toolCallsMade: 0, text: '' });
 
         await generator.generate(inputs(5));
 
@@ -528,6 +527,32 @@ describe('ModelSetGenerator', () => {
                 transcript: expect.arrayContaining([expect.objectContaining({ content: expect.stringContaining('Atrophy') })]),
                 context: expect.objectContaining({ named: 0, searches: 3 }),
             }),
+            expect.any(Number),
+        );
+    });
+
+    it('writes a preempted run into the capture as preempted, not as length', async () => {
+        // The whole point of the reason carrying it. `writeCapture` records `finish` and nothing
+        // beside it, so for as long as a preemption reported `length` the on-disk record of one was
+        // indistinguishable from a model that ran out of room — and the capture is where a
+        // zero-pick run is actually read. Measured 2026-08-28: all ten empty captures on this
+        // install say `length`, both that could still be traced to a log line were preemptions, and
+        // `DEFAULT_MAX_OUTPUT_TOKENS` had been doubled twice arguing from that shape.
+        vi.mocked(writeCapture).mockClear();
+        const { generator } = build({
+            enabled: true,
+            settings: { 'llm.captureWrites': 'true' },
+            text: '',
+            toolCallsMade: 0,
+            finishReason: 'preempted',
+        });
+
+        await generator.generate(inputs(5));
+
+        expect(writeCapture).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.anything(),
+            expect.objectContaining({ context: expect.objectContaining({ finish: 'preempted', named: 0 }) }),
             expect.any(Number),
         );
     });

@@ -361,21 +361,22 @@ export class ModelSetGenerator extends SetGenerator {
         // It cost a live run eleven jazz records and was diagnosable only by noticing that the two
         // it did name were spelled like fragments of JSON.
         //
-        // NOT for a preempted run, and this is the same correction the zero-pick branch below
-        // already carries: a call the gate took the model away from reports `length`, because from
-        // the provider's side being cut off and running out of allowance are one thing. Ungated,
-        // that put a warning naming `llm.setMaxTokens` in front of an operator whose refill was
-        // nowhere near the ceiling. Measured on 19 August: a briefed refill was preempted at step 0
-        // by a news break after 9.3 seconds, and this fired `limit=12000` beside it, 18ms before
-        // the line that says what actually happened. This host runs at 22 to 31 output tokens a
-        // second, so 12,000 of them is over six minutes and the run had bought about 290.
+        // A preempted run is no longer one of these, and no longer has to be excluded by hand: the
+        // gate taking the model away answers `'preempted'` rather than the `'length'` the provider
+        // would have reported, so `'length'` here means the ceiling and only the ceiling. It used to
+        // mean both, and ungated that put a warning naming `llm.setMaxTokens` in front of an
+        // operator whose refill was nowhere near it. Measured on 19 August: a briefed refill was
+        // preempted at step 0 by a news break after 9.3 seconds, and this fired `limit=12000` beside
+        // it, 18ms before the line that says what actually happened. This host runs at 22 to 31
+        // output tokens a second, so 12,000 of them is over six minutes and the run had bought
+        // about 290.
         //
         // A preemption that cost the refill everything is reported on its own below, where it is
         // not a fault. One that still named some records says so on the line above, which carries
         // `finish` and `named` either way, and needs nothing further: a partial answer is KEPT
         // here, the chain asks the next pass for what is missing, and none of that wants a warning.
         // Only a run that genuinely reached the ceiling can want the ceiling raised.
-        if (result.finishReason === 'length' && !result.preempted) {
+        if (result.finishReason === 'length') {
             this.logger.warn('director: the model ran out of room before it finished answering; some of its choices were lost', {
                 asked: inputs.count,
                 named: picks.length,
@@ -429,7 +430,7 @@ export class ModelSetGenerator extends SetGenerator {
         }
 
         if (picks.length === 0) {
-            if (result.preempted) {
+            if (result.finishReason === 'preempted') {
                 // Ask for another go. The break ahead of this finishes in seconds and nobody is
                 // waiting on a refill, so the retry costs the station nothing it notices — where
                 // NOT retrying costs the operator the brief they asked for, filled from a floor
@@ -437,9 +438,11 @@ export class ModelSetGenerator extends SetGenerator {
                 this.preemption.mark();
                 // Not the model's failure and not a fault at all: a break wanted the model and this
                 // is the binding that is supposed to lose. Said at info, and named, because from the
-                // numbers alone it is indistinguishable from the two failures below — a `classic
-                // banjo` refill preempted 4.6 seconds in was reported as `finish=length searches=0`
-                // and accused of not using its tools, when it had asked to search and been cut off.
+                // COUNTS alone it is indistinguishable from the two failures below — a `classic
+                // banjo` refill preempted 4.6 seconds in read as `searches=0` and was accused of not
+                // using its tools, when it had asked to search and been cut off. The finish reason
+                // now says so on its own, which is what makes the capture beside this readable
+                // without the log line; this branch stays because a sentence is not a token.
                 this.logger.info('director: a break took the model back before the refill could programme; the floor filled the hour', {
                     ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
                     searches: result.toolCallsMade,

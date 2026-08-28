@@ -282,10 +282,26 @@ surviving failures have exactly that shape — `searches: 0`, empty answer, `len
 evidence they are indistinguishable from four preemptions, for which doubling the ceiling does
 nothing. The reading may still be right. It was not checkable then and it is not checkable now.
 
-**The fix is one field**, `preempted` in the capture context, and it is the same lesson as the
-`usage` column above: **record the cost and the cause at the call boundary, not from the answer.**
-Until it is there, do not raise the ceiling again on the strength of a `length` count, and do not
-read the 38% as a model problem.
+**FIXED 2026-08-28, and not by adding the field.** Copying `preempted` into the capture would have
+been one line and would have kept the thing that caused this: a reason that lies and a flag beside it
+that corrects the lie, where every reader has to know to ask the second question and none of them
+did. `LlmConversation.finishReason` is now `ConversationFinishReason = LlmFinishReason | 'preempted'`
+— overridden on the host's own type, because `LlmFinishReason` is the plugin SDK's and describes what
+a PROVIDER reported, and no plugin can ever return this. The boolean is deleted. Every one of the
+eight `finish: result.finishReason` log sites and the capture became correct without being touched,
+which is the test of whether the fix was at the right end.
+
+Two things it also settled. `ModelSetGenerator`'s ceiling warning had to carry `&& !result.preempted`
+by hand and no longer does, because `'length'` now means the ceiling and nothing else.
+`ModelTalkBreakWriter` has the same `finishReason === 'length'` branch and never had that guard: it
+is correct today only because `shouldPreempt` evicts nothing at `air` priority and a break holds
+there, so the bug was latent rather than live. It is now correct by construction.
+
+**What is still open** is the eight empty captures that fell outside the retained log window and can
+never be attributed. The next window can be. Until one has been read: do not raise
+`DEFAULT_MAX_OUTPUT_TOKENS` again on the strength of a `length` count, and do not read the 38% as a
+model problem. The lesson stands whatever that reading says, and it is the `usage` column's above:
+**record the cost and the cause at the call boundary, not from the answer.**
 
 **The station-wide voice switch this section wanted is already `rotation.breaks`**, which gates
 before generation (the planner plants nothing, so no writer is ever asked). Do not add a second one.

@@ -506,7 +506,10 @@ describe('preemption', () => {
 
         const result = await conversing;
 
-        expect(result.preempted).toBe(true);
+        // The reason itself, not a flag beside a reason that says something else. A provider cut
+        // off mid-stream reports `length`, and passing that on is what made a preempted refill
+        // indistinguishable on disk from one that ran out of room.
+        expect(result.finishReason).toBe('preempted');
         // The plugin was actually told, rather than the host merely giving up on it.
         expect(cancelled()).toBe(true);
         await expect(broke).resolves.toBe('the break got in');
@@ -535,13 +538,15 @@ describe('preemption', () => {
         expect(gate.generating()).toBe(false);
     });
 
-    it('says nothing about being preempted when the model answered normally', async () => {
+    it("passes the provider's own reason through when nothing took the model away", async () => {
+        // The other half: `'preempted'` is the host's word and must never displace what the model
+        // actually said about its own stopping, or a real ceiling hit becomes unreadable instead.
         const { record } = scriptedPlugin([{ text: 'that was Roygbiv' }]);
         const { service } = serviceFor(record);
 
         const result = await service.converse(ask());
 
-        expect(result.preempted).toBe(false);
+        expect(result.finishReason).toBe('stop');
         expect(result.text).toBe('that was Roygbiv');
     });
 });

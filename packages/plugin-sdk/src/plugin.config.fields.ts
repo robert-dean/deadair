@@ -76,8 +76,8 @@ export interface ConfigFieldOption {
 }
 
 /**
- * Where a column's choices come from when neither the plugin nor the operator's own server is the
- * one that knows them.
+ * Where a field's or a column's choices come from when neither the plugin nor the operator's own
+ * server is the one that knows them.
  *
  * A closed HOST vocabulary, and the third of three ways a choice can be offered: `options` is what
  * the PLUGIN decided when its manifest was written, `suggestConfigOptions()` is what the operator's
@@ -86,12 +86,17 @@ export interface ConfigFieldOption {
  * is a free-text cell where `sports` and `sport` are a silent miss nobody sees until bulletins start
  * declining.
  *
- * One member today, and it is an enum rather than a boolean for {@link ConfigFieldUnit}'s reason:
- * the next one (voices, personas) is obvious, and a closed set is what the contract mirroring this
- * can express. Whatever it names is resolved by the CONSOLE, which is the only side that can read
- * the station's own tables; nothing here reaches a plugin.
+ * `intl.timeZones` is the second member and stretches the name slightly: it is the PLATFORM's list
+ * rather than the station's, out of `Intl.supportedValuesOf('timeZone')`. It belongs here anyway,
+ * because the property is about who can answer rather than about where the answer is kept, and the
+ * console is again the only side that can — a zone name has to be one the browser and the server
+ * both know, and a server that enumerated its own would be answering for a different machine.
+ *
+ * An enum rather than a boolean for {@link ConfigFieldUnit}'s reason: the next one (voices,
+ * personas) is obvious, and a closed set is what the contract mirroring this can express. Whatever
+ * it names is resolved by the CONSOLE; nothing here reaches a plugin.
  */
-export type ConfigFieldOptionSource = 'station.newsCategories';
+export type ConfigFieldOptionSource = 'station.newsCategories' | 'intl.timeZones';
 
 /**
  * One column of a `list` field.
@@ -265,6 +270,15 @@ export interface ConfigField {
     options?: ConfigFieldOption[];
 
     /**
+     * Choices only the console can enumerate. See {@link ConfigFieldOptionSource}.
+     *
+     * The field-level twin of {@link ConfigFieldColumn.optionsFrom}, and it resolves the same way
+     * and merges at the same point: whatever `suggestConfigOptions()` says for this key wins, and
+     * this is what is offered when it says nothing.
+     */
+    optionsFrom?: ConfigFieldOptionSource;
+
+    /**
      * The columns of a `list`, in the order they are drawn. Ignored on every other type.
      *
      * A `list` with none is a field with nothing to fill in, so declare at least one.
@@ -320,7 +334,7 @@ export const configFieldUnitSchema = z.enum(['bytes', 'fraction']);
 
 export const configFieldControlSchema = z.enum(['slider']);
 
-export const configFieldOptionSourceSchema = z.enum(['station.newsCategories']);
+export const configFieldOptionSourceSchema = z.enum(['station.newsCategories', 'intl.timeZones']);
 
 export const configFieldColumnSchema = z.object({
     key: z.string().min(1),
@@ -346,6 +360,7 @@ export const configFieldSchema = z.object({
     placeholder: z.string().optional(),
     help: z.string().optional(),
     options: z.array(configFieldOptionSchema).optional(),
+    optionsFrom: configFieldOptionSourceSchema.optional(),
     columns: z.array(configFieldColumnSchema).optional(),
     dependsOn: z.string().optional(),
     rangeWith: z.string().optional(),

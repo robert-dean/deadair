@@ -81,7 +81,7 @@ import {
     MIN_PRODUCTION_MINUTES,
     PRODUCTION_KEYS,
 } from '#modules/productions/production.settings.js';
-import { AAC_BITRATES, OPUS_BITRATES, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { AAC_BITRATES, MP3_BITRATES, OPUS_BITRATES, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
 
@@ -170,6 +170,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Where the station is',
         type: 'string',
         default: '',
+        // Suggestions rather than a `select`, on the console's own rule for these: the list is what
+        // the OPERATOR's browser knows, and a zone their server knows and their browser does not
+        // has to stay typeable. What it buys is that `Europe/Lundon` is visibly not on the list at
+        // the moment it is typed, where today `stationZone` deliberately lets it through and
+        // `Intl.DateTimeFormat` throws at the first break that tries to say the time.
+        optionsFrom: 'intl.timeZones',
         help: "An IANA zone name such as Europe/London or America/New_York, which is what the station reads the clock in when it says the time. A station is a place and its listeners are in it, so this is deliberately not the server's zone. Leave empty to use whatever this machine is set to.",
     },
     {
@@ -208,7 +214,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Bitrate (kbps)',
         type: 'string',
         default: STREAM_DEFAULTS.bitrate,
-        help: 'The MP3 mount, which every listener can play and which is the one the station is always on.',
+        // Suggestions, not a closed set, and that is the difference between this and the two
+        // bitrates below: `%mp3(bitrate=…)` in `radio.liq` takes an `int_of_string`, so anything
+        // typed here is honoured, where `%opus` and `%fdkaac` want a literal at parse time and are
+        // therefore a menu. Offering the usual figures costs nothing and rules nothing out.
+        options: MP3_BITRATES.map(value => ({ value, label: `${value} kbps` })),
+        help: 'The MP3 mount, which every listener can play and which is the one the station is always on. The usual figures are offered; unlike the formats below, anything you type here is honoured.',
     },
     {
         group: 'station',

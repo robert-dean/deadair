@@ -288,6 +288,59 @@ describe('PluginConfigForm', () => {
         });
     });
 
+    describe('a string field with something to suggest', () => {
+        it('offers its own options while still taking anything typed', async () => {
+            // Suggestions rather than a whitelist, which is the difference between this and a
+            // `select`: the MP3 bitrate is interpolated into the stream script, so a figure that is
+            // not on the list is still honoured and has to stay typeable.
+            const plugin = pluginDetail({
+                configFields: [
+                    {
+                        key: 'bitrate',
+                        label: 'Bitrate',
+                        type: 'string',
+                        options: [
+                            { value: '128', label: '128 kbps' },
+                            { value: '192', label: '192 kbps' },
+                        ],
+                    },
+                ],
+            });
+            updatePluginConfiguration.mockResolvedValue(plugin);
+            const user = setupUser();
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            // getAll: an Autocomplete carries a hidden input under the same label as its combobox,
+            // exactly as a Select does above.
+            const input = screen.getAllByLabelText('Bitrate')[0] as HTMLElement;
+
+            await user.click(input);
+            expect(await screen.findByText('128 kbps')).toBeInTheDocument();
+
+            await user.type(input, '112');
+            await save();
+
+            await waitFor(() => {
+                expect(submittedConfig()).toEqual({ bitrate: '112' });
+            });
+        });
+
+        it("offers the platform's zones to a field that asked for them", async () => {
+            // A field-level `optionsFrom`, where only columns could name one before. No request is
+            // made for this one: the list is the browser's own.
+            const plugin = pluginDetail({ configFields: [{ key: 'timezone', label: 'Where the station is', type: 'string', optionsFrom: 'intl.timeZones' }] });
+            const user = setupUser();
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            await user.type(screen.getAllByLabelText('Where the station is')[0] as HTMLElement, 'Europe/Lond');
+
+            expect(await screen.findByText('Europe/London')).toBeInTheDocument();
+            expect(listTopics).not.toHaveBeenCalled();
+        });
+    });
+
     describe('a number that asked for a slider', () => {
         const MIX: ConfigFieldDescriptor = {
             key: 'mix',

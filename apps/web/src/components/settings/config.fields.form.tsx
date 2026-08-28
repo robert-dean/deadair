@@ -431,8 +431,18 @@ export function ConfigFieldsForm({
         return source.map(option => ({ value: option.value, label: option.label }));
     };
 
-    /** Whether a free-text field has anything to suggest, which is what makes it an autocomplete. */
-    const hasSuggestions = (field: ConfigFieldDescriptor): boolean => offered(field.key).length > 0;
+    /**
+     * Whether a free-text field has anything to suggest, which is what makes it an autocomplete.
+     *
+     * `field.options` counts, which it did not before: a `string` declaring choices rendered as a
+     * plain text box and silently dropped them, so the only way to offer any was to become a
+     * `select` and stop accepting anything else. That is the wrong trade for a value like the MP3
+     * bitrate, where 128 and 192 are what nearly everybody wants and `radio.liq` interpolates
+     * whatever is typed — `%mp3(bitrate=…)` takes an `int_of_string`, unlike the Opus and AAC
+     * encoders next to it, which is exactly why those two ARE closed sets and this one is not.
+     * Suggestions rather than a whitelist is what `suggestionInput` below already argues for.
+     */
+    const hasSuggestions = (field: ConfigFieldDescriptor): boolean => offered(field.key).length > 0 || (field.options ?? []).length > 0;
 
     // Controlled: `dependsOn` decides visibility from the current values, so the form has to
     // re-render as they change. The app's other forms are uncontrolled because nothing in them

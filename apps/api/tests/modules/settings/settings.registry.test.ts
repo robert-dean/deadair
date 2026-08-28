@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AIR_MODE_KEY, AIR_MODES, DEFAULT_AIR_MODE, parseAirMode } from '../../../src/modules/playout/air.mode.js';
-import { STREAM_DEFAULTS, STREAM_KEYS, STREAM_SECRET_KEYS } from '../../../src/modules/stream/stream.settings.js';
+import { MP3_BITRATES, STREAM_DEFAULTS, STREAM_KEYS, STREAM_SECRET_KEYS } from '../../../src/modules/stream/stream.settings.js';
 import { SUSTAINING_KEYS } from '../../../src/modules/schedule/schedule.service.js';
 import { findDescriptor, isSecretField, SETTING_DESCRIPTORS, SETTING_GROUPS } from '../../../src/modules/settings/settings.registry.js';
 import {
@@ -188,6 +188,30 @@ describe('the settings registry', () => {
         for (const lower of SETTING_DESCRIPTORS.filter(candidate => candidate.rangeWith !== undefined)) {
             expect(findDescriptor(lower.rangeWith!)!.label, lower.rangeWith).not.toMatch(/^The other end/);
         }
+    });
+
+    it('only offers choices on a field that can hold one of them', () => {
+        // `options` on a `string` is a suggestion list and on a `select` it is the whole
+        // vocabulary; on a `boolean` or a `number` it is nothing at all, drawn by no branch of the
+        // form. Same for `optionsFrom`, which is the same list arriving by a different route.
+        const offering = SETTING_DESCRIPTORS.filter(candidate => candidate.options !== undefined || candidate.optionsFrom !== undefined);
+
+        for (const descriptor of offering) {
+            expect(['string', 'url', 'select', 'multiselect'], descriptor.key).toContain(descriptor.type);
+        }
+    });
+
+    it('leaves the MP3 bitrate open where the other two are closed', () => {
+        // The distinction is `radio.liq`'s, not the console's: `%mp3(bitrate=…)` takes an
+        // `int_of_string`, so any figure typed is honoured and the list is a suggestion — while
+        // `%opus` and `%fdkaac` want a literal at parse time, which is why those two are a `select`
+        // and a value off their list would be a setting the stream cannot keep.
+        const mp3 = findDescriptor(STREAM_KEYS.bitrate)!;
+
+        expect(mp3.type).toBe('string');
+        expect((mp3.options ?? []).map(option => option.value)).toEqual([...MP3_BITRATES]);
+        expect(findDescriptor(STREAM_KEYS.opusBitrate)!.type).toBe('select');
+        expect(findDescriptor(STREAM_KEYS.aacBitrate)!.type).toBe('select');
     });
 
     it('does not know about a key nobody declared', () => {

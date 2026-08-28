@@ -24,8 +24,9 @@ contract ConfigFieldOption: {
     label: string(min=1, max=200)
 }
 
-# Where a column's choices come from when only the station can enumerate them, resolved by the console
-contract ConfigFieldOptionSource: enum(station.newsCategories)
+# Where a field's or a column's choices come from when only the console can enumerate them: the
+# station's own tables, or the platform's zone list. Resolved by the console either way
+contract ConfigFieldOptionSource: enum(station.newsCategories, intl.timeZones)
 
 # One column of a `list` field. Every cell is stored as a string, so this describes the control rather than the value
 contract ConfigFieldColumn: {
@@ -53,6 +54,7 @@ contract ConfigFieldDescriptor: {
     placeholder?: string(max=400)
     help?: string(max=2000)
     options?: array(ConfigFieldOption)
+    optionsFrom?: ConfigFieldOptionSource # Choices only the console can enumerate. Merged where a plugin's own suggestions are, and outranked by them
     columns?: array(ConfigFieldColumn) # `list` only, and ignored elsewhere
     dependsOn?: string(min=1, max=200) # Key of the field this one is only relevant to
     rangeWith?: string(min=1, max=200) # Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross

@@ -288,6 +288,17 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
 export const OPUS_BITRATES = ['96', '128', '160', '192', '256'] as const;
 export const AAC_BITRATES = ['96', '128', '160', '192', '256', '320'] as const;
 
+/**
+ * The MP3 bitrates the console SUGGESTS, which is a different kind of list to the two above.
+ *
+ * Open rather than closed, and for the reason those are closed read the other way: `%mp3(bitrate=…)`
+ * in `radio.liq` takes an `int_of_string`, so the figure really is handed in and any of them works.
+ * Nothing checks a stored value against this and nothing should — it is what the settings form
+ * offers while still accepting whatever is typed, so adding a value here changes a menu and not a
+ * capability.
+ */
+export const MP3_BITRATES = ['64', '96', '128', '160', '192', '256', '320'] as const;
+
 /** The formats the station can publish. `mp3` is always one of them. */
 export type StreamFormat = 'mp3' | 'opus' | 'aac' | 'flac';
 

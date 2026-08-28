@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge, Box, Button, Card, Collapse, Group, Progress, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { PlayoutStatus, StationOrder } from '@deadair/sdk';
@@ -30,6 +30,53 @@ export interface OnAirNowProps {
     airMode?: 'audience' | 'always';
 }
 
+/** How long an armed Stop stays armed before it forgets, in ms. */
+const STOP_ARMED_MS = 5_000;
+
+/**
+ * Stop, held one press away from firing.
+ *
+ * It is the only control on this console that takes the station off air, and it sits ten pixels
+ * from Skip, which ends one record — two buttons of the same size, one recoverable and one heard by
+ * everybody listening. A confirm dialog is the ordinary answer and is the wrong one here: this
+ * surface is used with a thumb from bed as often as with a mouse, and a modal over a 44px control
+ * is a second target to find rather than a moment to think.
+ *
+ * So the button arms itself instead, and says so by changing what it is called. It disarms on its
+ * own, because a Stop left armed on a console nobody is looking at is a Stop that fires on the next
+ * stray press — which is the thing this exists to prevent, arriving a minute later.
+ */
+function useArmedStop(fire: () => void) {
+    const [armed, setArmed] = useState(false);
+    const timer = useRef<number | undefined>(undefined);
+
+    const disarm = useCallback(() => {
+        window.clearTimeout(timer.current);
+        timer.current = undefined;
+        setArmed(false);
+    }, []);
+
+    useEffect(
+        () => () => {
+            window.clearTimeout(timer.current);
+        },
+        [],
+    );
+
+    return {
+        armed,
+        press: () => {
+            if (armed) {
+                disarm();
+                fire();
+                return;
+            }
+            setArmed(true);
+            timer.current = window.setTimeout(disarm, STOP_ARMED_MS);
+        },
+    };
+}
+
 /**
  * What is going out, right now, at the top of the desk.
  *
@@ -46,6 +93,9 @@ export interface OnAirNowProps {
  * "Why is it on air?" is shut by default. Seven gates all reporting fine is a wall of text answering
  * a question nobody asked while the station is working — and the moment it is worth reading is the
  * moment something is wrong, which is when the panel below draws itself open anyway.
+ *
+ * Of the three controls only Stop asks twice — see {@link useArmedStop}. Skip ends one record and
+ * Start puts a station back on air, and neither is a press worth a second thought.
  */
 export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps) {
     const [why, setWhy] = useState(false);
@@ -53,6 +103,7 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
     const stop = useStopPlayout();
     const start = useStartPlayout();
     const setAirMode = useSetAirMode();
+    const stopping = useArmedStop(() => stop.mutate());
 
     const { nowPlaying, upNext, queuedCount, silence } = status;
     const reading = readSilence(silence);
@@ -205,12 +256,24 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                                 </Tooltip>
                             ) : (
                                 <Tooltip
-                                    label="Ends the broadcast. What is playing stops too, and the mount goes quiet rather than falling back to a bed."
+                                    label={
+                                        stopping.armed
+                                            ? 'Press again to take the station off air. It forgets on its own in a few seconds.'
+                                            : 'Ends the broadcast. What is playing stops too, and the mount goes quiet rather than falling back to a bed.'
+                                    }
                                     multiline
                                     maw={320}
                                 >
-                                    <Button color="red" variant="outline" h={44} loading={stop.isPending} onClick={() => stop.mutate()}>
-                                        Stop
+                                    {/* Filled once armed rather than outlined, so the state is
+                                        legible across the room and not only in the word. */}
+                                    <Button
+                                        color="red"
+                                        variant={stopping.armed ? 'filled' : 'outline'}
+                                        h={44}
+                                        loading={stop.isPending}
+                                        onClick={stopping.press}
+                                    >
+                                        {stopping.armed ? 'Confirm stop' : 'Stop'}
                                     </Button>
                                 </Tooltip>
                             )}

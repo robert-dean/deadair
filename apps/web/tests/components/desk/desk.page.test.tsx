@@ -4,7 +4,7 @@
 // four rows that have not happened yet.
 
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StationOrder, StationOrderItem } from '@deadair/sdk';
 
 import { DeskPage } from '../../../src/components/desk/desk.page';
@@ -17,6 +17,7 @@ const getTheRunningOrder = vi.fn();
 const getPlayoutStatus = vi.fn();
 const readStationAttention = vi.fn();
 const skipTheCurrentItem = vi.fn();
+const stopPlayout = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -32,7 +33,7 @@ vi.mock('../../../src/api/client', () => ({
         playout: {
             getPlayoutStatus: () => getPlayoutStatus(),
             skipTheCurrentItem: () => skipTheCurrentItem(),
-            stopPlayout: () => Promise.resolve(playoutStatus()),
+            stopPlayout: () => stopPlayout(),
             startPlayout: () => Promise.resolve(playoutStatus()),
         },
         station: { readStationAttention: () => readStationAttention() },
@@ -85,6 +86,7 @@ function arrange(): void {
     getStationAir.mockResolvedValue(stationAir());
     getTheRunningOrder.mockResolvedValue(order());
     getPlayoutStatus.mockResolvedValue(playoutStatus());
+    stopPlayout.mockResolvedValue(playoutStatus());
     readStationAttention.mockResolvedValue({
         items: [
             {
@@ -97,6 +99,13 @@ function arrange(): void {
         ],
     });
 }
+
+// As `desk.order.test.tsx` already does. Without it a case asserting that a control was NOT pressed
+// reads the presses of every case before it, which is how "Stop forgets on its own" failed on a
+// call the previous test made.
+afterEach(() => {
+    vi.clearAllMocks();
+});
 
 describe('DeskPage', () => {
     it('answers all three questions on one screen', async () => {
@@ -120,6 +129,46 @@ describe('DeskPage', () => {
 
         expect(await screen.findByRole('button', { name: 'Skip' })).toBeEnabled();
         expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
+    });
+
+    // Stop is the only control here heard by everybody listening, and it sits ten pixels from Skip,
+    // which is recoverable. It takes two presses.
+    it('arms Stop rather than firing it, and says so by changing what it is called', async () => {
+        arrange();
+        const user = setupUser();
+        render(<DeskPage />);
+
+        await user.click(await screen.findByRole('button', { name: 'Stop' }));
+
+        expect(stopPlayout).not.toHaveBeenCalled();
+        expect(await screen.findByRole('button', { name: 'Confirm stop' })).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Confirm stop' }));
+        await waitFor(() => expect(stopPlayout).toHaveBeenCalled());
+    });
+
+    it('forgets an armed Stop on its own', async () => {
+        // A Stop left armed on a console nobody is looking at is a Stop that fires on the next
+        // stray press, which is the thing arming it exists to prevent, arriving a minute later.
+        //
+        // `shouldAdvanceTime` so the clock still runs for everything else on the page — the desk
+        // polls, and a suite that froze time would hang on the first query rather than test this.
+        vi.useFakeTimers({ shouldAdvanceTime: true });
+        try {
+            arrange();
+            const user = setupUser();
+            render(<DeskPage />);
+
+            await user.click(await screen.findByRole('button', { name: 'Stop' }));
+            expect(screen.getByRole('button', { name: 'Confirm stop' })).toBeInTheDocument();
+
+            await vi.advanceTimersByTimeAsync(5_000);
+
+            await waitFor(() => expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument());
+            expect(stopPlayout).not.toHaveBeenCalled();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('offers Start rather than Stop once the station has been stood down', async () => {

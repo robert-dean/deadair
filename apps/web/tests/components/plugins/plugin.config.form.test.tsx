@@ -288,6 +288,77 @@ describe('PluginConfigForm', () => {
         });
     });
 
+    describe('a number that asked for a slider', () => {
+        const MIX: ConfigFieldDescriptor = {
+            key: 'mix',
+            label: 'Chart mix',
+            type: 'number',
+            unit: 'fraction',
+            control: 'slider',
+            min: 0,
+            max: 1,
+            step: 0.05,
+            default: 0,
+        };
+
+        const WORKERS: ConfigFieldDescriptor = { key: 'workers', label: 'Workers', type: 'number', control: 'slider', min: 1, max: 8, default: 1 };
+
+        it('says a share as a percentage while storing the fraction', () => {
+            // The `fraction` conversion is display-only and lives in one place. An operator reading
+            // `0.4` where they meant "forty percent" is the reason it exists, and a form that also
+            // SUBMITTED 40 would be the much worse version of the same confusion.
+            const plugin = pluginDetail({ configFields: [MIX], config: { mix: 0.4 } });
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '0.4');
+            expect(screen.getByText('40%')).toBeInTheDocument();
+            // The declared ends, as marks. `100%` rather than `1`.
+            expect(screen.getByText('0%')).toBeInTheDocument();
+            expect(screen.getByText('100%')).toBeInTheDocument();
+        });
+
+        it('submits the position it was moved to', async () => {
+            const plugin = pluginDetail({ configFields: [WORKERS], config: { workers: 3 } });
+            updatePluginConfiguration.mockResolvedValue(plugin);
+            const user = setupUser();
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            // Keyboard rather than a drag: a pointer drag needs a layout jsdom does not have, and
+            // the arrow keys are the accessible path this control has to support anyway.
+            screen.getByRole('slider').focus();
+            await user.keyboard('{ArrowRight}');
+            await save();
+
+            await waitFor(() => {
+                expect(submittedConfig()).toEqual({ workers: 4 });
+            });
+        });
+
+        it('is a spinner again for a bounded number that did not ask for one', () => {
+            // The half of the rule that keeps a millisecond pause typeable: bounds alone are not a
+            // request, or every pace in the registry would become a control nobody can land on.
+            const plugin = pluginDetail({ configFields: [{ key: 'paceMs', label: 'Pace', type: 'number', min: 0, max: 600_000 }] });
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+            expect(screen.getByLabelText('Pace')).toBeInTheDocument();
+        });
+
+        it('is a spinner when a field asked for a slider without declaring its ends', () => {
+            // A hint about drawing, so an incomplete one degrades rather than failing: a slider
+            // with an open end has no track, and a spinner beats a blank space.
+            const plugin = pluginDetail({ configFields: [{ key: 'workers', label: 'Workers', type: 'number', control: 'slider', min: 1 }] });
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+            expect(screen.getByLabelText('Workers')).toBeInTheDocument();
+        });
+    });
+
     it('treats a stored secret as answering its own required check', async () => {
         const plugin = pluginDetail({ configFields: [SECRET_FIELD], secretsConfigured: { clientSecret: true } });
         updatePluginConfiguration.mockResolvedValue(plugin);

@@ -12,6 +12,7 @@ import {
     NumberInput,
     PasswordInput,
     Select,
+    Slider,
     Stack,
     Switch,
     Table,
@@ -525,10 +526,14 @@ export function ConfigFieldsForm({
                 );
             case 'boolean':
                 return <Switch key={field.key} {...common} description={undefined} {...form.getInputProps(name, { type: 'checkbox' })} />;
-            case 'number':
-                return field.unit === 'bytes' ? (
-                    <BytesField key={field.key} common={common} field={field} inputProps={form.getInputProps(name)} />
-                ) : (
+            case 'number': {
+                if (field.unit === 'bytes') return <BytesField key={field.key} common={common} field={field} inputProps={form.getInputProps(name)} />;
+                // A control the field ASKED for, and only where it declared the range one needs.
+                // Falling through rather than failing is deliberate: this is a hint about drawing,
+                // and a spinner is a worse form than a slider but an infinitely better one than a
+                // blank space where a setting should be.
+                if (isSlider(field)) return <SliderField key={field.key} common={common} field={field} inputProps={form.getInputProps(name)} />;
+                return (
                     // The declared range, which Mantine clamps to on blur. Clamping is right HERE
                     // and wrong on the server for the same reason: here the number changes in front
                     // of the person who typed it, so nothing is stored that they did not see. The
@@ -542,6 +547,7 @@ export function ConfigFieldsForm({
                         {...form.getInputProps(name)}
                     />
                 );
+            }
             // Stored and submitted exactly like a `string`, so nothing outside this line knows it
             // is different. What it buys is that a setting somebody WRITES — a list of phrasings, a
             // persona, a prompt — is editable here rather than in psql, which is where a paragraph
@@ -798,6 +804,98 @@ function RowsField({ field, name, rows, error, disabled, cellProps, cellKey, opt
             </Stack>
         </Input.Wrapper>
     );
+}
+
+/**
+ * Whether a field asked for a slider AND declared the range one cannot be drawn without.
+ *
+ * Both halves matter. `control` is an ask, so nothing is a slider that did not request it — a rule
+ * inferred from `min` and `max` being present would turn every millisecond pause in the registry
+ * into a control nobody can land on 3500 with. And a slider with an open end has no track, so a
+ * field that asks without bounding itself is drawn as the spinner it would have been.
+ */
+function isSlider(field: ConfigFieldDescriptor): boolean {
+    return field.control === 'slider' && field.min !== undefined && field.max !== undefined;
+}
+
+interface SliderFieldProps {
+    field: ConfigFieldDescriptor;
+    inputProps: GetInputPropsReturnType;
+    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean };
+}
+
+/**
+ * A bounded number as a track with a handle on it.
+ *
+ * For the values an operator arrives at rather than knows: how much of an hour comes from a chart,
+ * how far under the music the DJ sits, how much of a library one sync may retire. A spinner asks
+ * those questions by inviting a guess and then a correction; a track answers "how far along this
+ * am I" in one glance, which is the actual question.
+ *
+ * `Input.Wrapper` rather than the label prop a Mantine input would take, because `Slider` has no
+ * label of its own — that is what makes it a slider and not a field. The wrapper is also what puts
+ * a server-side rejection under the right control, so a route refusing a number still names it.
+ *
+ * The marks are the declared ends and nothing between them. A scale reading `0 · 25 · 50 · 75 · 100`
+ * is a ruler nobody measures against, where the two ends are the only numbers that answer the
+ * question the operator has, which is "how much room do I have here".
+ *
+ * Empty is not representable and does not need to be: a slider is only offered for a field that
+ * declared both ends, so its own default is always a legal position and "unset" reads as the
+ * default rather than as a blank. That is the one thing this control cannot do that a spinner can,
+ * and it is why the track cache (where "no limit" is a real answer) is a `BytesField` instead.
+ */
+function SliderField({ field, inputProps, common }: SliderFieldProps) {
+    const { value, onChange, error } = inputProps;
+    // Bounded above by `isSlider`, which is the only caller.
+    const min = field.min ?? 0;
+    const max = field.max ?? 100;
+
+    const typed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+    const fallback = typeof field.default === 'number' ? field.default : min;
+    const at = Number.isFinite(typed) ? typed : fallback;
+
+    return (
+        <Input.Wrapper label={common.label} description={common.description} withAsterisk={common.withAsterisk} error={error}>
+            <Slider
+                // Room for the always-on bubble above and the end marks below, neither of which
+                // Mantine gives itself: both are absolutely positioned, so the layout is the same
+                // height with or without them and they land on top of whatever is there. Measured
+                // rather than picked off the spacing scale — the bubble clears the track by 36px
+                // whatever the description above it says, and `lg` at 22px put the value of "Words
+                // a talk break may run to" through the middle of its own help text.
+                mt={36}
+                mb="lg"
+                disabled={common.disabled}
+                min={min}
+                max={max}
+                step={field.step ?? 1}
+                marks={[
+                    { value: min, label: sliderText(min, field) },
+                    { value: max, label: sliderText(max, field) },
+                ]}
+                label={position => sliderText(position, field)}
+                labelAlwaysOn
+                value={at}
+                onChange={onChange}
+            />
+        </Input.Wrapper>
+    );
+}
+
+/**
+ * One position on a slider, said the way the label says it.
+ *
+ * The `fraction` conversion lives HERE and nowhere else, exactly as the gigabyte conversion lives
+ * only in `BytesField`: the value that leaves this component is the share the row holds, so every
+ * reader on the server still multiplies by a number between 0 and 1.
+ *
+ * Rounded because floating point makes 0.15000000000000002 out of three steps of 0.05, and a label
+ * reading `15.000000000000002%` is worse than no label.
+ */
+function sliderText(position: number, field: ConfigFieldDescriptor): string {
+    if (field.unit === 'fraction') return `${Math.round(position * 100)}%`;
+    return String(Math.round(position * 1000) / 1000);
 }
 
 /** One gigabyte, as the operator means it and as the figures beside it are drawn. */

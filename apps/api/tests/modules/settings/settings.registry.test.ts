@@ -17,6 +17,8 @@ import {
     resolveAnalysisPaceMs,
 } from '../../../src/modules/analysis/analysis.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, resolveSweepMaxPercent, SWEEP_MAX_PERCENT_KEY } from '../../../src/modules/catalog/ingest/catalog.sweep.guard.js';
+import { CHART_GENERATOR_KEYS } from '../../../src/modules/director/chart.set.generator.js';
+import { SIMILAR_GENERATOR_KEYS } from '../../../src/modules/director/similar.set.generator.js';
 
 describe('the settings registry', () => {
     it('declares every key exactly once', () => {
@@ -121,6 +123,35 @@ describe('the settings registry', () => {
             expect(descriptor.min, key).toBe(0);
             expect(resolveAnalysisPaceMs(descriptor.max, 0), key).toBe(descriptor.max);
             expect(resolveAnalysisPaceMs(descriptor.max! + 1, 0), key).toBe(descriptor.max);
+        }
+    });
+
+    it('gives every slider the two ends one cannot be drawn without', () => {
+        // A slider with an open end has no track, so the console falls back to a spinner and the
+        // setting silently keeps the control it was meant to stop having. Nothing about that is
+        // visible from the registry side, which is why it is asserted here rather than trusted.
+        for (const descriptor of SETTING_DESCRIPTORS.filter(candidate => candidate.control === 'slider')) {
+            expect(descriptor.type, descriptor.key).toBe('number');
+            expect(descriptor.min, descriptor.key).toBeDefined();
+            expect(descriptor.max, descriptor.key).toBeDefined();
+            expect(descriptor.min!, descriptor.key).toBeLessThan(descriptor.max!);
+        }
+    });
+
+    it('bounds both mixes at the share their generators clamp to', () => {
+        // The disagreement the ranges above exist to stop, in the one place it was live: both
+        // mixes are a share between 0 and 1, both generators hold their own `readMix` clamping to
+        // that, and neither descriptor declared it — so the route took 5 and the hour ran at 1.
+        // Compared against literals rather than against a resolver because `readMix` is private to
+        // each generator and duplicated between them; the number that must not move is the 1.
+        for (const key of [CHART_GENERATOR_KEYS.mix, SIMILAR_GENERATOR_KEYS.mix]) {
+            const descriptor = findDescriptor(key)!;
+
+            expect(descriptor.min, key).toBe(0);
+            expect(descriptor.max, key).toBe(1);
+            // Without this the console would ask for a share as a percentage-shaped slider and
+            // store 40 where every reader multiplies by a fraction.
+            expect(descriptor.unit, key).toBe('fraction');
         }
     });
 

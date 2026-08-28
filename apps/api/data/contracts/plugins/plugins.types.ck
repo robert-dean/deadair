@@ -9,8 +9,14 @@ contract PluginStatus: enum(discovered, disabled, misconfigured, active, failed)
 contract ConfigFieldType: enum(string, text, url, secret, number, boolean, select, multiselect, list, note)
 
 # What a `number` field's value is measured in. The stored value is always in this unit; only the
-# control the operator touches changes, so a byte count stays a byte count everywhere it is read
-contract ConfigFieldUnit: enum(bytes)
+# control the operator touches changes, so a byte count stays a byte count everywhere it is read and
+# a `fraction` stays the share between 0 and 1 that the code multiplying by it wants
+contract ConfigFieldUnit: enum(bytes, fraction)
+
+# The control a field asks to be drawn with, where the ordinary one for its type reads badly. Opt-in
+# per field rather than inferred from `min`/`max`, because a slider is right for a value you feel for
+# and wrong for one you have to hit exactly. Nothing about the stored value changes
+contract ConfigFieldControl: enum(slider)
 
 # One choice of a `select` config field
 contract ConfigFieldOption: {
@@ -40,6 +46,8 @@ contract ConfigFieldDescriptor: {
     required?: boolean
     default?: string | number | boolean
     unit?: ConfigFieldUnit # `number` only, and ignored elsewhere
+    control?: ConfigFieldControl # `number` only, and ignored without both `min` and `max`
+    step?: number # How coarsely a `control` moves, in the field's own unit. Ignored without one, and defaults to 1
     min?: number # `number` only: the smallest value that will be accepted, inclusive
     max?: number # `number` only: the largest value that will be accepted, inclusive
     placeholder?: string(max=400)

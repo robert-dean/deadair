@@ -339,6 +339,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         // every default in this file is shared.
         min: 1,
         max: 100,
+        control: 'slider',
         help: 'Each hour the station asks a music source what it still has, and stops offering whatever is no longer there. If a source suddenly does not recognise more than this much of what the station holds — which is what a library server renumbering its own ids looks like, not a library being deleted — the station refuses rather than throwing the lot away. Set it to 100 to retire whatever a sync did not see. Copies that really have gone are still dropped one at a time when their audio does not arrive.',
     },
 
@@ -412,6 +413,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'How much of each batch comes from a chart',
         type: 'number',
         default: DEFAULT_CHART_MIX,
+        // The range the generator's own `readMix` clamps a stored row to, which until now was
+        // documented in the help text below and enforced nowhere an operator could see: the route
+        // took 5 and the generator quietly ran at 1. Declared, it is refused in front of them.
+        unit: 'fraction',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        control: 'slider',
         help: 'A share between 0 and 1 of each hour taken from a published chart rather than drawn from your library. 0 by default: a chart is a format, and installing a plugin that can serve one should not decide what your station sounds like. Needs a chart plugin installed, and needs "Play records the station does not own yet" on, because a chart names records your library almost certainly does not hold.',
     },
     {
@@ -436,6 +445,13 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'How much of each batch comes from similar artists',
         type: 'number',
         default: DEFAULT_SIMILAR_MIX,
+        // The chart mix's range, for the chart mix's reason. Each generator holds its own copy of
+        // the same `readMix`, so this is one declaration standing in front of two clamps.
+        unit: 'fraction',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        control: 'slider',
         help: 'A share between 0 and 1 of each hour taken from acts that resemble the ones just played, rather than drawn from your library. This is how a station stops sounding like it owns two hundred songs, so it is on by default — unlike the chart mix above, which is a format rather than a habit. 0 turns it off. Needs a similarity plugin installed, and needs "Play records the station does not own yet" on, because the point of it is acts your library does not hold.',
     },
     {
@@ -468,6 +484,8 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         // three words falls to the phrasings every time with nothing saying why.
         min: MIN_BREAK_WORDS,
         max: MAX_BREAK_WORDS,
+        step: 10,
+        control: 'slider',
         help: 'How long the presenter may talk between two records. Forty is about fifteen seconds, which is a link rather than a monologue — and it is a ceiling rather than a target, so raising it lets a character run where it has something to say instead of making every break longer. A persona given latitude of its own still gets whichever is the greater.',
     },
     {
@@ -479,6 +497,8 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: ROTATION_KEYS.breaks,
         min: MIN_STORY_WORDS,
         max: MAX_STORY_WORDS,
+        step: 10,
+        control: 'slider',
         help: 'How long the presenter may take over one of their own stories, when your clock asks for one. A hundred and twenty words is around three quarters of a minute. Stories are written on each persona; a character with none passes the slot over rather than filling it.',
     },
     {
@@ -669,6 +689,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: PAD_EVERY_BOUNDS.default,
         min: PAD_EVERY_BOUNDS.min,
         max: PAD_EVERY_BOUNDS.max,
+        control: 'slider',
         help: 'How far apart the station puts a soundboard hit into a break it wrote without a model. Zero switches that off while leaving a character free to reach for one itself. Lower than about four and the station is a jingle package rather than a presenter: a hit every other break is a noise roughly every ninety seconds of speech.',
     },
     {
@@ -699,6 +720,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: 0,
         min: -24,
         max: 0,
+        control: 'slider',
         help: 'How far to pull the speech down for the length of an overlaid hit, and only for that. Zero is right for the short loud drop this is nearly always used for: ducking under a rimshot that did not need it makes the presenter sound like they flinched. Worth setting for something longer running under a break.',
     },
     {
@@ -932,6 +954,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         // here the disagreement would be a console that accepts a figure the walk then ignores.
         min: 1,
         max: MAX_ANALYSIS_CONCURRENCY,
+        control: 'slider',
         help: "How many measurements the walk keeps in flight. The analyzer's own ceiling is the other half: above it the extra requests wait there and spend their timeout waiting, so raise this towards what the connection test on the analyzer plugin says it will measure at once, and no further.",
     },
     {

@@ -37,11 +37,37 @@ export type ConfigFieldType = 'string' | 'text' | 'url' | 'secret' | 'number' | 
  * either storing a friendlier unit (and doing the multiplication at every reader) or special-casing
  * a particular setting key inside the form, which is the kind of thing nobody finds later.
  *
- * One member today. It is an enum rather than a boolean because the next one is obvious (a
- * duration in milliseconds has exactly the same problem) and because a closed set is what the
- * contract mirroring this can express.
+ * `fraction` is the second member and the one the first paragraph predicted: the row holds a share
+ * between 0 and 1, because that is what the code multiplying by it wants, and the console says
+ * `40%`, because that is what a person means. Honoured by a `slider`, which is the control every
+ * share in this station asks for; a fraction drawn as an ordinary spinner is still shown as the
+ * fraction it stores, since a number typed exactly is unambiguous either way.
+ *
+ * An enum rather than a boolean because the third member is obvious (a duration in milliseconds has
+ * exactly the same problem) and because a closed set is what the contract mirroring this can
+ * express.
  */
-export type ConfigFieldUnit = 'bytes';
+export type ConfigFieldUnit = 'bytes' | 'fraction';
+
+/**
+ * The control a field asks for, where the default one for its type is not the readable one.
+ *
+ * {@link ConfigFieldUnit}'s sibling, and the same bargain: what is STORED does not change, only the
+ * thing the operator touches. A `slider` over a share between 0 and 1 stores a fraction, and every
+ * reader still reads a fraction.
+ *
+ * Opt-in per field rather than inferred from `min` and `max` being present, which is the whole
+ * point. A slider is right for a value somebody feels for (a percentage, a trim in decibels, one
+ * pad every N breaks) and wrong for one they have to hit exactly: 3500 out of 0 to 600000 is a
+ * pixel, and a pause in milliseconds is a number an operator types rather than aims at. Declaring
+ * it makes that a judgement per setting instead of a rule that is right eight times and wrong six.
+ *
+ * A `slider` must declare both `min` and `max`, since a range with no ends is not one a track can
+ * be drawn for. A field asking for one without them falls back to the ordinary input rather than
+ * failing: this is a hint about drawing, and a form that renders nothing is worse than a form that
+ * renders a spinner.
+ */
+export type ConfigFieldControl = 'slider';
 
 /** One choice in a `select`, a `multiselect`, or a suggestion list. */
 export interface ConfigFieldOption {
@@ -189,6 +215,24 @@ export interface ConfigField {
     unit?: ConfigFieldUnit;
 
     /**
+     * The control to draw a `number` with, where the ordinary one reads badly. Ignored on every
+     * other type, and on a `number` that declares no `min` and `max`.
+     *
+     * See {@link ConfigFieldControl}. Nothing about the stored value changes.
+     */
+    control?: ConfigFieldControl;
+
+    /**
+     * How coarsely a `control` moves. Ignored without one, and defaults to 1.
+     *
+     * The unit is the field's own, so a share between 0 and 1 wants `0.05` and a word count wants
+     * `10`. Worth setting on anything whose range is wider than the pixels it is drawn in, since
+     * the alternative is a control that can express values nobody wants and cannot be stopped on
+     * the ones they do.
+     */
+    step?: number;
+
+    /**
      * The smallest and largest a `number` may be, inclusive. Ignored on every other type.
      *
      * A range the field is DECLARED with rather than one the reader clamps to, which is the whole
@@ -241,7 +285,9 @@ export const configFieldOptionSchema = z.object({
 
 export const configFieldTypeSchema = z.enum(['string', 'text', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'list', 'note']);
 
-export const configFieldUnitSchema = z.enum(['bytes']);
+export const configFieldUnitSchema = z.enum(['bytes', 'fraction']);
+
+export const configFieldControlSchema = z.enum(['slider']);
 
 export const configFieldOptionSourceSchema = z.enum(['station.newsCategories']);
 
@@ -262,6 +308,8 @@ export const configFieldSchema = z.object({
     required: z.boolean().optional(),
     default: z.union([z.string(), z.number(), z.boolean()]).optional(),
     unit: configFieldUnitSchema.optional(),
+    control: configFieldControlSchema.optional(),
+    step: z.number().optional(),
     min: z.number().optional(),
     max: z.number().optional(),
     placeholder: z.string().optional(),

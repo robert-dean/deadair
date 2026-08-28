@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionIcon, Badge, Box, Button, Card, Group, Stack, Table, Text, Tooltip, useMantineTheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconArrowBarToUp, IconChevronDown, IconX } from '@tabler/icons-react';
+import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconX } from '@tabler/icons-react';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
 import { RatingControl } from '../catalog/rating.control';
@@ -16,8 +16,15 @@ export interface StationOrderTableProps {
     onRemove?: (item: StationOrderItem) => void;
     /** Whether a removal is in flight, so the row can say so rather than looking ignored. */
     removingItemId?: string;
-    /** Moving an item to a new index. Absent draws no handles. */
+    /**
+     * Moving an item to a new index. Absent draws no handles.
+     *
+     * The index is computed here rather than by the caller, because the rule for what is legal is a
+     * fact about the rows this component is already holding — see {@link firstPlannedIndex}.
+     */
     onMove?: (item: StationOrderItem, toIndex: number) => void;
+    /** Whether a move is in flight, on the same terms as {@link removingItemId}. */
+    movingItemId?: string;
     /**
      * What the station thinks of the record on a row. Absent draws no rating controls at all.
      *
@@ -47,6 +54,21 @@ function formatArtists(artists: string[]): string {
 
 /** Whether an item is beyond editing: the player has it, or it is behind us. */
 const isSpent = (state: StationItemState): boolean => state !== 'planned';
+
+/**
+ * The lowest position an item may be moved to, and the only one this table ever asks for.
+ *
+ * `lineup.move` refuses a `toIndex` below what has been committed rather than clamping it, on the
+ * grounds that quietly reordering something a listener is about to hear is worse than saying no.
+ * The console cannot see that boundary directly — it is the player's, not the order's — but the
+ * first `planned` row is always at or above it, because everything ahead of it has either been
+ * handed over or is behind us.
+ *
+ * -1 when there is nothing planned at all, which is a table with no move to offer.
+ */
+function firstPlannedIndex(items: StationOrderItem[]): number {
+    return items.findIndex(item => item.state === 'planned');
+}
 
 /**
  * How loud a row is, on the three-way split the running order actually has.
@@ -311,11 +333,13 @@ export function StationOrderTable({
     onRemove,
     removingItemId,
     onMove,
+    movingItemId,
     onRate,
     ratingTrackId,
     collapseHistory = false,
 }: StationOrderTableProps) {
     const editable = onRemove !== undefined || onMove !== undefined;
+    const nextUp = firstPlannedIndex(items);
     const anchor = anchorOf(items);
     const [historyOpen, setHistoryOpen] = useState(false);
     const theme = useMantineTheme();
@@ -404,12 +428,16 @@ export function StationOrderTable({
                             <Table.Th visibleFrom="xl">Album</Table.Th>
                             <Table.Th w={90}>Duration</Table.Th>
                             {onRate ? <Table.Th w={112}>Rating</Table.Th> : undefined}
-                            {editable ? <Table.Th w={60} /> : undefined}
+                            {editable ? <Table.Th w={onMove ? 96 : 60} /> : undefined}
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
                         {shown.map((item, index) => {
                             const state = STATE_LABEL[item.state];
+                            // Where this row sits in the WHOLE order rather than in the visible
+                            // slice, which is the number both the row's own count and the move
+                            // below are stated against.
+                            const position = index + (folding ? anchorAt : 0);
                             // A segment is the station's own words, and a record the catalog has never seen
                             // has no row to hold an opinion — a station can air one it never ingested.
                             const trackId = item.kind === 'track' ? item.trackId : undefined;
@@ -440,7 +468,7 @@ export function StationOrderTable({
                                             screen: with the history folded away, a first visible row
                                             called 1 would quietly renumber the broadcast. */}
                                         <Text size="xs" c="dimmed" className="da-num">
-                                            {index + 1 + (folding ? anchorAt : 0)}
+                                            {position + 1}
                                         </Text>
                                     </Table.Td>
                                     {/* `maxWidth` rather than `minWidth` is what actually caps this: a table
@@ -575,23 +603,47 @@ export function StationOrderTable({
                                     ) : undefined}
                                     {editable ? (
                                         <Table.Td>
-                                            {/* Nothing at all on a spent item, rather than a disabled
+                                            <Group gap={2} wrap="nowrap">
+                                                {/* Not on the row already at the front: a control
+                                                whose only effect is to leave the order exactly as
+                                                it was teaches an operator that this corner of the
+                                                row does nothing, which is the same argument the
+                                                spent rows below are drawn bare on. */}
+                                                {onMove && item.state === 'planned' && position !== nextUp ? (
+                                                    <Tooltip
+                                                        label="Moves this in front of everything the player is not already holding. Not necessarily the next thing heard: whatever has been handed over plays first."
+                                                        multiline
+                                                        maw={340}
+                                                    >
+                                                        <ActionIcon
+                                                            variant="subtle"
+                                                            color="gray"
+                                                            aria-label={`Play ${item.title} next`}
+                                                            loading={movingItemId === item.id}
+                                                            onClick={() => onMove(item, nextUp)}
+                                                        >
+                                                            <IconChevronsUp size={15} stroke={1.8} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                ) : undefined}
+                                                {/* Nothing at all on a spent item, rather than a disabled
                                             control: the player is holding it or it is behind us, and an
                                             affordance that could only ever answer 422 is worse than no
                                             affordance. */}
-                                            {onRemove && !isSpent(item.state) ? (
-                                                <Tooltip label="Drop this item">
-                                                    <ActionIcon
-                                                        variant="subtle"
-                                                        color="red"
-                                                        aria-label={`Drop ${item.title}`}
-                                                        loading={removingItemId === item.id}
-                                                        onClick={() => onRemove(item)}
-                                                    >
-                                                        <IconX size={15} stroke={1.8} />
-                                                    </ActionIcon>
-                                                </Tooltip>
-                                            ) : undefined}
+                                                {onRemove && !isSpent(item.state) ? (
+                                                    <Tooltip label="Drop this item">
+                                                        <ActionIcon
+                                                            variant="subtle"
+                                                            color="red"
+                                                            aria-label={`Drop ${item.title}`}
+                                                            loading={removingItemId === item.id}
+                                                            onClick={() => onRemove(item)}
+                                                        >
+                                                            <IconX size={15} stroke={1.8} />
+                                                        </ActionIcon>
+                                                    </Tooltip>
+                                                ) : undefined}
+                                            </Group>
                                         </Table.Td>
                                     ) : undefined}
                                 </Table.Tr>

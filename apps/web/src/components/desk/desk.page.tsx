@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { Anchor } from '@mantine/core';
 
 import { useRateTrack } from '../../api/catalog.queries';
-import { useExtendOrder, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
+import { useExtendOrder, useMoveOrderItem, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
 import { usePlayoutStatus } from '../../api/playout.queries';
 import { useStationAttention } from '../../api/station.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -59,6 +59,7 @@ export function DeskPage() {
     const shuffle = useShuffleOrder();
     const extend = useExtendOrder();
     const removeItem = useRemoveOrderItem();
+    const moveItem = useMoveOrderItem();
     const rateTrack = useRateTrack();
 
     const loaded = order.data;
@@ -73,6 +74,11 @@ export function DeskPage() {
         shuffle.isError ? apiErrorMessage(shuffle.error, 'The running order could not be shuffled.') : undefined,
         extend.isError ? apiErrorMessage(extend.error, 'A refill could not be queued.') : undefined,
         removeItem.isError ? apiErrorMessage(removeItem.error, 'That item could not be dropped.') : undefined,
+        // Named rather than left silent, because the interesting failure here is a race an operator
+        // cannot see coming: the player takes the front of the order while the page is being read,
+        // and the position that was legal when the row was drawn is refused by the time it is
+        // clicked. The API's own sentence says which, so it is worth showing.
+        moveItem.isError ? apiErrorMessage(moveItem.error, 'That item could not be moved.') : undefined,
     ].filter((message): message is string => message !== undefined);
 
     return (
@@ -198,6 +204,11 @@ export function DeskPage() {
                         collapseHistory
                         removingItemId={removeItem.isPending ? removeItem.variables : undefined}
                         onRemove={item => removeItem.mutate(item.id)}
+                        // The only way to reorder the hour that is not Shuffle, which reorders all
+                        // of it. The table decides the index, because what is legal is a fact about
+                        // the rows it is holding rather than something this page can work out.
+                        movingItemId={moveItem.isPending ? moveItem.variables?.itemId : undefined}
+                        onMove={(item, toIndex) => moveItem.mutate({ itemId: item.id, toIndex })}
                         // The running order is where an operator actually forms an opinion about a
                         // record: they are hearing it. The write goes to the catalog rather than to
                         // the order, and the order is re-read because it carries each row's rating.

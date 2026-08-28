@@ -19,6 +19,7 @@ import { render, screen, waitFor } from '../../utils/render';
 const getStationAir = vi.fn();
 const getTheRunningOrder = vi.fn();
 const removeARunningOrderItem = vi.fn();
+const moveARunningOrderItem = vi.fn();
 const shuffleTheRunningOrder = vi.fn();
 const extendTheRunningOrder = vi.fn();
 const replanTheRunningOrder = vi.fn();
@@ -33,6 +34,7 @@ vi.mock('../../../src/api/client', () => ({
             getStationAir: () => getStationAir(),
             getTheRunningOrder: () => getTheRunningOrder(),
             removeARunningOrderItem: (...args: unknown[]) => removeARunningOrderItem(...args),
+            moveARunningOrderItem: (...args: unknown[]) => moveARunningOrderItem(...args),
             shuffleTheRunningOrder: () => shuffleTheRunningOrder(),
             extendTheRunningOrder: (...args: unknown[]) => extendTheRunningOrder(...args),
             replanTheRunningOrder: (...args: unknown[]) => replanTheRunningOrder(...args),
@@ -293,6 +295,67 @@ describe('DeskPage: the running order and the broadcast controls', () => {
 
         await waitFor(() => expect(removeARunningOrderItem).toHaveBeenCalledWith('item-4'));
         await waitFor(() => expect(screen.queryByText('Ageispolis')).not.toBeInTheDocument());
+    });
+
+    // The only way to reorder the hour that is not Shuffle, which reorders all of it.
+    it('offers to play next only what is still planned, and not what is already at the front', async () => {
+        // The order runs played, airing, handed, planned — so the one planned row IS the front of
+        // what can still be moved, and there is nowhere for it to go.
+        getTheRunningOrder.mockResolvedValue(order());
+
+        render(<DeskPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.queryByRole('button', { name: 'Play Ageispolis next' })).not.toBeInTheDocument();
+        // Nothing beyond editing gets one either: the player is holding these or they are behind us,
+        // and the API refuses any position inside the committed head rather than clamping it.
+        expect(screen.queryByRole('button', { name: 'Play Come to Daddy next' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Play Windowlicker next' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Play Xtal next' })).not.toBeInTheDocument();
+    });
+
+    it('moves a record to the front of what the player is not already holding', async () => {
+        // The index sent is the FIRST planned position rather than 0. Everything before it has been
+        // handed over or is behind us, and `lineup.move` refuses a position inside that head — so a
+        // console that sent 0 would have its edit rejected on every broadcast in progress.
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({ id: 'item-1', state: 'played', title: 'Xtal' }),
+                    orderItem({ id: 'item-2', state: 'airing', title: 'Windowlicker' }),
+                    orderItem({ id: 'item-3', state: 'handed', title: 'Come to Daddy' }),
+                    orderItem({ id: 'item-4', state: 'planned', title: 'Ageispolis' }),
+                    orderItem({ id: 'item-5', state: 'planned', title: 'Pulsewidth' }),
+                ],
+            }),
+        );
+        moveARunningOrderItem.mockResolvedValue(order());
+
+        render(<DeskPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Play Pulsewidth next' }));
+
+        await waitFor(() => expect(moveARunningOrderItem).toHaveBeenCalledWith('item-5', { toIndex: 3 }));
+    });
+
+    it('says so when a move is refused, rather than looking like nothing happened', async () => {
+        // The race an operator cannot see coming: the player takes the front of the order between
+        // the row being drawn and the row being clicked, and the position that was legal is not any
+        // more. A silent no-op there reads as a broken button.
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    orderItem({ id: 'item-1', state: 'airing', title: 'Windowlicker' }),
+                    orderItem({ id: 'item-2', state: 'planned', title: 'Ageispolis' }),
+                    orderItem({ id: 'item-3', state: 'planned', title: 'Pulsewidth' }),
+                ],
+            }),
+        );
+        moveARunningOrderItem.mockRejectedValue(new Error('that position has already been handed to the player'));
+
+        render(<DeskPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Play Pulsewidth next' }));
+
+        expect(await screen.findByText(/could not be moved/i)).toBeInTheDocument();
     });
 
     it('shows a segment the station will pass over rather than hiding it', async () => {

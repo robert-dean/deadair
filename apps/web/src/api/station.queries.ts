@@ -56,3 +56,52 @@ export const stationCheckupOptions = queryOptions({
 export function useStationCheckup() {
     return useQuery(stationCheckupOptions);
 }
+
+/**
+ * How often the list of decisions is re-read.
+ *
+ * It is not polled at all, and that is the difference from everything above. The attention list and
+ * the check-up are readings of a station that is changing under them; this is a scan of files that
+ * were written when the work happened, opened by somebody looking into something specific. Polling
+ * it would re-read the whole kept window on a timer to discover rows that cannot change.
+ */
+const TRACES_STALE_MS = 30_000;
+
+export interface TracesFilter {
+    kind?: string;
+    failedOnly?: boolean;
+}
+
+/**
+ * What the station did, decision by decision, newest first.
+ *
+ * Not an infinite query, unlike the activity feed it sits beside. The feed pages with a keyset
+ * because rows arrive at its head continuously and there is no page 2 to ask for; this reads a
+ * bounded window and slices it, and the answer says how much of it there was.
+ */
+export function useTraces(filter: TracesFilter) {
+    return useQuery({
+        queryKey: queryKeys.station.traces(filter),
+        queryFn: () =>
+            sdk.station.readTraces({
+                ...(filter.kind === undefined ? {} : { kind: filter.kind }),
+                ...(filter.failedOnly === true ? { failedOnly: true } : {}),
+            }),
+        staleTime: TRACES_STALE_MS,
+    });
+}
+
+/**
+ * One decision: every call it made, and the decisions on either side of it.
+ *
+ * `enabled` is how the drawer keeps this from firing before an operator has picked a row, matching
+ * how every other conditional read in this file is gated.
+ */
+export function useTrace(id: string | undefined) {
+    return useQuery({
+        queryKey: queryKeys.station.trace(id ?? ''),
+        queryFn: () => sdk.station.readTrace(id!),
+        enabled: id !== undefined,
+        staleTime: TRACES_STALE_MS,
+    });
+}

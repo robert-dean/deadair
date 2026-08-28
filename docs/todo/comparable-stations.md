@@ -529,9 +529,18 @@ Revised after the second pass, with the original reasons kept, and marked after 
 4. ~~**Trace correlation**~~, small, and it is what makes the check-up and the usage surface readable
    rather than merely present. Promoted in practice by 3 landing: there is now a page that assembles
    an answer, and no way to read one decision's calls as a unit underneath it. **Built 2026-08-28**,
-   in two commits — the id on every log line, then spans at the call boundary — and it was small as
-   predicted. What it was NOT is what the estimate got wrong: the useful seam was the model drain
-   rather than the plugin call around it, and the difference between them is 7ms against 19,243ms.
+   in four commits — the id on every log line, spans at the call boundary, the parent edge between
+   two decisions, and a console surface — and it was small as predicted. What it was NOT is what the
+   estimate got wrong: the useful seam was the model drain rather than the plugin call around it, and
+   the difference between them is 7ms against 19,243ms.
+
+   The surface landed **as a third tab on Check-up rather than a page of its own**, which is where
+   the ranking's own words pointed: three tabs are one question in three tenses — what the machinery
+   is doing now, what it did, and what that cost — and an operator who finds a stalled loop on the
+   first or a warning on the second arrives at the third asking which decision it belonged to. It is
+   the one surface in that shell gated on `platform.manage` rather than `platform.view`, on
+   `activity.ck`'s own argument read the other way: a span's `error` is whatever a plugin threw,
+   verbatim, and a careless plugin can put a token in a message.
 5. **Persona chattiness**, one nullable column and one term in a walk, decided about silence first.
 6. **Operator-authored break kinds**, which is the largest of the second-pass findings and the only
    one that adds a surface rather than a field.

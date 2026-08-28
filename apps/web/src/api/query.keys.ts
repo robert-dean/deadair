@@ -121,6 +121,14 @@ export const queryKeys = {
         attention: () => ['station', 'attention'] as const,
         /** The machinery underneath it. One reading, for the same reason. */
         checkup: () => ['station', 'checkup'] as const,
+        /**
+         * What the station did, decision by decision. Keyed on the filter like the activity feed
+         * and for the same reason: a filtered list is a different list rather than a stale one.
+         */
+        traces: (filter: { kind?: string; failedOnly?: boolean }) =>
+            ['station', 'traces', filter.kind ?? 'all', filter.failedOnly === true ? 'failed' : 'all'] as const,
+        /** One decision, by the id or prefix that was asked for. */
+        trace: (id: string) => ['station', 'trace', id] as const,
     },
     playlists: {
         list: () => ['playlists', 'list'] as const,

@@ -2,6 +2,7 @@ import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { StationAttentionService } from './station.attention.service.js';
 import { StationCheckupService } from './station.checkup.service.js';
+import { TracesService } from './traces.service.js';
 
 /**
  * The station about itself, composed across everything else.
@@ -32,5 +33,9 @@ export const StationModule: ServerKitModule = {
         // Scoped for the same reason, even though the heartbeat map it reads is a singleton: what
         // makes a service scoped here is the repositories under it, not the facts it reports.
         registry.register(StationCheckupService).useClass(StationCheckupService).asScoped();
+        // Scoped like the other two, though it reads neither a repository nor a singleton: it scans
+        // files. What decides the lifetime here is that it is a request-path service and nothing
+        // else, which is the same answer the two above give for different reasons.
+        registry.register(TracesService).useClass(TracesService).asScoped();
     },
 };

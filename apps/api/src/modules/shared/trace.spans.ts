@@ -51,8 +51,8 @@ import { currentTrace } from './trace.context.js';
 /** One day of spans per file, and this many days kept. Small: they are for diagnosing this week. */
 export const MAX_TRACE_FILES = 7;
 
-/** Where they go, under the same root the logs use. Sibling of `captures/`. */
-const TRACES_DIR = 'traces';
+/** Where they go, under the same root the logs use. Sibling of `captures/`. Read by `TracesService`. */
+export const TRACES_DIR = 'traces';
 
 /** How much of a failure is worth keeping. A shape, not a stack. */
 const ERROR_CHARS = 200;

@@ -20,6 +20,7 @@ import { ScheduleRouter } from './schedule.router.js';
 import { SettingsRouter } from './settings.router.js';
 import { TopicsRouter } from './topics.router.js';
 import { StationRouter } from './station.router.js';
+import { TracesRouter } from './traces.router.js';
 import { StreamRouter } from './stream.router.js';
 import { StorageRouter } from './storage.router.js';
 import { OnboardingRouter } from './onboarding.router.js';
@@ -46,6 +47,7 @@ export const routers = [
     PluginsRouter,
     TopicsRouter,
     StationRouter,
+    TracesRouter,
     StreamRouter,
     SettingsRouter,
     StorageRouter,

@@ -139,15 +139,33 @@ circular.
 These are the genuinely absent ones, and they are all about seeing the station rather than hearing
 it. None is large.
 
-**Nothing correlates one decision's calls.** A refill makes a model call, which makes tool calls,
-which make provider calls, and the log lines from all of them sit next to whatever else was happening
-in that second. The other station carries one id through the whole chain via `AsyncLocalStorage` and
-writes append-only JSONL, so a single decision can be read back as a unit. The primitive is
-**already in this tree**: `plugin.invocation.deadline.ts` uses `AsyncLocalStorage` to publish the
-deadline a plugin reads through `host.remainingMs()`. The seam is that store, `LlmService`, and
-`PluginInvoker`. The thing to keep from their version is that the writer **swallows its own errors**:
-nothing reads these rows to decide anything, so a failed write must never cost the station the work
-it was describing, which is the rule `ActivityRecorder` already follows here.
+~~**Nothing correlates one decision's calls.**~~ **BUILT 2026-08-28**, as described: ambient id on the
+`plugin.invocation.deadline.ts` shape, append-only JSONL, a writer that swallows everything. The
+seams were the two named here. Three things the design above did not have:
+
+- **There is no new id.** Both roots already carry a correlation id that is already in the audit
+  trail — `JobContext.id` and `ctx.requestId`, both landing on `AuthorizationContext.request`, the
+  second written into the `app.request_id` GUC. A second id would have meant two ways to name one
+  decision and a join between them, which is what this was supposed to remove.
+- **The span belongs around the model DRAIN, not around the plugin call.** `PluginInvoker.invoke`
+  bounds getting a generation handle, and the words arrive afterwards through `collectGeneration`.
+  Measured on the first live run: one fact-extraction generation reads **7ms** at the invoker and
+  **19,243ms** at the drain. Instrumenting only the obvious seam would have under-reported the
+  station's largest cost by three orders of magnitude.
+- **Always on, not behind a setting.** A span is a couple of hundred bytes where a capture is tens of
+  kilobytes, and the failure it explains is the one nobody predicted — which is the case an opt-in
+  diagnostic is never on for. `station-intelligence.md` §2 lost eight of its ten cases to exactly
+  that. Bounded to seven days of files instead.
+
+`apps/api/scripts/traces.ts` reads them back, because a format nobody has a reader for is a format
+nobody reads. First run on this station, over 191 calls: 98s of model time over 26 generations, and
+62s in one plugin method (`wikipedia enrichment.enrichArtist`) that no log line had ever attributed.
+
+**The one limit worth knowing.** A job that enqueues another job is two decisions and gets two
+traces — the enrichment walk and the fact extraction it triggers do not share an id. That is honest
+rather than broken (they are separately scheduled and separately retried), but a reader chasing a
+cause across that boundary has to do it by time. Linking them would mean carrying a parent id
+through the payload, which is a real design and not this one.
 
 **Usage is per attempt and never adds up.** `script_history` carries `usage jsonb` and `duration_ms`
 per write attempt, and `/scripts` shows them, which is genuinely more than the other station keeps
@@ -491,9 +509,12 @@ Revised after the second pass, with the original reasons kept, and marked after 
 3. ~~**The station check-up**~~, because everything it reads already exists and it is the answer to a
    question the operator asks at three in the morning. **Already built** when this was written and
    the survey did not know it; see the third pass.
-4. **Trace correlation**, small, and it is what makes the check-up and the usage surface readable
+4. ~~**Trace correlation**~~, small, and it is what makes the check-up and the usage surface readable
    rather than merely present. Promoted in practice by 3 landing: there is now a page that assembles
-   an answer, and no way to read one decision's calls as a unit underneath it.
+   an answer, and no way to read one decision's calls as a unit underneath it. **Built 2026-08-28**,
+   in two commits — the id on every log line, then spans at the call boundary — and it was small as
+   predicted. What it was NOT is what the estimate got wrong: the useful seam was the model drain
+   rather than the plugin call around it, and the difference between them is 7ms against 19,243ms.
 5. **Persona chattiness**, one nullable column and one term in a walk, decided about silence first.
 6. **Operator-authored break kinds**, which is the largest of the second-pass findings and the only
    one that adds a surface rather than a field.

@@ -235,6 +235,14 @@ tiers has to record an attempt's cost at the call boundary rather than from the 
 cheapest way to get that is `comparable-stations.md`'s trace correlation, which has to carry the same
 fact for its own reasons.
 
+**That is now built, 2026-08-28, and this is the surface a budget should be argued from rather than
+`script_history.usage`.** `LlmService.generateOnce` opens a span and closes it in a `finally`, so a
+generation that produced no answer still has a duration, a model and an outcome; usage is on it when
+the model reported any and absent when it did not, which is the distinction this section needed and
+the column cannot make. `apps/api/scripts/traces.ts --ops` is the aggregate. **`script_history.usage`
+is not fixed and does not need to be**: it is a per-attempt record of what a WRITE cost, the spans
+are the record of what the station spent, and a cap belongs on the second.
+
 This also revises the note in the second bullet above. That measurement said 17 of 24 `failed` rows
 were the writer giving up in the gate queue, which no token cap would have changed; on the current
 window there are 3 `failed` rows and one of them is that shape. The conclusion is unchanged and the

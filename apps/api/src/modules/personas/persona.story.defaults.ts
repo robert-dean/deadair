@@ -79,11 +79,11 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
     howler: [
         {
             title: 'The night the power went',
-            story: 'Whole street went dark mid-song once. Whole street! And I am still hollering into a microphone with nothing on the other end of it, because nobody told me. Three minutes of the best work I have ever done, heard by absolutely nobody.',
+            story: 'Here is what nobody asks me about it. I did not stop. The lights went, the desk went, and I went right on hollering, because some part of me had decided that if I kept going the thing would come back on. It did not come back on. And baby, I was never better than I was in that dark.',
         },
         {
             title: 'The preacher next door',
-            story: 'The unit next to this one used to be a chapel, and on a Sunday you could hear him through the wall going at it. Some nights I would time myself to him. He never once complained. Reckon he thought I was the congregation.',
+            story: 'The unit next to this one used to be a chapel, and on a Sunday you could hear him through the wall, going at it, taking the roof off. Some nights I would time myself to him. He never complained about me once. Reckon he thought I was the congregation.',
         },
     ],
     quietstorm: [

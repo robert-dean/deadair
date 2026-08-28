@@ -25,6 +25,8 @@ Read the ones covering whatever you are about to change. The always-loaded index
 
 ## Writing one
 
+**Never read `this.host` after an `await`. Capture it once, before the first one.** `dispose()` releases the host, and an operator saving a plugin's config reinitializes it — so a request that was in flight when they pressed Save comes back to an instance whose `host` getter now throws. Measured on `plugins/websearch`: the catch handler around a failed search reached for `this.host.logger` and threw `used before init() or after dispose()`, which turned a search that had simply failed into an INVOKER failure, and three of those quarantine the plugin. A config save during a background walk could therefore take a working plugin off the station. The fix is one line and it is the pattern every helper in the SDK already follows — `fetchArticle`, `fetchFeed` and the rest all TAKE a host rather than reaching for one: `const host = this.host` at the top, then use `host` throughout. The request in flight is still allowed to finish and be reported; what must not survive the await is the reference.
+
 **A plugin extends `Plugin` and registers its own teardown.** `packages/plugin-sdk/src/plugin.base.ts`: `this.host` is a getter that throws a sentence naming the plugin rather than a `TypeError`, and `register(disposer)` puts an undo beside its setup, run last-registered-first on unload even when one throws. This matters more in-process, not less, because a timer a plugin forgets lives in the API server until a restart and an operator reloads plugins on every config change. Extending it is optional; the host only ever asks for `PluginLifecycle`. Note `host` being a getter costs TypeScript's narrowing of other properties across a read of it.
 
 ## Config fields

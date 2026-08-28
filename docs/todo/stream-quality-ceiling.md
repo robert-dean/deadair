@@ -104,11 +104,25 @@ byte counts, so **raising the bitrate silently shortens both in time**:
 The burst getting shorter is mostly fine and is even a latency win (it is pure backlog, see
 [stream-latency.md](stream-latency.md)), but below roughly a tenth of a second players start
 raggedly. The queue is the one that bites: it is the slow-client tolerance, and a lossless mount at
-the current number drops listeners a 128k mount carried without complaint. **Anything that raises
-the bitrate has to re-derive both of these in seconds**, in the same template, or the fault will
-present as "the new high-quality mount keeps dropping people".
+the current number drops listeners a 128k mount carried without complaint.
+
+**SETTLED, 2026-08-28.** Both are now RENDERED rather than written as literals, in
+[stream.config.ts](../../apps/api/src/modules/stream/stream.config.ts), and both are stated in the
+code in SECONDS — which is the whole of the fix, since the config field is bytes and that is the
+trap. `queue-size` is derived from the HIGHEST enabled bitrate at 20 seconds, because it is one
+global number and has to suit the hungriest mount. `burst-size` is NOT: it is backlog every
+listener pays as latency, so the global one stays sized for the MP3 mount at half a second and a
+mount whose own bitrate makes that too short in time carries its own override in its `<mount>`
+block, which Icecast supports per-mount. A FLAC mount gets ~56 kB where MP3 keeps 8192. An
+unchanged 128 kbps station renders exactly the 524288 and 8192 it always did, which is what keeps
+the config generation stable across the upgrade.
 
 ## The plan, cheapest first
+
+**Status, 2026-08-28: steps 4 and 5 are built.** The Opus, AAC and FLAC mounts and the HLS output
+all exist and are opt-in settings; see [stream-formats.md](stream-formats.md), which is now a record
+of what shipped rather than a proposal. Steps 1-3 below are still the cheap unclaimed wins, and step
+1 remains the largest single improvement available for zero code.
 
 1. **Raise `stream.bitrate` to 320.** One settings edit, no code, no new mount, no new encoder.
    Removes most of the tandem-coding loss and is the largest single improvement available.

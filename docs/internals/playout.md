@@ -27,8 +27,28 @@ it. The count is polled from Icecast, which is the truth, off whichever stats en
 Whichever answers is cached, so the other is probed once per re-probe rather than once per poll.
 
 **The two documents carry the same facts in different shapes, and neither matches what upstream's source
-suggests** — `listenersForMount` is where that lives, and `docs/todo/icecast-2.5.md` records both measured
+suggests** — `listenersByMount` is where that lives, and `docs/todo/icecast-2.5.md` records both measured
 payloads.
+
+**The audience is a SUM over every mount, plus the HLS listeners, and neither half is optional.** The station
+publishes MP3 always and Opus, AAC and FLAC as the operator switches them on, so counting one mount would take
+an audience-gated station off the air with somebody demonstrably listening to another. `IcecastStatsClient`
+holds the per-mount breakdown and both halves write into it: the poll replaces the whole map, the event feed
+replaces one entry through `noteMountCount` and is handed back the new total. Last writer wins per mount,
+because both are authoritative totals for that mount at the moment they were produced rather than deltas to
+reconcile. The reconciliation is deliberately not in the feed — a message names one mount and the gate wants
+the audience, so a feed summing only what it had happened to hear about would publish a total omitting every
+listener on a mount no message had mentioned yet.
+
+**An HLS listener is counted differently because there is nothing to ask.** They hold no connection open, so
+Icecast knows nothing about them. What a live player does instead is re-fetch the media playlist every target
+duration, because that is the only way to learn about the next segment — so a playlist request IS a heartbeat,
+and `HlsAudience` is the register of who has ticked inside the last fifteen seconds. That is not the
+access-log counting this file refuses below: a log is a record of what happened, and this is a reading of what
+is true now, so zero here means nobody rather than "could not tell". `AudienceWatch` keeps the Icecast total
+and the HLS count apart and re-adds them in `recount`, so neither source can overwrite the other, and an HLS
+arrival deliberately does NOT stamp `lastReadAt` — it is evidence somebody is there and no evidence whatever
+about Icecast.
 
 ## Knowing who is listening
 

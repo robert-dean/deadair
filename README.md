@@ -68,7 +68,7 @@ station's own event log, so "why was it silent at three in the morning" is a que
              Liquidsoap              PostgreSQL              analysis
           (mixing, on air)        (everything kept)      (cue points, loudness)
                   │
-               Icecast ──────────────►  /live.mp3
+               Icecast ──────────────►  /live.mp3  (plus Opus/AAC/FLAC and HLS, opt-in)
 ```
 
 Audio never touches Node in the sense that matters: nothing here decodes, mixes or encodes. The

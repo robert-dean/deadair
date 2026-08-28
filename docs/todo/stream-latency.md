@@ -12,6 +12,29 @@ it when that feature comes up, or when the lag starts costing something an opera
 
 ---
 
+## A different thing this file gets asked about: the stream DROPS on a phone
+
+**Not latency, and not fixable with any of the knobs below.** Reported 2026-08-28: playing
+`/live.mp3` on a phone, moving between wifi and mobile drops the connection and needs a manual
+reconnect.
+
+An Icecast mount is one long-lived TCP connection. The handoff changes the phone's source address,
+so the socket is dead by definition — the far end is talking to an address that no longer exists.
+Nothing on the server side carries a TCP connection across that, no Icecast setting touches it, and
+none of the buffering below is involved. A player that reconnects itself hides it; most do not.
+
+**The fix shipped, and it is a different transport rather than a setting.** HLS is a sequence of
+ordinary HTTP requests for small files, so the same handoff costs at most one segment fetch and the
+player asks again. It is `stream.hlsEnabled`, and it lands 6-12s behind the live edge with the
+default two-second segments — worse than the mount on every axis this file cares about, and the
+right answer anyway for a listener who moves. See
+[stream-formats.md](stream-formats.md).
+
+So the two are complements: the mounts for a listener who stays put and wants to be close to live,
+HLS for one who does not. Do not read the latency numbers below as an argument against it.
+
+---
+
 ## What the 2.3s is, and what it is not
 
 `StreamMonitor` reports `buffered.end - currentTime`

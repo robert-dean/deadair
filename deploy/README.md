@@ -155,6 +155,11 @@ Two things sit on the authored side that look like they belong with the media, a
 audio an operator drops in for the station to take in (`/data/inbox`), and any voice clip added by
 hand (`/data/voices`). Nothing regenerates those.
 
+`/data/streamhls` is the opposite of all of it and wants no thought at all: it holds the last few
+seconds of HLS segments while `stream.hlsEnabled` is on, is rewritten continuously, and is bounded
+by the segment settings. Losing it costs a listener one reconnect. It is in `/data` because
+Liquidsoap writes it and nginx serves it, and both of those live here.
+
 ## Upgrading
 
 Ordinarily nothing: the schema is applied before the station starts and a new migration is picked up

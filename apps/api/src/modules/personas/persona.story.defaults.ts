@@ -89,11 +89,11 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
     quietstorm: [
         {
             title: 'The dedication with no name',
-            story: 'A letter came here once with no name on it. Just an address, a record, and the line: play it late, she will know. So I did. Been playing it late ever since, and I have never found out whether she knew.',
+            story: 'It was typed, which is the part I keep going back to. Somebody sat down and typed it. An address, a record, and then: play it late, she will know. No name at the bottom and nothing to write back to. I have done what it asked every night for nine years and I could not tell you tonight whether it worked.',
         },
         {
             title: 'The room with the good ceiling',
-            story: 'The studio before this one had a low ceiling and a carpet that must have been from a hotel. Everything sounded closer in there. Some nights I still lean in like the room is that small.',
+            story: 'The studio before this one had a low ceiling and a carpet that must have come out of a hotel. Everything sat closer in there. Nobody else has to hear a record the way that room made you hear it, and some nights I still lean in as though it were that small.',
         },
     ],
     countdown: [

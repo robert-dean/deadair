@@ -62,6 +62,22 @@ export interface SearchQuery {
     recency?: SearchRecency;
     /** ISO 639-1, when the caller has an opinion about what language the answer should be in. */
     language?: string;
+    /**
+     * Only pages on these hostnames, when the caller is asking a narrow question.
+     *
+     * Every engine expresses this and none of them agree on how: `site:` in the
+     * query for the ones that take operators, a list parameter for the ones that
+     * do not. A plugin that cannot ask its engine at all filters what came back
+     * rather than ignoring this, because a caller that named its sites is
+     * usually about to do something with the pages that only holds for those
+     * sites — which is what the enrichment half of `plugins/websearch` does with
+     * the operator's own allowlist.
+     *
+     * Bare hostnames, no scheme and no path. Best-effort in the sense that an
+     * engine may still find nothing on them; never in the sense that something
+     * else may come back.
+     */
+    sites?: string[];
 }
 
 /** One hit. */

@@ -1,5 +1,5 @@
 import { jsonBody, type PluginHost, type SearchQuery, type SearchResult } from '@deadair/plugin-sdk';
-import { readResults, type RawResult } from './websearch.results.js';
+import { onlyOnSites, readResults, withSites, type RawResult } from './websearch.results.js';
 import { refuseResponse } from './websearch.http.js';
 import { REQUEST_TIMEOUT_MS } from './websearch.manifest.js';
 
@@ -18,7 +18,10 @@ import { REQUEST_TIMEOUT_MS } from './websearch.manifest.js';
  */
 export async function searxngSearch(host: PluginHost, baseUrl: string, query: SearchQuery): Promise<SearchResult[]> {
     const url = new URL('/search', baseUrl.replace(/\/+$/, ''));
-    url.searchParams.set('q', query.query);
+    // SearXNG passes an operator through to whichever engines it is asking, so
+    // whether it is honoured depends on what the operator configured behind it.
+    // `onlyOnSites` below is what actually holds the promise.
+    url.searchParams.set('q', withSites(query.query, query.sites));
     url.searchParams.set('format', 'json');
     if (query.recency !== undefined) url.searchParams.set('time_range', query.recency);
     if (query.language !== undefined) url.searchParams.set('language', query.language);
@@ -35,7 +38,11 @@ export async function searxngSearch(host: PluginHost, baseUrl: string, query: Se
         );
     }
 
-    return parseSearxngResponse(await jsonBody<unknown>(response), query.limit);
+    // Filtered before it is cut, which is the whole reason the parsers do not
+    // take a limit: cutting first would answer with three results because the
+    // first ten were on other sites, and the fourth to tenth on the right ones
+    // were never looked at.
+    return onlyOnSites(parseSearxngResponse(await jsonBody<unknown>(response)), query.sites ?? []).slice(0, Math.max(0, query.limit));
 }
 
 /**
@@ -51,7 +58,7 @@ export async function searxngSearch(host: PluginHost, baseUrl: string, query: Se
  * ANSWER, and an answer is a paragraph assembled from pages this station never
  * sees, which nothing here can check against a source. See `capabilities/search.ts`.
  */
-export function parseSearxngResponse(data: unknown, limit: number): SearchResult[] {
+export function parseSearxngResponse(data: unknown): SearchResult[] {
     const results = field(data, 'results');
     if (!Array.isArray(results)) return [];
 
@@ -63,7 +70,7 @@ export function parseSearxngResponse(data: unknown, limit: number): SearchResult
         published: field(entry, 'publishedDate'),
     }));
 
-    return readResults(raws).slice(0, Math.max(0, limit));
+    return readResults(raws);
 }
 
 const field = (value: unknown, key: string): unknown =>

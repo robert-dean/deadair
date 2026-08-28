@@ -1,5 +1,5 @@
 import { jsonBody, type PluginHost, type SearchQuery, type SearchResult } from '@deadair/plugin-sdk';
-import { readResults, type RawResult } from './websearch.results.js';
+import { onlyOnSites, readResults, MAX_SITE_CLAUSES, type RawResult } from './websearch.results.js';
 import { refuseResponse } from './websearch.http.js';
 import { REQUEST_TIMEOUT_MS, TAVILY_HOST } from './websearch.manifest.js';
 
@@ -37,6 +37,10 @@ export async function tavilySearch(host: PluginHost, apiKey: string, query: Sear
         include_answer: false,
         topic: query.recency === undefined ? 'general' : 'news',
         ...(query.recency === undefined ? {} : { days: DAYS[query.recency] }),
+        // The one engine here with a parameter for this rather than an operator,
+        // which is the better arrangement: `site:` in a query is a hint the
+        // engine may or may not honour, and this is a constraint it applies.
+        ...(query.sites === undefined || query.sites.length === 0 ? {} : { include_domains: query.sites.slice(0, MAX_SITE_CLAUSES) }),
     };
 
     const response = await host.fetch(TAVILY_ENDPOINT, {
@@ -50,7 +54,9 @@ export async function tavilySearch(host: PluginHost, apiKey: string, query: Sear
         await refuseResponse(response, 'tavily', response.status === 401 || response.status === 403 ? 'check the API key' : undefined);
     }
 
-    return parseTavilyResponse(await jsonBody<unknown>(response), query.limit);
+    // Filtered before it is cut, even though this engine was asked properly. See
+    // the note in `searxng.provider.ts`.
+    return onlyOnSites(parseTavilyResponse(await jsonBody<unknown>(response)), query.sites ?? []).slice(0, Math.max(0, query.limit));
 }
 
 /**
@@ -64,7 +70,7 @@ export async function tavilySearch(host: PluginHost, apiKey: string, query: Sear
  * is free to send one anyway and this is the file that would have to notice.
  * `score` is ignored too: it orders the list Tavily already ordered.
  */
-export function parseTavilyResponse(data: unknown, limit: number): SearchResult[] {
+export function parseTavilyResponse(data: unknown): SearchResult[] {
     const results = field(data, 'results');
     if (!Array.isArray(results)) return [];
 
@@ -77,7 +83,7 @@ export function parseTavilyResponse(data: unknown, limit: number): SearchResult[
         published: field(entry, 'published_date'),
     }));
 
-    return readResults(raws).slice(0, Math.max(0, limit));
+    return readResults(raws);
 }
 
 const field = (value: unknown, key: string): unknown =>

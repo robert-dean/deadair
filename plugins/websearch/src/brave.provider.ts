@@ -1,5 +1,5 @@
 import { jsonBody, type PluginHost, type SearchQuery, type SearchResult } from '@deadair/plugin-sdk';
-import { readResults, type RawResult } from './websearch.results.js';
+import { onlyOnSites, readResults, withSites, type RawResult } from './websearch.results.js';
 import { refuseResponse } from './websearch.http.js';
 import { BRAVE_HOST, REQUEST_TIMEOUT_MS } from './websearch.manifest.js';
 
@@ -23,9 +23,11 @@ const FRESHNESS = { day: 'pd', week: 'pw', month: 'pm', year: 'py' } as const;
 
 export async function braveSearch(host: PluginHost, apiKey: string, query: SearchQuery): Promise<SearchResult[]> {
     const url = new URL(BRAVE_ENDPOINT);
-    url.searchParams.set('q', query.query);
+    // Brave takes `site:` in the query itself; there is no parameter for it.
+    url.searchParams.set('q', withSites(query.query, query.sites));
     // Brave's own ceiling on this parameter is 20, and asking for more is a 422
-    // rather than a shorter list.
+    // rather than a shorter list. Asked for in full even when the sites will cut
+    // it down, since the ones that survive are what the caller wanted.
     url.searchParams.set('count', String(Math.min(Math.max(query.limit, 1), 20)));
     // Snippets arrive with the query terms wrapped in `<strong>` unless this is
     // off. `plainText` would strip them anyway; turning them off means the
@@ -43,7 +45,8 @@ export async function braveSearch(host: PluginHost, apiKey: string, query: Searc
         await refuseResponse(response, 'brave', response.status === 401 || response.status === 403 ? 'check the subscription token' : undefined);
     }
 
-    return parseBraveResponse(await jsonBody<unknown>(response), query.limit);
+    // Filtered before it is cut. See the note in `searxng.provider.ts`.
+    return onlyOnSites(parseBraveResponse(await jsonBody<unknown>(response)), query.sites ?? []).slice(0, Math.max(0, query.limit));
 }
 
 /**
@@ -59,7 +62,7 @@ export async function braveSearch(host: PluginHost, apiKey: string, query: Searc
  * the reason SearXNG's is: a long description assembled by somebody else is an
  * answer nothing here can check against a source.
  */
-export function parseBraveResponse(data: unknown, limit: number): SearchResult[] {
+export function parseBraveResponse(data: unknown): SearchResult[] {
     const raws: RawResult[] = [];
 
     for (const section of ['news', 'web'] as const) {
@@ -82,7 +85,7 @@ export function parseBraveResponse(data: unknown, limit: number): SearchResult[]
         }
     }
 
-    return readResults(raws).slice(0, Math.max(0, limit));
+    return readResults(raws);
 }
 
 const field = (value: unknown, key: string): unknown =>

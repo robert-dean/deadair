@@ -58,6 +58,30 @@ its quote and a link to the article.
 - **Genius, Discogs, SecondHandSongs.** The seam is the point: once `documents` exists, a second
   prose source is one plugin and no host change. Songfacts stays excluded — right content, no API,
   unfriendly terms.
+
+  **Confirmed 2026-08-28**, by the second source arriving: `plugins/websearch` declares `enrichment`
+  beside `search`, hands back `documents` from pages it read, and **no host file changed for it** —
+  not the merge, not the walk, not the extractor. What it adds that this list did not anticipate is
+  the case where the source is not a named service at all: the operator lists the sites they are
+  happy to be quoted from and the plugin searches those.
+
+  **Its trust boundary is the HOST's allowlist, not a check in the plugin, and that is the part
+  worth copying.** The sites are a `list` config field with a column typed `url`, and
+  `permissions.network` carries `{ fromConfig: 'trustedSites' }` pointed at the same field, so
+  `host.fetch` refuses a page on any other domain before the plugin sees it. There is deliberately
+  no `network.open` grant: with one this would be a plugin that reads whatever an engine ranked
+  first and promises to be careful, and a claim store fed by that is a station quoting whoever won
+  an SEO contest. The plugin filters the results too, which is only the cheaper way to the same
+  answer — delete every line of it and the allowlist still holds.
+
+  Two consequences for whoever wires the next one up. **Its documents come out ranked behind
+  Wikipedia's** (`priority: 700` against 100), which costs nothing because `documents` is a list the
+  host concatenates. And **the verifier is doing more work here than it was designed for**: against
+  an encyclopaedia, checking a claim's quoted span against the source was mostly a guard against a
+  model paraphrasing. Against an open index it is also the only thing standing between the fact
+  store and a page that is confidently wrong. That is a reason to keep the trusted list short, and
+  it is the honest argument for reading the enrichment panel occasionally rather than a reason not
+  to have built this.
 - **Categories driving persona selection.** The column is populated and nothing reads it. Wire it
   when there is a real corpus to see the distribution of, so a pirate captain's preference is set
   against what the store actually holds rather than against a guess.
@@ -76,3 +100,10 @@ The Wikipedia plugin is bundled and discovered, but like every plugin it starts 
 contact email address in its config before it will make a request — Wikimedia asks every client to
 identify itself. Nothing else needs enabling: the walk and the floor run on cron from then on. The
 model pass is `llm.factExtraction`, off by default.
+
+The web search plugin is a second, optional source and takes one more step than Wikipedia does. It is
+bundled and starts disabled; enabling it needs an engine and its credential, and that alone gives the
+station the `search_web` tool and no documents at all. **The documents start when the operator adds a
+row to "Sites worth quoting", and never before**: an empty list means the enrichment half makes no
+request. That is the shape on purpose — the list is the operator saying which sites they would be
+happy to hear the station quote.

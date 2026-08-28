@@ -1,4 +1,4 @@
-import { PLUGIN_CAPABILITY_SEARCH, type PluginManifest } from '@deadair/plugin-sdk';
+import { PLUGIN_CAPABILITY_ENRICHMENT, PLUGIN_CAPABILITY_SEARCH, type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
 
 export const PLUGIN_ID = 'deadair.websearch';
@@ -76,12 +76,54 @@ export const BUCKET = 'websearch';
 /** Results per query, when the operator has not said. */
 export const DEFAULT_MAX_RESULTS = 10;
 
+/**
+ * How many pages one artist or one record is read from, when the operator has
+ * not said.
+ *
+ * Three, under the host's own ceiling of four per plugin per subject. The host's
+ * reasoning applies here as written: a source that has read six articles about
+ * one record is describing something other than that record. What is different
+ * here is the cost — each one is a request to somebody's site — so this is also
+ * a bound on how much of a walk over a whole catalog this plugin is responsible
+ * for.
+ */
+export const DEFAULT_MAX_DOCUMENTS = 3;
+
+/** The host stores at most four documents per plugin per subject, so asking for more is wasted work. */
+export const MAX_DOCUMENTS = 4;
+
+/**
+ * How much of a page is kept as a document.
+ *
+ * Far more than a bulletin's 2,000 characters, and that is the whole reason
+ * `fetchArticle` takes the figure at all: what reads this is a claim extractor
+ * rather than a presenter, and a claim can come from the tenth paragraph. Still
+ * well under the host's own `MAX_DOCUMENT_TEXT`, since a page that runs past
+ * this is a listing rather than an article.
+ */
+export const DOCUMENT_MAX_CHARS = 20_000;
+
 export const configSchema = z
     .object({
         provider: z.enum(PROVIDER_IDS),
         baseUrl: z.string().optional(),
         apiKey: z.string().optional(),
         maxResults: z.coerce.number().int().min(1).max(25).default(DEFAULT_MAX_RESULTS),
+        /**
+         * The rows, as the JSON array a `list` field is stored as.
+         *
+         * Empty is the default and means the enrichment half does nothing at
+         * all, which is deliberate: the search half is useful the moment an
+         * engine is configured, and this half puts somebody else's prose into a
+         * store the station makes claims from. That is a decision an operator
+         * has to make site by site, and it is not one a default can make for
+         * them.
+         */
+        trustedSites: z
+            .string()
+            .default('[]')
+            .refine(value => value.trim().length === 0 || readsAsSiteRows(value), 'Each site needs a web address starting with http:// or https://'),
+        maxDocuments: z.coerce.number().int().min(1).max(MAX_DOCUMENTS).default(DEFAULT_MAX_DOCUMENTS),
     })
     // Refused at SAVE time rather than read leniently later, for `plugins/rss`'s
     // reason: this is the one moment there is somebody looking at the form to
@@ -100,13 +142,50 @@ export type WebSearchConfig = z.infer<typeof configSchema>;
 
 const hasText = (value: string | undefined): boolean => typeof value === 'string' && value.trim().length > 0;
 
+/**
+ * Whether every row a saved value holds carries an address something could
+ * actually fetch.
+ *
+ * Refused here rather than read leniently, `plugins/rss`'s rule: a save is the
+ * one moment there is somebody to tell, and a list that saved cleanly and
+ * contributes nothing is a plugin that looks broken. It matters more here than
+ * there, because a row the HOST's allowlist cannot read is a site the operator
+ * believes they have trusted and the plugin will never be allowed to reach.
+ */
+function readsAsSiteRows(value: string): boolean {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(value);
+    } catch {
+        return false;
+    }
+
+    if (!Array.isArray(parsed)) return false;
+
+    return parsed.every(row => {
+        if (typeof row !== 'object' || row === null || Array.isArray(row)) return false;
+        return isFetchable((row as Record<string, unknown>).site);
+    });
+}
+
+const isFetchable = (url: unknown): boolean => {
+    if (typeof url !== 'string') return false;
+    try {
+        const { protocol } = new URL(url.trim());
+        return protocol === 'http:' || protocol === 'https:';
+    } catch {
+        return false;
+    }
+};
+
 export const websearchManifest: PluginManifest = {
     id: PLUGIN_ID,
     name: 'Web search',
     version: PLUGIN_VERSION,
-    capabilities: [PLUGIN_CAPABILITY_SEARCH],
+    capabilities: [PLUGIN_CAPABILITY_SEARCH, PLUGIN_CAPABILITY_ENRICHMENT],
     apiVersion: '^1.0.0',
-    description: 'Asks a search engine about whatever the station wants to know, so a presenter has something true to work from.',
+    description:
+        'Asks a search engine about whatever the station wants to know, and reads the sites you trust for background on the records it plays.',
     permissions: {
         network: [
             // The operator's own instance, wherever they run it. Contributes no
@@ -117,6 +196,15 @@ export const websearchManifest: PluginManifest = {
             // are not an operator's business.
             { host: BRAVE_HOST, ratePerSecond: RATE_PER_SECOND, bucket: BUCKET },
             { host: TAVILY_HOST, ratePerSecond: RATE_PER_SECOND, bucket: BUCKET },
+            // **This entry is the trust boundary, and it is the host's rather
+            // than this plugin's.** The host reads a hostname per ROW out of the
+            // same setting the plugin reads, off the column declared `url`
+            // below, so a page on any other domain is refused before this plugin
+            // sees it. There is deliberately no `network.open` grant here and
+            // there must not be one: a search result can point anywhere, and the
+            // difference between a station that quotes sites its operator chose
+            // and one that quotes whatever an engine ranked first is this line.
+            { fromConfig: 'trustedSites', ratePerSecond: RATE_PER_SECOND, bucket: BUCKET },
         ],
         // Nothing to keep. A result is somebody else's page and the questions
         // the station asks are the station's; the cache that stops one break
@@ -158,6 +246,32 @@ export const websearchManifest: PluginManifest = {
             help:
                 'How many hits to bring back. Ten is about as much as a presenter can use: what reads them is a model writing a sentence or two, ' +
                 'and forty results is a page of context spent on something the station was asked to mention once.',
+        },
+        {
+            key: 'trustedSites',
+            label: 'Sites worth quoting',
+            type: 'list',
+            placeholder: 'No sites yet, so nothing here is read for background.',
+            help:
+                'Leave this empty and the plugin only searches. Add a site and the station will also look it up for background on the artists and ' +
+                'records it plays, keep the page it finds, and draw facts from it that a presenter may say on air. Only these sites are ever ' +
+                'opened: everything else a search turns up is refused before this plugin can reach it. Add somewhere you would be happy to be ' +
+                'quoted from.',
+            columns: [
+                { key: 'name', label: 'Name', type: 'string', placeholder: 'A music encyclopaedia' },
+                { key: 'site', label: 'Address', type: 'url', required: true, placeholder: 'https://www.example.com' },
+            ],
+        },
+        {
+            key: 'maxDocuments',
+            label: 'Pages to read per artist or record',
+            type: 'number',
+            default: DEFAULT_MAX_DOCUMENTS,
+            min: 1,
+            max: MAX_DOCUMENTS,
+            help:
+                'How many of the pages found are opened and kept. Each one is a request to somebody\'s site, and a source that has read six ' +
+                'articles about one record is describing something other than that record.',
         },
     ],
     configSchema,

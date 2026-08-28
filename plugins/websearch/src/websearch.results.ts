@@ -105,6 +105,47 @@ function isWebAddress(url: string): boolean {
     }
 }
 
+/**
+ * The query with `site:` clauses on it, for the engines that take operators.
+ *
+ * `OR`ed rather than one search per site, because the alternative is a request
+ * per entry on a list an operator can make as long as they like. Every engine
+ * that supports the operator at all supports this form of it.
+ *
+ * Bounded, and it has to be: a query with thirty operators in it is one most
+ * engines answer with nothing at all rather than with an error, which reads as
+ * "there is nothing about this" and is the worst failure available here. The
+ * caller filters what comes back anyway, so a site past the bound loses its
+ * boost rather than its eligibility.
+ */
+export function withSites(query: string, sites: readonly string[] | undefined): string {
+    const clauses = (sites ?? []).slice(0, MAX_SITE_CLAUSES).map(site => `site:${site}`);
+    return clauses.length === 0 ? query : `${query} ${clauses.join(' OR ')}`;
+}
+
+/** How many `site:` clauses one query carries. See {@link withSites}. */
+export const MAX_SITE_CLAUSES = 6;
+
+/**
+ * Results whose page is on one of these hostnames.
+ *
+ * Applied by the caller after the engine has answered, whatever the engine was
+ * asked: an operator scoping a search is usually about to do something with the
+ * pages, and "the engine understood the operator" is not something any of them
+ * reports. A subdomain counts — `www.example.com` and `press.example.com` are
+ * both `example.com` as far as an operator naming a site is concerned.
+ */
+export function onlyOnSites(results: readonly SearchResult[], sites: readonly string[]): SearchResult[] {
+    if (sites.length === 0) return [...results];
+
+    const allowed = sites.map(site => site.toLowerCase().replace(/^www\./, ''));
+    return results.filter(result => {
+        const host = hostOf(result.url)?.toLowerCase();
+        if (host === undefined) return false;
+        return allowed.some(site => host === site || host.endsWith(`.${site}`));
+    });
+}
+
 const text = (value: unknown): string | undefined => {
     if (typeof value !== 'string') return undefined;
     const trimmed = value.trim();

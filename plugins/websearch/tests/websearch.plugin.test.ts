@@ -29,16 +29,35 @@ beforeEach(() => {
 });
 
 describe('manifest', () => {
-    it('declares the one capability it implements', () => {
-        expect(websearchManifest.capabilities).toEqual(['search']);
+    it('declares the two capabilities it implements', () => {
+        expect(websearchManifest.capabilities).toEqual(['search', 'enrichment']);
     });
 
-    it("allows the two managed engines outright and the operator's own instance from the form", () => {
+    it("allows the two managed engines outright and the operator's own addresses from the form", () => {
         expect(websearchManifest.permissions.network).toEqual([
             expect.objectContaining({ fromConfig: 'baseUrl' }),
             expect.objectContaining({ host: BRAVE_HOST }),
             expect.objectContaining({ host: TAVILY_HOST }),
+            expect.objectContaining({ fromConfig: 'trustedSites' }),
         ]);
+    });
+
+    it('asks for no open-web grant, which is what makes the trusted list a boundary', () => {
+        // The whole trust mechanism. With a `network.open` grant this would be a
+        // plugin that can read any page a search returns and promises to be
+        // careful; without one, the host refuses everything off the operator's
+        // list before this plugin sees it.
+        expect(websearchManifest.permissions.grants ?? []).toEqual([]);
+    });
+
+    it('reads the trusted addresses off a column the host also reads', () => {
+        // The host's allowlist takes the cells of the columns declared `url` and
+        // no others. A column typed anything else is a site the operator
+        // believes they trusted and the plugin can never reach.
+        const sites = websearchManifest.configFields.find(field => field.key === 'trustedSites');
+
+        expect(sites?.type).toBe('list');
+        expect(sites?.columns?.find(column => column.key === 'site')?.type).toBe('url');
     });
 
     it('keeps nothing and holds no account of its own', () => {

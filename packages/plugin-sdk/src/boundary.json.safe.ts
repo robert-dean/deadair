@@ -41,6 +41,7 @@ import type { AudioJoin, AudioOverlay } from './capabilities/mixer.js';
 import type { ChartDescriptor, ChartEntry, ChartQuery } from './capabilities/charts.js';
 import type { NewsFeedDescriptor, NewsItem, NewsQuery } from './capabilities/news.js';
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
+import type { SearchQuery, SearchResult } from './capabilities/search.js';
 import type { ArtistTrack, SimilarArtist } from './capabilities/similarity.js';
 import type {
     AlbumEnrichment,
@@ -187,6 +188,8 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     NewsItem: IsJsonSafe<NewsItem>;
     SimilarArtist: IsJsonSafe<SimilarArtist>;
     ArtistTrack: IsJsonSafe<ArtistTrack>;
+    SearchQuery: IsJsonSafe<SearchQuery>;
+    SearchResult: IsJsonSafe<SearchResult>;
     ScrobblePlay: IsJsonSafe<ScrobblePlay>;
     ScrobbleRejection: IsJsonSafe<ScrobbleRejection>;
     ScrobbleResult: IsJsonSafe<ScrobbleResult>;
@@ -249,6 +252,8 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'NewsItem',
     'SimilarArtist',
     'ArtistTrack',
+    'SearchQuery',
+    'SearchResult',
     'ScrobblePlay',
     'ScrobbleRejection',
     'ScrobbleResult',
@@ -286,6 +291,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'ChartsProvider',
     'NewsProvider',
     'SimilarityProvider',
+    'SearchProvider',
     'ScrobbleProvider',
 ] as const;
 

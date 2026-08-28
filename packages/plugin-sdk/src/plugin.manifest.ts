@@ -101,6 +101,22 @@ export const PLUGIN_CAPABILITY_NEWS = 'news';
 export const PLUGIN_CAPABILITY_SIMILARITY = 'similarity';
 
 /**
+ * The plugin can ask the open web a question: words in, pages out.
+ *
+ * Separate from {@link PLUGIN_CAPABILITY_NEWS}, which is the other capability
+ * that answers about the world, because the two are asked different things. News
+ * serves a MENU an operator assembled and answers "what happened"; this is given
+ * a subject the caller chose and answers "what does the web say about it", with
+ * nothing stable to de-duplicate against because no two calls ask the same
+ * question.
+ *
+ * And separate from {@link PLUGIN_CAPABILITY_CATALOG} for the reason
+ * {@link PLUGIN_CAPABILITY_CHARTS} is: a result is a page, and a page cannot be
+ * played. Looking for something to PLAY is `searchTracks` on the catalog.
+ */
+export const PLUGIN_CAPABILITY_SEARCH = 'search';
+
+/**
  * The plugin can report what the station played to somebody else's service.
  *
  * The only capability that SENDS. Everything else here reads an upstream; this
@@ -123,6 +139,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_CHARTS,
     PLUGIN_CAPABILITY_NEWS,
     PLUGIN_CAPABILITY_SIMILARITY,
+    PLUGIN_CAPABILITY_SEARCH,
     PLUGIN_CAPABILITY_SCROBBLE,
 ] as const;
 

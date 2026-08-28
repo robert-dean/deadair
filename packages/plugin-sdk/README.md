@@ -20,6 +20,7 @@ A plugin extends deadair by declaring capabilities:
 | `charts`     | say what is popular: a chart id in, ranked names out           |
 | `similarity` | say who else sounds like this: an artist in, artists out       |
 | `news`       | say what happened outside the station: a feed in, entries out  |
+| `search`     | ask the open web a question: words in, pages out               |
 | `scrobble`   | report what the station played to somebody else's service      |
 | `oauth`      | hold operator tokens, obtained through the host's redirect     |
 
@@ -513,6 +514,40 @@ model, and eventually a mouth.
 check whether the station is telling the truth about a record, so it has to be
 somewhere a person can actually read the text you sent. A document whose URL
 is not http(s) is dropped whole.
+
+## Searching the open web
+
+A `search` plugin has one method, and the caller supplies the subject:
+
+```ts
+async search(query: SearchQuery): Promise<SearchResult[]> {
+    const hits = await this.engine.run(query.query, query.limit, query.recency);
+    return hits.map(hit => ({ title: hit.title, snippet: plainText(hit.description), url: hit.url, site: hit.profile }));
+}
+```
+
+Three things about it are easy to get wrong.
+
+**A snippet is plain text.** Search APIs are the worst offenders in the SDK for
+this: Brave wraps every matched query term in `<strong>` unless you pass
+`text_decorations=0`, and descriptions carry HTML entities either way. Run them
+through `plainText` from `html.text.ts`. What is left reaches a language model,
+and possibly a mouth.
+
+**There is nowhere to put a synthesized answer, deliberately.** Several engines
+sell one — Tavily's `answer`, SearXNG's first infobox — and it is a paragraph
+somebody else's model wrote about pages this station never sees. Nothing can
+check it against a source, so nothing here can carry it. If your plugin has
+prose worth extracting claims from, declare `enrichment` too and return it as a
+`documents` entry, where the provenance and the quote check already live.
+
+**An empty array is an answer.** An unconfigured plugin, an engine that is down,
+a rate limit and a query nothing matched are one outcome to every caller. Throw
+only for something the operator has to go and fix.
+
+Note what `search` is not. Looking for something to PLAY is `searchTracks` on
+the catalog capability, which answers with provider ids the station can resolve
+into audio. Nothing a search plugin returns can be scheduled.
 
 ## Music providers
 

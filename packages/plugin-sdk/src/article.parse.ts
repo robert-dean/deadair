@@ -135,8 +135,21 @@ export function extractArticle(html: string, maxChars: number = ARTICLE_MAX_CHAR
  * megabyte of binary put through a tag stripper produces a long string of
  * plausible-looking rubbish rather than an error — which a bulletin would then
  * read out.
+ *
+ * `options.maxChars` is separate from `init` because the two are addressed to
+ * different parties: everything in `init` is the host's business and this is the
+ * parser's. The default is {@link ARTICLE_MAX_CHARS}, which is sized for a
+ * bulletin — a writer that reads one sentence per story out of a model's context
+ * has no use for three thousand words. A plugin contributing an enrichment
+ * `SourceDocument` wants far more of the page, because what reads that is a
+ * claim extractor rather than a presenter.
  */
-export async function fetchArticle(host: PluginHost, url: string, init?: HostFetchInit): Promise<string | undefined> {
+export async function fetchArticle(
+    host: PluginHost,
+    url: string,
+    init?: HostFetchInit,
+    options?: { maxChars?: number },
+): Promise<string | undefined> {
     const response = await host.fetch(url, init);
 
     if (!response.ok) {
@@ -161,5 +174,5 @@ export async function fetchArticle(host: PluginHost, url: string, init?: HostFet
         return undefined;
     }
 
-    return extractArticle(await response.text());
+    return extractArticle(await response.text(), options?.maxChars);
 }

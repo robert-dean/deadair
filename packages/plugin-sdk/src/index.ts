@@ -7,6 +7,7 @@ export * from './capabilities/mixer.js';
 export * from './capabilities/music.provider.js';
 export * from './capabilities/news.js';
 export * from './capabilities/scrobble.js';
+export * from './capabilities/search.js';
 export * from './capabilities/similarity.js';
 export * from './capabilities/speech.js';
 export * from './article.parse.js';

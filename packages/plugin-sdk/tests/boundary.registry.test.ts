@@ -34,6 +34,7 @@ const BOUNDARY_SOURCE_FILES = [
     'capabilities/charts.ts',
     'capabilities/news.ts',
     'capabilities/similarity.ts',
+    'capabilities/search.ts',
     'capabilities/scrobble.ts',
 ] as const;
 

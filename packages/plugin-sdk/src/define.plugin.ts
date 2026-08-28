@@ -3,6 +3,7 @@ import type { EnrichmentProvider } from './capabilities/enrichment.js';
 import type { MusicProviderCatalog, MusicProviderOAuth, MusicProviderSteer, MusicProviderStream } from './capabilities/music.provider.js';
 import type { NewsProvider } from './capabilities/news.js';
 import type { ScrobbleProvider } from './capabilities/scrobble.js';
+import type { SearchProvider } from './capabilities/search.js';
 import type { SimilarityProvider } from './capabilities/similarity.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { PluginLifecycle } from './plugin.lifecycle.js';
@@ -47,6 +48,9 @@ export type NewsPluginInstance = PluginLifecycle & NewsProvider;
 
 /** Instance shape for a `similarity` plugin. */
 export type SimilarityPluginInstance = PluginLifecycle & SimilarityProvider;
+
+/** Instance shape for a `search` plugin. */
+export type SearchPluginInstance = PluginLifecycle & SearchProvider;
 
 /** Instance shape for a `scrobble` plugin. */
 export type ScrobblePluginInstance = PluginLifecycle & ScrobbleProvider;

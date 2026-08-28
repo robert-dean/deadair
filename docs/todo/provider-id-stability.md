@@ -4,6 +4,12 @@
 is the only entry in this directory whose timing is set by somebody else's release schedule, which
 is the whole reason it is written down before it has happened.
 
+**State, end of 2026-08-28: phase 2 built, phase 1 done and the report confirmed, phase 3 deferred on
+its own merits rather than on doubt.** The change is real, merged upstream and unreleased; it moves
+~87% of song ids on a current install and 100% on an old one; and it can reach nothing on this station
+today, because no local library is bound here at all. Read the next three blocks in order — what was
+built, what was confirmed, and what it costs — and then stop unless you are here to build phase 3.
+
 **Phase 2 is BUILT, 2026-08-28**, taken before phase 1 on the grounds stated below, that the guard is
 correct on a provider that never renumbers. It landed as the shape this file specifies, plus three
 things it did not name:
@@ -33,14 +39,47 @@ renumber inside a rolled-back transaction and checks both that it refuses and th
 still works — the count and the update share a predicate written out twice, and a disagreement between
 the two copies would be invisible from either side.
 
-**Phases 1 and 3 are untouched.**
+**Phase 3 is untouched, and is cheaper than this file assumes.** See phase 1's findings below.
 
-**The report, and its confidence.** A Subsonic library server is said to be changing how it
-generates song identifiers, so an operator who upgrades gets a library in which every id is new and
-none of the old ones resolve. That claim is second-hand and is **not yet checked against the
-server's own release notes or a running upgrade**. Phase 1 below is confirming it. The design work
-here is worth doing either way, because the guard it asks for is correct on a provider that never
-renumbers at all.
+**The report is CONFIRMED, 2026-08-28, and it is more precise than it was reported.** ~~That claim is
+second-hand and is not yet checked against the server's own release notes or a running upgrade.~~ The
+primary source is upstream's own pull request (#5824, "migrate all ids to a uniform canonical 128-bit
+base62 encoding"), **merged to master 2026-08-02 and not in any release yet** — the newest tag is
+still the one from 2026-07-11. So the deadline is real, dated by somebody else, and has not arrived.
+The migration runs once on first start after the upgrade and is one-way; upstream's own advice is to
+back the database up first.
+
+**What actually changes, which the report got half right and half wrong:**
+
+| | Report said | Upstream says, with its own measurements |
+| --- | --- | --- |
+| Song ids | all new | **~87% change** on a recent install (10,593 of 12,123 measured), **100%** on an older one whose ids are legacy 32-hex (84,325 of 84,325) |
+| Album and artist ids | (not mentioned) | **Unchanged.** They are hash-derived and already in the target format |
+| MusicBrainz ids | (not mentioned) | **Never touched**, and explicitly excluded because the transform would corrupt them |
+
+**87% is the number that matters, and it is an argument about the guard's default.** A threshold of
+50 catches both 87% and 100%. A threshold of 90 — which is the kind of figure "only refuse a total
+wipe" reasoning arrives at — would let the recent-install case through, which is the case a
+present-day operator is most likely to be in. **Do not tune `catalog.sweepMaxPercent` upward toward
+100 on the theory that only a total renumber is worth refusing.** The real event is not total.
+
+**What it costs THIS install today: nothing.** The Subsonic plugin has no config row, is not enabled,
+and holds zero bindings; all 782 bindings on this station come from the streaming provider, whose ids
+this change cannot touch. So the deadline is real and the exposure is currently zero, and phase 3
+does not become worth building until the operator points the station at a local library.
+
+**The cost estimate in this file was wrong in an instructive way.** It read "on the live install today
+that is 766 tracks with local audio, per-copy `advisory`, `isrc` and format, and the analysis row".
+The 766 is right and the attribution is not: those are the streaming provider's bindings, counted
+without checking whose they were. **A blast radius is a count of the rows a change can reach, not a
+count of the rows that exist.**
+
+**What could not be measured, and is the one thing still open.** The numbers above are from the
+database on `localhost:55432`, which the 766 makes almost certainly the one this file was written
+against. The station's other Postgres on the LAN was not reachable: a direct connection is `EPERM`
+under the sandbox and the SOCKS proxy answers "connection not allowed by ruleset". If that install
+has a Subsonic library, this all applies to it and nothing above measured it. One query settles it:
+`select plugin_id, count(*) from deadair.track_sources group by 1`.
 
 ## Why it lands harder here than it looks
 
@@ -60,6 +99,15 @@ through otherwise). Four things hang off it, in the order they would break:
    takes the cached bytes with them, and the station re-fetches a catalog it already had.
 4. **`play_history.external_id` dangles**, which is harmless: it is a record of a moment and is not
    read to resolve anything.
+5. **`playlist_tracks.origin_external_id` stops matching**, which phase 1 added to this list because
+   the original four missed it. It degrades correctly on its own: `CatalogPlaceholderService.findTrack`
+   asks the binding first and falls back to `origin_snapshot`, the metadata the importer recorded
+   beside the id. That is phase 3's whole argument already built and already shipping, one table
+   along, and it is the reason phase 3 is a smaller job than it reads.
+
+**Two tables that look exposed and are not.** `album_sources` and `artist_sources` also hold an
+`external_id`, and nothing in `apps/api/src` writes either of them (both are empty here). It would not
+matter if they did: album and artist ids are the half of upstream's change that does not move.
 
 **This is not the failure `provider-audio-failures.md` describes.** That one is a provider answering
 for some tracks and not others, with the station correctly refusing the ones it cannot fetch. This
@@ -85,11 +133,18 @@ its disappearance as a fact about the music.
 
 ## Three phases, in order, and the second is worth doing alone
 
-**Phase 1: confirm the shape, and cost it on this install.** Read the server's release notes and, if
-possible, upgrade a copy and diff the ids. The number that decides the urgency of phase 3 is how much
-is attached to a binding here: on the live install today that is 766 tracks with local audio, per-copy
-`advisory`, `isrc` and format, and the analysis row. If the answer is that ids are stable and the
-report was wrong, phase 2 is still correct and this file closes.
+**Phase 1: confirm the shape, and cost it on this install.** ~~Read the server's release notes and, if
+possible, upgrade a copy and diff the ids.~~ **Done 2026-08-28**; the findings are at the top of this
+file. It did not need an upgrade and a diff: upstream's own pull request carries the before-and-after
+counts from a 96k-track database, which is a better measurement than one taken here would have been.
+
+**The method is the part worth keeping.** The instruction was "read the release notes", and the
+release notes did not exist yet — the change is merged and unreleased, so a search that stopped at the
+tag list would have concluded the report was wrong. The confirmation was in the merged change itself.
+**For a deadline set by somebody else's release, the release is the last place the answer appears.**
+
+That it cost nothing here is also the answer to "what is the urgency of phase 3", and the answer is
+none until this station binds a local library at all.
 
 **Phase 2: a walk that recognises nothing is not evidence of an empty library.** ~~The sweep should
 refuse to mark every known binding missing in a single pass, on a threshold rather than a count of
@@ -117,6 +172,17 @@ direction: the re-match must be **stricter on identity than the ordinary lookup*
 writing to a row that already has a correct answer rather than proposing a new one. A loose match here
 does not fail to find a record, it silently re-points a binding at a different one, and the symptom
 arrives weeks later as the wrong song.
+
+**Phase 1 makes most of that rule unnecessary, which is the finding that shrinks this phase.** The
+worry above is a worry about fuzzy matching, and for most of a catalog the match need not be fuzzy.
+Upstream excludes MusicBrainz ids from the migration *by name*, on the grounds that the transform
+would corrupt them, so an mbid is an identifier that survives the renumber by design. The payload
+already carries one (`SubsonicChild.musicBrainzId`, mapped in `navidrome.enrichment.ts`) and
+`deadair.tracks.mbid` already stores it: **745 of 766 tracks here have one, and every binding has an
+`isrc`.** So the shape of phase 3 is a ladder rather than a search — exact mbid first, then `isrc`,
+and `selectSong` over a `MatchRef` only for the remainder, which is where the strictness rule applies
+and where it is affordable because the remainder is small. Do not build the fuzzy path first: it is
+the least of the three and it is the only one that can be wrong.
 
 ## What this does not cover
 

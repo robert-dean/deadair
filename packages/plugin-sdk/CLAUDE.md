@@ -45,10 +45,13 @@ one cell. So a column key is shaped however the plugin likes, dots included, and
 reaches a plugin author. The HOST's allowlist reads a `fromConfig` list through the columns declared
 `url` and no others (`addressCells` in `plugin.host.factory.ts`), because `hostnameFromSetting`
 accepts a bare hostname and would otherwise put a category called `sport` on the allowlist. And a
-column may declare `optionsFrom`, a closed host vocabulary (`station.newsCategories` today) resolved
-by the CONSOLE against the station's own tables — the third way a form learns what to offer, and the
+field or column may declare `optionsFrom`, a closed host vocabulary (`station.newsCategories` and
+`intl.timeZones` today) resolved by the CONSOLE — the third way a form learns what to offer, and the
 only one a plugin cannot answer for itself, since a news plugin has no way to learn which categories
-this station holds.
+this station holds. The property is about who can ANSWER rather than about where the answer is kept,
+which is why the platform's zone list sits there beside the station's own tables: a zone name has to
+be one the operator's browser knows, and a server enumerating its own would be answering for a
+different machine.
 
 **A CELL's choices can also come from the plugin, which is the second of those three ways reaching one column
 rather than one field.** `suggestConfigOptions()` publishes under `columnSuggestionKey(fieldKey, columnKey)` —

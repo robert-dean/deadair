@@ -840,6 +840,36 @@ operator's submission with it before storing, so by the time `onLoad()` runs you
 config is already valid. Read a `multiselect` back with
 `parseMultiSelect(config.myField)`.
 
+### Asking for a better control
+
+`control` says how a field should be DRAWN where the ordinary input for its type
+reads badly. It never changes what is stored.
+
+| control  | on       | what it draws                                                    |
+| -------- | -------- | ---------------------------------------------------------------- |
+| `slider` | `number` | a track, using `min`, `max` and `step`. Both bounds are required |
+| `tags`   | `string` | chips over a comma-separated line, split and joined by the form  |
+
+Both are opt-in per field rather than inferred, and the reason is the same each
+time: a slider is right for a value somebody feels for (a percentage, a trim in
+decibels) and wrong for one they have to hit exactly, since 3500 out of 0 to
+600000 is a pixel. `tags` suits a set of short names and not a value that can
+contain a comma. A field that asks for a control it cannot have — a `slider`
+with an open end — falls back to the ordinary input rather than failing, because
+this is a hint about drawing and a spinner beats a blank space.
+
+`unit` is the same idea one step further, for a `number` whose stored unit is
+not the one a person means: `bytes` is typed in gigabytes, and `fraction` holds
+a share between 0 and 1 and is shown as a percentage. The value on the wire is
+always the declared unit, so nothing downstream learns that the console converts.
+
+`rangeWith` names the `number` field that is the upper end of the range this one
+opens, and is declared on the lower end. They stay two fields with two keys and
+two independent validations; what it buys is one control with two handles,
+instead of a relationship that lives only in two labels. Declare it where the
+range is narrow enough that the whole track is usable — a pair bounded by a
+sanity guard rather than by intent leaves both handles bunched at one end.
+
 Note what `min`/`max` are and are not for a plugin. The host stores what it is
 handed and **your `configSchema` is what judges it**, so these bound the control
 rather than the value: they belong on a field whose range is a fact about your

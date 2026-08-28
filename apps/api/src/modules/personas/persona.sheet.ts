@@ -475,9 +475,13 @@ export const MIN_DICTION_MARKERS = 1;
  * thing it is not allowed to reuse — a sample clause — has to not.
  *
  * This paragraph used to add that every seeded catchphrase is five words or fewer, offered as what
- * SET the number. It was not true when it was written and it is not true now — `playbyplay` and
- * `dedication` both run to seven — and the interesting part is that nothing broke, which is what
- * gives away that the word count was never the bound.
+ * SET the number. It was not true when it was written — two seeds ran to seven — and nothing broke,
+ * which is what gave away that the word count was never the bound.
+ *
+ * As of the roster cut it is true again, by accident: both of the seven-word signatures belonged to
+ * characters that have been retired, and the longest anything ships now is five. Do NOT read that as
+ * the census having been right all along. It is the same coincidence the original claim was, one
+ * roster later, and the next seed written can end it without breaking anything.
  *
  * The bound is on where a signature APPEARS. A five-word one quoted inside a sample line picks up
  * whatever word sits next to it and becomes a six-word run, so the check would then refuse every

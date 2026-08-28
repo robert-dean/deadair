@@ -44,7 +44,8 @@ const SEED_CHARACTERS: readonly PersonaDraft[] = [...SEED_PERSONAS, ...SEED_CALL
  *
  * ## Which persona is seeded active, and why seeding is guarded on emptiness
  *
- * A fresh station gets the four in `persona.defaults.ts` with the classic host on air, so it sounds
+ * A fresh station gets the hosts in `persona.defaults.ts` and the callers in `caller.defaults.ts`,
+ * with the classic host on air, so it sounds
  * like a station before an operator has opened this page at all. The guard is that the station has
  * NO personas rather than that each key is missing, which is the difference between a seed and a
  * default: an operator who deleted the pirate meant it, and a boot that put it back would make

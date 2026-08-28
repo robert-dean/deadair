@@ -26,12 +26,12 @@
  *
  * The same fence `shockjock` and `conspiracy` carry, and here it matters more, because a caller is
  * the one voice on the station that is ALLOWED to be wrong. `skeptic` is aimed at what somebody
- * claims to have seen and at the dull explanations for it; `grumbler` is aimed at the station itself
- * and at the music; nobody is aimed at a real person, at anybody listening, or at anything that
+ * claims to have seen and at the dull explanations for it; `pedant` is aimed at one detail the
+ * presenter got wrong; nobody is aimed at a real person, at anybody listening, or at anything that
  * happened to anybody. That is an instruction to a model rather than an enforcement, and the
  * enforcement underneath it is the standing grounding rules, which no sheet loosens.
  *
- * ## Five, and what each of them is for
+ * ## Two, and what each of them is for
  *
  * - **skeptic** — the foil, and the reason this feature exists. Wants to believe it and cannot get
  *   there without something he can hold, so he asks the boring question underneath the story: how
@@ -44,28 +44,36 @@
  *   worth separating — she corrects one detail and stops, formally, never contracting, and wants the
  *   record straight; he asks rather than corrects, contracts like anybody else, and wants to be
  *   convinced.
- * - **grumbler** — the complaint. Rings up to say the station is not what it was and stays on to
- *   admit he never misses it.
- * - **dedication** — the request. Wants a song for somebody else and is doing her best not to cry.
- *   The one that makes a station sound like it has listeners rather than an audience.
  * - **pedant** — the correction. Long-time listener, first-time caller, and the presenter got one
  *   detail wrong. The only character on the whole roster who does not contract a word, which is what
  *   makes her audible in one sentence.
- * - **nightshift** — the company. Awake at four on a shift nobody else is on, with nothing to
- *   complain about and nowhere to be.
+ *
+ * It was five, and three were retired with the host cut: the complaint, the request and the
+ * night-shift company. The one that is worth wanting back is the request — a caller asking for a
+ * song for somebody else is what makes a station sound like it has listeners rather than an audience,
+ * and nothing left on either roster does that job.
+ *
+ * **Two is enough for the feature and it is the floor.** `callerCount` casts one caller for a short
+ * block and a second only where there is genuinely room for both, and it clamps to what the roster
+ * actually holds, so a production still casts correctly. What two costs is VARIETY: every phone-in
+ * this station makes is now one of two people, and `PersonaCaster` sorting least-recently-cast first
+ * means they alternate almost perfectly rather than surprising anybody.
  *
  * Deliberately NOT seeded: a caller who is on the record's own side (overlaps the hosts, who are all
  * enthusiasts already), a prank caller (the station is the mark, and a station that ships one has
  * decided something about its own tone that an operator should decide), and a competition winner,
  * which needs a competition.
  *
- * ## Their voices are the last unused ones on both engines, and there are only so many
+ * ## A caller's voice may never be a host's, and the pool is what bounds the roster
  *
- * Five rather than six because the two shipped maps have to name the SAME slots, and after nineteen
- * hosts and a newsreader the pool that is free on both engines and matches for register is exactly
- * this size. Six would have meant giving a caller a voice a host already has, which is the one thing
- * the shipped maps must not do — a caller sharing a voice with the presenter interviewing them is
- * not a small mistake, it is the same person talking to themselves.
+ * The two shipped maps have to name the SAME slots, so a caller can only exist where there is a
+ * voice free on BOTH engines that matches for register — which is what capped this list at five when
+ * the host roster was nineteen. Giving a caller a voice a host already has is the one thing the
+ * shipped maps must not do: a caller sharing a voice with the presenter interviewing them is not a
+ * small mistake, it is the same person talking to themselves.
+ *
+ * The host cut freed nine of those voices on each engine, so the pool is no longer the constraint.
+ * Whoever writes the third caller picks from what `voice.slots.test.ts` can see is unused.
  */
 
 import type { PersonaDraft } from './persona.js';
@@ -74,8 +82,8 @@ import type { PersonaDraft } from './persona.js';
  * The callers, as drafts.
  *
  * The kind is stamped once here rather than written on every entry, which is the same thing the
- * hosts do: this file IS the caller list, so a row of it saying so would be a fact repeated five
- * times and capable of being wrong once.
+ * hosts do: this file IS the caller list, so a row of it saying so would be one fact repeated and
+ * capable of being wrong once.
  */
 const CALLERS = [
     {

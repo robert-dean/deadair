@@ -23,7 +23,7 @@ a FOURTH way to steer the programming beside the three keyed to the clock (`stat
 `schedule_slots.brief`, `schedule.sustainingBrief`), and two prose descriptions reaching one local model made
 it split the difference — so the line had to be withheld from any refill carrying a brief, which was a
 structural rule costing a page of explanation in three files. Deleting the field deleted the rule, and
-`SetInputs.persona` went with it: the record chooser no longer learns who is presenting at all. The ten seeds'
+`SetInputs.persona` went with it: the record chooser no longer learns who is presenting at all. The seeds'
 `music` sentences survive as a comment in `persona.defaults.ts`, because they are exactly what an operator
 wants in the brief box, and as a comment rather than a field because pairing a character with an hour is their
 call. Five things are load-bearing.
@@ -70,7 +70,7 @@ same argument that made the markers get sent: refusing a script for an instructi
 trick question, and a model told only what it may not say fills the hole with a sample line, which is the
 failure one rule over. Only the phrase-shaped half of `avoid` is checkable, and the entries describing a
 subject stay instructions to a model, which is why the grounding rules underneath them are what actually hold.
-The four seeds are written from `persona.defaults.ts` in `ready()` rather than from the migration, so the
+The seeds are written from `persona.defaults.ts` in `ready()` rather than from the migration, so the
 sheets have one source, and the guard is that the station is EMPTY rather than that each key is missing —
 which is what makes deleting a seeded persona expressible.
 
@@ -78,7 +78,8 @@ which is what makes deleting a seeded persona expressible.
 grounds that which ids exist is a question only the installed engine can answer — right about an ENGINE id and
 wrong about the STATION name the column holds, and it cost the whole roster sounding identical: nineteen
 sheets, nineteen sets of diction markers, and a listener hearing one warm American female read all of them,
-with nothing on any page saying that was a default rather than a choice. Both bundled speech plugins ship a
+with nothing on any page saying that was a default rather than a choice. That count is the roster as it stood
+when the failure was measured, not the roster today, which is ten hosts and two callers. Both bundled speech plugins ship a
 `DEFAULT_VOICE_ROWS` map covering every seeded key plus `newsreader`, so a seed resolves on either engine and
 switching engines rewrites nothing — which is the entire thing the voice indirection was built for and is only
 true while the two maps agree, so `voice.slots.test.ts` holds the three lists together (the seeds say which
@@ -198,7 +199,7 @@ rule and loses to it, so an `unleashed` persona on a clean station talks clean.
 
 And **it switches off no refusal** — `mustNameRecord`, the three prohibitions and the dialect check all still
 decline to the floor, which is why the "name a record" rule is repeated verbatim in both rule sets rather than
-dropped along with "make one point". Six seeds carry one and `persona.defaults.ts` names them; the fence that
+dropped along with "make one point". Four seeds carry one and `persona.defaults.ts` names them; the fence that
 decides what a character is POINTED at lives in each sheet's own `quirks` and `avoid` rather than in the
 licence, and is an instruction rather than an enforcement.
 

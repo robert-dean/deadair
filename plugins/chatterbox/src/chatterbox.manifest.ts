@@ -39,8 +39,8 @@ export const DEFAULT_VOICE = 'Olivia.wav';
  *
  * **The NAMES are the point, and they are the other engine's names on purpose.**
  * A persona names a station voice, so the two bundled speech plugins shipping the
- * same twenty slots is what makes switching engines a settings change rather than
- * a rewrite of nineteen characters. That is the whole of what the indirection was
+ * same thirteen slots is what makes switching engines a settings change rather than
+ * a rewrite of the whole roster. That is the whole of what the indirection was
  * built for, and it is only true if both maps actually cover the same vocabulary
  * — `voice.slots.test.ts` in the API holds them to it, because a slot that exists
  * on one engine and not the other is a persona that silently loses its voice on
@@ -49,12 +49,12 @@ export const DEFAULT_VOICE = 'Olivia.wav';
  * **The PICKS here are weaker than the other engine's, and it is worth saying so.**
  * Kokoro's voice ids carry their accent and register in the name, and the previous
  * station had auditioned ten of them, so those rows are evidence. This engine's
- * voices are reference clips named after people — nothing in `Everett.wav` says
+ * voices are reference clips named after people — nothing in `Olivia.wav` says
  * whether it growls — so these are assigned to match the other map's gender and to
  * keep every character distinct, and nothing more. They are a starting point that
- * makes the station sound like twenty different people rather than one, which is
- * the failure worth fixing first; which of them suits the pirate is a question for
- * whoever listens, and it is one table row to answer.
+ * makes the station sound like thirteen different people rather than one, which is
+ * the failure worth fixing first; which clip actually suits a given character is a
+ * question for whoever listens, and it is one table row to answer.
  *
  * **Not one row sets a SPEED, and that is this engine rather than an oversight.**
  * Twelve of them did, copied across from the other map, where the rule is that a

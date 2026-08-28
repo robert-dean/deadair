@@ -38,21 +38,20 @@ export const DEFAULT_VOICE = 'af_heart';
  *
  * Because the alternative was measured and it was one voice. An empty map is not
  * a neutral starting point: every persona falls through to `defaultVoice`, so a
- * station with nineteen written characters reads all of them in the same warm
- * American female and the operator has no way to know that is a default rather
- * than a decision. The names are the STATION's vocabulary and the engine voices
- * are this plugin's answer to them, which is exactly the split the whole
- * indirection is for — `plugins/chatterbox` ships the same names against its own
- * clips, so switching engines keeps every persona pointed at something.
+ * station with a written roster reads all of it in the same warm American female
+ * and the operator has no way to know that is a default rather than a decision.
+ * The names are the STATION's vocabulary and the engine voices are this plugin's
+ * answer to them, which is exactly the split the whole indirection is for —
+ * `plugins/chatterbox` ships the same names against its own clips, so switching
+ * engines keeps every persona pointed at something.
  *
  * ## Where the picks come from
  *
- * The previous station's built-in voice profiles, for the ten characters it had,
- * and each persona's own sheet for the rest. Two of those inherited picks carry
- * an argument worth keeping: a pirate's growl is nearer `bm_george` than anything
- * in the American set and the dialect reads far better in it, and a measured,
- * thoughtful read lands better in `bm_fable` than in any of them. A shipping
- * forecast is not read by an American either.
+ * The previous station's built-in voice profiles, for the characters it had, and
+ * each persona's own sheet for the rest. The argument those inherited picks carry
+ * is worth keeping even where the character has since been retired: the accent set
+ * is not decoration, and a British register reads far better in `bm_*` than in
+ * anything in the American set, whatever the sheet says about the manner.
  *
  * What is NOT inherited is the previous station's per-provider matrix, which
  * mapped every profile onto every engine host-side. That was rejected here on
@@ -62,9 +61,9 @@ export const DEFAULT_VOICE = 'af_heart';
  * ## Two rules about the rows
  *
  * **No two characters that could air in one shift share a voice.** They are all
- * distinct here, which is easy at twenty against sixty-eight; the rule matters on
- * an engine with fewer, where sharing is fine between characters a schedule keeps
- * apart and wrong between two a listener hears in an hour.
+ * distinct here, which is easy at thirteen against sixty-eight; the rule matters
+ * on an engine with fewer, where sharing is fine between characters a schedule
+ * keeps apart and wrong between two a listener hears in an hour.
  *
  * **A speed is only set where the persona's own words ask for one** — "speaking
  * slow", "breathless", "hushed", "never lets a second of dead air happen". A

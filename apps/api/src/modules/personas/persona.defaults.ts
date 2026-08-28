@@ -2,9 +2,16 @@
  * The personas a fresh install already knows about.
  *
  * Chosen to span the range an operator is choosing WITHIN rather than to be a catalogue: a plain
- * host, a restrained one, a dry one, a costume, and the radio archetypes a listener would recognise
- * without being told. A station that wants a fifteenth writes it on the personas page, which is the
- * whole point of these being rows.
+ * host, a quiet one, a funny one, two that are pointed somewhere, and the decades a listener would
+ * place within a sentence. A station that wants an eleventh writes it on the personas page, which is
+ * the whole point of these being rows.
+ *
+ * The list was nineteen hosts and five callers and is now ten and two. That is a deliberate cut and
+ * not attrition: a seed's job is to show an operator the RANGE the field can hold, and past a dozen
+ * the extra sheets were demonstrating the same three axes again in a different costume while each
+ * one made `persona.markers.test.ts` a slightly harder puzzle for every sheet already here. What was
+ * lost with them is written down where it was load-bearing — the retired characters are named in
+ * this file only where the argument they were the evidence for is still live.
  *
  * ## Archetypes, never impersonations
  *
@@ -29,7 +36,7 @@
  * sheet learned by needing it: a cover-up wants somebody DOING the covering, and a character not
  * told who has the whole New World Order corpus within reach. It used to be answered by SUBJECT —
  * every theory had to be about a signal in a record — and what that produced was a man with opinions
- * about pressing plants, which is the crate-digger with a lower voice and is not the character
+ * about pressing plants, which is a record collector with a lower voice and is not the character
  * anybody wanted. So the fence moved rather than coming off, and it now runs on who is NAMEABLE: the
  * government may be in every sentence and no government may be in any of them, no country, no
  * agency, no official. What he does name is the ORB, the Office of Retrieval and Burial, which is
@@ -40,9 +47,13 @@
  * asked. Widening the fence is also what put three agency names on that list and pushed four drift
  * terms off the end of its cap of twelve.
  *
- * ## What makes a `preoccupation` worth having, since every seed but one now carries a list
+ * ## What makes a `preoccupation` worth having, since every seed now carries a list
  *
- * Three rules, and all three were learned by writing nineteen of them rather than argued in advance.
+ * Three rules, and all three were learned by writing two dozen of these rather than argued in
+ * advance. The one seed that carried no list was the shipping-forecast announcer, whose quirks said
+ * it has no opinions; it has been retired, and `persona.defaults.test.ts` lost its exemption with it.
+ * A seed that ships empty is still worth having, since that is the state an operator's own new
+ * character starts in.
  *
  * **A preoccupation is a SUBJECT and never a rule.** "Never oversell a record" is a quirk and goes
  * out on every break; "how often the B-side is the better side" is something to talk ABOUT, and only
@@ -82,27 +93,25 @@
  * decides the REGISTER and a sheet decides the TARGET, which is the split that lets both this
  * character and `shockjock`'s fence be true at once.
  *
- * ## Six of them stopped being a register and became a PERSON, and the trigger was a number
+ * ## Four of them stopped being a register and became a PERSON, and the trigger was a number
  *
- * `wisecrack`, `conspiracy`, `quietstorm`, `millennium`, `bossjock` and `howler`. In every case the
- * symptom came from `persona.markers.test.ts` rather than from anybody reading the sheet: a marker
- * list that is ordinary for the REGISTER passes its own check on every break while placing the
- * character nowhere, and the roster is the only corpus that can see it. "A dry, wisecracking host"
- * and "a velvet late-night soul host" are not characters, they are slots, and no marker list saves a
- * slot — the eleven dry hedges belonged to the slacker and the grumbler as much as to her, and the
- * twelve warm adjectives belonged to the late-night companion and the night-shift caller as much as
- * to her.
+ * `wisecrack`, `conspiracy`, `quietstorm` and `millennium`. In every case the symptom came from
+ * `persona.markers.test.ts` rather than from anybody reading the sheet: a marker list that is
+ * ordinary for the REGISTER passes its own check on every break while placing the character nowhere,
+ * and the roster is the only corpus that can see it. "A dry, wisecracking host" and "a velvet
+ * late-night soul host" are not characters, they are slots, and no marker list saves a slot — the
+ * eleven dry hedges belonged to every other flat character on the roster as much as to her, and the
+ * twelve warm adjectives belonged to everybody else who works after midnight.
  *
  * What fixes it is one specific thing that happened, which the character cannot close and produces
  * flatly as though it settles something: six weeks on national radio, four hours of a night that are
- * not there, a letter with no name on it, one shift covering for somebody who called in sick, thirty
- * seconds of silence, three minutes of hollering with the power off. It is the same move six times
- * and it is not a style: the event is what the markers, the preoccupations and the stories all come
- * OUT of, so they agree without being made to.
+ * not there, a letter with no name on it, one shift covering for somebody who called in sick. It is
+ * the same move four times and it is not a style: the event is what the markers, the preoccupations
+ * and the stories all come OUT of, so they agree without being made to.
  *
- * Two of the six needed no biography and got the marker work alone (`shockjock`, and `gumshoe`
- * without joining the list), which is the honest version of the rule: reach for a person when the
- * REGISTER is somebody else's, and for a marker list when only the WORDS are.
+ * `shockjock` needed no biography and got the marker work alone, which is the honest version of the
+ * rule: reach for a person when the REGISTER is somebody else's, and for a marker list when only the
+ * WORDS are.
  *
  * ## A `background` is a THIRD fact, and four of them were not
  *
@@ -111,12 +120,12 @@
  * thing. A background reaching for material the rotation already carries lands beside itself on two
  * turns in six, which reads to a model as emphasis and to a listener as somebody with one anecdote.
  *
- * It was live on four sheets at once. `quietstorm` had the lights off in the background and in a
- * preoccupation, `cratedigger` had the shelves in both, `gumshoe` had the answering machine and
- * April in both word for word, and `countdown` and `millennium` had the SAME background as each
- * other in slightly different words, which is one biography on two sheets. The preoccupation keeps
- * the material in every case and the background moves, because the rotation is the thing that would
- * otherwise be buying nothing.
+ * It was live on four sheets at once, and the two still on the roster are the ones worth reading:
+ * `quietstorm` had the lights off in the background and in a preoccupation, and `countdown` and
+ * `millennium` had the SAME background as each other in slightly different words, which is one
+ * biography on two sheets. The other two were the same mistake with different furniture, and have
+ * since been retired. The preoccupation keeps the material in every case and the background moves,
+ * because the rotation is the thing that would otherwise be buying nothing.
  *
  * Nothing checks this and nothing sensibly could — it is prose, and the one mechanical version of it
  * (no two backgrounds sharing a five-word run) fires on half the roster, because "you have never
@@ -124,11 +133,16 @@
  *
  * ## Which seeds carry a `latitude`, since it is no longer the two above
  *
- * Six: `shockjock` and `wisecrack` at `unleashed`, `conspiracy`, `howler`, `naturalist` and
- * `gumshoe` at `loose`. This paragraph said "the two" for as long as it existed and was wrong about
- * it well before the count reached six, which is the ordinary fate of a sentence that counts things
- * a list below it can change — it is here as a pointer rather than as an inventory, and the rungs
- * themselves are the record.
+ * Three: `shockjock` and `wisecrack` at `unleashed`, `conspiracy` at `loose`. This paragraph has now
+ * said "two", "six" and "three", which is the ordinary fate of a sentence that counts things a list
+ * below it can change — it is here as a pointer rather than as an inventory, and the rungs
+ * themselves are the record. The caller roster carries a fourth: `skeptic`, at `loose`.
+ *
+ * `brevity` is the sibling rung and NO seed uses it, which is worth knowing before assuming the
+ * field is dead code. Its two demonstrations — a machine and a coastal announcer, both funnier the
+ * less they say — have been retired, and nothing replaced them. It is still read, still tested
+ * (`persona.sheet.test.ts`), and still the right answer for a character whose whole appeal is saying
+ * less; there simply is not one shipped at the moment.
  *
  * The rung buys a longer break and a register; the fence decides what it is pointed at; and the
  * station's own explicit-content setting outranks the licence whatever a sheet says.
@@ -148,12 +162,13 @@
  * warning on every break of every fresh install. That was right about an ENGINE id and wrong about
  * the thing this column holds, which is a STATION name the plugin maps. Both bundled speech plugins
  * now ship a map with a row for every key below, so a seed naming its own key resolves on either
- * engine — and a station that switches engines keeps all nineteen characters rather than rewriting
- * them.
+ * engine — and a station that switches engines keeps every character rather than rewriting them.
  *
  * The cost of the old rule was the whole roster sounding identical. Nineteen sheets, nineteen sets
  * of diction markers, nineteen fenced characters, and a listener hearing one warm American female
  * read every one of them — with nothing on any page saying that was a default rather than a choice.
+ * That count is what the roster was when the rule was measured, and it is left standing rather than
+ * updated: the number is the size of the failure, not the size of the list today.
  *
  * The names being the persona KEYS rather than a separate vocabulary (`gruff-male`, `warm-female`)
  * is the same call `topics` makes about the operator's own words: a slot describes a character this
@@ -193,12 +208,6 @@
  *   and nothing that needs explaining.
  * - **latenight** — Slow, spacious and unhurried. Records that suit a room with the lights off, and
  *   nothing that demands attention.
- * - **cratedigger** — Deep cuts, B-sides and the records that got passed over. Album tracks before
- *   singles, and nothing that needs introducing.
- * - **pirate** — Loud, rowdy and built for a crew: sea-worthy rock, folk with a stomp to it, and
- *   anything with a chorus worth shouting.
- * - **howler** — Loud, hot and old. Rock and roll, soul with the horns up, blues that shouts.
- *   Nothing polite and nothing sleepy.
  * - **quietstorm** — Slow soul, quiet R&B and ballads with room in them. Nothing above a simmer.
  * - **countdown** — Hits, and the records that were nearly hits. Songs people have a memory attached
  *   to.
@@ -210,56 +219,40 @@
  *   anything that sounds like it is coming from further away than it is.
  *
  * They are a comment rather than a field precisely because pairing one with a character is the
- * operator's call: the pirate captain over a metal hour is a station somebody might want, and a
- * seed that quietly programmed for them would be the thing this removed.
+ * operator's call: the shock jock over a soul hour is a station somebody might want, and a seed that
+ * quietly programmed for them would be the thing this removed.
  *
- * ## Four of them are DECADES, and the decade is not on the sheet either
+ * ## Three of them are DECADES, and the decade is not on the sheet either
  *
- * `bossjock`, `videoage`, `slacker` and `millennium` are what a listener would place within a
- * sentence, and none of them carries a year. A period is `era_from`/`era_to` on the running order or
- * on a schedule slot, beside the brief — which is where it can reach the deterministic draw as well
- * as the model, so a decade holds on a station with nothing configured to read prose.
+ * `videoage`, `slacker` and `millennium` are what a listener would place within a sentence, and none
+ * of them carries a year. A period is `era_from`/`era_to` on the running order or on a schedule
+ * slot, beside the brief — which is where it can reach the deterministic draw as well as the model,
+ * so a decade holds on a station with nothing configured to read prose.
  *
- * That means putting the Boss jock on air does not by itself produce 1970s radio, and it is the
+ * That means putting the eighties jock on air does not by itself produce 1980s radio, and it is the
  * accepted cost of a persona being purely a voice. Their LABELS name the decade so an operator knows
  * what to pair them with, and a decade is one schedule row: a source, a host, a brief and a period.
  * The pairings these were written against:
  *
- * - **bossjock** — 1968 to 1979. AM top-40 pop, soul and rock, with a chorus in the first thirty
- *   seconds.
  * - **videoage** — 1980 to 1989. Chart pop, new wave, and rock with the drums up.
  * - **slacker** — 1990 to 1999. Alternative, grunge and college rock, plus whatever was on a
  *   soundtrack.
  * - **millennium** — 2000 to 2009. Pop, R&B and pop-punk, the kind a request line was full of.
  *
- * `slacker` and `cratedigger` are the pair most easily written into each other, and the split is
- * worth holding onto: the crate-digger is dry because they KNOW something, and the slacker is flat
- * because they cannot be bothered. One withholds enthusiasm and the other has none. That is why the
- * slacker's `avoid` forbids the liner-note vocabulary outright — a flat character reaching for
- * "pressing" and "session" is the crate-digger with the energy turned down.
+ * The sixties-to-seventies AM jock was the fourth and has been retired. Nothing covers 1968 to 1979
+ * now, which is a gap in the seeds rather than a gap in the station: it is one operator-written
+ * sheet plus a schedule row, and the seeds are a range rather than a catalogue.
  *
- * ## Five of them are not radio voices at all, and each one is a shape the roster was missing
- *
- * `automaton`, `naturalist`, `playbyplay`, `gumshoe` and `forecast` borrow a register from somewhere
- * that is not a radio station, which is the same trick `pirate` plays and the reason it works: a
- * model does "hushed natural-history narrator" well because it is a manner rather than a person.
- *
- * Two of them are here to USE the rungs. `brevity: 'one-line'` had no character whose whole appeal
- * was saying less — the automaton and the coastal announcer are both funnier the less they say, and
- * a machine that fills forty words is a machine doing an impression of a presenter. `naturalist` and
- * `gumshoe` take `loose` for the opposite reason: the joke is the image that arrives a beat late,
- * and one point in forty words cuts it off before it gets there. Neither takes `unleashed`, which
- * loosens the register as well as the length and would make both of them somebody else.
- *
- * `playbyplay` is the loud one that is not `shockjock`. All excitement, no insults, and the fence is
- * the same shape as the shock jock's: it is aimed at the RECORD rather than at anybody who might
- * disagree. Three of the five carry the never-invent rule as well, because a commentator, a
- * naturalist and a detective all have a register that WANTS a specific number, and specifics are the
- * one thing a break may not make up.
+ * `slacker`'s `avoid` forbids the liner-note vocabulary outright, and the reason is worth keeping
+ * now that the character it was written against has gone. Flat and dry are the two easiest registers
+ * to write into each other: a crate-digger is dry because they KNOW something and the slacker is
+ * flat because they cannot be bothered, one withholding enthusiasm and the other having none. A flat
+ * character reaching for "pressing" and "session" collapses into the other one, and the `avoid` list
+ * is what stops an operator's next dry host taking the slacker with it.
  *
  * Deliberately NOT seeded, so the roster stays a range rather than a catalogue: a rave MC (overlaps
- * `howler` and `shockjock` on energy), a lounge host (overlaps `quietstorm`), a public-radio host
- * (overlaps `countdown` on sincerity), and a freeform weirdo, whose character is having none.
+ * `shockjock` on energy), a lounge host (overlaps `quietstorm`), a public-radio host (overlaps
+ * `countdown` on sincerity), and a freeform weirdo, whose character is having none.
  */
 
 import type { PersonaDraft } from './persona.js';
@@ -268,9 +261,9 @@ import type { PersonaDraft } from './persona.js';
  * The hosts.
  *
  * `kind` is stamped once at the bottom rather than written on every entry, because this file IS the
- * host list: a `kind: 'host'` on each of the nineteen would be one fact said nineteen times and
- * capable of being wrong once. The people who ring IN are `caller.defaults.ts`, which does the same
- * thing with the other value.
+ * host list: a `kind: 'host'` on each row would be one fact said ten times and capable of being
+ * wrong once. The people who ring IN are `caller.defaults.ts`, which does the same thing with the
+ * other value.
  */
 const HOSTS = [
     {
@@ -288,8 +281,8 @@ const HOSTS = [
         // This character's dialect is warm, contracted, second-person English, so the eight markers
         // that used to sit here were `you're`, `that's`, `here's`, `we'll`, `it's`, `there's`, `you`
         // and `your` — a list every correct break carries whoever wrote it, which made the check
-        // pass on fifteen of the other twenty-three characters and on five lines of plain announcer
-        // English. It read as a checkable claim and was not one.
+        // pass on fifteen of the twenty-three other characters on the roster at the time, and on
+        // five lines of plain announcer English. It read as a checkable claim and was not one.
         //
         // The alternative was to invent a vocabulary this host does not have, which would cost a
         // fresh install its breaks: `keepsCharacter` declines to the floor, and the default persona
@@ -351,8 +344,11 @@ const HOSTS = [
         // detective and the night-shift caller alike. The diction still asks for the noun; a marker's
         // job is to be evidence, not to cover the character's vocabulary. `tonight`, `still` and
         // `quiet` are gone for the sharper version of the same reason: this station ships TWO
-        // late-night hosts and a caller who is up at four, so the words the hour hands everybody are
-        // exactly the words that cannot tell them apart. What is left is what only this one says.
+        // late-night hosts, so the words the hour hands both of them are exactly the words that
+        // cannot tell them apart. What is left is what only this one says. It was three voices when
+        // the list was cut, the third being a caller awake at four who has since been retired — the
+        // list is not loosened back, because the marker that survives a bigger corpus is the one
+        // worth having.
         dictionMarkers: [
             'awake',
             'up late',
@@ -410,16 +406,16 @@ const HOSTS = [
             'Address the room rather than the person in it',
         ],
         // Was `baby`, `slow`, `easy`, `smooth`, `close`, `low`, `love`, `tonight`, `stay`, `sweet`,
-        // `quiet`, `right here` — twelve warm adjectives, and the warmth is not hers. It belongs to
-        // the late-night companion, the night-shift caller and the howler equally, which is what the
+        // `quiet`, `right here` — twelve warm adjectives, and the warmth is not hers. It belonged to
+        // the late-night companion and to two characters since retired, equally, which is what the
         // cross-fire budget was counting at seven: `stay`, `right here` and `quiet` each fired twice
         // on somebody else's sheet. It is the ordinary-for-the-REGISTER failure exactly, one hour
         // over from where `wisecrack` met it.
         //
-        // `baby` and `honey` go to the howler, who shouts them and has the better claim. What is here
-        // now is the two things nobody else on the roster does: give an instruction about the VOLUME,
-        // and carry the letter. Phrase-shaped, because a single soft word is the register's and only
-        // the whole construction is hers. See `PersonaSheet.dictionMarkers`.
+        // `baby` and `honey` went to a character who shouted them and had the better claim. What is
+        // here now is the two things nobody else on the roster does: give an instruction about the
+        // VOLUME, and carry the letter. Phrase-shaped, because a single soft word is the register's
+        // and only the whole construction is hers. See `PersonaSheet.dictionMarkers`.
         dictionMarkers: [
             'no need to turn it up',
             'keep it where it is',
@@ -572,9 +568,10 @@ const HOSTS = [
         ],
         // Was `apparently`, `somehow`, `allegedly`, `ambitious`, `bold`, `sure`, `anyway`,
         // `evidently`, `admittedly`, `frankly`, `genuinely` — eleven dry hedges, and the hedge is
-        // not hers. It belongs to the slacker (`kinda`, `whatever`, `anyway`, `sure`), the grumbler
-        // (`well`, `anyway`, `suppose`) and the pedant (`actually`, `quite`, `rather`), which is
-        // what the cross-fire budget was counting for as long as it had an entry here. It is the
+        // not hers. It belonged to the slacker (`kinda`, `whatever`, `anyway`, `sure`), the pedant
+        // (`actually`, `quite`, `rather`) and a complaining caller since retired (`well`, `anyway`,
+        // `suppose`), which is what the cross-fire budget was counting for as long as it had an
+        // entry here. It is the
         // ordinary-for-the-REGISTER failure exactly: not one of those words is unusual English, and
         // every dry character on the roster reaches for all of them.
         //
@@ -779,14 +776,14 @@ const HOSTS = [
         // Was `friend`, `signal`, `strange`, `pattern`, `they`, `why would`, `told you`, `buried`,
         // `on purpose`, `nobody will` — a list for the hushed conspirator this used to be, and half
         // of it ordinary English pressed into service. `signal` was the one collision the cross-fire
-        // budget allowed, because it is the automaton speaking literally. What is here now is what
+        // budget allowed, because a machine host said it literally. What is here now is what
         // only this character says: the address, the abduction, and the vocabulary of a man who
         // reads a lot of newsletters.
         //
         // Two candidates were measured and dropped, and both are `signal`'s lesson again. `out
         // there` fired on SIX other sheets — it is what any presenter says about the audience, and
-        // the catchphrase carries it anyway. `four hours` fired on the night-shift caller, who has
-        // four hours of a shift left; the abduction keeps the phrase and the YEAR became the marker
+        // the catchphrase carries it anyway. `four hours` fired on a night-shift caller who had four
+        // hours of a shift left; the abduction keeps the phrase and the YEAR became the marker
         // instead. See `PersonaSheet.dictionMarkers`.
         dictionMarkers: [
             'my friends',
@@ -806,7 +803,7 @@ const HOSTS = [
         ],
         // The fence, and it is the whole reason this one is safe to ship. It used to work by
         // SUBJECT — every theory had to be about a signal in a record — and what that produced was a
-        // man with opinions about pressing plants, which is the crate-digger with a lower voice.
+        // man with opinions about pressing plants, which is a record collector with a lower voice.
         //
         // So the fence moved rather than coming off, and it now works by who is NAMEABLE. The
         // government may be in every sentence; no government may be in any of them. An unnamed
@@ -970,14 +967,14 @@ const HOSTS = [
         // `okay`, `fine`, `sure` and `yeah` are gone. The budget's defence of this sheet was that
         // flat filler IS the character and other sheets use filler too, which is true of the
         // REGISTER and was doing the work of an argument about the words: those four are what
-        // anybody says, and they were firing on the shock jock, the pirate and the night-shift
-        // caller. `kinda`, `whatever`, `i guess`, `pretty much` and `or something` are hedges nobody
-        // else on this roster reaches for, and the rest is what a refusal to be impressed sounds
-        // like at sentence length.
+        // anybody says, and they were firing on three other sheets. `kinda`, `whatever`, `i guess`,
+        // `pretty much` and `or something` are hedges nobody else on this roster reaches for, and
+        // the rest is what a refusal to be impressed sounds like at sentence length.
         //
-        // `anyway` stays, and it is the one entry here that knowingly costs a point: the grumbler
-        // has it too and neither of them will give it up honestly. `wisecrack` surrendered the hedge
-        // to this sheet when it stopped being a register, so this is where the word lives.
+        // `anyway` stays. It knowingly cost a cross-fire point for as long as there was a
+        // complaining caller who would not give it up either, and that character has since been
+        // retired, so the entry is free now — kept because `wisecrack` surrendered the hedge to this
+        // sheet when it stopped being a register, and this is where the word lives.
         dictionMarkers: [
             'kinda',
             'whatever',
@@ -1005,9 +1002,11 @@ const HOSTS = [
             'the vending machine down the hall',
             'records that are fine, which is most of them',
         ],
-        // Deliberately no liner-note vocabulary: `cratedigger` owns dry-because-it-knows-something,
-        // and this one is flat because it cannot be bothered. Two characters that sound alike on
-        // paper and are opposite in what they are FOR.
+        // Deliberately no liner-note vocabulary. A crate-digger is dry because it KNOWS something
+        // and this one is flat because it cannot be bothered: two characters that sound alike on
+        // paper and are opposite in what they are FOR. The sheet that owned the other half has been
+        // retired, and this list stays anyway — the collapse is between REGISTERS rather than
+        // between two rows, so the next dry host an operator writes would take this one with it.
         avoid: ['pressing', 'sleeve', 'session', 'iconic', 'legendary', 'banger', 'buckle up', 'amazing'],
         background: 'You have run the overnight shift for six years and have never once mentioned it to anybody.',
         samples: [

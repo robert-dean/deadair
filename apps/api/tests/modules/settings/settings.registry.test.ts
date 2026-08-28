@@ -126,6 +126,24 @@ describe('the settings registry', () => {
         }
     });
 
+    it('asks for each control on a type that has one', () => {
+        // A `control` the form has no branch for is a field silently drawn as whatever it would
+        // have been, which reads from the registry as though the better control had been applied.
+        for (const descriptor of SETTING_DESCRIPTORS.filter(candidate => candidate.control !== undefined)) {
+            expect(descriptor.control === 'slider' ? 'number' : 'string', descriptor.key).toBe(descriptor.type);
+        }
+    });
+
+    it('gives a number a numeric default, so the console does not draw an empty box', () => {
+        // `parseSetting` answers an unstored key with the descriptor's default VERBATIM, and the
+        // form only prefills a number field from a number — so a numeric setting defaulted to the
+        // string '8000' draws blank on a station that has never set one, which reads as unset. The
+        // live example was the Icecast port, which was a `string` field holding a number.
+        for (const descriptor of SETTING_DESCRIPTORS.filter(candidate => candidate.type === 'number' && candidate.default !== undefined)) {
+            expect(typeof descriptor.default, descriptor.key).toBe('number');
+        }
+    });
+
     it('gives every slider the two ends one cannot be drawn without', () => {
         // A slider with an open end has no track, so the console falls back to a spinner and the
         // setting silently keeps the control it was meant to stop having. Nothing about that is

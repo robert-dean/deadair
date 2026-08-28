@@ -66,8 +66,16 @@ export type ConfigFieldUnit = 'bytes' | 'fraction';
  * be drawn for. A field asking for one without them falls back to the ordinary input rather than
  * failing: this is a hint about drawing, and a form that renders nothing is worse than a form that
  * renders a spinner.
+ *
+ * `tags` is for a `string` that is really a SET, stored as one comma-separated line because that is
+ * what the reader behind it splits. It changes nothing about the value: the form splits on the way
+ * in and joins on the way out, so `dialogueKinds()` keeps parsing exactly the string it always did.
+ * What it buys is that a set of names is added to and removed from one at a time, rather than by
+ * editing punctuation in a sentence — a stray comma in a one-line box is a kind the station simply
+ * does not have, and nothing says so. The cost is that a value CONTAINING a comma cannot be one
+ * tag, which is why this is asked for per field rather than being what a `string` does.
  */
-export type ConfigFieldControl = 'slider';
+export type ConfigFieldControl = 'slider' | 'tags';
 
 /** One choice in a `select`, a `multiselect`, or a suggestion list. */
 export interface ConfigFieldOption {
@@ -220,10 +228,10 @@ export interface ConfigField {
     unit?: ConfigFieldUnit;
 
     /**
-     * The control to draw a `number` with, where the ordinary one reads badly. Ignored on every
-     * other type, and on a `number` that declares no `min` and `max`.
+     * The control to draw this field with, where the ordinary one for its type reads badly.
      *
-     * See {@link ConfigFieldControl}. Nothing about the stored value changes.
+     * `slider` is for a `number` and is ignored without both `min` and `max`; `tags` is for a
+     * `string`. See {@link ConfigFieldControl}. Nothing about the stored value changes either way.
      */
     control?: ConfigFieldControl;
 
@@ -332,7 +340,7 @@ export const configFieldTypeSchema = z.enum(['string', 'text', 'url', 'secret', 
 
 export const configFieldUnitSchema = z.enum(['bytes', 'fraction']);
 
-export const configFieldControlSchema = z.enum(['slider']);
+export const configFieldControlSchema = z.enum(['slider', 'tags']);
 
 export const configFieldOptionSourceSchema = z.enum(['station.newsCategories', 'intl.timeZones']);
 

@@ -11,12 +11,14 @@ import {
     MultiSelect,
     NumberInput,
     PasswordInput,
+    Pill,
     RangeSlider,
     Select,
     Slider,
     Stack,
     Switch,
     Table,
+    TagsInput,
     Text,
     Textarea,
     TextInput,
@@ -122,6 +124,23 @@ const emptyRow = (columns: readonly ConfigFieldColumn[]): FieldRow => Object.fro
 
 /** The columns a `list` declared. A field of another type has none, and a `list` with none draws nothing to fill in. */
 const columnsOf = (field: ConfigFieldDescriptor): readonly ConfigFieldColumn[] => field.columns ?? [];
+
+/**
+ * A `tags` field's entries, out of the one comma-separated line it is stored as.
+ *
+ * NOT the JSON a `multiselect` uses, and deliberately: this control is drawn over a setting that
+ * was already a comma-separated string and is read as one on the server, so changing the encoding
+ * would be changing the setting rather than the control. Trimmed and emptied exactly as
+ * `dialogueKinds()` trims and empties on the other side, so what the operator sees as a chip is
+ * what the station sees as a kind.
+ */
+function tagsOf(value: FieldValue | undefined): string[] {
+    if (typeof value !== 'string') return [];
+    return value
+        .split(',')
+        .map(entry => entry.trim())
+        .filter(entry => entry.length > 0);
+}
 
 /**
  * A `multiselect`'s chosen values, out of the JSON array it is stored and submitted as.
@@ -631,8 +650,39 @@ export function ConfigFieldsForm({
             }
             case 'url':
                 return suggestionInput(field, name, { inputMode: 'url', placeholder: field.placeholder ?? 'https://' });
-            default:
+            default: {
+                // A `string` that is really a set. Split and joined here and nowhere else, so the
+                // stored value is the same comma-separated line the reader behind it splits.
+                if (field.control === 'tags') {
+                    const { error: fieldError } = form.getInputProps(name);
+                    return (
+                        <TagsInput
+                            key={field.key}
+                            {...common}
+                            placeholder={field.placeholder}
+                            data={optionsFor(field)}
+                            clearable
+                            error={fieldError}
+                            // Named for whatever reads the DOM rather than for a screen reader,
+                            // exactly as the sustaining picker names its clear cross: Mantine marks
+                            // a pill's remove button `aria-hidden` with `tabindex="-1"`, on the
+                            // grounds that the combobox beside it is the control and Backspace is
+                            // the keyboard path. It is still the only way a kind is dropped with a
+                            // mouse, and unlabelled it is one of a row of identical buttons.
+                            renderPill={({ value: tag, onRemove, disabled }) => (
+                                <Pill withRemoveButton={!disabled} onRemove={onRemove} removeButtonProps={{ 'aria-label': `Remove ${tag}` }}>
+                                    {tag}
+                                </Pill>
+                            )}
+                            value={tagsOf(form.getValues()[name])}
+                            onChange={chosen => {
+                                form.setFieldValue(name, chosen.join(','));
+                            }}
+                        />
+                    );
+                }
                 return suggestionInput(field, name, { placeholder: field.placeholder });
+            }
         }
 
         /**

@@ -341,6 +341,53 @@ describe('PluginConfigForm', () => {
         });
     });
 
+    describe('a string that asked to be edited as tags', () => {
+        const KINDS: ConfigFieldDescriptor = { key: 'dialogueKinds', label: 'Which have callers', type: 'string', control: 'tags' };
+
+        it('draws a chip per entry and submits the comma-separated line back', async () => {
+            // The encoding does not change: this is drawn over a setting the server already splits
+            // on commas, so what goes back is the same one-line string it came from.
+            const plugin = pluginDetail({ configFields: [KINDS], config: { dialogueKinds: 'callin, phonein' } });
+            updatePluginConfiguration.mockResolvedValue(plugin);
+            const user = setupUser();
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            // Trimmed on the way in, exactly as `dialogueKinds()` trims on the way out — so the
+            // space after the comma is not part of the second kind here or there.
+            expect(screen.getByText('callin')).toBeInTheDocument();
+            expect(screen.getByText('phonein')).toBeInTheDocument();
+
+            // getAll: a TagsInput carries a hidden input under the same label as its field.
+            await user.type(screen.getAllByLabelText('Which have callers')[0] as HTMLElement, 'interview{Enter}');
+            await save();
+
+            await waitFor(() => {
+                expect(submittedConfig()).toEqual({ dialogueKinds: 'callin,phonein,interview' });
+            });
+        });
+
+        it('removes one without the operator editing punctuation', async () => {
+            // The failure a one-line list always has: taking a kind out means deleting its comma
+            // too, and a leftover one is a kind the station does not have with nothing saying so.
+            const plugin = pluginDetail({ configFields: [KINDS], config: { dialogueKinds: 'callin,phonein' } });
+            updatePluginConfiguration.mockResolvedValue(plugin);
+            const user = setupUser();
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            // By label rather than by role, for the reason the sustaining picker's clear cross is:
+            // Mantine marks a pill's remove button `aria-hidden`, treating the combobox as the
+            // control, so a role query skips it however it is asked.
+            await user.click(screen.getByLabelText('Remove callin'));
+            await save();
+
+            await waitFor(() => {
+                expect(submittedConfig()).toEqual({ dialogueKinds: 'phonein' });
+            });
+        });
+    });
+
     describe('a number that asked for a slider', () => {
         const MIX: ConfigFieldDescriptor = {
             key: 'mix',

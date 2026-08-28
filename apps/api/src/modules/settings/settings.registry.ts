@@ -328,8 +328,19 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         group: 'station',
         key: STREAM_KEYS.icecastPort,
         label: 'Icecast port',
-        type: 'string',
-        default: STREAM_DEFAULTS.icecastPort,
+        // A number rather than free text, so `serializeSetting` refuses one that is not. The stored
+        // ROW is unchanged — it writes `String(8000)` into the same text column, and
+        // `resolveStreamSettings` still reads it as the string it always was — so the only
+        // difference is where a typo stops: in front of the operator, rather than in the config
+        // Liquidsoap is handed on its next restart.
+        type: 'number',
+        // `Number(...)` rather than a literal, so this stays tied to the resolver's own fallback
+        // the way every default in this file is. A `number` field needs a numeric default or the
+        // console draws an empty box for a station that has never set one: `parseSetting` answers
+        // an unstored key with the descriptor's default verbatim.
+        default: Number(STREAM_DEFAULTS.icecastPort),
+        min: 1,
+        max: 65535,
     },
 
     {
@@ -833,7 +844,12 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Which productions have callers',
         type: 'string',
         default: DEFAULT_DIALOGUE_KINDS,
-        help: 'Kinds of production that put somebody on the phone, separated by commas. One of these is written as a conversation instead of a talk: the presenter opens, a caller answers, the presenter comes back, and each turn is spoken in its own voice. Who rings in is drawn from the callers on the personas page, least recently heard first, and a station with none simply makes the programme with one voice.',
+        // A set, and it always was: `dialogueKinds()` splits this on commas and trims each one. The
+        // stored value is unchanged — the form splits and joins — and what it stops is the failure
+        // a one-line list always has, where a stray comma or a doubled space is a kind the station
+        // quietly does not have and nothing anywhere says so.
+        control: 'tags',
+        help: 'Kinds of production that put somebody on the phone, one per entry. One of these is written as a conversation instead of a talk: the presenter opens, a caller answers, the presenter comes back, and each turn is spoken in its own voice. Who rings in is drawn from the callers on the personas page, least recently heard first, and a station with none simply makes the programme with one voice.',
     },
 
     // ── llm ────────────────────────────────────────────────────────────────────

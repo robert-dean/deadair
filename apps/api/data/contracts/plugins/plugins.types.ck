@@ -14,9 +14,10 @@ contract ConfigFieldType: enum(string, text, url, secret, number, boolean, selec
 contract ConfigFieldUnit: enum(bytes, fraction)
 
 # The control a field asks to be drawn with, where the ordinary one for its type reads badly. Opt-in
-# per field rather than inferred from `min`/`max`, because a slider is right for a value you feel for
-# and wrong for one you have to hit exactly. Nothing about the stored value changes
-contract ConfigFieldControl: enum(slider)
+# per field rather than inferred, because a slider is right for a value you feel for and wrong for
+# one you have to hit exactly, and `tags` is right for a comma-separated line that is really a SET
+# and wrong for one that is prose. Nothing about the stored value changes either way
+contract ConfigFieldControl: enum(slider, tags)
 
 # One choice of a `select` config field
 contract ConfigFieldOption: {
@@ -47,7 +48,7 @@ contract ConfigFieldDescriptor: {
     required?: boolean
     default?: string | number | boolean
     unit?: ConfigFieldUnit # `number` only, and ignored elsewhere
-    control?: ConfigFieldControl # `number` only, and ignored without both `min` and `max`
+    control?: ConfigFieldControl # `slider` for a `number` with both `min` and `max`, `tags` for a `string` holding a comma-separated set
     step?: number # How coarsely a `control` moves, in the field's own unit. Ignored without one, and defaults to 1
     min?: number # `number` only: the smallest value that will be accepted, inclusive
     max?: number # `number` only: the largest value that will be accepted, inclusive

@@ -78,7 +78,7 @@ describe('what comes back', () => {
         expect(answer.results[0]?.site).toBe('The Example');
     });
 
-    it("leaves the extract off a result that had none rather than sending an empty string", async () => {
+    it('leaves the extract off a result that had none rather than sending an empty string', async () => {
         const { tool } = build({ results: [hit({ snippet: '' })] });
 
         expect(await run(tool, { query: 'portishead' })).toMatchObject({ results: [{ title: 'Portishead' }] });

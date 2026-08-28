@@ -211,8 +211,7 @@ interface CacheEntry {
  * because every engine is asked for the ceiling and what is stored is always
  * the full answer, which each caller then trims to what it wanted.
  */
-const cacheKey = (query: string, options: SearchOptions): string =>
-    `${options.recency ?? ''}\n${options.language ?? ''}\n${query.toLowerCase()}`;
+const cacheKey = (query: string, options: SearchOptions): string => `${options.recency ?? ''}\n${options.language ?? ''}\n${query.toLowerCase()}`;
 
 /**
  * A URL as an identity, so two engines' copies of one page collapse.

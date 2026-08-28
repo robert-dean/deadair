@@ -87,7 +87,7 @@ export class WebSearchTool implements ToolSource {
                     // schedule.
                     description:
                         'Look something up on the web: a person, a place, an event, anything the station has no record of. Results are real pages ' +
-                        'with the search engine\'s own extract of each: you can work from them on air, and you should not state details they do not ' +
+                        "with the search engine's own extract of each: you can work from them on air, and you should not state details they do not " +
                         'carry. This does not find music to play — use the music search for that.',
                     parameters: {
                         type: 'object',
@@ -157,8 +157,7 @@ export class WebSearchTool implements ToolSource {
 const readText = (value: unknown): string | undefined => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined);
 
 /** A window the capability offers, or nothing. A model naming one it invented is asking for anything. */
-const readRecency = (value: unknown): SearchRecency | undefined =>
-    RECENCIES.find(recency => recency === value) as SearchRecency | undefined;
+const readRecency = (value: unknown): SearchRecency | undefined => RECENCIES.find(recency => recency === value) as SearchRecency | undefined;
 
 /** Whatever the model asked for, held between one and {@link MAX_RESULTS}. */
 function clampLimit(value: unknown): number {

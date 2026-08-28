@@ -1398,6 +1398,22 @@ source_headers = if stream_language == "" then [] else [("Content-Language", str
 # surfaces a hundred lines away as `Warning 4: Unused variable bus`, meaning the source being
 # passed in never reaches the output — a mount fed by nothing, which is silence. Do not rename
 # these back.
+# NOTE on reading numbers below: use `env_float` from the top of this file, and
+# `int_of_float(env_float(...))` where an int is wanted. NOT `int_of_string(environment.get(...))`.
+#
+# `environment.get(key, default=…)` answers its default only when the variable is UNSET, and the
+# app writes every optional key unconditionally — a switched-off format gets
+# `STREAM_AAC_BITRATE=''` rather than no key — so an off format arrives here as the empty STRING,
+# which is set, so the default never applies, and `int_of_string("")` RAISES.
+#
+# That is not a value falling back to something sensible. It is `Error 14: Uncaught runtime error`
+# during startup, and it takes down every output in this file, including the mounts that had
+# nothing to do with the setting that was empty. Measured: switching HLS on with AAC off silenced
+# both Icecast mounts, because the HLS block read the AAC bitrate whether or not AAC was on.
+#
+# `env_float` is already the sanctioned form here and already carries the same warning about
+# `float_of_string` raising. This is the same trap one type over.
+
 def publish(~mount, ~icy_on, enc, src) =
   output.icecast(
     enc,
@@ -1427,7 +1443,7 @@ end
 publish(
   mount = environment.get("STREAM_MOUNT", default="/live.mp3"),
   icy_on = true,
-  %mp3(bitrate=int_of_string(environment.get("STREAM_BITRATE", default="128"))),
+  %mp3(bitrate=int_of_float(env_float("STREAM_BITRATE", 128.))),
   bus
 )
 
@@ -1470,33 +1486,39 @@ if opus_mount != "" then
   publish(
     mount = opus_mount,
     icy_on = false,
-    opus_encoder(int_of_string(environment.get("STREAM_OPUS_BITRATE", default="160"))),
+    opus_encoder(int_of_float(env_float("STREAM_OPUS_BITRATE", 160.))),
     bus
   )
   log(label="deadair", "publishing Opus on #{opus_mount}")
 end
+
+# The AAC encoder, at TOP LEVEL because two outputs need it: the Icecast mount below and the
+# HLS variant at the end. A branch over fixed rates because `%fdkaac` is documented as wanting
+# its bitrate at parse time, and one definition so the two callers cannot drift apart.
+def aac_encoder(rate) =
+  if rate == 96 then %fdkaac(bitrate=96)
+  elsif rate == 128 then %fdkaac(bitrate=128)
+  elsif rate == 160 then %fdkaac(bitrate=160)
+  elsif rate == 256 then %fdkaac(bitrate=256)
+  elsif rate == 320 then %fdkaac(bitrate=320)
+  else %fdkaac(bitrate=192)
+  end
+end
+
+# The rate both of them use, read once.
+aac_bitrate = int_of_float(env_float("STREAM_AAC_BITRATE", 192.))
 
 aac_mount = environment.get("STREAM_MOUNT_AAC", default="")
 if aac_mount != "" then
   # The format that widens HARDWARE reach, which is the whole reason it is here rather than
   # Opus: a Sonos takes MP3 or AAC, and a player that cannot manage Opus can generally manage
   # this. No resample — AAC is happy at 44.1 kHz, so this mount costs an encoder and nothing else.
-  def aac_encoder(rate) =
-    if rate == 96 then %fdkaac(bitrate=96)
-    elsif rate == 128 then %fdkaac(bitrate=128)
-    elsif rate == 160 then %fdkaac(bitrate=160)
-    elsif rate == 256 then %fdkaac(bitrate=256)
-    elsif rate == 320 then %fdkaac(bitrate=320)
-    else %fdkaac(bitrate=192)
-    end
-  end
-
   # ADTS, like MP3, has no in-band metadata a source client can write, so the ICY channel IS the
   # metadata path here exactly as it is for the MP3 mount.
   publish(
     mount = aac_mount,
     icy_on = true,
-    aac_encoder(int_of_string(environment.get("STREAM_AAC_BITRATE", default="192"))),
+    aac_encoder(aac_bitrate),
     bus
   )
   log(label="deadair", "publishing AAC on #{aac_mount}")
@@ -1519,4 +1541,60 @@ if flac_mount != "" then
   flac_encoder = %ogg(%flac)
   publish(mount = flac_mount, icy_on = false, flac_encoder, bus)
   log(label="deadair", "publishing FLAC on #{flac_mount}")
+end
+
+# 7) HLS, which is a different KIND of output and is here for a reason the mounts cannot cover.
+#
+# Every mount above is one long-lived TCP connection. That is fine until the connection ends for
+# a reason nobody chose: a phone moving between wifi and mobile changes its source address, the
+# socket dies, and the stream simply stops. Nothing on this side carries a connection across
+# that, and no Icecast setting touches it. HLS is a sequence of ordinary HTTP requests for small
+# files, so the same handoff costs at most one segment fetch and the player asks again.
+#
+# It is also the only output here a player can CHOOSE from. The master playlist lists each
+# variant with its codec and bandwidth, so a client picks one it can actually decode instead of
+# an operator picking a URL on its behalf.
+#
+# **Two variants, AAC and MP3, and deliberately not the other two.** The HLS spec allows mp3 and
+# aac; Opus and FLAC would need fragmented MP4, which Liquidsoap supports and which carries NO
+# in-stream metadata at all — so those variants would play, on the few clients that manage them,
+# with no idea what is on. Opus and FLAC stay on their Icecast mounts where their metadata works.
+# AAC is also the format hardware asks for: a Sonos takes MP3 or AAC and reads ID3v2 out of an
+# HLS stream, which is exactly what these two produce.
+#
+# **It runs whenever it is enabled, and must not follow the mount lease.** The instinct is to
+# write segments only while the station is on air, and it is wrong: the playlist has to exist
+# before anybody can tune in, and somebody tuning in is what opens the audience gate. An output
+# that only wrote while on air could never be listened to. What it costs is bounded — the
+# directory holds `segments + segments_overhead` files and no more.
+hls_dir = environment.get("STREAM_HLS_DIR", default="")
+if hls_dir != "" then
+  # The same closed-set branch the Icecast encoders need, and for the same reason: these
+  # bitrates are read when this script is PARSED. Fixed at the MP3 mount's rate and the AAC
+  # setting's, so a station that raised either gets it here too.
+  hls_streams = [
+    ("aac", aac_encoder(aac_bitrate)),
+    ("mp3", %mp3(bitrate=int_of_float(env_float("STREAM_BITRATE", 128.))))
+  ]
+
+  # `persist_at` is what makes a restart survivable, and this container restarts on every
+  # stream-settings change (config-watch.sh). Without it Liquidsoap starts numbering segments
+  # from zero again, and every connected player is holding a playlist whose numbers now point
+  # at different audio — which is not a gap, it is a stall that only a manual reconnect clears.
+  # On the streamstate volume rather than the HLS one: it is state the app does not own and
+  # cannot reproduce, which is the same argument the fetcher's Spotify login is stored under.
+  output.file.hls(
+    playlist = "live.m3u8",
+    segment_duration = env_float("STREAM_HLS_SEGMENT_SECONDS", 2.),
+    segments = int_of_float(env_float("STREAM_HLS_SEGMENT_COUNT", 6.)),
+    # Kept BEYOND the playlist window rather than deleted with it. A player that asked for the
+    # playlist a moment before a segment rolled off is about to request that segment, and
+    # deleting it the instant it left the window is a 404 in the middle of somebody's listening.
+    segments_overhead = 5,
+    persist_at = "/streamstate/hls.json",
+    hls_dir,
+    hls_streams,
+    bus
+  )
+  log(label="deadair", "publishing HLS in #{hls_dir}")
 end

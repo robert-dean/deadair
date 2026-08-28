@@ -56,6 +56,9 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
     aacEnabled: false,
     aacBitrate: '192',
     flacEnabled: false,
+    hlsEnabled: false,
+    hlsSegmentSeconds: 2,
+    hlsSegmentCount: 6,
     hostname: '',
     location: '',
     language: '',
@@ -374,6 +377,36 @@ describe('writeStreamConfig', () => {
         expect(env.get('STREAM_FLAC_BITRATE')).toBe('');
         // Off, and an empty path is how that is spelled.
         expect(env.get('STREAM_MOUNT_AAC')).toBe('');
+    });
+
+    it('gives liquidsoap nowhere to write HLS until it is switched on', () => {
+        // The same rule as an optional mount's empty path: a writer with nowhere to write
+        // is not a writer, so there is no second flag that could disagree with it.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings(), playout: playout(), assetsDir, configDir });
+
+        const env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
+
+        expect(env.get('STREAM_HLS_DIR')).toBe('');
+        // The shape of it is still written, so an operator can see what it would be.
+        expect(env.get('STREAM_HLS_SEGMENT_SECONDS')).toBe('2');
+        expect(env.get('STREAM_HLS_SEGMENT_COUNT')).toBe('6');
+    });
+
+    it("writes the STREAM container's own path, not the one this app reads back", () => {
+        // They are one volume at two mount points. Rendering the app's path into the
+        // container's config gives liquidsoap a directory that does not exist there, and
+        // the symptom is an HLS output that silently writes nothing.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({
+            settings: settings({ hlsEnabled: true }),
+            playout: playout(),
+            assetsDir,
+            configDir,
+            hlsDir: '/streamhls',
+        });
+
+        expect(parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8')).get('STREAM_HLS_DIR')).toBe('/streamhls');
     });
 
     // The listener hooks are gone: `/admin/eventfeed` reports every change in the count in either

@@ -49,6 +49,18 @@ export default defineConfig({
                 changeOrigin: true,
                 rewrite: path => path.replace(/^\/api/, ''),
             },
+            // The HLS output, which unlike the mounts is not one upstream: nginx serves the
+            // segments off the volume and proxies only the playlists to the API. Vite can do
+            // neither half — the segments are in a container and the split is nginx's — so this
+            // points at the edge and lets it do both. A dev SPA opened on :3002 therefore needs
+            // the nginx container up to play HLS, which is the same thing being true of a
+            // listener.
+            '/hls': {
+                target: 'http://127.0.0.1:8080',
+                changeOrigin: true,
+                timeout: 0,
+                proxyTimeout: 0,
+            },
             // So the monitor works when the SPA is opened on this port directly rather
             // than through nginx, which proxies the mounts in dev and prod alike.
             [MOUNT_PATTERN]: {

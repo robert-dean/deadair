@@ -236,6 +236,11 @@ export class StreamService {
                 playout: this.playoutConfig(settings),
                 assetsDir: this.config.get('STREAM_ASSETS_DIR', defaultStreamAssetsDir()),
                 configDir: this.config.get('STREAM_CONFIG_DIR', defaultStreamConfigDir()),
+                // What LIQUIDSOAP will be told to write HLS into, which is not where this app
+                // reads it from: in the compose deployment they are separate containers seeing
+                // one volume at two mount points. In the single-container image they are the
+                // same path, and both variables say so.
+                hlsDir: this.config.get('STREAM_HLS_LIQUIDSOAP_DIR', '/streamhls'),
                 musicDir: this.config.get('STREAM_MUSIC_DIR', DEFAULT_MUSIC_DIR),
                 harborPort: this.config.get('STREAM_HARBOR_PORT', DEFAULT_HARBOR_PORT),
                 configMode: this.configMode(),

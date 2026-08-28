@@ -244,6 +244,13 @@ services:
             # app does not own and cannot reproduce. Losing it costs an operator one browser visit
             # (POST /authorize); see stream/spotify-shim/README.md.
             - ./.docvol/streamstate:/streamstate
+            # Where output.file.hls writes its segments and playlists. WRITABLE, unlike
+            # /streamconfig: this is the one stream volume liquidsoap produces rather than
+            # consumes. nginx mounts the same directory read-only and serves the segments off
+            # it, and the app reads the playlists off it to count who is listening — an HLS
+            # player holds no connection open, so a playlist request is the only evidence
+            # there is. See apps/api/src/modules/stream/hls.audience.ts.
+            - ./.docvol/streamhls:/streamhls
         depends_on:
             # service_started (not _healthy): icecast has no healthcheck (see above),
             # and liquidsoap's output.icecast retries the source connection on its own.

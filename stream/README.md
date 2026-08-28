@@ -66,6 +66,14 @@ docker compose exec -T liquidsoap sh -c 'cat > /tmp/c.liq; liquidsoap --check /t
 the absence of a visible error: a `Warning` and an `Error` print the same way, and a truncated
 paste of the output reads as success.
 
+**`--check` does not start outputs, and that gap has cost this station its air twice.** It
+type-checks and evaluates, so it catches a wrong argument type and a missing encoder — and an
+output that type-checks perfectly and then fails when it is STARTED takes the whole script down
+with it, both Icecast mounts included, with `--check` still reporting clean. `hlsout.check.liq`
+exists for that: it runs one output against silence in a temporary directory, so the question
+"does this output actually start" is answered without airtime. Anything that adds an output here
+should get the same treatment before it goes near a container restart.
+
 To make the RUNNING container adopt an edit, recreate it rather than restarting it — a restart
 re-execs against the same stale inode:
 
@@ -91,6 +99,18 @@ a function a parameter named `source`, shadowing Liquidsoap's own namespace, so 
 namespace instead of the argument. That is not a type error, so it does not fail the check.
 `Warning 6: Top-level variable X is overridden!` is the same problem announced honestly; `icy`,
 `encoder` and `source` are all names Liquidsoap already has.
+
+**An optional setting arrives here as the EMPTY STRING, not as an absent one.**
+`environment.get(key, default=…)` answers its default only when the variable is UNSET, and the app
+writes every optional key unconditionally — a switched-off format gets `STREAM_AAC_BITRATE=''`
+rather than no key at all. So the default never applies, and `int_of_string("")` RAISES: `Error 14:
+Uncaught runtime error` during startup, which takes down every output in the file including the
+mounts that had nothing to do with the empty setting. Measured: switching HLS on with AAC off
+silenced both Icecast mounts, because the HLS block read the AAC bitrate whether or not AAC was on.
+Use `env_float` (defined at the top of `radio.liq`, on `string.to_float`, which returns its default
+instead of raising) and `int_of_float(env_float(...))` for an int. That helper already existed, and
+already carried a comment about `float_of_string` raising on the empty string the last time this
+took the station off air.
 
 **`icy_metadata` and `send_icy_metadata` are both parameters of `output.icecast` and are not
 variants of one another.** `icy_metadata : [string]` is the list of metadata FIELDS an update

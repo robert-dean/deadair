@@ -268,8 +268,8 @@ COPY --from=icecast /usr/share/icecast/ /usr/share/icecast/
 RUN set -eux; \
     groupadd --gid 100 --non-unique deadair 2>/dev/null || true; \
     useradd --uid 99 --gid 100 --non-unique --no-create-home --home-dir /data --shell /usr/sbin/nologin deadair 2>/dev/null || true; \
-    mkdir -p /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
-    chown 99:100 /data /var/log/icecast /var/cache/nginx /var/log/nginx
+    mkdir -p /data /data/streamhls /var/log/icecast /var/cache/nginx /var/log/nginx; \
+    chown 99:100 /data /data/streamhls /var/log/icecast /var/cache/nginx /var/log/nginx
 
 # What the speech server needs from apt, kept OUT of the copy below rather than fused into it.
 # `cp -a` preserves every timestamp and mode, so the copy is byte-identical from one build to the
@@ -406,6 +406,12 @@ ENV NODE_ENV=production \
     # that being a station that will not start one day.
     STREAM_CONFIG_MODE=0640 \
     STREAM_MUSIC_DIR=/data/music \
+    # The HLS segments and playlists. Two variables for one directory because two
+    # processes reach it by different names in the compose deployment, where liquidsoap
+    # and the app are separate containers with their own mount points. Here they are the
+    # same process tree and the same path, and it is nginx's `alias` target as well.
+    STREAM_HLS_DIR=/data/streamhls \
+    STREAM_HLS_LIQUIDSOAP_DIR=/data/streamhls \
     ANALYSIS_PORT=9321 \
     TTS_PORT=8880 \
     USE_GPU=false \

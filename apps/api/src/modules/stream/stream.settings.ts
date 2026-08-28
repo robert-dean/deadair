@@ -3,6 +3,7 @@ import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { numberOr } from '#modules/shared/setting.numbers.js';
 
 /**
  * The `deadair.settings` keys backing the stream config.
@@ -40,6 +41,22 @@ export const STREAM_KEYS = {
     aacBitrate: 'stream.aacBitrate',
     /** Lossless TRANSPORT, which is only worth anything when the sources are lossless too. */
     flacEnabled: 'stream.flacEnabled',
+    /**
+     * The HLS output: one URL a player picks its own format from, and the only
+     * transport here that survives a phone moving between wifi and mobile.
+     *
+     * An Icecast mount is a single long-lived TCP connection, so the handoff changes
+     * the source address, the socket dies, and the stream simply ends. Nothing on the
+     * server side carries a connection across that. HLS is a sequence of ordinary HTTP
+     * requests, so a network change costs at most one segment fetch and the player
+     * retries.
+     *
+     * Off by default like the format mounts, and for the same reason: it is two more
+     * encoders running whether or not anybody is listening.
+     */
+    hlsEnabled: 'stream.hlsEnabled',
+    hlsSegmentSeconds: 'stream.hlsSegmentSeconds',
+    hlsSegmentCount: 'stream.hlsSegmentCount',
     /** Hostname Icecast advertises in its own config. */
     hostname: 'stream.hostname',
     /**
@@ -119,6 +136,11 @@ export interface StreamSettings {
     aacEnabled: boolean;
     aacBitrate: string;
     flacEnabled: boolean;
+    hlsEnabled: boolean;
+    /** Target length of one HLS segment, in seconds. */
+    hlsSegmentSeconds: number;
+    /** How many segments a media playlist lists at once. */
+    hlsSegmentCount: number;
     /** Hostname Icecast advertises. Empty means "derive it from publicUrl, else localhost". */
     hostname: string;
     /** Where the station broadcasts from. Empty renders no `<location>`. */
@@ -171,6 +193,12 @@ export const STREAM_DEFAULTS = {
     // Roughly MP3 320's quality at fewer bits, and the tier hardware players expect.
     aacBitrate: '192',
     flacEnabled: false,
+    hlsEnabled: false,
+    // Two seconds, six of them: about 6-12s behind the live edge, which is the good end
+    // of what HLS does. Shorter segments cut the latency and cost a request per listener
+    // per segment; a longer window costs latency and buys resilience on a bad connection.
+    hlsSegmentSeconds: 2,
+    hlsSegmentCount: 6,
     hostname: '',
     location: '',
     language: '',
@@ -225,6 +253,12 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         aacEnabled: settingIsOn(config, STREAM_KEYS.aacEnabled, STREAM_DEFAULTS.aacEnabled),
         aacBitrate: values.get(STREAM_KEYS.aacBitrate) ?? STREAM_DEFAULTS.aacBitrate,
         flacEnabled: settingIsOn(config, STREAM_KEYS.flacEnabled, STREAM_DEFAULTS.flacEnabled),
+        hlsEnabled: settingIsOn(config, STREAM_KEYS.hlsEnabled, STREAM_DEFAULTS.hlsEnabled),
+        // Clamped rather than refused, on the resolver rule: this is reading a row that is
+        // already stored, and a setting that will not load stops the render behind it. The
+        // console refuses an out-of-range figure at the point somebody types one.
+        hlsSegmentSeconds: clamp(numberOr(config, STREAM_KEYS.hlsSegmentSeconds, STREAM_DEFAULTS.hlsSegmentSeconds), 1, 10),
+        hlsSegmentCount: clamp(numberOr(config, STREAM_KEYS.hlsSegmentCount, STREAM_DEFAULTS.hlsSegmentCount), 3, 20),
         hostname: values.get(STREAM_KEYS.hostname) ?? STREAM_DEFAULTS.hostname,
         location: values.get(STREAM_KEYS.location) ?? STREAM_DEFAULTS.location,
         language: values.get(STREAM_KEYS.language) ?? STREAM_DEFAULTS.language,
@@ -342,6 +376,9 @@ export function streamMounts(settings: StreamSettings): StreamMount[] {
 export function bytesPerSecond(mount: StreamMount): number {
     return ((mount.bitrateKbps ?? FLAC_ASSUMED_KBPS) * 1000) / 8;
 }
+
+/** Hold a number inside the bounds the registry offers, both ends inclusive. */
+const clamp = (value: number, low: number, high: number): number => Math.min(high, Math.max(low, Math.round(value)));
 
 /** A strong secret that is safe unquoted in XML, a shell-sourced env file and a URL. */
 function strongSecret(): string {

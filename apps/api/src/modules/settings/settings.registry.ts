@@ -253,6 +253,36 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'station',
+        key: STREAM_KEYS.hlsEnabled,
+        label: 'Also publish an HLS stream',
+        type: 'boolean',
+        default: STREAM_DEFAULTS.hlsEnabled,
+        help: 'One address a player picks its own format from, instead of choosing a mount by hand. It is also the only one here that survives a phone moving between wifi and mobile: the mounts above are a single connection that dies with the network, while this is ordinary web requests a player simply retries. Costs a few seconds more delay than the mounts, and two more encoders.',
+    },
+    {
+        group: 'station',
+        key: STREAM_KEYS.hlsSegmentSeconds,
+        label: 'HLS segment length (seconds)',
+        type: 'number',
+        default: STREAM_DEFAULTS.hlsSegmentSeconds,
+        // The bounds `resolveStreamSettings` clamps a stored row to, shared for the reason
+        // every default in this file is shared.
+        min: 1,
+        max: 10,
+        help: 'Shorter segments put a listener closer to live and cost one more request each, per listener. Below about two seconds most players stop keeping up.',
+    },
+    {
+        group: 'station',
+        key: STREAM_KEYS.hlsSegmentCount,
+        label: 'HLS segments in the playlist',
+        type: 'number',
+        default: STREAM_DEFAULTS.hlsSegmentCount,
+        min: 3,
+        max: 20,
+        help: 'How much a player is told about at once. More is more delay and more tolerance of a bad connection; fewer is the opposite. Segment length multiplied by this is roughly how far behind live a listener starts.',
+    },
+    {
+        group: 'station',
         key: STREAM_KEYS.hostname,
         label: 'Advertised hostname',
         type: 'string',

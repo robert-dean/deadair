@@ -321,6 +321,15 @@ export interface WriteStreamConfigArgs {
     musicDir?: string;
     /** Harbor port, which must match the port published in docker-compose.yml. */
     harborPort?: string;
+    /**
+     * Where Liquidsoap writes HLS segments, as the STREAM CONTAINER sees it.
+     *
+     * Deliberately not `defaultStreamHlsDir()`, which is where this app reads them
+     * from: they are the same volume at two mount points, and rendering the app's own
+     * path into the container's config is the mistake this parameter exists to make
+     * impossible.
+     */
+    hlsDir?: string;
     adminEmail?: string;
     /**
      * The mode the rendered files are left with. Defaults to `0o644`.
@@ -350,6 +359,7 @@ export function writeStreamConfig({
     configDir = defaultStreamConfigDir(),
     musicDir = '/music',
     harborPort = '8005',
+    hlsDir = '/streamhls',
     adminEmail = 'admin@localhost',
     configMode = 0o644,
     log = () => {},
@@ -422,6 +432,16 @@ export function writeStreamConfig({
             // that moves with the settings changes the config stamp — which is the hash the
             // staleness check compares a running container against — for a station that turned
             // one format off and another on and is running exactly what it was.
+            // The HLS output. `STREAM_HLS_DIR` is the path INSIDE the stream container, which
+            // is not the one this app reads its playlists from: the two see the same volume at
+            // different mount points, so this is a parameter rather than the app's own path.
+            //
+            // Off is spelled as an empty directory, on the same rule as an optional mount's
+            // empty path: a writer with nowhere to write is not a writer, and a flag that
+            // could disagree with the path would have the path win anyway.
+            `STREAM_HLS_DIR=${shell(settings.hlsEnabled ? hlsDir : '')}`,
+            `STREAM_HLS_SEGMENT_SECONDS=${shell(String(settings.hlsSegmentSeconds))}`,
+            `STREAM_HLS_SEGMENT_COUNT=${shell(String(settings.hlsSegmentCount))}`,
             ...(['opus', 'aac', 'flac'] as const).flatMap(format => {
                 const mount = mounts.find(candidate => candidate.format === format);
                 const name = format.toUpperCase();

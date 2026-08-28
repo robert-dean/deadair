@@ -7,6 +7,7 @@ import {
     PLUGIN_CAPABILITY_MIXER,
     PLUGIN_CAPABILITY_NEWS,
     PLUGIN_CAPABILITY_SCROBBLE,
+    PLUGIN_CAPABILITY_SEARCH,
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_STREAM,
@@ -20,6 +21,7 @@ import {
     type MusicProviderPluginInstance,
     type NewsPluginInstance,
     type PluginManifest,
+    type SearchPluginInstance,
     type SpeechPluginInstance,
 } from '@deadair/plugin-sdk';
 import type { PluginRecord } from './types/plugin.record.js';
@@ -295,6 +297,38 @@ export const asNewsPlugin = (record: PluginRecord): NewsPlugin | undefined => {
     if (!implementsNews(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as NewsPluginInstance };
+};
+
+/** The one method that earns the `search` capability. */
+export const SEARCH_METHODS = ['search'] as const satisfies ReadonlyArray<keyof SearchPluginInstance>;
+
+/** A plugin narrowed to "can ask the open web a question". */
+export interface SearchPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: SearchPluginInstance;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `search` capability. */
+export const implementsSearch = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_SEARCH)) return false;
+    return SEARCH_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The search-capable view of a record, or `undefined` when it is not one.
+ *
+ * No `priority`, for {@link asNewsPlugin}'s reason taken one step further: two
+ * engines asked the same question return overlapping pages rather than rival
+ * accounts, so the answers combine — but nothing here ranks one engine's page
+ * above another's, because a relevance score is computed against an index this
+ * host cannot see.
+ */
+export const asSearchPlugin = (record: PluginRecord): SearchPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsSearch(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as SearchPluginInstance };
 };
 
 /** The one method that earns the `scrobble` capability. */

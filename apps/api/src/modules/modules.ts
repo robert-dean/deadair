@@ -15,6 +15,7 @@ import { ChartsModule } from './charts/charts.module.js';
 import { NewsModule } from './news/news.module.js';
 import { TopicsModule } from './topics/topics.module.js';
 import { SimilarityModule } from './similarity/similarity.module.js';
+import { SearchModule } from './search/search.module.js';
 import { ScrobbleModule } from './scrobble/scrobble.module.js';
 import { LlmModule } from './llm/llm.module.js';
 import { PersonasModule } from './personas/personas.module.js';
@@ -121,6 +122,11 @@ const ordered: ServerKitModule[] = [
     // does with a fact is say it — which is why nothing below it schedules from
     // this one.
     NewsModule,
+    // Beside NewsModule and for the same reasons: after PluginsModule, before the LLM that
+    // reads it as a tool, no loop of its own. The two answer different halves of "what is
+    // going on outside" — one serves a menu the operator assembled, the other takes a
+    // question nobody wrote down in advance — and neither can schedule anything.
+    SearchModule,
     // After every module that OWNS a sort of break's subjects — NewsModule today, weather
     // tomorrow — and before DirectorModule, which reads one back when a break is written.
     // The vocabulary is the operator's ("technology", "Atlanta") and the registry that says

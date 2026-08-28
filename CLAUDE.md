@@ -89,7 +89,7 @@ deploy/, unraid/                  how somebody else installs it
 
 `apps/api` modules, in registration order: `logging`, `dataConnections`, `health`, `data`, `crypto`,
 `authentication`, `permissions`, `policy`, `art`, `catalog`, `onboarding`, `settings`, `stream`,
-`plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `topics`, `scrobble`, `llm`,
+`plugins`, `jobs`, `playlists`, `charts`, `similarity`, `news`, `search`, `topics`, `scrobble`, `llm`,
 `personas`, `schedule`, `render`, `playout`, `nowplaying`, `analysis`, `director`, `storage`,
 `activity`, `enrichment`, `productions`, `station`. **`src/modules/modules.ts` is the source of
 truth and the order is load-bearing** — see [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md). Check it

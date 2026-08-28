@@ -145,12 +145,12 @@ describe('KokoroPlugin.speak', () => {
     it('sends the speed a voice was given, and sends none when it was given none', async () => {
         // Absent rather than 1: a request with no `speed` is the plainest thing this can ask for,
         // and it is what every voice asked for before the column existed.
-        const config = { voices: voiceRows({ name: 'automaton', engine: 'am_echo', speed: '0.9' }, { name: 'host', engine: 'af_heart' }) };
+        const config = { voices: voiceRows({ name: 'slowhost', engine: 'am_echo', speed: '0.9' }, { name: 'host', engine: 'af_heart' }) };
 
         // Two starts rather than two speaks against one, because `speechRequest` reads the FIRST
         // speech call and a second assertion against the same recorder would re-read the first.
         const slow = await started({ config });
-        const slowHandle = await slow.plugin.speak({ text: 'hello', voice: 'automaton' });
+        const slowHandle = await slow.plugin.speak({ text: 'hello', voice: 'slowhost' });
         expect(speechRequest(slow.calls).speed).toBe(0.9);
         await slowHandle.audio.cancel();
 
@@ -315,13 +315,13 @@ describe('KokoroPlugin.listVoices', () => {
 
     it('says the speed in the description only when there is one to say', async () => {
         const { plugin } = await started({
-            config: { voices: voiceRows({ name: 'host', engine: 'af_bella' }, { name: 'automaton', engine: 'am_echo', speed: '0.9' }) },
+            config: { voices: voiceRows({ name: 'host', engine: 'af_bella' }, { name: 'slowhost', engine: 'am_echo', speed: '0.9' }) },
         });
 
         const voices = await plugin.listVoices();
 
         expect(voices.find(voice => voice.id === 'host')!.description).not.toContain('x');
-        expect(voices.find(voice => voice.id === 'automaton')!.description).toContain('0.9x');
+        expect(voices.find(voice => voice.id === 'slowhost')!.description).toContain('0.9x');
     });
 });
 

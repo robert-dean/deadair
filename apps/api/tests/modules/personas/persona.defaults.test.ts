@@ -173,14 +173,17 @@ describe('the seeded personas', () => {
 
     // Membership rather than content, since what a character is on about is a judgement. What is
     // checkable is that the field was filled in at all: a seed with none is a character the operator
-    // sees a box for and never hears anything out of, and the reason `forecast` has none is written
-    // on the seed itself rather than left to be inferred from an empty array.
-    it('all have something they keep coming back to, except the bulletin that may not', () => {
+    // sees a box for and never hears anything out of.
+    //
+    // This case used to carry an exemption, for the shipping-forecast announcer, whose quirks said in
+    // as many words that it has no opinions — a preoccupation is an interior life and a bulletin with
+    // one is a different character wearing the same cadence. That seed has been retired, so the
+    // exemption has nothing to be about and the rule is flat again. A seed that ships empty is still
+    // worth having, since it is the state an operator's own new character starts in; whoever writes
+    // the next one puts the branch back rather than leaving the field to be inferred.
+    it('all have something they keep coming back to', () => {
         for (const persona of SEED_CHARACTERS) {
-            const subjects = persona.preoccupations?.length ?? 0;
-
-            if (persona.key === 'forecast') expect(subjects, 'the forecast announcer has opinions now').toBe(0);
-            else expect(subjects, `${persona.key} has nothing on its mind`).toBeGreaterThan(2);
+            expect(persona.preoccupations?.length ?? 0, `${persona.key} has nothing on its mind`).toBeGreaterThan(2);
         }
     });
 

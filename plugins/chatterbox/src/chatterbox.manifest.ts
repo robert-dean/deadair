@@ -82,33 +82,21 @@ export const DEFAULT_VOICE = 'Olivia.wav';
 export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?: string }[] = [
     { name: 'classic', engine: 'Olivia.wav' },
     { name: 'latenight', engine: 'Miles.wav' },
-    { name: 'cratedigger', engine: 'Jade.wav' },
-    { name: 'pirate', engine: 'Everett.wav' },
-    { name: 'howler', engine: 'Axel.wav' },
     { name: 'quietstorm', engine: 'Layla.wav' },
     { name: 'countdown', engine: 'Michael.wav' },
     { name: 'wisecrack', engine: 'Cora.wav' },
     { name: 'shockjock', engine: 'Austin.wav' },
     { name: 'conspiracy', engine: 'Jeremiah.wav' },
-    { name: 'bossjock', engine: 'Ryan.wav' },
     { name: 'videoage', engine: 'Gianna.wav' },
     { name: 'slacker', engine: 'Connor.wav' },
     { name: 'millennium', engine: 'Emily.wav' },
-    { name: 'automaton', engine: 'Jordan.wav' },
-    { name: 'naturalist', engine: 'Julian.wav' },
-    { name: 'playbyplay', engine: 'Leonardo.wav' },
-    { name: 'gumshoe', engine: 'Thomas.wav' },
-    { name: 'forecast', engine: 'Alexander.wav' },
     { name: 'newsreader', engine: 'Abigail.wav' },
     // The people who ring IN — `caller.defaults.ts`. Matched to the other map for
     // register rather than for filename, so switching engines does not change a
     // caller's sex or age, and no caller shares a clip with a host: the two are in
     // one production talking to each other.
     { name: 'skeptic', engine: 'Eli.wav' },
-    { name: 'grumbler', engine: 'Henry.wav' },
-    { name: 'dedication', engine: 'Alice.wav' },
     { name: 'pedant', engine: 'Elena.wav' },
-    { name: 'nightshift', engine: 'Taylor.wav' },
 ];
 
 /** The rows as the config stores them: a JSON array in a string, exactly as the console writes it. */

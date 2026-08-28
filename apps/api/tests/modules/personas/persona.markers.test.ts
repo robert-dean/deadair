@@ -18,22 +18,26 @@
 // because its markers were not ordinary English at all. They were ordinary radio, which only a
 // roster of other radio voices can see.
 //
-// ## Why the bar is a budget and not zero
+// ## Why the bar is a budget, even though every sheet currently scores zero
 //
-// Two characters who talk about the same things legitimately share vocabulary: the crate-digger and
-// the pedant are both about labels and sleeve notes, and the pirate and the howler both drop the
-// same g. No honest marker list separates either pair completely, and a flat zero would force
-// invented words. So the bar is per sheet, it is the measurement as it stands, and it is asserted as
-// a CEILING — improving a sheet is always allowed and regressing one fails. Every entry below is
-// debt with a name on it rather than a tolerance, which is the point of writing them out.
+// The budget is empty, and the honest reading of that is NOT that the roster got good. It is that
+// the roster got smaller. Every entry this table ever held was a collision between two characters,
+// and the station has just retired twelve of them — so `label` no longer meets the crate-digger,
+// `in'` no longer meets the pirate or the howler, `anyway` no longer meets the grumbler, and the
+// pedant's formal register has no other caller left to overlap. Nothing was rewritten. The other
+// half of each pair left the building.
 //
-// The table used to open with a block of four sheets marked "not yet rewritten", scoring between six
-// and eight, and it is worth recording what happened to them rather than only that they are gone.
-// Every one was the same shape: a strong distinctive half diluted by stock radio phrasing. Two were
-// fixed by a marker list alone (the boss jock, the shock jock); two needed a person underneath the
-// register before any list would hold (the quiet-storm host, the request host), which is what
-// `wisecrack` and `conspiracy` had already found. The two that are left are both CALLERS and both
-// still registers.
+// That matters because the corpus IS the test: a marker is only evidence in proportion to how many
+// other voices it has been measured against, and this file is weaker at twelve characters than it
+// was at twenty-four. The measurement did not improve; it lost resolution. So the mechanism stays
+// exactly as it was — per sheet, asserted as a CEILING, so improving a sheet is always allowed and
+// regressing one fails — and the table stays here empty rather than being deleted along with its
+// entries, because the next seed added is the one that will need a line in it.
+//
+// What the retired entries recorded, kept because the shape recurs: every sheet that ever scored
+// badly here was a strong distinctive half diluted by stock radio phrasing, and the two routes out
+// were a sharper marker list where only the WORDS were somebody else's, and a person underneath the
+// register where the register itself was.
 
 import { describe, expect, it } from 'vitest';
 
@@ -66,28 +70,13 @@ const PLAIN_ENGLISH = [
  * roster. `plain` is how many of {@link PLAIN_ENGLISH} it passes on.
  */
 const BUDGET: Record<string, { crossfire?: number; plain?: number; why: string }> = {
-    // Not yet rewritten, and the only two left. Both are callers, both are still a register rather
-    // than a person, and the route out of it is the one `dedication` took one sheet over: the
-    // complaint and the correction phrased long enough to be somebody rather than to be politeness.
-    // `well`, `still`, `mind`, `suppose` and `actually` are not unusual English and every dry
-    // character reaches for all of them, which is the failure the sheet-level rewrites were for.
-    grumbler: { crossfire: 4, why: 'a caller speaks in filler by design, and this sheet is still the filler rather than the man' },
-    pedant: { crossfire: 2, why: 'formal register overlaps the other callers' },
-
-    // Residue on the sheets that HAVE been rewritten, kept because removing it would cost the
-    // character a word it genuinely owns. Every one of these is a single collision that has been
-    // looked at and left.
-    latenight: { crossfire: 1, why: 'one collision with the night-shift caller, who is awake at the same hour' },
-    cratedigger: { crossfire: 1, why: '`label` is shared with the pedant by subject' },
-    pirate: { crossfire: 1, why: "`in'` is shared dialect with the howler" },
-    howler: { crossfire: 1, why: "`in'` is shared dialect with the pirate" },
-    playbyplay: { crossfire: 1, why: 'one collision with the night-shift caller' },
-    // The one entry here that names another sheet's debt rather than its own. `anyway` is the
-    // slacker's word — `wisecrack` surrendered the hedge to this sheet when it stopped being a
-    // register — and it fires only on the grumbler, who has not been rewritten and also claims it.
-    // It clears when that one does.
-    slacker: { crossfire: 1, why: '`anyway` is claimed by the grumbler as well, until that sheet is rewritten' },
-    forecast: { plain: 1, why: '`good` is a forecast term and an ordinary adjective' },
+    // Empty, and measured empty rather than assumed: with the roster at twelve, no sheet's markers
+    // fire on another character's samples or on plain announcer English. Read the note above before
+    // reading that as a compliment to the sheets.
+    //
+    // A new entry here is debt with a name on it rather than a tolerance, which is the point of
+    // writing them out: say which word collides with whom, and say what would have to change for it
+    // to clear.
 };
 
 const budgetFor = (key: string, kind: 'crossfire' | 'plain') => BUDGET[key]?.[kind] ?? 0;
@@ -96,7 +85,8 @@ const budgetFor = (key: string, kind: 'crossfire' | 'plain') => BUDGET[key]?.[ki
  * The seeds that deliberately name no markers, and so make no checkable claim.
  *
  * `keepsCharacter` passes such a sheet on purpose, which means the two measurements below are
- * VACUOUSLY true of it — it would score a perfect 23 and 8 while checking nothing at all. Exempting
+ * VACUOUSLY true of it — it would score a perfect roster and a perfect eight while checking nothing
+ * at all, and the number to beat shrinks every time a character is retired. Exempting
  * it is therefore the only honest reading, and naming it here is what keeps the exemption from
  * spreading: a sheet in this list that grows markers fails, and a sheet outside it that loses them
  * fails too, so neither state can be reached without editing this line.

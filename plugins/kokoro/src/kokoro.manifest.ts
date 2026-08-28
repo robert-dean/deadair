@@ -74,23 +74,14 @@ export const DEFAULT_VOICE = 'af_heart';
 export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?: string }[] = [
     { name: 'classic', engine: 'af_heart' },
     { name: 'latenight', engine: 'am_echo', speed: '0.95' },
-    { name: 'cratedigger', engine: 'af_kore' },
-    { name: 'pirate', engine: 'bm_george' },
-    { name: 'howler', engine: 'am_fenrir', speed: '1.1' },
     { name: 'quietstorm', engine: 'af_river', speed: '0.9' },
     { name: 'countdown', engine: 'am_michael' },
     { name: 'wisecrack', engine: 'af_jessica' },
     { name: 'shockjock', engine: 'am_adam', speed: '1.1' },
     { name: 'conspiracy', engine: 'am_eric' },
-    { name: 'bossjock', engine: 'am_liam', speed: '1.15' },
     { name: 'videoage', engine: 'af_nova' },
     { name: 'slacker', engine: 'am_puck', speed: '0.9' },
     { name: 'millennium', engine: 'af_sarah', speed: '1.1' },
-    { name: 'automaton', engine: 'af_alloy', speed: '0.95' },
-    { name: 'naturalist', engine: 'bm_fable', speed: '0.9' },
-    { name: 'playbyplay', engine: 'bm_lewis', speed: '1.15' },
-    { name: 'gumshoe', engine: 'am_onyx', speed: '0.9' },
-    { name: 'forecast', engine: 'bm_daniel', speed: '0.9' },
     // Not a persona. The one role slot worth shipping, because a bulletin read in
     // the host's voice is a decision a station should be able to make rather than
     // one it falls into — see `docs/todo/personas.md` §1, which is the work that
@@ -101,10 +92,7 @@ export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?
     // above them is the same one read twice as hard: a caller must never share a
     // voice with a host, since the two are in one production talking to each other.
     { name: 'skeptic', engine: 'am_v0gurney' },
-    { name: 'grumbler', engine: 'am_santa', speed: '0.95' },
-    { name: 'dedication', engine: 'bf_lily' },
     { name: 'pedant', engine: 'bf_isabella' },
-    { name: 'nightshift', engine: 'af_nicole', speed: '0.9' },
 ];
 
 /** The rows as the config stores them: a JSON array in a string, exactly as the console writes it. */

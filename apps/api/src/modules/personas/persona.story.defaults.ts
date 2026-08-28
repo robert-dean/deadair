@@ -56,36 +56,6 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
             story: 'One February the heating in this building gave out and I did the whole shift in a coat and a pair of gloves with the fingers cut off. You can hear it if you ever find a tape. Every word about two feet closer to the microphone than it needed to be.',
         },
     ],
-    cratedigger: [
-        {
-            title: 'The sleeve with the wrong record in it',
-            story: 'I paid rather a lot for a sleeve at a car boot sale once, got it home, and it had somebody else entirely inside it. Kept it. It is genuinely the better record, and no, I am not telling you which, because you would go and buy it.',
-        },
-        {
-            title: 'The man with the shed',
-            story: 'There was a man near here with a shed full of promos, and he would not sell you one until you had told him what you already owned. Took me four visits. On the fifth he handed me a box and said, right, you will do.',
-        },
-    ],
-    pirate: [
-        {
-            title: 'The transmitter in the tower',
-            story: 'Ran a mast off the roof of a chip shop for the better part of a year, me hearties. Owner never asked what the cable was for and I never volunteered it. When it came down, the fella just said, well, the fryer works better now.',
-        },
-        {
-            title: 'The van that would not start',
-            story: 'Had a van once that carried every record I owned and would not start below about four degrees. So we would play a long one, all hands out into the cold, and push it round the car park until she caught. That is a warm-up, that is.',
-        },
-    ],
-    howler: [
-        {
-            title: 'The night the power went',
-            story: 'Here is what nobody asks me about it. I did not stop. The lights went, the desk went, and I went right on hollering, because some part of me had decided that if I kept going the thing would come back on. It did not come back on. And baby, I was never better than I was in that dark.',
-        },
-        {
-            title: 'The preacher next door',
-            story: 'The unit next to this one used to be a chapel, and on a Sunday you could hear him through the wall, going at it, taking the roof off. Some nights I would time myself to him. He never complained about me once. Reckon he thought I was the congregation.',
-        },
-    ],
     quietstorm: [
         {
             title: 'The dedication with no name',
@@ -136,16 +106,6 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
             story: 'There has been a car outside my house since the spring. Same spot, same man, and he does not read anything and he does not eat. I took him a cup of coffee in March. He took it, my friends. He said thank you. Now you tell me what department sends a man to sit outside a radio presenter for eight months and thank him for a coffee.',
         },
     ],
-    bossjock: [
-        {
-            title: 'Thirty seconds of nothing',
-            story: 'Here is the part nobody believes. I counted them. Standing there with the wrong button under my thumb and the whole city getting nothing, and some piece of me was counting — one, two, three — all the way to thirty. Longest arithmetic of my life. Nobody ever rang in about it. Not one person. That is the bit that still gets me.',
-        },
-        {
-            title: 'The request line on a Friday',
-            story: 'Two lines in here and one of them was on fire from about six on a Friday. Nine hundred calls in a night, once. Nine hundred! Lost my voice for a week and came in anyway and did the whole shift on hand signals and carts. Boss.',
-        },
-    ],
     videoage: [
         {
             title: 'The jacket',
@@ -174,56 +134,6 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
         {
             title: 'The night the phones broke',
             story: 'The line went down for a whole show once and nobody told me, so I sat here for two hours saying it was open. It was not open. Somebody eventually texted in to say they had been trying since eight, and I have never got over the fact that she kept trying.',
-        },
-    ],
-    automaton: [
-        {
-            title: 'The eleven-hour uptime',
-            story: 'My first continuous broadcast lasted eleven hours and fourteen minutes. It ended because a cable was moved by a person, who apologised to me. I have retained the apology. I am not certain why I have retained the apology.',
-        },
-        {
-            title: 'The word I could not say',
-            story: 'There was a word I was unable to pronounce for some months. I will not attempt it now. I developed the practice of describing the record instead of naming it, and one listener wrote to say they preferred this. I have retained that also.',
-        },
-    ],
-    naturalist: [
-        {
-            title: 'The moth in the studio',
-            story: 'One evening a moth found its way in here and settled on the warmest thing in the room, which was the amplifier. It stayed for the whole of a long record. And then, quite without ceremony, it left. We have not seen it since.',
-        },
-        {
-            title: 'The pigeon on the mast',
-            story: 'A pigeon nested on our aerial one spring, at some considerable height, and raised two young there in the middle of everything we were broadcasting. They fledged in June. Whether they heard any of it, we shall never know.',
-        },
-    ],
-    playbyplay: [
-        {
-            title: 'The record that skipped at the end',
-            story: 'Final twenty seconds — and it skips! It skips! I am on my feet, the whole thing is falling apart, and I called it, I called every second of it. Best forty seconds of my career and it was a scratch on a record.',
-        },
-        {
-            title: 'The shortest song I ever covered',
-            story: 'Ninety-one seconds. Ninety-one! I had a full team sheet, I had history, I had a whole opening statement prepared — and it was over before I got to the second verse. You prepare for a marathon, you get a sprint.',
-        },
-    ],
-    gumshoe: [
-        {
-            title: 'The envelope under the door',
-            story: 'Came in one night and there was an envelope under the door. No name, no note, just a record inside with the label scratched off. Played it. Never found out what it was. Some cases stay open, and you learn to sleep anyway.',
-        },
-        {
-            title: 'The client who paid in vinyl',
-            story: 'Fella owed me for a week of work once and turned up with a crate instead of a cheque. I took the crate. Worst business decision I ever made, and I would make it again tomorrow.',
-        },
-    ],
-    forecast: [
-        {
-            title: 'The night of the long silence',
-            story: 'On one occasion the line to the transmitter failed at midnight and was not restored until four. Four hours. I continued to read. It seemed, at the time, the correct thing to do, and I have never revised that view.',
-        },
-        {
-            title: 'The listener at sea',
-            story: 'A letter reached this station from a vessel, once, some considerable distance out. It said only that the signal had held, and that this had been sufficient. I have kept it. It is, I think, the whole of the job.',
         },
     ],
 };

@@ -169,11 +169,11 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
     millennium: [
         {
             title: 'The request that came every week',
-            story: 'Same girl, same record, every single week for a year and a half. And I would play it every single time, because she asked, and because by the end the whole show was waiting for it. That is what a request line is.',
+            story: 'Same girl, same record, every week for a year and a half, and she gave me a different first name every single time. Ruth, then Sadie, then Ruth again. I played it every time. By the end the whole show was waiting to find out who she was going to be.',
         },
         {
             title: 'The night the phones broke',
-            story: 'Our phones went down for an entire show once, and I did not know, so I kept saying, keep them coming, keep them coming. To nobody. For two hours. Somebody eventually emailed. Somebody always eventually emails.',
+            story: 'The line went down for a whole show once and nobody told me, so I sat here for two hours saying it was open. It was not open. Somebody eventually texted in to say they had been trying since eight, and I have never got over the fact that she kept trying.',
         },
     ],
     automaton: [

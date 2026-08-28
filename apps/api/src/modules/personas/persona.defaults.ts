@@ -82,6 +82,46 @@
  * decides the REGISTER and a sheet decides the TARGET, which is the split that lets both this
  * character and `shockjock`'s fence be true at once.
  *
+ * ## Six of them stopped being a register and became a PERSON, and the trigger was a number
+ *
+ * `wisecrack`, `conspiracy`, `quietstorm`, `millennium`, `bossjock` and `howler`. In every case the
+ * symptom came from `persona.markers.test.ts` rather than from anybody reading the sheet: a marker
+ * list that is ordinary for the REGISTER passes its own check on every break while placing the
+ * character nowhere, and the roster is the only corpus that can see it. "A dry, wisecracking host"
+ * and "a velvet late-night soul host" are not characters, they are slots, and no marker list saves a
+ * slot — the eleven dry hedges belonged to the slacker and the grumbler as much as to her, and the
+ * twelve warm adjectives belonged to the late-night companion and the night-shift caller as much as
+ * to her.
+ *
+ * What fixes it is one specific thing that happened, which the character cannot close and produces
+ * flatly as though it settles something: six weeks on national radio, four hours of a night that are
+ * not there, a letter with no name on it, one shift covering for somebody who called in sick, thirty
+ * seconds of silence, three minutes of hollering with the power off. It is the same move six times
+ * and it is not a style: the event is what the markers, the preoccupations and the stories all come
+ * OUT of, so they agree without being made to.
+ *
+ * Two of the six needed no biography and got the marker work alone (`shockjock`, and `gumshoe`
+ * without joining the list), which is the honest version of the rule: reach for a person when the
+ * REGISTER is somebody else's, and for a marker list when only the WORDS are.
+ *
+ * ## A `background` is a THIRD fact, and four of them were not
+ *
+ * A sheet says who somebody is three times — the background, whichever preoccupation this break
+ * drew, and whichever story it drew — and those are three slots rather than three chances to say one
+ * thing. A background reaching for material the rotation already carries lands beside itself on two
+ * turns in six, which reads to a model as emphasis and to a listener as somebody with one anecdote.
+ *
+ * It was live on four sheets at once. `quietstorm` had the lights off in the background and in a
+ * preoccupation, `cratedigger` had the shelves in both, `gumshoe` had the answering machine and
+ * April in both word for word, and `countdown` and `millennium` had the SAME background as each
+ * other in slightly different words, which is one biography on two sheets. The preoccupation keeps
+ * the material in every case and the background moves, because the rotation is the thing that would
+ * otherwise be buying nothing.
+ *
+ * Nothing checks this and nothing sensibly could — it is prose, and the one mechanical version of it
+ * (no two backgrounds sharing a five-word run) fires on half the roster, because "you have never
+ * once …" is the house tic six of these were written with.
+ *
  * ## Which seeds carry a `latitude`, since it is no longer the two above
  *
  * Six: `shockjock` and `wisecrack` at `unleashed`, `conspiracy`, `howler`, `naturalist` and

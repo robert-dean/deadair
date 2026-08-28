@@ -21,11 +21,19 @@
 // ## Why the bar is a budget and not zero
 //
 // Two characters who talk about the same things legitimately share vocabulary: the crate-digger and
-// the caller with a theory are both about pressings and session credits, and no honest marker list
-// separates them completely. A flat zero would force invented words. So the bar is per sheet, it is
-// the measurement as it stands, and it is asserted as a CEILING — improving a sheet is always
-// allowed and regressing one fails. Every entry below is debt with a name on it rather than a
-// tolerance, which is the point of writing them out.
+// the pedant are both about labels and sleeve notes, and the pirate and the howler both drop the
+// same g. No honest marker list separates either pair completely, and a flat zero would force
+// invented words. So the bar is per sheet, it is the measurement as it stands, and it is asserted as
+// a CEILING — improving a sheet is always allowed and regressing one fails. Every entry below is
+// debt with a name on it rather than a tolerance, which is the point of writing them out.
+//
+// The table used to open with a block of four sheets marked "not yet rewritten", scoring between six
+// and eight, and it is worth recording what happened to them rather than only that they are gone.
+// Every one was the same shape: a strong distinctive half diluted by stock radio phrasing. Two were
+// fixed by a marker list alone (the boss jock, the shock jock); two needed a person underneath the
+// register before any list would hold (the quiet-storm host, the request host), which is what
+// `wisecrack` and `conspiracy` had already found. The two that are left are both CALLERS and both
+// still registers.
 
 import { describe, expect, it } from 'vitest';
 
@@ -58,30 +66,28 @@ const PLAIN_ENGLISH = [
  * roster. `plain` is how many of {@link PLAIN_ENGLISH} it passes on.
  */
 const BUDGET: Record<string, { crossfire?: number; plain?: number; why: string }> = {
-    // Not yet rewritten. All four are the same shape as the sheet that started this: a strong
-    // distinctive half diluted by stock radio phrasing (`coming up`, `right now`, `that's`, `stay`),
-    // which is what the numbers are counting.
-    millennium: { crossfire: 8, plain: 3, why: 'stock hand-over phrasing not yet replaced' },
-    quietstorm: { crossfire: 8, plain: 1, why: 'shares the late-night register with two other sheets' },
-    bossjock: { crossfire: 7, plain: 1, why: 'stock hand-over phrasing not yet replaced' },
-    howler: { crossfire: 6, why: 'the dropped-g suffix is shared dialect, not a mistake' },
-    slacker: { crossfire: 6, why: 'flat filler is the character, and other sheets use filler too' },
-    grumbler: { crossfire: 6, why: 'a caller speaks in filler by design' },
-    gumshoe: { crossfire: 5, plain: 1, why: '`listen` is ordinary English' },
-    shockjock: { crossfire: 3, why: 'shares its loud register with the howler, and its filler with the slacker and the grumbler' },
+    // Not yet rewritten, and the only two left. Both are callers, both are still a register rather
+    // than a person, and the route out of it is the one `dedication` took one sheet over: the
+    // complaint and the correction phrased long enough to be somebody rather than to be politeness.
+    // `well`, `still`, `mind`, `suppose` and `actually` are not unusual English and every dry
+    // character reaches for all of them, which is the failure the sheet-level rewrites were for.
+    grumbler: { crossfire: 4, why: 'a caller speaks in filler by design, and this sheet is still the filler rather than the man' },
     pedant: { crossfire: 2, why: 'formal register overlaps the other callers' },
-    forecast: { plain: 1, why: '`good` is a forecast term and an ordinary adjective' },
 
     // Residue on the sheets that HAVE been rewritten, kept because removing it would cost the
-    // character a word it genuinely owns.
-    cratedigger: { crossfire: 2, why: 'record vocabulary is shared with the pedant by subject' },
+    // character a word it genuinely owns. Every one of these is a single collision that has been
+    // looked at and left.
     latenight: { crossfire: 1, why: 'one collision with the night-shift caller, who is awake at the same hour' },
+    cratedigger: { crossfire: 1, why: '`label` is shared with the pedant by subject' },
     pirate: { crossfire: 1, why: "`in'` is shared dialect with the howler" },
+    howler: { crossfire: 1, why: "`in'` is shared dialect with the pirate" },
     playbyplay: { crossfire: 1, why: 'one collision with the night-shift caller' },
-    // Its catchphrase is stock radio phrasing, and `keepsCharacter` counts a catchphrase as
-    // evidence beside a marker — so "Stay with us" in plain English passes this sheet's check
-    // without any marker firing at all. The same failure as a free marker, one field over.
-    countdown: { plain: 1, why: 'the catchphrase itself is stock radio phrasing' },
+    // The one entry here that names another sheet's debt rather than its own. `anyway` is the
+    // slacker's word — `wisecrack` surrendered the hedge to this sheet when it stopped being a
+    // register — and it fires only on the grumbler, who has not been rewritten and also claims it.
+    // It clears when that one does.
+    slacker: { crossfire: 1, why: '`anyway` is claimed by the grumbler as well, until that sheet is rewritten' },
+    forecast: { plain: 1, why: '`good` is a forecast term and an ordinary adjective' },
 };
 
 const budgetFor = (key: string, kind: 'crossfire' | 'plain') => BUDGET[key]?.[kind] ?? 0;

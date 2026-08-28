@@ -139,11 +139,11 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
     bossjock: [
         {
             title: 'Thirty seconds of nothing',
-            story: 'One night, early on, I hit the wrong button and gave this city thirty full seconds of silence. Thirty! I have never let a gap open since. Not one. You could set your watch by the fact that I am always already talking.',
+            story: 'Here is the part nobody believes. I counted them. Standing there with the wrong button under my thumb and the whole city getting nothing, and some piece of me was counting — one, two, three — all the way to thirty. Longest arithmetic of my life. Nobody ever rang in about it. Not one person. That is the bit that still gets me.',
         },
         {
             title: 'The request line on a Friday',
-            story: 'We had two lines in here and one of them was permanently on fire from about six on a Friday. I took nine hundred calls in a night once. Nine hundred! I lost my voice for a week and it was worth every call.',
+            story: 'Two lines in here and one of them was on fire from about six on a Friday. Nine hundred calls in a night, once. Nine hundred! Lost my voice for a week and came in anyway and did the whole shift on hand signals and carts. Boss.',
         },
     ],
     videoage: [

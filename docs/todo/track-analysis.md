@@ -56,6 +56,26 @@ different claims and should not be stored in one column: the rule the ladder enf
 metadata alone never authorises beat-matching, which is unstateable if the provenance is lost on
 write.
 
+**Two guards from a comparable station's worst bugs in this exact layer, added 2026-08-28.** Both are
+the naive implementation rather than bad luck, and both are cheap to hold and expensive to retrofit:
+
+- **The confidence has to be WRONG-TEMPO-AWARE, not merely present.** A tempo detector run without
+  octave correction reports double-time on slow material *and* scores the wrong tempo as fully
+  plausible. A number that says "this is definitely 140" when the record is 70 is worse than no
+  number at all, because the ladder above is built to trust it. The row for `bpm` says
+  octave-ambiguous; this is the same fact asked of the field beside it.
+- **A vocal detector at its default threshold produced enough false positives to break the cue points
+  that depended on it.** `vocal_onset` feeds the talk-up limit, so a false early onset is a station
+  that stops talking before the singing starts — which reads as a bug in the talk-up rule and is not
+  one. Whatever threshold this ships with is a measured number on this library, not a default.
+
+**One operational note for the sidecar, same layer.** A long-running Python process that decodes
+whole records accumulates resident memory the allocator does not return, independent of any leak in
+the code — their analysis worker grew unbounded over long uptime for exactly this reason. `analysis/`
+has the same shape and has never been watched for it. The cheap answers (trim thresholds, or
+recycling the worker every N records) are worth having in hand before the beat layer makes each
+measurement more expensive, rather than diagnosed afterwards.
+
 `vocal_curve` can be coarse. A value every half second over a band of roughly 200 Hz to 4 kHz is
 enough for both uses, and storing it at audio frame rate would be storing a signal to make one
 decision from.

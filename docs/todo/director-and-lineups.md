@@ -187,3 +187,23 @@ it; it is a weighting refinement, not a correctness one.
 Stop. Put on air lives on the playlists page, beside the thing the order is built from. What is not
 built: moving an item (the API route and the table's `onMove` seam both exist), and adding a segment
 from the console.
+
+## The first break of an order sits where the unscaled rule would have put it
+
+**Noticed 2026-08-28**, while building persona chattiness, which is the first thing ever to scale
+`rules.breakEveryMinutes`. It is a property of `placementsFor` rather than of that feature, and it is
+recorded here because the feature is what made it visible and nothing else would have.
+
+`relentless` on a four-track interval produces the identical placement array to an UNSCALED two-track
+interval — `[4, 7, 10, 13, …]` on a twenty-record fixture, both times. So the multiplier is exact.
+What neither of them does is put the first break at index 2: the opening gap comes out where a
+four-track interval would have put it, and only the gaps AFTER it are two records wide.
+
+**It costs one break at the top of an order and nothing afterwards**, which is why this is a note and
+not a defect. It is worth knowing for two reasons: anybody reading a placement array and expecting
+the first index to be the interval will conclude the multiplier is broken when it is not, and anybody
+who fixes it should expect every spacing assertion in `break.planner.test.ts` to move by one.
+
+The mechanism was not chased down. `elapsedSinceLastOfKind` returns 0 at cursor 0, so the obvious
+explanation — a seeded count — is wrong, and the honest state of this note is "measured, equal to the
+unscaled equivalent, cause unexamined".

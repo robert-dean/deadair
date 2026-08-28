@@ -522,7 +522,9 @@ Revised after the second pass, with the original reasons kept, and marked after 
 2. **The beat layer**, because it is one measurement pass that settles three deferred entries: the
    ending-shaped fade above, the talk-up limit in [track-analysis.md](track-analysis.md), and the
    vocal-onset half of [track-lyrics.md](track-lyrics.md). Now also carries the trim rules from the
-   third pass, which arrive with it whether or not anybody plans for them.
+   third pass, which arrive with it whether or not anybody plans for them. **It needs no file of its
+   own** — `track-analysis.md` is the design, down to the field table — and as of 2026-08-28 that
+   file also carries this survey's two guards and the sidecar memory note. Read it, not this line.
 3. ~~**The station check-up**~~, because everything it reads already exists and it is the answer to a
    question the operator asks at three in the morning. **Already built** when this was written and
    the survey did not know it; see the third pass.
@@ -559,11 +561,19 @@ Revised after the second pass, with the original reasons kept, and marked after 
      refusal. **Check the shared blurb when adding a field to a group, not just the field's own
      description.**
 6. **Operator-authored break kinds**, which is the largest of the second-pass findings and the only
-   one that adds a surface rather than a field.
+   one that adds a surface rather than a field. **Promoted to its own file 2026-08-28:**
+   [operator-break-kinds.md](operator-break-kinds.md), which costs the five places a kind currently
+   touches and names the three things to decide first — chiefly whether an authored kind runs code,
+   because a kind that fetches is a plugin wearing a different name.
 7. **The embedding axis, and the map with it**, the largest overall and the only one that unblocks a
    file currently marked blocked. Do not start it without the calibration rule above, and do not build
-   the map first: it has nothing to draw.
-8. The small ones, in any order, none of which is a day's work.
+   the map first: it has nothing to draw. **Promoted to its own file 2026-08-28:**
+   [embedding-axis.md](embedding-axis.md), carrying the calibration trap, the two second-order rules,
+   and the costs counted before anybody starts.
+8. The small ones, in any order, none of which is a day's work. **Promoted 2026-08-28:**
+   [small-wins.md](small-wins.md) — and writing them down corrected one: the MCP surface is small in
+   mechanism and not small in authorization, so it waits on
+   [service-actors.md](service-actors.md) rather than sitting beside the other two.
 
 **Added by the fourth pass, and neither is ranked against the list above**, because both are answers
 to a deadline rather than choices about what to build next:

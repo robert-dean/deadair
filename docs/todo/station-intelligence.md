@@ -311,6 +311,31 @@ never be attributed. The next window can be. Until one has been read: do not rai
 model problem. The lesson stands whatever that reading says, and it is the `usage` column's above:
 **record the cost and the cause at the call boundary, not from the answer.**
 
+### Four things the trace surface leaves behind
+
+Recorded rather than fixed, because each is a deliberate bound and the day one of them stops being
+right there will be a number saying so.
+
+- **The window is seven days and it is a constant, not a setting.** `MAX_TRACE_FILES` in
+  `trace.spans.ts`. That is the right default and it is the wrong shape if this is ever the evidence
+  in a slow-moving argument — which is exactly what §2's budget would be. It is also the bound that
+  cost the measurement above eight of its ten cases, one layer down. **A setting here is cheap and
+  should be added the first time somebody wants a fortnight**, not before.
+- **`TracesService` reads the whole window and slices it.** No cursor, deliberately: `/activity`
+  pages with a keyset because rows arrive at its head continuously, and this is a scan of files that
+  cannot change, opened by somebody looking into something. The page says what that cost
+  (`TracesPage.spans`, reading 1,119 on the first live run) rather than hiding it. **If that number
+  gets uncomfortable the answer is a shorter window, not a cursor over a file.**
+- **Every job now records a `job.run` span, and nothing reads it as a job metric yet.** It exists so
+  a decision that called nothing still records its parent edge, and it happens to give every job a
+  wall clock and an outcome — which nothing in this tree had before. "Which jobs fail, and how long
+  do they take" is now a one-pass question over a file that is already being written, and no surface
+  asks it. That is the cheapest unclaimed thing on this page.
+- **A job that enqueues another is two decisions with an edge, not one decision.** That is honest and
+  it means the reader's per-decision cost is wall-clock, not summed call time — so a parent whose
+  child does the real work reads small with the cost indented beneath it. Correct, and it reads oddly
+  until the indent is noticed.
+
 **The station-wide voice switch this section wanted is already `rotation.breaks`**, which gates
 before generation (the planner plants nothing, so no writer is ever asked). Do not add a second one.
 

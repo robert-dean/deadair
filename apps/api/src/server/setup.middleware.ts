@@ -8,6 +8,7 @@ import { authorizationContextMiddleware } from './middleware/authorization.conte
 import { refreshCookieMiddleware } from './middleware/refresh.cookie.middleware.js';
 import { conditionalGetMiddleware } from './middleware/conditional.get.middleware.js';
 import { bridgeSecretMiddleware } from './middleware/bridge.secret.middleware.js';
+import { hlsHeartbeatMiddleware } from './middleware/hls.heartbeat.middleware.js';
 import { rateLimitMiddleware } from './middleware/rate.limit.middleware.js';
 
 export const setupMiddleware = (container: Container) => {
@@ -51,6 +52,10 @@ export const setupMiddleware = (container: Container) => {
     // Gating the prefix rather than each handler is what makes a new bridge route protected
     // by construction instead of by whoever remembers.
     middlewares.push(bridgeSecretMiddleware());
+    // Counts an HLS listener off the playlist request they make anyway. Before authentication
+    // because the route is anonymous — a player carries no session — and a tick that only
+    // counted signed-in listeners would count nobody at all.
+    middlewares.push(hlsHeartbeatMiddleware(config));
     middlewares.push(authenticationMiddleware());
     middlewares.push(auditContextMiddleware());
     // authorization.context collapses the auth package's context into the `Actor` union, checks the

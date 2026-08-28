@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
@@ -6,8 +7,16 @@ import { Logger } from '@maroonedsoftware/logger';
 import { SettingsRepository } from '#modules/settings/settings.repository.js';
 import { CONTROL_TTL_S, PLAYOUT_LEAD } from '#modules/playout/liquidsoap.control.js';
 import { playoutAiredUrl, playoutStarveUrl, resolvePlayoutBaseUrl } from '#modules/playout/playout.urls.js';
-import { defaultStreamAssetsDir, defaultStreamConfigDir, parseFileMode, writeStreamConfig, type StreamPlayoutConfig } from './stream.config.js';
+import {
+    defaultStreamAssetsDir,
+    defaultStreamConfigDir,
+    defaultStreamHlsDir,
+    parseFileMode,
+    writeStreamConfig,
+    type StreamPlayoutConfig,
+} from './stream.config.js';
 import { ensureStreamSecrets, resolveStreamSettings, type StreamSettings } from './stream.settings.js';
+import { hlsPlaylistPath } from './hls.playlist.js';
 import { SpotifyShimClient, type FetcherResult } from './spotify.shim.client.js';
 import { StreamConfigWatch } from './stream.staleness.js';
 import type {
@@ -94,6 +103,45 @@ export class StreamService {
     /** The resolved settings, secrets decrypted. */
     settings(): StreamSettings {
         return resolveStreamSettings(this.config, this.encryption);
+    }
+
+    /**
+     * One HLS playlist off the volume Liquidsoap writes it to.
+     *
+     * The app serves these and nginx serves the segments beside them, which is not an
+     * arbitrary split: a live player re-fetches the playlist every target duration to
+     * learn what to play next, so this request is the heartbeat that makes an HLS
+     * listener countable at all. The tick itself is recorded by the middleware in front
+     * of this, which is where the request context lives; this method only has to answer
+     * with the file.
+     *
+     * **The name is a filename, never a path.** It is refused unless it is a bare
+     * `*.m3u8`, so `..` and any separator are out before `join` is reached rather than
+     * being normalised away afterwards — this route is anonymous and reachable by
+     * anybody who can reach the station, and it reads from a directory by name. A
+     * rejected name answers 404 rather than 400, because a caller who is trying it on
+     * learns nothing from being told they were caught, and a player asking for
+     * something that is not there wants the same answer either way.
+     */
+    async getHlsPlaylist(name: string): Promise<{ body: Buffer; headers: { cacheControl?: string } }> {
+        const path = hlsPlaylistPath(this.config.get('STREAM_HLS_DIR', defaultStreamHlsDir()), name);
+        if (path === undefined) throw httpError(404).withDetails({ message: 'not a playlist' });
+
+        let body: Buffer;
+        try {
+            body = await readFile(path);
+        } catch {
+            // The ordinary case on a station with HLS switched off: Liquidsoap has written
+            // nothing, so there is no directory and no playlist. A player retries against
+            // this harmlessly, which is why it is not worth distinguishing from a typo.
+            throw httpError(404).withDetails({ message: 'no such playlist' });
+        }
+
+        // A live playlist is rewritten every segment and is worthless a moment later, so it
+        // must not be held anywhere. Without this a caching proxy between the station and a
+        // listener can pin a player to a window of segments that have since been deleted,
+        // which stalls it permanently rather than visibly.
+        return { body, headers: { cacheControl: 'no-cache, no-store, must-revalidate' } };
     }
 
     /**

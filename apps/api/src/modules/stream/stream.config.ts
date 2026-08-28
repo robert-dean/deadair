@@ -36,6 +36,18 @@ export function defaultStreamConfigDir(): string {
     return join(process.cwd(), '..', '..', '.docvol', 'streamconfig');
 }
 
+/**
+ * Where Liquidsoap writes its HLS segments and playlists, as this app sees them.
+ *
+ * A volume Liquidsoap writes and both nginx and this app READ, which is the whole
+ * arrangement: nginx serves the segments straight off it because they are the bytes,
+ * and the app serves the playlists off it because a playlist request is the only
+ * evidence there is that somebody is listening. See `hls.audience.ts`.
+ */
+export function defaultStreamHlsDir(): string {
+    return join(process.cwd(), '..', '..', '.docvol', 'streamhls');
+}
+
 /** Escape a value for XML text or attribute content. */
 function xml(value: string): string {
     return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

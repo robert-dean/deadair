@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { inScope } from '#modules/shared/scoped.work.js';
 import { IcecastEventFeed } from './icecast.eventfeed.client.js';
+import { HlsAudience } from './hls.audience.js';
 import { IcecastStatsClient } from './icecast.stats.client.js';
 import { SpotifyShimClient } from './spotify.shim.client.js';
 import { StreamService } from './stream.service.js';
@@ -52,6 +53,12 @@ export const StreamModule: ServerKitModule = {
         // fact about the volume rather than about a request, and the reading it is
         // compared against is pushed in from the reconcile loop.
         registry.register(StreamConfigWatch).useClass(StreamConfigWatch).asSingleton();
+
+        // The HLS half of the audience. A singleton because it IS the register — one
+        // shared table of who has been heard from recently — and a scoped instance would
+        // be a fresh empty one per request, so every listener would be forgotten by the
+        // request that noticed them and the count would be permanently zero.
+        registry.register(HlsAudience).useClass(HlsAudience).asSingleton();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {

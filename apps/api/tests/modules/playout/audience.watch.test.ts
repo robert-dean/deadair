@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUDIENCE_POLL_MS, AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
 import { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
 import { StationBus } from '../../../src/modules/shared/station.bus.js';
+import { HlsAudience } from '../../../src/modules/stream/hls.audience.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import type { IcecastStatsClient } from '../../../src/modules/stream/icecast.stats.client.js';
@@ -53,6 +54,13 @@ function stubStats(initial: number | undefined, mounts: string[] = ['/live.mp3']
  */
 const feed = () => ({ watch: vi.fn(), stop: vi.fn(), attached: () => false }) as unknown as IcecastEventFeed;
 
+/**
+ * The real HLS register, not a stub: it has no dependencies, holds a plain map, and its
+ * expiry runs off `Date.now()`, which these tests already control with fake timers. A
+ * double would be a second implementation of the one thing worth checking.
+ */
+const hls = () => new HlsAudience();
+
 /** A real bus over the stub logger: publishing is what half of these cases are checking. */
 const bus = () => new StationBus(logger);
 
@@ -79,7 +87,7 @@ describe('AudienceWatch', () => {
 
     it('reads zero, and no audience, before anything has answered', () => {
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
 
         expect(watch.listenerCount()).toBe(0);
         expect(watch.hasAudience()).toBe(false);
@@ -87,7 +95,7 @@ describe('AudienceWatch', () => {
 
     it('has an audience as soon as somebody is listening', async () => {
         const { stats, answer } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -106,7 +114,7 @@ describe('AudienceWatch', () => {
 
     it('keeps the audience through the linger window after the last listener leaves', async () => {
         const { stats, answer } = stubStats(1);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -132,7 +140,7 @@ describe('AudienceWatch', () => {
 
     it('gives up the audience once the linger window has passed', async () => {
         const { stats, answer } = stubStats(2);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -150,7 +158,7 @@ describe('AudienceWatch', () => {
 
     it('holds the last reading when Icecast stops answering', async () => {
         const { stats, answer } = stubStats(3);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
 
         watch.start();
         await tick(0);
@@ -174,14 +182,14 @@ describe('AudienceWatch', () => {
 
         it('has never been read before Icecast answers', () => {
             const { stats } = stubStats(undefined);
-            const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
 
             expect(watch.reading().readAt).toBeUndefined();
         });
 
         it('records when Icecast answered, including with nobody listening', async () => {
             const { stats } = stubStats(0);
-            const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
 
             watch.start();
             await tick(0);
@@ -194,7 +202,7 @@ describe('AudienceWatch', () => {
 
         it('stops moving when Icecast stops answering, while the count stands', async () => {
             const { stats, answer } = stubStats(2);
-            const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
 
             watch.start();
             await tick(0);
@@ -212,7 +220,7 @@ describe('AudienceWatch', () => {
             // An event feed message, or a hook call Icecast is holding a listener's
             // connection open for, is proof it is up whether or not a poll landed.
             const { stats } = stubStats(undefined);
-            const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
 
             watch.start();
             await tick(0);
@@ -228,7 +236,7 @@ describe('AudienceWatch', () => {
             // The poll is a failsafe now, so on a healthy station this is usually the only
             // thing proving Icecast is there.
             const { stats } = stubStats(undefined);
-            const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+            const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
 
             watch.start();
             await tick(0);
@@ -243,7 +251,7 @@ describe('AudienceWatch', () => {
     it('holds the gate open in `always` mode, with nobody listening', async () => {
         const { stats } = stubStats(0);
         const station = settingsConfig();
-        const watch = new AudienceWatch(stats, feed(), station.config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), station.config, new Heartbeat(), bus(), logger);
 
         expect(watch.gateOpen()).toBe(false);
 
@@ -260,7 +268,7 @@ describe('AudienceWatch', () => {
     it('announces a mode change on the next poll, having had no event to announce it on', async () => {
         const { stats } = stubStats(0);
         const station = settingsConfig();
-        const watch = new AudienceWatch(stats, feed(), station.config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), station.config, new Heartbeat(), bus(), logger);
         const edges: boolean[] = [];
         watch.onChange(open => edges.push(open));
 
@@ -285,7 +293,7 @@ describe('AudienceWatch', () => {
     it('does not close the gate on an empty room in `always` mode', async () => {
         const { stats, answer } = stubStats(2);
         const station = settingsConfig({ [AIR_MODE_KEY]: 'always' });
-        const watch = new AudienceWatch(stats, feed(), station.config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), station.config, new Heartbeat(), bus(), logger);
         const edges: boolean[] = [];
         watch.onChange(open => edges.push(open));
 
@@ -303,7 +311,7 @@ describe('AudienceWatch', () => {
 
     it('takes a pushed count without waiting for the poll', () => {
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
         const edges: boolean[] = [];
         watch.onChange(present => edges.push(present));
 
@@ -318,7 +326,7 @@ describe('AudienceWatch', () => {
         // What the listener hooks used to be for. `source-listeners-changed` arrives within
         // milliseconds of the connection, so the minute-long poll is never in the path.
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
         watch.start();
         await tick(0);
 
@@ -336,7 +344,7 @@ describe('AudienceWatch', () => {
         const mounts = ['/live.mp3', '/live.opus', '/live.aac'];
         const { stats } = stubStats(0, mounts);
         const pushed = feed();
-        const watch = new AudienceWatch(stats, pushed, config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, pushed, hls(), config, new Heartbeat(), bus(), logger);
 
         watch.start();
         await tick(0);
@@ -349,7 +357,7 @@ describe('AudienceWatch', () => {
         // The feed hands over a TOTAL, already reconciled across the mounts, so this
         // class treats a message about Opus exactly as it treats one about MP3.
         const { stats } = stubStats(0, ['/live.mp3', '/live.opus']);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
         watch.start();
         await tick(0);
         expect(watch.gateOpen()).toBe(false);
@@ -360,11 +368,82 @@ describe('AudienceWatch', () => {
         watch.stop();
     });
 
+    describe('an HLS listener', () => {
+        // They hold no connection open, so Icecast knows nothing about them and the gate
+        // would count zero while somebody is demonstrably listening. In `audience` mode
+        // that is a station that goes quiet on its own audience.
+
+        it('counts towards the audience alongside the Icecast ones', async () => {
+            const { stats } = stubStats(2);
+            const register = hls();
+            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger);
+            watch.start();
+            await tick(0);
+            expect(watch.listenerCount()).toBe(2);
+
+            register.seen('a-phone');
+
+            expect(watch.listenerCount()).toBe(3);
+            watch.stop();
+        });
+
+        it('opens the gate on their own, with nobody on any Icecast mount', async () => {
+            const { stats } = stubStats(0);
+            const register = hls();
+            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger);
+            watch.start();
+            await tick(0);
+            expect(watch.gateOpen()).toBe(false);
+
+            register.seen('a-phone');
+
+            expect(watch.gateOpen()).toBe(true);
+            watch.stop();
+        });
+
+        it('opens it at once rather than at the next poll', async () => {
+            // The same bargain the event feed makes for an Icecast listener: the arrival
+            // beats the poll to the edge. A minute of silence for somebody who has just
+            // tuned in is the thing this avoids.
+            const { stats } = stubStats(0);
+            const register = hls();
+            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger);
+            const edges: boolean[] = [];
+            watch.onChange(present => edges.push(present));
+            watch.start();
+            await tick(0);
+
+            register.seen('a-phone');
+
+            // Before any poll has come round.
+            expect(edges).toEqual([true]);
+            watch.stop();
+        });
+
+        it('is not evidence that Icecast is alive', async () => {
+            // `readAt` is what tells a silent station apart from an unreadable one. An HLS
+            // listener says somebody is there and says nothing whatever about Icecast, so
+            // counting one as an answer would report a dead stats endpoint as healthy for
+            // as long as one person was streaming.
+            const { stats } = stubStats(undefined);
+            const register = hls();
+            const watch = new AudienceWatch(stats, feed(), register, config, new Heartbeat(), bus(), logger);
+            watch.start();
+            await tick(0);
+
+            register.seen('a-phone');
+
+            expect(watch.listenerCount()).toBe(1);
+            expect(watch.reading().readAt).toBeUndefined();
+            watch.stop();
+        });
+    });
+
     it('never counts below nobody', async () => {
         // A negative from anything that reports one: the count is clamped rather than
         // trusted, since a linger window measured against a negative never expires.
         const { stats } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
 
         watch.report(-2);
 
@@ -373,7 +452,7 @@ describe('AudienceWatch', () => {
 
     it('keeps announcing to the other subscribers when one of them throws', async () => {
         const { stats, answer } = stubStats(0);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
         const seen: boolean[] = [];
         watch.onChange(() => {
             throw new Error('a subscriber that cannot cope');
@@ -397,7 +476,7 @@ describe('AudienceWatch', () => {
         const station = new StationBus(logger);
         const arrivals: number[] = [];
         station.subscribe('audience.arrived', event => arrivals.push(event.count));
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), station, logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), station, logger);
 
         watch.start();
         await tick(0);
@@ -419,7 +498,7 @@ describe('AudienceWatch', () => {
         const station = new StationBus(logger);
         const arrivals: number[] = [];
         station.subscribe('audience.arrived', event => arrivals.push(event.count));
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), station, logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), station, logger);
 
         watch.start();
         await tick(0);
@@ -439,7 +518,7 @@ describe('AudienceWatch', () => {
         station.subscribe('audience.arrived', () => {
             throw new Error('the director is gone');
         });
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), station, logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), station, logger);
 
         watch.start();
         await tick(0);
@@ -456,7 +535,7 @@ describe('AudienceWatch', () => {
 
     it('stops reading once stopped', async () => {
         const { stats, spy } = stubStats(1);
-        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        const watch = new AudienceWatch(stats, feed(), hls(), config, new Heartbeat(), bus(), logger);
 
         watch.start();
         await tick(0);

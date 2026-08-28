@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { IcecastStatsClient } from '#modules/stream/icecast.stats.client.js';
 import { IcecastEventFeed } from '#modules/stream/icecast.eventfeed.client.js';
+import { HlsAudience } from '#modules/stream/hls.audience.js';
 import { Heartbeat, HEARTBEATS } from '#modules/shared/heartbeat.js';
 import { StationBus } from '#modules/shared/station.bus.js';
 import { AIR_MODE_KEY, parseAirMode, type AirMode } from './air.mode.js';
@@ -62,8 +63,17 @@ const AUDIENCE_LINGER_MS = 5 * 60_000;
 @Injectable()
 export class AudienceWatch {
     private timer?: NodeJS.Timeout;
-    /** The last count Icecast (or a push) reported. `undefined` before the first answer. */
+    /** The audience: Icecast's listeners plus the HLS ones. `undefined` before the first answer. */
     private count?: number;
+    /**
+     * The Icecast half of it, kept apart so the two can be re-added.
+     *
+     * An HLS listener arriving must not overwrite what Icecast last said, and an
+     * Icecast reading must not overwrite the HLS register — they are counts of
+     * different people arriving through different mechanisms, and only the sum is the
+     * audience. {@link recount} is where they meet.
+     */
+    private icecastCount?: number;
     /** When the count was last non-zero, which is what {@link hasAudience} lingers on. */
     private lastHeardAt = 0;
     /**
@@ -93,9 +103,17 @@ export class AudienceWatch {
     /** One poll at a time: a slow Icecast must not stack requests behind the interval. */
     private polling = false;
 
+    /** Stops listening for HLS arrivals. See {@link start}. */
+    private unsubscribeHls?: () => void;
+
     constructor(
         private readonly stats: IcecastStatsClient,
         private readonly feed: IcecastEventFeed,
+        // The other half of the audience, and a register rather than a server that can be
+        // asked: an HLS listener holds no connection open, so they are counted from the
+        // playlist requests their player makes anyway. In the `stream` module beside the
+        // Icecast client, so this class reaches for both the same way round.
+        private readonly hls: HlsAudience,
         private readonly config: AppConfig,
         private readonly heartbeat: Heartbeat,
         // Where an ARRIVAL goes. What the station does about somebody tuning in is a programming
@@ -133,12 +151,19 @@ export class AudienceWatch {
         // counts, which is why it can feed `report` directly: a message that never
         // arrives costs the edge, never the number.
         this.feed.watch(this.stats.mountPaths(), count => this.report(count));
+        // The same bargain for the HLS half: somebody tuning in there opens the gate on the
+        // request that says so rather than up to a minute later at the next poll. A DEPARTURE
+        // has no event — it is the absence of a request — so the poll is what notices it, and
+        // that is what makes the register's own expiry harmless.
+        this.unsubscribeHls = this.hls.onChange(() => this.recount());
         this.logger.info(`audience: watching ${this.stats.mountPaths().join(', ')} every ${AUDIENCE_POLL_MS}ms (linger ${AUDIENCE_LINGER_MS}ms)`);
     }
 
     /** Stop watching. The last reading is kept, and stops being refreshed. */
     stop(): void {
         this.feed.stop();
+        this.unsubscribeHls?.();
+        this.unsubscribeHls = undefined;
         this.heartbeat.forget(HEARTBEATS.audiencePoll);
         if (this.timer) clearInterval(this.timer);
         this.timer = undefined;
@@ -256,7 +281,7 @@ export class AudienceWatch {
     }
 
     /**
-     * Record a count from any source, and announce the edge it produced.
+     * Record what Icecast says, and announce the edge it produced.
      *
      * Clamped at zero, because the push path counts rather than asks: a departure
      * for a listener this process never saw arrive (an app started after them, an
@@ -264,8 +289,37 @@ export class AudienceWatch {
      * and the linger window would then never expire against it.
      */
     private accept(count: number): void {
+        this.icecastCount = Math.max(0, count);
+        // Every path into here carries a number from something that knows one: a poll
+        // Icecast answered, an event feed message, or a hook call Icecast is holding a
+        // listener's connection open for. All three are proof it is alive, which is why
+        // this is stamped in the one place they meet rather than at each of them. The
+        // failed poll does not come through here at all; it calls `settle` directly.
+        //
+        // NOT stamped by the HLS path below, deliberately: an HLS listener is evidence
+        // that somebody is there and no evidence at all about Icecast, and conflating the
+        // two would report a dead stats endpoint as a healthy one for as long as one
+        // person was streaming.
+        this.lastReadAt = Date.now();
+        this.recount();
+    }
+
+    /**
+     * The audience, as the sum of the two things that can carry one.
+     *
+     * Icecast holds each of its listeners' connections open and can simply be asked;
+     * an HLS listener holds nothing open and is counted from the playlist requests
+     * their player makes anyway. Different mechanisms, one number, and this is the
+     * only place it is formed — the alternative is two counts that disagree, and the
+     * one that would win is whichever wrote last.
+     *
+     * Called on an HLS arrival as well as on an Icecast reading, so somebody tuning in
+     * over HLS opens the gate at once rather than at the next poll, which is the same
+     * bargain the event feed makes for an Icecast listener.
+     */
+    private recount(): void {
         const before = this.count;
-        this.count = Math.max(0, count);
+        this.count = (this.icecastCount ?? 0) + this.hls.count();
         if (this.count > 0) this.lastHeardAt = Date.now();
 
         // Somebody walked into an empty room. Announced from here because this is where every source
@@ -275,19 +329,15 @@ export class AudienceWatch {
         // being there. `undefined` before counts as empty — the first reading of a room with somebody
         // in it is somebody having arrived, which is exactly what a restart mid-broadcast looks like.
         if ((before ?? 0) === 0 && this.count > 0) this.bus.publish('audience.arrived', { count: this.count });
-        // Every path into here carries a number from something that knows one: a poll
-        // Icecast answered, an event feed message, or a hook call Icecast is holding a
-        // listener's connection open for. All three are proof it is alive, which is why
-        // this is stamped in the one place they meet rather than at each of them. The
-        // failed poll does not come through here at all; it calls `settle` directly.
-        this.lastReadAt = Date.now();
 
         if (before !== this.count) {
             // Broken down by mount rather than reported as one figure, because with several
             // mounts published the useful question is not how many are listening but on
             // which of them, and that is the reading nothing else in the station carries.
-            const where = [...this.stats.listenersByMount()].map(([mount, listeners]) => `${mount} ${listeners}`).join(', ');
-            this.logger.debug(`audience: ${this.count} listening (${where})`);
+            const where = [...this.stats.listenersByMount()].map(([mount, listeners]) => `${mount} ${listeners}`);
+            const overHls = this.hls.count();
+            if (overHls > 0) where.push(`hls ${overHls}`);
+            this.logger.debug(`audience: ${this.count} listening (${where.join(', ')})`);
         }
         this.settle();
     }

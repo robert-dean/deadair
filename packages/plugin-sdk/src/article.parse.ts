@@ -82,6 +82,45 @@ const FURNITURE = /<(script|style|noscript|template|svg|figure|figcaption|aside|
 const FURNITURE_CLASSES =
     /<(div|section|span|p|ul|ol)\b[^>]*(?:class|id|aria-label)="[^"]*\b(caption|credit|byline|promo|newsletter|related|recirc|sidebar|share|social|advert|subscribe|paywall|tags?)\b[^"]*"[^>]*>[\s\S]*?<\/\1>/gi;
 
+/**
+ * The apparatus a reference-heavy page leaves in its own prose.
+ *
+ * Measured against thirty documents an enrichment walk collected off Wikipedia:
+ * twenty-eight carried `[ 1 ]`-style markers and four carried raw `{{cite web
+ * |title=… |url=… |publisher=[[BBC]] |access-date=…}}` templates, 2.1% of every
+ * character stored. Both survive {@link FURNITURE} because neither is an
+ * element — the markers are text a renderer put inside the paragraph, and the
+ * templates are source that reached the page unrendered.
+ *
+ * This is the one kind of noise where the paragraph-length filter is no help,
+ * because a citation template is long. It is also the kind that matters most:
+ * what reads these is a claim extractor that checks a quoted span really occurs
+ * in the text, so a span quoting `{{cite web |title=How to say: Bowie` passes
+ * that check and can be read out on air. The file header's promise to remove
+ * "reference markers" was not implemented until this existed.
+ *
+ * Deliberately narrow. A bracketed NUMBER and a small closed vocabulary, never a
+ * bracketed word in general: `[sic]` is the author's and belongs in a quotation.
+ *
+ * Each entry carries its own replacement, which is not ceremony: three of these
+ * delete and one KEEPS what it matched. A shared `'$1'` would have written the
+ * literal characters `$1` into the prose for every pattern with no group, which
+ * is the same class of bug as the markup being removed.
+ */
+const REFERENCE_APPARATUS: readonly (readonly [RegExp, string])[] = [
+    // `{{cite web |…}}`, `{{efn|…}}`. One level and non-nesting, which is the
+    // safe direction: a nested template leaves its outer braces behind as two
+    // characters rather than eating the sentence after it.
+    [/\{\{[^{}]*\}\}/g, ''],
+    // `[ 1 ]`, `[12]`.
+    [/\[\s*\d+\s*\]/g, ''],
+    // `[ citation needed ]`, `[ edit ]`.
+    [/\[\s*(?:citation needed|clarification needed|edit|note \d+|update)\s*\]/gi, ''],
+    // `[[BBC]]` and `[[David Bowie|Bowie]]`: the only one that keeps its match,
+    // because what is inside is the words a reader sees rather than apparatus.
+    [/\[\[(?:[^[\]|]*\|)?([^[\]|]*)\]\]/g, '$1'],
+];
+
 /** The containers a publisher marks the story with, in the order they are worth trusting. */
 const CONTAINERS = [/<article\b[^>]*>([\s\S]*?)<\/article>/i, /<main\b[^>]*>([\s\S]*?)<\/main>/i];
 
@@ -111,7 +150,11 @@ export function extractArticle(html: string, maxChars: number = ARTICLE_MAX_CHAR
 
     const paragraphs: string[] = [];
     for (const match of body.matchAll(PARAGRAPH)) {
-        const text = plainText(match[1] ?? '');
+        // Apparatus BEFORE the length test, so a paragraph that is mostly
+        // citation is measured on the prose it actually has left. After
+        // `plainText`, because a template can carry a `<` in an attribute and
+        // stripping tags first is what makes the braces the outermost thing.
+        const text = withoutApparatus(plainText(match[1] ?? ''));
         if (text === undefined || text.length < MIN_PARAGRAPH_CHARS) continue;
 
         // A page that repeats its own standfirst inside the body is ordinary,
@@ -121,6 +164,31 @@ export function extractArticle(html: string, maxChars: number = ARTICLE_MAX_CHAR
 
     if (paragraphs.length === 0) return undefined;
     return truncateSentences(paragraphs.join(' '), maxChars);
+}
+
+/**
+ * A paragraph with its {@link REFERENCE_APPARATUS} taken out, or `undefined`
+ * when there was nothing else in it.
+ *
+ * The whitespace pass afterwards is not tidiness: removing `[ 1 ]` from
+ * `the album [ 1 ] sold` leaves two spaces, and removing a template that stood
+ * alone leaves a paragraph of spaces that would otherwise be measured as
+ * sixty characters of prose. The space before a comma or a full stop is the
+ * same problem one punctuation mark along, and it is what a voice would read
+ * as a pause in the wrong place.
+ */
+function withoutApparatus(text: string | undefined): string | undefined {
+    if (text === undefined) return undefined;
+
+    let stripped = text;
+    for (const [pattern, replacement] of REFERENCE_APPARATUS) stripped = stripped.replace(pattern, replacement);
+
+    const tidied = stripped
+        .replace(/\s+/g, ' ')
+        .replace(/\s+([,.;:!?])/g, '$1')
+        .trim();
+
+    return tidied.length === 0 ? undefined : tidied;
 }
 
 /**

@@ -101,6 +101,72 @@ describe('extractArticle', () => {
     });
 });
 
+/**
+ * Measured, not imagined: an enrichment walk collected thirty pages off
+ * Wikipedia and twenty-eight carried `[ 1 ]` markers while four carried raw
+ * `{{cite web}}` templates — 2.1% of every character stored. None of it is an
+ * ELEMENT, so the furniture patterns never saw it, and a citation template is
+ * long enough to pass the paragraph-length filter on its own.
+ *
+ * It matters because of what reads these: a claim extractor that checks a quoted
+ * span really occurs in the source. A span quoting `{{cite web |title=How to say`
+ * passes that check, which is how markup gets read out on air.
+ */
+describe('extractArticle: reference apparatus', () => {
+    const page = (paragraph: string): string => `<article><p>${paragraph}</p></article>`;
+
+    it('takes out a citation template that reached the page unrendered', () => {
+        const text = extractArticle(
+            page(
+                'David Robert Jones, known as David Bowie, {{cite web |title=How to say: Bowie |url=https://example.com/x |publisher=BBC}} was an English musician.',
+            ),
+        );
+
+        expect(text).toBe('David Robert Jones, known as David Bowie, was an English musician.');
+    });
+
+    it('takes out the reference markers a renderer leaves in the prose', () => {
+        const text = extractArticle(page('The album sold well [ 1 ] and was reissued twice [12] over the following decade of his career.'));
+
+        expect(text).toBe('The album sold well and was reissued twice over the following decade of his career.');
+    });
+
+    it('takes out the editorial brackets and leaves the sentence readable', () => {
+        const text = extractArticle(page('He recorded it in Berlin [ citation needed ] over eighteen months, and mixed the whole thing twice [ edit ].'));
+
+        expect(text).toBe('He recorded it in Berlin over eighteen months, and mixed the whole thing twice.');
+    });
+
+    it('keeps what a wikilink was pointing at, since that is the words a reader sees', () => {
+        const text = extractArticle(page('He signed to [[RCA Records]] in 1971, having previously been with [[Mercury Records|Mercury]] for two years.'));
+
+        expect(text).toBe('He signed to RCA Records in 1971, having previously been with Mercury for two years.');
+    });
+
+    it('writes no replacement token into the prose, which a shared $1 would have', () => {
+        const text = extractArticle(page('The record charted [ 1 ] in three countries and stayed there for most of the following summer.')) ?? '';
+
+        expect(text).not.toContain('$1');
+    });
+
+    it('drops a paragraph that was only apparatus rather than counting its length as prose', () => {
+        // A template on its own is comfortably over MIN_PARAGRAPH_CHARS, so
+        // without stripping first it reads as a paragraph of the story.
+        const text = extractArticle(
+            `<article><p>{{cite web |title=Something |url=https://example.com/a |publisher=Example |access-date=1 January 2020}}</p>` +
+                `<p>The band re-formed in 1998 and toured for another six years before stopping again.</p></article>`,
+        );
+
+        expect(text).toBe('The band re-formed in 1998 and toured for another six years before stopping again.');
+    });
+
+    it('leaves a bracketed word the author wrote, which is not apparatus', () => {
+        const text = extractArticle(page('The review called it "their finest [sic] hour", which the band quoted on the sleeve of the reissue.'));
+
+        expect(text).toContain('[sic]');
+    });
+});
+
 /** A host whose only job here is to answer one fetch. */
 const hostAnswering = (response: Response): PluginHost => ({ fetch: vi.fn(async () => response) }) as unknown as PluginHost;
 

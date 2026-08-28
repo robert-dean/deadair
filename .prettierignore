@@ -32,3 +32,26 @@
 # Written by a tool rather than by anybody, and rewritten every time the tool
 # runs. Formatting it is a diff that comes back.
 **/.claude/settings.local.json
+
+# The contracts, and this one is a measurement rather than a preference. The
+# ContractKit plugin loads and will happily rewrite these, and what it produces
+# is worse than what is here on every file it touches:
+#
+#   - a standalone comment ABOVE a field is hoisted onto the end of that field's
+#     line, which is where most of these already put their documentation and is
+#     the reason the lines are long in the first place;
+#   - printWidth counts that trailing comment, so the formatter then breaks the
+#     only breakable thing left. `kind?: enum(host, caller)` with a 200-character
+#     doc comment after it becomes a three-line enum.
+#
+# 29 lines of `personas.types.ck` alone are over 150 and every one of them is
+# trailing documentation. A 150-column ceiling and a house style of long trailing
+# `#` prose cannot both hold, and the prose is the part worth keeping — these are
+# the source of the routers, the types and the SDK, and they are read far more
+# often than they are edited.
+#
+# Not a bug report: the plugin round-trips these files (see the formatter notes
+# in `.claude/skills/contractkit/SKILL.md`, which track what it used to eat). It
+# reformats correctly and the result is less readable, which is a different
+# complaint and one only an ignore file can answer.
+**/*.ck

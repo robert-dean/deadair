@@ -62,9 +62,7 @@ describe('parseTrustedSites', () => {
     });
 
     it('keeps the operator name where they gave one', () => {
-        expect(parseTrustedSites(siteRows({ name: 'Example', site: 'https://example.com' }))).toEqual([
-            { hostname: 'example.com', name: 'Example' },
-        ]);
+        expect(parseTrustedSites(siteRows({ name: 'Example', site: 'https://example.com' }))).toEqual([{ hostname: 'example.com', name: 'Example' }]);
     });
 
     it('collapses two rows at one site, which would otherwise search it twice', () => {

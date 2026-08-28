@@ -51,7 +51,7 @@ describe('parseSearxngResponse', () => {
         expect(serialized).not.toContain('formed in 1991');
     });
 
-    it('does not cut to any limit, which is the provider\'s job once it has filtered', () => {
+    it("does not cut to any limit, which is the provider's job once it has filtered", () => {
         // The parsers took a `limit` and cut to it, which was wrong the moment a
         // search could be scoped to a set of sites: cutting first answers with
         // three results because the first ten were on other sites, and the ones

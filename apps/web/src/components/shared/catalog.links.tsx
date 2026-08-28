@@ -52,7 +52,12 @@ export function ArtistLink({ id, children, ...props }: CatalogLinkProps) {
     if (id === undefined) return <Plain {...props}>{children}</Plain>;
 
     return (
-        <Anchor renderRoot={(anchor: object) => <Link to="/catalog/artists/$artistId" params={{ artistId: id }} search={CATALOG_ALBUM_DEFAULTS} {...anchor} />} {...props}>
+        <Anchor
+            renderRoot={(anchor: object) => (
+                <Link to="/catalog/artists/$artistId" params={{ artistId: id }} search={CATALOG_ALBUM_DEFAULTS} {...anchor} />
+            )}
+            {...props}
+        >
             {children}
         </Anchor>
     );
@@ -80,7 +85,12 @@ export function AlbumLink({ id, children, ...props }: CatalogLinkProps) {
     if (id === undefined) return <Plain {...props}>{children}</Plain>;
 
     return (
-        <Anchor renderRoot={(anchor: object) => <Link to="/catalog/albums/$albumId" params={{ albumId: id }} search={CATALOG_ALBUM_TRACK_DEFAULTS} {...anchor} />} {...props}>
+        <Anchor
+            renderRoot={(anchor: object) => (
+                <Link to="/catalog/albums/$albumId" params={{ albumId: id }} search={CATALOG_ALBUM_TRACK_DEFAULTS} {...anchor} />
+            )}
+            {...props}
+        >
             {children}
         </Anchor>
     );

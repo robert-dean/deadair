@@ -174,8 +174,22 @@ lying mime and letting the client sniff.
 - **`readonly` / `writeonly` fields split a contract into three schemas** (`XBase`, `X`, `XInput`).
   The router validates request bodies and query against `XInput`, so a field marked `readonly`
   cannot be sent by a client, no matter what the service accepts.
-- **Prettier runs on generated output** (`"prettier": true`), so a diff that is only formatting
-  means the repo prettier config changed, not the contract.
+- **Prettier runs on generated output** (`"prettier": true`), but what it produces is NOT what
+  `prettier --check` accepts, so `build:contracts` re-formats the output itself afterwards. Measured
+  on `getArt`, `getVoiceSample`, `getSegmentAudio` and `getPadAudio`: a single-parameter method whose
+  return type is a union long enough to break comes out with the parameter on its own line, and
+  plain prettier puts it straight back inline — with the `@contractkit/prettier-plugin` loaded and
+  without it, so the plugin is not the cause. That left the two CI jobs demanding opposite bytes.
+  The `generated` job regenerates and fails on any change; `build` runs `prettier --check .`; no
+  committed state satisfied both, and fixing either one broke the other on the next push. So the
+  script is `contractkit && prettier --write` over the three output roots, which makes prettier's
+  form the fixed point whatever the generator's printer does next version. A cold run still reports
+  those files as written — contractkit rewrites them, prettier corrects them, and the tree lands in
+  the same place either way.
+- **A local `build:contracts` compiles only what the cache has invalidated**, so it reports
+  `N unchanged` for files it never looked at. CI checks out fresh with no `.contractkit/cache` and
+  compiles all 119, which is why it can fail on output a local run just called clean. To reproduce,
+  `rm -rf .contractkit/cache` first.
 - **`date` / `time` / `datetime` / `duration` / `interval` are Luxon objects over ISO-8601 strings**,
   not numbers. `duration` in particular renders as a Luxon `Duration` parsed from `"PT3M42S"`. It is
   the obvious-looking choice for a `durationMs` field and the wrong one: milliseconds stay

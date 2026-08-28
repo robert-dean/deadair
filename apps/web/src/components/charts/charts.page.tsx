@@ -151,7 +151,13 @@ export function ChartsPage() {
                                                 contract carries no catalog id and should not: this
                                                 asks the question rather than pretending to know. */}
                                             <Anchor
-                                                renderRoot={(props: object) => <Link to="/catalog/tracks" search={{ ...CATALOG_TRACK_DEFAULTS, search: record.title }} {...props} />}
+                                                renderRoot={(props: object) => (
+                                                    <Link
+                                                        to="/catalog/tracks"
+                                                        search={{ ...CATALOG_TRACK_DEFAULTS, search: record.title }}
+                                                        {...props}
+                                                    />
+                                                )}
                                                 size="xs"
                                             >
                                                 Find in catalog

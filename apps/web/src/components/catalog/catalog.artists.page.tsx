@@ -102,7 +102,14 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
                                         {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases
                                             the router's own types, and with them the check that `params` matches the path. */}
                                         <Anchor
-                                            renderRoot={(props: object) => <Link to="/catalog/artists/$artistId" params={{ artistId: artist.id }} search={CATALOG_ALBUM_DEFAULTS} {...props} />}
+                                            renderRoot={(props: object) => (
+                                                <Link
+                                                    to="/catalog/artists/$artistId"
+                                                    params={{ artistId: artist.id }}
+                                                    search={CATALOG_ALBUM_DEFAULTS}
+                                                    {...props}
+                                                />
+                                            )}
                                         >
                                             {artist.name}
                                         </Anchor>

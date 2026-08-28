@@ -132,13 +132,17 @@ describe('extractArticle: reference apparatus', () => {
     });
 
     it('takes out the editorial brackets and leaves the sentence readable', () => {
-        const text = extractArticle(page('He recorded it in Berlin [ citation needed ] over eighteen months, and mixed the whole thing twice [ edit ].'));
+        const text = extractArticle(
+            page('He recorded it in Berlin [ citation needed ] over eighteen months, and mixed the whole thing twice [ edit ].'),
+        );
 
         expect(text).toBe('He recorded it in Berlin over eighteen months, and mixed the whole thing twice.');
     });
 
     it('keeps what a wikilink was pointing at, since that is the words a reader sees', () => {
-        const text = extractArticle(page('He signed to [[RCA Records]] in 1971, having previously been with [[Mercury Records|Mercury]] for two years.'));
+        const text = extractArticle(
+            page('He signed to [[RCA Records]] in 1971, having previously been with [[Mercury Records|Mercury]] for two years.'),
+        );
 
         expect(text).toBe('He signed to RCA Records in 1971, having previously been with Mercury for two years.');
     });

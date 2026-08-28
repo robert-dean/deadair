@@ -64,8 +64,10 @@ export function VoicesPage() {
                             {/* `renderRoot` rather than `component={Link}`: the polymorphic form
                                 erases the router's own types, and with them the check that `params`
                                 matches the path. */}
-                            <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />}>{pluginId}</Anchor>, where
-                            what each of these maps to is set.
+                            <Anchor renderRoot={(props: object) => <Link to="/plugins/$id" params={{ id: pluginId }} {...props} />}>
+                                {pluginId}
+                            </Anchor>
+                            , where what each of these maps to is set.
                         </Text>
                     ) : (
                         <Text c="dimmed" size="sm">

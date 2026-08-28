@@ -236,7 +236,10 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         // The mock router below has no `stripSearchParams`, so the defaults a real console
         // strips back out of the URL are spelled out here. Verified in the browser: the href
         // this actually renders is the short one.
-        expect(screen.getByRole('link', { name: 'Aphex Twin' })).toHaveAttribute('href', '/catalog/artists/art_1?page=0&sortBy=name&sort=asc&pageSize=50');
+        expect(screen.getByRole('link', { name: 'Aphex Twin' })).toHaveAttribute(
+            'href',
+            '/catalog/artists/art_1?page=0&sortBy=name&sort=asc&pageSize=50',
+        );
     });
 
     // The station can air a record it never ingested, and a record can be ingested outside any

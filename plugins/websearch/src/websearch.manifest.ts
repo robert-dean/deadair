@@ -270,7 +270,7 @@ export const websearchManifest: PluginManifest = {
             min: 1,
             max: MAX_DOCUMENTS,
             help:
-                'How many of the pages found are opened and kept. Each one is a request to somebody\'s site, and a source that has read six ' +
+                "How many of the pages found are opened and kept. Each one is a request to somebody's site, and a source that has read six " +
                 'articles about one record is describing something other than that record.',
         },
     ],

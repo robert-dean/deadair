@@ -24,7 +24,7 @@
         "build:data": "echo 'build:data orchestrated by turbo (migrate:up -> build:datatypes)'",
         "codegen": "echo 'codegen orchestrated by turbo (build:data + build:contracts + build:permissions)'",
         "rebuild:data": "pnpm migrate:down:all && pnpm migrate:up && pnpm build:datatypes",
-        "build:contracts": "contractkit",
+        "build:contracts": "contractkit && prettier --write --log-level warn --ignore-path ../../.prettierignore 'src/routes/*.router.ts' 'src/modules/*/types/*.ts' '../../packages/sdk/src/**/*.ts'",
         "build:permissions": "pdsl",
         "build:datatypes": "pnpm sync:enum-overrides && kysely-codegen",
         "sync:enum-overrides": "node --no-warnings --import @swc-node/register/esm-register scripts/sync.enum.overrides.ts",

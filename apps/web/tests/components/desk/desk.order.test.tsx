@@ -297,6 +297,43 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         await waitFor(() => expect(screen.queryByText('Ageispolis')).not.toBeInTheDocument());
     });
 
+    // The count never answered the question an operator actually has, which is whether they can go
+    // to bed. Twenty-one items is forty minutes or two hours and the count does not say which.
+    it('says when the order runs out, and what the station does then', async () => {
+        getTheRunningOrder.mockResolvedValue(order());
+
+        render(<DeskPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.getByText(/The order runs dry at about/)).toBeInTheDocument();
+        // Read off `onEnd` rather than assumed. The fixture's order is set to extend.
+        expect(screen.getByText(/tops itself up/)).toBeInTheDocument();
+    });
+
+    it('promises no refill to a station set to go off air when the order runs out', async () => {
+        // The one setting worth waking up for, and the one the mock's own copy would have got
+        // wrong: "it tops itself up" is true of exactly one of the three values `onEnd` takes.
+        getTheRunningOrder.mockResolvedValue(order({ onEnd: 'stop' }));
+
+        render(<DeskPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.getByText(/goes off air then/)).toBeInTheDocument();
+    });
+
+    it('projects nothing while the station is not producing audio', async () => {
+        // Off air the order is not running down at all, so a clock time would be projected from a
+        // broadcast that is not happening. The panel above already says the station is stood down.
+        getTheRunningOrder.mockResolvedValue(order());
+        getPlayoutStatus.mockResolvedValue(playoutStatus({ nowPlaying: undefined, onAir: false, silence: stationSilence('stoodDown') }));
+        getStationAir.mockResolvedValue(stationAir({ active: false }));
+
+        render(<DeskPage />);
+        await screen.findByText('Late shift');
+
+        expect(screen.queryByText(/The order runs dry/)).not.toBeInTheDocument();
+    });
+
     // The only way to reorder the hour that is not Shuffle, which reorders all of it.
     it('offers to play next only what is still planned, and not what is already at the front', async () => {
         // The order runs played, airing, handed, planned — so the one planned row IS the front of

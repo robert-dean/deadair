@@ -8,6 +8,7 @@ import { usePlayoutStatus } from '../../api/playout.queries';
 import { useStationAttention } from '../../api/station.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { BriefTheStation } from '../onair/brief.the.station';
+import { runsDryAt, whatHappensThen } from '../onair/order.runs.dry';
 import { ReplanTheRest } from '../onair/replan.the.rest';
 import { TakeACall } from '../onair/take.a.call';
 import { StationOrderTable } from '../onair/station.order.table';
@@ -66,6 +67,10 @@ export function DeskPage() {
     const items = loaded?.items ?? [];
     const planned = items.filter(item => item.state === 'planned').length;
     const nothingOn = loaded !== undefined && items.length === 0;
+    // Only while something is actually going out. Off air the order is not running down at all, so
+    // a clock time would be a projection from a broadcast that is not happening — and the panel
+    // above is already saying the station is stood down, which is the more useful fact.
+    const dryAt = playout.data?.nowPlaying ? runsDryAt(items, playout.data.nowPlaying.remainingMs) : undefined;
     // `false` rather than `!active` because the air reading may not have loaded, and an unknown
     // station should read the way it did rather than flickering a Start on.
     const standingDown = air.data?.active === false;
@@ -217,6 +222,16 @@ export function DeskPage() {
                             rateTrack.mutate({ id: trackId, rating });
                         }}
                     />
+                ) : undefined}
+
+                {/* How long the order has left, which is the question the count never answered.
+                    "21 still to come" is forty minutes of a talk-heavy hour or two hours of long
+                    records, and an operator deciding whether to go to bed needs the second number.
+                    Hedged with "about" because it is: a skip, a drop or a refill moves it. */}
+                {dryAt && loaded ? (
+                    <Text size="sm" c="dimmed">
+                        The order runs dry at about <span className="da-num">{dryAt}</span>. {whatHappensThen(loaded.onEnd)}
+                    </Text>
                 ) : undefined}
             </Stack>
         </Stack>

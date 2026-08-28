@@ -20,12 +20,20 @@ const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } 
 /** The default station: `audience` mode, because nothing is stored. Never mutated. */
 const { config } = settingsConfig();
 
-/** A stats client whose answer the test moves, including to "did not answer". */
-function stubStats(initial: number | undefined) {
+/**
+ * A stats client whose answer the test moves, including to "did not answer".
+ *
+ * `listeners` answers the TOTAL across every mount, which is the whole of what this
+ * class is handed: reconciling one mount's event against the others is the stats
+ * client's job, and doing it in a second place is how the two would come to disagree.
+ */
+function stubStats(initial: number | undefined, mounts: string[] = ['/live.mp3']) {
     let answer = initial;
     const stats = {
         listeners: vi.fn(async () => answer),
-        mountPath: () => '/live.mp3',
+        mountPath: () => mounts[0] ?? '/live.mp3',
+        mountPaths: () => mounts,
+        listenersByMount: () => new Map(mounts.map(mount => [mount, 0])),
     };
     return {
         stats: stats as unknown as IcecastStatsClient,
@@ -317,6 +325,37 @@ describe('AudienceWatch', () => {
         watch.report(1);
 
         expect(watch.listenerCount()).toBe(1);
+        expect(watch.gateOpen()).toBe(true);
+        watch.stop();
+    });
+
+    it('follows every mount the station serves, not just the one it names', async () => {
+        // The regression this whole seam exists for: with Opus published beside MP3, a
+        // feed watching only the primary never hears about an Opus listener, and in
+        // `audience` mode the station goes quiet with somebody demonstrably listening.
+        const mounts = ['/live.mp3', '/live.opus', '/live.aac'];
+        const { stats } = stubStats(0, mounts);
+        const pushed = feed();
+        const watch = new AudienceWatch(stats, pushed, config, new Heartbeat(), bus(), logger);
+
+        watch.start();
+        await tick(0);
+
+        expect(vi.mocked(pushed.watch).mock.calls[0]?.[0]).toEqual(mounts);
+        watch.stop();
+    });
+
+    it('opens the gate for a listener the poll has not read yet, wherever they are', async () => {
+        // The feed hands over a TOTAL, already reconciled across the mounts, so this
+        // class treats a message about Opus exactly as it treats one about MP3.
+        const { stats } = stubStats(0, ['/live.mp3', '/live.opus']);
+        const watch = new AudienceWatch(stats, feed(), config, new Heartbeat(), bus(), logger);
+        watch.start();
+        await tick(0);
+        expect(watch.gateOpen()).toBe(false);
+
+        watch.report(1);
+
         expect(watch.gateOpen()).toBe(true);
         watch.stop();
     });

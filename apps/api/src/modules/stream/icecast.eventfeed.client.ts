@@ -62,8 +62,8 @@ export class IcecastEventFeed {
     /** Wakes the loop early when it is parked between attempts. */
     private wake?: () => void;
     private retryMs = RETRY_MIN_MS;
-    /** The mount whose events matter, and who to hand a count to. Set by {@link watch}. */
-    private mount = '';
+    /** The mounts whose events matter, and who to hand a count to. Set by {@link watch}. */
+    private mounts: string[] = [];
     private onCount?: (count: number) => void;
     /** Whether a failure to connect has already been said, so a retry loop cannot fill the log. */
     private reportedDown = false;
@@ -78,14 +78,22 @@ export class IcecastEventFeed {
     ) {}
 
     /**
-     * Start following the feed for one mount. Idempotent.
+     * Start following the feed for the station's mounts. Idempotent.
      *
      * The callback is handed a WHOLE count, never a delta, which is what makes a
      * dropped message harmless: the next event replaces the number rather than
      * adjusting it.
+     *
+     * A message names ONE mount and the callback wants the audience, so the
+     * reconciliation is not done here: the count goes to
+     * {@link IcecastStatsClient.noteMountCount}, which holds what the poll last
+     * said about every other mount and answers with the new total. Summing only
+     * the mounts this feed had happened to hear about would publish a total that
+     * omits a whole mount's listeners, and in `audience` mode a total that is too
+     * small is the number that takes the station off the air.
      */
-    watch(mount: string, onCount: (count: number) => void): void {
-        this.mount = mount;
+    watch(mounts: string[], onCount: (count: number) => void): void {
+        this.mounts = mounts;
         this.onCount = onCount;
         if (this.running) return;
 
@@ -186,7 +194,7 @@ export class IcecastEventFeed {
                     this.retryMs = RETRY_MIN_MS;
                     if (!this.announced) {
                         this.announced = true;
-                        this.logger.info(`icecast: following the event feed on ${base} for ${this.mount}`);
+                        this.logger.info(`icecast: following the event feed on ${base} for ${this.mounts.join(', ')}`);
                     }
 
                     this.read(response).then(
@@ -204,7 +212,7 @@ export class IcecastEventFeed {
         });
     }
 
-    /** Drain the stream, turning frames into counts for the watched mount. */
+    /** Drain the stream, turning frames into a total across the watched mounts. */
     private async read(body: AsyncIterable<Uint8Array>): Promise<void> {
         const frames = new SseFrameReader();
         const decoder = new TextDecoder();
@@ -212,10 +220,14 @@ export class IcecastEventFeed {
         for await (const chunk of body) {
             for (const payload of frames.push(decoder.decode(chunk, { stream: true }))) {
                 const event = listenerEvent(payload);
-                if (!event || !isMountUri(event.uri, this.mount)) continue;
+                if (!event) continue;
 
-                this.logger.debug(`icecast: ${event.trigger || 'event'} on ${event.uri} — ${event.listeners} listening`);
-                this.onCount?.(event.listeners);
+                const mount = this.mounts.find(candidate => isMountUri(event.uri, candidate));
+                if (mount === undefined) continue;
+
+                const total = this.stats.noteMountCount(mount, event.listeners);
+                this.logger.debug(`icecast: ${event.trigger || 'event'} on ${event.uri} — ${event.listeners} listening, ${total} in all`);
+                this.onCount?.(total);
             }
         }
     }

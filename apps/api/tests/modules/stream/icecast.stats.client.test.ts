@@ -10,7 +10,9 @@ import type { Logger } from '@maroonedsoftware/logger';
 
 import {
     IcecastStatsClient,
+    listenersByMount,
     listenersForMount,
+    listenersForMounts,
     overrideEndpoints,
     resolvedFirst,
     serverReadingFrom,
@@ -122,6 +124,51 @@ describe('listenersForMount, on 2.5 publicstats', () => {
         ];
 
         expect(listenersForMount(body, '/live.mp3')).toBe(2);
+    });
+});
+
+describe('listenersForMounts', () => {
+    // The station can publish the same programme four ways, and somebody on the Opus
+    // mount is as much an audience as somebody on the MP3 one. Reading only the first
+    // is what would take an audience-gated station off the air with a listener on it.
+
+    it('adds up every mount the station serves', () => {
+        const body = { icestats: { source: [source('/live.mp3', 2), source('/live.opus', 3), source('/live.aac', 1)] } };
+
+        expect(listenersForMounts(body, ['/live.mp3', '/live.opus', '/live.aac'])).toBe(6);
+    });
+
+    it('still ignores a mount the station does not serve', () => {
+        const body = { icestats: { source: [source('/live.mp3', 2), source('/somebody-elses.mp3', 40)] } };
+
+        expect(listenersForMounts(body, ['/live.mp3', '/live.opus'])).toBe(2);
+    });
+
+    it('counts a source once, even when two configured mounts would match it', () => {
+        // Only reachable on a misconfigured station, and the reason the match is
+        // first-wins rather than a sum: the alternative reports one listener as two,
+        // which is a number that holds the mount for somebody who is not there.
+        const body = { icestats: { source: source('/live.mp3', 1) } };
+
+        expect(listenersForMounts(body, ['/live.mp3', 'live.mp3'])).toBe(1);
+    });
+
+    it('answers an entry per mount, including the empty ones', () => {
+        // The caller REPLACES its whole map with this, so a mount that has just emptied
+        // has to come back as zero rather than as an absent key: a missing entry would
+        // leave the event feed's older count for it standing in the total forever.
+        const body = { icestats: { source: source('/live.mp3', 2) } };
+
+        expect(listenersByMount(body, ['/live.mp3', '/live.opus'])).toEqual(
+            new Map([
+                ['/live.mp3', 2],
+                ['/live.opus', 0],
+            ]),
+        );
+    });
+
+    it('is zero across the board for a body that is not a stats document', () => {
+        expect(listenersForMounts('<html>401</html>', ['/live.mp3', '/live.opus'])).toBe(0);
     });
 });
 
@@ -273,9 +320,9 @@ describe('IcecastStatsClient', () => {
     });
 
     /** A client pointed at loopback only, so the address table stays two rows long. */
-    function client(adminPassword?: string) {
+    function client(adminPassword?: string, alsoMounts?: string[]) {
         const stats = new IcecastStatsClient(settingsConfig().config, logger);
-        stats.useMount({ host: '127.0.0.1', port: '8000', mount: '/live.mp3', adminPassword });
+        stats.useMounts({ host: '127.0.0.1', port: '8000', mount: '/live.mp3', alsoMounts, adminPassword });
         return stats;
     }
 
@@ -284,6 +331,61 @@ describe('IcecastStatsClient', () => {
 
         await expect(client().listeners()).resolves.toBe(3);
         expect(urls(calls)).toEqual(['http://127.0.0.1:8000/admin/publicstats.json']);
+    });
+
+    it('reads the audience as the sum across every mount it was given', async () => {
+        const calls = stubFetch({
+            'http://127.0.0.1:8000/admin/publicstats.json': {
+                icestats: { source: [source('/live.mp3', 2), source('/live.opus', 3)] },
+            },
+        });
+
+        await expect(client(undefined, ['/live.opus']).listeners()).resolves.toBe(5);
+        expect(urls(calls)).toEqual(['http://127.0.0.1:8000/admin/publicstats.json']);
+    });
+
+    it('takes one mount from the feed and keeps what the poll said about the rest', async () => {
+        // The whole reason the breakdown lives here rather than in the feed. A message
+        // names one mount; the gate needs the audience. A feed summing only what it had
+        // happened to hear about would publish 1 here and drop the two MP3 listeners.
+        stubFetch({
+            'http://127.0.0.1:8000/admin/publicstats.json': {
+                icestats: { source: [source('/live.mp3', 2), source('/live.opus', 0)] },
+            },
+        });
+        const stats = client(undefined, ['/live.opus']);
+        await stats.listeners();
+
+        expect(stats.noteMountCount('/live.opus', 1)).toBe(3);
+        expect(stats.listenersByMount()).toEqual(
+            new Map([
+                ['/live.mp3', 2],
+                ['/live.opus', 1],
+            ]),
+        );
+    });
+
+    it('ignores a feed message about a mount it does not serve', async () => {
+        stubFetch({ 'http://127.0.0.1:8000/admin/publicstats.json': document(2) });
+        const stats = client();
+        await stats.listeners();
+
+        expect(stats.noteMountCount('/somebody-elses.mp3', 40)).toBe(2);
+    });
+
+    it('replaces the whole breakdown on a poll, so a departure on one mount lands', async () => {
+        // A poll is authoritative about every mount at once. Leaving the feed's older
+        // entry for a mount the document no longer mentions is how a listener who left
+        // stays in the total for the life of the process.
+        stubFetch({
+            'http://127.0.0.1:8000/admin/publicstats.json': {
+                icestats: { source: [source('/live.mp3', 2), source('/live.opus', 0)] },
+            },
+        });
+        const stats = client(undefined, ['/live.opus']);
+        stats.noteMountCount('/live.opus', 5);
+
+        await expect(stats.listeners()).resolves.toBe(2);
     });
 
     it('falls back to the deprecated endpoint on a 2.4 server', async () => {

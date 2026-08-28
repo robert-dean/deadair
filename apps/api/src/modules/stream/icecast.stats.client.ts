@@ -17,10 +17,19 @@ import { errorText } from '#modules/shared/error.text.js';
  *
  * They carry the same FACTS in two different SHAPES, which is the trap: the
  * envelope, the wrapper and the form of `source` all differ, and reading
- * upstream's source suggests otherwise. {@link listenersForMount} handles both,
+ * upstream's source suggests otherwise. {@link listenersForMounts} handles both,
  * measured against 2.4.4 and 2.5.0 rather than inferred, and it is where anything
  * about either document belongs. 2.5's lives under `/admin/`, so unlike the
  * endpoint it replaces it is read as the admin user; see {@link isAdminEndpoint}.
+ *
+ * **The audience is a sum over every mount the station serves, not a reading of
+ * one.** The station can publish the same programme as MP3, Opus, AAC and FLAC,
+ * and a listener is a listener whichever of them they chose. Counting only the
+ * first would let `playout.airMode: audience` take the station off the air while
+ * somebody is demonstrably listening to it, which is the one failure the gate
+ * exists to prevent. The per-mount breakdown is kept here rather than derived at
+ * each call because the event feed writes single entries into the same map; see
+ * {@link IcecastStatsClient.noteMountCount}.
  *
  * Best-effort throughout. An Icecast that is down, starting, or answering
  * something other than a stats document resolves to `undefined` rather than
@@ -79,14 +88,22 @@ export interface StatsEndpoint {
  *
  * Both fields exist for `stream.staleness.ts` and are readings of the SERVER
  * rather than of the audience, which is why they are separate from
- * {@link listenersForMount}: a mount with no source and a mount with a source
+ * {@link listenersForMounts}: a mount with no source and a mount with a source
  * nobody is listening to are both zero listeners, and telling them apart is the
  * whole of the second failure this reading was added for.
  */
 export interface IcecastServerReading {
     /** When Icecast started, in unix epoch millis, or `undefined` when it did not say. */
     startedAt?: number;
-    /** Whether anything is connected as a source on the watched mount. */
+    /**
+     * Whether anything is connected as a source on the PRIMARY mount.
+     *
+     * The primary alone, deliberately, even though the audience is a sum over all
+     * of them: this answers "is Liquidsoap connected", and the MP3 mount is the one
+     * that is always published. An optional mount the operator has switched off has
+     * no source by design, so folding it in would report a healthy station as broken
+     * the moment somebody turned Opus off.
+     */
     sourceConnected: boolean;
 }
 
@@ -180,11 +197,29 @@ export function overrideEndpoints(raw: string): StatsEndpoint[] | undefined {
 export class IcecastStatsClient {
     /** The base URL and endpoint that last answered. Cleared when nothing does. */
     private resolved?: StatsEndpoint;
-    /** Icecast's host and port, pushed in at boot. See {@link useMount}. */
+    /** Icecast's host and port, pushed in at boot. See {@link useMounts}. */
     private host = 'icecast';
     private port = '8000';
-    /** The mount whose listeners are the station's audience. */
+    /** The mount that is always published, and the one `sourceConnected` is about. */
     private mount = '/live.mp3';
+    /** Every mount the station serves, primary first. Their listeners together are the audience. */
+    private mounts: string[] = ['/live.mp3'];
+    /**
+     * The last known count per mount, which is what the total is summed from.
+     *
+     * Written by two things and owned by neither: the poll replaces the whole map
+     * on every answered read, and {@link noteMountCount} replaces one entry when the
+     * event feed is told about a mount. Last writer wins per mount, which is correct
+     * because both are AUTHORITATIVE TOTALS for that mount at the moment they were
+     * produced rather than deltas to be reconciled.
+     *
+     * The alternative — the feed keeping its own map and summing what it has heard —
+     * reports a station's audience as smaller than it is: an event on the Opus mount
+     * would publish a total that omits every MP3 listener the feed has not happened
+     * to hear about yet, and in `audience` mode a total that is too small is the
+     * number that takes the station off the air.
+     */
+    private counts = new Map<string, number>();
     /** Icecast's admin password, for the admin endpoint only. Unset until a station has one. */
     private adminPassword?: string;
     /** What the last document said about the server itself. Cleared when nothing answers. */
@@ -204,7 +239,7 @@ export class IcecastStatsClient {
     ) {}
 
     /**
-     * Install the mount, the address it lives at, and the admin password to read
+     * Install the mounts, the address they live at, and the admin password to read
      * the admin endpoint with.
      *
      * Pushed in rather than read per call for the reason the bridge secret is:
@@ -212,12 +247,21 @@ export class IcecastStatsClient {
      * few seconds from a singleton that has no request scope to borrow. The
      * password arrives decrypted, from the same resolved settings the rendered
      * `icecast.xml` was built from, so the two cannot disagree about it.
+     *
+     * `alsoMounts` are the optional format mounts, which may be empty and usually
+     * are. They are deduplicated against the primary rather than trusted, because
+     * they are DERIVED from `stream.mount` and a mount whose name already ends in
+     * one of the optional extensions would otherwise be counted twice.
      */
-    useMount(args: { host: string; port: string; mount: string; adminPassword?: string }): void {
+    useMounts(args: { host: string; port: string; mount: string; alsoMounts?: string[]; adminPassword?: string }): void {
         this.host = args.host || this.host;
         this.port = args.port || this.port;
         this.mount = args.mount || this.mount;
+        this.mounts = [...new Set([this.mount, ...(args.alsoMounts ?? [])].filter(Boolean))];
         this.adminPassword = args.adminPassword || undefined;
+        // The mounts may have changed under it, and a count for one nobody serves any
+        // more would sit in the total for the life of the process.
+        this.counts.clear();
         // The address may have changed with it, so stop trusting the old one, and a
         // station that has just been given a password deserves to be told afresh if
         // this one is refused too.
@@ -226,9 +270,17 @@ export class IcecastStatsClient {
         this.deniedAt = undefined;
     }
 
-    /** The mount being watched, for a caller that has to name it in a log line. */
+    /**
+     * The mount that is always published, for a caller that has to name one in a
+     * log line or hand a console a single path.
+     */
     mountPath(): string {
         return this.mount;
+    }
+
+    /** Every mount whose listeners count, primary first. */
+    mountPaths(): string[] {
+        return [...this.mounts];
     }
 
     /**
@@ -276,12 +328,14 @@ export class IcecastStatsClient {
     }
 
     /**
-     * How many clients are attached to the station's mount, or `undefined` when
-     * Icecast did not answer.
+     * How many clients are attached to the station's mounts in total, or
+     * `undefined` when Icecast did not answer.
      *
      * `undefined` is deliberately not `0`: one means "nobody is listening" and the
      * other means "we do not know", and the audience gate must not take the mount
-     * away on the strength of a failed request.
+     * away on the strength of a failed request. That is also why a failed read
+     * leaves {@link counts} standing rather than clearing it — a request that did
+     * not happen is not evidence that a room emptied.
      */
     async listeners(): Promise<number | undefined> {
         for (const endpoint of this.endpoints()) {
@@ -290,7 +344,11 @@ export class IcecastStatsClient {
 
             this.remember(endpoint);
             this.server = serverReadingFrom(body, this.mount);
-            return listenersForMount(body, this.mount);
+            // The whole map, because this reading is authoritative about every mount at
+            // once: a mount the document does not mention has nobody on it, and leaving a
+            // feed's older entry in place for it would keep a departed listener in the total.
+            this.counts = listenersByMount(body, this.mounts);
+            return this.total();
         }
 
         this.resolved = undefined;
@@ -304,6 +362,35 @@ export class IcecastStatsClient {
             this.logger.info(`icecast: no stats on ${asked.join(' or ')} — the audience reads as unknown until it answers`);
         }
         return undefined;
+    }
+
+    /**
+     * Record what the event feed was told about one mount, and answer with the new
+     * total across all of them.
+     *
+     * The feed knows one mount per message and the gate needs the sum, and this is
+     * where the two are reconciled: the entry is replaced, every other mount keeps
+     * whatever the last poll or the last message said about it. An event naming a
+     * mount this station does not serve is ignored rather than added, so a stray
+     * message cannot inflate the audience.
+     */
+    noteMountCount(mount: string, listeners: number): number {
+        const watched = this.mounts.find(candidate => matchesMount(mount, candidate));
+        if (watched !== undefined) this.counts.set(watched, Math.max(0, Math.trunc(listeners)));
+
+        return this.total();
+    }
+
+    /** The last known counts per mount, for a caller reporting where an audience actually is. */
+    listenersByMount(): Map<string, number> {
+        return new Map(this.counts);
+    }
+
+    /** Everyone listening, on whichever mount. */
+    private total(): number {
+        let total = 0;
+        for (const mount of this.mounts) total += this.counts.get(mount) ?? 0;
+        return total;
     }
 
     /** The endpoint that last answered first, then the rest. */
@@ -464,7 +551,7 @@ function statsOf(body: unknown): Record<string, unknown> | undefined {
 }
 
 /**
- * Pull one mount's listener count out of a stats body, from either endpoint.
+ * Pull each mount's listener count out of a stats body, from either endpoint.
  *
  * Three shapes for `source`, all real, and this is the whole reason this function
  * is separate and tested:
@@ -480,24 +567,46 @@ function statsOf(body: unknown): Record<string, unknown> | undefined {
  * no source connected at all the document has no `source` key, which is `0` and
  * not "unknown": Icecast answered, and it says nobody is there.
  *
+ * Every requested mount gets an entry, including the ones nobody is on, because
+ * the caller replaces its whole map with this and an absent key would leave a
+ * stale count standing for a mount that has just emptied.
+ *
+ * A source is credited to the FIRST mount it matches and then skipped, which
+ * matters only for a badly configured station whose mount names collide, and is
+ * the difference between reporting one listener and reporting two.
+ *
  * Exported for tests: this is the whole compatibility boundary with Icecast.
  */
-export function listenersForMount(body: unknown, mount: string): number {
-    const stats = statsOf(body);
-    if (!stats) return 0;
+export function listenersByMount(body: unknown, mounts: string[]): Map<string, number> {
+    const counts = new Map<string, number>(mounts.map(mount => [mount, 0]));
 
-    let total = 0;
+    const stats = statsOf(body);
+    if (!stats) return counts;
+
     for (const [key, source] of sourceEntries(stats.source)) {
         if (!source || typeof source !== 'object') continue;
 
         const record = source as { listenurl?: unknown; listeners?: unknown };
         const listenUrl = typeof record.listenurl === 'string' ? record.listenurl : '';
-        if (!matchesMount(key ?? listenUrl, mount)) continue;
+        const mount = mounts.find(candidate => matchesMount(key ?? listenUrl, candidate));
+        if (mount === undefined) continue;
 
         const listeners = Number(record.listeners);
-        if (Number.isFinite(listeners) && listeners > 0) total += listeners;
+        if (Number.isFinite(listeners) && listeners > 0) counts.set(mount, (counts.get(mount) ?? 0) + listeners);
     }
+    return counts;
+}
+
+/** Everyone listening across a set of mounts. See {@link listenersByMount} for the shapes. */
+export function listenersForMounts(body: unknown, mounts: string[]): number {
+    let total = 0;
+    for (const listeners of listenersByMount(body, mounts).values()) total += listeners;
     return total;
+}
+
+/** One mount's listeners. The single-mount case of {@link listenersForMounts}. */
+export function listenersForMount(body: unknown, mount: string): number {
+    return listenersForMounts(body, [mount]);
 }
 
 /**

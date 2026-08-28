@@ -132,8 +132,8 @@ export class AudienceWatch {
         // The push half, where Icecast is new enough to offer one. It hands over whole
         // counts, which is why it can feed `report` directly: a message that never
         // arrives costs the edge, never the number.
-        this.feed.watch(this.stats.mountPath(), count => this.report(count));
-        this.logger.info(`audience: watching ${this.stats.mountPath()} every ${AUDIENCE_POLL_MS}ms (linger ${AUDIENCE_LINGER_MS}ms)`);
+        this.feed.watch(this.stats.mountPaths(), count => this.report(count));
+        this.logger.info(`audience: watching ${this.stats.mountPaths().join(', ')} every ${AUDIENCE_POLL_MS}ms (linger ${AUDIENCE_LINGER_MS}ms)`);
     }
 
     /** Stop watching. The last reading is kept, and stops being refreshed. */
@@ -283,7 +283,11 @@ export class AudienceWatch {
         this.lastReadAt = Date.now();
 
         if (before !== this.count) {
-            this.logger.debug(`audience: ${this.count} listening on ${this.stats.mountPath()}`);
+            // Broken down by mount rather than reported as one figure, because with several
+            // mounts published the useful question is not how many are listening but on
+            // which of them, and that is the reading nothing else in the station carries.
+            const where = [...this.stats.listenersByMount()].map(([mount, listeners]) => `${mount} ${listeners}`).join(', ');
+            this.logger.debug(`audience: ${this.count} listening (${where})`);
         }
         this.settle();
     }
@@ -305,8 +309,8 @@ export class AudienceWatch {
 
         this.logger.info(
             open
-                ? `audience: the station may air (${this.mode === 'always' ? 'always on' : `somebody is listening to ${this.stats.mountPath()}`})`
-                : `audience: nobody has been listening to ${this.stats.mountPath()} for ${AUDIENCE_LINGER_MS}ms; the station stops airing`,
+                ? `audience: the station may air (${this.mode === 'always' ? 'always on' : 'somebody is listening'})`
+                : `audience: nobody has been listening on ${this.stats.mountPaths().join(', ')} for ${AUDIENCE_LINGER_MS}ms; the station stops airing`,
         );
         for (const listener of this.listeners) {
             try {

@@ -23,13 +23,23 @@ const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } 
 /**
  * A stats client that has, or has not, resolved a 2.5 server — and that can
  * resolve one later, the way the real poll does a moment after boot.
+ *
+ * `noteMountCount` keeps a breakdown and answers with the total, which is what the
+ * real one does: the feed knows one mount per message and the gate wants the
+ * audience, and the reconciliation between the two deliberately does not live here.
+ * `seed` stands in for a poll having already read the other mounts.
  */
-function stats(api?: { base: string; password: string }) {
+function stats(api?: { base: string; password: string }, seed: Record<string, number> = {}) {
     let current = api;
     const listeners = new Set<() => void>();
+    const counts = new Map<string, number>(Object.entries(seed));
 
     const client = {
         adminApi: () => current,
+        noteMountCount: (mount: string, listenerCount: number) => {
+            counts.set(mount, listenerCount);
+            return [...counts.values()].reduce((total, one) => total + one, 0);
+        },
         onResolved: (listener: () => void) => {
             listeners.add(listener);
             return () => listeners.delete(listener);
@@ -114,7 +124,7 @@ describe('IcecastEventFeed', () => {
         const feed = await feedServer();
         const client = start(feed, new IcecastEventFeed(stats(undefined).client, logger));
 
-        client.watch('/live.mp3', vi.fn());
+        client.watch(['/live.mp3'], vi.fn());
         await settle();
 
         expect(feed.asked).toEqual([]);
@@ -129,7 +139,7 @@ describe('IcecastEventFeed', () => {
         const server = stats(undefined);
         const client = start(feed, new IcecastEventFeed(server.client, logger));
 
-        client.watch('/live.mp3', vi.fn());
+        client.watch(['/live.mp3'], vi.fn());
         await settle();
         expect(feed.asked).toEqual([]);
 
@@ -144,7 +154,7 @@ describe('IcecastEventFeed', () => {
         const counts: number[] = [];
         const client = start(feed, new IcecastEventFeed(stats({ base: feed.base, password: 'hunter2' }).client, logger));
 
-        client.watch('/live.mp3', count => counts.push(count));
+        client.watch(['/live.mp3'], count => counts.push(count));
         await until(() => feed.connections() > 0, 'the feed to attach');
 
         feed.send(`id: 1\r\ndata: ${JSON.stringify({ trigger: 'source-listener-attach', uri: '/live.mp3', 'source-listener-count': 1 })}\r\n\r\n`);
@@ -160,6 +170,25 @@ describe('IcecastEventFeed', () => {
         });
     });
 
+    it('reports the audience across the mounts, not the one the message named', async () => {
+        // A station publishing MP3 and Opus, with the poll having already read two
+        // listeners on MP3. A message about Opus has to publish THREE: summing only the
+        // mounts this feed had happened to hear about would publish one and, in
+        // `audience` mode, a total that is too small is what takes the station off air.
+        const feed = await feedServer();
+        const counts: number[] = [];
+        const server = stats({ base: feed.base, password: 'pw' }, { '/live.mp3': 2, '/live.opus': 0 });
+        const client = start(feed, new IcecastEventFeed(server.client, logger));
+
+        client.watch(['/live.mp3', '/live.opus'], count => counts.push(count));
+        await until(() => feed.connections() > 0, 'the feed to attach');
+
+        feed.send(`id: 1\r\ndata: ${JSON.stringify({ trigger: 'source-listener-attach', uri: '/live.opus', 'source-listener-count': 1 })}\r\n\r\n`);
+        await until(() => counts.length >= 1, 'the count for the opus mount');
+
+        expect(counts).toEqual([3]);
+    });
+
     it('holds a silent feed open rather than treating quiet as a drop', async () => {
         // The failure this replaced: an idle body timed out on a fixed clock, the loop
         // reconnected, and Icecast — which only notices a client is gone when it next
@@ -168,7 +197,7 @@ describe('IcecastEventFeed', () => {
         const feed = await feedServer();
         const client = start(feed, new IcecastEventFeed(stats({ base: feed.base, password: 'pw' }).client, logger));
 
-        client.watch('/live.mp3', vi.fn());
+        client.watch(['/live.mp3'], vi.fn());
         await until(() => feed.connections() > 0, 'the feed to attach');
 
         await settle();
@@ -182,7 +211,7 @@ describe('IcecastEventFeed', () => {
         const feed = await feedServer();
         const client = start(feed, new IcecastEventFeed(stats({ base: feed.base, password: 'pw' }).client, logger));
 
-        client.watch('/live.mp3', vi.fn());
+        client.watch(['/live.mp3'], vi.fn());
         await until(() => feed.connections() > 0, 'the feed to attach');
 
         feed.end();
@@ -196,7 +225,7 @@ describe('IcecastEventFeed', () => {
         const counts: number[] = [];
         const client = start(feed, new IcecastEventFeed(stats({ base: feed.base, password: 'pw' }).client, logger));
 
-        client.watch('/live.mp3', count => counts.push(count));
+        client.watch(['/live.mp3'], count => counts.push(count));
         await until(() => feed.connections() > 0, 'the feed to attach');
 
         client.stop();

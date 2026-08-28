@@ -9,14 +9,21 @@ const API_TARGET = 'http://127.0.0.1:3333';
 const ICECAST_TARGET = 'http://127.0.0.1:8000';
 
 /**
- * The Icecast mount path, for the console's stream monitor.
+ * The Icecast mounts, for the console's stream monitor.
  *
- * The station's real mount is the `stream.mount` setting (the API reports it as
- * `PlayoutStatus.mountPath`), but a dev proxy cannot read the database, so this
- * matches the default — the same coupling `nginx/snippets/icecast.conf` carries.
- * Change the setting away from the default and this has to change with it.
+ * A REGEX rather than a path, which is what a `^`-prefixed proxy key means to
+ * Vite. The station's real mount is the `stream.mount` setting (the API reports it
+ * as `PlayoutStatus.mountPath`) and it can publish up to four of them — MP3 always,
+ * plus Opus, AAC and FLAC as the operator switches them on, their paths derived
+ * from `stream.mount` by swapping the extension. A dev proxy cannot read the
+ * database, so matching the shape rather than the value is what stops this being a
+ * hand-coupled copy of a setting that has to be edited alongside it.
+ *
+ * The same expression, and the same reasoning, as `nginx/snippets/icecast.conf`.
+ * Keep the two in step: this is the edge when the SPA is opened on :3002 directly,
+ * and that one is the edge when it is opened through nginx on :8080.
  */
-const MOUNT_PATH = '/live.mp3';
+const MOUNT_PATTERN = '^/[^/]+\\.(mp3|opus|aac|flac)$';
 
 export default defineConfig({
     plugins: [
@@ -43,8 +50,8 @@ export default defineConfig({
                 rewrite: path => path.replace(/^\/api/, ''),
             },
             // So the monitor works when the SPA is opened on this port directly rather
-            // than through nginx, which proxies the mount in dev and prod alike.
-            [MOUNT_PATH]: {
+            // than through nginx, which proxies the mounts in dev and prod alike.
+            [MOUNT_PATTERN]: {
                 target: ICECAST_TARGET,
                 changeOrigin: true,
                 // A live stream never completes: the default timeouts would cut it off

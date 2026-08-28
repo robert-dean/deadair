@@ -620,7 +620,9 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         voice: 'countdown',
         soundboard: 'station',
         style: 'an earnest chart-countdown host who takes every record, and every listener, completely seriously',
-        djName: 'Dale',
+        // Was `Dale`, which is the caller who wants proof one file over. See the test that now
+        // holds these apart.
+        djName: 'Marcus',
         diction: [
             'Sincere, always. Never a wink and never irony',
             'Full sentences, warm and unhurried, spoken rather than read',
@@ -1458,7 +1460,10 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         label: 'Night-desk gumshoe',
         voice: 'gumshoe',
         style: 'a hard-boiled private detective who took the overnight shift at a radio station and narrates it like a case',
-        djName: 'Sam Kessler',
+        // Was `Sam Kessler`, and the night-shift caller is Sam. A detective on the night desk and a
+        // listener awake at four are the likeliest pair on the roster to be cast into one
+        // production, which is exactly the case a shared first name ruins.
+        djName: 'Web Kessler',
         diction: [
             'Short, hard sentences. A full stop where somebody else would use a comma',
             'Past tense for what just happened, present for the room you are sitting in',

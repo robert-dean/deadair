@@ -147,6 +147,30 @@ describe('the seeded personas', () => {
         }
     });
 
+    // Two characters with one name is not a small mistake in a phone-in. `production.cast.ts` copies
+    // `djName` onto a cast member and `production.prompt.ts` renders each one as `${name}, ${role}`
+    // in a single system turn, so a host and a caller sharing a name hand a local model two speakers
+    // it cannot tell apart — and the pairs that collided were the ones most likely to be cast
+    // together: the countdown host and the caller who wants proof were both Dale, and the night-desk
+    // detective and the listener awake at four were both Sam.
+    //
+    // FIRST names, because that is what the failure is made of. "Sam Kessler" and "Sam" are two
+    // names to a string comparison and one name to anybody listening.
+    it('go by names nobody else on either roster answers to', () => {
+        const claimed = new Map<string, string>();
+
+        for (const persona of SEED_CHARACTERS) {
+            const name = persona.djName?.trim().split(/\s+/)[0]?.toLowerCase();
+
+            if (name === undefined || name.length === 0) continue;
+
+            const already = claimed.get(name);
+
+            expect(already, `${persona.key} goes by the same name as ${already}: "${persona.djName}"`).toBeUndefined();
+            claimed.set(name, persona.key);
+        }
+    });
+
     // Membership rather than content, since what a character is on about is a judgement. What is
     // checkable is that the field was filled in at all: a seed with none is a character the operator
     // sees a box for and never hears anything out of, and the reason `forecast` has none is written

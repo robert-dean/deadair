@@ -8,7 +8,9 @@ export class ArtClient {
      * @name Get art
      * @description The bytes of one cached image
      */
-    async getArt(id: string): Promise<
+    async getArt(
+        id: string,
+    ): Promise<
         | {
               status: 200;
               contentType: 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';

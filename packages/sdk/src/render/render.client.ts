@@ -153,7 +153,9 @@ export class RenderClient {
      * @name Get voice sample
      * @description A short line spoken in one voice, so an operator can hear it before choosing it
      */
-    async getVoiceSample(voiceId: string): Promise<
+    async getVoiceSample(
+        voiceId: string,
+    ): Promise<
         | {
               status: 200;
               contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
@@ -210,7 +212,9 @@ export class RenderClient {
      * @name Get segment audio
      * @description The audio of one segment
      */
-    async getSegmentAudio(id: string): Promise<
+    async getSegmentAudio(
+        id: string,
+    ): Promise<
         | {
               status: 200;
               contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';
@@ -398,7 +402,9 @@ export class RenderClient {
      * @name Get pad audio
      * @description The sound itself, so an operator can hear what they dropped in
      */
-    async getPadAudio(id: string): Promise<
+    async getPadAudio(
+        id: string,
+    ): Promise<
         | {
               status: 200;
               contentType: 'audio/mpeg' | 'audio/wav' | 'audio/ogg' | 'audio/flac' | 'audio/mp4';

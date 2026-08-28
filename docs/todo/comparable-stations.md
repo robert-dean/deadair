@@ -15,6 +15,11 @@ long enough for it to have cut two releases. That pass is its own section too, a
 the others did not: it CORRECTS a claim made here, and it records a bug this tree had that the survey
 missed because it was looking for missing features rather than for wrong ones.
 
+**Fourth pass:** 2026-08-28, which applied the third pass's closing lesson as a method rather than
+reading it as a conclusion. It asked four questions of this tree and measured every answer, so two of
+its four findings are numbers showing there is nothing wrong. It also corrects a claim the third pass
+made here about artist name-variant folding.
+
 **Status: three of these are built now, and the rest is still a survey.** It was written down for the reason
 [stream-server-alternatives.md](stream-server-alternatives.md) is: the pass was done once and should
 not have to be done again. The findings are stated on their own terms rather than as a comparison,
@@ -333,6 +338,119 @@ Taken as the `generated` CI job, which found two things immediately: an absolute
 `contractkit.config.json` that resolved on exactly one machine, and an SDK that had already drifted
 from its contracts.
 
+## The fourth pass, which took the third pass's lesson as its method
+
+**2026-08-28**, one day after the third. The third pass ended by saying the other implementation is
+most useful as a list of questions to ask of this tree and least useful as a list of things to build.
+This pass did only that: take each thing the other station GUARDS, ask the same question here, and
+measure the answer. Four questions, and **two of them came back "no fault, and here is the number"**,
+which is worth as much as the two that found something and is the reason they are recorded rather
+than dropped.
+
+### The one that found something: the model meter is blank exactly where a cap would need it
+
+`script_history.usage` is what any budget would be built over, and it is the surface the first pass
+called out as "per attempt and never adds up". Measured on this station, 237 write attempts between
+2026-08-21 and 2026-08-26:
+
+| writer | outcome | attempts | no usage recorded | tokens |
+| --- | --- | --- | --- | --- |
+| model | written | 115 | 0 | 245,068 |
+| model | declined | 58 | 36 | 44,040 |
+| model | failed | 3 | 3 | 0 |
+| deterministic | written | 50 | 50 | 0 |
+| deterministic | declined | 11 | 11 | 0 |
+
+**Two of those blanks are correct and one is not.** The 61 deterministic rows made no model call, so
+no usage is the honest answer. Of the 58 model declines, 22 were the station refusing what the model
+wrote (wrong voice, past the word ceiling, a break about neither record, a spent signature) and every
+one of those records its usage properly: the meter works wherever the model answered.
+
+What is left is **13 attempts that provably occupied the model and recorded nothing**: 10 of the 36
+"the model writer had nothing to say here" declines carry a non-zero `duration_ms`, and all 3 failures
+do, at an average of 7,972 ms for a plugin disposed with the response body still open and 60,007 ms for
+one that waited out its budget and gave up. That is 7.4% of the 176 model attempts, and the shape of
+it is the finding rather than the size: **a timeout and a mid-flight disposal are the two ways a
+runaway costs money, and they are precisely the two the column cannot see.** A cap built on this
+today would be least accurate under exactly the conditions that would cause somebody to want one.
+
+The whole-station number that [station-intelligence.md](station-intelligence.md) §2 says it lacks is
+**289,108 tokens over 5.3 days, about 54,400 a day**, on a local model with no bill. Recorded there
+as well, with what it does and does not change.
+
+### The one with no answer here at all: a notebook that only grows
+
+The other implementation added a decay rule to its accumulated per-character continuity, on the
+stated grounds that without one a few early ideas become attractors and dominate every later
+programme. `deadair.persona_notes` has no equivalent: `last_used_at` rotates which notes are SHOWN,
+which is real mitigation and is not the same mechanism, and the only things that ever remove a note
+are an operator rejecting or deleting one.
+
+**Not measured, and honestly so: there are 4 rows in that table today.** The distil pass has barely
+run. This is a question to answer before it is a fault to fix, which is the right time to answer it,
+and it is written up in [personas.md](personas.md) §6 rather than here.
+
+### Two asked, and answered no
+
+**Artist name-variant folding, which the third pass recorded as "a decision already made here".**
+That claim is half right and the other half is worth pinning down, because the mechanism it names does
+not exist. `artistKey` folds the collaboration case by taking the lead artist only, and says why.
+Nothing folds a leading article: `normalizeKey` strips apostrophes, folds accents and transliterates,
+and "The Beatles" and "Beatles" would key differently. Measured on this library: **394 artists, 17
+whose key begins "the ", and 0 collisions** that a leading-article fold would merge. Also measured, and
+the more useful half: **0 disagreements between `play_history.artist_key` and the catalog's
+`artists.artist_key`** for the same aired artist, so the cooldown and the catalog do agree today.
+
+The risk is structural rather than live, and the conditions that would make it live are worth naming
+so this is not re-measured for nothing: a second provider writing the same act's credit differently,
+or a model-named pick entering through a path that keys off the display credit. Both are `PickResolver`
+questions and neither has arrived. **Re-run the two queries above before building anything**, not the
+survey.
+
+**Whether a break's forward claims can go stale between writing and air.** The other station has taken
+four separate bugs here (a clock link running ahead of air, then behind it, then a wrong meridiem,
+then an operator wanting the clock kept out of links entirely). This tree reached the other answer
+first: `break.claims.ts` gives a phrasing an expiry and checks it before air, the clock words have to
+come back verbatim so that they are checkable at all, and `namesWrongTimeOfDay` and
+`contradictsDayPart` close the half that is about the wrong words rather than the wrong time. No
+action, recorded so the question is not re-opened.
+
+### Three convergences, and one guard to carry into the beat layer
+
+The other implementation is currently working toward a single arbitrated talk-slot scheduler, after
+bugs in which idents aired back-to-back with links and in which one kind of break systematically
+starved another. `BreakPlanner.plant` is already that: one place computes the wanted slots, and a
+boundary that already holds a break is walked past on the stated grounds that two breaks back to back
+is worse than one break a boundary later. Likewise its provider client learned to stop treating an
+error response as audio, which `track.audio.service.ts` does by mapping content-type through a
+whitelist and refusing an extension it does not recognise; and its listener gate learned not to close
+on a single failed poll, which `AudienceWatch` documents as the reason `lastReadAt` is a separate fact
+from the heartbeat.
+
+**The guard to carry into rank 2 below**, which is new and is not a convergence. Two of that station's
+worst analysis bugs were both in the beat layer and both are the naive implementation rather than bad
+luck: a tempo detector run without octave correction reports double-time on slow material *and* scores
+the wrong tempo as fully plausible, and a vocal detector run at its default threshold produced enough
+false positives to break the cue points that depended on it. [track-analysis.md](track-analysis.md)
+already names `beat_confidence` as the load-bearing field a naive build omits, which is the same
+insight from the design end. What these add is that **the confidence has to be wrong-tempo-aware
+rather than merely present**: a number that expresses "this is definitely 140" when the record is 70
+is worse than no number, because the ladder is built to trust it.
+
+**One operational note for the sidecar, same layer.** A long-running Python process that decodes whole
+records accumulates resident memory that the allocator does not return, independent of any leak in the
+code. Their analysis worker grew unbounded over long uptime for exactly this reason. `analysis/` has
+the same shape and has not been watched for it. The cheap answers (trim thresholds, or recycling the
+worker every N records) are worth having in hand when the beat layer makes each measurement more
+expensive, rather than diagnosed later.
+
+### One thing that is not a finding about either station
+
+An upstream library server is reported to be about to renumber every song id, which would invalidate
+every binding in `track_sources` at once. That is not a comparison and it is not deferred design: it
+is an external deadline with real code under it, and it has its own file at
+[provider-id-stability.md](provider-id-stability.md).
+
 ## What is deliberately not wanted
 
 Recording these stops the survey being re-run to reach the same answer.
@@ -384,8 +502,25 @@ Revised after the second pass, with the original reasons kept, and marked after 
    the map first: it has nothing to draw.
 8. The small ones, in any order, none of which is a day's work.
 
+**Added by the fourth pass, and neither is ranked against the list above**, because both are answers
+to a deadline rather than choices about what to build next:
+
+- **The renumber guard**, [provider-id-stability.md](provider-id-stability.md) phase 2, which is the
+  only item on this page whose timing belongs to somebody else's release. Phase 2 alone is small and
+  is correct whether or not the renumber ever happens.
+- **Metering the model calls that produce nothing**, which is a defect in instrumentation rather than
+  a feature, and which rank 4 (trace correlation) would subsume if it is done first. Do not build the
+  budget in §2 on the column as it stands.
+
 **The lesson of the third pass, which is worth more than any entry above.** Two passes over the same
 station asked "what does it have that we do not", and the answer both times was a list of features.
 The third asked "what does it GUARD that we do not" and the first thing it looked at was a live bug
 here, in code that had been reviewed, documented and measured. The other implementation is most
 useful as a list of questions to ask of this tree, and least useful as a list of things to build.
+
+**What the fourth pass adds to that**, having used it deliberately: the method's real output is
+numbers, and half of them say nothing is wrong. Two of its four questions closed with a measurement
+and no work, and those are the entries most likely to save a future pass, because an unanswered
+question invites the survey to be run again while an answered one does not. **Record the negative
+results, with the queries that produced them.** The failure mode of the third pass's lesson, left
+unqualified, is a standing invitation to go looking for bugs and to find things that are not there.

@@ -9,7 +9,8 @@ four seeds in `persona.defaults.ts`. None of that is re-opened here.
 What follows is the five things a persona cannot do yet. Two of them (§1, §2) are the raw list's
 `shows should use personas` and `persona memory` scoped against real code; §3 is what those two are
 for; §4 is the smallest and has no design question in it. §5 was added a day later and is what §3
-leaves unsaid.
+leaves unsaid. **§6 was added 2026-08-28**, after §2 was built, and is what §2 leaves unsaid: the
+notebook it created has no way to lose a line except an operator's hand.
 
 They are ordered by what blocks what. §1 is a schema change §2 wants to be made before it writes its
 own; §3 needs both; §4 needs neither and can be taken on any afternoon. §5 needs §3 to exist and
@@ -279,6 +280,53 @@ Two decisions, neither settled:
 - **Whether a changeover is also a `station_events` row.** Leaning yes and independent of the
   spoken half — "why did the station change character at 9" is exactly the question the activity
   feed exists to answer, and it is one `ActivityRecorder` call whether or not anybody is listening.
+
+## 6. The notebook only grows, and nothing decides what a character stops being
+
+**Written 2026-08-28, and it is a question rather than a fault.** `deadair.persona_notes` has 4 rows
+today, so nothing here has been measured and nothing can be. The right time to answer it is now,
+because every answer is cheap while the table is small and one of them is a migration.
+
+§2 built the notebook and gave it two ways to lose a line, both of them an operator's: reject what
+the station proposed, delete what you wrote. **Neither is a rule, and the table has no other exit.**
+The distil pass appends, `last_used_at` decides which notes are SHOWN on a given break, and that
+rotation is real mitigation that answers a different question. Rotating a growing pool spreads the
+same pool thinner. It does not stop the pool being the wrong pool.
+
+What that risks is specific and it compounds in the direction that is hardest to notice: the pass
+reads what a character SAID in order to decide what it has settled into, and what it said was written
+under the notes it already had. A trait that lands early is over-represented in the scripts the next
+pass reads, which is evidence for keeping it, which puts it in front of more scripts. Nothing in that
+loop is wrong at any step and its fixed point is a character that has one idea. The `proposed` versus
+`in use` split guards the CLAIM (nothing can verify an inference, so an inference is only ever
+offered) and says nothing about the claim's shelf life.
+
+Three candidate answers, cheapest first, and they are not exclusive:
+
+- **A half-life on `last_used_at`, no schema change.** A note not reached for in N passes stops being
+  eligible and is not deleted. Cheapest, reversible, and it is a change to the reader rather than to
+  the store. Its weakness is that it decays what the rotation happened not to pick, which is close to
+  random on a small pool.
+- **Re-derive rather than accumulate.** The distil pass proposes a REPLACEMENT set for a character
+  over a window, so a trait survives by being re-evidenced rather than by having once been true. This
+  is the one that actually breaks the loop above, and it is the most expensive: it turns an append into
+  a diff, and the operator's `in use` marks have to survive it or the pass overwrites their judgement
+  every night.
+- **A cap with an eviction rule**, which is what `PERSONA_SHEET_LIMITS` already does for the sheet.
+  Bounds the size and decides nothing about staleness, so it is a floor under either of the above
+  rather than an alternative to them.
+
+**Do not build any of it before [break-ratings.md](break-ratings.md).** §2 already names the missing
+clause: a note distilled from a break the operator disliked is the character being taught to repeat
+what did not land. A decay rule with no opinion attached decays on age and use, which are both proxies
+for "was this any good", and the real signal is one table away. The order is ratings, then this,
+because a rule written first will be written against the proxy and will then be the thing that has to
+be unwritten.
+
+The one thing that is safe to decide now, before any of it: **a station that has never rated anything
+must not have its characters quietly forgetting.** Whatever lands defaults to off or to a horizon long
+enough to be inert, for `rotation.breaks`' reason. A character changing on its own is a feature an
+operator opts into, not the behaviour of a fresh install.
 
 ## What this file does not cover
 

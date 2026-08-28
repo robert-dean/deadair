@@ -210,6 +210,36 @@ tokens, wall time, searches made, picks named — for the reason `WriteAttempt` 
 every writer and not only a slow one. "The model got slower" is a question that can only be asked of
 numbers gathered before anybody suspected it. A log line, not a table.
 
+### The number this section lacked, and the hole in the column it would be built over
+
+**Measured 2026-08-28**, over the 237 rows in `script_history` between 2026-08-21 and 2026-08-26.
+
+**What the station actually spends: 289,108 tokens over 5.3 days, about 54,400 a day**, of which
+245,068 went on the 115 attempts that produced a script and 44,040 on declines. That is the figure
+that makes this section arguable rather than theoretical, and on a self-hosted model it changes
+nothing: the second bullet above still holds, and a cap still caps nothing that costs money.
+
+**What it does change is that the column cannot be trusted to build a cap on.** Of 176 model
+attempts, 13 provably occupied the model and recorded no usage at all: all 3 `failed` rows, and 10 of
+the 36 declines reasoned "the model writer had nothing to say here" that nonetheless carry a non-zero
+`duration_ms`. The other 26 of those declines are correct, having never made a call, and so are all 61
+deterministic rows. Every decline that came from judging what the model WROTE records its usage
+properly, so the meter is complete wherever an answer came back and blank wherever one did not.
+
+The two worst cases are the two clearest: a plugin disposed with the response body still open (7,972
+ms) and a writer that waited out its 60-second budget and gave up (60,007 ms). Both spent the model
+and neither is visible to a counter over this column. **A timeout and a mid-flight disposal are the
+two shapes a runaway takes, so a cap built on `usage` as it stands would be least accurate under
+exactly the conditions that produce the bill it exists to stop.** Whatever eventually implements the
+tiers has to record an attempt's cost at the call boundary rather than from the answer, and the
+cheapest way to get that is `comparable-stations.md`'s trace correlation, which has to carry the same
+fact for its own reasons.
+
+This also revises the note in the second bullet above. That measurement said 17 of 24 `failed` rows
+were the writer giving up in the gate queue, which no token cap would have changed; on the current
+window there are 3 `failed` rows and one of them is that shape. The conclusion is unchanged and the
+denominator moved, which is the usual reason to re-state a number rather than to trust it.
+
 **The station-wide voice switch this section wanted is already `rotation.breaks`**, which gates
 before generation (the planner plants nothing, so no writer is ever asked). Do not add a second one.
 

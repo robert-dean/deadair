@@ -325,6 +325,30 @@ describe('CatalogSyncService.syncAll', () => {
             expect(summaries[0]!.error).toBe('cancelled');
         });
 
+        it('does not sweep when the walk stopped at the page cap', async () => {
+            // The third partial walk, and the only one that used to look complete
+            // from here: `pluginPages` yields its last item and returns normally,
+            // so nothing threw and nothing was cancelled. A provider that ignores
+            // `offset` produces this, and so does a library past ten thousand
+            // items; either way the ids this run saw are not the library.
+            //
+            // Every playlist is unreadable, so the cap is reached on the playlist
+            // walk alone and no track pages are fetched for it.
+            const unreadable = Array.from({ length: PAGE_SIZE }, (_, i) => playlist(`p${i}`, { permissions: ['edit'] }));
+            const instance = {
+                listPlaylists: vi.fn(async () => unreadable),
+                getPlaylistTracks: vi.fn(async () => []),
+            } as never;
+            const { resolver, swept } = fakeResolver();
+            const { service } = build([record(SPOTIFY_ID, { instance })], resolver);
+
+            const summaries = await service.syncAll();
+
+            expect(swept).toEqual([]);
+            expect(summaries[0]!.swept).toBeUndefined();
+            expect(summaries[0]!.error).toBe('truncated');
+        });
+
         it('sweeps each plugin with only its own ids', async () => {
             const spotify = fakeProvider({ playlists: [playlist('p1')], tracks: { p1: [track('spotify-1')] } });
             const other = fakeProvider({ playlists: [playlist('p9')], tracks: { p9: [track('other-1')] } });

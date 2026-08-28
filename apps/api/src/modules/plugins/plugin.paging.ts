@@ -30,6 +30,17 @@ export interface PluginPageRequest {
     incomplete: string;
     /** Checked between pages, so a shutdown stops within one page rather than one walk. */
     signal?: AbortSignal;
+    /**
+     * That this walk stopped at {@link PLUGIN_MAX_PAGES} rather than at the end of the data.
+     *
+     * A caller that only wants the items it got does not pass one, and the warn below is all that
+     * happens — which is what the playlist read wants, since a very long list read up to the cap is
+     * still a useful answer to draw. A caller that DECIDES something from having seen everything
+     * has to know, because from the outside a truncated walk and a complete one are the same
+     * generator finishing quietly: the catalog sweep read one as the other and would have retired
+     * every binding past page 200.
+     */
+    onTruncated?: () => void;
 }
 
 /**
@@ -43,6 +54,8 @@ export interface PluginPageRequest {
  * advance the offset, so the only way this fails to terminate is a provider that
  * ignores `offset` entirely — which {@link PLUGIN_MAX_PAGES} covers, LOUDLY,
  * because silently truncating a library looks exactly like a successful sync.
+ * A warn was the whole of "loudly" for as long as this existed, and a log line is
+ * not something a caller can act on: see {@link PluginPageRequest.onTruncated}.
  *
  * A generator rather than an array because the catalog walk streams items into a
  * resolver as they arrive; a caller that wants them all at once collects it.
@@ -61,6 +74,7 @@ export async function* pluginPages<T>(
         if (items.length < PLUGIN_PAGE_SIZE) return;
     }
 
+    request.onTruncated?.();
     logger.warn(`stopped paging a plugin at the page cap; ${request.incomplete} may be incomplete`, {
         plugin: request.pluginId,
         op: request.op,

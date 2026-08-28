@@ -171,6 +171,14 @@ export class CatalogSyncService {
      * The sweep runs only on a clean walk. A walk that threw saw an unknown
      * fraction of the library, and marking everything it missed as missing would
      * turn one failed HTTP page into a catalog-wide outage.
+     *
+     * **There are three ways a walk is not clean and only two of them announce
+     * themselves.** A throw and a cancellation both arrive here as control flow.
+     * A walk that ran out of pages does not: `pluginPages` yields its last item
+     * and returns like any other, so for as long as this existed a provider that
+     * ignores `offset`, or a library past ten thousand items, produced a
+     * summary indistinguishable from a complete run and swept everything the cap
+     * cut off. That is the third one, and `truncated` is how it gets here.
      */
     private async syncPlugin(candidate: CatalogPlugin, signal?: AbortSignal): Promise<PluginSyncSummary> {
         const pluginId = candidate.record.id;
@@ -178,16 +186,24 @@ export class CatalogSyncService {
         // Provider ids seen this run: both the sweep's input and the guard that
         // keeps one track appearing in three playlists from being ingested three times.
         const seen = new Set<string>();
+        // Set by any page walk that stopped at the cap — the playlist list or any
+        // one playlist's tracks. One flag for the whole plugin rather than one per
+        // generator, because the question it answers is about this walk's evidence
+        // as a whole and any single truncation ruins it.
+        let truncated = false;
+        const onTruncated = () => {
+            truncated = true;
+        };
 
         try {
-            for await (const playlist of this.playlists(candidate, signal)) {
+            for await (const playlist of this.playlists(candidate, onTruncated, signal)) {
                 summary.playlists++;
                 if (!this.isReadable(playlist)) {
                     this.logger.debug('skipping a playlist the account may not read', { plugin: pluginId, playlist: playlist.id });
                     continue;
                 }
 
-                for await (const track of this.playlistTracks(candidate, playlist.id, signal)) {
+                for await (const track of this.playlistTracks(candidate, playlist.id, onTruncated, signal)) {
                     summary.items++;
                     if (seen.has(track.id)) continue;
                     seen.add(track.id);
@@ -204,6 +220,19 @@ export class CatalogSyncService {
             // Same reasoning as a throw: a cancelled walk is a partial one, and
             // a partial walk must not be read as "this is the whole library".
             summary.error = 'cancelled';
+            return summary;
+        }
+
+        if (truncated) {
+            // And the same again. `pluginPages` has already said so at `warn`
+            // with the plugin and the operation; what is recorded here is the
+            // consequence, which is that this run gets no opinion about what the
+            // provider stopped offering.
+            summary.error = 'truncated';
+            this.logger.warn('catalog sync stopped at the page cap, so it will not sweep this plugin', {
+                plugin: pluginId,
+                ...this.counts(summary),
+            });
             return summary;
         }
 
@@ -229,28 +258,52 @@ export class CatalogSyncService {
     }
 
     /** Every playlist the plugin offers, one page at a time. */
-    private async *playlists(candidate: CatalogPlugin, signal?: AbortSignal): AsyncGenerator<ProviderPlaylist> {
+    private async *playlists(candidate: CatalogPlugin, onTruncated: () => void, signal?: AbortSignal): AsyncGenerator<ProviderPlaylist> {
         yield* this.pages(
             candidate,
             'catalog.listPlaylists',
             offset => candidate.instance.listPlaylists!({ limit: PLUGIN_PAGE_SIZE, offset }),
+            onTruncated,
             signal,
         );
     }
 
     /** Every track in one playlist, one page at a time. */
-    private async *playlistTracks(candidate: CatalogPlugin, playlistId: string, signal?: AbortSignal): AsyncGenerator<ProviderTrack> {
+    private async *playlistTracks(
+        candidate: CatalogPlugin,
+        playlistId: string,
+        onTruncated: () => void,
+        signal?: AbortSignal,
+    ): AsyncGenerator<ProviderTrack> {
         yield* this.pages(
             candidate,
             'catalog.getPlaylistTracks',
             offset => candidate.instance.getPlaylistTracks!(playlistId, { limit: PLUGIN_PAGE_SIZE, offset }),
+            onTruncated,
             signal,
         );
     }
 
-    /** {@link pluginPages} for this walk: the plugin's id, and what an operator loses if it is cut short. */
-    private pages<T>(candidate: CatalogPlugin, op: string, fetch: (offset: number) => Promise<T[]>, signal?: AbortSignal): AsyncGenerator<T> {
-        return pluginPages(this.pluginInvoker, this.logger, { pluginId: candidate.record.id, op, incomplete: 'its catalog', signal }, fetch);
+    /**
+     * {@link pluginPages} for this walk: the plugin's id, what an operator loses if it is cut short,
+     * and how the caller finds out that it was.
+     *
+     * `onTruncated` is required here rather than optional as it is on the request, because this walk
+     * is the caller that cannot afford to omit it. See {@link syncPlugin}.
+     */
+    private pages<T>(
+        candidate: CatalogPlugin,
+        op: string,
+        fetch: (offset: number) => Promise<T[]>,
+        onTruncated: () => void,
+        signal?: AbortSignal,
+    ): AsyncGenerator<T> {
+        return pluginPages(
+            this.pluginInvoker,
+            this.logger,
+            { pluginId: candidate.record.id, op, incomplete: 'its catalog', onTruncated, signal },
+            fetch,
+        );
     }
 
     /**

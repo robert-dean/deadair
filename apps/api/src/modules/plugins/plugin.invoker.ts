@@ -4,6 +4,7 @@ import { runWithDeadline } from './plugin.invocation.deadline.js';
 import { PluginLog } from './plugin.log.js';
 import { PluginRegistry } from './plugin.registry.js';
 import { serverkitErrorText } from '#modules/shared/error.text.js';
+import { recordSpan, spanError } from '#modules/shared/trace.spans.js';
 
 /** How long a single call into plugin code may run before it is abandoned. */
 export const PLUGIN_INVOKE_TIMEOUT_MS = 15_000;
@@ -108,6 +109,10 @@ export class PluginInvoker {
 
         const timeoutMs = opts?.timeoutMs ?? PLUGIN_INVOKE_TIMEOUT_MS;
         const timeout = deadline(timeoutMs, `plugin ${pluginId} timed out after ${timeoutMs}ms during ${op}`);
+        // Started here rather than inside the `try`, so a synchronous throw out of `deadline` would
+        // still be measured from the same point everything else is.
+        const startedAt = Date.now();
+        let failure: unknown;
 
         try {
             // `fn` may throw synchronously; wrapping it keeps that on the same
@@ -124,9 +129,24 @@ export class PluginInvoker {
             this.recordSuccess(pluginId);
             return result;
         } catch (error) {
+            failure = error;
             throw this.recordFailure(pluginId, op, error);
         } finally {
             timeout.dispose();
+            // In the `finally` because that is the whole point. The calls worth costing are the ones
+            // that end without saying anything — a timeout, a plugin disposed with its response body
+            // still open — and both leave by this path and by no other. A span taken from the
+            // RESULT would miss exactly them; see `trace.spans.ts`.
+            recordSpan({
+                op: 'plugin.invoke',
+                target: `${pluginId} ${op}`,
+                ms: Date.now() - startedAt,
+                outcome: failure === undefined ? 'ok' : 'failed',
+                ...(failure === undefined ? {} : { error: spanError(failure) }),
+                // The bound this call was given, so a duration can be read against what it was
+                // allowed rather than against a constant a reader has to go and look up.
+                detail: { timeoutMs },
+            });
         }
     }
 

@@ -11,6 +11,7 @@ import { scrubProcessEnv } from './scrub.process.env.js';
 import { DeadairLogger } from '#src/logging/deadair.logger.js';
 import { RotatingLogStore } from '#src/logging/rotating.log.store.js';
 import { setLogStore } from '#src/logging/log.store.js';
+import { setTraceRoot } from '#modules/shared/trace.spans.js';
 import { requiredNumber } from '#modules/shared/setting.numbers.js';
 
 export const setupServer = async () => {
@@ -56,6 +57,10 @@ export const setupServer = async () => {
         maxLineBytes: requiredNumber(boot, 'LOG_MAX_LINE_BYTES', 8 * 1024),
     });
     setLogStore(logStore);
+    // Same root, and set at the same moment for the same reason: `PluginInvoker` records spans and
+    // is a singleton with no config, so the path cannot be injected and must not be read from
+    // `process.env` — `scrubProcessEnv()` empties that later in this function.
+    setTraceRoot(String(boot.get('LOGS_DIR', './logs')));
 
     const logger = new DeadairLogger(new ConsoleLogger(), logStore);
 

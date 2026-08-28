@@ -21,6 +21,7 @@ import { LlmGate } from './llm.gate.js';
 import { explainDefaultGenerator, explainNoGenerator, LLM_PLUGIN_KEY, selectLlmPlugin } from './llm.settings.js';
 import { ToolRegistry, type StationTool } from './llm.tools.js';
 import { strayToolCall } from './stray.tool.call.js';
+import { recordSpan, spanError } from '#modules/shared/trace.spans.js';
 
 /**
  * How long the plugin gets to hand back a handle.
@@ -641,11 +642,47 @@ export class LlmService {
      * `LlmHandle.text`.
      */
     private async generateOnce(plugin: LlmPlugin, request: LlmRequest, signal?: AbortSignal): Promise<LlmResult> {
-        const handle = await this.pluginInvoker.invoke(plugin.record.id, 'llm.generate', async () => plugin.instance.generate(request), {
-            timeoutMs: START_TIMEOUT_MS,
-        });
+        // The span belongs HERE and not on the invoker call inside it, and the difference is the
+        // whole cost. `invoke` bounds getting the handle — a handshake — while the words arrive
+        // afterwards through `collectGeneration`, which is minutes on this host. An invoker span
+        // alone would say a sixty-second generation took eighty milliseconds.
+        //
+        // Closed in a `finally` for the reason `trace.spans.ts` gives: a generation abandoned
+        // mid-drain and one that waited out its budget both spend the model and neither returns an
+        // answer to take a cost from. Those are the two shapes `station-intelligence.md` §2 measured
+        // as invisible.
+        const startedAt = Date.now();
+        let result: LlmResult | undefined;
+        let failure: unknown;
 
-        return await collectGeneration(handle, signal);
+        try {
+            const handle = await this.pluginInvoker.invoke(plugin.record.id, 'llm.generate', async () => plugin.instance.generate(request), {
+                timeoutMs: START_TIMEOUT_MS,
+            });
+
+            result = await collectGeneration(handle, signal);
+            return result;
+        } catch (error) {
+            failure = error;
+            throw error;
+        } finally {
+            recordSpan({
+                op: 'llm.generate',
+                target: request.model ?? plugin.record.id,
+                ms: Date.now() - startedAt,
+                outcome: failure === undefined ? 'ok' : 'failed',
+                ...(failure === undefined ? {} : { error: spanError(failure) }),
+                detail: {
+                    // Present and zero rather than absent when the model answered without saying
+                    // what it spent, which is a different fact from a call that never got an answer
+                    // at all — and telling those apart is the reason this file exists.
+                    ...(result === undefined ? {} : { finish: result.finishReason, ...result.usage }),
+                    // Whether the station gave up on it, which a duration alone cannot say: an
+                    // abandoned generation and a fast one both stop early.
+                    aborted: signal?.aborted === true,
+                },
+            });
+        }
     }
 
     /**

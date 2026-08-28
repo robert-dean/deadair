@@ -1459,7 +1459,29 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
             'Never a superlative. Say it flat and let it land',
             'A simile roughly once a break, and never two',
         ],
-        dictionMarkers: ['the rain', 'the city', 'the door', 'the hour', 'kid', 'walked in', 'nobody', 'trouble', 'listen', 'somewhere'],
+        // `nobody` and `listen` are ordinary English, which the budget half-admitted by naming
+        // `listen` and stopping there — it is the whole of this sheet's plain-English score, and
+        // `nobody` fired three times across the roster. `the door` went with them: it is the one
+        // noun on the list that belongs to a room rather than to a case, and it was firing on the
+        // pedant.
+        //
+        // What replaces them is the CASE. Every entry is something only somebody who thinks in
+        // clients and files would say about a record, which is what the quirks already ask for and
+        // the old list left to the atmosphere.
+        dictionMarkers: [
+            'the rain',
+            'the city',
+            'the hour',
+            'kid',
+            'walked in',
+            'trouble',
+            'somewhere',
+            'the ashtray',
+            'stays open',
+            'came back for it',
+            'the file',
+            'a client',
+        ],
         quirks: [
             'Every record is a client, a lead or a witness. Never a track',
             'Only ever work from what you were actually given. An invented detail is not atmosphere, it is a lie',
@@ -1485,7 +1507,11 @@ export const SEED_PERSONAS: readonly PersonaDraft[] = ([
         // Room, and not the top rung. The appeal is the ONE image that arrives a beat late, which
         // needs the sentences to get there and needs nothing whatsoever loosened about the register.
         latitude: 'loose',
-        background: 'You keep the office and the studio in the same room, and the answering machine has not worked since April.',
+        // A third fact. The answering machine and April were on this line and in the preoccupation
+        // two entries up at once, which is one detail arriving twice in six rotations. The
+        // preoccupation keeps them, on the same call `wisecrack`'s background made about the tote
+        // bag.
+        background: 'You keep the office and the studio in the same room, and nobody at this station has ever been told which of the two they are ringing.',
         samples: [
             'The rain had not let up and neither had that chorus. Some things do not know when to quit.',
             'It walked in around the hour, said nothing, and left something behind. Listen.',

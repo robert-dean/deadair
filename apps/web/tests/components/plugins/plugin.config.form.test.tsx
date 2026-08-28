@@ -359,6 +359,85 @@ describe('PluginConfigForm', () => {
         });
     });
 
+    describe('two numbers that are the two ends of one range', () => {
+        const LOW: ConfigFieldDescriptor = {
+            key: 'storiesMin',
+            label: 'Headlines in a bulletin',
+            type: 'number',
+            min: 1,
+            max: 8,
+            default: 2,
+            rangeWith: 'storiesMax',
+        };
+
+        const HIGH: ConfigFieldDescriptor = { key: 'storiesMax', label: 'Headlines in a bulletin, most', type: 'number', min: 1, max: 8, default: 4 };
+
+        it('draws one control with two handles rather than two boxes', () => {
+            const plugin = pluginDetail({ configFields: [LOW, HIGH], config: { storiesMin: 2, storiesMax: 5 } });
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            const handles = screen.getAllByRole('slider');
+            expect(handles).toHaveLength(2);
+            expect(handles[0]).toHaveAttribute('aria-valuenow', '2');
+            expect(handles[1]).toHaveAttribute('aria-valuenow', '5');
+            // The far end's own label is never drawn: it exists so a refusal can name the key.
+            expect(screen.queryByText('Headlines in a bulletin, most')).not.toBeInTheDocument();
+        });
+
+        it('submits both keys when either handle moves', async () => {
+            const plugin = pluginDetail({ configFields: [LOW, HIGH], config: { storiesMin: 2, storiesMax: 5 } });
+            updatePluginConfiguration.mockResolvedValue(plugin);
+            const user = setupUser();
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            screen.getAllByRole('slider')[0]!.focus();
+            await user.keyboard('{ArrowRight}');
+            await save();
+
+            await waitFor(() => {
+                // Two rows, still. The control is one thing; what it writes is two settings, which
+                // is what keeps `buildSubmission` ignorant of ranges entirely.
+                expect(submittedConfig()).toEqual({ storiesMin: 3, storiesMax: 5 });
+            });
+        });
+
+        it('will not let the lower end pass the upper one', async () => {
+            // The reason the pair is one control. Two boxes could store 5 and 3, which the readers
+            // behind them then disagreed about: one clamped each end where it found it, another
+            // sorted them.
+            const plugin = pluginDetail({ configFields: [LOW, HIGH], config: { storiesMin: 4, storiesMax: 5 } });
+            updatePluginConfiguration.mockResolvedValue(plugin);
+            const user = setupUser();
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            screen.getAllByRole('slider')[0]!.focus();
+            await user.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
+            await save();
+
+            await waitFor(() => {
+                // Three presses from 4: the lower end PUSHES the upper one from 5 to 7 rather than
+                // stopping under it. Either would satisfy "the ends never cross", and this is the
+                // one Mantine does — pinned exactly, because the looser assertion is also true of a
+                // control that ignored every keystroke.
+                expect(submittedConfig()).toEqual({ storiesMin: 7, storiesMax: 7 });
+            });
+        });
+
+        it('falls back to two controls when the other end is on another page', () => {
+            // A settings page draws one group of a larger set, so a `rangeWith` naming a key this
+            // form does not hold is ordinary. Both ends keep an input rather than one vanishing.
+            const plugin = pluginDetail({ configFields: [LOW] });
+
+            render(<PluginConfigForm plugin={plugin} />);
+
+            expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+            expect(screen.getByLabelText('Headlines in a bulletin')).toBeInTheDocument();
+        });
+    });
+
     it('treats a stored secret as answering its own required check', async () => {
         const plugin = pluginDetail({ configFields: [SECRET_FIELD], secretsConfigured: { clientSecret: true } });
         updatePluginConfiguration.mockResolvedValue(plugin);

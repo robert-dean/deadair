@@ -276,6 +276,37 @@ export interface ConfigField {
      * that field has a truthy value.
      */
     dependsOn?: string;
+
+    /**
+     * Key of the `number` field that is the UPPER end of the range this one opens. Declared on the
+     * lower end only, and ignored on every other type.
+     *
+     * Two settings, still: each keeps its own key, its own row and its own validation, and
+     * `serializeSetting` refuses each one by name exactly as it did before. What this changes is
+     * that the console draws them as one control with two handles instead of two boxes that happen
+     * to sit next to each other.
+     *
+     * The reason is legibility. Two boxes cannot say that one is the far end of the other, so a
+     * range arrives as two settings whose labels have to carry the relationship ("fewest", "most",
+     * "the other end") and an operator reads the pair rather than seeing it. One track with two
+     * handles says it in the shape of the control.
+     *
+     * NOT correctness, which is worth stating because it is the plausible reason and it is wrong
+     * here: every reader of a paired setting in this station takes the two ends as an UNORDERED
+     * pair and sorts them, so a range stored the wrong way round has always been tolerated rather
+     * than obeyed. The handles not crossing is a nicety on top, not the point.
+     *
+     * Worth declaring only where the declared range is narrow enough that the whole track is
+     * usable. A pair bounded by a typo guard rather than by intent — one to a hundred and twenty
+     * minutes, for a station that runs eight to twelve — puts both handles in the first tenth and
+     * makes the exact figure somebody has in mind a pixel. Those stay two boxes.
+     *
+     * A rendering hint like {@link ConfigField.dependsOn}, and forgiving in the same way: if the
+     * named key is not in this form, both ends fall back to their own controls rather than one of
+     * them disappearing. A settings page that draws one group of a larger set is the ordinary case
+     * for that.
+     */
+    rangeWith?: string;
 }
 
 export const configFieldOptionSchema = z.object({
@@ -317,4 +348,5 @@ export const configFieldSchema = z.object({
     options: z.array(configFieldOptionSchema).optional(),
     columns: z.array(configFieldColumnSchema).optional(),
     dependsOn: z.string().optional(),
+    rangeWith: z.string().optional(),
 });

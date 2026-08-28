@@ -55,6 +55,7 @@ contract ConfigFieldDescriptor: {
     options?: array(ConfigFieldOption)
     columns?: array(ConfigFieldColumn) # `list` only, and ignored elsewhere
     dependsOn?: string(min=1, max=200) # Key of the field this one is only relevant to
+    rangeWith?: string(min=1, max=200) # Key of the `number` field that is the upper end of the range this one opens, declared on the lower end only. Still two settings, each validated by name; the console draws them as one control whose handles cannot cross
 }
 
 # A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set

@@ -11,6 +11,7 @@ import {
     MultiSelect,
     NumberInput,
     PasswordInput,
+    RangeSlider,
     Select,
     Slider,
     Stack,
@@ -501,6 +502,12 @@ export function ConfigFieldsForm({
         if (!isVisible(field, fields, form.getValues())) {
             return undefined;
         }
+        // Drawn already, by the field that opened the range it closes. Nothing else changes for it:
+        // it keeps its own entry in the form and its own key in the submission, so this is only a
+        // statement about where its input is, which is inside somebody else's control.
+        if (isRangeEnd(field, fields)) {
+            return undefined;
+        }
 
         const common = {
             label: field.label,
@@ -528,6 +535,20 @@ export function ConfigFieldsForm({
                 return <Switch key={field.key} {...common} description={undefined} {...form.getInputProps(name, { type: 'checkbox' })} />;
             case 'number': {
                 if (field.unit === 'bytes') return <BytesField key={field.key} common={common} field={field} inputProps={form.getInputProps(name)} />;
+                // Before the single-handled case, because a field may reasonably declare both and
+                // a pair is the more specific answer.
+                const rangeEnd = rangeEndOf(field, fields);
+                if (rangeEnd !== -1) {
+                    return (
+                        <RangeField
+                            key={field.key}
+                            common={common}
+                            field={field}
+                            lower={form.getInputProps(name)}
+                            upper={form.getInputProps(nameOf(rangeEnd))}
+                        />
+                    );
+                }
                 // A control the field ASKED for, and only where it declared the range one needs.
                 // Falling through rather than failing is deliberate: this is a hint about drawing,
                 // and a spinner is a worse form than a slider but an infinitely better one than a
@@ -818,6 +839,57 @@ function isSlider(field: ConfigFieldDescriptor): boolean {
     return field.control === 'slider' && field.min !== undefined && field.max !== undefined;
 }
 
+/**
+ * The position of the field that closes the range this one opens, or -1.
+ *
+ * Forgiving for `isVisible`'s reason and in the same shape: a `rangeWith` naming a key this form
+ * does not hold is a settings page drawing one group of a larger set, not a mistake, and both ends
+ * falling back to their own controls is a worse form rather than a broken one. Bounds are required
+ * because a range with an open end has no track, exactly as for a single-handled one.
+ */
+function rangeEndOf(field: ConfigFieldDescriptor, fields: readonly ConfigFieldDescriptor[]): number {
+    if (field.rangeWith === undefined || field.min === undefined || field.max === undefined) return -1;
+    return fields.findIndex(candidate => candidate.key === field.rangeWith);
+}
+
+/** Whether some other field in this form has already drawn this one as the far end of its range. */
+function isRangeEnd(field: ConfigFieldDescriptor, fields: readonly ConfigFieldDescriptor[]): boolean {
+    return fields.some(candidate => candidate.key !== field.key && rangeEndOf(candidate, fields) !== -1 && candidate.rangeWith === field.key);
+}
+
+/** A form value as the number a slider sits at, where anything unreadable is the field's own default. */
+function sliderValue(value: FieldValue | undefined, fallback: number): number {
+    const typed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
+    return Number.isFinite(typed) ? typed : fallback;
+}
+
+/**
+ * A slider's label, with what it currently says on the end of it.
+ *
+ * Where the value lives, and it is not on the handle. Mantine's always-on bubble is absolutely
+ * positioned over whatever is above the track, and two of them on one track collide: the production
+ * length is 1 to 120 minutes and sits at 10 to 12, so both handles land in the first tenth and the
+ * two bubbles overlap into a smudge that reads as neither number. On the label row the pair is
+ * legible however close the handles are, and it stays legible for the single-handled case that
+ * pushed its own value through the middle of its help text.
+ *
+ * The transient bubble is still on, so dragging shows the figure under the thumb where the eye
+ * already is. This is the readout you can look up and find, rather than the one you have to hold a
+ * mouse button down to see.
+ */
+function sliderLabel(text: string, reading: string) {
+    return (
+        <Group justify="space-between" gap="xs" wrap="nowrap">
+            <span>{text}</span>
+            {/* `.da-num` for the console's rule about columns of figures: a value that changes as a
+                handle moves twitches the label in proportional digits. */}
+            <Text component="span" size="sm" c="dimmed" className="da-num">
+                {reading}
+            </Text>
+        </Group>
+    );
+}
+
 interface SliderFieldProps {
     field: ConfigFieldDescriptor;
     inputProps: GetInputPropsReturnType;
@@ -838,7 +910,8 @@ interface SliderFieldProps {
  *
  * The marks are the declared ends and nothing between them. A scale reading `0 · 25 · 50 · 75 · 100`
  * is a ruler nobody measures against, where the two ends are the only numbers that answer the
- * question the operator has, which is "how much room do I have here".
+ * question the operator has, which is "how much room do I have here". The value itself is on the
+ * label row rather than over the handle, for {@link sliderLabel}'s reasons.
  *
  * Empty is not representable and does not need to be: a slider is only offered for a field that
  * declared both ends, so its own default is always a legal position and "unset" reads as the
@@ -851,20 +924,20 @@ function SliderField({ field, inputProps, common }: SliderFieldProps) {
     const min = field.min ?? 0;
     const max = field.max ?? 100;
 
-    const typed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-    const fallback = typeof field.default === 'number' ? field.default : min;
-    const at = Number.isFinite(typed) ? typed : fallback;
+    const at = sliderValue(value as FieldValue | undefined, typeof field.default === 'number' ? field.default : min);
 
     return (
-        <Input.Wrapper label={common.label} description={common.description} withAsterisk={common.withAsterisk} error={error}>
+        <Input.Wrapper
+            label={sliderLabel(common.label, sliderText(at, field))}
+            description={common.description}
+            withAsterisk={common.withAsterisk}
+            error={error}
+        >
             <Slider
-                // Room for the always-on bubble above and the end marks below, neither of which
-                // Mantine gives itself: both are absolutely positioned, so the layout is the same
-                // height with or without them and they land on top of whatever is there. Measured
-                // rather than picked off the spacing scale — the bubble clears the track by 36px
-                // whatever the description above it says, and `lg` at 22px put the value of "Words
-                // a talk break may run to" through the middle of its own help text.
-                mt={36}
+                // Room for the end marks, which Mantine does not give itself: they are absolutely
+                // positioned, so the layout is the same height with or without them and they land
+                // on top of whatever the form draws next.
+                mt="xs"
                 mb="lg"
                 disabled={common.disabled}
                 min={min}
@@ -875,9 +948,83 @@ function SliderField({ field, inputProps, common }: SliderFieldProps) {
                     { value: max, label: sliderText(max, field) },
                 ]}
                 label={position => sliderText(position, field)}
-                labelAlwaysOn
                 value={at}
                 onChange={onChange}
+            />
+        </Input.Wrapper>
+    );
+}
+
+interface RangeFieldProps {
+    /** The LOWER end, which is the one that declared the pairing and whose label the control wears. */
+    field: ConfigFieldDescriptor;
+    common: { label: string; description?: string; withAsterisk?: boolean; disabled: boolean };
+    lower: GetInputPropsReturnType;
+    upper: GetInputPropsReturnType;
+}
+
+/**
+ * Two settings that are the two ends of one range, as one control with two handles.
+ *
+ * Still two settings underneath: two keys, two rows, two independent validations, and
+ * `buildSubmission` never learns this component exists because each end keeps its own entry in the
+ * form. What changes is that the ends cannot cross, which is the entire reason for it.
+ *
+ * What it buys is LEGIBILITY rather than correctness, which is worth being exact about because the
+ * other reason is the plausible one: every reader of a paired setting here sorts its two ends with
+ * `Math.min`/`Math.max` before using them, so an inverted range was always tolerated rather than
+ * obeyed. What two boxes cost is that the relationship between them lives only in their labels —
+ * "fewest", "most", "the other end" — so the pair is read rather than seen. One track says it in
+ * the shape of the control, and the handles not crossing comes free with that.
+ *
+ * `minRange={0}` because Mantine's default is 10, which for a story count of 1 to 8 is a control
+ * that cannot be moved at all. Zero also allows both ends on the same number, which is a real
+ * answer here: it is how an operator asks for a bulletin that is always the same length.
+ *
+ * A handle driven into the other one PUSHES it rather than stopping under it, which is Mantine's
+ * behaviour and not a choice made here. Both satisfy the thing that matters — the ends cannot cross
+ * — and the difference is worth knowing when reading the test that pins it: dragging the lower end
+ * of a 4-to-5 range up by three lands both on 7, not both on 5.
+ *
+ * The pair is read off the label row rather than off the handles, which for a range is not a
+ * refinement but the difference between legible and not: a production runs 10 to 12 minutes out of
+ * a declared 1 to 120, so both handles sit in the first tenth of the track and two bubbles over
+ * them overlap into one unreadable mark. See {@link sliderLabel}.
+ */
+function RangeField({ field, common, lower, upper }: RangeFieldProps) {
+    // Bounded above by `rangeEndOf`, which is the only caller.
+    const min = field.min ?? 0;
+    const max = field.max ?? 100;
+
+    const low = sliderValue(lower.value as FieldValue | undefined, typeof field.default === 'number' ? field.default : min);
+    const high = sliderValue(upper.value as FieldValue | undefined, max);
+
+    return (
+        <Input.Wrapper
+            label={sliderLabel(common.label, `${sliderText(low, field)}–${sliderText(high, field)}`)}
+            description={common.description}
+            withAsterisk={common.withAsterisk}
+            // Either end may be the one the server refused, and there is one control to say so on.
+            error={lower.error ?? upper.error}
+        >
+            <RangeSlider
+                mt="xs"
+                mb="lg"
+                disabled={common.disabled}
+                min={min}
+                max={max}
+                step={field.step ?? 1}
+                minRange={0}
+                marks={[
+                    { value: min, label: sliderText(min, field) },
+                    { value: max, label: sliderText(max, field) },
+                ]}
+                label={position => sliderText(position, field)}
+                value={[low, high]}
+                onChange={([nextLow, nextHigh]) => {
+                    lower.onChange(nextLow);
+                    upper.onChange(nextHigh);
+                }}
             />
         </Input.Wrapper>
     );

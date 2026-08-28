@@ -544,22 +544,34 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     {
         group: 'rotation',
         key: BULLETIN_KEYS.storiesMin,
-        label: 'Headlines in a news bulletin, fewest',
+        label: 'Headlines in a news bulletin',
         type: 'number',
         min: 1,
         max: MAX_STORY_COUNT,
         default: DEFAULT_STORY_COUNT_MIN,
-        help: 'How many stories the station reads when the clock asks for news. A range rather than a number, because the story count is what makes one bulletin longer than the next — a fixed one is a news round that is the same shape every half hour. Around three is a headline round; a station that stops for two minutes every half hour is a news station that plays records.',
+        // The two ends of one range, so one control with two handles. `storiesMax` keeps its own
+        // key, its own row and its own refusal by name; what it loses is a box of its own.
+        //
+        // The ONLY pair drawn this way, and the reason is the width: one to eight is a track whose
+        // every position is a bulletin somebody might want, where the two production lengths below
+        // span one to a hundred and twenty and sit in the first tenth of it. What this buys is
+        // legibility rather than correctness — `howManyStories` reads the ends as an unordered pair
+        // and sorts them, exactly as `stationTargetMs` does, so an inverted range was never obeyed
+        // by either of them.
+        rangeWith: BULLETIN_KEYS.storiesMax,
+        help: 'How many stories the station reads when the clock asks for news. A range rather than a number, because the story count is what makes one bulletin longer than the next — a fixed one is a news round that is the same shape every half hour. Around three is a headline round; a station that stops for two minutes every half hour is a news station that plays records. Put both handles on the same number for a bulletin that is always the same length.',
     },
     {
         group: 'rotation',
         key: BULLETIN_KEYS.storiesMax,
+        // Not drawn on its own: the console gives this end the far handle of the control above. The
+        // label is what `serializeSetting` calls it when it refuses one, so it still has to read as
+        // a whole setting rather than as "the other end".
         label: 'Headlines in a news bulletin, most',
         type: 'number',
         min: 1,
         max: MAX_STORY_COUNT,
         default: DEFAULT_STORY_COUNT_MAX,
-        help: 'The other end. Set both to the same number for a bulletin that is always the same length.',
     },
     {
         group: 'rotation',
@@ -749,6 +761,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         key: PRODUCTION_KEYS.targetMinutesMin,
         label: 'How long a production runs, shortest (minutes)',
         type: 'number',
+        // Deliberately NOT a `rangeWith` pair, unlike the news headlines above, and the difference
+        // is the width rather than the shape: 1 to 120 with a station sitting at 8 to 12 puts both
+        // handles in the first tenth of a track, so nine tenths of it is unreachable ground and the
+        // exact figure an operator has in mind is a pixel. `MAX_PRODUCTION_MINUTES` is a TYPO GUARD
+        // — two hours is where a length becomes a block nothing can be scheduled around — and a
+        // guard makes a bad extent for a control. Nothing is lost by leaving these as boxes:
+        // `stationTargetMs` reads the two ends as an unordered pair, so a range typed the wrong way
+        // round is sorted rather than obeyed.
         min: MIN_PRODUCTION_MINUTES,
         max: MAX_PRODUCTION_MINUTES,
         default: DEFAULT_TARGET_MINUTES_MIN,
@@ -769,6 +789,8 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         key: PRODUCTION_KEYS.dialogueMinutesMin,
         label: 'How long a call-in runs, shortest (minutes)',
         type: 'number',
+        // Boxes for the reason the pair above is, and more so: a call sits at 2 to 3 minutes out of
+        // the same 1 to 120, which is the first fortieth of a track.
         min: MIN_PRODUCTION_MINUTES,
         max: MAX_PRODUCTION_MINUTES,
         default: DEFAULT_DIALOGUE_MINUTES_MIN,

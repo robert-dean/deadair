@@ -155,6 +155,41 @@ describe('the settings registry', () => {
         }
     });
 
+    it('pairs each range with a field that can actually be its other end', () => {
+        // A `rangeWith` the console cannot resolve is not a crash, it is two boxes again — so the
+        // pair silently goes back to being invertible, which is the whole thing this was for. Every
+        // way that can happen is checked here, because none of them is visible from the form.
+        for (const lower of SETTING_DESCRIPTORS.filter(candidate => candidate.rangeWith !== undefined)) {
+            const upper = findDescriptor(lower.rangeWith!);
+
+            expect(upper, `${lower.key} ranges with ${lower.rangeWith}`).toBeDefined();
+            expect(upper!.type, upper!.key).toBe('number');
+            // Drawn by one form, and the settings page draws one per group: paired across two of
+            // them, each end would fall back to its own control on a different card.
+            expect(upper!.group, upper!.key).toBe(lower.group);
+            // One track carries both handles, so a pair that disagreed about its ends would draw
+            // one of them somewhere it is not allowed to be and have the route refuse it on save.
+            expect(upper!.min, upper!.key).toBe(lower.min);
+            expect(upper!.max, upper!.key).toBe(lower.max);
+            expect(upper!.step, upper!.key).toBe(lower.step);
+            expect(lower.min, lower.key).toBeDefined();
+            expect(lower.max, lower.key).toBeDefined();
+            // The far end is never drawn on its own, so a `dependsOn` on it would be a condition
+            // nothing evaluates and a `rangeWith` would be a chain the form does not follow.
+            expect(upper!.rangeWith, upper!.key).toBeUndefined();
+            expect(upper!.dependsOn, upper!.key).toBeUndefined();
+        }
+    });
+
+    it('leaves the far end of every range a setting the route can still refuse by name', () => {
+        // The far end has no box, which makes its label easy to write as "The other end". It is
+        // what `serializeSetting` puts in the message when it rejects one, and a 422 reading
+        // `"The other end" cannot be higher than 8` names nothing an operator can act on.
+        for (const lower of SETTING_DESCRIPTORS.filter(candidate => candidate.rangeWith !== undefined)) {
+            expect(findDescriptor(lower.rangeWith!)!.label, lower.rangeWith).not.toMatch(/^The other end/);
+        }
+    });
+
     it('does not know about a key nobody declared', () => {
         // Undeclared rows are ordinary — a setting arrives before its console does — and the point
         // is that this answers `undefined` rather than inventing a descriptor for one. The four

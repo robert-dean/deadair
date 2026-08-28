@@ -78,7 +78,8 @@ packages/sdk          typed client for the API, generated from the contracts
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
 plugins/*             bundled plugins: spotify, navidrome, musicbrainz, lastfm, wikipedia (the
-                      prose the station's facts are extracted from), rss, kokoro and chatterbox
+                      prose the station's facts are extracted from), rss, websearch (SearXNG, Brave
+                      or Tavily, whichever the operator points it at), kokoro and chatterbox
                       (the station's voice), llm, analyzer (the adapter over the measurement sidecar)
 analysis/             the measurement sidecar: a Python service that decodes a record and answers
                       with its cue points and its loudness. No decoding happens in Node

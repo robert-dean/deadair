@@ -43,4 +43,5 @@ export const bundledPluginDirs: string[] = [
     resolveBundledPluginDir('plugins/llm'),
     resolveBundledPluginDir('plugins/analyzer'),
     resolveBundledPluginDir('plugins/rss'),
+    resolveBundledPluginDir('plugins/websearch'),
 ];

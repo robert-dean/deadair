@@ -83,6 +83,7 @@ import {
 } from '#modules/productions/production.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
+import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
 
 /**
  * What a station setting is, declared once.
@@ -255,6 +256,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: ACTIVITY_DEFAULTS.retentionDays,
         help: 'How long the station remembers its own moments: going on and off air, every time a gate silenced it, every gap that outlived the loop meant to close it. Zero keeps all of it. What aired and what the station wrote have their own lifetimes and are not touched by this.',
+    },
+    {
+        group: 'station',
+        key: SWEEP_MAX_PERCENT_KEY,
+        label: 'Most of a library one sync may retire (%)',
+        type: 'number',
+        default: DEFAULT_SWEEP_MAX_PERCENT,
+        // The same bounds `resolveSweepMaxPercent` clamps a stored row to, shared for the reason
+        // every default in this file is shared.
+        min: 1,
+        max: 100,
+        help: 'Each hour the station asks a music source what it still has, and stops offering whatever is no longer there. If a source suddenly does not recognise more than this much of what the station holds — which is what a library server renumbering its own ids looks like, not a library being deleted — the station refuses rather than throwing the lot away. Set it to 100 to retire whatever a sync did not see. Copies that really have gone are still dropped one at a time when their audio does not arrive.',
     },
 
     // ── rotation ───────────────────────────────────────────────────────────────

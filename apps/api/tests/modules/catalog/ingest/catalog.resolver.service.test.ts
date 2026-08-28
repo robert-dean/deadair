@@ -54,7 +54,7 @@ function fakeRepository(options: { failOn?: 'artist' | 'track' | 'binding' } = {
             onTransaction.push('upsertTrackSource');
             if (options.failOn === 'binding') throw new Error('binding write failed');
         }),
-        markMissingTrackSources: vi.fn(async () => 3),
+        markMissingTrackSources: vi.fn(async () => ({ kind: 'swept', swept: 3 })),
     };
 
     const repository = {
@@ -76,9 +76,9 @@ function fakeRepository(options: { failOn?: 'artist' | 'track' | 'binding' } = {
         upsertTrackSource: vi.fn(async () => {
             onPool.push('upsertTrackSource');
         }),
-        markMissingTrackSources: vi.fn(async (_pluginId: string, seen: readonly string[]) => {
+        markMissingTrackSources: vi.fn(async () => {
             onPool.push('markMissingTrackSources');
-            return seen.length;
+            return { kind: 'swept', swept: 3 };
         }),
     };
 
@@ -208,12 +208,19 @@ describe('CatalogResolverService.ingestTrack', () => {
 });
 
 describe('CatalogResolverService.markMissing', () => {
-    it('delegates without opening a transaction, being a single statement', async () => {
+    it('delegates without opening a transaction, the sweep owning its own reads', async () => {
+        // Two statements now — a count and then the update, both inside the
+        // repository — and still no transaction here. The threshold arrives from
+        // the caller rather than being read again, so the whole run is judged by
+        // one number.
         const { repository } = fakeRepository();
         const { db, state } = fakeDb();
 
-        await expect(new CatalogResolverService(db, repository).markMissing('deadair.spotify', ['a', 'b'])).resolves.toBe(2);
-        expect(repository.markMissingTrackSources).toHaveBeenCalledWith('deadair.spotify', ['a', 'b']);
+        await expect(new CatalogResolverService(db, repository).markMissing('deadair.spotify', ['a', 'b'], 50)).resolves.toEqual({
+            kind: 'swept',
+            swept: 3,
+        });
+        expect(repository.markMissingTrackSources).toHaveBeenCalledWith('deadair.spotify', ['a', 'b'], 50);
         expect(state.opened).toBe(0);
     });
 });

@@ -6,6 +6,7 @@ import { DataRepository } from '../../data/data.repository.js';
 import { DB } from '../../data/db.js';
 import { toJsonb } from '../../data/jsonb.js';
 import { normalizeKey } from '../catalog.keys.js';
+import { sweepIsSafe, type SweepOutcome } from './catalog.sweep.guard.js';
 
 /**
  * How far two durations may differ and still be taken for the same recording.
@@ -413,6 +414,12 @@ export class CatalogResolverRepository extends DataRepository {
      * same statement. A caller that genuinely wants that has to say so a
      * different way.
      *
+     * **A full seen-set that matches nothing is the same catastrophe**, and that
+     * is what {@link sweepIsSafe} is for. The count of one above catches a walk
+     * that reported nothing; it does nothing at all about a provider that
+     * renumbered, which reports everything and recognises none of it. See
+     * `catalog.sweep.guard.ts` for the whole argument.
+     *
      * **Only `origin = 'sync'` bindings are judged.** The caller has just walked
      * this provider's PLAYLISTS, which is the only enumeration a provider
      * offers, so "I did not see it" is evidence about a copy a playlist once
@@ -420,12 +427,40 @@ export class CatalogResolverRepository extends DataRepository {
      * Without this the first sync after a discovery would bench every record the
      * station found for itself, an hour after finding it.
      *
-     * @returns How many bindings were newly marked missing.
+     * **Two statements now, and still no transaction.** The count and the update
+     * read the same predicate a moment apart, and the only writers that can move
+     * a row between them are `upsertTrackSource`, which CLEARS `missing_at` and
+     * so can only grow the set this is measuring, and the audio path's bench,
+     * which shrinks it one row at a time. Neither shifts a proportion far enough
+     * to change the verdict, and holding a transaction open across both would
+     * buy exactness in a number that is already a threshold.
+     *
+     * @param maxPercent - Most of the live `sync` bindings one sweep may retire.
+     *   100 is the guard off. See {@link resolveSweepMaxPercent}.
      */
-    async markMissingTrackSources(pluginId: string, seenExternalIds: readonly string[]): Promise<number> {
+    async markMissingTrackSources(pluginId: string, seenExternalIds: readonly string[], maxPercent: number): Promise<SweepOutcome> {
         if (seenExternalIds.length === 0) {
             this.logger.warn('refusing to sweep a plugin that reported no tracks', { plugin: pluginId });
-            return 0;
+            return { kind: 'refused', reason: 'nothing-seen' };
+        }
+
+        const seen = [...seenExternalIds];
+        const counts = await this.db
+            .selectFrom('deadair.trackSources')
+            .select([
+                // `count(*)` is bigint over the wire, so both come back as strings.
+                sql<string>`count(*)`.as('known'),
+                sql<string>`count(*) filter (where external_id <> all(${seen}::text[]))`.as('unseen'),
+            ])
+            .where('pluginId', '=', pluginId)
+            .where('missingAt', 'is', null)
+            .where('origin', '=', 'sync')
+            .executeTakeFirstOrThrow();
+
+        const known = Number(counts.known);
+        const unseen = Number(counts.unseen);
+        if (!sweepIsSafe(known, unseen, maxPercent)) {
+            return { kind: 'refused', reason: 'too-many', known, unseen };
         }
 
         const result = await this.db
@@ -434,9 +469,9 @@ export class CatalogResolverRepository extends DataRepository {
             .where('pluginId', '=', pluginId)
             .where('missingAt', 'is', null)
             .where('origin', '=', 'sync')
-            .where(sql<boolean>`external_id <> all(${[...seenExternalIds]}::text[])`)
+            .where(sql<boolean>`external_id <> all(${seen}::text[])`)
             .executeTakeFirst();
-        return Number(result.numUpdatedRows ?? 0);
+        return { kind: 'swept', swept: Number(result.numUpdatedRows ?? 0) };
     }
 
     private async insertAlbum(artistId: string, name: string, nameKey: string, imageUrl?: string, year?: number): Promise<string> {

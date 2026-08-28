@@ -27,6 +27,49 @@ const stubLogger = (): Logger => ({
     trace: vi.fn(),
 });
 
+/**
+ * A `Kysely` that answers the sweep's counting query and records whether the
+ * UPDATE behind it was ever reached.
+ *
+ * Every builder method returns the chain again and only the two terminals answer,
+ * which is enough because the SQL itself is covered against a real database. What
+ * this is for is the ORDER — count, decide, then write or do not — and that is
+ * exactly what a fake can see and a real database cannot be asked about cheaply.
+ *
+ * The counts come back as strings, because `count(*)` is a bigint over the wire
+ * and arrives as text; a fake handing over numbers would hide the conversion.
+ */
+function countingDb(counts: { known: number; unseen: number }): { db: Kysely<DB>; updated: () => boolean } {
+    let sawUpdate = false;
+
+    const chain = (terminals: Record<string, () => unknown>): unknown =>
+        new Proxy(
+            {},
+            {
+                get(_target, property) {
+                    const terminal = terminals[String(property)];
+                    return terminal ?? (() => chain(terminals));
+                },
+            },
+        );
+
+    const db = {
+        selectFrom: () =>
+            chain({
+                executeTakeFirstOrThrow: async () => ({ known: String(counts.known), unseen: String(counts.unseen) }),
+            }),
+        updateTable: () =>
+            chain({
+                executeTakeFirst: async () => {
+                    sawUpdate = true;
+                    return { numUpdatedRows: BigInt(counts.unseen) };
+                },
+            }),
+    };
+
+    return { db: db as unknown as Kysely<DB>, updated: () => sawUpdate };
+}
+
 /** A `Kysely` that fails the test if the repository touches it at all. */
 const untouchableDb = (): Kysely<DB> =>
     new Proxy(
@@ -111,10 +154,50 @@ describe('chooseTrackCandidate', () => {
 
 describe('markMissingTrackSources', () => {
     it('refuses an empty seen-set instead of sweeping the whole plugin', async () => {
+        // Refused before the database is touched at all, which the untouchable
+        // proxy is what proves: the counting query below must not be the thing
+        // that stands between this input and the update.
         const logger = stubLogger();
         const repository = new CatalogResolverRepository(untouchableDb(), logger);
 
-        await expect(repository.markMissingTrackSources('deadair.spotify', [])).resolves.toBe(0);
+        await expect(repository.markMissingTrackSources('deadair.spotify', [], 50)).resolves.toEqual({
+            kind: 'refused',
+            reason: 'nothing-seen',
+        });
         expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('no tracks'), { plugin: 'deadair.spotify' });
+    });
+
+    it('counts before it writes, and issues no update when the guard refuses', async () => {
+        // The renumber: a full seen-set that matches nothing. The empty-set test
+        // above cannot see this, so what is asserted is the thing that would
+        // otherwise happen — the UPDATE — never being reached.
+        const { db, updated } = countingDb({ known: 800, unseen: 800 });
+        const repository = new CatalogResolverRepository(db, stubLogger());
+
+        await expect(repository.markMissingTrackSources('deadair.navidrome', ['new-1', 'new-2'], 50)).resolves.toEqual({
+            kind: 'refused',
+            reason: 'too-many',
+            known: 800,
+            unseen: 800,
+        });
+        expect(updated()).toBe(false);
+    });
+
+    it('sweeps when the walk recognised enough of the library', async () => {
+        const { db, updated } = countingDb({ known: 800, unseen: 12 });
+        const repository = new CatalogResolverRepository(db, stubLogger());
+
+        await expect(repository.markMissingTrackSources('deadair.navidrome', ['a', 'b'], 50)).resolves.toEqual({ kind: 'swept', swept: 12 });
+        expect(updated()).toBe(true);
+    });
+
+    it('sweeps a library too small for a proportion to mean anything', async () => {
+        // Three of four copies gone is 75%, and on this library that is somebody
+        // tidying a playlist rather than a provider losing its mind.
+        const { db, updated } = countingDb({ known: 4, unseen: 3 });
+        const repository = new CatalogResolverRepository(db, stubLogger());
+
+        await expect(repository.markMissingTrackSources('deadair.navidrome', ['a'], 50)).resolves.toEqual({ kind: 'swept', swept: 3 });
+        expect(updated()).toBe(true);
     });
 });

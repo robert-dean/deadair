@@ -8,12 +8,14 @@
 // database, and re-implementing resolution here would only test the fake.
 
 import { describe, expect, it, vi } from 'vitest';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
 import type { PluginManifest, ProviderPlaylist, ProviderTrack } from '@deadair/plugin-sdk';
 import { PluginError } from '@deadair/plugin-sdk';
 
 import { CatalogSyncService } from '../../../../src/modules/catalog/ingest/catalog.sync.service.js';
 import type { CatalogResolverService, IngestResult } from '../../../../src/modules/catalog/ingest/catalog.resolver.service.js';
+import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY, type SweepOutcome } from '../../../../src/modules/catalog/ingest/catalog.sweep.guard.js';
 import type { JobBroker } from '@maroonedsoftware/jobbroker';
 import { PluginInvoker } from '../../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../../src/modules/plugins/plugin.registry.js';
@@ -95,10 +97,19 @@ function record(id: string, overrides: Partial<PluginRecord> = {}): PluginRecord
     };
 }
 
-/** Records what ingest was asked to do, and lets a test dictate the answers. */
-function fakeResolver(results: (track: ProviderTrack) => IngestResult = () => ({ status: 'ingested', trackId: 'track-1', created: true })) {
+/**
+ * Records what ingest was asked to do, and lets a test dictate the answers.
+ *
+ * `markMissing` records the percentage as well as the ids, because the walk is
+ * the only thing that resolves it and passing the wrong one would be invisible
+ * from the sweep's side: every number in range still sweeps most of the time.
+ */
+function fakeResolver(
+    results: (track: ProviderTrack) => IngestResult = () => ({ status: 'ingested', trackId: 'track-1', created: true }),
+    outcome: (seen: readonly string[]) => SweepOutcome = seen => ({ kind: 'swept', swept: seen.length }),
+) {
     const ingested: string[] = [];
-    const swept: { pluginId: string; seen: string[] }[] = [];
+    const swept: { pluginId: string; seen: string[]; maxPercent: number }[] = [];
     return {
         ingested,
         swept,
@@ -107,9 +118,9 @@ function fakeResolver(results: (track: ProviderTrack) => IngestResult = () => ({
                 ingested.push(providerTrack.id);
                 return results(providerTrack);
             }),
-            markMissing: vi.fn(async (pluginId: string, seen: readonly string[]) => {
-                swept.push({ pluginId, seen: [...seen] });
-                return seen.length;
+            markMissing: vi.fn(async (pluginId: string, seen: readonly string[], maxPercent: number) => {
+                swept.push({ pluginId, seen: [...seen], maxPercent });
+                return outcome(seen);
             }),
         } as unknown as CatalogResolverService,
     };
@@ -130,12 +141,21 @@ function fakeJobBroker(options: { failing?: boolean } = {}) {
     };
 }
 
-function build(records: PluginRecord[], resolver: CatalogResolverService, broker: JobBroker = fakeJobBroker().broker) {
+/** Settings as they actually arrive: strings, whatever the value looks like. */
+const stubConfig = (settings: Record<string, string> = {}): AppConfig =>
+    ({ get: (key: string, fallback?: unknown) => settings[key] ?? fallback }) as unknown as AppConfig;
+
+function build(
+    records: PluginRecord[],
+    resolver: CatalogResolverService,
+    broker: JobBroker = fakeJobBroker().broker,
+    config: AppConfig = stubConfig(),
+) {
     const registry = new PluginRegistry();
     registry.setAll(records);
     const invoker = new PluginInvoker(registry, stubPluginLog().log);
     const logger = stubLogger();
-    return { service: new CatalogSyncService(registry, invoker, resolver, broker, logger), registry, logger };
+    return { service: new CatalogSyncService(registry, invoker, resolver, broker, config, logger), registry, logger };
 }
 
 describe('CatalogSyncService.syncAll', () => {
@@ -291,8 +311,8 @@ describe('CatalogSyncService.syncAll', () => {
 
             const summaries = await service.syncAll();
 
-            expect(swept).toEqual([{ pluginId: SPOTIFY_ID, seen: ['t1', 't2'] }]);
-            expect(summaries[0]!.swept).toBe(2);
+            expect(swept).toEqual([{ pluginId: SPOTIFY_ID, seen: ['t1', 't2'], maxPercent: DEFAULT_SWEEP_MAX_PERCENT }]);
+            expect(summaries[0]!.sweep).toEqual({ kind: 'swept', swept: 2 });
         });
 
         it('does not sweep a plugin whose walk threw', async () => {
@@ -305,7 +325,7 @@ describe('CatalogSyncService.syncAll', () => {
             const summaries = await service.syncAll();
 
             expect(swept).toEqual([]);
-            expect(summaries[0]!.swept).toBeUndefined();
+            expect(summaries[0]!.sweep).toBeUndefined();
             expect(summaries[0]!.error).toContain('upstream is down');
         });
 
@@ -345,8 +365,60 @@ describe('CatalogSyncService.syncAll', () => {
             const summaries = await service.syncAll();
 
             expect(swept).toEqual([]);
-            expect(summaries[0]!.swept).toBeUndefined();
+            expect(summaries[0]!.sweep).toBeUndefined();
             expect(summaries[0]!.error).toBe('truncated');
+        });
+
+        it('carries a refusal back on the summary, and says so at warn', async () => {
+            // A refusal is not an error: the walk was fine and the sweep declined.
+            // Nothing else in the run mentions it, so the line is the only trace.
+            const provider = fakeProvider({ playlists: [playlist('p1')], tracks: { p1: [track('t1')] } });
+            const { resolver } = fakeResolver(undefined, () => ({ kind: 'refused', reason: 'too-many', known: 800, unseen: 800 }));
+            const { service, logger } = build([record(SPOTIFY_ID, { instance: provider.instance as never })], resolver);
+
+            const summaries = await service.syncAll();
+
+            expect(summaries[0]!.sweep).toEqual({ kind: 'refused', reason: 'too-many', known: 800, unseen: 800 });
+            expect(summaries[0]!.error).toBeUndefined();
+            expect(logger.warn).toHaveBeenCalledWith(
+                expect.stringContaining('too little of a library'),
+                expect.objectContaining({ plugin: SPOTIFY_ID, known: 800, unseen: 800 }),
+            );
+        });
+
+        it('resolves the threshold once for the whole run, from the stored text', async () => {
+            // A set value arrives as a string however numeric it looks, and every
+            // plugin in one run is judged by the same number: `AppConfig` is a
+            // live view, so reading it per plugin would let an edit mid-run judge
+            // two providers by two rules.
+            const spotify = fakeProvider({ playlists: [playlist('p1')], tracks: { p1: [track('s1')] } });
+            const other = fakeProvider({ playlists: [playlist('p9')], tracks: { p9: [track('o1')] } });
+            const { resolver, swept } = fakeResolver();
+            const { service } = build(
+                [record(SPOTIFY_ID, { instance: spotify.instance as never }), record(OTHER_ID, { instance: other.instance as never })],
+                resolver,
+                undefined,
+                stubConfig({ [SWEEP_MAX_PERCENT_KEY]: '90' }),
+            );
+
+            await service.syncAll();
+
+            expect(swept.map(s => s.maxPercent)).toEqual([90, 90]);
+        });
+
+        it('falls back to the default when the setting is nonsense', async () => {
+            const provider = fakeProvider({ playlists: [playlist('p1')], tracks: { p1: [track('t1')] } });
+            const { resolver, swept } = fakeResolver();
+            const { service } = build(
+                [record(SPOTIFY_ID, { instance: provider.instance as never })],
+                resolver,
+                undefined,
+                stubConfig({ [SWEEP_MAX_PERCENT_KEY]: 'most of it' }),
+            );
+
+            await service.syncAll();
+
+            expect(swept[0]!.maxPercent).toBe(DEFAULT_SWEEP_MAX_PERCENT);
         });
 
         it('sweeps each plugin with only its own ids', async () => {
@@ -361,8 +433,8 @@ describe('CatalogSyncService.syncAll', () => {
             await service.syncAll();
 
             expect(swept).toEqual([
-                { pluginId: SPOTIFY_ID, seen: ['spotify-1'] },
-                { pluginId: OTHER_ID, seen: ['other-1'] },
+                { pluginId: SPOTIFY_ID, seen: ['spotify-1'], maxPercent: DEFAULT_SWEEP_MAX_PERCENT },
+                { pluginId: OTHER_ID, seen: ['other-1'], maxPercent: DEFAULT_SWEEP_MAX_PERCENT },
             ]);
         });
     });

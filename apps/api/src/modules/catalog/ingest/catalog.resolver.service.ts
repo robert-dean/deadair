@@ -3,6 +3,7 @@ import { Kysely } from 'kysely';
 import type { ProviderTrack } from '@deadair/plugin-sdk';
 import { DB } from '../../data/db.js';
 import { CatalogResolverRepository, type TrackSourceOrigin } from './catalog.resolver.repository.js';
+import type { SweepOutcome } from './catalog.sweep.guard.js';
 import { normalizeKey } from '../catalog.keys.js';
 
 /** Why an item could not become a catalog row. */
@@ -82,12 +83,13 @@ export class CatalogResolverService {
      *
      * The other half of reconciling one provider against the catalog, which is
      * why it lives beside the ingest rather than being reached for separately:
-     * it is only meaningful in terms of what a completed walk saw. Single
-     * statement, so it needs no transaction of its own.
+     * it is only meaningful in terms of what a completed walk saw.
      *
-     * @returns How many bindings were newly marked missing.
+     * @param maxPercent - Most of this plugin's live `sync` bindings one sweep
+     *   may retire, which the caller resolves from the setting. The sweep can
+     *   decline; see {@link SweepOutcome} and `catalog.sweep.guard.ts`.
      */
-    async markMissing(pluginId: string, seenExternalIds: readonly string[]): Promise<number> {
-        return this.resolver.markMissingTrackSources(pluginId, seenExternalIds);
+    async markMissing(pluginId: string, seenExternalIds: readonly string[], maxPercent: number): Promise<SweepOutcome> {
+        return this.resolver.markMissingTrackSources(pluginId, seenExternalIds, maxPercent);
     }
 }

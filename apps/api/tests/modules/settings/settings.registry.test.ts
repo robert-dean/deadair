@@ -16,6 +16,7 @@ import {
     resolveAnalysisConcurrency,
     resolveAnalysisPaceMs,
 } from '../../../src/modules/analysis/analysis.settings.js';
+import { DEFAULT_SWEEP_MAX_PERCENT, resolveSweepMaxPercent, SWEEP_MAX_PERCENT_KEY } from '../../../src/modules/catalog/ingest/catalog.sweep.guard.js';
 
 describe('the settings registry', () => {
     it('declares every key exactly once', () => {
@@ -95,6 +96,19 @@ describe('the settings registry', () => {
         expect(resolveAnalysisConcurrency(descriptor.max)).toBe(descriptor.max);
         expect(resolveAnalysisConcurrency(descriptor.max! + 1)).toBe(descriptor.max);
         expect(resolveAnalysisConcurrency(descriptor.min! - 1)).toBe(descriptor.min);
+    });
+
+    it('declares the sweep guard over the same range and default its resolver uses', () => {
+        // The same disagreement again, and here it has teeth in one direction
+        // specifically: a console that accepts 200 against a resolver that clamps
+        // to 100 shows an operator a guard they think they turned off.
+        const descriptor = findDescriptor(SWEEP_MAX_PERCENT_KEY)!;
+
+        expect(descriptor.default).toBe(DEFAULT_SWEEP_MAX_PERCENT);
+        expect(resolveSweepMaxPercent(descriptor.min)).toBe(descriptor.min);
+        expect(resolveSweepMaxPercent(descriptor.max)).toBe(descriptor.max);
+        expect(resolveSweepMaxPercent(descriptor.max! + 1)).toBe(descriptor.max);
+        expect(resolveSweepMaxPercent(descriptor.min! - 1)).toBe(descriptor.min);
     });
 
     it('bounds both analysis pauses at the ceiling the resolver enforces', () => {

@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import type { ProviderPlaylist, ProviderTrack } from '@deadair/plugin-sdk';
@@ -7,6 +8,7 @@ import { pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '#modules/plugins/plugin.registry.js';
 import { CatalogResolverService } from './catalog.resolver.service.js';
+import { resolveSweepMaxPercent, SWEEP_MAX_PERCENT_KEY, type SweepOutcome } from './catalog.sweep.guard.js';
 import { serverkitErrorText } from '#modules/shared/error.text.js';
 import { PLUGIN_PAGE_SIZE, pluginPages } from '#modules/plugins/plugin.paging.js';
 
@@ -23,8 +25,14 @@ export interface PluginSyncSummary {
     bound: number;
     /** Items that could not become catalog rows, by reason. */
     skipped: number;
-    /** Bindings newly marked missing. `undefined` when the sweep did not run. */
-    swept?: number;
+    /**
+     * What the missing sweep did, or declined to do. `undefined` when it did not run at all, which
+     * is every walk that ended early — see {@link CatalogSyncService.syncPlugin}.
+     *
+     * One field rather than a count beside a refusal, because those are two spellings of the same
+     * fact and two spellings of one fact eventually disagree.
+     */
+    sweep?: SweepOutcome;
     /** Why the walk ended early, if it did. */
     error?: string;
 }
@@ -60,6 +68,7 @@ export class CatalogSyncService {
         private readonly pluginInvoker: PluginInvoker,
         private readonly resolver: CatalogResolverService,
         private readonly jobBroker: JobBroker,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -83,13 +92,19 @@ export class CatalogSyncService {
             return [];
         }
 
+        // Read once for the whole run rather than per plugin. `AppConfig` is a live
+        // view, so a setting edited between two providers would otherwise judge
+        // them by two different rules within one run, and the log would give
+        // nobody a way to work out which.
+        const maxPercent = resolveSweepMaxPercent(this.config.get(SWEEP_MAX_PERCENT_KEY));
+
         const summaries: PluginSyncSummary[] = [];
         for (const candidate of candidates) {
             if (signal?.aborted) {
                 this.logger.info('catalog sync stopping, cancelled', { remaining: candidates.length - summaries.length });
                 break;
             }
-            summaries.push(await this.syncPlugin(candidate, signal));
+            summaries.push(await this.syncPlugin(candidate, maxPercent, signal));
         }
 
         await this.retryPlaceholders(summaries);
@@ -180,7 +195,7 @@ export class CatalogSyncService {
      * summary indistinguishable from a complete run and swept everything the cap
      * cut off. That is the third one, and `truncated` is how it gets here.
      */
-    private async syncPlugin(candidate: CatalogPlugin, signal?: AbortSignal): Promise<PluginSyncSummary> {
+    private async syncPlugin(candidate: CatalogPlugin, maxPercent: number, signal?: AbortSignal): Promise<PluginSyncSummary> {
         const pluginId = candidate.record.id;
         const summary: PluginSyncSummary = { pluginId, playlists: 0, items: 0, created: 0, bound: 0, skipped: 0 };
         // Provider ids seen this run: both the sweep's input and the guard that
@@ -236,8 +251,28 @@ export class CatalogSyncService {
             return summary;
         }
 
-        summary.swept = await this.resolver.markMissing(pluginId, [...seen]);
-        this.logger.info('catalog sync finished a plugin', { plugin: pluginId, ...this.counts(summary), swept: summary.swept });
+        const sweep = await this.resolver.markMissing(pluginId, [...seen], maxPercent);
+        summary.sweep = sweep;
+
+        if (sweep.kind === 'refused' && sweep.reason === 'too-many') {
+            // At `warn` and once, on the bench's rule: the station has just
+            // declined to do something it was asked to, and nothing else will
+            // mention it. The job turns this into a feed entry as well, because
+            // the operator who needs to know is not reading logs.
+            this.logger.warn('catalog sync recognised too little of a library to sweep it', {
+                plugin: pluginId,
+                known: sweep.known,
+                unseen: sweep.unseen,
+                ...this.counts(summary),
+            });
+            return summary;
+        }
+
+        this.logger.info('catalog sync finished a plugin', {
+            plugin: pluginId,
+            ...this.counts(summary),
+            swept: sweep.kind === 'swept' ? sweep.swept : 0,
+        });
         return summary;
     }
 

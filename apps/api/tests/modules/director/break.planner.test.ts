@@ -55,7 +55,15 @@ const ident = (id: string): Segment => recorded(id, 'ident');
  * WHERE a break goes rather than what it says. `canWrite` turns the written path on.
  */
 const build = (
-    options: { idents?: Segment[]; canWrite?: boolean; speaker?: boolean; settings?: Record<string, string>; bands?: ClockBand[] } = {},
+    options: {
+        idents?: Segment[];
+        canWrite?: boolean;
+        speaker?: boolean;
+        settings?: Record<string, string>;
+        bands?: ClockBand[];
+        /** The presenter whose chattiness scales the station's own spacing floor. */
+        presenting?: { chattiness?: string };
+    } = {},
 ) => {
     // Answers for the KIND it was asked about, the way the repository does. A blanket answer would
     // have a band for `news` quietly filled with an ident and every case below pass for the wrong
@@ -126,6 +134,9 @@ const build = (
     const writers = { canWrite: vi.fn(() => options.canWrite ?? false) };
     const speech = { speaker: vi.fn(() => ((options.speaker ?? options.canWrite) ? { record: { id: 'deadair.kokoro' } } : undefined)) };
     const send = vi.fn(async () => {});
+    // The presenter, whose `chattiness` scales the station's own spacing floor. Absent by default,
+    // which is the ordinary rung and leaves every existing case's arithmetic untouched.
+    const presenting = vi.fn(async () => options.presenting);
 
     return {
         planner: new BreakPlanner(
@@ -133,6 +144,7 @@ const build = (
             writers as never,
             speech as never,
             clockBands as never,
+            { presenting } as never,
             { send } as never,
             settingsConfig(options.settings ?? {}).config,
             logger,
@@ -140,6 +152,7 @@ const build = (
         listReady,
         plan,
         markFailed,
+        presenting,
         reopenSegments,
         releaseStranded,
         failedWithScript,
@@ -183,6 +196,76 @@ describe('BreakPlanner', () => {
         // behind it by one. Nothing lands after the last record: a break there airs into whatever
         // follows the lineup rather than between two of its own lines.
         expect(segmentsAt(lineup)).toEqual([4, 9, 14, 19]);
+    });
+
+    // How often a character talks was station-wide until it was a column, so the arithmetic below is
+    // the whole of what the rung does: the same lineup and the same `breakEveryMinutes`, plus a
+    // presenter, plants more breaks or fewer. It scales the station's own floor and nothing else,
+    // which is what the clock cases further down assert from the other side.
+    describe("the presenter's chattiness", () => {
+        it('leaves the station alone when nobody is presenting', async () => {
+            // The overwhelmingly ordinary case, and the one every other test in this file assumes.
+            const { planner } = build({ presenting: undefined });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+            expect(segmentsAt(lineup)).toEqual([4, 9, 14, 19]);
+        });
+
+        it('leaves it alone at the ordinary rung, and at a rung it has never heard of', async () => {
+            for (const chattiness of ['ordinary', 'silent']) {
+                const { planner } = build({ presenting: { chattiness } });
+                const lineup = await lineupOf(20);
+
+                await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+                expect(segmentsAt(lineup), chattiness).toEqual([4, 9, 14, 19]);
+            }
+        });
+
+        it('talks twice as often at the loudest rung', async () => {
+            const { planner } = build({ presenting: { chattiness: 'relentless' } });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+            // Twice as many breaks over the same order, and the same array an UNSCALED two-track
+            // interval produces on this fixture — measured, and the only claim worth making here.
+            // The rung is a multiplier on the interval and nothing else, so what it must equal is
+            // the station having asked for that interval directly. Where the first one lands, and
+            // why it is not simply half of where it lands below, is a property of `placementsFor`
+            // that this test deliberately does not restate: the assertion below it would still be
+            // true if that changed, and this one would be the thing that noticed.
+            expect(segmentsAt(lineup)).toEqual([4, 7, 10, 13, 16, 19, 22, 25]);
+        });
+
+        it('still talks at the quietest rung, which is the bound this design turns on', async () => {
+            // `reserved` is half as often and never none. A rung that reached silence would be a
+            // second switch able to disagree with `rotation.breaks`, with nothing saying which held.
+            const { planner } = build({ presenting: { chattiness: 'reserved' } });
+            const lineup = await lineupOf(20);
+
+            const planted = await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
+
+            expect(planted).toBeGreaterThan(0);
+            expect(segmentsAt(lineup)).toEqual([8, 17]);
+        });
+
+        it('does not touch a break the operator put on the clock', async () => {
+            // The asymmetry the column is documented on: a band is an operator asking for a break at
+            // an interval in as many words, and a habit does not overrule an instruction. The
+            // quietest presenter must not stretch it.
+            const { planner } = build({
+                presenting: { chattiness: 'reserved' },
+                bands: [{ kind: 'ident', everyMs: 4 * TRACK_MINUTES * 60_000 } as never],
+            });
+            const lineup = await lineupOf(20);
+
+            await planner.plant(lineup, rules({ breakEveryMinutes: 0 }), clock());
+
+            expect(segmentsAt(lineup)).toEqual([4, 9, 14, 19]);
+        });
     });
 
     // The bug this pairs with is in `StationLineup.remove`: a spliced-out break left a gap the

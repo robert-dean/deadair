@@ -229,6 +229,9 @@ function build(options: Options = {}) {
         // No format clock: what this file tests is the reactor planting at all, and a band would
         // put breaks at times these cases say nothing about.
         { active: vi.fn(async () => []) } as never,
+        // No presenter either, for the same reason: an absent one is the ordinary chattiness, which
+        // leaves the station's own interval exactly as these cases assume it.
+        { presenting: vi.fn(async () => undefined) } as never,
         { send: vi.fn(async () => {}) } as never,
         station.config,
         logger,

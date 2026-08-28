@@ -7,6 +7,8 @@ import { brokenClaim, type BrokenClaim } from './break.claims.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { isAnchored, nextOccurrence, type ClockBand, type ClockBandSubject } from './clock.bands.js';
 import { ClockBandRepository } from './clock.band.repository.js';
+import { PersonaRepository } from '#modules/personas/persona.repository.js';
+import { CHATTINESS_SPACING, chattinessOf, type PersonaChattiness } from '#modules/personas/persona.sheet.js';
 import { isProductionKind } from '#modules/productions/production.scheduler.js';
 import { stationZone } from './clock.words.js';
 import { SegmentRepository, type Segment, type StrandedRelease } from '#modules/render/segment.repository.js';
@@ -255,6 +257,7 @@ export class BreakPlanner {
         private readonly writers: BreakWriterRegistry,
         private readonly speech: SpeechService,
         private readonly bands: ClockBandRepository,
+        private readonly personas: PersonaRepository,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -285,7 +288,15 @@ export class BreakPlanner {
         // order: the rules are a document this reads, exactly as the schedule is, and a walk that
         // went to the database in the middle of claiming boundaries would be a walk nothing could
         // test without a stack.
-        const wanted = this.slotsFor(lineup, rules, clock, await this.bands.active());
+        // Who is presenting, through the one method that owns that precedence: a broadcast's own
+        // host, else the station's. Read here rather than inside the walk so `slotsFor` stays a pure
+        // function of the order — the reason `bands.active()` is read here too.
+        //
+        // A read per pass, and this runs on every boundary. It sits beside the band read that was
+        // already here and behind the same `rules.breaks` gate above, so a station with its breaks
+        // off pays for neither.
+        const presenting = await this.personas.presenting(lineup.personaId);
+        const wanted = this.slotsFor(lineup, rules, clock, await this.bands.active(), chattinessOf(presenting));
         if (wanted.length === 0) return 0;
 
         // Both halves of being able to say something of the station's own: words to say, and a voice
@@ -556,7 +567,13 @@ export class BreakPlanner {
      * occurrence landed on two indices on two passes and was planted twice. {@link servedAlready} is
      * what makes the anchored walk read its own answer back the way the other two always did.
      */
-    private slotsFor(lineup: StationLineup, rules: ResolvedRules, clock: AirClock, bands: readonly ClockBand[]): Slot[] {
+    private slotsFor(
+        lineup: StationLineup,
+        rules: ResolvedRules,
+        clock: AirClock,
+        bands: readonly ClockBand[],
+        chattiness: PersonaChattiness,
+    ): Slot[] {
         const items = lineup.all();
         const cursor = lineup.committedThrough();
         const zone = stationZone(this.config);
@@ -664,8 +681,14 @@ export class BreakPlanner {
         // ── the station's own, last, because the floor goes last ───────────────
         if (rules.breakEveryMinutes > 0) {
             const pending = new Set(slots.filter(slot => slot.band === undefined || isStationKind(slot.band)).map(slot => slot.atIndex));
-            for (const at of placementsFor(items, cursor, rules.breakEveryMinutes * 60_000, isStationBreak, pending, blockedBy(taken)))
-                claim(at, undefined, projected[at]);
+            // The presenter's chattiness scales THIS interval and none of the three walks above it.
+            // A band is an operator asking for a break at a time in as many words, and a habit does
+            // not overrule an instruction — the same asymmetry `storytelling` has against a `story`
+            // band. Rounded to a whole minute rather than left fractional, because the number an
+            // operator typed is in minutes and a floor of 11.25 is a figure nothing on the console
+            // could explain.
+            const everyMs = Math.max(1, Math.round(rules.breakEveryMinutes * CHATTINESS_SPACING[chattiness])) * 60_000;
+            for (const at of placementsFor(items, cursor, everyMs, isStationBreak, pending, blockedBy(taken))) claim(at, undefined, projected[at]);
         }
 
         return slots.sort((left, right) => left.atIndex - right.atIndex);

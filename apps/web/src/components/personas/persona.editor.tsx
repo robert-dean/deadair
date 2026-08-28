@@ -258,7 +258,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
 
                     <Section
                         title="How far they go"
-                        blurb="Dials with real consequences on air. Each one only ever asks for LESS than the station's own setting — nothing here can loosen what the station always sends."
+                        blurb="Dials with real consequences on air. They change what the station ASKS its presenter for — how long a break is, how much room it gets, and how often one happens. None of them can loosen what the station always sends: every refusal, and your explicit-content setting, hold whatever is set here."
                     />
 
                     <Group grow align="flex-start">
@@ -538,9 +538,15 @@ function GenerationNotes({ generated }: { generated: { droppedMarkers: string[];
  * One heading, so fourteen boxes read as four questions.
  *
  * The blurb is what turns a divider into a question. "How far they go" over four dropdowns is a
- * label; the sentence under it — that each one only ever asks for LESS than the station's own
- * setting — is the thing an operator needs before touching any of them, and it was previously
- * spread across four separate field descriptions that nobody reads in order.
+ * label; the sentence under it is the thing an operator needs before touching any of them, and it
+ * was previously spread across four separate field descriptions that nobody reads in order.
+ *
+ * **It used to say each dial only ever asks for LESS than the station's own setting, and that stopped
+ * being true.** `chattiness` asks for MORE breaks at two of its five rungs, and `latitude` was
+ * already asking for more room at both of its. What was actually load-bearing in that sentence is
+ * its second half — that none of these loosens a refusal — so that is what it says now, and the
+ * direction claim is gone rather than qualified. A blurb that is true of three fields out of four is
+ * worse than none: it is the one line an operator reads before deciding they understand the section.
  */
 function Section({ title, blurb }: { title: string; blurb: string }) {
     return (

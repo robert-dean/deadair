@@ -541,7 +541,23 @@ Revised after the second pass, with the original reasons kept, and marked after 
    the one surface in that shell gated on `platform.manage` rather than `platform.view`, on
    `activity.ck`'s own argument read the other way: a span's `error` is whatever a plugin threw,
    verbatim, and a careless plugin can put a token in a message.
-5. **Persona chattiness**, one nullable column and one term in a walk, decided about silence first.
+5. ~~**Persona chattiness**~~, one nullable column and one term in a walk, decided about silence
+   first. **Built 2026-08-28**, and it really was one column and one term — five rungs scaling
+   `rules.breakEveryMinutes` in `BreakPlanner`'s station-floor walk and nothing else. The silence
+   question was settled the way this entry argued: the quietest rung is half as often and never none,
+   because `rotation.breaks` is already that switch. Two things worth carrying:
+
+   - **It scales the station's own floor and not the format clock**, which is the same asymmetry
+     `storytelling` has against a `story` band. A band is an operator asking in as many words and a
+     habit does not overrule an instruction. There is a test on exactly that, because it is the half
+     that would be silently wrong.
+   - **It made a sentence on the console false**, which is the thing worth knowing about adding a
+     rung to a group of them. The persona editor's section blurb said each dial "only ever asks for
+     LESS than the station's own setting"; `chattiness` asks for more at two rungs, and `latitude`
+     already did at both of its, so the claim had been three-quarters true before this and fully
+     false after. Corrected to what was actually load-bearing in it — that none of them loosens a
+     refusal. **Check the shared blurb when adding a field to a group, not just the field's own
+     description.**
 6. **Operator-authored break kinds**, which is the largest of the second-pass findings and the only
    one that adds a surface rather than a field.
 7. **The embedding axis, and the map with it**, the largest overall and the only one that unblocks a

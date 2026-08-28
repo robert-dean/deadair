@@ -505,9 +505,11 @@ Revised after the second pass, with the original reasons kept, and marked after 
 **Added by the fourth pass, and neither is ranked against the list above**, because both are answers
 to a deadline rather than choices about what to build next:
 
-- **The renumber guard**, [provider-id-stability.md](provider-id-stability.md) phase 2, which is the
-  only item on this page whose timing belongs to somebody else's release. Phase 2 alone is small and
-  is correct whether or not the renumber ever happens.
+- ~~**The renumber guard**~~, [provider-id-stability.md](provider-id-stability.md) phase 2, which is
+  the only item on this page whose timing belongs to somebody else's release. **Built 2026-08-28.**
+  The prediction that it is correct whether or not the renumber happens turned out to understate it:
+  building it found a walk truncated at the page cap reaching the sweep looking complete, which is the
+  same catastrophe from a cause that needed no upstream release and was live in the tree.
 - **Metering the model calls that produce nothing**, which is a defect in instrumentation rather than
   a feature, and which rank 4 (trace correlation) would subsume if it is done first. Do not build the
   budget in §2 on the column as it stands.

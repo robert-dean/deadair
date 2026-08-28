@@ -60,6 +60,28 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
+            # A step here rather than a job of its own, because the check is two seconds against a
+            # thirty-second install and a job would pay the install to run it. It sits ahead of the
+            # build so it answers before the slow thing starts.
+            #
+            # NOT `turbo run`, unlike everything else in this file. Formatting has no dependency
+            # graph and Prettier reads the whole tree in one pass, so fanning it out over fifteen
+            # packages would pay fifteen startups for one answer — the same arithmetic that split
+            # the test suite at the root instead of per package.
+            #
+            # It is also not part of `pnpm lint`, which is where somebody will look for it. That
+            # script is `eslint --fix` in every package and nothing in CI runs it, so a check
+            # written into a FIXER that no workflow calls is a gate in a room nobody enters.
+            #
+            # And it passes NO `--ignore-path`, which is the opposite of what every package's
+            # `format` script does and is deliberate. Prettier 3 defaults that option to BOTH
+            # `.gitignore` and `.prettierignore`, so naming one replaces the pair and the walk loses
+            # `.gitignore` — it then descends into `.turbo/cache`, which is a week of build
+            # artifacts. Measured here: 26 seconds with the default, still running after 45 with the
+            # flag. From the root Prettier finds `.prettierignore` on its own.
+            - name: Check formatting
+              run: pnpm format:check
+
             # Never `codegen` here. The contracts, permissions and Kysely types are committed,
             # and regenerating them needs a live database (build:datatypes runs after migrate:up).
             - name: Build

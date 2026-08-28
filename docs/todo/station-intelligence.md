@@ -240,6 +240,53 @@ were the writer giving up in the gate queue, which no token cap would have chang
 window there are 3 `failed` rows and one of them is that shape. The conclusion is unchanged and the
 denominator moved, which is the usual reason to re-state a number rather than to trust it.
 
+### The same blindness on the SET side, and it has already moved a number
+
+**Measured 2026-08-28**, over the 50 `set-*.json` captures in `.docvol/logs/captures`, 2026-08-19 to
+2026-08-25. Twenty-nine of them produced no picks at all, which looks like a 58% failure rate and is
+not one thing.
+
+**It splits at `9bfab65`/`def027e`, 2026-08-20 14:29Z**, the two commits that gave the tool loop
+`FINAL_TURN` and `NOT_AN_ANSWER`:
+
+| | runs | produced nothing | shapes |
+| --- | --- | --- | --- |
+| Before those commits | 24 | 19 (79%) | `stop` 9, `tool-calls` 7, `length` 2, `other` 1 |
+| After | 26 | 10 (38%) | `length` 10, and nothing else |
+
+Neither `FINAL_TURN` nor `NOT_AN_ANSWER` appears in any of the 29 transcripts, which is how the split
+was confirmed rather than assumed: before those commits the loop simply ran out of steps and returned
+whatever text it was holding — one capture's whole answer is `Search for "Slayer".` after five
+searches it never got to use. **Those two commits removed three of the four failure shapes
+completely.** Anyone reading the 58% as a live figure is reading a fixed bug.
+
+**What survives is one shape, and it is not the shape it reports.** `LlmService` returns
+`finishReason: 'length'` from three places: a model that really hit its ceiling, a conversation
+preempted mid-generation, and one preempted between steps. The last two set `preempted: true`
+alongside it — and **`writeCapture` records `finish` and not `preempted`.** So the file whose own
+comment calls it "where a zero-pick run is actually read" cannot tell "the model ran out of room"
+from "the station took its own slot back", which are the two readings with opposite fixes.
+
+**Both of the ten that can be attributed were preemptions.** The rotated logs reach only the last
+two, and both sit 3ms after `llm: a conversation was preempted mid-generation`, preceded by
+`llm: taking the model back, because something with a deadline wants it | from=background for=air`.
+A break with a deadline took the model twice in nine seconds; the background refill lost everything
+both times, and the second had already restarted after losing the first. The other eight are outside
+the retained window and are not attributable at all.
+
+**This has already moved a number, which is why it is here rather than in a log.**
+`DEFAULT_MAX_OUTPUT_TOKENS` went 2,000 → 6,000 → 12,000, and the last raise is argued in its own
+doc comment from "four consecutive briefed refills finished on `length` with zero tool calls and an
+empty answer: the model used the whole allowance thinking and never emitted a word." Five of the ten
+surviving failures have exactly that shape — `searches: 0`, empty answer, `length` — and on this
+evidence they are indistinguishable from four preemptions, for which doubling the ceiling does
+nothing. The reading may still be right. It was not checkable then and it is not checkable now.
+
+**The fix is one field**, `preempted` in the capture context, and it is the same lesson as the
+`usage` column above: **record the cost and the cause at the call boundary, not from the answer.**
+Until it is there, do not raise the ceiling again on the strength of a `length` count, and do not
+read the 38% as a model problem.
+
 **The station-wide voice switch this section wanted is already `rotation.breaks`**, which gates
 before generation (the planner plants nothing, so no writer is ever asked). Do not add a second one.
 

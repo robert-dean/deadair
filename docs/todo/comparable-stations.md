@@ -512,7 +512,11 @@ to a deadline rather than choices about what to build next:
   same catastrophe from a cause that needed no upstream release and was live in the tree.
 - **Metering the model calls that produce nothing**, which is a defect in instrumentation rather than
   a feature, and which rank 4 (trace correlation) would subsume if it is done first. Do not build the
-  budget in §2 on the column as it stands.
+  budget in §2 on the column as it stands. **Widened 2026-08-28**: the same blindness is on the SET
+  side and is worse there, because the finish reason is overloaded rather than merely absent —
+  `LlmService` reports `length` for a real ceiling hit AND for both preemption paths, and the capture
+  records the reason without the `preempted` flag that separates them. It has already been read as a
+  model failure once and a ceiling was doubled on it. See [station-intelligence.md](station-intelligence.md) §2.
 
 **The lesson of the third pass, which is worth more than any entry above.** Two passes over the same
 station asked "what does it have that we do not", and the answer both times was a list of features.

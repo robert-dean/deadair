@@ -107,12 +107,11 @@ full credits, or an import path that writes one into a pick. Re-run the measurem
 assuming otherwise; it is one script over the capture directory.
 
 **Measured in passing, and it is a bigger number than anything above.** 29 of the 50 captures (58%)
-produced no picks at all — 12 ended at `length`, 9 at `stop` with an unusable answer, 7 at
-`tool-calls`, 1 `other`. That is not this file's problem and it is not a matching problem, but it
-dwarfs the one this file was opened for. It belongs with
-[station-intelligence.md](station-intelligence.md) §2 and the fourth-pass finding in
-[comparable-stations.md](comparable-stations.md) about model calls that occupy the model and record
-nothing.
+produced no picks at all. **Followed up the same day, and it is two different things, neither of them
+a matching problem**: 19 of them predate the tool-loop's `FINAL_TURN`/`NOT_AN_ANSWER` commits on
+2026-08-20 and are a fixed bug, and the 10 that survive all report `finish: length`, which is a
+finish reason the loop also uses for preemption. Written up in
+[station-intelligence.md](station-intelligence.md) §2 beside the `usage` finding it rhymes with.
 
 ## What must not be done
 

@@ -27,12 +27,47 @@ interface Span {
     at: string;
     trace: string;
     kind: string;
+    /** The decision that enqueued this one. Absent on a request, a cron job and anything at boot. */
+    parent?: string;
     op: string;
     target?: string;
     ms: number;
     outcome: 'ok' | 'failed';
     error?: string;
     detail?: Record<string, unknown>;
+}
+
+/** One decision, folded up. */
+interface Decision {
+    kind: string;
+    parent?: string;
+    ms: number;
+    calls: number;
+    failed: number;
+    at: string;
+}
+
+function fold(spans: Span[]): Map<string, Decision> {
+    const by = new Map<string, Decision>();
+    for (const s of spans) {
+        const row = by.get(s.trace) ?? {
+            kind: s.kind,
+            ms: 0,
+            calls: 0,
+            failed: 0,
+            at: s.at,
+            ...(s.parent === undefined ? {} : { parent: s.parent }),
+        };
+        // `job.run` is the decision itself and every other span is inside it, so counting both would
+        // double the time. It is what supplies the parent and the wall-clock, and the rest are the
+        // breakdown.
+        if (s.op === 'job.run') row.ms = Math.max(row.ms, s.ms);
+        else row.calls += 1;
+        if (s.outcome === 'failed') row.failed += 1;
+        if (s.parent !== undefined) row.parent = s.parent;
+        by.set(s.trace, row);
+    }
+    return by;
 }
 
 const dir = resolve(new URL('..', import.meta.url).pathname, env('LOGS_DIR', './logs'), 'traces');
@@ -69,7 +104,20 @@ function one(spans: Span[], id: string): void {
     }
 
     const total = mine.reduce((t, s) => t + s.ms, 0);
-    say(`${mine[0]!.kind}  ${mine[0]!.trace}`);
+    const decisions = fold(spans);
+    const trace = mine[0]!.trace;
+
+    say(`${mine[0]!.kind}  ${trace}`);
+
+    // The edge in both directions, which is the whole point of carrying a parent: what caused this,
+    // and what this went on to cause. Neither is answerable from the log, because a job that
+    // enqueues another is two decisions that may run minutes apart on different workers.
+    const parent = decisions.get(trace)?.parent;
+    if (parent !== undefined) say(`caused by  ${decisions.get(parent)?.kind ?? '(outside the kept window)'}  ${parent}`);
+
+    const children = [...decisions].filter(([, d]) => d.parent === trace);
+    for (const [id, child] of children) say(`   caused  ${child.kind}  ${id}`);
+
     say(`${mine.length} calls, ${Math.round(total / 100) / 10}s of them, ${mine.filter(s => s.outcome === 'failed').length} failed\n`);
     for (const s of mine) {
         const detail = s.detail === undefined ? '' : `  ${JSON.stringify(s.detail)}`;
@@ -79,21 +127,41 @@ function one(spans: Span[], id: string): void {
     }
 }
 
-/** The decisions worth looking at, which is the ones that spent the most. */
+/**
+ * The decisions worth looking at, as a forest: roots ordered by what they spent, and whatever each
+ * one caused indented under it.
+ *
+ * A tree rather than a flat list because the flat one answered the wrong question. The enrichment
+ * walk that costs two minutes mostly costs it in the fact extraction it enqueues, and read as two
+ * unrelated rows that is a walk and a mystery rather than one decision and its consequence.
+ */
 function decisions(spans: Span[]): void {
-    const by = new Map<string, { kind: string; ms: number; calls: number; failed: number }>();
-    for (const s of spans) {
-        const row = by.get(s.trace) ?? { kind: s.kind, ms: 0, calls: 0, failed: 0 };
-        row.ms += s.ms;
-        row.calls += 1;
-        if (s.outcome === 'failed') row.failed += 1;
-        by.set(s.trace, row);
+    const by = fold(spans);
+    const childrenOf = new Map<string, string[]>();
+    for (const [id, row] of by) {
+        if (row.parent === undefined) continue;
+        childrenOf.set(row.parent, [...(childrenOf.get(row.parent) ?? []), id]);
     }
 
-    say(`${by.size} decisions over ${spans.length} calls. The twenty that spent the most:\n`);
-    for (const [trace, row] of [...by].sort((a, z) => z[1].ms - a[1].ms).slice(0, 20)) {
-        say(`  ${ms(row.ms)}  ${String(row.calls).padStart(4)} calls  ${String(row.failed).padStart(3)} failed  ${row.kind.padEnd(28)} ${trace}`);
-    }
+    const line = (id: string, row: Decision, depth: number) =>
+        say(
+            `  ${ms(row.ms)}  ${String(row.calls).padStart(4)} calls  ${String(row.failed).padStart(3)} failed  ${'  '.repeat(depth)}${row.kind.padEnd(28 - 2 * depth)} ${id}`,
+        );
+
+    // A parent outside the kept window leaves its children as roots rather than dropping them, which
+    // is the honest reading: the edge is real and the other end has rotated away.
+    const roots = [...by].filter(([, row]) => row.parent === undefined || !by.has(row.parent));
+
+    const walk = (id: string, row: Decision, depth: number): void => {
+        line(id, row, depth);
+        for (const child of childrenOf.get(id) ?? []) {
+            const childRow = by.get(child);
+            if (childRow !== undefined) walk(child, childRow, depth + 1);
+        }
+    };
+
+    say(`${by.size} decisions over ${spans.length} calls. The twenty costliest roots, with what they caused:\n`);
+    for (const [id, row] of roots.sort((a, z) => z[1].ms - a[1].ms).slice(0, 20)) walk(id, row, 0);
 }
 
 /** Where the station's time actually goes, which is the question a budget would be argued from. */

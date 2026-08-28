@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { JobBroker, JobRunner, registerJobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossConnectionProvider, PgBossJobBroker, PgBossJobRegistryMap, PgBossJobRunner } from '@maroonedsoftware/jobbroker/pgboss';
+import { TracingJobBroker } from './tracing.job.broker.js';
 import { PgBoss } from 'pg-boss';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { JobMappings, jobClassOf } from './job.mappings.js';
@@ -67,8 +68,13 @@ export const JobsModule: ServerKitModule = {
         //    transaction-bound connection provider. Must NOT be resolved at the
         //    root container, or request scopes would inherit a root-cached,
         //    non-transactional instance.
-        registry.register(PgBossJobBroker).useClass(PgBossJobBroker).asSingleton();
-        registry.register(JobBroker).useClass(PgBossJobBroker).asScoped();
+        //
+        // Both resolve to `TracingJobBroker`, which is `PgBossJobBroker` plus the parent-trace
+        // stamp. Registered under the base token as well as its own so that the twenty-odd callers
+        // typed against `PgBossJobBroker` get it without being touched — see that class for why the
+        // link cannot be a call-site responsibility.
+        registry.register(PgBossJobBroker).useClass(TracingJobBroker).asSingleton();
+        registry.register(JobBroker).useClass(TracingJobBroker).asScoped();
         registry.register(JobRunner).useClass(PgBossJobRunner).asSingleton();
     },
     // `ready`, not `start`. Nothing the first request does depends on a worker

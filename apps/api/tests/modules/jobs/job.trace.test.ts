@@ -20,6 +20,7 @@ import { PlainJob } from '../../../src/modules/jobs/plain.job.js';
 import { TransactionalJob } from '../../../src/modules/jobs/transactional.job.js';
 import { AuthorizationContext } from '../../../src/modules/permissions/authorization.context.js';
 import { currentTrace } from '../../../src/modules/shared/trace.context.js';
+import { PARENT_TRACE_KEY } from '../../../src/modules/jobs/job.trace.payload.js';
 
 const stubLogger = (): Logger => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), trace: vi.fn() });
 
@@ -71,6 +72,40 @@ describe('the trace a job opens', () => {
         }
 
         await new Probe(fakeScope({ [String(PgBossConnectionProvider)]: {}, [String(AuthorizationContext)]: {} })).run({});
+
+        expect(seen).toEqual({ id: 'job-42', kind: 'director.refill_lineup' });
+    });
+
+    it('takes the parent off the payload and never shows it to the job', async () => {
+        // The payload is the only thing that travels between two decisions, so the link rides on it
+        // — and a reserved key that reached `execute` would be a field somebody eventually branches
+        // on. Both halves are asserted here because they fail independently.
+        let seen: ReturnType<typeof currentTrace>;
+        let given: unknown;
+        class Probe extends PlainJob<{ trackId: string }> {
+            protected async execute(payload?: { trackId: string }): Promise<void> {
+                seen = currentTrace();
+                given = payload;
+            }
+        }
+
+        await new Probe(context, fakeScope(), stubLogger()).run({ trackId: 't1', [PARENT_TRACE_KEY]: 'job-parent' } as never);
+
+        expect(seen).toEqual({ id: 'job-42', kind: 'director.refill_lineup', parent: 'job-parent' });
+        expect(given).toEqual({ trackId: 't1' });
+    });
+
+    it('names no parent for a cron job, which is a root', async () => {
+        // A scheduled row is written once and fires forever; a parent on it would name a boot that
+        // happened weeks ago and would still be naming it a month later.
+        let seen: ReturnType<typeof currentTrace>;
+        class Probe extends PlainJob {
+            protected async execute(): Promise<void> {
+                seen = currentTrace();
+            }
+        }
+
+        await new Probe(context, fakeScope(), stubLogger()).run();
 
         expect(seen).toEqual({ id: 'job-42', kind: 'director.refill_lineup' });
     });

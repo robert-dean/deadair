@@ -47,6 +47,23 @@ export interface Trace {
      * it is a label, and a vocabulary would have to be maintained by everything that opens a trace.
      */
     kind: string;
+
+    /**
+     * The decision that caused this one, when one did.
+     *
+     * A job that enqueues another job is two decisions, not one: they are separately scheduled,
+     * separately retried, and may run minutes apart on different workers. So they get two ids and
+     * this is the edge between them — the enrichment walk that queues a fact extraction is the
+     * parent of it, and chasing a cause across that boundary used to mean chasing it by time.
+     *
+     * The IMMEDIATE parent only. A chain of three is two edges and a reader walks them; storing an
+     * ancestry here would be a list that grows without bound on a job that re-enqueues itself.
+     *
+     * Absent on a cron job, on a request, and on anything enqueued at boot, all of which are roots.
+     * A cron job in particular must never inherit one: it is scheduled once and fires forever, so a
+     * parent on it would name a boot that happened weeks ago.
+     */
+    parent?: string;
 }
 
 const traces = new AsyncLocalStorage<Trace>();

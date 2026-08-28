@@ -124,7 +124,17 @@ export function recordSpan(span: TraceSpan): void {
     const trace = currentTrace();
     if (trace === undefined || root === undefined) return;
 
-    const line = JSON.stringify({ at: new Date().toISOString(), trace: trace.id, kind: trace.kind, ...span });
+    // `parent` is carried on every span rather than written once per decision, which costs about
+    // thirty bytes a line and buys a reader that needs no join: "everything caused by X" is a filter
+    // over one pass of the file. Written once it would be a lookup, and a decision that made no
+    // calls at all would have nowhere to write it.
+    const line = JSON.stringify({
+        at: new Date().toISOString(),
+        trace: trace.id,
+        kind: trace.kind,
+        ...(trace.parent === undefined ? {} : { parent: trace.parent }),
+        ...span,
+    });
     const dir = join(root, TRACES_DIR);
 
     queue = queue
@@ -135,6 +145,34 @@ export function recordSpan(span: TraceSpan): void {
             await prune(dir);
         })
         .catch(() => undefined);
+}
+
+/**
+ * Run `fn` as one span, recording what it cost whether it returned or threw.
+ *
+ * The `finally` shape written once, for the callers that need no detail off the result. The two that
+ * do — the plugin invoker and the model loop — keep their own blocks, because a helper that took a
+ * callback to build `detail` from a result that may not exist would be harder to read than the four
+ * lines it replaced.
+ */
+export async function recordingSpan<T>(op: string, target: string, fn: () => Promise<T>): Promise<T> {
+    const startedAt = Date.now();
+    let failure: unknown;
+
+    try {
+        return await fn();
+    } catch (error) {
+        failure = error;
+        throw error;
+    } finally {
+        recordSpan({
+            op,
+            target,
+            ms: Date.now() - startedAt,
+            outcome: failure === undefined ? 'ok' : 'failed',
+            ...(failure === undefined ? {} : { error: spanError(failure) }),
+        });
+    }
 }
 
 /** Everything a caller needs to describe a failure the same way twice. */

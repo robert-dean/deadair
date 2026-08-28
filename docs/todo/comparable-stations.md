@@ -161,11 +161,28 @@ seams were the two named here. Three things the design above did not have:
 nobody reads. First run on this station, over 191 calls: 98s of model time over 26 generations, and
 62s in one plugin method (`wikipedia enrichment.enrichArtist`) that no log line had ever attributed.
 
-**The one limit worth knowing.** A job that enqueues another job is two decisions and gets two
-traces — the enrichment walk and the fact extraction it triggers do not share an id. That is honest
-rather than broken (they are separately scheduled and separately retried), but a reader chasing a
-cause across that boundary has to do it by time. Linking them would mean carrying a parent id
-through the payload, which is a real design and not this one.
+~~**The one limit worth knowing.**~~ A job that enqueues another job is two decisions and gets two
+traces. They still do — separately scheduled, separately retried, possibly minutes apart on
+different workers — but **the edge between them is recorded now** (2026-08-28, the commit after).
+`Trace.parent` carries the immediate parent, `TracingJobBroker` stamps it into the payload on `send`
+because there is no header on a queue row and nothing else travels between two decisions, and both
+job bases lift it back off before `execute` ever sees it.
+
+Three things that decided the shape:
+
+- **`schedule` is deliberately not stamped.** A cron row is written once at boot and fires forever,
+  so a parent on it would name that boot on every run for as long as it lives. Only `send` links.
+- **A broker, not a convention.** Twenty-odd `send` call sites, and a missing edge looks exactly like
+  a root — so a link that depended on remembering would be silently wrong wherever somebody forgot.
+- **Every job now records a `job.run` span**, which is what makes the edge survive a decision that
+  called nothing. It also gives each job a wall-clock and an outcome, which nothing had before.
+
+**And it caught a live bug on the first boot, which is the part worth keeping.** pg-boss delivers a
+cron job's absent payload as `null` while the runner types it `Payload | undefined`, so
+`'__trace' in null` threw and took `ScheduleTickJob`, `scrobble.flush` and three others down before
+`execute` was reached. `== null`, not `=== undefined`: **the signature is not evidence about the
+value when the value comes off a queue.** Found by watching the log after deploying rather than by
+any test, which is the argument for verifying against the running station.
 
 **Usage is per attempt and never adds up.** `script_history` carries `usage jsonb` and `duration_ms`
 per write attempt, and `/scripts` shows them, which is genuinely more than the other station keeps

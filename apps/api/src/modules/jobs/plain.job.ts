@@ -3,6 +3,8 @@ import { Job, JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { overrideJobActor } from './job.authorization.js';
 import { runInTrace } from '#modules/shared/trace.context.js';
+import { recordingSpan } from '#modules/shared/trace.spans.js';
+import { takeParentTrace } from './job.trace.payload.js';
 
 /**
  * The base class for a job that deliberately does NOT wrap itself in a
@@ -75,10 +77,20 @@ export abstract class PlainJob<Payload extends object = object> implements Job<P
      * setup for the work, not part of it, and a line logged while installing an actor belongs to
      * the runner rather than to the decision. `JobContext.id` is the id because it already is the
      * correlation id — see {@link runInTrace}.
+     *
+     * The payload arrives carrying whichever decision enqueued this one, and `execute` never sees
+     * it: {@link takeParentTrace} lifts it out and hands the job back the payload it was sent. The
+     * `job.run` span is what records the edge, and it is recorded whether or not this job calls
+     * anything — a decision that made no plugin calls would otherwise leave no trace of having
+     * happened, which is the case where knowing what caused it is most of the answer.
      */
     async run(payload?: Payload, signal?: AbortSignal): Promise<void> {
         overrideJobActor(this.container as ScopedContainer, this.context);
-        await runInTrace({ id: this.context.id, kind: this.context.name }, async () => await this.execute(payload, signal));
+
+        const { payload: own, parent } = takeParentTrace(payload);
+        const trace = { id: this.context.id, kind: this.context.name, ...(parent === undefined ? {} : { parent }) };
+
+        await runInTrace(trace, async () => await recordingSpan('job.run', this.context.name, async () => await this.execute(own, signal)));
     }
 
     /**

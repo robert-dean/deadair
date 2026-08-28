@@ -18,6 +18,13 @@ export interface StationMarkProps {
  * The header uses the skull alone: at this size the arched "deadair radio" is illegible, and the
  * wordmark next to it already says the name. `/logo.png` is the full lockup for anywhere with room.
  *
+ * `/logo-mark.png` and `/favicon.png` are BUILT from that lockup rather than cropped out of it. The
+ * first attempt was a crop, and a crop tight enough to drop the arched type also ran the headphones
+ * off the disc: both earcups were sliced flat by the circle's edge, which at 30px reads as a broken
+ * image rather than a badge. They are now the skull group lifted off the lockup, the type painted
+ * back out in the field colour, and the whole thing scaled so its farthest point sits at 84% of the
+ * disc's radius. Regenerate them the same way — the ring of green is what makes it a mark.
+ *
  * Decorative, so it is hidden from assistive technology rather than announcing the name twice.
  */
 export function StationMark({ size = 30 }: StationMarkProps) {

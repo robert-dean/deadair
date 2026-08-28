@@ -2,6 +2,18 @@
 
 **Written:** 2026-08-15, out of the log of that evening's broadcast, in the pass that fixed the
 rotation keying beside it (`9014deb`, `a41fd3a`).
+
+**RE-MEASURED 2026-08-28, and the cause is gone. Do not build phase 2.** The file's own instruction
+was to re-measure before building anything, on the theory that a model no longer shown glued credits
+might stop writing them. It did. **Zero of 372 named picks carry a credit line in the artist field**,
+across 50 captures spanning 2026-08-19 to 2026-08-25 — every one of them after the keying fix. The
+numbers and the method are in "The re-measure" below. Phase 2 would now be a normalization that never
+fires, phase 3's two cases are one occurrence and a 92% hit rate respectively, and phase 1 was
+specified as the prerequisite for judging those, so it has nothing left to judge.
+
+**What this file is now worth keeping for** is the argument in "What must not be done", which did not
+depend on the measurement and is the reason nobody should reach for a fuzzy comparison the next time
+this shape appears.
 **State of the tree:** `PickResolver.identify` matches a pick against the catalog, then falls to
 `ProviderTrackLookup.find`, which is STRICT: `normalizeKey(track.title)` and
 `normalizeKey(track.artists[0])` must both match the pick exactly. Anything else is refused, the pick
@@ -47,9 +59,60 @@ generator resolved — so the avoid list read:
 ```
 
 That was the keying bug, and it is fixed: identity now rides on `RundownTrack.artist`, the lead, and
-the avoid list renders one act per line. **Re-measure before building anything below.** A model that
-is no longer shown glued credits may stop writing them, and the residue would then be a much smaller
-problem than the eight-in-ten above.
+the avoid list renders one act per line. ~~**Re-measure before building anything below.**~~ Done; see
+below. The residue is not "a much smaller problem". There is no residue.
+
+## The re-measure, 2026-08-28
+
+**The evidence was already on disk and did not need a fresh broadcast.** `director: kept what the
+model was shown` writes every set the model produced to `.docvol/logs/captures/set-*.json`, prompt
+and answer both. Fifty of them survive, 2026-08-19 to 2026-08-25, all after the keying fix, and the
+`answer` field is the named picks verbatim. The rotated app logs were the wrong place to look: they
+retain five days and hold two drop lines total.
+
+**The direct answer, over 372 named picks in those 50 captures:**
+
+| Shape in the `artist` field | Count | Was |
+| --- | --- | --- |
+| A joiner credit line (`feat` / `ft` / `featuring` / `with` / `vs` / `x`) | **0** (0.0%) | 8 of the 10 drops in one refill |
+| `&`, `,` or `and` — real names, which phase 2 deliberately never splits | 3 (0.8%) | — |
+| A leading definite article | 1 (0.3%) | the one case phase 2 could not fix anyway |
+
+**And the same genre now resolves.** The 2026-08-15 measurement was `brief=rap hits across the
+decades`, `asked=15 named=24 resolved=11`. Five `rap hits` refills on 2026-08-22 named 66 distinct
+records, and of those **42 were DISCOVERED** — that is, `ProviderTrackLookup.find` matched them
+strictly and `PickResolver.discover` ingested them, which is precisely the rung that used to throw
+credit lines away. 22 were already in the catalog from the playlist sync and **2 were not found at
+all**, a 3% miss against the old 46% resolve rate. The rung is not failing; nothing is feeding it the
+malformed shape any more.
+
+**The model found the correct shape by itself, which is the finding worth carrying.** It now writes
+the feature into the TITLE and leaves the lead in the artist field — `Tyler, The Creator — See You
+Again (feat. Kali Uchis)`, `Metro Boomin — Creepin' (with The Weeknd & 21 Savage)` — and those resolve
+**7 of 7**. That is the provider's own spelling, which is why it matches, and it is what phase 2 would
+have had to manufacture by cutting the credit apart. The prompt already tells it never to correct a
+search result from memory; the fix was letting it see clean credits so it had a clean shape to copy.
+
+**Two things the sample confirms about phase 2's design, in case it is ever revived.**
+`Tyler, The Creator` and `Marky Mark And The Funky Bunch` are both live in this sample, and both would
+be destroyed by splitting on `,` or `and`. The file's refusal to put those on the joiner list was
+right for exactly the reason it gave. No whole-word `x` appeared inside a real name, but 372 picks is
+too small to clear it.
+
+**What would bring this back.** The keying fix removed the demonstration, not the possibility: the
+lookup is still strict and a credit line would still be refused. What changed is that nothing shows
+the model that shape. **Anything that puts a display credit back in front of a generator re-opens
+this file** — a new prompt surface built from `RundownTrack.artists`, a search tool that answers with
+full credits, or an import path that writes one into a pick. Re-run the measurement above before
+assuming otherwise; it is one script over the capture directory.
+
+**Measured in passing, and it is a bigger number than anything above.** 29 of the 50 captures (58%)
+produced no picks at all — 12 ended at `length`, 9 at `stop` with an unusable answer, 7 at
+`tool-calls`, 1 `other`. That is not this file's problem and it is not a matching problem, but it
+dwarfs the one this file was opened for. It belongs with
+[station-intelligence.md](station-intelligence.md) §2 and the fourth-pass finding in
+[comparable-stations.md](comparable-stations.md) about model calls that occupy the model and record
+nothing.
 
 ## What must not be done
 
@@ -61,6 +124,12 @@ holds a display credit where an identity is expected — so it is the pick that 
 either rung sees it.
 
 ## Phase 1 — say what was rejected, and why
+
+**Not built, and no longer the prerequisite it was.** It existed to answer "is phase 2 worth its
+risk", and the capture directory answered that for free. The residual case it could still illuminate
+is the 2 rap picks in 66 that no provider returned, which is 3% and is the one outcome phase 1 itself
+says nothing can be done about. Build it if a future measurement finds a miss rate worth explaining;
+do not build it to explain 3%.
 
 Cheapest, no behaviour change, and it is the prerequisite for judging the rest. On a strict miss,
 `ProviderTrackLookup.find` today logs `no provider has a record that was chosen` and discards every
@@ -80,6 +149,10 @@ It belongs at `debug`, and it must summarize rather than quote a provider's payl
 `ActivityRecorder` holds.
 
 ## Phase 2 — take the lead off the front of a credit line
+
+**Do not build this.** Zero of 372 picks carry the shape it strips. It is kept below because the
+joiner list and the asymmetry argument are the useful part, and because the next person to meet a
+credit line in a pick should reach for this design rather than invent a looser one.
 
 One normalization of `TrackPick.artist`, applied **once at the top of the loop in
 `PickResolver.identify`**, before rung 1. Not inside the lookup, and not as a retry: three things
@@ -110,6 +183,12 @@ different key by design. So the expected effect on that refill is 24 named → 2
 Anyone claiming more has not counted the article case.
 
 ## Phase 3 — only if phase 1 says so
+
+**Both cases were measured and neither justifies its risk.** The definite article appeared once in
+372 picks. The parenthetical title tail appeared 37 times and **34 of those resolved (92%)**, because
+the model is copying the provider's own spelling rather than inventing one — the failure this phase
+imagined depends on a model writing a bare title against a suffixed provider record, and it is not
+doing that.
 
 Two candidate normalizations, both riskier than phase 2 and neither worth building on a guess:
 

@@ -33,7 +33,7 @@ Two rules for this directory:
 | [fact-enrichment.md](fact-enrichment.md) | **Built 2026-08-15**, except the list at its bottom: `deadair.facts` holds one sourced claim each, extracted host-side out of prose a plugin handed over, with `source_url` and `source_quote` `not null` so a claim with no source is not expressible. Kept for the record of what was decided (a plugin fetches, the host thinks; the lead sentence as a floor that needs no model; the separate verification conversation) and for what was deliberately left: a second prose source, categories driving persona choice, a console write surface, and why facts never retire |
 | [track-lyrics.md](track-lyrics.md) | Lyrics as enrichment (2026-08-16), and the negative decision that shapes it: a lyric is the one payload the station may read and may never say, so it does NOT arrive as a `SourceDocument` and never becomes a fact, because the floor extractor takes an opening sentence verbatim and cannot decline. What they are actually for, ranked: a vocal onset for the talk-up limit that needs no model and answers half of `track-analysis.md`'s deferred field, then derived labels, then a DJ that knows the subject. Plus why the operator's own library is the first plugin and which services can and cannot answer at all |
 | [clean-copy-matching.md](clean-copy-matching.md) | **The advisory policy is built** (2026-08-16): `track_sources.advisory` per copy, `rotation.advisory` in three states, and binding selection doing the work because a clean edit and the explicit original are one track with two copies. What is deferred is going LOOKING for a clean copy the playlists never carried — a separate matcher from `ProviderTrackLookup` rather than a flag on it, because it needs to be looser on the title (`(Clean)`, `(Radio Edit)`) and stricter on identity, and the strict path must not grow a mode in which it is not strict. Plus the pairing cache, why a NEGATIVE result has to be stored too, and the one measurement it is all blocked on: whether the operator's own account-level explicit filter actually binds on the shim's fetch path, which the plugin now reports and deliberately does not enforce |
-| [pick-artist-matching.md](pick-artist-matching.md) | **A model names a record correctly and the station drops it** (2026-08-15, measured: eight of ten drops in one refill were `X featuring Y` in the artist field). The provider returns the right record and the strict lookup refuses it, because the pick holds a display credit where an identity belongs. Half the cause is already gone with the rotation keying fix, so the first phase is to RE-MEASURE and to log what the lookup rejected; then one normalization of the pick, at `identify` and not at the lookup, with the joiner list that deliberately excludes `&` and `,` because "Earth, Wind & Fire" is the failure that never announces itself |
+| [pick-artist-matching.md](pick-artist-matching.md) | **CLOSED by its own re-measure, 2026-08-28, without a line of code.** A model named a record correctly and the strict lookup refused it, because the pick held a display credit where an identity belongs (2026-08-15, measured: eight of ten drops in one refill were `X featuring Y`). The file insisted on re-measuring first, on the theory that the rotation keying fix had removed the cause rather than half of it. It had: **0 of 372 named picks carry a credit line**, over 50 captures, and the same `rap` brief that produced the failure now has the strict lookup discovering 42 of 66 with 2 misses. The model found the right shape by itself — the feature goes in the TITLE and the lead stays in the artist field, which is the provider's own spelling and resolves 7 of 7. Kept for the argument against loosening the comparison, for the joiner list that excludes `&` and `,` (`Tyler, The Creator` is live in the sample and splitting would destroy it), and for the named conditions that would re-open it. Also the source of a bigger loose number: **29 of those 50 model runs produced no picks at all** |
 | [pick-rationale.md](pick-rationale.md) | **Why this record followed that one**, which the station cannot say: `SetGeneratorChain.announce` reports who named how many and nothing asks a generator for a reason or has anywhere to keep one. What it would make checkable (a brief being followed, the chain topping up, what `rotation.briefOnly` costs), and the three things that make it upstream of a console: the model has to be asked and that is not free, the deterministic floor has no reason and must not invent one, and a pick is not a row anywhere between being named and being aired. Three phases, the first needing no migration |
 | [multi-station.md](multi-station.md) | A `deadair.stations` table so one install runs several stations, and what it subsumes |
 | [break-removal.md](break-removal.md) | **The bug is fixed** (2026-08-12): deleting a talk break used to be forgotten by the next commit pass, because a spliced-out break left a gap the planner could not tell from one never planted into. A removed break is a `removed` item now — its own state, because an operator's cut and the station passing over an item it reached are opposite facts — and its row is retired. Kept for **the quiet spell**, which is the feature the operator actually wanted and is now scoped in three phases (a count of RECORDS on `station_air`, gating the planter and withdrawing the tail), plus the move case and what the fix cost in `committedThrough` |
@@ -161,14 +161,24 @@ longer blocked on infrastructure.
 So the ranking is the table's, and the table's case is for **defects that were measured**, ahead of
 any feature:
 
-1. **[provider-audio-failures.md](provider-audio-failures.md)**, called the blocker under three other
-   files and with the worst numbers on this page: 13 of 581 tracks measured, four of eight skipped in
-   a hand-built order, two seconds of digital silence on air. **The tunnel raises its price rather
-   than lowering it**, because that silence now reaches a phone and an AVR instead of a desk.
-2. **[render-plugin-readiness.md](render-plugin-readiness.md)**, a break written off for a plugin
-   three hundred milliseconds from being up. Three pieces, the first two worth having alone.
-3. **[pick-artist-matching.md](pick-artist-matching.md)**, starting with the re-measure rather than
-   the fix, because the rotation-keying change may already have removed half the cause.
+1. ~~**[provider-audio-failures.md](provider-audio-failures.md)**~~, called the blocker under three
+   other files and with the worst numbers on this page: 13 of 581 tracks measured, four of eight
+   skipped in a hand-built order, two seconds of digital silence on air. **Defused 2026-08-14** by
+   `docs/decisions/bytes-before-air.md`: a record is not committed until its audio is local, so the
+   silence this describes is no longer reachable by that path.
+2. ~~**[render-plugin-readiness.md](render-plugin-readiness.md)**~~, a break written off for a plugin
+   three hundred milliseconds from being up. **Pieces 1 and 2 built 2026-08-21**, which that file
+   says are the two worth having; piece 3 is deferred on its own argument and it calls it the weakest
+   of the three.
+3. ~~**[pick-artist-matching.md](pick-artist-matching.md)**~~, starting with the re-measure rather
+   than the fix, because the rotation-keying change may already have removed half the cause. **It had
+   removed all of it — closed 2026-08-28 by the re-measure, no code written.** The instruction to
+   measure before building is the whole reason this cost an afternoon instead of a feature.
+
+**This list is now empty**, which is worth saying out loud because it was the thing ranked above every
+feature on this page. All three closed without the fix any of them proposed being built: two by work
+done elsewhere for other reasons, one by counting. **The next thing is the ranked list in
+[comparable-stations.md](comparable-stations.md)**, which resumes at its rank 2.
 
 Three things sit alongside rather than in that order. **Productions are surfaced now**: the five
 decisions in [produced-episodes.md](produced-episodes.md) are all built, a clock band commissions one

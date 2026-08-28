@@ -156,7 +156,10 @@ describe('PadLibrary.scan', () => {
 
         expect(result).toMatchObject({ scanned: 0, skipped: 1 });
         expect(imports).toHaveLength(0);
-        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('format the station does not serve'), expect.objectContaining({ format: 'opus' }));
+        expect(logger.warn).toHaveBeenCalledWith(
+            expect.stringContaining('format the station does not serve'),
+            expect.objectContaining({ format: 'opus' }),
+        );
     });
 
     it('passes over a file whose name no script could write', async () => {
@@ -275,7 +278,7 @@ describe('PadLibrary.seed', () => {
 
     it('leaves a library somebody has already filled entirely alone', async () => {
         const { repository } = fakeRepository();
-        await write('wisecrack/rimshot.wav', 'the operator\'s own');
+        await write('wisecrack/rimshot.wav', "the operator's own");
 
         expect(await library(repository).seed(assets)).toBe(0);
     });
@@ -425,4 +428,3 @@ describe('PadLibrary.ingest', () => {
         expect(imports).toHaveLength(0);
     });
 });
-

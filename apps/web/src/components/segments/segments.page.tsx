@@ -156,8 +156,8 @@ export function SegmentsPage() {
                 }}
                 onClose={() => setDeleting(undefined)}
             >
-                The inbox file goes too, so the next scan does not read it back in. Anything the
-                station has already aired stays in the activity feed either way.
+                The inbox file goes too, so the next scan does not read it back in. Anything the station has already aired stays in the activity feed
+                either way.
             </ConfirmModal>
         </Stack>
     );

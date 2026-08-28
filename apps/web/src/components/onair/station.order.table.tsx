@@ -306,7 +306,15 @@ function usePinnedToAir(anchorId: string | undefined, itemCount: number) {
  * position used to be an integer that could disagree with what actually aired, and it is now a fact
  * on each item that the player itself reported.
  */
-export function StationOrderTable({ items, onRemove, removingItemId, onMove, onRate, ratingTrackId, collapseHistory = false }: StationOrderTableProps) {
+export function StationOrderTable({
+    items,
+    onRemove,
+    removingItemId,
+    onMove,
+    onRate,
+    ratingTrackId,
+    collapseHistory = false,
+}: StationOrderTableProps) {
     const editable = onRemove !== undefined || onMove !== undefined;
     const anchor = anchorOf(items);
     const [historyOpen, setHistoryOpen] = useState(false);

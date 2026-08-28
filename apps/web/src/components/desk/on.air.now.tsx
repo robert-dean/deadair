@@ -194,7 +194,11 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                                 </Button>
                             </Tooltip>
                             {standingDown ? (
-                                <Tooltip label="Puts the station back on air on the running order it was stopped on. Nothing is rebuilt." multiline maw={320}>
+                                <Tooltip
+                                    label="Puts the station back on air on the running order it was stopped on. Nothing is rebuilt."
+                                    multiline
+                                    maw={320}
+                                >
                                     <Button h={44} loading={start.isPending} onClick={() => start.mutate()}>
                                         Start
                                     </Button>

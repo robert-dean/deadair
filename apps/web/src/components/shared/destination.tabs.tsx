@@ -53,17 +53,7 @@ export function DestinationTabs<TKey extends string>({ tabs, active, onSelect, l
                         fw={selected ? 600 : 400}
                         c={selected ? 'var(--da-text)' : 'var(--da-text-secondary)'}
                         onClick={() => onSelect(tab.key)}
-                        rightSection={
-                            tab.attention ? (
-                                <Box
-                                    aria-hidden
-                                    w={6}
-                                    h={6}
-                                    bg="yellow.4"
-                                    style={{ borderRadius: '50%' }}
-                                />
-                            ) : undefined
-                        }
+                        rightSection={tab.attention ? <Box aria-hidden w={6} h={6} bg="yellow.4" style={{ borderRadius: '50%' }} /> : undefined}
                         style={{
                             // Drawn as a border rather than a pseudo-element so it lands ON the
                             // strip's own rule instead of a pixel above it.

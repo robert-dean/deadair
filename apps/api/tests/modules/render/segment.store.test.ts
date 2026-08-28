@@ -8,7 +8,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { SEGMENT_CONTENT_TYPES, SEGMENT_EXTENSIONS, SegmentStore, isSegmentExtension, subdirectoryIsSafe } from '../../../src/modules/render/segment.store.js';
+import {
+    SEGMENT_CONTENT_TYPES,
+    SEGMENT_EXTENSIONS,
+    SegmentStore,
+    isSegmentExtension,
+    subdirectoryIsSafe,
+} from '../../../src/modules/render/segment.store.js';
 
 let root: string;
 let store: SegmentStore;

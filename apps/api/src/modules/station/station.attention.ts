@@ -193,12 +193,12 @@ function supply(facts: AttentionFacts): AttentionItem[] {
     // needs is WHICH one, and a station runs a handful of them rather than hundreds.
     items.push(
         ...facts.brokenPlugins.map(plugin => ({
-        code: `plugin.${plugin.status}`,
-        severity: 'warning' as const,
-        title: `${plugin.name} is not running`,
-        detail:
-            plugin.status === 'misconfigured'
-                ? `It is switched on and waiting on its configuration, so anything the station asks of it fails until that is filled in.`
+            code: `plugin.${plugin.status}`,
+            severity: 'warning' as const,
+            title: `${plugin.name} is not running`,
+            detail:
+                plugin.status === 'misconfigured'
+                    ? `It is switched on and waiting on its configuration, so anything the station asks of it fails until that is filled in.`
                     : `It is switched on and failed to start, so anything the station asks of it fails until it comes up.`,
             route: `/plugins/${plugin.id}`,
         })),

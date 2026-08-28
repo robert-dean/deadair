@@ -70,7 +70,11 @@ export class EraWatch {
                 `This broadcast plays ${window}, and none of the records the station can otherwise play fall inside it (at least ` +
                 `${playable} of them do not). It will run short rather than play the wrong period. A record whose release year the ` +
                 'catalogue does not know is always eligible, so this is about records it has dated.',
-            data: { playableSample: playable, ...(era.from === undefined ? {} : { eraFrom: era.from }), ...(era.to === undefined ? {} : { eraTo: era.to }) },
+            data: {
+                playableSample: playable,
+                ...(era.from === undefined ? {} : { eraFrom: era.from }),
+                ...(era.to === undefined ? {} : { eraTo: era.to }),
+            },
         });
     }
 

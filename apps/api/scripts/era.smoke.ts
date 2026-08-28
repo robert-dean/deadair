@@ -181,7 +181,7 @@ try {
 
         const years = await candidates.yearsFor(ids);
         check('reads a year off the track', years.get(seventies), 1975);
-        check("reads it off the album when the track has none", years.get(fromAlbum), 1979);
+        check('reads it off the album when the track has none', years.get(fromAlbum), 1979);
         check('takes the earlier of two disagreeing claims', years.get(both), 1975);
         check('whichever level the later one sits on', years.get(reissued), 1975);
         // Absent rather than a number, which is the distinction `PickResolver` acts on: "the catalog

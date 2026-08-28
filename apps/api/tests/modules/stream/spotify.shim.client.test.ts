@@ -202,7 +202,8 @@ describe('SpotifyShimClient', () => {
 // station spent a day doing: a healthy plugin listing playlists above an audio path 502ing on every
 // record, with nothing anywhere saying which half was wrong.
 describe('the track fetcher authorization', () => {
-    const healthy = (body: Record<string, unknown>) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    const healthy = (body: Record<string, unknown>) =>
+        new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
 
     it('reads a stored login as authorized, and a live session alone as not', async () => {
         // A session with no STORED login is the fetcher running on the token the app pushes it,

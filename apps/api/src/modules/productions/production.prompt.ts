@@ -553,7 +553,7 @@ function groundingRules(request: BeatRequest, caller: boolean, answering: boolea
 
     if (licensed) {
         return [
-            "- You may say what you THINK. Your opinions, your theory, what you reckon: that is what you rang up with and the station is not claiming any of it is true.",
+            '- You may say what you THINK. Your opinions, your theory, what you reckon: that is what you rang up with and the station is not claiming any of it is true.',
             '- It stays yours. Say "I reckon", "I read somewhere", "you ask me" — never state it as something everybody knows.',
             "- Never say a real, named person did something. Never describe a real event as though you were reporting it. Never put words in anybody's mouth.",
             '- Where a detail would make it sound like news rather than like you, leave the detail out.',
@@ -567,7 +567,7 @@ function groundingRules(request: BeatRequest, caller: boolean, answering: boolea
             ? // The host's half of the licence above. A claim nobody answers is a claim the station
               // made, and the presenter is the only person on the programme who can say so.
               [
-                  "- Your caller may say things you cannot check. Do not confirm one, do not repeat it as fact, and do not argue it down either. Take it as theirs — \"that's you, that is\", \"well, there you go\" — and move the programme on.",
+                  '- Your caller may say things you cannot check. Do not confirm one, do not repeat it as fact, and do not argue it down either. Take it as theirs — "that\'s you, that is", "well, there you go" — and move the programme on.',
               ]
             : []),
         '- This goes out on the radio as fact. Nobody listening can check it, and nothing later can take it back.',
@@ -657,11 +657,7 @@ function dialogueRules(speakers: OutlineRequest['speakers']): string[] | undefin
 function speakerLines(speakers: OutlineRequest['speakers']): string[] {
     if (speakers === undefined || speakers.length === 0) return [];
 
-    return [
-        '',
-        'Who speaks each beat, which is already decided:',
-        ...speakers.map(({ ordinal, who }) => `${ordinal + 1}. ${describe(who)}`),
-    ];
+    return ['', 'Who speaks each beat, which is already decided:', ...speakers.map(({ ordinal, who }) => `${ordinal + 1}. ${describe(who)}`)];
 }
 
 /** One cast member as the prompt names them: what they are, and what they are called. */
@@ -715,8 +711,7 @@ function storyLines(story: PersonaStoryForPrompt): string {
 }
 
 /** What to call somebody in a prompt: their on-air name, or what they are. */
-const nameOf = (who: CastMember | undefined): string =>
-    who?.name ?? (who?.role === 'caller' ? 'Your caller' : 'The presenter');
+const nameOf = (who: CastMember | undefined): string => who?.name ?? (who?.role === 'caller' ? 'Your caller' : 'The presenter');
 
 /** One line of the beat map: what it is, and whether it is done, current, or still to come. */
 function mapLine(beat: OutlineBeat, index: number, current: number): string {

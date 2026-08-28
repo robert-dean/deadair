@@ -279,7 +279,6 @@ describe('timeClaimIn', () => {
     });
 });
 
-
 // The gap `contradictsDayPart` structurally cannot cover. A stretch says which half of the day a
 // phrasing names, and some words name a POINT in it — so "midday" and half past four in the
 // afternoon are the same stretch, and the check that catches every other wrong daypart passes this

@@ -109,7 +109,7 @@ export function storyPrompt(subject: StorySubject, existing: readonly ExistingSt
                 'Rules:',
                 // The one that is a correctness rule rather than a taste one, and the only one whose
                 // failure a listener cannot tell from the station being wrong.
-                '- Nothing you write may be a claim about a real person, band or event. A record can be in the story — heard, played, worn out, requested — but never a gig, a date, a venue, a meeting or anything that happened TO an artist. Their experience of the music, never the music\'s history.',
+                "- Nothing you write may be a claim about a real person, band or event. A record can be in the story — heard, played, worn out, requested — but never a gig, a date, a venue, a meeting or anything that happened TO an artist. Their experience of the music, never the music's history.",
                 '- Nothing famous happens to them. No celebrity, no scandal, no disaster, no illness, no politics. Small things: a room, a caller, a tape, a night nobody else remembers.',
                 '- Write it as a SCRIPT, out loud, in their own voice, with an ending. The station reads it exactly as you wrote it when no model is available.',
                 '- Two or three sentences. A story nobody can get to the end of is not one.',

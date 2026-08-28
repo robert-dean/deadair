@@ -160,10 +160,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         </Card>
                     ) : undefined}
 
-                    <Section
-                        title="Who they are"
-                        blurb='The half of a character the model is told about. Everything here completes "You are …".'
-                    />
+                    <Section title="Who they are" blurb='The half of a character the model is told about. Everything here completes "You are …".' />
 
                     <Group grow align="flex-start">
                         <TextInput label="Name" placeholder="Late-night companion" {...form.getInputProps('label')} />

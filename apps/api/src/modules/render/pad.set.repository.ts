@@ -168,17 +168,17 @@ export class PadSetRepository extends DataRepository {
 
         if (held !== undefined) return held.padId === padId ? 'already' : 'name-taken';
 
-        await this.db.insertInto('deadair.padSetMembers').values({ setId, padId }).onConflict(conflict => conflict.doNothing()).execute();
+        await this.db
+            .insertInto('deadair.padSetMembers')
+            .values({ setId, padId })
+            .onConflict(conflict => conflict.doNothing())
+            .execute();
         return 'added';
     }
 
     /** Takes a pad off a set, leaving it in the library and on every other set. */
     async drop(setId: string, padId: string): Promise<boolean> {
-        const result = await this.db
-            .deleteFrom('deadair.padSetMembers')
-            .where('setId', '=', setId)
-            .where('padId', '=', padId)
-            .executeTakeFirst();
+        const result = await this.db.deleteFrom('deadair.padSetMembers').where('setId', '=', setId).where('padId', '=', padId).executeTakeFirst();
 
         return Number(result.numDeletedRows) > 0;
     }

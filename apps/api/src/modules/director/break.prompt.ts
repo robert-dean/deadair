@@ -634,7 +634,10 @@ function systemPrompt(settings: PromptSettings, shape: BreakPromptShape): string
         // job that filtered on it would be a second opinion about the same question.
         ...(persona === undefined
             ? []
-            : personaLines(persona, shape.allowsPreoccupation === true && settings.preoccupation !== undefined ? { preoccupation: settings.preoccupation } : {})),
+            : personaLines(
+                  persona,
+                  shape.allowsPreoccupation === true && settings.preoccupation !== undefined ? { preoccupation: settings.preoccupation } : {},
+              )),
         // Immediately after the sheet, and inside the same block, because a trait IS a sheet line —
         // one this character grew into rather than one its author typed. Gated on the persona as
         // well as on the shape: a note about a character nobody is presenting has nothing to attach
@@ -1796,4 +1799,3 @@ export function writeTrim(text: string, guard: AnswerGuard): { kept: number; dro
         reason: `the model wrote ${dropped} words past the word ceiling, so the break was cut back to its last whole sentence`,
     };
 }
-

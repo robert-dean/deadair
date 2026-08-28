@@ -99,7 +99,12 @@ export function PadsPage() {
                 title="Soundboard"
                 description="The sounds a presenter reaches for, and the sets that decide who reaches which. Drop audio in below, or into the pad library on disk and re-scan; a persona points at a set by name."
                 actions={
-                    <Button leftSection={<IconRefresh size={16} />} variant="default" loading={scan.isPending} onClick={() => void scan.mutateAsync()}>
+                    <Button
+                        leftSection={<IconRefresh size={16} />}
+                        variant="default"
+                        loading={scan.isPending}
+                        onClick={() => void scan.mutateAsync()}
+                    >
                         Re-scan the library
                     </Button>
                 }
@@ -163,9 +168,8 @@ export function PadsPage() {
                 }}
                 onClose={() => setDeleting(undefined)}
             >
-                The file this console wrote for it goes too, so the next scan does not read it back
-                in. Any script already written naming <code>[sfx:{deleting?.name}]</code> will simply
-                find nothing and be spoken without it.
+                The file this console wrote for it goes too, so the next scan does not read it back in. Any script already written naming{' '}
+                <code>[sfx:{deleting?.name}]</code> will simply find nothing and be spoken without it.
             </ConfirmModal>
         </Stack>
     );
@@ -262,12 +266,21 @@ function SetList({
                                                                 : `Renaming unpoints ${set.personas.join(', ')} — a persona names a set by its name`
                                                         }
                                                     >
-                                                        <ActionIcon variant="subtle" aria-label={`Rename ${set.key}`} onClick={() => setEditing({ id: set.id, key: set.key })}>
+                                                        <ActionIcon
+                                                            variant="subtle"
+                                                            aria-label={`Rename ${set.key}`}
+                                                            onClick={() => setEditing({ id: set.id, key: set.key })}
+                                                        >
                                                             <IconPencil size={16} />
                                                         </ActionIcon>
                                                     </Tooltip>
                                                     <Tooltip label="Remove the set. Every sound on it stays in the library.">
-                                                        <ActionIcon variant="subtle" color="red" aria-label={`Delete ${set.key}`} onClick={() => setDeleting(set)}>
+                                                        <ActionIcon
+                                                            variant="subtle"
+                                                            color="red"
+                                                            aria-label={`Delete ${set.key}`}
+                                                            onClick={() => setDeleting(set)}
+                                                        >
                                                             <IconTrash size={16} />
                                                         </ActionIcon>
                                                     </Tooltip>
@@ -416,11 +429,7 @@ function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete
                                     </ActionIcon>
                                 </Tooltip>
                                 <Tooltip label="Download the file">
-                                    <ActionIcon
-                                        variant="subtle"
-                                        aria-label={`Download ${pad.label}`}
-                                        onClick={() => void download(pad)}
-                                    >
+                                    <ActionIcon variant="subtle" aria-label={`Download ${pad.label}`} onClick={() => void download(pad)}>
                                         <IconDownload size={16} />
                                     </ActionIcon>
                                 </Tooltip>

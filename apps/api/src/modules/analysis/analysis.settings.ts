@@ -80,7 +80,6 @@ export function explainDefaultAnalyzer(chosen: AnalysisPlugin, candidates: reado
     return explainDefaultPick(chosen, candidates, ANALYSIS_WORDING);
 }
 
-
 /**
  * How many measurements to keep in flight, from whatever the setting says.
  *

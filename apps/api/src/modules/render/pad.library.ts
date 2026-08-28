@@ -157,7 +157,7 @@ export class PadLibrary {
                 }
             }
 
-            if (copied > 0) this.logger.info('render: put the station\'s own soundboard in the library', { files: copied, from });
+            if (copied > 0) this.logger.info("render: put the station's own soundboard in the library", { files: copied, from });
             return copied;
         } catch (error) {
             this.logger.warn(`render: could not lay down the shipped soundboard (${errorText(error)})`);
@@ -350,7 +350,7 @@ export class PadLibrary {
         try {
             await rm(join(this.root, pad.sourcePath), { force: true });
         } catch (error) {
-            this.logger.warn('render: could not take a pad\'s file off the disk; the next scan will read it back in', {
+            this.logger.warn("render: could not take a pad's file off the disk; the next scan will read it back in", {
                 pad: pad.id,
                 file: pad.sourcePath,
                 error: errorText(error),
@@ -515,4 +515,3 @@ export function labelFor(relative: string): string {
     const stem = name.slice(0, name.length - extname(name).length);
     return stem.replace(/[-_]+/g, ' ').trim() || stem;
 }
-

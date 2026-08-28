@@ -54,7 +54,9 @@ const base = { limit: 5, offset: 0, sort: 'asc' as const, schemaVersion: ANALYSI
 
 try {
     const counts = await tracks.trackStateCounts(base);
-    say(`${counts.total} records: ${counts.cached} cached, ${counts.measured} measured, ${counts.enriched} enriched, ${counts.benched} benched, ${counts.failing} failing`);
+    say(
+        `${counts.total} records: ${counts.cached} cached, ${counts.measured} measured, ${counts.enriched} enriched, ${counts.benched} benched, ${counts.failing} failing`,
+    );
 
     if (counts.total === 0) {
         say('an empty catalog proves nothing here; sync a playlist and run this again');

@@ -148,7 +148,7 @@ describe('putting a caller on air and taking them off again', () => {
         expect(system).not.toMatch(/ENDS/);
     });
 
-    it('says nothing about seeing anybody off on a CALLER\'s last turn', () => {
+    it("says nothing about seeing anybody off on a CALLER's last turn", () => {
         // `speakerOrder` gives the host the last turn, so this should not arise — but a caller told
         // to thank themselves and hand back to the music is a bad enough failure to close off here
         // rather than rely on the arithmetic upstream staying true.
@@ -274,7 +274,13 @@ describe('the half of the day a production goes out in', () => {
 describe('what a character remembers', () => {
     it('puts what it has settled into beside the sheet, where who it IS belongs', () => {
         const system = systemOf(
-            turn({ ...base, speaker: dale, previousSpeaker: host, persona: sheet(), notebook: { trait: ['You never quite finish a sentence.'], said: [] } }),
+            turn({
+                ...base,
+                speaker: dale,
+                previousSpeaker: host,
+                persona: sheet(),
+                notebook: { trait: ['You never quite finish a sentence.'], said: [] },
+            }),
         );
 
         expect(system).toContain('Things you have settled into on this station');
@@ -313,7 +319,14 @@ describe('what a character remembers', () => {
 
     it('says a story has been told before, only once it has', () => {
         const told = (timesTold: number) =>
-            userOf(turn({ ...base, speaker: dale, previousSpeaker: host, story: { title: 'The lights', story: 'Three lights.', details: [], timesTold } }));
+            userOf(
+                turn({
+                    ...base,
+                    speaker: dale,
+                    previousSpeaker: host,
+                    story: { title: 'The lights', story: 'Three lights.', details: [], timesTold },
+                }),
+            );
 
         expect(told(2)).toContain('somebody tells a story twice');
         expect(told(0)).not.toContain('somebody tells a story twice');

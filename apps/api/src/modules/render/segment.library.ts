@@ -228,7 +228,7 @@ export class SegmentLibrary {
         try {
             await rm(join(this.root, segment.sourcePath), { force: true });
         } catch (error) {
-            this.logger.warn('render: could not take a segment\'s file off the disk; the next scan will read it back in', {
+            this.logger.warn("render: could not take a segment's file off the disk; the next scan will read it back in", {
                 segment: segment.id,
                 file: segment.sourcePath,
                 error: errorText(error),

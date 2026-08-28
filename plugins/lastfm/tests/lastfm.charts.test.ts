@@ -20,7 +20,7 @@ async function initedPlugin(configured = true): Promise<LastfmPlugin> {
 }
 
 describe('naming a style chart', () => {
-    it('prefixes the style with the family this plugin\'s fetchChart already understands', async () => {
+    it("prefixes the style with the family this plugin's fetchChart already understands", async () => {
         const plugin = await initedPlugin();
         expect(plugin.styleChartId('heavy metal')).toBe('tag:heavy metal');
     });

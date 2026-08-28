@@ -164,7 +164,12 @@ export class PersonaDistilService {
      * `pronunciation.mining.service.ts` makes: written-first re-reads and the unique index
      * recognises the duplicate, marked-first loses the observation for good.
      */
-    private async distil(personaKey: string, label: string, style: string, stop?: AbortSignal): Promise<{ active: number; suggested: number } | undefined> {
+    private async distil(
+        personaKey: string,
+        label: string,
+        style: string,
+        stop?: AbortSignal,
+    ): Promise<{ active: number; suggested: number } | undefined> {
         const since = await this.notes.readThrough(personaKey);
         const said = await this.scripts.writtenBy(personaKey, since, MAX_SCRIPTS);
 
@@ -228,7 +233,12 @@ export class PersonaDistilService {
      * answers well — and one it fails is dropped without comment, because a false note about what
      * this character has already said is the station misremembering itself out loud.
      */
-    private async judge(personaKey: string, note: ModelNote, said: readonly { id: string; script: string }[], model: string): Promise<PersonaNoteWrite | undefined> {
+    private async judge(
+        personaKey: string,
+        note: ModelNote,
+        said: readonly { id: string; script: string }[],
+        model: string,
+    ): Promise<PersonaNoteWrite | undefined> {
         if (note.kind === 'said' && !(await this.supported(note.note, note.quote, model))) return undefined;
 
         // Which attempt the quote came from, for the console's link back. Best-effort: the quote has
@@ -263,7 +273,12 @@ export class PersonaDistilService {
     private async supported(note: string, quote: string, model: string): Promise<boolean> {
         try {
             const answer = await this.llm.converse(
-                { messages: verifyPrompt(note, quote), ...(model.length === 0 ? {} : { model }), maxOutputTokens: VERIFY_OUTPUT_TOKENS, reasoningEffort: 'low' },
+                {
+                    messages: verifyPrompt(note, quote),
+                    ...(model.length === 0 ? {} : { model }),
+                    maxOutputTokens: VERIFY_OUTPUT_TOKENS,
+                    reasoningEffort: 'low',
+                },
                 { budgetMs: VERIFY_BUDGET_MS, maxWaitMs: MODEL_WAIT_MS, tools: false, priority: MODEL_PRIORITY },
             );
 

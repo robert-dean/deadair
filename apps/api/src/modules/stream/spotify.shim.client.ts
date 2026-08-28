@@ -138,7 +138,11 @@ export type FetcherResult<T> = { ok: true; value: T } | FetcherRefusal;
 function refusalFor(status: number, message: string): FetcherRefusal {
     if (status === 400) return { ok: false, status: 400, message: message || 'the fetcher refused the authorization' };
     if (status === 404 || status === 401) {
-        return { ok: false, status: 503, message: 'the app and the track fetcher do not agree on a login secret, so the stream half of this install is not set up' };
+        return {
+            ok: false,
+            status: 503,
+            message: 'the app and the track fetcher do not agree on a login secret, so the stream half of this install is not set up',
+        };
     }
     return { ok: false, status: 502, message: message || `the track fetcher answered ${status}` };
 }
@@ -300,7 +304,11 @@ export class SpotifyShimClient {
      */
     private async control<T>(path: string, body: unknown, timeoutMs: number): Promise<FetcherResult<T>> {
         if (!this.shimSecret) {
-            return { ok: false, status: 503, message: 'the track fetcher has no login secret, so the stream half of this install has not been set up yet' };
+            return {
+                ok: false,
+                status: 503,
+                message: 'the track fetcher has no login secret, so the stream half of this install has not been set up yet',
+            };
         }
 
         let response: Response;

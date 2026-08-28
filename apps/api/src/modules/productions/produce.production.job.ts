@@ -261,32 +261,34 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
 
         const ask = async () =>
             await this.llm.converse(
-            {
-                messages: outlinePrompt({
-                    kind: claimed.kind,
-                    title: claimed.title,
-                    ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
-                    beats: plan.beats.length,
-                    wordsPerBeat: plan.beats[0]?.words ?? 0,
-                    // No persona: the outline decides what the programme is ABOUT, and the beats
-                    // decide who is saying it. See `outlinePrompt` for what handing it the sheet
-                    // actually produced. The CAST is a different thing and is sent — who has each
-                    // turn is already decided, and content planned without knowing that is content
-                    // the wrong person has to say.
-                    ...(isDialogue(casting) ? { speakers: plan.beats.map(beat => ({ ordinal: beat.ordinal, who: casting[beat.speaker ?? 0]! })) } : {}),
-                    station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-                    // Here as well as on every beat, because a throughline is an instruction each
-                    // beat then obeys: a plan written around the end of a long day cannot be undone
-                    // by a rule in the beat prompt saying it is the morning.
-                    dayPart: this.whenItAirs(claimed).words,
-                }),
-                maxOutputTokens: OUTLINE_OUTPUT_TOKENS,
-                // Planning IS the reasoning problem here, unlike a break. Left at the model's own
-                // default rather than pinned low, which is the one call in this file where thinking
-                // buys something.
-            },
-            { budgetMs: OUTLINE_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
-        );
+                {
+                    messages: outlinePrompt({
+                        kind: claimed.kind,
+                        title: claimed.title,
+                        ...(claimed.brief === undefined ? {} : { brief: claimed.brief }),
+                        beats: plan.beats.length,
+                        wordsPerBeat: plan.beats[0]?.words ?? 0,
+                        // No persona: the outline decides what the programme is ABOUT, and the beats
+                        // decide who is saying it. See `outlinePrompt` for what handing it the sheet
+                        // actually produced. The CAST is a different thing and is sent — who has each
+                        // turn is already decided, and content planned without knowing that is content
+                        // the wrong person has to say.
+                        ...(isDialogue(casting)
+                            ? { speakers: plan.beats.map(beat => ({ ordinal: beat.ordinal, who: casting[beat.speaker ?? 0]! })) }
+                            : {}),
+                        station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
+                        // Here as well as on every beat, because a throughline is an instruction each
+                        // beat then obeys: a plan written around the end of a long day cannot be undone
+                        // by a rule in the beat prompt saying it is the morning.
+                        dayPart: this.whenItAirs(claimed).words,
+                    }),
+                    maxOutputTokens: OUTLINE_OUTPUT_TOKENS,
+                    // Planning IS the reasoning problem here, unlike a break. Left at the model's own
+                    // default rather than pinned low, which is the one call in this file where thinking
+                    // buys something.
+                },
+                { budgetMs: OUTLINE_BUDGET_MS, maxWaitMs: WAIT_MS, tools: false, priority: this.priorityOf(claimed) },
+            );
 
         // Asked again before giving up, which is worth one call and is not free. The measured reason
         // this pass fails is the one model slot being busy — "waited 60000ms for the model and it is

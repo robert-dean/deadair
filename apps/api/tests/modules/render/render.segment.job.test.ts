@@ -76,7 +76,16 @@ function harness(
         findById: vi.fn(async (id: string) =>
             options.padMissing
                 ? undefined
-                : { id, board: 'wisecrack', name: 'rimshot', label: 'Rimshot', audioChecksum: 'pad-sum', audioExt: 'mp3', source: 'library', state: 'active' },
+                : {
+                      id,
+                      board: 'wisecrack',
+                      name: 'rimshot',
+                      label: 'Rimshot',
+                      audioChecksum: 'pad-sum',
+                      audioExt: 'mp3',
+                      source: 'library',
+                      state: 'active',
+                  },
         ),
     } as unknown as PadRepository;
 

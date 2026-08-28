@@ -109,7 +109,12 @@ try {
                     : (
                           await trx
                               .insertInto('deadair.albums')
-                              .values({ artistId, name: `${TAG} ${title} album`, nameKey: normalizeKey(`${TAG} ${title} album`), year: options.albumYear })
+                              .values({
+                                  artistId,
+                                  name: `${TAG} ${title} album`,
+                                  nameKey: normalizeKey(`${TAG} ${title} album`),
+                                  year: options.albumYear,
+                              })
                               .returning('id')
                               .executeTakeFirstOrThrow()
                       ).id;
@@ -223,12 +228,16 @@ try {
         check('and drops what falls outside', (await found(`${TAG} dated`, { yearFrom: 1970, yearTo: 1979 })).includes('eighties'), false);
         check('an open-ended start stands alone', (await found(`${TAG} dated`, { yearFrom: 1980 })).includes('seventies'), false);
         check('an open-ended end stands alone', (await found(`${TAG} dated`, { yearTo: 1979 })).includes('eighties'), false);
-        check("the album's year is what a track with none is judged by", (await found(`${TAG} dated`, { yearFrom: 1980 })).includes('from-album'), false);
+        check(
+            "the album's year is what a track with none is judged by",
+            (await found(`${TAG} dated`, { yearFrom: 1980 })).includes('from-album'),
+            false,
+        );
 
         // The decision this whole feature rests on, and the opposite of the `clean-only` posture next
         // door: an advisory is a content policy where silence must not read as consent, and a period
         // is programming, where dropping a record the station owns for want of a tag costs the hour.
-        check('a record with no year at all is offered for every period', (await found(`${TAG} dated`, { yearFrom: 1990, yearTo: 1999 })), ['undated']);
+        check('a record with no year at all is offered for every period', await found(`${TAG} dated`, { yearFrom: 1990, yearTo: 1999 }), ['undated']);
 
         // A period is a complete search: `search_music` may be called with nothing else, and this
         // half used to answer nothing at all because a year could not narrow a text match. Asked

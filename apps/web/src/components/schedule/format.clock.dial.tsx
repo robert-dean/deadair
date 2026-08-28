@@ -71,12 +71,7 @@ export function FormatClockDial({ bands, unproducible }: FormatClockDialProps) {
                 {/* The hole in the middle. It carries nothing: a live playhead here would be a
                     second clock disagreeing with the one in the header, and the header's is the one
                     an operator already trusts. */}
-                <Box
-                    pos="absolute"
-                    aria-hidden
-                    style={{ inset: 62, borderRadius: '50%', border: '1px solid var(--da-border)' }}
-                    display="flex"
-                >
+                <Box pos="absolute" aria-hidden style={{ inset: 62, borderRadius: '50%', border: '1px solid var(--da-border)' }} display="flex">
                     <Stack gap={0} align="center" justify="center" w="100%">
                         <Text size="xs" c="dimmed" ta="center" px="xs">
                             {marks.length === 0 ? 'nothing on the hour' : marks.length === 1 ? '1 break an hour' : `${marks.length} breaks an hour`}

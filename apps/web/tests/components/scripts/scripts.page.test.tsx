@@ -110,9 +110,7 @@ describe('ScriptsPage', () => {
         // No segment active at all, rather than neutral standing in for it. Scoped to the three
         // rating values, because the page's own filter chips are radios too and one of each of
         // those is always checked.
-        const opinions = screen
-            .getAllByRole('radio')
-            .filter(radio => ['liked', 'neutral', 'disliked'].includes((radio as HTMLInputElement).value));
+        const opinions = screen.getAllByRole('radio').filter(radio => ['liked', 'neutral', 'disliked'].includes((radio as HTMLInputElement).value));
 
         expect(opinions).toHaveLength(3);
         expect(opinions.some(radio => (radio as HTMLInputElement).checked)).toBe(false);

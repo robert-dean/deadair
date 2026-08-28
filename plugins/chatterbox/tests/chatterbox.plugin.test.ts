@@ -455,7 +455,10 @@ describe('ChatterboxPlugin.testConnection', () => {
         it('answers nothing for a build that claims them and names none', async () => {
             // The flag and the list are not redundant. A build that says yes and lists nothing
             // performs nothing, so the two are intersected rather than either one trusted alone.
-            const { plugin } = await started({ loaded: [true], modelInfo: { supports_paralinguistic_tags: true, available_paralinguistic_tags: [] } });
+            const { plugin } = await started({
+                loaded: [true],
+                modelInfo: { supports_paralinguistic_tags: true, available_paralinguistic_tags: [] },
+            });
 
             expect(await plugin.listCues()).toEqual([]);
         });

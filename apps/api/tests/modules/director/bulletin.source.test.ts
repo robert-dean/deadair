@@ -134,8 +134,14 @@ describe('how many stories one bulletin reads', () => {
     const headlines = Array.from({ length: 12 }, (_, at) => item(`Story ${at}`));
 
     it('reads the station default range, both ends', async () => {
-        const fewest = build({ items: headlines }, { [BULLETIN_KEYS.storiesMin]: DEFAULT_STORY_COUNT_MIN, [BULLETIN_KEYS.storiesMax]: DEFAULT_STORY_COUNT_MAX });
-        const most = build({ items: headlines }, { [BULLETIN_KEYS.storiesMin]: DEFAULT_STORY_COUNT_MIN, [BULLETIN_KEYS.storiesMax]: DEFAULT_STORY_COUNT_MAX });
+        const fewest = build(
+            { items: headlines },
+            { [BULLETIN_KEYS.storiesMin]: DEFAULT_STORY_COUNT_MIN, [BULLETIN_KEYS.storiesMax]: DEFAULT_STORY_COUNT_MAX },
+        );
+        const most = build(
+            { items: headlines },
+            { [BULLETIN_KEYS.storiesMin]: DEFAULT_STORY_COUNT_MIN, [BULLETIN_KEYS.storiesMax]: DEFAULT_STORY_COUNT_MAX },
+        );
 
         expect((await fewest.source.storiesFor(NEWS_KIND, undefined, NOW, rolls(0)))?.stories).toHaveLength(DEFAULT_STORY_COUNT_MIN);
         expect((await most.source.storiesFor(NEWS_KIND, undefined, NOW, rolls(0.999)))?.stories).toHaveLength(DEFAULT_STORY_COUNT_MAX);
@@ -211,7 +217,10 @@ describe('what it asks for', () => {
     });
 
     it('holds a mistyped count inside its bounds instead of reading a ten-minute bulletin', async () => {
-        const { source } = build({ items: Array.from({ length: 40 }, (_, at) => item(`Story ${at}`)) }, { [BULLETIN_KEYS.storiesMin]: 500, [BULLETIN_KEYS.storiesMax]: 500 });
+        const { source } = build(
+            { items: Array.from({ length: 40 }, (_, at) => item(`Story ${at}`)) },
+            { [BULLETIN_KEYS.storiesMin]: 500, [BULLETIN_KEYS.storiesMax]: 500 },
+        );
 
         expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories.length).toBeLessThanOrEqual(8);
     });
@@ -244,7 +253,10 @@ describe('what a writer is handed', () => {
     });
 
     it('keeps the order the news came in, and cuts to the number asked for', async () => {
-        const { source } = build({ items: [item('First'), item('Second'), item('Third')] }, { [BULLETIN_KEYS.storiesMin]: 2, [BULLETIN_KEYS.storiesMax]: 2 });
+        const { source } = build(
+            { items: [item('First'), item('Second'), item('Third')] },
+            { [BULLETIN_KEYS.storiesMin]: 2, [BULLETIN_KEYS.storiesMax]: 2 },
+        );
 
         expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories.map(one => one.headline)).toEqual(['First.', 'Second.']);
     });

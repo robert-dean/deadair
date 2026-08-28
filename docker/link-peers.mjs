@@ -51,7 +51,12 @@ for (const member of members) {
 for (const [name, count] of [...wanted].sort()) {
     const linkPath = join(root, 'node_modules', name);
 
-    if (await lstat(linkPath).then(() => true, () => false)) {
+    if (
+        await lstat(linkPath).then(
+            () => true,
+            () => false,
+        )
+    ) {
         console.log(`peers: ${name} is already at the root (wanted by ${count})`);
         continue;
     }

@@ -95,7 +95,11 @@ await db
             ).origin,
             'model',
         );
-        check('while an operator needs none', (await notes.add({ personaKey: KEY, kind: 'trait', note: 'calls the listener a shipmate', state: 'active', origin: 'operator' })).origin, 'operator');
+        check(
+            'while an operator needs none',
+            (await notes.add({ personaKey: KEY, kind: 'trait', note: 'calls the listener a shipmate', state: 'active', origin: 'operator' })).origin,
+            'operator',
+        );
 
         say('');
         say('the partial unique index');
@@ -120,16 +124,29 @@ await db
         await notes.setState(rejected.id, 'rejected');
         check(
             'a rejected note does not block the same words being written again',
-            await notes.addAll([{ personaKey: KEY, kind: 'trait', note: 'keeps coming back to Detroit records', state: 'active', origin: 'operator' }]),
+            await notes.addAll([
+                { personaKey: KEY, kind: 'trait', note: 'keeps coming back to Detroit records', state: 'active', origin: 'operator' },
+            ]),
             1,
         );
-        check('and `holds` still sees the rejected one, which is what stops a pass re-proposing it', await notes.holds(KEY, 'keeps coming back to Detroit records'), true);
+        check(
+            'and `holds` still sees the rejected one, which is what stops a pass re-proposing it',
+            await notes.holds(KEY, 'keeps coming back to Detroit records'),
+            true,
+        );
 
         say('');
         say('what a break is actually handed');
         // Only `active` rows, capped per kind, and rotated. A suggestion must never reach the air:
         // the whole reason `trait` notes arrive proposed is that nothing verified them.
-        await notes.add({ personaKey: KEY, kind: 'said', note: 'a proposal nobody has looked at', state: 'suggested', origin: 'model', sourceQuote: 'x' });
+        await notes.add({
+            personaKey: KEY,
+            kind: 'said',
+            note: 'a proposal nobody has looked at',
+            state: 'suggested',
+            origin: 'model',
+            sourceQuote: 'x',
+        });
         const chosen = await notes.forPrompt(KEY);
         check('a suggestion is not carried into a break', chosen.notes.said.includes('a proposal nobody has looked at'), false);
         check('the two kinds come back separately', chosen.notes.trait.length >= 1 && chosen.notes.said.length >= 1, true);
@@ -178,17 +195,23 @@ await db
 
         const whole = await scripts.writtenBy(KEY, undefined, 20);
         check('one break with two attempts counts once', whole.length, 3);
-        check('oldest first, so a habit reads as one developing', whole.map(row => row.script), [
-            'an older break',
-            'the floor covered for it',
-            'a newer break',
-        ]);
-        check('a declined attempt carries no words and is not offered as any', whole.some(row => row.script == null), false);
+        check(
+            'oldest first, so a habit reads as one developing',
+            whole.map(row => row.script),
+            ['an older break', 'the floor covered for it', 'a newer break'],
+        );
+        check(
+            'a declined attempt carries no words and is not offered as any',
+            whole.some(row => row.script == null),
+            false,
+        );
 
         const since = whole[1]!.at;
-        check('the watermark is exclusive, so a script read once is not read again', (await scripts.writtenBy(KEY, since, 20)).map(row => row.script), [
-            'a newer break',
-        ]);
+        check(
+            'the watermark is exclusive, so a script read once is not read again',
+            (await scripts.writtenBy(KEY, since, 20)).map(row => row.script),
+            ['a newer break'],
+        );
 
         // And the round trip through the column, which is the half the check above cannot see: a
         // watermark that lost precision on the way OUT would re-read its own last row even though

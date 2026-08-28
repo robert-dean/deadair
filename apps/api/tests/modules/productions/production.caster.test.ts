@@ -88,9 +88,7 @@ describe('casting a production', () => {
         // who was going to be on it is the outcome this must never have.
         const { caster } = build({ rosterThrows: true });
 
-        expect(await caster.cast(production(), 9)).toEqual([
-            { role: 'host', personaId: 'host-1', personaKey: 'classic', voice: 'classic' },
-        ]);
+        expect(await caster.cast(production(), 9)).toEqual([{ role: 'host', personaId: 'host-1', personaKey: 'classic', voice: 'classic' }]);
     });
 
     it('casts nobody into a block too short to introduce them in', async () => {

@@ -89,7 +89,6 @@ function build(options: Options = {}) {
         }),
     } as unknown as DirectorService;
 
-
     // A refill nothing interrupted, which is every case here but the one that says otherwise:
     // `took` answers false and the plan runs exactly once.
     const preemption = new RefillPreemption();

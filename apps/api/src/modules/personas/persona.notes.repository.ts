@@ -2,7 +2,14 @@ import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import { PERSONA_NOTE_LIMITS, type PersonaNote, type PersonaNoteDraft, type PersonaNoteKind, type PersonaNoteOrigin, type PersonaNoteState } from './persona.note.js';
+import {
+    PERSONA_NOTE_LIMITS,
+    type PersonaNote,
+    type PersonaNoteDraft,
+    type PersonaNoteKind,
+    type PersonaNoteOrigin,
+    type PersonaNoteState,
+} from './persona.note.js';
 import type { PersonaNotesForPrompt } from './persona.note.js';
 
 /** A note on its way in, with the two things only the writer of it knows. */
@@ -110,11 +117,7 @@ export class PersonaNotesRepository extends DataRepository {
 
     /** Writes one note and answers with it. */
     async add(write: PersonaNoteWrite): Promise<PersonaNote> {
-        const row = await this.db
-            .insertInto('deadair.personaNotes')
-            .values(this.valuesFor(write))
-            .returning('id')
-            .executeTakeFirstOrThrow();
+        const row = await this.db.insertInto('deadair.personaNotes').values(this.valuesFor(write)).returning('id').executeTakeFirstOrThrow();
 
         return (await this.list(write.personaKey)).find(note => note.id === row.id)!;
     }

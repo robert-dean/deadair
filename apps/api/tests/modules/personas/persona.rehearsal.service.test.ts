@@ -197,7 +197,7 @@ describe('PersonaRehearsalService', () => {
     // filled the box in and heard none of it would have no way to tell a subject that reads badly
     // from one the model ignored.
     it('carries one of the preoccupations, and the same one every reading', async () => {
-        const personas = { find: vi.fn(async () => persona({ preoccupations: ['the ship\'s manifest', 'the tide tables', 'the harbourmaster'] })) };
+        const personas = { find: vi.fn(async () => persona({ preoccupations: ["the ship's manifest", 'the tide tables', 'the harbourmaster'] })) };
         const writers = registry(twoAttempts);
         const service = new PersonaRehearsalService(
             personas as never,

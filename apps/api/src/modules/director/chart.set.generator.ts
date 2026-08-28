@@ -179,7 +179,13 @@ export class ChartSetGenerator extends SetGenerator {
             picks.push({ title: entry.title, artist: entry.artist });
         }
 
-        this.logger.debug('director: took records from a chart', { chartId, want, offered: entries.length, named: picks.length, ...(era === undefined ? {} : { era }) });
+        this.logger.debug('director: took records from a chart', {
+            chartId,
+            want,
+            offered: entries.length,
+            named: picks.length,
+            ...(era === undefined ? {} : { era }),
+        });
         return picks;
     }
 

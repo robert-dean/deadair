@@ -348,7 +348,11 @@ export class PadRepository extends DataRepository {
      * every other sound on it.
      */
     async remove(id: string): Promise<boolean> {
-        const result = await this.db.deleteFrom('deadair.pads').where('id', '=', id).where('stationKey', '=', this.station.stationKey).executeTakeFirst();
+        const result = await this.db
+            .deleteFrom('deadair.pads')
+            .where('id', '=', id)
+            .where('stationKey', '=', this.station.stationKey)
+            .executeTakeFirst();
 
         return Number(result.numDeletedRows) > 0;
     }

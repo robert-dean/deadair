@@ -86,7 +86,17 @@ function harness(
     } as unknown as AppConfig;
 
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
-    const job = new StitchProductionJob(productions, segments, store, mixer, analysis, config, { id: 'job-1' } as never, {} as never, logger as never);
+    const job = new StitchProductionJob(
+        productions,
+        segments,
+        store,
+        mixer,
+        analysis,
+        config,
+        { id: 'job-1' } as never,
+        {} as never,
+        logger as never,
+    );
 
     return { job, productions, segments, store, mixer, analysis, logger };
 }
@@ -101,7 +111,11 @@ describe('StitchProductionJob', () => {
             'Late line',
             // The station's own segment route for each part: the bytes joined are the bytes that
             // aired, and it is reachable from a sidecar container.
-            [expect.stringContaining('/segments/beat-0/audio'), expect.stringContaining('/segments/beat-1/audio'), expect.stringContaining('/segments/beat-2/audio')],
+            [
+                expect.stringContaining('/segments/beat-0/audio'),
+                expect.stringContaining('/segments/beat-1/audio'),
+                expect.stringContaining('/segments/beat-2/audio'),
+            ],
             200,
         );
         expect(store.writeStream).toHaveBeenCalledWith(expect.anything(), 'flac');

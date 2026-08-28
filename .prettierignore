@@ -17,4 +17,18 @@
 # hundred lines of churn over text nobody touched. None of it has ever been
 # formatted — `--check` fails on files that have been correct for months — so
 # this records the existing state rather than changing anything.
+#
+# It was `**/docs/` alone, which stated the rule and then applied it to one
+# directory. Every CLAUDE.md, every README and every skill in this repo is the
+# same hand-wrapped prose written under the same 100-column habit, and measuring
+# it bore the argument out exactly: Prettier repads the module table in
+# `apps/api/README.md`, rewrites the destination table at the top of `CLAUDE.md`,
+# and reformats the illustrative JSON inside `analysis/README.md` — including
+# adding a trailing comma to a block that has `//` comments in it and was never
+# JSON. Eleven files and 333 lines of churn over text nobody had touched.
 **/docs/
+**/*.md
+
+# Written by a tool rather than by anybody, and rewritten every time the tool
+# runs. Formatting it is a diff that comes back.
+**/.claude/settings.local.json

@@ -1178,7 +1178,18 @@ describe('WriteBreakJob', () => {
 // words somebody else shaped is two rules that disagree.
 describe('WriteBreakJob putting a pad in by itself', () => {
     const withBoard = { key: 'wisecrack', id: 'p-1', label: 'Wisecrack', kind: 'host', style: 'dry', active: true, soundboard: 'wisecrack' };
-    const rack = [{ id: 'pad-1', board: 'wisecrack', name: 'rimshot', label: 'Rimshot', audioChecksum: 'sum', audioExt: 'mp3', source: 'library', state: 'active' }];
+    const rack = [
+        {
+            id: 'pad-1',
+            board: 'wisecrack',
+            name: 'rimshot',
+            label: 'Rimshot',
+            audioChecksum: 'sum',
+            audioExt: 'mp3',
+            source: 'library',
+            state: 'active',
+        },
+    ];
 
     it('adds a sting to a break the floor wrote, once one is due', async () => {
         const { job, segments } = harness({ lineup: await lineupWithBreak(), persona: withBoard as never, pads: rack as never, breaksSincePad: 4 });
@@ -1191,7 +1202,12 @@ describe('WriteBreakJob putting a pad in by itself', () => {
     });
 
     it('resolves and rests what it added, so the rotation counts it like any other hit', async () => {
-        const { job, segments, pads } = harness({ lineup: await lineupWithBreak(), persona: withBoard as never, pads: rack as never, breaksSincePad: 4 });
+        const { job, segments, pads } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: rack as never,
+            breaksSincePad: 4,
+        });
 
         await job.run({ segmentId: 'seg-1' });
 
@@ -1210,7 +1226,13 @@ describe('WriteBreakJob putting a pad in by itself', () => {
     it('leaves a break the MODEL wrote exactly as the model wrote it', async () => {
         // The line. A character that was shown the rack and said nothing has decided; the station
         // does not get to append a punchline to somebody else's sentence.
-        const { job, segments } = harness({ lineup: await lineupWithBreak(), persona: withBoard as never, pads: rack as never, breaksSincePad: 40, writer: 'a-model' });
+        const { job, segments } = harness({
+            lineup: await lineupWithBreak(),
+            persona: withBoard as never,
+            pads: rack as never,
+            breaksSincePad: 40,
+            writer: 'a-model',
+        });
 
         await job.run({ segmentId: 'seg-1' });
 

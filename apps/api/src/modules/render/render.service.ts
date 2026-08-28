@@ -368,7 +368,13 @@ export class RenderService {
      * exactly that, and the console says so before it offers the button.
      */
     async updatePadSet(id: string, write: PadSetWrite): Promise<PadList> {
-        if (!(await this.padSets.update(id, { key: write.key, label: write.label, ...(write.position === undefined ? {} : { position: write.position }) }))) {
+        if (
+            !(await this.padSets.update(id, {
+                key: write.key,
+                label: write.label,
+                ...(write.position === undefined ? {} : { position: write.position }),
+            }))
+        ) {
             throw httpError(404).withDetails({ message: `pad set "${id}" does not exist` });
         }
 
@@ -539,7 +545,9 @@ export class RenderService {
         // The last path segment as the name, which is the same claim a filename makes one door over.
         const name = write.name === undefined ? padNameOf(path) : padName(write.name);
         if (name === undefined) {
-            throw httpError(400).withDetails({ message: 'that sound needs a name a script could write, and the address gave nothing to make one from' });
+            throw httpError(400).withDetails({
+                message: 'that sound needs a name a script could write, and the address gave nothing to make one from',
+            });
         }
 
         const { pad, contested } = await this.padLibrary.ingest({

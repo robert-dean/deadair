@@ -14,9 +14,7 @@ import { readProposals, storyPrompt, MAX_DETAIL_CHARS, MAX_PROPOSALS, MAX_STORY_
 
 const subject = { label: 'Overnight conspiracy host', style: 'an overnight host who believes the records are trying to tell you something' };
 
-const existing = [
-    { title: 'The Barstow lights', story: 'You saw three lights over the desert.', details: ['The truck radio went to static.'] },
-];
+const existing = [{ title: 'The Barstow lights', story: 'You saw three lights over the desert.', details: ['The truck radio went to static.'] }];
 
 const answer = (proposals: unknown) => JSON.stringify({ proposals });
 
@@ -54,7 +52,8 @@ describe('storyPrompt', () => {
 
     it('carries the sheet, so a proposal comes back in the character’s own voice', () => {
         const user =
-            storyPrompt({ ...subject, diction: ['Short sentences'], avoid: ['wake up'] }, existing).find(message => message.role === 'user')?.content ?? '';
+            storyPrompt({ ...subject, diction: ['Short sentences'], avoid: ['wake up'] }, existing).find(message => message.role === 'user')
+                ?.content ?? '';
 
         expect(user).toContain('Short sentences');
         expect(user).toContain('wake up');
@@ -69,7 +68,10 @@ describe('readProposals', () => {
     });
 
     it('reads a detail against the story it names, under that story’s own spelling of the handle', () => {
-        const found = readProposals(answer([{ kind: 'detail', title: 'the barstow LIGHTS', detail: 'The dogs would not go out that night.' }]), existing);
+        const found = readProposals(
+            answer([{ kind: 'detail', title: 'the barstow LIGHTS', detail: 'The dogs would not go out that night.' }]),
+            existing,
+        );
 
         expect(found).toEqual([{ kind: 'detail', title: 'The Barstow lights', detail: 'The dogs would not go out that night.' }]);
     });
@@ -136,13 +138,20 @@ describe('readProposals', () => {
     });
 
     it('keeps the source, which is what the operator reads a proposal against', () => {
-        const found = readProposals(answer([{ kind: 'story', title: 'A tape', story: 'You never labelled it.', source: 'the station plays a lot of it' }]), existing);
+        const found = readProposals(
+            answer([{ kind: 'story', title: 'A tape', story: 'You never labelled it.', source: 'the station plays a lot of it' }]),
+            existing,
+        );
 
         expect(found[0]?.source).toBe('the station plays a lot of it');
     });
 
     it('takes no more than it asked for', () => {
-        const many = Array.from({ length: MAX_PROPOSALS + 3 }, (_, index) => ({ kind: 'story', title: `Story ${index}`, story: 'Something happened.' }));
+        const many = Array.from({ length: MAX_PROPOSALS + 3 }, (_, index) => ({
+            kind: 'story',
+            title: `Story ${index}`,
+            story: 'Something happened.',
+        }));
 
         expect(readProposals(answer(many), existing)).toHaveLength(MAX_PROPOSALS);
     });

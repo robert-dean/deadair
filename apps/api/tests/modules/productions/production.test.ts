@@ -60,7 +60,10 @@ describe('priorityForSlot', () => {
 
 describe('coerceOutlineBeat', () => {
     it('takes a title and the shape around it', () => {
-        const beat = coerceOutlineBeat({ title: 'The 808 arrives', angle: 'nobody wanted it', setup: 'mention the price', payoff: 'the price again' }, 3);
+        const beat = coerceOutlineBeat(
+            { title: 'The 808 arrives', angle: 'nobody wanted it', setup: 'mention the price', payoff: 'the price again' },
+            3,
+        );
 
         expect(beat).toEqual({
             title: 'The 808 arrives',

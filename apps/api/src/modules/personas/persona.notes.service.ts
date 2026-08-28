@@ -1,6 +1,10 @@
 import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
-import type { PersonaNoteList, PersonaNoteState as PersonaNoteStateInput, PersonaNoteWrite as PersonaNoteWriteInput } from './types/personas.types.js';
+import type {
+    PersonaNoteList,
+    PersonaNoteState as PersonaNoteStateInput,
+    PersonaNoteWrite as PersonaNoteWriteInput,
+} from './types/personas.types.js';
 import { PersonaRepository } from './persona.repository.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
 

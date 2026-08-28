@@ -81,7 +81,10 @@ describe('MixerService.join', () => {
         const { service, logger } = build({ plugins: [['deadair.analyzer', ['analysis']]] });
 
         expect(await service.join('Late line', ['http://station.test/a'], 200)).toBeUndefined();
-        expect(logger.info).toHaveBeenCalledWith('render: nothing to join audio with', expect.objectContaining({ reason: expect.stringContaining('mixer') }));
+        expect(logger.info).toHaveBeenCalledWith(
+            'render: nothing to join audio with',
+            expect.objectContaining({ reason: expect.stringContaining('mixer') }),
+        );
     });
 
     it('answers undefined when the join throws, and says so', async () => {

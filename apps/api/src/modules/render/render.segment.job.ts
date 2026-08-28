@@ -234,7 +234,11 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                 // join, because the rest of the break is still several takes that want joining and
                 // the alternative loses the sound AND the timing.
                 if (pad === undefined) {
-                    this.logger.info('render: a break hit a pad that is no longer there', { job: this.context.id, segment: segment.id, pad: part.name });
+                    this.logger.info('render: a break hit a pad that is no longer there', {
+                        job: this.context.id,
+                        segment: segment.id,
+                        pad: part.name,
+                    });
                     continue;
                 }
 

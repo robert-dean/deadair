@@ -184,7 +184,10 @@ describe('RenderService.getSegmentAudio', () => {
 describe('RenderService.listSegments', () => {
     it('says whether each segment can actually be played, rather than handing out a filename', async () => {
         const { service: render } = service({
-            segments: [READY, { id: 'b', kind: 'talkbreak', state: 'planned', label: 'the news', source: 'render', script: 'Good evening', pads: [] }],
+            segments: [
+                READY,
+                { id: 'b', kind: 'talkbreak', state: 'planned', label: 'the news', source: 'render', script: 'Good evening', pads: [] },
+            ],
         });
 
         const { segments } = await render.listSegments();
@@ -762,7 +765,8 @@ describe('RenderService.fetchPad', () => {
     };
 
     /** An upstream handing back one chunk of the given size, with no content-length at all. */
-    const answering = (bytes: number, type = 'audio/wav') =>
+    const answering =
+        (bytes: number, type = 'audio/wav') =>
         async () =>
             new Response(new Uint8Array(bytes), { status: 200, headers: { 'content-type': type } });
 
@@ -790,13 +794,15 @@ describe('RenderService.fetchPad', () => {
     });
 
     it('refuses a format the store cannot serve', async () => {
-        const { service: render, ingest } = fetcher(async () => new Response(new Uint8Array(8), { status: 200, headers: { 'content-type': 'text/html' } }));
+        const { service: render, ingest } = fetcher(
+            async () => new Response(new Uint8Array(8), { status: 200, headers: { 'content-type': 'text/html' } }),
+        );
 
         expect(await status(render.fetchPad({ url: 'https://example.com/airhorn', board: 'station' }))).toBe(415);
         expect(ingest).not.toHaveBeenCalled();
     });
 
-    it('answers 502 for an address that refused, rather than reporting it as the operator\'s mistake', async () => {
+    it("answers 502 for an address that refused, rather than reporting it as the operator's mistake", async () => {
         const { service: render } = fetcher(async () => new Response('nope', { status: 404 }));
 
         expect(await status(render.fetchPad({ url: 'https://example.com/airhorn.wav', board: 'station' }))).toBe(502);

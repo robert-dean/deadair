@@ -105,7 +105,9 @@ try {
             } as unknown as Container;
 
             let capBytes = 0;
-            const config = { get: (key: string, fallback: unknown) => (key === TRACK_CACHE_MAX_BYTES_KEY ? capBytes : fallback) } as unknown as AppConfig;
+            const config = {
+                get: (key: string, fallback: unknown) => (key === TRACK_CACHE_MAX_BYTES_KEY ? capBytes : fallback),
+            } as unknown as AppConfig;
             const resolver = { resolveBinding: async () => undefined } as unknown as PluginTrackResolver;
             const service = new TrackAudioService(container, store, resolver, config, quiet);
 
@@ -142,7 +144,11 @@ try {
 
             // ── the order is the LRU ──────────────────────────────────────────
             const oldest = await repository.leastRecentlyServed(2, []);
-            check('the walk answers oldest first', oldest.map(row => row.sourceId), [files[0]!.sourceId, files[1]!.sourceId]);
+            check(
+                'the walk answers oldest first',
+                oldest.map(row => row.sourceId),
+                [files[0]!.sourceId, files[1]!.sourceId],
+            );
             check(
                 'and skips what it is told to',
                 (await repository.leastRecentlyServed(1, [files[0]!.sourceId])).map(row => row.sourceId),

@@ -217,7 +217,12 @@ export class SimilarSetGenerator extends SetGenerator {
             this.logger.warn(`director: the similarity walk stopped early (${errorText(error)})`);
         }
 
-        this.logger.debug('director: took records from neighbours of what has aired', { seeds: seeds.length, want, named: picks.length, ...(era === undefined ? {} : { era }) });
+        this.logger.debug('director: took records from neighbours of what has aired', {
+            seeds: seeds.length,
+            want,
+            named: picks.length,
+            ...(era === undefined ? {} : { era }),
+        });
         return picks;
     }
 

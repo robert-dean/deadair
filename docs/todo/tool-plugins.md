@@ -18,6 +18,32 @@ better modelled as a capability, and `tool` is for a plugin that wants to offer 
 the host has no concept of. Weather is still the case that argues for it. See
 [news-and-bulletins.md](news-and-bulletins.md).
 
+## And so did search, 2026-08-28
+
+Built, and as a capability for the reason above rather than as a `tool` plugin: `search` in the SDK,
+`SearchService` in `modules/search`, `WebSearchTool` in front of it, `plugins/websearch` behind it
+over SearXNG, Brave or Tavily. **Nothing about the `ToolRegistry` changed to accommodate it**, which
+is the thing the 2026-08-25 note below predicted and is worth having confirmed: a new source is one
+`registry.register` and one entry in the explicit list.
+
+Two things it settled that this file had left open.
+
+**"Is it a plugin?" is the wrong first question. "Is it a menu?" is the better one.** Every source
+here except this one answers out of a list somebody assembled — the library, the providers, a
+published chart, the operator's own feeds. Search takes words the model made up and goes and asks,
+and that is what makes it the last declaration offered and the one the prompt describes as a
+fallback. The plugin/host split is a second question and is answered by the rule above.
+
+**A synthesized ANSWER is where the capability boundary actually bit.** Tavily's `include_answer`
+and SearXNG's infobox are the headline feature of both services, and neither has anywhere to land:
+the capability has no field for one, the plugin turns the parameter off, and both parsers have a
+test asserting the paragraph does not survive. A paragraph somebody else's model wrote about pages
+this station never sees is a claim nothing here can check against a source — the same argument
+`SourceDocument` is built on, arriving from the opposite direction.
+
+The remaining rows of the table below are weather, which is still the case for a real `tool`
+capability.
+
 ## The shape
 
 A `tool` capability in the plugin SDK:
@@ -86,7 +112,7 @@ a character's invented past is worth having only where it is grounded in records
 actually holds. A `search` source registered in `ToolRegistry` reaches it with no change to that
 file.
 
-Two things to re-read on the day somebody builds one, and the first is the important one:
+Both of the following were re-read on 2026-08-28, when one was built. What happened to each:
 
 - **The fence in `persona.story.model.ts` was written for a pass that could only look at this
   station's own library.** A pass that can search the open web can also state what it found, and the
@@ -94,10 +120,25 @@ Two things to re-read on the day somebody builds one, and the first is the impor
   much harder to keep when the model has a source to cite. Everything that pass writes arrives
   `suggested`, so the operator is still the check; that is what makes the risk survivable rather than
   what makes it go away.
+
+  **Answered with one more line in the fence.** The existing rule already forbade what needed
+  forbidding, and read as a rule about INVENTION rather than about claiming: on a pass that could
+  only see this station's library, "may not claim" and "may not invent" were the same sentence,
+  because there was no way to state a true thing about an artist. The added line says the rule holds
+  for anything the model looked up, and says what a tool result is FOR here — choosing what a
+  presenter might have been listening to, never saying what an artist did.
 - **Every tool the registry holds is offered to every caller.** `LlmService.toolsFor` is all or
   nothing, so a search tool added for the story pass is also in front of the break writers, which
   today deliberately run with `tools: false`. That is fine as it stands and would stop being fine the
   moment something wanted tools for one caller and not another.
+
+  **Still true, and still fine, and it is now the interesting constraint rather than a footnote.**
+  The two passes that run with tools on are the story pass and the set generator, and neither is the
+  one that would most obviously benefit: a talk break is where a fact off the web would actually be
+  heard, and it runs without tools because a break must be fast and both records are already in its
+  prompt. So a per-caller tool list is the thing to build the day somebody wants a break writer that
+  can look something up, and building it is a smaller job than making the break writers fast enough
+  to take the whole registry.
 
 ## Related
 

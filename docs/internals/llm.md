@@ -17,9 +17,9 @@ is a primary key and a station wanting a big model for a show and a small one fo
 by installing twice. Three things stay host-side in `modules/llm/`, deliberately: `LlmGate`, which holds one
 model slot **until the words stop arriving rather than until the call resolves**, with its budget starting at
 admission and covering the drain; the tool loop, because a tool is a station function and running one inside a
-plugin would be the wrong side of the fence; and `ToolRegistry`, whose sources are an explicit list (catalog
-search today). A tool declaration goes out and a tool call comes back, both plain JSON, so nothing executable
-crosses.
+plugin would be the wrong side of the fence; and `ToolRegistry`, whose sources are an explicit list rather
+than whatever registered itself. A tool declaration goes out and a tool call comes back, both plain JSON, so
+nothing executable crosses.
 
 **A station with no model plugin is an ordinary state, not a fault** — `canGenerate()` answers it without
 throwing, so a writer picks its deterministic binding.
@@ -39,6 +39,21 @@ the model is self-hosted so nothing is billed, and "no tier makes music stop" is
 chain tops up and the writer registry falls through.
 
 ## The tool loop
+
+**The source list is ordered, and the order is the only steer a model gets about which question to ask
+first.** `LlmModule` names them one by one — music search, the station's taste, the show so far, similar
+artists, the charts, the news, the web — and that is the order the declarations reach the model in. It reads
+outwards: what the station HAS and can play, then what it is in the middle of, then what somebody else says
+about records, then the world. `search_web` is last deliberately, and its description says the same thing in
+words: everything above it answers out of a list somebody assembled and is cheaper, faster and easier to be
+right from, so an open search is the fallback rather than the opening move. Order is otherwise only a
+tie-break on duplicate names, which these do not have.
+
+**Four of the seven sources are plugin-backed and three are not, and the line between them is not about
+difficulty.** `docs/todo/tool-plugins.md`'s rule: a tool is a plugin when the thing it talks to is somebody
+else's service (charts, similar artists, news, web search), and a host-side source when it talks to deadair
+(the catalog, the taste, the running order). Routing the second kind through a plugin would be a boundary
+crossing in a circle.
 
 **A tool call the model wrote as TEXT is still a tool call, and the loop re-issues it.** A
 conversation ends when a generation comes back with no tool calls, because that is what an answer

@@ -12,6 +12,7 @@ import { SimilarArtistsTool } from './similar.artists.tool.js';
 import { ToolRegistry } from './llm.tools.js';
 import { ShowSoFarTool } from './show.so.far.tool.js';
 import { StationTasteTool } from './station.taste.tool.js';
+import { WebSearchTool } from './websearch.tool.js';
 
 /**
  * Asking a model for words.
@@ -82,6 +83,10 @@ export const LlmModule: ServerKitModule = {
         // what comes back cannot be played, so nothing downstream of it touches the pick path and
         // the only thing a DJ can do with it is talk.
         registry.register(NewsTool).useClass(NewsTool).asScoped();
+        // The fourth, and the only source here that answers a question nobody wrote down in
+        // advance: every other one reads a list somebody assembled, and this one takes words the
+        // model made up and goes and asks. Scoped with the `SearchService` it adapts.
+        registry.register(WebSearchTool).useClass(WebSearchTool).asScoped();
 
         // The source list is explicit rather than discovered, so what the model can reach is one
         // readable line rather than the sum of whatever registered itself. A `tool` plugin
@@ -106,11 +111,18 @@ export const LlmModule: ServerKitModule = {
                             container.get(ShowSoFarTool),
                             container.get(SimilarArtistsTool),
                             container.get(ChartsTool),
-                            // Last, and for a different reason than the charts: this one does not
-                            // answer the question the others do. A model choosing records is not
-                            // helped by it, and a model writing a break reaches it after everything
-                            // that might tell it what is actually playing.
+                            // Second to last, and for a different reason than the charts: this one
+                            // does not answer the question the others do. A model choosing records
+                            // is not helped by it, and a model writing a break reaches it after
+                            // everything that might tell it what is actually playing.
                             container.get(NewsTool),
+                            // Last of all, which is the order the declarations reach the model and
+                            // therefore a hint about what to reach for first. Everything above
+                            // answers out of something somebody chose — the library, the providers,
+                            // a published chart, the station's own feeds — and is cheaper, faster
+                            // and easier to be right from. This is the one to fall back to when
+                            // none of them knows, not the one to open with.
+                            container.get(WebSearchTool),
                         ],
                         container.get(Logger),
                     ),

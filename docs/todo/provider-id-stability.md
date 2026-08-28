@@ -4,11 +4,14 @@
 is the only entry in this directory whose timing is set by somebody else's release schedule, which
 is the whole reason it is written down before it has happened.
 
-**State, end of 2026-08-28: phase 2 built, phase 1 done and the report confirmed, phase 3 deferred on
-its own merits rather than on doubt.** The change is real, merged upstream and unreleased; it moves
-~87% of song ids on a current install and 100% on an old one; and it can reach nothing on this station
-today, because no local library is bound here at all. Read the next three blocks in order — what was
-built, what was confirmed, and what it costs — and then stop unless you are here to build phase 3.
+**State, end of 2026-08-28: phase 2 built, phase 1 done and the report confirmed, phase 3 conditional
+on something that has not happened and may never.** The change is real, merged upstream and
+unreleased; it moves ~87% of song ids on a current install and 100% on an old one; and **it can reach
+nothing on either of this operator's installs, because neither has ever bound a local library.** The
+guard from phase 2 is the part that was worth having, and it is worth having whether or not any of the
+rest of this ever becomes live — it caught a page-cap bug that was already costing the station rows.
+Read the next blocks in order — what was built, what was confirmed, what it costs — and then stop
+unless a local library has since been bound.
 
 **Phase 2 is BUILT, 2026-08-28**, taken before phase 1 on the grounds stated below, that the guard is
 correct on a provider that never renumbers. It landed as the shape this file specifies, plus three
@@ -74,12 +77,11 @@ The 766 is right and the attribution is not: those are the streaming provider's 
 without checking whose they were. **A blast radius is a count of the rows a change can reach, not a
 count of the rows that exist.**
 
-**What could not be measured, and is the one thing still open.** The numbers above are from the
-database on `localhost:55432`, which the 766 makes almost certainly the one this file was written
-against. The station's other Postgres on the LAN was not reachable: a direct connection is `EPERM`
-under the sandbox and the SOCKS proxy answers "connection not allowed by ruleset". If that install
-has a Subsonic library, this all applies to it and nothing above measured it. One query settles it:
-`select plugin_id, count(*) from deadair.track_sources group by 1`.
+**Both installs, and the exposure is zero on both.** The numbers above are from the database on
+`localhost:55432`. The station's other Postgres on the LAN could not be read from the sandbox (a
+direct connection is `EPERM` and the SOCKS proxy answers "connection not allowed by ruleset"), so the
+operator checked it: **it holds no Subsonic bindings either.** Nothing in this tree is exposed to the
+change, on either install, today.
 
 ## Why it lands harder here than it looks
 
@@ -172,6 +174,14 @@ direction: the re-match must be **stricter on identity than the ordinary lookup*
 writing to a row that already has a correct answer rather than proposing a new one. A loose match here
 does not fail to find a record, it silently re-points a binding at a different one, and the symptom
 arrives weeks later as the wrong song.
+
+**Phase 3 has an expiry date, and it is probably already past.** It is worth building for exactly one
+situation: a local library bound to this station BEFORE the operator upgrades their server, and still
+bound after. Neither install has ever bound one. So the window is the gap between now and whenever the
+operator both connects a library and upgrades past the migration — and if the library is connected
+AFTER that upgrade, the ids are already in the new format, a first ingest binds them, and there is
+nothing to re-bind. **Do not build this speculatively.** Build it if a local library is bound while
+the server is still on an old release; otherwise close this phase when the upgrade has happened.
 
 **Phase 1 makes most of that rule unnecessary, which is the finding that shrinks this phase.** The
 worry above is a worry about fuzzy matching, and for most of a catalog the match need not be fuzzy.

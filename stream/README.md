@@ -10,8 +10,110 @@
 > so the duck and talk-over settings below are constants rather than console knobs.
 
 Liquidsoap mixes a **music bed** (ducked under the DJ/news/weather voice) and pushes
-MP3 to the **Icecast** mount. Config comes from `radio.env` (materialized from the DB
+it to the **Icecast** mounts. Config comes from `radio.env` (materialized from the DB
 by the app, falling back to `radio.default.env`) and the committed `radio.liq`.
+
+### The mounts
+
+MP3 is always published and has no switch. It is the compatibility **floor**, not a preference: a
+Sonos takes MP3 or AAC for a manually added radio URL and nothing else, and a car head unit and a
+hardware radio are narrower still. Three more are opt-in, off by default, each costing an encoder
+running 24/7 in this container whether or not anybody is listening to it:
+
+| Mount | Setting | Default rate | For |
+| --- | --- | --- | --- |
+| `STREAM_MOUNT` | always on | `stream.bitrate` | everything. Never switch this off |
+| `STREAM_MOUNT_OPUS` | `stream.opusEnabled` | 160 kbps | best quality per bit; browsers and modern players. Costs a 48 kHz resample, which Opus mandates |
+| `STREAM_MOUNT_AAC` | `stream.aacEnabled` | 192 kbps | the one that widens **hardware** reach. No resample |
+| `STREAM_MOUNT_FLAC` | `stream.flacEnabled` | ~900 kbps | lossless transport, worth having only when the records are lossless too |
+
+Their paths are **derived** from `STREAM_MOUNT` by swapping the extension (`/live.mp3` gives
+`/live.opus`), by the app, in `stream.settings.ts`. An **empty path is how "off" is spelled**:
+`radio.liq` builds no encoder and opens no connection for a mount it was given no name for.
+
+Three things about them that are not obvious and each cost something to rediscover:
+
+- **The bitrate is a branch, not an interpolation.** `%mp3(bitrate=…)` takes
+  `int_of_string(...)`; `%opus` and `%fdkaac` do not, because their bitrate is read when the
+  script is parsed. So each has a function covering a fixed set of rates, and that set is the
+  same one `stream.settings.ts` offers the console. Change one and change the other.
+- **The whole script is type-checked whether or not a branch runs**, so an encoder this build
+  does not have takes the MP3 mount down with it, for an operator who never switched that format
+  on. Probe it before writing one, with the loop further down rather than with `--list-plugins`.
+- **FLAC is `%ogg(%flac)`, not `%flac`.** The bare encoder writes a FLAC *file*, whose header
+  declares a total sample count a stream does not have.
+
+Every mount is fed from `bus`, the brick-wall limiter, and never from `radio`. One taken off
+`radio` skips the -1 dBFS ceiling and hands a listener the inter-sample peaks it exists to leave
+headroom for.
+
+**Checking a change to any of this. Do not check `/radio/radio.liq` in the container.** That path
+is a SINGLE-FILE bind mount, so it is bound to an inode rather than to a name, and an editor that
+writes a temporary and renames over it — which is most of them, and `perl -i`, and the tools an
+agent uses — leaves the container holding the old inode or a half-written one. Measured on
+2026-08-28: the host file was 1522 lines and the container's was 1512 plus a line truncated
+mid-sentence, and Liquidsoap duly reported `Error 2: Parse error` pointing at a comment, at exactly
+the character the truncation fell on. Two hours went into the script over a file that was already
+correct.
+
+So pipe the file IN, which is what the harnesses below already do and for the same reason:
+
+```
+docker compose exec -T liquidsoap sh -c 'cat > /tmp/c.liq; liquidsoap --check /tmp/c.liq; echo "EXIT: $?"' < stream/radio.liq
+```
+
+`EXIT: 0` and no output is the only result that means anything. Read the exit code rather than
+the absence of a visible error: a `Warning` and an `Error` print the same way, and a truncated
+paste of the output reads as success.
+
+To make the RUNNING container adopt an edit, recreate it rather than restarting it — a restart
+re-execs against the same stale inode:
+
+```
+docker compose up -d --force-recreate liquidsoap
+docker compose exec -T liquidsoap md5sum /radio/radio.liq   # must match `md5 -q stream/radio.liq`
+curl -s -o /dev/null -w '%{http_code} %{content_type}\n' --max-time 2 http://127.0.0.1:8000/live.mp3
+```
+
+`200 audio/mpeg` is a mount with a source on it; `404` is one without. Icecast answers `405` to a
+HEAD, so this has to be a GET that is cut short rather than `curl -I`.
+
+Three more things that cost the same afternoon.
+
+**`docker compose exec` does not inherit the entrypoint's environment** — the entrypoint sources
+`radio.env` into its own shell — so a check that does not source it first is checking the script
+with every setting at its default. That is usually harmless, since every read has a default, but it
+means the check is not exercising the operator's actual configuration.
+
+**`Warning 4: Unused variable bus` is not cosmetic.** It means whatever is being passed to an output
+is not reaching it, which is a mount fed by nothing, which is silence. The way to earn it is to give
+a function a parameter named `source`, shadowing Liquidsoap's own namespace, so the body reads the
+namespace instead of the argument. That is not a type error, so it does not fail the check.
+`Warning 6: Top-level variable X is overridden!` is the same problem announced honestly; `icy`,
+`encoder` and `source` are all names Liquidsoap already has.
+
+**`icy_metadata` and `send_icy_metadata` are both parameters of `output.icecast` and are not
+variants of one another.** `icy_metadata : [string]` is the list of metadata FIELDS an update
+carries (`["song", "title", "artist", …]`); `send_icy_metadata : bool?` is whether to send one at
+all, guessed from the container when null. Passing the switch to the field list is a type error
+rather than a wrong setting, so it costs a crash loop rather than a mislabelled mount — the better
+failure, but only once you know which of the two you are holding.
+
+To test whether an encoder exists in the pinned image at all, which decides whether a mount can be
+offered: write it to a file rather than passing an expression, and keep `%mp3` in the list as a
+control, since a broken harness reports every encoder missing in exactly the same way as a missing
+one.
+
+```
+for e in '%opus(bitrate=160)' '%fdkaac(bitrate=192)' '%ogg(%flac)' '%mp3(bitrate=128)'; do
+  printf '%-28s ' "$e"
+  docker compose exec -T liquidsoap sh -lc "echo 'ignore($e)' > /tmp/p.liq; liquidsoap --check /tmp/p.liq" >/dev/null 2>&1 && echo OK || echo MISSING
+done
+```
+
+Measured on `savonet/liquidsoap:v2.4.5`, 2026-08-28: all four are present. `--list-plugins` is not a
+substitute — it lists no `opus` line at all on this image, encoder or decoder, and the encoder is
+there regardless.
 
 The voice is a **live harbor input**, not files: the app streams each rendered segment — talk
 breaks, station sign-ons, podcast episodes — to Liquidsoap's `input.harbor` mount (`HARBOR_PORT`,

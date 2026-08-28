@@ -1364,22 +1364,159 @@ bus = compress(attack=1.0, release=80.0, threshold=-1.0, ratio=20.0, knee=0.5, g
 stream_language = environment.get("STREAM_LANGUAGE", default="")
 source_headers = if stream_language == "" then [] else [("Content-Language", stream_language)] end
 
-# Encode to MP3 and push to the Icecast mount.
+# Publishing one mount, so the four of them differ only in the encoder and the path.
+#
+# Everything else about a mount is the STATION — the same host, the same credential, the same
+# name and genre and language header — and writing that out four times is four places for one of
+# them to drift. What a caller chooses is what the audio is encoded as and where it is served.
 #
 # `protocol` is left at its default of "http", which is the PUT method Icecast has wanted since
-# 2.4 and 2.5 deprecates SOURCE in favour of. MP3 still shows in 2.5's dashboard as a generic
-# format, and that is inherent to the container rather than something to configure away — see
-# docs/todo/stream-formats.md for the Opus mount that would answer it.
-output.icecast(
+# 2.4 and 2.5 deprecates SOURCE in favour of.
+#
+# `send_icy_metadata` is passed explicitly rather than left to be guessed, and that is the point
+# of it being a parameter here. The guess is made from the CONTAINER: Icecast's out-of-band ICY
+# channel for MP3 and AAC, in-band tags for the Ogg ones. That happens to be right, but it is
+# right by accident from the caller's point of view, and the Ogg case is genuinely contested —
+# some radio clients read an Ogg comment header once at connect and then freeze on the first
+# title they ever saw, while others parse the in-band tags correctly and are broken BY the ICY
+# channel. There is no value that suits both, so the one in use is written down at each mount
+# rather than inherited, and the day an operator needs the other one it is a visible line to
+# change rather than a default to discover.
+#
+# **It is `send_icy_metadata`, not `icy_metadata`.** They are both parameters of
+# `output.icecast` and they are not variants of one another: `icy_metadata` is the LIST of
+# metadata FIELDS to put in an update (`["song", "title", "artist", …]`), while
+# `send_icy_metadata : bool?` is the switch for whether to send one at all, guessed when null.
+# Passing a switch to the field list is a type error rather than a wrong setting, so it costs a
+# crash loop rather than a mislabelled mount — which is the better failure, but only once you
+# know which of the two you are looking at.
+#
+# NB: the parameters are `enc`, `src` and `icy_on`, NOT `encoder`, `source` and `icy`. All three
+# of those are Liquidsoap's own top-level names, and shadowing one earns `Warning 6: Top-level
+# variable X is overridden!`. For `source` that is worse than untidy: the body reads the
+# namespace rather than the argument, which is not a type error and so does not fail a check. It
+# surfaces a hundred lines away as `Warning 4: Unused variable bus`, meaning the source being
+# passed in never reaches the output — a mount fed by nothing, which is silence. Do not rename
+# these back.
+def publish(~mount, ~icy_on, enc, src) =
+  output.icecast(
+    enc,
+    headers     = source_headers,
+    host        = environment.get("ICECAST_HOST", default="icecast"),
+    port        = int_of_string(environment.get("ICECAST_PORT", default="8000")),
+    password    = environment.get("ICECAST_SOURCE_PASSWORD"),
+    mount       = mount,
+    send_icy_metadata = icy_on,
+    name        = stream_name,
+    description = environment.get("STREAM_DESCRIPTION", default=""),
+    genre       = environment.get("STREAM_GENRE", default="Talk"),
+    url         = environment.get("STREAM_URL", default=""),
+    src
+  )
+end
+
+# 6a) MP3, which is always published.
+#
+# The compatibility FLOOR rather than a preference, and the reason it has no switch: a Sonos, a
+# car head unit and a hardware radio take MP3 or AAC and nothing else, so this is the mount that
+# answers whatever somebody points at the station. Every other mount below is an addition beside
+# it and none of them replaces it.
+#
+# MP3 shows in 2.5's dashboard as a generic format, which is inherent to the container rather
+# than something to configure away.
+publish(
+  mount = environment.get("STREAM_MOUNT", default="/live.mp3"),
+  icy_on = true,
   %mp3(bitrate=int_of_string(environment.get("STREAM_BITRATE", default="128"))),
-  headers     = source_headers,
-  host        = environment.get("ICECAST_HOST", default="icecast"),
-  port        = int_of_string(environment.get("ICECAST_PORT", default="8000")),
-  password    = environment.get("ICECAST_SOURCE_PASSWORD"),
-  mount       = environment.get("STREAM_MOUNT", default="/live.mp3"),
-  name        = stream_name,
-  description = environment.get("STREAM_DESCRIPTION", default=""),
-  genre       = environment.get("STREAM_GENRE", default="Talk"),
-  url         = environment.get("STREAM_URL", default=""),
   bus
 )
+
+# 6b) The optional format mounts.
+#
+# An EMPTY PATH is how "off" is spelled — the app writes STREAM_MOUNT_OPUS and its siblings from
+# `stream.opusEnabled` and friends, deriving each path from STREAM_MOUNT by swapping the
+# extension. So a station that never asked for these builds no encoder and opens no connection,
+# and each one costs nothing until somebody switches it on.
+#
+# **The bitrate is a BRANCH, not an interpolation, and it has to be.** `%mp3(bitrate=…)` above
+# takes `int_of_string(...)` happily; the encoders below do not. Their bitrate is read when this
+# script is PARSED, before any of it runs, so there is no value to hand them at that point and a
+# variable there is a syntax error rather than a wrong number. The fixed set each function covers
+# is the same set `apps/api/src/modules/stream/stream.settings.ts` offers the console, and the
+# two have to be changed together: a figure an operator can choose and this cannot honour would
+# silently fall to the default below.
+#
+# All of them are fed from `bus`, never from `radio`. `bus` is the brick-wall limiter, and a
+# mount taken off `radio` would skip it and hand a listener the inter-sample peaks the -1 dBFS
+# ceiling exists to leave headroom for.
+
+opus_mount = environment.get("STREAM_MOUNT_OPUS", default="")
+if opus_mount != "" then
+  # 48 kHz, which Opus mandates: the format has no other rate, so the resample happens either
+  # here or nowhere. Here is the right place. The bus stays at 44.1 kHz because the MUSIC is
+  # 44.1 kHz, and moving the whole chain to 48 to save this one conversion would resample every
+  # ordinary record instead of resampling this one mount.
+  def opus_encoder(rate) =
+    if rate == 96 then %opus(bitrate=96, samplerate=48000)
+    elsif rate == 128 then %opus(bitrate=128, samplerate=48000)
+    elsif rate == 192 then %opus(bitrate=192, samplerate=48000)
+    elsif rate == 256 then %opus(bitrate=256, samplerate=48000)
+    else %opus(bitrate=160, samplerate=48000)
+    end
+  end
+
+  # In-band tags rather than the ICY channel, which is what Ogg wants and what most players
+  # reading an Ogg stream expect. See `publish` for the clients this is wrong for.
+  publish(
+    mount = opus_mount,
+    icy_on = false,
+    opus_encoder(int_of_string(environment.get("STREAM_OPUS_BITRATE", default="160"))),
+    bus
+  )
+  log(label="deadair", "publishing Opus on #{opus_mount}")
+end
+
+aac_mount = environment.get("STREAM_MOUNT_AAC", default="")
+if aac_mount != "" then
+  # The format that widens HARDWARE reach, which is the whole reason it is here rather than
+  # Opus: a Sonos takes MP3 or AAC, and a player that cannot manage Opus can generally manage
+  # this. No resample — AAC is happy at 44.1 kHz, so this mount costs an encoder and nothing else.
+  def aac_encoder(rate) =
+    if rate == 96 then %fdkaac(bitrate=96)
+    elsif rate == 128 then %fdkaac(bitrate=128)
+    elsif rate == 160 then %fdkaac(bitrate=160)
+    elsif rate == 256 then %fdkaac(bitrate=256)
+    elsif rate == 320 then %fdkaac(bitrate=320)
+    else %fdkaac(bitrate=192)
+    end
+  end
+
+  # ADTS, like MP3, has no in-band metadata a source client can write, so the ICY channel IS the
+  # metadata path here exactly as it is for the MP3 mount.
+  publish(
+    mount = aac_mount,
+    icy_on = true,
+    aac_encoder(int_of_string(environment.get("STREAM_AAC_BITRATE", default="192"))),
+    bus
+  )
+  log(label="deadair", "publishing AAC on #{aac_mount}")
+end
+
+flac_mount = environment.get("STREAM_MOUNT_FLAC", default="")
+if flac_mount != "" then
+  # Ogg-wrapped, not native. `%flac` on its own writes a FLAC FILE, whose header declares a total
+  # sample count that a stream does not have; `%ogg(%flac)` is the streamable form and the only
+  # one Icecast can serve. No bitrate: FLAC is lossless, so it costs what the material costs,
+  # which is roughly 900 kbps and is why this mount gets its own burst size in icecast.xml.
+  #
+  # Worth having only when the RECORDS are lossless. A FLAC of a decoded lossy file is a perfect
+  # copy of a lossy file at seven times the bandwidth, which is a vanity mount on a station whose
+  # main source is a lossy provider.
+  #
+  # No channel or sample rate given: an encoder left alone takes the frame's own, which is the
+  # 44.1 kHz stereo this whole chain runs at. Stating them again would be two more literals to
+  # keep in step with `settings.frame.*` for no gain.
+  flac_encoder = %ogg(%flac)
+  publish(mount = flac_mount, icy_on = false, flac_encoder, bus)
+  log(label="deadair", "publishing FLAC on #{flac_mount}")
+end

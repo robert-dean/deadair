@@ -32,6 +32,15 @@ export function isVoiceTab(value: unknown): value is VoiceTab {
 
 export interface VoicePageProps {
     tab: VoiceTab;
+    /**
+     * One break rather than everything the station has written, for the What it said tab.
+     *
+     * A string off the URL, so the empty one means "not narrowed" rather than "narrowed to
+     * nothing". That is the only place either of these is read.
+     */
+    segment?: string;
+    /** One character rather than everybody, on the same terms as {@link VoicePageProps.segment}. */
+    persona?: string;
     onSelect: (tab: VoiceTab) => void;
 }
 
@@ -53,7 +62,7 @@ export interface VoicePageProps {
  * cover, the places a weather break can be about — and somebody editing what the station says is
  * exactly who needs it.
  */
-export function VoicePage({ tab, onSelect }: VoicePageProps) {
+export function VoicePage({ tab, segment, persona, onSelect }: VoicePageProps) {
     return (
         <Stack gap="lg">
             <Stack gap="xxs">
@@ -66,7 +75,7 @@ export function VoicePage({ tab, onSelect }: VoicePageProps) {
 
             <DestinationTabs tabs={VOICE_TABS} active={tab} onSelect={onSelect} label="Voice" />
 
-            <EmbeddedPage>{body(tab)}</EmbeddedPage>
+            <EmbeddedPage>{body(tab, segment, persona)}</EmbeddedPage>
         </Stack>
     );
 }
@@ -78,7 +87,7 @@ export function VoicePage({ tab, onSelect }: VoicePageProps) {
  * these opens queries on mount, and building all eight to show one would put the whole destination's
  * network cost on every visit.
  */
-function body(tab: VoiceTab) {
+function body(tab: VoiceTab, segment?: string, persona?: string) {
     switch (tab) {
         case 'characters':
             return <PersonasPage />;
@@ -95,6 +104,8 @@ function body(tab: VoiceTab) {
         case 'productions':
             return <ProductionsPage />;
         case 'said':
-            return <ScriptsPage />;
+            // The empty string is how "not narrowed" arrives off the URL, and `ScriptsPage` asks
+            // for an absent prop: an empty `segmentId` would be a query for a break with that id.
+            return <ScriptsPage segmentId={segment === '' ? undefined : segment} personaKey={persona === '' ? undefined : persona} />;
     }
 }

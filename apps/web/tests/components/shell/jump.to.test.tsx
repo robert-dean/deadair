@@ -76,7 +76,9 @@ describe('JumpTo', () => {
         open();
         await setupUser().click(screen.getByRole('button', { name: /Pronunciations/ }));
 
-        expect(navigate).toHaveBeenCalledWith({ to: '/voice', search: { tab: 'pronunciations' } });
+        // Unnarrowed as well as on the tab: the palette asks for the whole of a destination, and a
+        // `segment` left over from a link off the running order would follow the operator into it.
+        expect(navigate).toHaveBeenCalledWith({ to: '/voice', search: { tab: 'pronunciations', segment: '', persona: '' } });
     });
 
     /**

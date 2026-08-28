@@ -75,7 +75,9 @@ export function JumpTo() {
                 id: `voice:${tab.key}`,
                 label: tab.label,
                 description: 'Voice',
-                onClick: () => void navigate({ to: '/voice', search: { tab: tab.key } }),
+                // Unnarrowed, like every other jump: the palette is how somebody asks for the whole
+                // of What it said, not for the one break a link happened to leave in the URL.
+                onClick: () => void navigate({ to: '/voice', search: { tab: tab.key, segment: '', persona: '' } }),
             })),
         },
         {

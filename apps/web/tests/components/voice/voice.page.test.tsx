@@ -22,7 +22,7 @@ vi.mock('../../../src/api/client', () => {
             topics: { listTopics: () => Promise.resolve({ topics: [] }) },
             productions: { listProductions: () => Promise.resolve({ productions: [] }) },
             scripts: { listScripts: () => Promise.resolve({ scripts: [], total: 0 }) },
-            render: { listVoices: () => Promise.resolve({ voices: [] }) },
+            render: { listVoices: () => Promise.resolve({ voices: [] }), readScriptHistory: () => Promise.resolve({ attempts: [] }) },
         },
     };
 });
@@ -73,6 +73,32 @@ describe('VoicePage', () => {
 
         expect(screen.getByRole('heading', { name: 'Pronunciations', level: 2 })).toBeInTheDocument();
         expect(screen.queryByRole('heading', { name: 'Soundboard', level: 2 })).not.toBeInTheDocument();
+    });
+
+    /**
+     * The link off the running order names a break, and it used to arrive here as nothing at all:
+     * the route validated the tab and dropped the id, so following a break landed on the whole
+     * history with the words somewhere inside it. These two hold the narrowing down to the page
+     * that reads it.
+     */
+    it('narrows What it said to the one break a link named', () => {
+        render(<VoicePage tab="said" segment="seg-1" onSelect={() => undefined} />);
+
+        expect(screen.getByRole('heading', { name: 'One break', level: 2 })).toBeInTheDocument();
+    });
+
+    it('narrows What it said to the one character a link named', () => {
+        render(<VoicePage tab="said" persona="marlowe" onSelect={() => undefined} />);
+
+        expect(screen.getByRole('heading', { name: 'Everything marlowe has said', level: 2 })).toBeInTheDocument();
+    });
+
+    it('reads an empty narrowing as the whole history, which is how one arrives off the URL', () => {
+        // `stripSearchParams` keeps a bare Voice link clean by defaulting both to the empty string,
+        // so the empty one has to mean "not narrowed" rather than "a break with no id".
+        render(<VoicePage tab="said" segment="" persona="" onSelect={() => undefined} />);
+
+        expect(screen.getByRole('heading', { name: 'Scripts', level: 2 })).toBeInTheDocument();
     });
 
     it('draws one page title, not two', () => {

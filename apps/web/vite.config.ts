@@ -49,6 +49,17 @@ export default defineConfig({
                 changeOrigin: true,
                 rewrite: path => path.replace(/^\/api/, ''),
             },
+            // A root-level `.m3u8`, which is the tidy public URL for the HLS output: `/live.m3u8`
+            // beside `/live.mp3`. The REDIRECT to `/hls/` lives in the nginx snippet, because it
+            // has to exist for the production edges too — so this hands the request to nginx and
+            // lets the 302 come back through, rather than keeping a second copy of the rule that
+            // could disagree with it. Without this a dev SPA (and anything tunnelled to :3002,
+            // which is how this station is reached from outside) answers the SPA's index.html for
+            // a playlist URL, with a 200 and no hint that anything is wrong.
+            '^/[^/]+\\.m3u8$': {
+                target: 'http://127.0.0.1:8080',
+                changeOrigin: true,
+            },
             // The HLS output, which unlike the mounts is not one upstream: nginx serves the
             // segments off the volume and proxies only the playlists to the API. Vite can do
             // neither half — the segments are in a container and the split is nginx's — so this

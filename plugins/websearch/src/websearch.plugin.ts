@@ -211,22 +211,38 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
      * A search that throws costs this subject its documents and nothing else:
      * the enrichment walk goes on to the next artist, and an engine's bad minute
      * must not end it.
+     *
+     * **The host is captured once, before the first await, and nothing here
+     * reads `this.host` after one.** Measured: an operator saving the config
+     * mid-walk reinitializes the plugin, `Plugin.dispose` releases the host, and
+     * a catch handler that then reached for `this.host.logger` threw
+     * "used before init() or after dispose()" — turning a search that simply
+     * failed into an invoker failure, three of which quarantine the plugin. The
+     * request that was in flight is allowed to finish and be reported; what must
+     * not survive the await is the reference.
      */
     private async background(query: string): Promise<SourceDocument[]> {
         if (this.provider === undefined || this.trustedSites.length === 0) return [];
-        if (!hasBudget(this.host, REQUEST_TIMEOUT_MS)) return [];
+
+        const host = this.host;
+        if (!hasBudget(host, REQUEST_TIMEOUT_MS)) return [];
 
         const sites = this.trustedSites.map(site => site.hostname);
+        const wanted = this.maxDocuments;
 
         let found: SearchResult[];
         try {
-            found = await this.ask({ query, limit: Math.max(this.maxDocuments * 2, this.maxDocuments), sites });
+            // Asked for more than there are pages to read: some of what comes
+            // back is a discography listing or a photo gallery with no prose on
+            // it, and stopping at exactly `wanted` results would leave a subject
+            // with nothing over one bad hit.
+            found = await this.ask({ query, limit: wanted * 2, sites });
         } catch (error) {
-            this.host.logger.debug('web search: could not look up background', { error: message(error) });
+            host.logger.debug('web search: could not look up background', { error: message(error) });
             return [];
         }
 
-        return await documentsFor(this.host, found, this.maxDocuments);
+        return await documentsFor(host, found, wanted);
     }
 
     /** The dispatch, and the only place the credentials are read. */

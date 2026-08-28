@@ -190,6 +190,23 @@ describe('enrichArtist', () => {
         await expect(plugin.enrichArtist({ name: 'Portishead' })).resolves.toEqual({});
     });
 
+    it('survives being disposed while its search is still in flight', async () => {
+        // Measured against the running station: an operator saving the config
+        // mid-walk reinitializes the plugin, which releases the host, and the
+        // catch handler then reached for `this.host.logger` and threw "used
+        // before init() or after dispose()". That turns a search that simply
+        // failed into an invoker failure, and three of those quarantine the
+        // plugin — so a config save during an enrichment walk could take the
+        // plugin off the station.
+        await initialize();
+        host.setFetchImpl(async () => {
+            await plugin.dispose();
+            throw new Error('the engine went away');
+        });
+
+        await expect(plugin.enrichArtist({ name: 'Portishead' })).resolves.toEqual({});
+    });
+
     it('does not start a page there is not enough of the call left to read', async () => {
         await initialize();
         queueSearch('https://www.example.com/portishead');

@@ -19,6 +19,7 @@ for dir in \
     "$DATA/streamconfig" \
     "$DATA/streamlogs" \
     "$DATA/streamstate" \
+    "$DATA/streamhls" \
     "$DATA/music" \
     "$DATA/voices" \
     "$ART_DIR" \

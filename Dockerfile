@@ -268,8 +268,8 @@ COPY --from=icecast /usr/share/icecast/ /usr/share/icecast/
 RUN set -eux; \
     groupadd --gid 100 --non-unique deadair 2>/dev/null || true; \
     useradd --uid 99 --gid 100 --non-unique --no-create-home --home-dir /data --shell /usr/sbin/nologin deadair 2>/dev/null || true; \
-    mkdir -p /data /data/streamhls /var/log/icecast /var/cache/nginx /var/log/nginx; \
-    chown 99:100 /data /data/streamhls /var/log/icecast /var/cache/nginx /var/log/nginx
+    mkdir -p /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
+    chown 99:100 /data /var/log/icecast /var/cache/nginx /var/log/nginx
 
 # What the speech server needs from apt, kept OUT of the copy below rather than fused into it.
 # `cp -a` preserves every timestamp and mode, so the copy is byte-identical from one build to the
@@ -410,6 +410,10 @@ ENV NODE_ENV=production \
     # processes reach it by different names in the compose deployment, where liquidsoap
     # and the app are separate containers with their own mount points. Here they are the
     # same process tree and the same path, and it is nginx's `alias` target as well.
+    #
+    # The directory itself is made by `init-station`, with every other thing the station
+    # keeps, and NOT by a `mkdir` in this file: `/data` is a volume an operator mounts, so
+    # anything the image puts under it is hidden the moment they do.
     STREAM_HLS_DIR=/data/streamhls \
     STREAM_HLS_LIQUIDSOAP_DIR=/data/streamhls \
     ANALYSIS_PORT=9321 \

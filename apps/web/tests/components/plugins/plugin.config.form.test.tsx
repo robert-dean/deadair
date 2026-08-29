@@ -329,7 +329,9 @@ describe('PluginConfigForm', () => {
         it("offers the platform's zones to a field that asked for them", async () => {
             // A field-level `optionsFrom`, where only columns could name one before. No request is
             // made for this one: the list is the browser's own.
-            const plugin = pluginDetail({ configFields: [{ key: 'timezone', label: 'Where the station is', type: 'string', optionsFrom: 'intl.timeZones' }] });
+            const plugin = pluginDetail({
+                configFields: [{ key: 'timezone', label: 'Where the station is', type: 'string', optionsFrom: 'intl.timeZones' }],
+            });
             const user = setupUser();
 
             render(<PluginConfigForm plugin={plugin} />);

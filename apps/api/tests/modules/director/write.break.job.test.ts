@@ -13,6 +13,7 @@ import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Persona } from '../../../src/modules/personas/persona.js';
 import type { PersonaStoryForPrompt } from '../../../src/modules/personas/persona.story.js';
 import type { Segment } from '../../../src/modules/render/segment.repository.js';
+import type { SpokenWeather } from '../../../src/modules/weather/weather.words.js';
 import type { ScriptWrite } from '../../../src/modules/render/script.history.repository.js';
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
@@ -59,6 +60,8 @@ function harness(
         stories?: readonly BreakStory[];
         /** What the bulletin is ABOUT, once the source has resolved the band's category. */
         subject?: { key: string; label: string };
+        /** What it is like outside, for the one test about handing a reading over. */
+        weather?: SpokenWeather;
         /** What this broadcast has played, for the tests about the writer's memory of the show. */
         played?: readonly { title: string; artist: string }[];
         /** What the installed engine can perform, for the tests about handing that to the writers. */
@@ -148,6 +151,15 @@ function harness(
                 : { stories: options.stories, ...(options.subject === undefined ? {} : { subject: options.subject }) },
         ),
     };
+    // The bulletin's opposite number, for the kind that reports a place. `undefined` for every kind
+    // these assertions are about, exactly as the bulletin is.
+    const weather = {
+        readingFor: vi.fn(async (_kind: string, _context?: unknown) =>
+            options.weather === undefined
+                ? undefined
+                : { reading: options.weather, ...(options.subject === undefined ? {} : { subject: options.subject }) },
+        ),
+    };
     // What this broadcast has played, for the writer's memory of the show it is presenting. Empty
     // unless a test asks otherwise, which is the state every other assertion here was written
     // against.
@@ -168,6 +180,7 @@ function harness(
         writers as never,
         enrichment as never,
         bulletin as never,
+        weather as never,
         personas as never,
         pads as never,
         notes as never,
@@ -199,6 +212,7 @@ function harness(
         logger,
         activity,
         bulletin,
+        weather,
         plays,
         identity,
         speech,

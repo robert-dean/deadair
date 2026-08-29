@@ -26,6 +26,7 @@ import { BreakRequestRepository } from './break.request.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { isRenderedFirst, priorityForUrgency, type StoredBreakRequest } from './break.request.js';
 import { BulletinSource } from './bulletin.source.js';
+import { WeatherSource } from './weather.source.js';
 import type { BreakTrack, PlayedRecord, WrittenBreak } from './break.writer.js';
 import { dayGreeting, dayPart, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
@@ -151,6 +152,8 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         private readonly writers: BreakWriterRegistry,
         private readonly enrichment: EnrichmentReadService,
         private readonly bulletin: BulletinSource,
+        /** The bulletin's opposite number, for the kind of break that says what it is like outside. */
+        private readonly weather: WeatherSource,
         private readonly personas: PersonaRepository,
         // The rack, read once per break beside the persona that names it. See {@link pads}.
         private readonly padRepository: PadRepository,
@@ -269,6 +272,15 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // quarter of an hour early is judged fresh against the slot it will actually air in.
         const bulletin = await this.bulletin.storiesFor(segment.kind, context, segment.airsAt ?? Date.now());
 
+        // The same arrangement for the kind that reports a PLACE rather than an event, and
+        // `undefined` for every other kind for the same reason: asking a weather service costs a
+        // request, and a talk break that wants to mention the weather reaches `get_weather` itself.
+        const forecast = await this.weather.readingFor(segment.kind, context);
+
+        // The two sources cannot both answer, because each refuses every kind but its own, so this
+        // reads as a chain rather than a merge.
+        const subject = bulletin?.subject ?? forecast?.subject;
+
         const result = await this.writers.write({
             kind: segment.kind,
             ...(clock === undefined ? {} : { clock }),
@@ -281,11 +293,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(segment.airsAt === undefined ? {} : { moment: { at: segment.airsAt, zone } }),
             ...(context === undefined ? {} : { context }),
             ...(bulletin === undefined ? {} : { stories: bulletin.stories }),
+            ...(forecast?.reading === undefined ? {} : { weather: forecast.reading }),
             // What the format clock asked this break to be ABOUT, resolved out of the context above
             // by the thing that owns the kind's substrate. A writer reads it here rather than
             // digging the key out of `context` itself, so the model binding and the floor cannot
             // resolve it differently.
-            ...(bulletin?.subject === undefined ? {} : { subject: bulletin.subject }),
+            ...(subject === undefined ? {} : { subject }),
             ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous.track }),
             ...(neighbours.next === undefined ? {} : { next: neighbours.next.track }),
             station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),

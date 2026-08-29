@@ -71,6 +71,26 @@ export interface TemplateInputs {
      */
     news?: string;
     /**
+     * The reading of a weather break, already one capitalised sentence.
+     *
+     * {@link news}'s opposite number and the same shape for the same reason: a template is a
+     * sentence with holes in it and has no loops, so what goes in the hole is the whole report,
+     * built by the writer for the kind. An operator's phrasing decides what is said AROUND the
+     * weather and never which figures are in it.
+     *
+     * Absent for every break that is not a weather break, so a phrasing naming it is simply not used
+     * elsewhere — the same no-branch behaviour {@link clock} has.
+     */
+    weather?: string;
+    /**
+     * The place a weather break is about, as the station would say it: `Atlanta`, `town`.
+     *
+     * Separate from {@link subject} because it is filled on every weather break rather than only on
+     * one a band gave a location: a break about the station's own place has no subject, and "The
+     * weather in Atlanta now" is exactly the sentence it should still be able to say.
+     */
+    weatherPlace?: string;
+    /**
      * What this break is ABOUT, in the operator's own word for it: `Technology`, `Atlanta`.
      *
      * The subject a band on the format clock asked for, when it asked for one. Absent for a break
@@ -172,6 +192,10 @@ const VALUES: Record<string, Resolver> = {
     // Out of `SPOKEN_VALUES` with the two above it: a subject is the operator's own label and has no
     // catalogue furniture to strip.
     'news.topic': inputs => inputs.subject,
+    // The weather's pair, out of `SPOKEN_VALUES` for the same reasons: the report arrives already
+    // speakable from the writer for the kind, and a place name is a place name.
+    'weather.report': inputs => inputs.weather,
+    'weather.place': inputs => inputs.weatherPlace,
     // Out of `SPOKEN_VALUES` for `clock.rough`'s reason, which the filter below already gets right by
     // naming the two prefixes that ARE read as titles: "good morning" has no catalogue furniture.
     greeting: inputs => inputs.greeting,

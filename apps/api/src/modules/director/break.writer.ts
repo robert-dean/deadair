@@ -32,6 +32,7 @@ import type { GatePriority } from '#modules/shared/gate.priority.js';
 import type { Persona } from '#modules/personas/persona.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
+import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { BreakContext } from './break.request.js';
 import type { RoughTime } from './clock.words.js';
 
@@ -368,10 +369,23 @@ export interface BreakWriteRequest {
      */
     stories?: readonly BreakStory[];
     /**
+     * What it is like outside, for a kind of break that says so.
+     *
+     * {@link stories}'s opposite number, arriving the same way and for the same reasons: fetched by
+     * the CALLER, already in this station's units, and the same substrate whichever writer takes it.
+     * Absent means there is nothing to report — no weather plugin, nowhere named, or a service that
+     * is down — and a writer for the kind must then DECLINE rather than fill the slot.
+     *
+     * Which of those three it was is NOT here, deliberately. `WeatherSource` says it in the log
+     * because it is the only thing that can tell them apart, and a writer given the reason would
+     * only be able to repeat it.
+     */
+    weather?: SpokenWeather;
+    /**
      * What this break is ABOUT, when something asked it to be about one thing.
      *
      * A `deadair.topics` row for this break's kind, resolved by the CALLER out of the context the
-     * format clock stamped — a news category today, a weather location when that kind exists. The
+     * format clock stamped — a news category, or a weather location. The
      * label is the operator's own word for it and is what a writer says out loud; the key is what a
      * log line names.
      *

@@ -13,6 +13,8 @@ import { NewsBreakWriter } from './news.break.writer.js';
 import { ModelStoryBreakWriter } from './model.story.break.writer.js';
 import { StoryBreakWriter } from './story.break.writer.js';
 import { BulletinSource, CategoryWatch, ReadLog } from './bulletin.source.js';
+import { WeatherBreakWriter } from './weather.break.writer.js';
+import { WeatherSource } from './weather.source.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
 import { TalkBreakWriter } from './talk.break.writer.js';
 import { WelcomeAnnouncer } from './welcome.announcer.js';
@@ -137,6 +139,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
         registry.register(ModelNewsBreakWriter).useClass(ModelNewsBreakWriter).asScoped();
         registry.register(NewsBreakWriter).useClass(NewsBreakWriter).asScoped();
+        registry.register(WeatherBreakWriter).useClass(WeatherBreakWriter).asScoped();
         registry.register(ModelStoryBreakWriter).useClass(ModelStoryBreakWriter).asScoped();
         registry.register(StoryBreakWriter).useClass(StoryBreakWriter).asScoped();
         registry.register(WarmUpWriter).useClass(WarmUpWriter).asScoped();
@@ -155,6 +158,11 @@ export const DirectorModule: ServerKitModule = {
         // `NewsService` at the root. What a bulletin is written FROM, fetched once for whichever
         // writer takes it, so the model and the floor read the same headlines.
         registry.register(BulletinSource).useClass(BulletinSource).asScoped();
+        // Its opposite number, scoped with the `WeatherService` it reads. It needs no read log and no
+        // watch beside it, and that asymmetry is the point rather than an omission: a bulletin must
+        // not repeat a story, and a weather break repeating a temperature that has not changed is
+        // the station being right twice.
+        registry.register(WeatherSource).useClass(WeatherSource).asScoped();
         registry
             .register(BreakWriterRegistry)
             .useFactory(
@@ -179,14 +187,21 @@ export const DirectorModule: ServerKitModule = {
                             // something a listener has no way to check.
                             container.get(ModelNewsBreakWriter),
                             container.get(NewsBreakWriter),
-                            // The fourth kind, ranked the same way and inverted underneath: the
+                            // The fourth kind, and the only one with no model in front of it yet.
+                            // The floor is the same shape as the bulletin's and the safety property
+                            // reads from the other end: a bulletin cannot be wrong about the news if
+                            // it quotes, and this cannot be wrong about the weather if it states only
+                            // the figures a service reported. A model binding here is worth having
+                            // and is worth being checked harder for.
+                            container.get(WeatherBreakWriter),
+                            // The fifth kind, ranked the same way and inverted underneath: the
                             // floor here is not a pool of phrasings but the operator's own prose,
                             // because a story is already written down. So a station with no model
                             // still tells it, and the model earns its place by TELLING it rather
                             // than reading it. See `StoryBreakWriter`.
                             container.get(ModelStoryBreakWriter),
                             container.get(StoryBreakWriter),
-                            // The fifth kind, and the only one with no model in front of it. A
+                            // The sixth kind, and the other one with no model in front of it. A
                             // holding message is wanted at exactly the moment the station is least
                             // able to produce anything, so a binding that could be slow would
                             // arrive after the records it was covering for. See `WarmUpWriter`.

@@ -13,6 +13,8 @@ import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.j
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
 import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.js';
+import { WEATHER_BREAK_KEYS, WEATHER_TEMPLATES } from '#modules/director/weather.break.writer.js';
+import { DEFAULT_WEATHER_DAYS, MAX_WEATHER_DAYS, WEATHER_SOURCE_KEYS } from '#modules/director/weather.source.js';
 import {
     BULLETIN_KEYS,
     DEFAULT_MAX_AGE_HOURS,
@@ -648,6 +650,29 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'One phrasing per line, in the same syntax as the breaks below, with {{news.headlines}} for the stories themselves. ' +
             'The headlines are read as published and this decides only what is said around them, which is why every line has to carry ' +
             "{{news.headlines}} outside its [[optional]] parts. Empty restores the station's own.",
+    },
+    {
+        group: 'rotation',
+        key: WEATHER_SOURCE_KEYS.days,
+        label: 'How far ahead the weather looks',
+        type: 'number',
+        min: 0,
+        max: MAX_WEATHER_DAYS,
+        default: DEFAULT_WEATHER_DAYS,
+        help:
+            "Days. One is today's high alongside the conditions now, which is what a station between two records says. Zero is the conditions " +
+            "alone. More than one is only read by a model, since the station's own phrasings mention today and no further.",
+    },
+    {
+        group: 'rotation',
+        key: WEATHER_BREAK_KEYS.templates,
+        label: 'How the station gives the weather',
+        type: 'text',
+        default: WEATHER_TEMPLATES.join('\n'),
+        help:
+            'One phrasing per line, in the same syntax as the news above, with {{weather.report}} for the reading itself and ' +
+            '{{weather.place}} for where it is about. The reading is a whole sentence built from what the service measured, so every line has ' +
+            "to carry {{weather.report}} outside its [[optional]] parts and after a full stop. Empty restores the station's own.",
     },
     {
         group: 'rotation',

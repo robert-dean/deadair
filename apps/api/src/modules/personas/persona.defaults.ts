@@ -579,6 +579,33 @@ const HOSTS = [
         // mostly phrase-shaped because that is the only way litotes is checkable — `worst`, `good`,
         // `lovely` and `paid` are all ordinary words, and only the whole construction is hers. See
         // `PersonaSheet.dictionMarkers`.
+        //
+        // ## The last two are here because the list was measured for RECALL and had almost none
+        //
+        // Everything above them was chosen against `persona.markers.test.ts`, which asks only
+        // whether a marker fires on somebody ELSE. Nothing ever asked whether one fires on THIS
+        // character, and the answer was that it mostly did not: across 111 breaks this persona
+        // actually wrote, eleven carried a marker. Four of the twelve had ever fired at all and
+        // `not the worst` was nearly all of them, so a break was refused as out-of-character
+        // roughly as often as it was kept, which is 28 refusals and the largest single cause of
+        // this station's falling through to the floor.
+        //
+        // The reason is that she is the SHORT, flat one. A jock whose markers are single slang
+        // words lands one wherever the sentence goes; a four-word construction has to survive a
+        // model paraphrasing it, and "quite an achievement" is not "quite the achievement". Five of
+        // the entries above have never once matched.
+        //
+        // `ambitious` was in the eleven this list was pruned of, and it was mis-grouped there: it is
+        // not a dry hedge like `apparently` or `somehow`, it is a compliment handed over as an
+        // insult, which is this sheet's whole move and is already why `brave` is above it. It is
+        // also her most frequent word by a distance, in 47 of those 111 breaks. `pretends to` is the
+        // same judgement about a record's intent rather than its effort. Both were re-measured on
+        // the current roster and fire on no other character and on none of the plain-English lines.
+        //
+        // Together they take her natural output from 0 of 57 breaks carrying a marker to 44 of 57,
+        // and the eleven written since the list last changed still all pass. Two slots of the
+        // sixteen are left, deliberately: the next word to go in one should be measured the same
+        // way rather than chosen for how well it reads here.
         dictionMarkers: [
             'not the worst',
             'good for them',
@@ -592,6 +619,8 @@ const HOSTS = [
             'marvellous',
             'delighted',
             'brave',
+            'ambitious',
+            'pretends to',
         ],
         // The fence, and it is the second line rather than the whole list. This character is the one
         // seed aimed at the person listening, which is a decision the file argues two screens up —
@@ -762,7 +791,7 @@ const HOSTS = [
     },
     {
         key: 'conspiracy',
-        label: 'Overnight paranormal host',
+        label: 'Conspiracy host',
         voice: 'conspiracy',
         // The night belongs to the ABDUCTION and not to the broadcast, and that distinction is the
         // whole of this line. `style` completes "You are …" and is the first sentence of the prompt,

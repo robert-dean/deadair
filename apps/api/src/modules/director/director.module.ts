@@ -13,6 +13,7 @@ import { NewsBreakWriter } from './news.break.writer.js';
 import { ModelStoryBreakWriter } from './model.story.break.writer.js';
 import { StoryBreakWriter } from './story.break.writer.js';
 import { BulletinSource, CategoryWatch, ReadLog } from './bulletin.source.js';
+import { ModelWeatherBreakWriter } from './model.weather.break.writer.js';
 import { WeatherBreakWriter } from './weather.break.writer.js';
 import { WeatherSource } from './weather.source.js';
 import { ModelWelcomeWriter } from './model.welcome.writer.js';
@@ -139,6 +140,7 @@ export const DirectorModule: ServerKitModule = {
         registry.register(WelcomeWriter).useClass(WelcomeWriter).asScoped();
         registry.register(ModelNewsBreakWriter).useClass(ModelNewsBreakWriter).asScoped();
         registry.register(NewsBreakWriter).useClass(NewsBreakWriter).asScoped();
+        registry.register(ModelWeatherBreakWriter).useClass(ModelWeatherBreakWriter).asScoped();
         registry.register(WeatherBreakWriter).useClass(WeatherBreakWriter).asScoped();
         registry.register(ModelStoryBreakWriter).useClass(ModelStoryBreakWriter).asScoped();
         registry.register(StoryBreakWriter).useClass(StoryBreakWriter).asScoped();
@@ -187,12 +189,13 @@ export const DirectorModule: ServerKitModule = {
                             // something a listener has no way to check.
                             container.get(ModelNewsBreakWriter),
                             container.get(NewsBreakWriter),
-                            // The fourth kind, and the only one with no model in front of it yet.
-                            // The floor is the same shape as the bulletin's and the safety property
-                            // reads from the other end: a bulletin cannot be wrong about the news if
-                            // it quotes, and this cannot be wrong about the weather if it states only
-                            // the figures a service reported. A model binding here is worth having
-                            // and is worth being checked harder for.
+                            // The fourth kind, ranked the same way, and the safety property reads
+                            // from the other end of the bulletin's: a bulletin cannot be wrong about
+                            // the news if it quotes, and this cannot be wrong about the weather if it
+                            // states only the figures a service reported. So the model above is
+                            // checked harder than any other here — a script naming a temperature the
+                            // station was never given is refused outright.
+                            container.get(ModelWeatherBreakWriter),
                             container.get(WeatherBreakWriter),
                             // The fifth kind, ranked the same way and inverted underneath: the
                             // floor here is not a pool of phrasings but the operator's own prose,

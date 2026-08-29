@@ -53,6 +53,7 @@ import {
 } from '#modules/personas/persona.sheet.js';
 import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
+import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
 import { contradictsDayPart, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
 
@@ -868,6 +869,23 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
         );
     }
 
+    // The weather's substrate, rendered on the same terms as the stories above and carrying the same
+    // shape of rule for the same reason. What differs is what "do not invent" means: a bulletin must
+    // not add a detail to a story, and this must not add a NUMBER — and a plausible temperature is
+    // much easier to write than a plausible news story, because the model knows roughly what August
+    // in Atlanta is like and will say so if the line below does not stop it.
+    if (request.weather !== undefined) {
+        parts.push(describeWeather(request.weather));
+        parts.push(
+            'Give the weather from those figures and nothing else. Every number and every word about the sky has to be one written above: ' +
+                'do not round, do not convert, do not add a figure that is not there, and do not say what it was like yesterday or what it ' +
+                'will be like after the days listed. ' +
+                'You may say it as a person would rather than reading a table, and you may leave a figure out — but a figure you say has to ' +
+                'be one you were given. ' +
+                'No advice about coats or umbrellas, and nothing about how the weather makes anyone feel.',
+        );
+    }
+
     // What the show has played, for a kind that is presenting one. OFFERED, and the wording of that
     // is the whole of this block: the measured failure of handing a model material is that the model
     // gets through it. "Work at most one of them in" read as an instruction to work one in, which is
@@ -1043,6 +1061,48 @@ function describeStory(story: BreakStory): string {
     // Deliberately not offered as something to say. Attribution is a station's own decision — some
     // read it, some never do — and a model shown a publisher's name will credit it in a sentence
     // the operator never asked for.
+    return lines.join('\n');
+}
+
+/**
+ * The reading, as the model is shown it.
+ *
+ * A labelled list rather than the sentence the floor writes, because the point of a model here is
+ * that it phrases the figures itself. What it must not do is INVENT one, which is why every line
+ * carries its unit and why a measurement the service did not report is simply absent rather than
+ * shown as a blank — a model given "Wind: —" will fill it in.
+ *
+ * The units are stated once, at the top, rather than on every line: they are already the station's
+ * own, converted before this file ever saw them, and a model told the unit three times starts saying
+ * it out loud.
+ */
+function describeWeather(weather: SpokenWeather): string {
+    const degrees = weather.units === 'imperial' ? 'Fahrenheit' : 'Celsius';
+    const speed = weather.units === 'imperial' ? 'miles per hour' : 'kilometres per hour';
+
+    const lines = [
+        `The weather in ${weather.place}, right now. Temperatures are in ${degrees} and wind in ${speed}; say the numbers as they are written.`,
+        `- Sky: ${weather.current.words}${weather.current.description === undefined ? '' : ` (${weather.current.description})`}`,
+    ];
+
+    if (weather.current.temperature !== undefined) lines.push(`- Temperature: ${weather.current.temperature}`);
+    if (weather.current.feelsLike !== undefined) lines.push(`- Feels like: ${weather.current.feelsLike}`);
+    if (weather.current.wind !== undefined) lines.push(`- Wind: ${weather.current.wind}`);
+    if (weather.current.humidity !== undefined) lines.push(`- Humidity: ${weather.current.humidity}%`);
+
+    for (const [index, day] of (weather.days ?? []).entries()) {
+        // Named as "today" and "tomorrow" rather than by date, because that is what a presenter says
+        // and because a model handed `2026-08-31` will read the date out.
+        const when = index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : day.date;
+        const figures = [
+            day.high === undefined ? undefined : `high ${day.high}`,
+            day.low === undefined ? undefined : `low ${day.low}`,
+            day.precipitationChance === undefined ? undefined : `${day.precipitationChance}% chance of rain`,
+        ].filter(part => part !== undefined);
+
+        lines.push(`- ${when}: ${[day.words, ...figures].join(', ')}`);
+    }
+
     return lines.join('\n');
 }
 

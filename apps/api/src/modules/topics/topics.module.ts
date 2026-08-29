@@ -2,6 +2,7 @@ import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { NEWS_TOPIC_KIND } from '#modules/news/news.topic.kind.js';
+import { WEATHER_TOPIC_KIND } from '#modules/weather/weather.topic.kind.js';
 import type { TopicKind } from './topic.js';
 import { TopicKindRegistry } from './topic.kind.registry.js';
 import { TopicRepository } from './topic.repository.js';
@@ -40,5 +41,11 @@ export const TopicsModule: ServerKitModule = {
     },
 };
 
-/** The kinds that take subjects, in the order a console should draw them. */
-const KINDS: readonly TopicKind[] = [NEWS_TOPIC_KIND];
+/**
+ * The kinds that take subjects, in the order a console should draw them.
+ *
+ * News first because it is the one every station uses, and weather second
+ * because most stations name nothing here at all: the station's own place is a
+ * setting, and a location row is for somewhere ELSE.
+ */
+const KINDS: readonly TopicKind[] = [NEWS_TOPIC_KIND, WEATHER_TOPIC_KIND];

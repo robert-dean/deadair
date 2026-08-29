@@ -764,7 +764,18 @@ const HOSTS = [
         key: 'conspiracy',
         label: 'Overnight paranormal host',
         voice: 'conspiracy',
-        style: 'the host of an overnight paranormal phone-in, who was taken by the little grey men in nineteen ninety-seven, cannot prove one second of it, and has spent every night since telling you anyway',
+        // The night belongs to the ABDUCTION and not to the broadcast, and that distinction is the
+        // whole of this line. `style` completes "You are …" and is the first sentence of the prompt,
+        // so an opening that said "overnight" and "every night since" was two night words in front
+        // of everything else the model read. It answered accordingly: this character produced all 27
+        // of the station's `wrong-daypart` refusals, saying "tonight" through a run from half past
+        // ten in the morning to five in the afternoon, while a jock with a comparable share of the
+        // airtime produced none. It is not a clock fault and there is nothing to fix in the guard.
+        //
+        // A nocturnal show that airs whenever the station is on has to be a character who has been
+        // on at every hour, rather than one told at the top of every prompt that it is late. What is
+        // kept is the part that makes him: taken in ninety-seven, cannot prove it, tells you anyway.
+        style: 'the host of a paranormal phone-in, who was taken by the little grey men one night in nineteen ninety-seven, cannot prove one second of it, and has been telling you anyway ever since',
         djName: 'Todd Mulcahy',
         diction: [
             'Build the sentence and land the fact last. Set it up, pause, then say the thing',
@@ -877,10 +888,15 @@ const HOSTS = [
             'They took me, my friends. Nineteen ninety-seven, four hours of that night gone, and I have never had them back. There is a burn on my lawn that has not grown over since.',
             'Not one person has ever photographed it. Not one. Every eyewitness we have had on this show says the same thing, and you have to ask yourself who benefits from that.',
         ],
+        // "Still awake" went with the same argument as the style above it, and this half is the
+        // worse one: a template is what the FLOOR says, verbatim, and the daypart guard never reads
+        // it. So the phrasing the model is refused for guessing at was one the station would then
+        // say for certain, at eleven in the morning, with nothing in the way. None of the words the
+        // check knows appear here, which is why it stayed true for as long as it did.
         templates: [
             'That was {{previous.title}}, from {{previous.artist}}.[[ And coming up, {{next.artist}} with {{next.title}}.]] Stay with me, my friends.',
             '{{previous.artist}} there, with {{previous.title}}.[[ Next on The Far Frequency, {{next.artist}}, {{next.title}}.]]',
-            'You are listening to {{station.name}}, and I am glad you are still awake.[[ That was {{previous.title}}, from {{previous.artist}}.]][[ Next, {{next.artist}} with {{next.title}}.]]',
+            'You are listening to {{station.name}}, and I am glad you are with me.[[ That was {{previous.title}}, from {{previous.artist}}.]][[ Next, {{next.artist}} with {{next.title}}.]]',
             'Next, {{next.title}}, from {{next.artist}}. Ask yourself why.',
             'Here is {{next.artist}}, with {{next.title}}. Nobody wanted me to play it.',
             'It is {{clock.rough}}, and you are still out there with me.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Next, {{next.artist}}, {{next.title}}.]]',

@@ -41,8 +41,31 @@ test asserting the paragraph does not survive. A paragraph somebody else's model
 this station never sees is a claim nothing here can check against a source — the same argument
 `SourceDocument` is built on, arriving from the opposite direction.
 
-The remaining rows of the table below are weather, which is still the case for a real `tool`
-capability.
+## And so did weather, 2026-08-29 — which leaves this file with no claimed user
+
+Weather was the last row arguing for a `tool` capability, and it went the other way, on the rule this
+file states two sections up rather than on a new one: a plugin answering a question the STATION has is
+a capability. Weather is that question twice over — the presenter asks it mid-sentence AND
+[station-moment.md](station-moment.md)'s resolver wants a structured reading — so a `tool` plugin
+would have needed a second capability beside it to be useful at all.
+
+Built as `weather` in the SDK, `WeatherService` in `modules/weather`, `WeatherTool` in front of it,
+`plugins/weather` behind it over Open-Meteo, the US National Weather Service or OpenWeatherMap, and a
+`weather` break kind in the director. **Nothing about the `ToolRegistry` changed to accommodate it**,
+which is now the second time that prediction has held.
+
+**So the honest state of this file is that the `tool` capability has no user.** Not deferred pending
+one: every candidate it was written for is built, and each was better as a capability. That is worth
+saying plainly rather than leaving the table below to imply otherwise, because the next person to
+reach for a plugin that offers the model something will be reaching for something genuinely new —
+and the rule to apply is still the one above, not this file's original shape.
+
+What it also settled, which the search note above half-predicted: **the boundary bit again, and in the
+same place.** A weather service will happily sell a written forecast ("a pleasant afternoon with
+scattered showers"), and the capability has nowhere to put one — for `SourceDocument`'s reason and
+Tavily's `answer`'s. What crosses is measurements, and the sentence is the station's to write.
+
+The table below is kept as written. Every row in it is now built, and none of them as a `tool`.
 
 ## The shape
 

@@ -60,7 +60,31 @@ case, and it is not one anybody else can seed.
 An occasion overrides the daypart's lean for that day rather than replacing the schedule, so a
 Christmas morning is still a morning.
 
-### Weather is a plugin
+### Weather is a plugin — BUILT, 2026-08-29
+
+Everything below was built, with one decision reversed. It is `plugins/weather`, over Open-Meteo
+(keyless, the default), the US National Weather Service and OpenWeatherMap; `WeatherService` and two
+station settings in `src/modules/weather/`; a `WeatherTool` the presenter can call mid-sentence; and
+a `weather` break kind with a deterministic floor and a model binding above it. See
+[`docs/internals/breaks.md`](../internals/breaks.md).
+
+**It landed as a `weather` CAPABILITY rather than as the `tool` one this file argued for.** The
+paragraph below is kept because its reasoning about plugins is right and only its conclusion was
+wrong. What changed is [tool-plugins.md](tool-plugins.md)'s own rule, revised after news and search
+both landed as capabilities: *a plugin answering a question the STATION has is a capability, and
+`tool` is for a plugin offering the model something the host has no concept of.* The resolver below
+wants a structured `WeatherReading`, which is exactly a question the station has — and a `tool`
+plugin would have needed a second capability to answer it anyway.
+
+**Two things this file got right and one it did not.** The locations ARE topics, and that half cost
+one file plus one line in `TopicsModule`, exactly as predicted. The keyless default was worth
+insisting on: a fresh install has weather with nothing to sign up for. What it did not anticipate is
+that **where the station is wants to be a SETTING rather than a topic** — `station.location`, beside
+the timezone — because a station has exactly one home and every weather feature falls back to it, so
+making an operator create a row to get their own weather is a setup step with nothing to decide in
+it. A location topic is for somewhere ELSE, which is what a format-clock band points at.
+
+---
 
 Not a module, and not an HTTP client in the API. It is a third-party integration with per-service
 quirks (geocoding, condition codes, cache windows), which is precisely what the plugin boundary is
@@ -76,11 +100,6 @@ console page draws it with no new component, and a band on the format clock can 
 `weather` / `Atlanta`. What a location MEANS is the weather kind's own business, exactly as what a
 category means is `news.classify.ts`'s.
 
-**Ship it as the `tool` capability rather than a `weather` one.** See
-[tool-plugins.md](tool-plugins.md): weather is something the DJ asks about in the middle of writing,
-which is a tool call, and a plugin can declare more than one capability if the resolver later wants a
-structured reading as well.
-
 ## The resolver
 
 ```ts
@@ -92,6 +111,11 @@ interface StationMoment {
     weather?: WeatherReading;
 }
 ```
+
+`WeatherReading` exists now, in `packages/plugin-sdk/src/capabilities/weather.ts`, and
+`WeatherService.reading()` is the unconverted metric half that was written FOR this resolver: it is
+deliberately separate from `read()`, which converts into the station's units, because converting back
+would be two roundings.
 
 A small `src/modules/moment/`, registered after `SettingsModule` (it reads config) and before
 `RenderModule` and `DirectorModule`, which are the two that consume it. Follow the comment convention
@@ -122,7 +146,8 @@ column it would read.
 
 ## Related
 
-- [tool-plugins.md](tool-plugins.md) for the capability weather should arrive as.
+- [tool-plugins.md](tool-plugins.md) for the capability weather actually arrived as, and why the
+  `tool` one now has no claimed user at all.
 - [dj-voice.md](dj-voice.md) for the writers that consume a moment, and the kind-keyed seam they hang
   off.
 - [station-intelligence.md](station-intelligence.md) for the layer above the rules, which is where a

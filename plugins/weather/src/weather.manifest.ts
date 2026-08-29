@@ -168,6 +168,19 @@ export const weatherManifest: PluginManifest = {
                 'and may refuse without it; the others simply appreciate it.',
         },
         {
+            key: 'terms',
+            label: 'Whose data this is',
+            type: 'note',
+            // A note rather than a line in `docs/licensing.md`, because that file is about the right
+            // to broadcast RECORDS and is written for a different question. What an operator needs
+            // here is which service they have just pointed their station at and where its terms are,
+            // at the moment they choose it.
+            help:
+                'Each of these services sets its own terms, and at least one asks to be credited. Open-Meteo publishes them at ' +
+                'open-meteo.com/en/license, the National Weather Service at weather.gov/documentation/services-web-api, and OpenWeatherMap ' +
+                'with your account. Worth reading the one you pick, particularly if this station is anything other than a private hobby.',
+        },
+        {
             key: 'cacheMinutes',
             label: 'Reuse a reading for',
             type: 'number',

@@ -174,6 +174,42 @@ force. It's why Earth has its atmosphere and orbits the sun" aired as news, twic
 stories stop, because one bulletin reported three stories correctly and then wrote twelve more sentences about
 the needle sliding into rhythm.
 
+## The weather
+
+**A weather break is the bulletin's shape with the safety property read from the other end.** A
+bulletin cannot be wrong about the news if it quotes the publisher's own words; this cannot be wrong
+about the weather if it states only figures a service measured. So `WeatherSource` is
+`BulletinSource`'s opposite number — it fetches once so the floor does no network I/O, resolves a
+band's location the way the other resolves a category, and hands both writers one substrate — and
+`WeatherBreakWriter` frames the reading with `rotation.weatherTemplates`, every phrasing carrying
+`{{weather.report}}` outside its optional parts so none of them can announce the weather and then
+report none.
+
+**What the floor will not say is the point of it.** No comparison with yesterday, no advice about
+coats, no "lovely afternoon": each of those is a sentence nothing can check against a source, and a
+test asserts their absence rather than trusting the shape of the code. `{{weather.place}}` is filled
+from the READING rather than from the subject, so a break about the station's own place — which has
+no subject, because that is a setting rather than a topic — can still say where it is about.
+
+**The model binding above it has a check no other writer has.** A bulletin's claims are sentences and
+a forecast's claims are NUMBERS, and the set of true ones is known exactly, so `inventedFigure`
+refuses a script naming a temperature the station was never given. That matters more here than the
+shape guards do: a plausible temperature is far easier for a model to write than a plausible news
+story, because it knows roughly what August in Atlanta is like and will fill one in without any sense
+of having invented anything. Two gaps in it are deliberate and are tests rather than comments — a
+spelled-out number gets through, and a clock time, a date or a year is not read as a measurement.
+
+**The three ways of having nothing are told apart in the SOURCE and nowhere else.** No plugin, nowhere
+named, a service that is down: one silence to the writer, and three different things for an operator
+to do. A station whose clock asks for the weather every hour and is silent every time needs to be told
+which, so `WeatherSource` names the fix in the log and the writer only declines.
+
+**Where the station is, is a SETTING and not a topic.** `station.location` is the default for every
+weather feature, so a fresh install reports its own conditions without an operator creating anything;
+a `weather` topic is for somewhere ELSE, which is what a band on the format clock points at.
+`station.units` decides what a listener hears, and a location may override it — the capability is
+metric on the wire always, and `weather.words.ts` is the one place that changes.
+
 ## The format clock, and what a break is about
 
 **The format clock is ROWS, and what a break is ABOUT is the operator's own word.** `rotation.clockBands` was
@@ -192,16 +228,18 @@ milliseconds a spacing rule could use.
 What a band points at is a **topic**: `deadair.topics`, keyed by `segments.kind`, holding the
 operator's own vocabulary with a `config` that is DELIBERATELY SHAPELESS (`break_requests.context`'s
 rule — the code for a kind reads what it expects and nothing generic reads it). News categories are
-its first kind and `docs/todo/station-moment.md`'s weather locations are the second, which is the
-whole reason it is a chassis rather than a news feature; a kind declares itself to `TopicKindRegistry`
+its first kind and weather locations are the second, which is the whole reason it is a chassis rather
+than a news feature and is the thing the second kind cost one file to prove; a kind declares itself to `TopicKindRegistry`
 with the plugin SDK's `ConfigField`, so the console renders its form with the component that already
 draws a plugin's settings and the station's. Two rules are load-bearing. `clock_bands.topic_id`
 **cascades** rather than nulling, against the habit of every other reference here: a band that quietly
 lost its subject would read a GENERAL bulletin under a category's name, and silence is a state an
 operator can see where a wrong bulletin is not. And the subject reaches the writer through
 `segments.context` — the planted sibling of a request's context, on the ROW because the words are
-asked for several passes after the band claimed the slot — resolved once by `BulletinSource` into a
-`BreakSubject`, so the model binding and the floor cannot resolve it differently.
+asked for several passes after the band claimed the slot — resolved once by `BulletinSource` or
+`WeatherSource` into a `BreakSubject`, so the model binding and the floor cannot resolve it
+differently. The two never both answer, because each refuses every kind but its own, which is why
+`WriteBreakJob` reads them as a chain rather than merging them.
 
 **A story's category is decided by three signals, ranked, and a category that matches nothing declines the
 slot.** `news.classify.ts` is pure and runs on the floor as well as under the model, so it may not fetch and

@@ -54,6 +54,41 @@ describe('the Open-Meteo geocoder', () => {
         expect(parseGeocoding({ results: [] })).toBeUndefined();
         expect(parseGeocoding('not json at all')).toBeUndefined();
     });
+
+    describe('choosing between places of one name', () => {
+        const springfields = {
+            results: [
+                { name: 'Springfield', latitude: 37.2, longitude: -93.3, admin1: 'Missouri', country: 'United States' },
+                { name: 'Springfield', latitude: 42.1, longitude: -72.6, admin1: 'Massachusetts', country: 'United States' },
+            ],
+        };
+
+        it('takes the one whose region the operator named after the comma', () => {
+            expect(parseGeocoding(springfields, 'Massachusetts')?.name).toBe('Springfield, Massachusetts');
+        });
+
+        it('matches on the county too, since an operator naming one should not have to know which field it is', () => {
+            const chipping = {
+                results: [{ name: 'Chipping Norton', latitude: 51.9, longitude: -1.5, admin1: 'England', admin2: 'Oxfordshire' }],
+            };
+
+            expect(parseGeocoding(chipping, 'Oxfordshire')?.name).toBe('Chipping Norton, England');
+        });
+
+        it('matches on the country, since "Springfield, USA" names one', () => {
+            expect(parseGeocoding(springfields, 'United States')?.name).toBe('Springfield, Missouri');
+        });
+
+        it('falls back to the first when nothing carries the qualifier, rather than to nothing', () => {
+            // The biggest place of that name is a better answer than silence, and the name that comes
+            // back says which one it was.
+            expect(parseGeocoding(springfields, 'Oxfordshire')?.name).toBe('Springfield, Missouri');
+        });
+
+        it('ignores a qualifier when the caller gave none', () => {
+            expect(parseGeocoding(springfields)?.name).toBe('Springfield, Missouri');
+        });
+    });
 });
 
 describe('Open-Meteo forecasts', () => {

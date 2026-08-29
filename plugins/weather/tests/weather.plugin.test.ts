@@ -89,6 +89,43 @@ describe('Open-Meteo, the default', () => {
         expect(reading).toMatchObject({ place: 'Atlanta, Georgia', current: { condition: 'clear', temperatureC: 24.1 } });
     });
 
+    it('asks the geocoder again with the town alone when a comma-qualified name found nothing', async () => {
+        // Measured against the live service: `Atlanta, Georgia` resolves and
+        // `Chipping Norton, Oxfordshire` resolves to NOTHING, while the town on
+        // its own resolves fine. Without this, the input an operator is most
+        // likely to type arrives as a station that has stopped mentioning the
+        // weather, with nothing in any log naming the comma.
+        await initialize();
+        queueJson({});
+        queueJson({ results: [{ name: 'Chipping Norton', latitude: 51.9, longitude: -1.5, admin1: 'England', admin2: 'Oxfordshire' }] });
+        queueJson(OPEN_METEO_ANSWER);
+
+        const reading = await plugin.getWeather({ place: 'Chipping Norton, Oxfordshire' });
+
+        expect(host.calls[0]?.url).toContain('name=Chipping+Norton%2C+Oxfordshire');
+        // The town alone, and asked for several so the qualifier has something to choose between.
+        expect(host.calls[1]?.url).toContain('name=Chipping+Norton&count=10');
+        expect(reading?.place).toBe('Chipping Norton, England');
+    });
+
+    it('costs one request when the whole name resolves, which is the common case', async () => {
+        await initialize();
+        queueJson(GEOCODED);
+        queueJson(OPEN_METEO_ANSWER);
+
+        await plugin.getWeather({ place: 'Atlanta' });
+
+        expect(host.calls.filter(call => call.url.includes(OPEN_METEO_GEOCODING_HOST))).toHaveLength(1);
+    });
+
+    it('does not ask twice for a name with no comma in it, since there is nothing to fall back to', async () => {
+        await initialize();
+        queueJson({});
+
+        expect(await plugin.getWeather({ place: 'Nowheresville' })).toBeUndefined();
+        expect(host.calls).toHaveLength(1);
+    });
+
     it("asks for the place's own timezone, which is what makes a forecast day mean anything", async () => {
         await initialize();
         queueJson(GEOCODED);

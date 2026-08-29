@@ -65,6 +65,11 @@ function build(options: ServiceOptions = {}) {
 }
 
 const only = async (tool: WeatherTool) => (await tool.tools())[0]!;
+
+/** The `location` parameter as the model sees it. `parameters.properties` is a JSON Schema bag, so it is read as one. */
+const locationParameter = (properties: unknown): { enum?: string[]; description?: string } | undefined =>
+    (properties as Record<string, { enum?: string[]; description?: string }> | undefined)?.location;
+
 const run = async (tool: WeatherTool, args: Record<string, unknown> = {}) =>
     (await (await only(tool)).run(args)) as {
         place?: string;
@@ -115,17 +120,17 @@ describe('what is offered', () => {
             topics: [location('atlanta', 'Atlanta', { place: 'Atlanta, Georgia' }), location('boston', 'Boston', { place: 'Boston, MA' })],
         });
         const { declaration } = await only(tool);
-        const parameter = declaration.parameters.properties?.location as { enum?: string[]; description?: string };
+        const parameter = locationParameter(declaration.parameters.properties);
 
-        expect(parameter.enum).toEqual(['atlanta', 'boston']);
-        expect(parameter.description).toContain('Boston');
+        expect(parameter?.enum).toEqual(['atlanta', 'boston']);
+        expect(parameter?.description).toContain('Boston');
     });
 
     it('drops an unfinished location rather than offering an id nothing can be looked up from', async () => {
         const { tool } = build({ topics: [location('atlanta', 'Atlanta', { place: 'Atlanta' }), location('half', 'Half done', {})] });
         const { declaration } = await only(tool);
 
-        expect((declaration.parameters.properties?.location as { enum?: string[] }).enum).toEqual(['atlanta']);
+        expect(locationParameter(declaration.parameters.properties)?.enum).toEqual(['atlanta']);
     });
 
     it('survives a topics table it could not read, losing the locations and nothing else', async () => {

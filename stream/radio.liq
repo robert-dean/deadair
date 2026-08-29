@@ -1581,8 +1581,15 @@ if hls_dir != "" then
   # stream-settings change (config-watch.sh). Without it Liquidsoap starts numbering segments
   # from zero again, and every connected player is holding a playlist whose numbers now point
   # at different audio — which is not a gap, it is a stall that only a manual reconnect clears.
-  # On the streamstate volume rather than the HLS one: it is state the app does not own and
-  # cannot reproduce, which is the same argument the fetcher's Spotify login is stored under.
+  #
+  # **Beside the segments, and NOT on the streamstate volume.** It was written as
+  # `/streamstate/hls.json` on the argument that this is state the app cannot reproduce — which
+  # is simply wrong: it is segment numbering, and losing it costs connected players one
+  # reconnect, nothing more. What that mistake actually cost is worse than the reasoning: that
+  # path exists ONLY in the compose deployment, so on the single-container image Liquidsoap
+  # tried to `mkdir /streamstate`, got EACCES, and refused to start — taking every Icecast mount
+  # down with it on a station that had just switched HLS on. `hls_dir` is rendered per
+  # deployment and is writable by construction, because the segments are already going there.
   output.file.hls(
     playlist = "live.m3u8",
     segment_duration = env_float("STREAM_HLS_SEGMENT_SECONDS", 2.),
@@ -1591,7 +1598,7 @@ if hls_dir != "" then
     # playlist a moment before a segment rolled off is about to request that segment, and
     # deleting it the instant it left the window is a 404 in the middle of somebody's listening.
     segments_overhead = 5,
-    persist_at = "/streamstate/hls.json",
+    persist_at = "#{hls_dir}/state.json",
     hls_dir,
     hls_streams,
     bus

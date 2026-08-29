@@ -13,6 +13,7 @@ import { ToolRegistry } from './llm.tools.js';
 import { ShowSoFarTool } from './show.so.far.tool.js';
 import { StationTasteTool } from './station.taste.tool.js';
 import { WebSearchTool } from './websearch.tool.js';
+import { WeatherTool } from './weather.tool.js';
 
 /**
  * Asking a model for words.
@@ -83,7 +84,12 @@ export const LlmModule: ServerKitModule = {
         // what comes back cannot be played, so nothing downstream of it touches the pick path and
         // the only thing a DJ can do with it is talk.
         registry.register(NewsTool).useClass(NewsTool).asScoped();
-        // The fourth, and the only source here that answers a question nobody wrote down in
+        // Beside the news one and not about records either, and the difference between them is what
+        // comes back: a headline is already the sentence, and this is a set of numbers somebody has
+        // to turn into one. So the model writes the line, which is the same division the capability
+        // keeps — a plugin fetches and the host thinks.
+        registry.register(WeatherTool).useClass(WeatherTool).asScoped();
+        // The fifth, and the only source here that answers a question nobody wrote down in
         // advance: every other one reads a list somebody assembled, and this one takes words the
         // model made up and goes and asks. Scoped with the `SearchService` it adapts.
         registry.register(WebSearchTool).useClass(WebSearchTool).asScoped();
@@ -116,6 +122,11 @@ export const LlmModule: ServerKitModule = {
                             // is not helped by it, and a model writing a break reaches it after
                             // everything that might tell it what is actually playing.
                             container.get(NewsTool),
+                            // Beside the news, and after it because a bulletin is the thing a
+                            // station interrupts records for and the weather is the thing it
+                            // mentions on the way past. Both are cheap and both are certain, which
+                            // is what keeps them ahead of the search below.
+                            container.get(WeatherTool),
                             // Last of all, which is the order the declarations reach the model and
                             // therefore a hint about what to reach for first. Everything above
                             // answers out of something somebody chose — the library, the providers,

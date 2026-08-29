@@ -11,6 +11,7 @@ import {
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SPEECH,
     PLUGIN_CAPABILITY_STREAM,
+    PLUGIN_CAPABILITY_WEATHER,
     type AnalysisProvider,
     type ChartsPluginInstance,
     type ScrobblePluginInstance,
@@ -23,6 +24,7 @@ import {
     type PluginManifest,
     type SearchPluginInstance,
     type SpeechPluginInstance,
+    type WeatherPluginInstance,
 } from '@deadair/plugin-sdk';
 import type { PluginRecord } from './types/plugin.record.js';
 
@@ -329,6 +331,40 @@ export const asSearchPlugin = (record: PluginRecord): SearchPlugin | undefined =
     if (!implementsSearch(record.manifest, record.instance)) return undefined;
 
     return { record, manifest: record.manifest, instance: record.instance as SearchPluginInstance };
+};
+
+/** The one method that earns the `weather` capability. */
+export const WEATHER_METHODS = ['getWeather'] as const satisfies ReadonlyArray<keyof WeatherPluginInstance>;
+
+/** A plugin narrowed to "can say what it is like outside". */
+export interface WeatherPlugin {
+    record: PluginRecord;
+    manifest: PluginManifest;
+    instance: WeatherPluginInstance;
+}
+
+/** {@link implementsCatalog}'s rule, applied to the `weather` capability. */
+export const implementsWeather = (manifest: PluginManifest | undefined, instance: unknown): boolean => {
+    if (!manifest?.capabilities.includes(PLUGIN_CAPABILITY_WEATHER)) return false;
+    return WEATHER_METHODS.every(method => typeof (instance as Record<string, unknown>)[method] === 'function');
+};
+
+/**
+ * The weather-capable view of a record, or `undefined` when it is not one.
+ *
+ * No `priority`, and unlike {@link asSearchPlugin} the answers do not combine
+ * either: two services asked what it is like in one place give two readings of
+ * the same sky, and a station that averaged them would be reporting a
+ * temperature nobody measured. So `WeatherService` asks the first that answers
+ * and stops, which is the arrangement {@link asSpeechPlugin} has for a different
+ * reason — there because only one engine can speak a line, here because only one
+ * of two disagreeing readings can be true.
+ */
+export const asWeatherPlugin = (record: PluginRecord): WeatherPlugin | undefined => {
+    if (record.status !== 'active' || !record.manifest || !record.instance) return undefined;
+    if (!implementsWeather(record.manifest, record.instance)) return undefined;
+
+    return { record, manifest: record.manifest, instance: record.instance as WeatherPluginInstance };
 };
 
 /** The one method that earns the `scrobble` capability. */

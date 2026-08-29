@@ -16,6 +16,7 @@ import { NewsModule } from './news/news.module.js';
 import { TopicsModule } from './topics/topics.module.js';
 import { SimilarityModule } from './similarity/similarity.module.js';
 import { SearchModule } from './search/search.module.js';
+import { WeatherModule } from './weather/weather.module.js';
 import { ScrobbleModule } from './scrobble/scrobble.module.js';
 import { LlmModule } from './llm/llm.module.js';
 import { PersonasModule } from './personas/personas.module.js';
@@ -127,8 +128,14 @@ const ordered: ServerKitModule[] = [
     // going on outside" — one serves a menu the operator assembled, the other takes a
     // question nobody wrote down in advance — and neither can schedule anything.
     SearchModule,
-    // After every module that OWNS a sort of break's subjects — NewsModule today, weather
-    // tomorrow — and before DirectorModule, which reads one back when a break is written.
+    // The third of these, and the one that answers about a PLACE rather than about an
+    // event: after PluginsModule, before the LLM that reads it as a tool and before the
+    // director that writes a break out of it. It is also the second module to own a sort
+    // of break's subjects, which is what fixes it above TopicsModule rather than beside
+    // NewsModule by taste.
+    WeatherModule,
+    // After every module that OWNS a sort of break's subjects — NewsModule and
+    // WeatherModule — and before DirectorModule, which reads one back when a break is written.
     // The vocabulary is the operator's ("technology", "Atlanta") and the registry that says
     // which kinds have subjects at all is an explicit list, exactly as the LLM's tool sources
     // are, which is why the edge points this way.

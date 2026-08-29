@@ -21,6 +21,7 @@ import {
     MAX_STORY_COUNT,
 } from '#modules/director/bulletin.source.js';
 import { CLOCK_KEYS } from '#modules/director/clock.words.js';
+import { DEFAULT_UNITS, WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import {
     BREAK_WORD_KEYS,
     DEFAULT_STORY_WORDS,
@@ -166,8 +167,35 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'station',
-        key: CLOCK_KEYS.timezone,
+        key: WEATHER_KEYS.location,
         label: 'Where the station is',
+        type: 'string',
+        default: '',
+        placeholder: 'Atlanta, Georgia',
+        help:
+            'A town or city, as you would say it on air. The station reports the weather here unless a break asks for somewhere else, so a fresh ' +
+            'install needs nothing but this. Leave it empty and the station simply never mentions the weather.',
+    },
+    {
+        group: 'station',
+        key: WEATHER_KEYS.units,
+        label: 'Units',
+        type: 'select',
+        default: DEFAULT_UNITS,
+        options: [
+            { value: 'metric', label: 'Celsius and km/h' },
+            { value: 'imperial', label: 'Fahrenheit and mph' },
+        ],
+        help: 'What the station says its measurements in. Whichever service answers, this is what a listener hears.',
+    },
+    {
+        group: 'station',
+        key: CLOCK_KEYS.timezone,
+        // Named for the CLOCK rather than for the place, now that the place above
+        // has the other name. Both were called "Where the station is", which is
+        // one label doing two jobs: a station in Atlanta reads its clock in
+        // America/New_York, and neither box can be filled in from the other.
+        label: 'Station timezone',
         type: 'string',
         default: '',
         // Suggestions rather than a `select`, on the console's own rule for these: the list is what

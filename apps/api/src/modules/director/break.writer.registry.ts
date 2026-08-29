@@ -215,6 +215,19 @@ export const isWritten = (result: BreakWriteResult): result is BreakWriteResult 
     result.written !== undefined;
 
 /**
+ * Why one writer produced nothing, as a sentence.
+ *
+ * Exported because the reason belongs to the attempt rather than to whoever is reporting it, and the
+ * two reporters had drifted: {@link WriteAttempt.reason} is already a whole sentence naming its own
+ * writer, so the activity feed prefixing it with the writer's name again published 144 lines reading
+ * "model the model wrote a line the station could say, but not in its own voice". One phrasing, so
+ * the next reporter cannot invent a third.
+ */
+export function declineText(attempt: WriteAttempt): string {
+    return attempt.reason ?? `the ${attempt.writer} writer said nothing`;
+}
+
+/**
  * Why nobody wrote it, naming each writer that was asked.
  *
  * One sentence covering all of them rather than the last one's, because the last one is usually the
@@ -222,6 +235,6 @@ export const isWritten = (result: BreakWriteResult): result is BreakWriteResult 
  * a writer or two above it.
  */
 function summarise(kind: string, attempts: readonly WriteAttempt[]): string {
-    const reasons = attempts.map(attempt => attempt.reason ?? `the ${attempt.writer} writer said nothing`);
+    const reasons = attempts.map(declineText);
     return reasons.length === 1 ? reasons[0]! : `nothing could write this ${kind}: ${reasons.join('; ')}`;
 }

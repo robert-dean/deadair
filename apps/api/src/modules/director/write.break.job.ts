@@ -28,7 +28,7 @@ import { isRenderedFirst, priorityForUrgency, type StoredBreakRequest } from './
 import { BulletinSource } from './bulletin.source.js';
 import type { BreakTrack, PlayedRecord, WrittenBreak } from './break.writer.js';
 import { dayGreeting, dayPart, roughTime, stationZone } from './clock.words.js';
-import { BreakWriterRegistry, isWritten, type BreakWriteResult } from './break.writer.registry.js';
+import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { TALK_BREAK_SHAPE } from './break.prompt.js';
 import { DETERMINISTIC_WRITER, TALK_BREAK_KIND } from './talk.break.writer.js';
 import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
@@ -412,7 +412,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             void this.activity.record({
                 module: 'render',
                 kind: 'break.degraded',
-                detail: `A break fell through to the ${result.writer} writer: ${declined.map(attempt => `${attempt.writer} ${attempt.reason ?? 'said nothing'}`).join('; ')}.`,
+                detail: `A break fell through to the ${result.writer} writer: ${declined.map(declineText).join('; ')}.`,
                 data: {
                     segmentId,
                     wrote: result.writer,

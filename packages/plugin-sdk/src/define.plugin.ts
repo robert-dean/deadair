@@ -5,6 +5,7 @@ import type { NewsProvider } from './capabilities/news.js';
 import type { ScrobbleProvider } from './capabilities/scrobble.js';
 import type { SearchProvider } from './capabilities/search.js';
 import type { SimilarityProvider } from './capabilities/similarity.js';
+import type { WeatherProvider } from './capabilities/weather.js';
 import type { PluginManifest } from './plugin.manifest.js';
 import type { PluginLifecycle } from './plugin.lifecycle.js';
 
@@ -51,6 +52,9 @@ export type SimilarityPluginInstance = PluginLifecycle & SimilarityProvider;
 
 /** Instance shape for a `search` plugin. */
 export type SearchPluginInstance = PluginLifecycle & SearchProvider;
+
+/** Instance shape for a `weather` plugin. */
+export type WeatherPluginInstance = PluginLifecycle & WeatherProvider;
 
 /** Instance shape for a `scrobble` plugin. */
 export type ScrobblePluginInstance = PluginLifecycle & ScrobbleProvider;

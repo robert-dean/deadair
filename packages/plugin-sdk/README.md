@@ -21,6 +21,7 @@ A plugin extends deadair by declaring capabilities:
 | `similarity` | say who else sounds like this: an artist in, artists out       |
 | `news`       | say what happened outside the station: a feed in, entries out  |
 | `search`     | ask the open web a question: words in, pages out               |
+| `weather`    | say what it is like outside: a place in, measurements out       |
 | `scrobble`   | report what the station played to somebody else's service      |
 | `oauth`      | hold operator tokens, obtained through the host's redirect     |
 
@@ -548,6 +549,46 @@ only for something the operator has to go and fix.
 Note what `search` is not. Looking for something to PLAY is `searchTracks` on
 the catalog capability, which answers with provider ids the station can resolve
 into audio. Nothing a search plugin returns can be scheduled.
+
+## Saying what it is like outside
+
+A `weather` plugin has one method, and the caller supplies the place:
+
+```ts
+async getWeather(query: WeatherQuery): Promise<WeatherReading | undefined> {
+    const point = await this.resolve(query.place);          // your service, your geocoder
+    if (point === undefined) return undefined;              // nowhere of that name
+
+    const forecast = await this.forecast(point, query.days ?? 0);
+    return { place: point.name, observedAt: forecast.time, current: forecast.now, days: forecast.days };
+}
+```
+
+Three things about it are easy to get wrong.
+
+**Everything is metric.** Celsius, km/h, and no unit field anywhere. What a
+station SAYS is a station's own decision, settled where the words are made,
+beside every other decision about how that station talks. A plugin converting
+would make the units on the wire depend on which plugin was installed, which is
+the one thing a capability must not let happen. It is `ConfigField.unit`'s rule
+one layer down.
+
+**You resolve the place, and the host never geocodes.** `query.place` is a name
+somebody typed. Turning it into coordinates is exactly the per-service quirk this
+boundary exists to absorb — one service ships a geocoder, one takes coordinates
+only, one wants its own city ids — and a host that geocoded would have to pick
+one service to geocode with. Answer with the place as YOUR service resolved it,
+because that is the part a presenter says out loud and the only evidence anybody
+has that the right town was found.
+
+**A condition is a closed vocabulary.** `WeatherCondition` is ten arms. WMO code
+73, an icon string of `snow` and a numeric condition id are three spellings of
+one thing, and mapping them is yours. Your service's own word survives beside it
+as `description`, which nothing deterministic reads and a model may use.
+
+`undefined` is an answer, on the same terms as a search plugin's empty array: an
+unconfigured plugin, a place nothing could resolve and a service that is down are
+one outcome to every caller. Throw only for something the operator must fix.
 
 ## Music providers
 

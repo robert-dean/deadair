@@ -43,6 +43,7 @@ import type { NewsFeedDescriptor, NewsItem, NewsQuery } from './capabilities/new
 import type { ScrobblePlay, ScrobbleRejection, ScrobbleResult } from './capabilities/scrobble.js';
 import type { SearchQuery, SearchResult } from './capabilities/search.js';
 import type { ArtistTrack, SimilarArtist } from './capabilities/similarity.js';
+import type { WeatherConditions, WeatherDay, WeatherQuery, WeatherReading } from './capabilities/weather.js';
 import type {
     AlbumEnrichment,
     AlbumRef,
@@ -190,6 +191,10 @@ export type AssertAllBoundaryPayloadsAreJsonSafe = AssertAllTrue<{
     ArtistTrack: IsJsonSafe<ArtistTrack>;
     SearchQuery: IsJsonSafe<SearchQuery>;
     SearchResult: IsJsonSafe<SearchResult>;
+    WeatherQuery: IsJsonSafe<WeatherQuery>;
+    WeatherConditions: IsJsonSafe<WeatherConditions>;
+    WeatherDay: IsJsonSafe<WeatherDay>;
+    WeatherReading: IsJsonSafe<WeatherReading>;
     ScrobblePlay: IsJsonSafe<ScrobblePlay>;
     ScrobbleRejection: IsJsonSafe<ScrobbleRejection>;
     ScrobbleResult: IsJsonSafe<ScrobbleResult>;
@@ -254,6 +259,10 @@ export const JSON_SAFE_PAYLOAD_TYPES = [
     'ArtistTrack',
     'SearchQuery',
     'SearchResult',
+    'WeatherQuery',
+    'WeatherConditions',
+    'WeatherDay',
+    'WeatherReading',
     'ScrobblePlay',
     'ScrobbleRejection',
     'ScrobbleResult',
@@ -292,6 +301,7 @@ export const BOUNDARY_METHOD_TYPES = [
     'NewsProvider',
     'SimilarityProvider',
     'SearchProvider',
+    'WeatherProvider',
     'ScrobbleProvider',
 ] as const;
 

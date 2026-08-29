@@ -117,6 +117,24 @@ export const PLUGIN_CAPABILITY_SIMILARITY = 'similarity';
 export const PLUGIN_CAPABILITY_SEARCH = 'search';
 
 /**
+ * The plugin can say what it is like outside: a place in, measurements out.
+ *
+ * The third capability that answers about the world, and separate from both of
+ * the others because it is asked a different question. News serves a menu
+ * somebody assembled and answers "what happened"; search takes words a caller
+ * made up and answers "what does the web say". This is asked about one PLACE,
+ * and what comes back is numbers rather than sentences — the station does
+ * arithmetic on them and then decides what to say, where a headline is already
+ * the words.
+ *
+ * A capability rather than a general-purpose tool the model calls, which was the
+ * older plan: a plugin answering a question the STATION has is a capability, and
+ * this station wants a reading for the moment it is playing into as well as for
+ * the presenter to mention. See `docs/todo/tool-plugins.md`.
+ */
+export const PLUGIN_CAPABILITY_WEATHER = 'weather';
+
+/**
  * The plugin can report what the station played to somebody else's service.
  *
  * The only capability that SENDS. Everything else here reads an upstream; this
@@ -140,6 +158,7 @@ export const KNOWN_PLUGIN_CAPABILITIES = [
     PLUGIN_CAPABILITY_NEWS,
     PLUGIN_CAPABILITY_SIMILARITY,
     PLUGIN_CAPABILITY_SEARCH,
+    PLUGIN_CAPABILITY_WEATHER,
     PLUGIN_CAPABILITY_SCROBBLE,
 ] as const;
 

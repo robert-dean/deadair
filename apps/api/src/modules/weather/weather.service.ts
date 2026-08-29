@@ -84,10 +84,11 @@ export class WeatherService {
      *
      * @param place - Where to ask about. Defaults to {@link home}.
      * @param days - How much forecast to include beyond now.
+     * @param units - A location's own override, where one is set. Defaults to {@link units}.
      */
-    async read(place?: string, days = 0): Promise<SpokenWeather | undefined> {
+    async read(place?: string, days = 0, units?: StationUnits): Promise<SpokenWeather | undefined> {
         const reading = await this.reading(place, days);
-        return reading === undefined ? undefined : spoken(reading, this.units());
+        return reading === undefined ? undefined : spoken(reading, units ?? this.units());
     }
 
     /**

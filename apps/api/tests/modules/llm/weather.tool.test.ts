@@ -149,7 +149,15 @@ describe('what comes back', () => {
 
         await run(tool);
 
-        expect(read).toHaveBeenCalledWith(undefined, 0);
+        expect(read).toHaveBeenCalledWith(undefined, 0, undefined);
+    });
+
+    it("honours a location's own units override, which is the one place it is read for a model", async () => {
+        const { tool, read } = build({ units: 'metric', topics: [location('boston', 'Boston', { place: 'Boston, MA', units: 'imperial' })] });
+
+        await run(tool, { location: 'boston' });
+
+        expect(read).toHaveBeenCalledWith('Boston, MA', 0, 'imperial');
     });
 
     it('asks about the PLACE behind a location, not the label a presenter says', async () => {
@@ -157,7 +165,7 @@ describe('what comes back', () => {
 
         await run(tool, { location: 'town' });
 
-        expect(read).toHaveBeenCalledWith('Chipping Norton, Oxfordshire', 0);
+        expect(read).toHaveBeenCalledWith('Chipping Norton, Oxfordshire', 0, undefined);
     });
 
     it("answers with the operator's own word for the place, and keeps what the service resolved", async () => {
@@ -176,13 +184,13 @@ describe('what comes back', () => {
         const { tool, read } = build();
 
         await run(tool, { when: 'today' });
-        expect(read).toHaveBeenLastCalledWith(undefined, 1);
+        expect(read).toHaveBeenLastCalledWith(undefined, 1, undefined);
 
         await run(tool, { when: 'tomorrow' });
-        expect(read).toHaveBeenLastCalledWith(undefined, 2);
+        expect(read).toHaveBeenLastCalledWith(undefined, 2, undefined);
 
         await run(tool, { when: 'week' });
-        expect(read).toHaveBeenLastCalledWith(undefined, 7);
+        expect(read).toHaveBeenLastCalledWith(undefined, 7, undefined);
     });
 
     it('reads a horizon it does not know as the conditions now', async () => {
@@ -190,7 +198,7 @@ describe('what comes back', () => {
 
         await run(tool, { when: 'a fortnight on Tuesday' });
 
-        expect(read).toHaveBeenLastCalledWith(undefined, 0);
+        expect(read).toHaveBeenLastCalledWith(undefined, 0, undefined);
     });
 
     it('says what the units are, beside figures already converted into them', async () => {
@@ -222,6 +230,6 @@ describe('what comes back', () => {
 
         await run(tool, { location: 'a-place-that-went-away' });
 
-        expect(read).toHaveBeenCalledWith(undefined, 0);
+        expect(read).toHaveBeenCalledWith(undefined, 0, undefined);
     });
 });

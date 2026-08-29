@@ -132,20 +132,23 @@ export class WeatherTool implements ToolSource {
     }
 
     /**
-     * The reading, already in this station's units.
+     * The reading, already in the units this place is reported in.
      *
      * A location the model named but the station does not hold is answered as
-     * though it had named none, with a `note` saying so — the stale-request rule
-     * `ClockService.subjectFor` follows, because a model that read the enum a
-     * moment before an operator deleted the row is not making a mistake it can
-     * learn from.
+     * though it had named none — the stale-request rule `ClockService.subjectFor`
+     * follows, because a model that read the enum a moment before an operator
+     * deleted the row is not making a mistake it can learn from, and the
+     * station's own weather is a better answer than a refusal.
      */
     private async read(args: Record<string, unknown>, locations: readonly WeatherLocation[]): Promise<unknown> {
         const wanted = readText(args.location);
         const asked = locations.find(location => location.key === wanted);
         const horizon = readHorizon(args.when);
 
-        const reading = await this.weather.read(asked?.place, HORIZONS[horizon]);
+        // The location's own units where the row overrides them, which is the one
+        // place that override is honoured for a model — the answer says which it
+        // used either way, so a mixed-units station cannot mislead a presenter.
+        const reading = await this.weather.read(asked?.place, HORIZONS[horizon], asked?.units);
 
         // The line every tool here carries: "what did the model actually have to
         // work with" has to be answerable from the log alone when a break turns

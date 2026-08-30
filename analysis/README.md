@@ -88,6 +88,9 @@ rather than the current figure, in kilobytes on Linux and bytes on macOS.
     "outroStart": 198200,
     "cueOut": 213600,
 
+    "vocalCurve": [0, 0, 4, 31, 44, …],  // 0-100 every 500 ms, from the start of the FILE
+    "vocalOnset": 18600,      // absent on an instrumental; see below
+
     "integratedLufs": -8.4,   // gated programme loudness, BS.1770
     "truePeakDb": 1.2,        // oversampled; legitimately above 0
     "samplePeakDb": -0.1,
@@ -102,6 +105,12 @@ rather than the current figure, in kilobytes on Linux and bytes on macOS.
 Every offset in `data` is absolute, into the file, in integer milliseconds — `cueOut` included.
 Storing it relative to `cueIn` is the obvious-looking choice and is wrong: everything downstream seeks
 in file time, so a relative figure has to be re-based at every read and eventually one read is not.
+
+`vocalCurve` is **always produced** and `vocalOnset` is not, and that asymmetry is load-bearing in two
+places. It is what tells a reader an instrumental (a curve, no onset) from a record nothing has
+looked at yet (neither) — an instrumental is a real answer rather than a miss. And it is what the
+station's own walk uses to find rows written before this layer existed, which is why no schema bump
+was needed for it.
 
 The three loudness fields are **optional and omitted rather than floored**. A silent or near-silent
 track has no loudness, and the alternative to leaving it out is a value like −80 that a caller would
@@ -252,6 +261,51 @@ From that envelope: a reference level is taken as a high percentile inside the s
 the last moment it was still there. A record that ends cold has its last full moment near the end and
 so a short outro; one that fades has it early and a long one. No constant to tune per record, and no
 classifier.
+
+## How the vocal onset is found
+
+**Band energy alone would measure nothing new**, and that is the whole design. 200 Hz–4 kHz is
+already what `introEnd` uses, because it is where voices *and lead instruments* live — so a second
+detector over the same band would re-derive `introEnd` under another name. `introEnd` is "the beat
+established, OR the vocal in", a guess about two different events, and telling them apart is the
+point.
+
+What separates a sung line from a held note is that a voice is **syllabic**: its level rises and
+falls a few times a second where a pad or a sustained guitar does not. So `vocal.py` measures the
+*envelope's own* modulation in the 2–8 Hz band against the level it is modulating. No model, no
+weights, no separation toolkit — `docs/decisions/analysis-licensing.md` is unaffected, and its
+one-line description of these fields as "band-limited energy" is what this paragraph replaces.
+
+The figure means something: for an envelope `A(1 + m·sin)` the AC part has RMS `A·m/√2`, so what is
+reported is the modulation depth over root two. Two things it got wrong first, both kept as tests:
+
+> **A ratio is scale-invariant, so it needs an ABSOLUTE floor.** A 60 Hz bassline modulated at
+> syllable rate leaks through the band-pass at −96.6 dBFS and, divided by its own residual, read
+> 0.61 — a confident vocal on every dance record in the library. A floor relative to the track's own
+> level cannot catch it, because a track made of leakage sets its reference from the leakage.
+
+> **A sustain requirement must outlast the smoothing that feeds it.** The presence is a moving RMS
+> over a one-second window, which smears a 0.4 s shout across about a second — manufacturing exactly
+> the run the sustain check was looking for. Requiring a sustain equal to the window is no
+> requirement at all, so it is twice it.
+
+> **`to_mono` is an energy envelope, not a downmix, so nothing spectral may be built on it.** It
+> folds channels as `sqrt(mean(x²))`, which is non-negative and therefore RECTIFIES — and a
+> band-pass over a rectified signal reads harmonics that rectification invented. Measured on a 60 Hz
+> bassline in real stereo: **−32.5 dBFS inside 200 Hz–4 kHz, against −96.6 dBFS from the waveform
+> itself.** Every stereo record with a bassline read as singing from the first bar. So the vocals
+> fold with `to_downmix` (a plain average, which preserves the waveform) and the cue points keep
+> `to_mono`, which they are calibrated against and which only ever asks *whether* the record is
+> sounding rather than *what* is.
+
+That last one costs a second band-pass per record — about 0.7 s over five minutes, small against the
+decode — and the saving is not available: the two measurements are reading different signals on
+purpose. Anyone optimising the second pass away should read this paragraph first.
+
+Everything leans **early rather than late**, because an onset reported late puts a talk-up over the
+first word and one reported early only costs talk-up time. The curve takes the maximum in each bin,
+and the centred smoothing already reads a line entering about half a second before the first word
+lands. That bias is left in.
 
 ## How loudness is measured
 

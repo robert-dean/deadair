@@ -11,7 +11,28 @@ completeness flag exactly as "The storage shape" below asks for. `AnalysisModule
 walks the catalog and measures what it finds. The four cue points come from an RMS envelope over
 ffmpeg-decoded samples, and the loudness layer at the end is built and checked against `ebur128`.
 
-**What is still deferred is the beat layer alone** — `bpm`, `beat_confidence`, `downbeats`,
+**State of the tree, 2026-08-30: the VOCAL half of the beat layer is built.** `analysis/vocal.py`
+produces `vocalCurve` and `vocalOnset`, with no new dependency and no schema bump — see below and
+`analysis/README.md`. What is still deferred is the TEMPO half: `bpm`, `beat_confidence`,
+`downbeats`.
+
+**The two halves were split because they carry completely different risk**, which
+`analysis-licensing.md` says outright ("two of the five are not part of the problem at all"), and
+because the vocal half's consumer is the talk-up limit — heard every break — where the tempo half's
+consumers all sit behind Liquidsoap engine work that has not been spiked.
+
+**Three things the vocal half got wrong first, each now a test.** A ratio is scale-invariant, so it
+needs an absolute floor: a bassline leaking through the band-pass, divided by its own residual, read
+as a confident vocal. A sustain requirement must outlast the smoothing that feeds it, or a 0.4 s
+shout manufactures the very run the check is looking for. And **`to_mono` rectifies**, so a
+band-pass over it lifted a 60 Hz bassline into the vocal band by 64 dB — the vocals fold with
+`to_downmix` and the cue points keep `to_mono`. That third one would have fired on most of a real
+library rather than on an edge case.
+
+**The one number still provisional is `VOCAL_THRESHOLD`**, which is the guard below asking for a
+figure measured on this library rather than a default.
+
+~~**What is still deferred is the beat layer alone**~~ — `bpm`, `beat_confidence`, `downbeats`,
 `vocal_onset`, `vocal_curve`. **Its licence question is now answered** in
 [../decisions/analysis-licensing.md](../decisions/analysis-licensing.md), and the answer changes two
 things this file says below. Every dependency in the analysis path is permissive, weights included,

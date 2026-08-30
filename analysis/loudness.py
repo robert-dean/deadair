@@ -233,10 +233,41 @@ def to_mono(samples: np.ndarray) -> np.ndarray:
     a record sounding.
 
     Not usable for loudness, which needs the channels themselves -- see
-    {@link integrated_lufs}.
+    {@link integrated_lufs}. **Not usable for anything SPECTRAL either**, and that
+    is not obvious from the name: squaring and rooting is a rectification, so the
+    result is non-negative and carries harmonics of everything below whatever band
+    a caller then looks at. Measured on a 60 Hz bassline in real stereo, the
+    energy inside 200 Hz-4 kHz reads -32.5 dBFS through this and -96.6 dBFS from
+    the waveform itself -- 64 dB of bass lifted into the vocal band.
+
+    That is harmless for the cue points, which only ask "is the record sounding
+    here" and are calibrated against exactly this signal. It is fatal for anything
+    asking WHAT is sounding, which is why {@link to_downmix} exists beside it.
     """
     channels = _as_channels(samples)
     if channels.shape[1] == 1:
         return np.ascontiguousarray(channels[:, 0])
 
     return np.sqrt(np.mean(np.square(channels.astype(np.float64)), axis=1)).astype(np.float32)
+
+
+def to_downmix(samples: np.ndarray) -> np.ndarray:
+    """The channels folded down as a WAVEFORM, for a measurement that reads a spectrum.
+
+    An ordinary average, which is what a downmix is. The contrast with
+    {@link to_mono} beside it is the whole reason both exist: that one preserves
+    ENERGY and destroys phase, this one preserves the waveform and can therefore
+    be filtered. A band-pass over the other reads harmonics that rectification
+    invented rather than content the record contains.
+
+    The price is the one `to_mono` was written to avoid: two channels in
+    anti-phase cancel here. That is the right trade for this caller -- a vocal
+    mixed out of phase is a broken master and reads as an instrumental, where a
+    bassline read as singing on every stereo record is a station that stops
+    talking at the wrong moment on most of its library.
+    """
+    channels = _as_channels(samples)
+    if channels.shape[1] == 1:
+        return np.ascontiguousarray(channels[:, 0])
+
+    return np.mean(channels.astype(np.float64), axis=1).astype(np.float32)

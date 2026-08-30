@@ -38,9 +38,10 @@ from join import (
     trim_to_cues,
     with_headroom,
 )
-from loudness import integrated_lufs, sample_peak_db, to_mono, true_peak_db
+from loudness import integrated_lufs, sample_peak_db, to_downmix, to_mono, true_peak_db
 from measure import SAMPLE_RATE, SCHEMA_VERSION, measure
 from tags import gain_tags
+from vocal import measure_vocals
 
 ANALYZER = "deadair-analysis/0.1.0"
 
@@ -389,6 +390,15 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     # that reads 3 dB low on real stereo -- see `integrated_lufs`.
     points = measure(to_mono(decoded.samples), SAMPLE_RATE)
 
+    # A DIFFERENT fold for the vocal detector, and sharing one would be wrong
+    # rather than merely tidier. `to_mono` rectifies -- it is an energy envelope,
+    # not a downmix -- so a band-pass over it reads harmonics rectification
+    # invented: measured, a 60 Hz bassline in real stereo arrives inside
+    # 200 Hz-4 kHz at -32.5 dBFS where the waveform itself is at -96.6. The cue
+    # points are calibrated against that signal and keep it; anything asking WHAT
+    # is sounding rather than WHETHER needs the waveform.
+    vocals = measure_vocals(to_downmix(decoded.samples), points, SAMPLE_RATE)
+
     # Measured over the WHOLE file rather than between the cue points. Loudness
     # is a property of the record as delivered, and the gate already discards the
     # silence at either end -- trimming first would gate it twice and, on a track
@@ -400,6 +410,7 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
     # correction back into a level. See `tags.py`.
     data = {
         **points.as_data(),
+        **vocals.as_data(),
         **_loudness_of(decoded.samples),
         **gain_tags(probed.tags),
     }

@@ -111,7 +111,12 @@ def _rms_db(frames: np.ndarray) -> np.ndarray:
     return 20.0 * np.log10(np.maximum(rms, 1e-10))
 
 
-def _band_envelope(samples: np.ndarray, hop: int) -> np.ndarray:
+def hop_for(sample_rate: int) -> int:
+    """Samples per envelope frame at HOP_MS. Public so a second reader frames identically."""
+    return max(1, int(sample_rate * HOP_MS / 1000))
+
+
+def band_envelope(samples: np.ndarray, hop: int) -> np.ndarray:
     """Per-frame energy inside BAND_HZ.
 
     One band-pass over the whole signal, then RMS per frame. An earlier version
@@ -126,6 +131,13 @@ def _band_envelope(samples: np.ndarray, hop: int) -> np.ndarray:
     forwards and backwards cancels it, and the price (double the effective
     order, and no ability to stream) costs nothing here because the whole track
     is already in memory.
+
+    Public because `vocal.py` frames the same band the same way. It does NOT
+    share this call's result, and the reason is worth knowing before anybody
+    optimises the second pass away: the two are handed different signals. This one
+    reads `to_mono`, which rectifies and is what these cue points are calibrated
+    against; a spectral measurement has to read `to_downmix` instead or a bassline
+    arrives in the vocal band 64 dB louder than it is.
     """
     if samples.size == 0:
         return np.zeros(0, dtype=np.float32)
@@ -163,7 +175,7 @@ def measure(samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> CuePoints:
     to a defined answer rather than raising -- an unmeasurable track still has to
     play, and the caller decides what to do with a zero-length sounding region.
     """
-    hop = max(1, int(sample_rate * HOP_MS / 1000))
+    hop = hop_for(sample_rate)
     total_ms = int(len(samples) * 1000 / sample_rate)
 
     level_db = _rms_db(_frame(samples, hop))
@@ -182,8 +194,8 @@ def measure(samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> CuePoints:
     # stops, and a frame that crossed the floor is audible for its whole length.
     cue_out_ms = min(total_ms, (last + 1) * HOP_MS)
 
-    envelope = _smooth(_band_envelope(samples, hop), window=max(1, SUSTAIN_MS // HOP_MS))
-    region = envelope[first : last + 1]
+    smoothed = _smooth(band_envelope(samples, hop), window=max(1, SUSTAIN_MS // HOP_MS))
+    region = smoothed[first : last + 1]
     if region.size == 0:
         return CuePoints(cue_in_ms, cue_in_ms, cue_out_ms, cue_out_ms)
 

@@ -17,6 +17,7 @@ import type { TrackSort } from '@deadair/sdk';
 import { CATALOG_SEARCH_DEFAULTS, type TrackListOrder, type TrackStateParam } from './catalog.page.params';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
+import { TrackStateAction } from './track.state.action';
 import { TrackStateFilter } from './track.state.filter';
 import { TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';
 
@@ -101,6 +102,11 @@ export function CatalogTracksPage({
             {/* Under the search rather than over it: the counts describe whatever the search has
                 narrowed to, and reading them above the box they answer to would be backwards. */}
             <TrackStateFilter counts={tracks.data?.states} value={state} onChange={onStateChange} />
+
+            {/* Under the filter and above the table, because it acts on what the filter chose and on
+                the rows drawn below it. Draws nothing outside the two fault states: most of a
+                library is `uncached`, and a bulk verb over that is a re-fetch of everything. */}
+            <TrackStateAction state={state} trackIds={rows.map(track => track.id)} />
 
             {tracks.error ? (
                 <ErrorAlert title="The tracks could not be loaded" error={tracks.error} fallback="The catalog is unavailable." />

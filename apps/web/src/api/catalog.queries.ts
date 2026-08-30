@@ -27,7 +27,7 @@ const TRACK_DETAIL_STALE_TIME = 15_000;
  * The ordering half of an input, as one string for the query key.
  *
  * Folded into a single segment rather than three so the keys grow by one entry each: they are
- * matched by `invalidateRatedLists` with a predicate over segments, and a key that grew three
+ * matched by `invalidateCatalogLists` with a predicate over segments, and a key that grew three
  * positions would be three more chances for that predicate to read the wrong one.
  */
 const order = ({ sortBy, sort, pageSize }: CatalogPageInput<CatalogSort | TrackSort>) => `${sortBy ?? ''}:${sort ?? ''}:${pageSize ?? ''}`;
@@ -194,8 +194,12 @@ const trackState = (state: string | undefined): TrackState | undefined => TRACK_
  * the key reaches all of them, and deliberately misses the enrichment keys: what a provider said
  * about a record has nothing to do with what the operator thinks of it, and their ten-minute
  * freshness is not worth spending on an opinion.
+ *
+ * Exported because a rating is no longer the only thing that moves a row on a list somebody is
+ * looking at: a state filter is a list of records in a fault, and a record that has just come out of
+ * that fault has to leave it.
  */
-function invalidateRatedLists(queryClient: QueryClient, kind: 'artists' | 'albums' | 'tracks'): void {
+export function invalidateCatalogLists(queryClient: QueryClient, kind: 'artists' | 'albums' | 'tracks'): void {
     void queryClient.invalidateQueries({
         predicate: query => query.queryKey[0] === 'catalog' && query.queryKey.includes(kind),
     });
@@ -214,7 +218,7 @@ export function useRateArtist() {
         mutationFn: ({ id, rating }: { id: string; rating: Rating }) => sdk.catalog.rateArtist(id, { rating }),
         onSuccess: (artist: Artist) => {
             queryClient.setQueryData(queryKeys.catalog.artist(artist.id), artist);
-            invalidateRatedLists(queryClient, 'artists');
+            invalidateCatalogLists(queryClient, 'artists');
         },
     });
 }
@@ -226,7 +230,7 @@ export function useRateAlbum() {
         mutationFn: ({ id, rating }: { id: string; rating: Rating }) => sdk.catalog.rateAlbum(id, { rating }),
         onSuccess: (album: Album) => {
             queryClient.setQueryData(queryKeys.catalog.album(album.id), album);
-            invalidateRatedLists(queryClient, 'albums');
+            invalidateCatalogLists(queryClient, 'albums');
         },
     });
 }
@@ -282,7 +286,7 @@ export function useRateTrack() {
     return useMutation({
         mutationFn: ({ id, rating }: { id: string; rating: Rating }) => sdk.catalog.rateTrack(id, { rating }),
         onSuccess: () => {
-            invalidateRatedLists(queryClient, 'tracks');
+            invalidateCatalogLists(queryClient, 'tracks');
             void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
         },
     });

@@ -96,6 +96,13 @@ export interface AttentionFacts {
     tracks: number;
     /** Items in the running order the station could not obtain the audio for. */
     unavailableItems: number;
+    /**
+     * A few of those lines, with whatever the catalog holds about the record behind each.
+     *
+     * `copies` is empty for a record the catalog never ingested, which the running order can hold: a
+     * pick straight from a provider playlist has no `trackId` and no binding row.
+     */
+    unavailableExamples: readonly DroppedRecord[];
     /** Plugins an operator has enabled that are not running. */
     brokenPlugins: readonly BrokenPlugin[];
     /**
@@ -106,6 +113,22 @@ export interface AttentionFacts {
      * answer, all have nothing to say here.
      */
     unauthorizedFetcher?: UnauthorizedFetcher;
+}
+
+/**
+ * A line the station took out of the running order, and what the catalog knows about the record.
+ *
+ * Its own shape rather than `FaultingTrack` because the two are not the same fact: this is a line of
+ * a BROADCAST, which may name a record the catalog never ingested, and the copies hanging off it are
+ * what the catalog could add about the ones it did.
+ */
+export interface DroppedRecord {
+    title: string;
+    /** The display credit, already joined: the order carries it as a list and the catalog as text. */
+    artists: string;
+    /** Absent for a pick straight from a provider playlist, which the catalog has never seen. */
+    trackId?: string;
+    copies: readonly FaultingCopy[];
 }
 
 export interface BrokenPlugin {
@@ -180,13 +203,24 @@ function air(facts: AttentionFacts): AttentionItem[] {
     if (facts.unavailableItems > 0) {
         items.push({
             code: 'unavailableItems',
-            severity: 'warning',
+            // A NOTICE rather than a warning, and it is the honest reading of what this is: the line
+            // is already out, the order already closed up around it, and there is nothing to go and
+            // do about a record that has been spliced. It also survives for the whole broadcast —
+            // `StationLineup.replacePlanned` keeps every terminal state, so a replan does not clear
+            // it and only putting the station on air again does — and a warning that cannot be acted
+            // on and will not go away for six hours is how a list like this stops being read.
+            severity: 'notice',
             title: `${facts.unavailableItems} ${facts.unavailableItems === 1 ? 'record was' : 'records were'} dropped from the running order`,
             detail:
                 'The station could not obtain the audio for them before their slot, so they were taken out and the order closed up. ' +
                 'A run of these is a provider refusing records rather than a schedule problem.',
             route: '/onair',
             count: facts.unavailableItems,
+            evidence: facts.unavailableExamples.map(record => ({
+                label: record.artists === '' ? record.title : `${record.title} — ${record.artists}`,
+                reason: droppedReason(record),
+                ...(record.trackId === undefined ? {} : { route: `/catalog/tracks/${record.trackId}` }),
+            })),
         });
     }
 
@@ -315,6 +349,27 @@ function benchedReason(track: FaultingTrack): string {
     const failed = attempts === 0 ? 'repeated failures' : `${attempts} failed ${attempts === 1 ? 'fetch' : 'fetches'}`;
 
     return `Written off after ${failed}. The next sync that still lists the copy puts it back.${detailOf(worst)}`;
+}
+
+/**
+ * Why one line came out of the running order.
+ *
+ * The order itself only knows THAT it did: a line carries a title and a state and nothing about the
+ * copies underneath it. So the framing is the order's fact and whatever the catalog can add comes
+ * after it — and where the catalog can add nothing, which is a record it never ingested, the framing
+ * alone is a complete and true sentence rather than one trailing off.
+ */
+function droppedReason(record: DroppedRecord): string {
+    const taken = 'Taken out before its slot: the station could not get hold of its audio.';
+
+    const refused = record.copies.filter(copy => !copy.playable);
+    if (refused.length > 0) return `${taken} ${names(refused)} will never serve it, so it needs another source.`;
+
+    const benched = record.copies.filter(copy => copy.benched);
+    if (benched.length > 0)
+        return `${taken} Every copy is written off; the next sync that still lists one puts it back.${detailOf(deepest(benched))}`;
+
+    return `${taken}${detailOf(deepest(record.copies))}`;
 }
 
 /** Why one record's fetch is not landing, off whichever copy has tried hardest. */

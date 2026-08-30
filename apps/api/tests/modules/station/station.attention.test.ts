@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { FaultingCopy, FaultingTrack } from '../../../src/modules/catalog/tracks.repository.js';
-import { attention, type AttentionFacts, type QuotedSilence } from '../../../src/modules/station/station.attention.js';
+import { attention, type AttentionFacts, type DroppedRecord, type QuotedSilence } from '../../../src/modules/station/station.attention.js';
 
 const airing: QuotedSilence = {
     audible: true,
@@ -25,9 +25,15 @@ function facts(overrides: Partial<AttentionFacts> = {}): AttentionFacts {
         failingExamples: [],
         tracks: 900,
         unavailableItems: 0,
+        unavailableExamples: [],
         brokenPlugins: [],
         ...overrides,
     };
+}
+
+/** One line the station took out of the order, with nothing wrong with it the catalog could add. */
+function dropped(overrides: Partial<DroppedRecord> = {}): DroppedRecord {
+    return { title: 'Fuel', artists: 'Metallica', trackId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', copies: [], ...overrides };
 }
 
 /** One copy, as the catalog hands it over: a healthy one, varied a column at a time below. */
@@ -124,7 +130,9 @@ describe('attention', () => {
             }),
         ).map(item => item.code);
 
-        expect(codes).toEqual(['noProgramme', 'unavailableItems', 'plugin.failed', 'benchedCopies']);
+        // The dropped line sorts last on its severity rather than on its build position: it is a
+        // notice, because the order has already closed up around it and there is nothing to do.
+        expect(codes).toEqual(['noProgramme', 'plugin.failed', 'benchedCopies', 'unavailableItems']);
     });
 
     // The reason this item exists at all. A fetcher with no login of its own produces benched copies,
@@ -140,7 +148,7 @@ describe('attention', () => {
             }),
         ).map(item => item.code);
 
-        expect(codes).toEqual(['fetcherNotAuthorized', 'unavailableItems', 'benchedCopies', 'failingFetches']);
+        expect(codes).toEqual(['fetcherNotAuthorized', 'benchedCopies', 'failingFetches', 'unavailableItems']);
     });
 
     it('routes an unauthorized fetcher at the plugin page that can fix it', () => {
@@ -248,6 +256,39 @@ describe('attention', () => {
         const quiet = attention(facts({ failing: 1, failingExamples: [faulting()] }))[0]?.evidence?.[0];
 
         expect(quiet?.reason).toBe('Backing off; four in a row writes the copy off.');
+    });
+
+    it('reads a dropped line as history rather than as an open fault', () => {
+        // The line is already out and the order already closed up around it, so there is nothing to
+        // go and do — and it survives the whole broadcast, since `replacePlanned` keeps every
+        // terminal state. A warning that cannot be acted on and will not clear for six hours is how
+        // a list like this stops being read.
+        const [item] = attention(facts({ unavailableItems: 1, unavailableExamples: [dropped()] }));
+
+        expect(item).toMatchObject({ code: 'unavailableItems', severity: 'notice', count: 1 });
+        expect(item?.evidence?.[0]).toEqual({
+            label: 'Fuel — Metallica',
+            reason: 'Taken out before its slot: the station could not get hold of its audio.',
+            route: '/catalog/tracks/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        });
+    });
+
+    it('adds what the catalog knows about a dropped record, and stops cleanly where it knows nothing', () => {
+        // The order knows THAT a line came out and never why: a line carries a title and a state and
+        // nothing about the copies underneath it. Where the catalog holds the record it can say; a
+        // pick straight from a provider playlist has no id and no page, and the framing alone has to
+        // be a complete sentence rather than one trailing off.
+        const known = attention(facts({ unavailableItems: 1, unavailableExamples: [dropped({ copies: [copy({ playable: false })] })] }))[0]
+            ?.evidence?.[0];
+
+        expect(known?.reason).toBe(
+            'Taken out before its slot: the station could not get hold of its audio. deadair.spotify will never serve it, so it needs another source.',
+        );
+
+        const stranger = attention(facts({ unavailableItems: 1, unavailableExamples: [dropped({ trackId: undefined })] }))[0]?.evidence?.[0];
+
+        expect(stranger?.route).toBeUndefined();
+        expect(stranger?.reason).toBe('Taken out before its slot: the station could not get hold of its audio.');
     });
 
     it('keeps the count true when it is showing fewer than it counted', () => {

@@ -6,7 +6,14 @@ import { DirectorConsoleService } from '#modules/director/director.console.servi
 import { PlayoutService } from '#modules/playout/playout.service.js';
 import { PluginsService } from '#modules/plugins/plugins.service.js';
 import { SpotifyShimClient } from '#modules/stream/spotify.shim.client.js';
-import { attention, EVIDENCE_LIMIT, type AttentionFacts, type BrokenPlugin, type UnauthorizedFetcher } from './station.attention.js';
+import {
+    attention,
+    EVIDENCE_LIMIT,
+    type AttentionFacts,
+    type BrokenPlugin,
+    type DroppedRecord,
+    type UnauthorizedFetcher,
+} from './station.attention.js';
 import type { StationAttention } from './types/station.types.js';
 
 /**
@@ -42,7 +49,7 @@ export class StationAttentionService {
     ) {}
 
     async read(): Promise<StationAttention> {
-        const [silence, counts, unavailableItems, plugins, benchedExamples, failingExamples] = await Promise.all([
+        const [silence, counts, dropped, plugins, benchedExamples, failingExamples] = await Promise.all([
             this.silence(),
             this.counts(),
             this.unavailableItems(),
@@ -58,7 +65,8 @@ export class StationAttentionService {
             benchedExamples,
             failingExamples,
             tracks: counts.total,
-            unavailableItems,
+            unavailableItems: dropped.total,
+            unavailableExamples: dropped.records,
             brokenPlugins: plugins.broken,
             // Sequenced after the plugin list rather than gathered with the four above, because the
             // question only exists if a plugin that feeds the fetcher is switched on. A station
@@ -144,14 +152,46 @@ export class StationAttentionService {
      * the state exists: `unavailable` is `DirectorService.thin` taking a record out before its slot,
      * and the order is consumed rather than kept. So this answers for THIS broadcast, which is the
      * span an operator asking "why is it skipping" means.
+     *
+     * The order knows WHICH record and not why — the line carries a title and a state and nothing
+     * about the copies underneath it — so the head of the list is looked up in the catalog, where
+     * the refusal and the fetch error live. That read is caught on its own: losing it should cost
+     * the sentences, not the count.
      */
-    private async unavailableItems(): Promise<number> {
+    private async unavailableItems(): Promise<{ total: number; records: DroppedRecord[] }> {
         try {
             const order = await this.director.getOrder();
-            return order.items.filter(item => item.state === 'unavailable').length;
+            const dropped = order.items.filter(item => item.state === 'unavailable');
+            const head = dropped.slice(0, EVIDENCE_LIMIT);
+            const faults = await this.faultsFor(head.flatMap(item => (item.trackId === undefined ? [] : [item.trackId])));
+
+            return {
+                total: dropped.length,
+                records: head.map(item => ({
+                    title: item.title,
+                    // The order carries the credit as a list and the catalog as one string. Joined
+                    // here rather than in the wording, so the pure module has one shape to name.
+                    artists: item.artists.join(', '),
+                    ...(item.trackId === undefined ? {} : { trackId: item.trackId }),
+                    copies: (item.trackId === undefined ? undefined : faults.get(item.trackId))?.copies ?? [],
+                })),
+            };
         } catch (error) {
             this.logger.warn(`station: the running order could not be read (${message(error)})`);
-            return 0;
+            return { total: 0, records: [] };
+        }
+    }
+
+    /** What the catalog holds about a handful of records, keyed by id. Empty where it could not say. */
+    private async faultsFor(trackIds: readonly string[]): Promise<Map<string, FaultingTrack>> {
+        if (trackIds.length === 0) return new Map();
+
+        try {
+            const faults = await this.tracks.faultsForTracks(trackIds);
+            return new Map(faults.map(fault => [fault.trackId, fault]));
+        } catch (error) {
+            this.logger.warn(`station: the copies of a dropped record could not be read (${message(error)})`);
+            return new Map();
         }
     }
 

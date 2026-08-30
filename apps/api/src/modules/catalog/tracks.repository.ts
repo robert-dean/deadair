@@ -379,6 +379,36 @@ export class TracksRepository extends DataRepository {
             .limit(limit)
             .execute();
 
+        return await this.withCopies(tracks);
+    }
+
+    /**
+     * The same answer for records somebody already has the ids of.
+     *
+     * The running order is the caller: a line taken out of it names a record and says nothing about
+     * why, and the why is in these two tables. Narrowed by id rather than by state deliberately — a
+     * record dropped from the order may be in no fault state at all by the time the desk is read,
+     * and answering "no copies of note" is a truer sentence than answering nothing.
+     */
+    async faultsForTracks(trackIds: readonly string[]): Promise<FaultingTrack[]> {
+        if (trackIds.length === 0) return [];
+
+        const tracks = await this.readable()
+            .select(['deadair.tracks.id', 'deadair.tracks.title', 'deadair.tracks.artists'])
+            .where('deadair.tracks.id', 'in', [...trackIds])
+            .execute();
+
+        return await this.withCopies(tracks);
+    }
+
+    /**
+     * Hangs every copy off the records it belongs to, in one read of both tables.
+     *
+     * Shared by the two above because the copies ARE the answer in both: what makes a record benched
+     * and what a dropped line failed on are the same rows read the same way, and a second walk of
+     * them would be a second account of one fact.
+     */
+    private async withCopies(tracks: readonly { id: string; title: string; artists: string }[]): Promise<FaultingTrack[]> {
         if (tracks.length === 0) return [];
 
         const copies = await this.db

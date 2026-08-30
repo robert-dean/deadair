@@ -24,6 +24,12 @@
  * stop Icecast, and watch the `answered Ns ago` line climb while the gate itself holds
  * whatever the last real answer was.
  *
+ * Pass `--deaf` to watch the `streamUnreachable` grace period run: the control client is
+ * pointed at a closed port, so the gate reports `waiting` for the first
+ * `STREAM_DOWN_AFTER_MS` and `fault` after it. That transition is the whole of what the
+ * grace period is, and it is invisible from a single reading, so `--deaf` implies
+ * `--watch`.
+ *
  * That the gate HOLDS is the point, and it is why there is no longer an
  * `audienceUnknown` cause to wait for. Only a positive reading moves the count, so an
  * Icecast that dies while somebody is listening does not take the station off air —
@@ -37,9 +43,10 @@ import { KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroon
 
 import type { DB } from '../src/modules/data/db.js';
 import { settingsConfigSource } from '../src/server/settings.config.source.js';
-import { resolveStreamSettings } from '../src/modules/stream/stream.settings.js';
+import { resolveStreamSettings, streamMounts } from '../src/modules/stream/stream.settings.js';
 import { IcecastEventFeed } from '../src/modules/stream/icecast.eventfeed.client.js';
 import { IcecastStatsClient } from '../src/modules/stream/icecast.stats.client.js';
+import { HlsAudience } from '../src/modules/stream/hls.audience.js';
 import { StreamConfigWatch } from '../src/modules/stream/stream.staleness.js';
 import { StationAirRepository } from '../src/modules/director/station.air.repository.js';
 import { StationLineupRepository } from '../src/modules/director/station.lineup.repository.js';
@@ -51,7 +58,6 @@ import { diagnose, type StationFacts } from '../src/modules/playout/silence.diag
 import { Heartbeat, HEARTBEATS } from '../src/modules/shared/heartbeat.js';
 import { StationBus } from '../src/modules/shared/station.bus.js';
 
-const WATCH = process.argv.includes('--watch');
 /**
  * Point the stats client at a closed port instead of the real Icecast.
  *
@@ -61,6 +67,19 @@ const WATCH = process.argv.includes('--watch');
  * is not.
  */
 const BLIND = process.argv.includes('--blind');
+/**
+ * The same trick against Liquidsoap's control API, for the `streamUnreachable` grace
+ * period.
+ *
+ * That gate is the one thing here whose two states are both correct and differ only by a
+ * clock: under `silence.diagnosis.ts`'s `STREAM_DOWN_AFTER_MS` an unanswered control API
+ * is a container the station has just restarted for a settings change, and past it,
+ * something an operator has to go and look at. Neither can be seen from a stack that is
+ * up, and stopping the real one would take a live station off the air to test a message.
+ */
+const DEAF = process.argv.includes('--deaf');
+// A transition is not a reading, so there is nothing for a single pass to show.
+const WATCH = process.argv.includes('--watch') || DEAF;
 /** Nothing listens here. Chosen over port 0, which binds rather than refuses. */
 const CLOSED_PORT = '65533';
 /** Long enough for the audience gate to change its mind, which is the interesting transition. */
@@ -100,24 +119,47 @@ const db = new Kysely<DB>({ dialect: new PostgresDialect({ pool }), plugins: [..
 
 const stream = resolveStreamSettings(config, new EncryptionProvider(Buffer.from(boot.get('KMS_LOCAL_ROOT_KEY', ''), 'hex')));
 
-// The same four fields StreamModule.ready pushes in, from the same settings. The admin
+// The same fields StreamModule.ready pushes in, from the same settings. The admin
 // password matters: 2.5 serves the stats document from under `/admin/` and the roles it
 // ships deny anonymous, so without it every poll fails and the station reads as blind.
+// Every mount, not just the MP3 one, for the reason the audience is a sum over them:
+// counting one would report a station nobody is listening to while somebody is on Opus.
 const stats = new IcecastStatsClient(config, loud);
-stats.useMount({
+stats.useMounts({
     host: stream.icecastHost,
     port: BLIND ? CLOSED_PORT : stream.icecastPort,
     mount: stream.mount,
+    alsoMounts: streamMounts(stream)
+        .slice(1)
+        .map(mount => mount.path),
     adminPassword: stream.adminPassword,
 });
 if (BLIND) console.log(`--blind: asking ${stream.icecastHost}:${CLOSED_PORT} instead of ${stream.icecastPort}. The real icecast is untouched.`);
 
 const heartbeat = new Heartbeat();
-const audience = new AudienceWatch(stats, new IcecastEventFeed(stats, quiet), config, heartbeat, new StationBus(quiet), quiet);
+// The HLS half of the audience is an empty register here and stays one: it is fed by the
+// playlist requests the API serves, and this process serves none. So what is reported is
+// Icecast's count alone, which is the half every gate below is about.
+const audience = new AudienceWatch(stats, new IcecastEventFeed(stats, quiet), new HlsAudience(), config, heartbeat, new StationBus(quiet), quiet);
 
-const endpoint = new LiquidsoapEndpoint(config, quiet);
+/**
+ * A control endpoint pinned to an address nothing answers, for `--deaf`.
+ *
+ * Answered without probing, exactly as a configured `LIQUIDSOAP_CONTROL_URL` is, so every
+ * call fails at the connect and `PlayoutControlClient` stamps `downSince` on the first
+ * one. `invalidate()` cannot clear it, which is the point: the stream stays down for the
+ * whole run and the grace period gets to expire.
+ */
+class ClosedEndpoint extends LiquidsoapEndpoint {
+    async resolve(): Promise<string> {
+        return `http://127.0.0.1:${CLOSED_PORT}`;
+    }
+}
+
+const endpoint = DEAF ? new ClosedEndpoint(config, quiet) : new LiquidsoapEndpoint(config, quiet);
 endpoint.useSecret(stream.playoutBridgeSecret ?? '');
 const control = new PlayoutControlClient(endpoint, new StreamConfigWatch(stats, quiet), quiet);
+if (DEAF) console.log(`--deaf: control calls go to 127.0.0.1:${CLOSED_PORT}. The real liquidsoap is untouched and still holding the mount.`);
 
 const air = new StationAirRepository(db);
 const lineup = new StationLineupRepository(db);
@@ -157,6 +199,12 @@ async function snapshot(): Promise<Pass> {
     const stationAir = await air.get();
     const order = await lineup.load();
     const reading = audience.reading();
+    // Read once each rather than in the spreads below, the way `diagnoseSilence` reads them:
+    // asked twice, the second answer is a different moment from the one the branch was taken
+    // on, and each of these is an edge that can clear between the two.
+    const downSince = control.downSince();
+    const deniedSince = control.deniedSince();
+    const starvedSince = control.starvedSince();
 
     const facts: StationFacts = {
         now,
@@ -165,6 +213,15 @@ async function snapshot(): Promise<Pass> {
         // a stalled transport is the one gate this script cannot honestly observe.
         ...(heartbeat.stalledFor(HEARTBEATS.audiencePoll, now) === undefined ? {} : { reconcileStalledForMs: 0 }),
         streamUp: control.isUp(),
+        // The two clocks under the stream gates, gathered the way `diagnoseSilence` does.
+        // Without the first, a control API that has been unreachable for two seconds because
+        // the station restarted it for a settings change reports as a fault with a remedy
+        // telling the operator to go and look at a container that is doing as it was told.
+        ...(downSince === undefined ? {} : { streamDownForMs: now - downSince }),
+        // Its neighbour, and gathered here for the same reason it is ranked above that one:
+        // a refused bridge secret fails every call exactly as an absent stream does, and
+        // omitting it would have this script name the wrong fault for it.
+        ...(deniedSince === undefined ? {} : { controlDeniedForMs: now - deniedSince }),
         driving: control.isOnAir(),
         // Nothing rendered in this process, so there is nothing to have gone stale against.
         staleConfig: [],
@@ -177,7 +234,7 @@ async function snapshot(): Promise<Pass> {
         listeners: reading.count,
         audience: reading.hasAudience,
         // Pushed by Liquidsoap to a route this process is not serving.
-        ...(control.starvedSince() === undefined ? {} : { starvedForMs: now - (control.starvedSince() ?? 0) }),
+        ...(starvedSince === undefined ? {} : { starvedForMs: now - starvedSince }),
     };
 
     return { facts, ...(reading.readAt === undefined ? {} : { sinceAnswerMs: now - reading.readAt }) };
@@ -196,10 +253,15 @@ function report({ facts, sinceAnswerMs }: Pass): void {
         console.log(`  ${mark} ${check.code.padEnd(18)} ${check.detail}`);
     }
 
+    // How long it has been gone, spelled out beside the gate: `streamUnreachable` reads
+    // `waiting` and then `fault` off this one number, and without it the line flipping from
+    // `·` to `✗` looks like the check changing its mind rather than a clock running out.
+    const down = facts.streamDownForMs === undefined ? '' : ` for ${Math.round(facts.streamDownForMs / 1000)}s`;
+
     console.log(
         `\n  icecast: ${sinceAnswerMs === undefined ? 'has never answered' : `answered ${Math.round(sinceAnswerMs / 1000)}s ago`}` +
             `, ${facts.listeners} listening` +
-            `  |  liquidsoap: ${facts.streamUp ? 'up' : 'unreachable'}${facts.driving ? ', driving' : ''}` +
+            `  |  liquidsoap: ${facts.streamUp ? 'up' : `unreachable${down}`}${facts.driving ? ', driving' : ''}` +
             `  |  station: ${facts.active ? 'active' : 'stood down'}`,
     );
 }
@@ -214,5 +276,11 @@ if (!WATCH) {
     process.exit(0);
 }
 
-console.log(`\nwatching every ${WATCH_INTERVAL_MS}ms; stop icecast to see the audience gate change its mind. ctrl-c to stop.`);
+console.log(
+    `\nwatching every ${WATCH_INTERVAL_MS}ms; ` +
+        (DEAF
+            ? 'streamUnreachable reads `waiting` while the grace period lasts and `fault` once it expires, about 30s in.'
+            : 'stop icecast to see the audience gate change its mind.') +
+        ' ctrl-c to stop.',
+);
 setInterval(() => void snapshot().then(report), WATCH_INTERVAL_MS);

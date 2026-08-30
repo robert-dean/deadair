@@ -27,9 +27,10 @@ import { KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroon
 import type { Logger } from '@maroonedsoftware/logger';
 import type { DB } from '../src/modules/data/db.js';
 import { settingsConfigSource } from '../src/server/settings.config.source.js';
-import { resolveStreamSettings } from '../src/modules/stream/stream.settings.js';
+import { resolveStreamSettings, streamMounts } from '../src/modules/stream/stream.settings.js';
 import { IcecastStatsClient } from '../src/modules/stream/icecast.stats.client.js';
 import { IcecastEventFeed } from '../src/modules/stream/icecast.eventfeed.client.js';
+import { HlsAudience } from '../src/modules/stream/hls.audience.js';
 import { StreamConfigWatch } from '../src/modules/stream/stream.staleness.js';
 import { StationLineup, isTrackItem } from '../src/modules/director/station.lineup.js';
 import { AudienceWatch } from '../src/modules/playout/audience.watch.js';
@@ -99,7 +100,18 @@ endpoint.useSecret(settings.playoutBridgeSecret);
 // The staleness watch is fed by every reading and consulted by none of them, so this
 // process gives it a real one and never asks it anything.
 const stats = new IcecastStatsClient(config, quiet);
-stats.useMount({ host: settings.icecastHost, port: settings.icecastPort, mount: settings.mount, adminPassword: settings.adminPassword });
+// Every mount the station publishes, primary first, exactly as `StreamModule.ready`
+// installs them. Not just the MP3 one: the gate below sums listeners across all of them,
+// so a smoke run naming one would report an empty station while somebody was on Opus.
+stats.useMounts({
+    host: settings.icecastHost,
+    port: settings.icecastPort,
+    mount: settings.mount,
+    alsoMounts: streamMounts(settings)
+        .slice(1)
+        .map(mount => mount.path),
+    adminPassword: settings.adminPassword,
+});
 const control = new PlayoutControlClient(endpoint, new StreamConfigWatch(stats, quiet), logger);
 
 if (!(await control.status())) {
@@ -130,7 +142,18 @@ rundown.prepare(order.all().flatMap(item => (isTrackItem(item) ? [{ ...item.trac
 // The pusher will not hand anything over unless the audience gate is open, so this needs
 // a real watch: `always` mode opens it permanently, which is what a smoke test wants and
 // what an operator listening for it would otherwise have to provide in person.
-const audience = new AudienceWatch(stats, new IcecastEventFeed(stats, quiet), config, new Heartbeat(), new StationBus(quiet), quiet);
+// The HLS half of the audience is an empty register here and stays one: it is fed by the
+// playlist requests the API serves, and this process serves nothing. So the count is
+// Icecast's alone, which is what a smoke run against the mount wants anyway.
+const audience = new AudienceWatch(
+    stats,
+    new IcecastEventFeed(stats, quiet),
+    new HlsAudience(),
+    config,
+    new Heartbeat(),
+    new StationBus(quiet),
+    quiet,
+);
 const pusher = new PlayoutPusher(rundown, control, audience, config, new Heartbeat(), logger);
 
 // Started before the gate is judged, and then given a moment: `gateOpen()` answers from

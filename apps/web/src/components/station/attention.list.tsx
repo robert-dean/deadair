@@ -1,6 +1,7 @@
-import { Box, Button, Card, Divider, Group, Stack, Text } from '@mantine/core';
-import { Link } from '@tanstack/react-router';
-import type { AttentionItem } from '@deadair/sdk';
+import { useState } from 'react';
+import { Anchor, Box, Button, Card, Collapse, Divider, Group, Stack, Text } from '@mantine/core';
+import { Link, type LinkProps } from '@tanstack/react-router';
+import type { AttentionEvidence, AttentionItem } from '@deadair/sdk';
 
 import { attentionDestinationOf } from '../shell/attention.destination';
 import { EmptyState } from '../shared/empty.state';
@@ -23,6 +24,10 @@ import { severityColor, type Severity } from '../shared/status';
  * belongs to `silence.diagnosis.ts`, and a second phrasing on the landing page would be a second
  * thing to disagree with the badge and the activity feed.
  *
+ * That extends to the evidence a row may carry. "4 records have no copy left that will play" is a
+ * category, and the four records and the four reasons behind it are the station's own sentences
+ * about each one — not this component reaching for `lastError` and composing a second account of it.
+ *
  * ## An unknown route draws no link rather than a broken one
  *
  * The router's `to` is typed against the registered routes, which is what stops a link pointing at a
@@ -30,7 +35,21 @@ import { severityColor, type Severity } from '../shared/status';
  * string, so it is matched against the routes that exist and a row whose destination is not one of
  * them keeps its sentence and loses its link.
  */
-export function AttentionList({ items }: { items: readonly AttentionItem[] }) {
+export interface AttentionListProps {
+    items: readonly AttentionItem[];
+    /**
+     * The route this list is being drawn on, so a row does not offer a button to the page you are
+     * reading it on.
+     *
+     * The desk is the case: it draws this list AND is where `/onair` resolves to, so every row about
+     * the broadcast carried a `Desk →` button that went nowhere. Passed rather than read off the
+     * router because "would this move me" is not the same question as "does this route match" — the
+     * Tracks list is a legitimate destination from the Tracks list when the filter differs.
+     */
+    here?: LinkProps['to'];
+}
+
+export function AttentionList({ items, here }: AttentionListProps) {
     if (items.length === 0) {
         return (
             <EmptyState>
@@ -46,7 +65,7 @@ export function AttentionList({ items }: { items: readonly AttentionItem[] }) {
                 {items.map((item, index) => (
                     <Box key={`${item.code}:${item.route}`}>
                         {index === 0 ? undefined : <Divider />}
-                        <Row item={item} />
+                        <Row item={item} here={here} />
                     </Box>
                 ))}
             </Stack>
@@ -54,8 +73,9 @@ export function AttentionList({ items }: { items: readonly AttentionItem[] }) {
     );
 }
 
-function Row({ item }: { item: AttentionItem }) {
+function Row({ item, here }: { item: AttentionItem; here?: LinkProps['to'] }) {
     const destination = attentionDestinationOf(item.route);
+    const elsewhere = destination !== undefined && destination.link.to !== here;
 
     return (
         <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md" p="md">
@@ -71,6 +91,7 @@ function Row({ item }: { item: AttentionItem }) {
                     <Text size="xs" c="dimmed">
                         {item.detail}
                     </Text>
+                    <Evidence item={item} />
                 </Stack>
             </Group>
 
@@ -83,7 +104,7 @@ function Row({ item }: { item: AttentionItem }) {
                 station sends a route and no verb, so a button reading "Reconnect Spotify" would be
                 this console inventing a claim about what the click does; "Plugin →" is exactly what
                 it does. See the note in `desk.page.tsx`. */}
-            {destination ? (
+            {elsewhere ? (
                 <Button
                     variant="light"
                     size="compact-sm"
@@ -98,5 +119,78 @@ function Row({ item }: { item: AttentionItem }) {
                 </Button>
             ) : undefined}
         </Group>
+    );
+}
+
+/**
+ * The records a row is actually about, and what happened to each.
+ *
+ * Closed by default and closed on purpose: the row above it is the answer most visits want, and four
+ * rows each unfolding five sentences is a desk nobody scans. What it removes is the walk — the fetch
+ * error behind "4 records are failing to download" was stored, contracted and rendered all along, and
+ * reachable only by narrowing the library, finding the record, opening it and hovering a table cell.
+ *
+ * Nothing is drawn when the station sent none, which is every row that has no list behind it: a
+ * silence, a plugin that will not start.
+ */
+function Evidence({ item }: { item: AttentionItem }) {
+    const [open, setOpen] = useState(false);
+    const evidence = item.evidence ?? [];
+
+    if (evidence.length === 0) return undefined;
+
+    // The station caps what it sends and `count` stays the true figure, so a row saying four and
+    // showing two has to say so rather than letting the shorter list read as the whole of it.
+    const more = Math.max(0, (item.count ?? evidence.length) - evidence.length);
+
+    return (
+        <Box pt={4}>
+            <Anchor component="button" type="button" size="xs" onClick={() => setOpen(current => !current)}>
+                {open ? 'Hide what failed' : 'Show what failed'}
+            </Anchor>
+            {/* Mounted only while open, the way `track.expansion.tsx` mounts its panel: a closed
+                row costs nothing, and a reason nobody has asked for is not in the document to be
+                read out or searched. */}
+            <Collapse expanded={open}>
+                {open ? (
+                    <Stack gap="xs" pt="xs">
+                        {evidence.map((piece, index) => (
+                            <Piece key={`${piece.route ?? piece.label}:${index}`} piece={piece} />
+                        ))}
+                        {more > 0 ? (
+                            <Text size="xs" c="dimmed">
+                                … and {more} more
+                            </Text>
+                        ) : undefined}
+                    </Stack>
+                ) : undefined}
+            </Collapse>
+        </Box>
+    );
+}
+
+/** One record, its reason, and the page holding the whole of it where there is one. */
+function Piece({ piece }: { piece: AttentionEvidence }) {
+    const destination = piece.route === undefined ? undefined : attentionDestinationOf(piece.route);
+
+    return (
+        <Stack gap={1} style={{ minWidth: 0 }}>
+            <Group gap="xs" wrap="nowrap">
+                <Text size="xs" fw={500} style={{ minWidth: 0 }}>
+                    {piece.label}
+                </Text>
+                {/* `renderRoot` rather than `component={Link}`, and the `: object` is the rule rather
+                    than decoration: the polymorphic form erases the router's own types and with them
+                    the check that `params` matches the path. */}
+                {destination ? (
+                    <Anchor renderRoot={(props: object) => <Link {...destination.link} {...props} />} size="xs" style={{ flexShrink: 0 }}>
+                        {destination.label} →
+                    </Anchor>
+                ) : undefined}
+            </Group>
+            <Text size="xs" c="dimmed">
+                {piece.reason}
+            </Text>
+        </Stack>
     );
 }

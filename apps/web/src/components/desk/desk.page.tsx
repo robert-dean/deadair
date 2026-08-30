@@ -119,7 +119,10 @@ export function DeskPage() {
                     />
                 ) : undefined}
 
-                {attention.data ? <AttentionList items={attention.data.items} /> : undefined}
+                {/* `here` because this page is what `/onair` resolves to: without it every row
+                    about the broadcast carried a `Desk →` button that navigated to the page it was
+                    already drawn on. Its evidence links still work — they point at records. */}
+                {attention.data ? <AttentionList items={attention.data.items} here="/" /> : undefined}
             </Stack>
 
             <Stack gap="sm">

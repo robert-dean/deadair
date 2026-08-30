@@ -1,20 +1,20 @@
 /**
- * One thing that wants the operator's attention, or the fact that nothing does
- * generated from [AttentionItem](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L8)
+ * One concrete thing an attention row is about, so the reason does not live a page away.
+ *
+ * The row above it counts and categorises; this names. "4 records have no copy left that will play"
+ * is a category an operator can do nothing with until they know WHICH four and WHY each one, and
+ * every one of those facts was already stored — the fetch error on `track_audio.last_error`, the
+ * provider's refusal on `track_sources.playable` — and reachable only by finding the record and
+ * hovering a cell on its page. This is that fact travelling with the row that counted it.
+ * generated from [AttentionEvidence](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L14)
  */
-export interface AttentionItem {
-    /** What this is, as a stable key: `silence`, `benchedCopies`, `noPersona`. The console groups and counts on it rather than on the sentence */
-    code: string;
-    /** `failure` is the station not doing its job, `warning` is something failing beside a station that is working, and `notice` is a thing nobody has set up yet. A notice is not a fault and must not be drawn as one */
-    severity: 'failure' | 'warning' | 'notice';
-    /** The line an operator reads first */
-    title: string;
-    /** The whole of it, in a sentence. Where the station already has words for a fact, these are those words rather than a second phrasing of them */
-    detail: string;
-    /** The console page that can do something about it */
-    route: string;
-    /** How many things this is about, where that is a number rather than a state */
-    count?: number;
+export interface AttentionEvidence {
+    /** The thing itself, as an operator would name it: a record's title and who made it */
+    label: string;
+    /** Why THIS one, in the station's own sentence. The row's `detail` says what the category means; this says what happened here */
+    reason: string;
+    /** The page holding the whole of it. Absent where there is no page for it, which the running order can hold: a record the catalog never ingested has none */
+    route?: string;
 }
 
 /**
@@ -27,7 +27,7 @@ export interface AttentionItem {
  *
  * `lastBeat` is absent until a loop finishes its first pass, which is why `startedAt` is there: from
  * the two of them a reader can tell a loop that has never completed anything from one that stopped.
- * generated from [StationHeartbeat](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L31)
+ * generated from [StationHeartbeat](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L45)
  */
 export interface StationHeartbeat {
     name: string;
@@ -44,7 +44,7 @@ export interface StationHeartbeatInput {}
  *
  * The counts `/catalog/tracks` already answers with, lifted out of a page of rows: a check-up wants
  * the sentence "13 of 581 measured" without asking for thirteen tracks to get it.
- * generated from [StationBacklog](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L41)
+ * generated from [StationBacklog](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L55)
  */
 export interface StationBacklog {
     total: number;
@@ -55,11 +55,24 @@ export interface StationBacklog {
 export interface StationBacklogInput {}
 
 /**
- * Everything wrong or waiting, worst first
- * generated from [StationAttention](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L18)
+ * One thing that wants the operator's attention, or the fact that nothing does
+ * generated from [AttentionItem](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L21)
  */
-export interface StationAttention {
-    items: AttentionItem[];
+export interface AttentionItem {
+    /** What this is, as a stable key: `silence`, `benchedCopies`, `noPersona`. The console groups and counts on it rather than on the sentence */
+    code: string;
+    /** `failure` is the station not doing its job, `warning` is something failing beside a station that is working, and `notice` is a thing nobody has set up yet. A notice is not a fault and must not be drawn as one */
+    severity: 'failure' | 'warning' | 'notice';
+    /** The line an operator reads first */
+    title: string;
+    /** The whole of it, in a sentence. Where the station already has words for a fact, these are those words rather than a second phrasing of them */
+    detail: string;
+    /** The console page that can do something about it */
+    route: string;
+    /** How many things this is about, where that is a number rather than a state */
+    count?: number;
+    /** A HANDFUL of the things this row is about, never all of them: this answer is polled and a row about four hundred records must not be four hundred sentences. `count` stays the true figure, and a console showing fewer than it says so */
+    evidence?: AttentionEvidence[];
 }
 
 /**
@@ -82,7 +95,7 @@ export interface StationAttention {
  * `operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it
  * — which would leave "which build is this" answerable only from a shell, the one thing carrying it
  * here exists to fix.
- * generated from [StationCheckup](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L66)
+ * generated from [StationCheckup](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L80)
  */
 export interface StationCheckup {
     /** When this reading was taken, so a stale page cannot pass itself off as now */
@@ -94,3 +107,11 @@ export interface StationCheckup {
 }
 
 export interface StationCheckupInput {}
+
+/**
+ * Everything wrong or waiting, worst first
+ * generated from [StationAttention](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L32)
+ */
+export interface StationAttention {
+    items: AttentionItem[];
+}

@@ -48,6 +48,11 @@ export function attentionDestinationOf(route: string): AttentionDestination | un
     const plugin = /^\/plugins\/(.+)$/.exec(route);
     if (plugin?.[1]) return { link: { to: '/plugins/$id', params: { id: plugin[1] } }, label: 'Plugin' };
 
+    // One record, which is what a row's EVIDENCE points at rather than the row itself: the row is
+    // about a category and each piece under it is about one of the records in it.
+    const track = /^\/catalog\/tracks\/([0-9a-f-]{36})$/i.exec(route);
+    if (track?.[1]) return { link: { to: '/catalog/tracks/$trackId', params: { trackId: track[1] } }, label: 'Record' };
+
     // The Tracks list narrowed to one state, which is what a row about four records out of eight
     // hundred has to land on to be worth pressing. The station names the state and this decides
     // which page carries the filter — an unknown word falls back to the unfiltered list rather than

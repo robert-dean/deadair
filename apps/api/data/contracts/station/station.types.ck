@@ -4,6 +4,19 @@ options {
     }
 }
 
+# One concrete thing an attention row is about, so the reason does not live a page away.
+#
+# The row above it counts and categorises; this names. "4 records have no copy left that will play"
+# is a category an operator can do nothing with until they know WHICH four and WHY each one, and
+# every one of those facts was already stored — the fetch error on `track_audio.last_error`, the
+# provider's refusal on `track_sources.playable` — and reachable only by finding the record and
+# hovering a cell on its page. This is that fact travelling with the row that counted it.
+contract AttentionEvidence: {
+    label: string(min=1, max=300) # The thing itself, as an operator would name it: a record's title and who made it
+    reason: string(min=1, max=600) # Why THIS one, in the station's own sentence. The row's `detail` says what the category means; this says what happened here
+    route?: string(min=1, max=200) # The page holding the whole of it. Absent where there is no page for it, which the running order can hold: a record the catalog never ingested has none
+}
+
 # One thing that wants the operator's attention, or the fact that nothing does
 contract AttentionItem: {
     code: string(min=1, max=60) # What this is, as a stable key: `silence`, `benchedCopies`, `noPersona`. The console groups and counts on it rather than on the sentence
@@ -12,6 +25,7 @@ contract AttentionItem: {
     detail: string(min=1, max=800) # The whole of it, in a sentence. Where the station already has words for a fact, these are those words rather than a second phrasing of them
     route: string(min=1, max=200) # The console page that can do something about it
     count?: int(min=0) # How many things this is about, where that is a number rather than a state
+    evidence?: array(AttentionEvidence) # A HANDFUL of the things this row is about, never all of them: this answer is polled and a row about four hundred records must not be four hundred sentences. `count` stays the true figure, and a console showing fewer than it says so
 }
 
 # Everything wrong or waiting, worst first

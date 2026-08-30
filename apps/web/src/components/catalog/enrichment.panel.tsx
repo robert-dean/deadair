@@ -139,7 +139,11 @@ function UnmappedFields({ extra }: { extra: Record<string, unknown> }) {
                 {open ? 'Hide' : `Show ${count} unmapped field${count === 1 ? '' : 's'}`}
             </Button>
             <Collapse expanded={open}>
-                <Code block>{JSON.stringify(extra, undefined, 2)}</Code>
+                {/* Wrapped for the reason scripts.page.tsx wraps its prompts: a long value is one
+                    long line, and `Code block` on its own scrolls the panel sideways instead. */}
+                <Code block style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {JSON.stringify(extra, undefined, 2)}
+                </Code>
             </Collapse>
         </Stack>
     );

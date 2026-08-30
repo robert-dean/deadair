@@ -254,10 +254,10 @@ function NoteComposer({ busy, onWrite }: { busy: boolean; onWrite: (kind: 'said'
     };
 
     return (
-        <Group gap="xs" wrap="nowrap" align="flex-end">
+        <Group gap="xs" align="flex-end">
             <Select
                 size="xs"
-                w={150}
+                w={{ base: '100%', sm: 150 }}
                 label="Kind"
                 data={[
                     { value: 'trait', label: 'Settled into' },

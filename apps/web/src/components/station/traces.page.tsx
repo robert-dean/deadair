@@ -189,7 +189,13 @@ function TraceDrawer({ id, onClose }: { id: string | undefined; onClose: () => v
     const phone = usePhone();
 
     return (
-        <Drawer opened={id !== undefined} onClose={onClose} position="right" size={phone ? '100%' : 'xl'} title={trace.data?.decision.kind ?? 'Decision'}>
+        <Drawer
+            opened={id !== undefined}
+            onClose={onClose}
+            position="right"
+            size={phone ? '100%' : 'xl'}
+            title={trace.data?.decision.kind ?? 'Decision'}
+        >
             {trace.isPending ? <PageSkeleton variant="rows" count={6} /> : undefined}
             {trace.isError ? (
                 <ErrorAlert title="Could not read that decision" error={trace.error} fallback="It may have rotated out of the kept window." />

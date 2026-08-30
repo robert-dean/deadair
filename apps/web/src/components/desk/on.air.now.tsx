@@ -262,7 +262,13 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                                     multiline
                                     maw={320}
                                 >
-                                    <Button h={44} w={phone ? undefined : 124} style={phone ? { flex: 1 } : undefined} loading={start.isPending} onClick={() => start.mutate()}>
+                                    <Button
+                                        h={44}
+                                        w={phone ? undefined : 124}
+                                        style={phone ? { flex: 1 } : undefined}
+                                        loading={start.isPending}
+                                        onClick={() => start.mutate()}
+                                    >
                                         Start
                                     </Button>
                                 </Tooltip>

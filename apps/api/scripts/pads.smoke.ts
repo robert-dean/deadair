@@ -274,7 +274,7 @@ try {
         // recast actually calls, so this is the real path rather than a state moved by hand.
         // (`releaseForRetry` is the wrong door: it hands a RENDER's claim back and leaves the row at
         // `written`, which no writer will claim.)
-        await segments.reopenSegments([hit]);
+        await segments.reopenSegments([hit], 'the record it named is no longer what plays next');
         await segments.claimForWrite(hit);
         await segments.writeScript(hit, { script: 'different words', label: 'zzsmoke hit', writer: 'deterministic' });
         check('rewriting the break takes its hit back off the row', (await segments.findById(hit))?.pads, []);

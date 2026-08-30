@@ -1,5 +1,5 @@
 import { Injectable } from 'injectkit';
-import { Kysely, sql } from 'kysely';
+import { expressionBuilder, Kysely, sql, type Expression, type SqlBool } from 'kysely';
 import type { DateTime } from 'luxon';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
@@ -1036,6 +1036,28 @@ export class SegmentRepository extends DataRepository {
      *
      * `host` is the recast's extra half and is absent for the two callers that are about a break's
      * CONTENT rather than about who said it. See {@link recast}.
+     *
+     * ## Why there is a CTE, and why the guard is written twice
+     *
+     * `segment_events` wants the state the row LEFT, and `returning` on an update answers with the
+     * state it arrived at — so for as long as this existed it recorded a flat `written` for every
+     * row it moved, while the guard admits three. A break that was fully rendered and `ready` was
+     * therefore logged as `written -> planned`, which is not a cosmetic slip: it hides that the
+     * rewrite threw away a finished, spoken audio file, and the timeline reads as though nothing
+     * was spent. Found on the live station on 30 August, where one break was reopened four times
+     * with a `rendering -> ready` immediately before each one and every reopen claimed `written`.
+     *
+     * The `before` CTE captures `(id, state)` as they stand and the update joins to it, which
+     * PostgreSQL has answered since long before `RETURNING OLD.*` arrived in 18 — deliberately, on
+     * this being a self-hostable station rather than one pinned to a major version for the sake of
+     * an audit column.
+     *
+     * **{@link reopening} applies the guard to BOTH, and that duplication is the point.** The CTE
+     * sees the snapshot the statement opened with; the update re-checks its own `where` against the
+     * row it locks. Filtering only in the CTE would let a row that became `writing` between the two
+     * be reset underneath the job that had just claimed it — the one thing the guard exists to
+     * prevent — and filtering only in the update would let the CTE hand back a state for a row the
+     * update passed over. Neither is a state a test would notice, so they share one builder.
      */
     private async reopen(
         by: 'id' | 'claimsItemId',
@@ -1043,7 +1065,10 @@ export class SegmentRepository extends DataRepository {
         reason: string,
         host?: { personaId?: string; recast: true },
     ): Promise<string[]> {
-        let query = this.db
+        const guard = this.reopening(by, values, host);
+
+        const query = this.db
+            .with('before', db => db.selectFrom('deadair.segments').select(['deadair.segments.id', 'deadair.segments.state']).where(guard))
             .updateTable('deadair.segments')
             .set({
                 state: 'planned',
@@ -1071,28 +1096,64 @@ export class SegmentRepository extends DataRepository {
                           end`,
                       }),
             })
-            .where(by, 'in', [...values])
-            .where('state', 'in', ['planned', 'written', 'ready']);
+            .from('before')
+            .whereRef('deadair.segments.id', '=', 'before.id')
+            .where(guard);
+
+        // `before.state` rather than the updated row's, which is now `planned` for every one of
+        // these and says nothing. It arrives already narrowed to {@link SegmentState}, so there is
+        // no cast here on purpose: one would go on compiling if the column ever widened.
+        const rows = await query.returning(['deadair.segments.id as id', 'before.state as previous']).execute();
+
+        for (const row of rows) await this.record(row.id, row.previous, 'planned', reason);
+        return rows.map(row => row.id);
+    }
+
+    /**
+     * Which rows a reopen may touch, as one expression both halves of the statement are narrowed by.
+     *
+     * Built once and handed to each rather than written twice, so the CTE that reads the old state
+     * and the update that writes the new one cannot come to disagree about which rows they are
+     * about. See {@link reopen} for why both need it. Every clause here is a rule with its own
+     * reason:
+     *
+     * **`writing` and `rendering` are never reset**, because both are a job's claim and a row moved
+     * underneath one finishes into a state its caller no longer owns. `failed` is out for a
+     * different reason — the words on it are gone, so there is nothing to un-write.
+     *
+     * **A row with no persona is not recast.** A canned ident, a break written while the station had
+     * no persona at all, or a script an operator typed themselves is not in anybody's character, and
+     * rewriting it would throw away words nobody asked to replace.
+     *
+     * **A row already stamped with the incoming host is left alone**, which is what makes a recast
+     * safe to call when nothing actually changed.
+     *
+     * **A production beat is never recast alone.** A recast re-offers whatever the outgoing host had
+     * lined up, which is right for a break — another writer takes it and the station carries on. A
+     * beat is not disposable that way: the block enters the running order whole or not at all, so
+     * reopening one of its turns leaves a hole in the middle of a programme that nothing puts back.
+     * It bites the moment a beat carries a persona at all, which is exactly what casting made true —
+     * a caller's turn differs from the incoming host by definition, so every caller on the station
+     * would be rewritten as a talk break by the next changeover. Re-making a production is a
+     * decision about the whole production.
+     *
+     * Every column is TABLE-QUALIFIED, which is not tidiness: the update joins a CTE carrying `id`
+     * and `state` of its own, so a bare `id` there is "column reference is ambiguous" and the whole
+     * statement fails. The CTE does not need the prefix and takes it anyway, because one expression
+     * used in two places has to be written for the stricter of them.
+     */
+    private reopening(by: 'id' | 'claimsItemId', values: readonly string[], host?: { personaId?: string }): Expression<SqlBool> {
+        const eb = expressionBuilder<DB, 'deadair.segments'>();
+
+        const clauses = [eb(`deadair.segments.${by}`, 'in', [...values]), eb('deadair.segments.state', 'in', ['planned', 'written', 'ready'])];
 
         if (host !== undefined) {
-            query = query.where('personaId', 'is not', null);
-            if (host.personaId !== undefined) query = query.where('personaId', '<>', host.personaId);
-            // **A production beat is never recast alone.** A recast re-offers whatever the outgoing
-            // host had lined up, which is right for a break — another writer takes it and the
-            // station carries on. A beat is not disposable that way: the block enters the running
-            // order whole or not at all, so reopening one of its turns leaves a hole in the middle
-            // of a programme that nothing puts back. It bites the moment a beat carries a persona at
-            // all, which is exactly what casting made true — a caller's turn differs from the
-            // incoming host by definition, so every caller on the station would be rewritten as a
-            // talk break by the next changeover. Re-making a production is a decision about the
-            // whole production.
-            query = query.where('productionId', 'is', null);
+            clauses.push(eb('deadair.segments.personaId', 'is not', null));
+            if (host.personaId !== undefined) clauses.push(eb('deadair.segments.personaId', '<>', host.personaId));
+            clauses.push(eb('deadair.segments.productionId', 'is', null));
         }
 
-        const rows = await query.returning('id').execute();
-
-        for (const row of rows) await this.record(row.id, 'written', 'planned', reason);
-        return rows.map(row => row.id);
+        return eb.and(clauses);
     }
 
     /**

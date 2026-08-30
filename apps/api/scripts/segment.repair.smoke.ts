@@ -97,7 +97,7 @@ async function carriesEveryClaim(): Promise<void> {
     );
     check(row?.claimsTime?.until === until, 'and so does the time window beside it, on the same instant');
 
-    await segments.reopenSegments([planned.id]);
+    await segments.reopenSegments([planned.id], 'what it reported has aged out');
     const reopened = await segments.findById(planned.id);
     check(reopened?.claimsReadingUntil === undefined, 'the reading expiry is cleared with the words, or the next pass reopens it forever');
     check(reopened?.claimsTime === undefined && reopened?.claimsItemId === undefined, 'and the other two go with them');
@@ -110,7 +110,7 @@ const trail = async (id: string): Promise<string[]> => (await segments.events(id
 async function reopens(): Promise<void> {
     const id = await written('item-that-moved');
 
-    const reopened = await segments.reopenSegments([id]);
+    const reopened = await segments.reopenSegments([id], 'the record it named is no longer what plays next');
     const row = await segments.findById(id);
 
     check(reopened.length === 1 && reopened[0] === id, 'reopenSegments answers with the row it reopened');
@@ -118,6 +118,33 @@ async function reopens(): Promise<void> {
     check(row?.script === undefined && row?.writer === undefined, 'the words and the writer are cleared, so the next job writes rather than edits');
     check(row?.claimsItemId === undefined, 'the forward claim goes with the words it described');
     check((await trail(id)).includes('written→planned'), 'the trail says it was un-written');
+    check((await segments.events(id)).at(-1)?.reason === 'the record it named is no longer what plays next', 'and the row says which fault it was');
+}
+
+/**
+ * The same repair on a break that had already been SPOKEN.
+ *
+ * The case the trail used to lie about. `reopen` admits `planned`, `written` and `ready`, and it
+ * recorded a flat `written` for all three — so a break with audio on disk was logged as though it
+ * had only ever been words, and the one thing an operator wants to know about a rewrite (that it
+ * threw a finished take away) was the one thing the timeline did not say. Found on the live station
+ * on 30 August with four `rendering→ready` events each followed by a `written→planned`.
+ *
+ * `written` is the case above and `planned` cannot show it — a reopened `planned` row is a no-op
+ * that still writes an event — so `ready` is the whole of the difference and is asserted here.
+ */
+async function recordsTheStateItLeft(): Promise<void> {
+    const id = await written('item-that-moved');
+    await segments.claimForRender(id);
+    await segments.markReady(id, { audioChecksum: 'smoke', audioExt: 'mp3' });
+
+    const before = await segments.findById(id);
+    check(before?.state === 'ready', `the break is ready before it is taken back (it is ${before?.state})`);
+
+    await segments.reopenSegments([id], 'the clock has moved past the time it named');
+
+    check((await trail(id)).includes('ready→planned'), 'the trail says a spoken break was un-written, rather than claiming it was only written');
+    check(!(await trail(id)).includes('written→planned'), 'and it does not also claim the transition it did not make');
 }
 
 /** A break a job is in the middle of. The one thing the repair must never touch. */
@@ -125,7 +152,7 @@ async function refusesAClaimedRow(): Promise<void> {
     const id = await written('item-that-moved');
     await segments.claimForRender(id);
 
-    const reopened = await segments.reopenSegments([id]);
+    const reopened = await segments.reopenSegments([id], 'the record it named is no longer what plays next');
     const row = await segments.findById(id);
 
     check(reopened.length === 0, 'reopenSegments will not touch a row a renderer holds');
@@ -270,7 +297,7 @@ async function staysInsideItsWindow(): Promise<void> {
     const mine = await written('item-1');
     const theirs = await written('item-1');
 
-    await segments.reopenSegments([mine]);
+    await segments.reopenSegments([mine], 'the record it named is no longer what plays next');
     await segments.releaseStranded([mine], { writing: Date.now() + 60_000, rendering: Date.now() + 60_000 });
 
     const other = await segments.findById(theirs);
@@ -281,6 +308,7 @@ console.log('segment repair\n');
 
 try {
     await reopens();
+    await recordsTheStateItLeft();
     await carriesEveryClaim();
     await refusesAClaimedRow();
     await releasesAStrandedWrite();

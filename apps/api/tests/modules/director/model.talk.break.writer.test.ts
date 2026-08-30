@@ -35,11 +35,16 @@ interface Options {
 function build(options: Options = {}) {
     const values: Record<string, unknown> = { [MODEL_WRITER_KEYS.enabled]: true, ...options.values };
 
-    const converse = vi.fn(async () => {
+    // The model is ECHOED from the request rather than fixed, which is what the real service does:
+    // `LlmConversation.model` is the host's resolution of what was asked for, and a request naming
+    // nothing resolves to whatever the plugin marked default. A double that answered a constant
+    // would pass whether or not the writer forwarded the operator's setting at all.
+    const converse = vi.fn(async (request: { model?: string }) => {
         if (typeof options.answer === 'function') options.answer();
         return {
             text: options.answer ?? 'That was Solid Air. Coming up, Pink Moon.',
             toolCalls: [],
+            model: request.model === undefined || request.model.length === 0 ? 'a-plugin-default' : request.model,
             finishReason: options.finishReason ?? ('stop' as const),
             ...(options.usage === undefined ? {} : { usage: options.usage }),
         };
@@ -324,6 +329,17 @@ describe('ModelTalkBreakWriter', () => {
             await writer.write({ kind: TALK_BREAK_KIND, previous, next });
 
             expect(writer.detailOfLastWrite()).toMatchObject({ model: 'gpt-oss-radio', usage: { outputTokens: 31 } });
+        });
+
+        it('records the model the host resolved when the operator pinned none', async () => {
+            // The case that made this worth changing. This used to record the SETTING, which is
+            // empty on a station that never pinned one — so the row said "the plugin default" and a
+            // week of `script_history` could not answer which model wrote anything.
+            const { writer } = build();
+
+            await writer.write({ kind: TALK_BREAK_KIND, previous, next });
+
+            expect(writer.detailOfLastWrite()?.model).toBe('a-plugin-default');
         });
 
         it('keeps them even when the answer was unusable', async () => {

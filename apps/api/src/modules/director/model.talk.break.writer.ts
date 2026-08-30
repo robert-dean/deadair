@@ -254,7 +254,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
         // Recorded whichever way it went, and BEFORE the answer is judged, so a model that produced
         // forty seconds of nothing leaves behind the same numbers as one that worked.
         this.lastDetail = {
-            model: model.length === 0 ? 'the plugin default' : model,
+            // What the host RESOLVED, not what the setting said. A station that never pinned a
+            // model left this empty, so every row read "the plugin default" and the record could
+            // not answer which model wrote anything. See `LlmConversation.model`.
+            model: result.model,
             ...(result.usage === undefined ? {} : { usage: result.usage as Record<string, number> }),
             ...(captureWrites(this.config) ? { prompt: messages, raw: result.text } : {}),
         };

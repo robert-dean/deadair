@@ -63,6 +63,9 @@ function build(options: Options = {}) {
         return {
             text: options.text ?? '[]',
             toolCalls: [],
+            // Resolved by the host rather than echoed from the request, which is what a real
+            // conversation answers with even when nothing named a model. See `LlmConversation.model`.
+            model: 'a-model',
             toolCallsMade: options.toolCallsMade ?? 1,
             finishReason: options.finishReason ?? 'stop',
             usage: { totalTokens: 500 },

@@ -223,3 +223,46 @@ describe('supportsTools', () => {
         await expect(service.supportsTools(plugin, undefined)).resolves.toBe(false);
     });
 });
+
+describe('resolveModel', () => {
+    // What `script_history.model` is written from. It used to be written from the SETTING, which is
+    // empty on a station that never pinned a model — so 646 rows on the live station read "the
+    // plugin default" and a week of history could not say which model wrote anything.
+    const withModels = (models: LlmModelInfo[]) => {
+        const { service } = serviceFor([fakeLlmPlugin({ models })]);
+        return { service, plugin: service.generator()! };
+    };
+
+    it('takes the model the request named', async () => {
+        const { service, plugin } = withModels([{ id: 'big', tools: true, default: true }]);
+
+        await expect(service.resolveModel(plugin, 'small')).resolves.toBe('small');
+    });
+
+    it('resolves an unnamed request to the marked default, which is the whole point', async () => {
+        const { service, plugin } = withModels([
+            { id: 'big', tools: true, default: true },
+            { id: 'small', tools: false },
+        ]);
+
+        await expect(service.resolveModel(plugin, undefined)).resolves.toBe('big');
+        await expect(service.resolveModel(plugin, '  ')).resolves.toBe('big');
+    });
+
+    it('names the plugin when nothing is marked, rather than inventing a model', async () => {
+        // Not a model name and not pretending to be one. A plugin that marks no default has told
+        // the host nothing better, and naming the plugin is at least true.
+        const { service, plugin } = withModels([
+            { id: 'big', tools: true },
+            { id: 'small', tools: false },
+        ]);
+
+        await expect(service.resolveModel(plugin, undefined)).resolves.toBe('deadair.llm');
+    });
+
+    it('names the plugin when it cannot list its models at all', async () => {
+        const { service } = serviceFor([fakeLlmPlugin({ listsModels: false })]);
+
+        await expect(service.resolveModel(service.generator()!, undefined)).resolves.toBe('deadair.llm');
+    });
+});

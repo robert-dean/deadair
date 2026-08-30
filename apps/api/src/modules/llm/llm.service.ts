@@ -226,6 +226,25 @@ export interface LlmConversation extends Omit<LlmResult, 'finishReason'> {
      * thing that knows a generation was abandoned rather than finished.
      */
     finishReason: ConversationFinishReason;
+    /**
+     * Which model actually answered, resolved rather than echoed.
+     *
+     * Declared here rather than on `LlmResult` for the reason the two fields below it are: a
+     * request may name no model at all, and working out which one that means is the HOST's job —
+     * it is the side that reads `models()` and knows which entry is marked default. A plugin
+     * reporting it would be a second answer to the same question.
+     *
+     * It exists because the alternative was recording the SETTING. Every one of this station's five
+     * model writers stored `llm.breakModel`, which is empty on a station that never pinned one, so
+     * 646 rows of `script_history` read "the plugin default" and a week of history could not answer
+     * which model wrote anything. That is the one question worth asking of that table when the
+     * model under it changes.
+     *
+     * Falls back to the plugin's own id, which is not a model name and is not pretending to be: a
+     * plugin that marks no default has told the host nothing better, and naming the plugin is at
+     * least true. See {@link LlmModelInfo.default}, which asks plugins to mark one.
+     */
+    model: string;
     /** How many tool calls the loop actually ran, across every step. */
     toolCallsMade: number;
     /**
@@ -505,6 +524,12 @@ export class LlmService {
         let toolCallsMade = 0;
         let nudges = 0;
 
+        // Resolved once, before the first generation, and carried out through every return below.
+        // Once rather than per step because it is a fact about the REQUEST — nothing in the loop
+        // changes which model is being asked — and before rather than after because a conversation
+        // that gets preempted still has to say what it was talking to.
+        const model = await this.resolveModel(plugin, request.model);
+
         for (let step = 0; ; step++) {
             // The last step is asked WITHOUT tools, so the model has to produce words rather than
             // ask for something nobody will run.
@@ -539,7 +564,7 @@ export class LlmService {
                 // reported as what it is, so that a caller telling it apart from a model with
                 // nothing to say does not have to know to ask a second question. See
                 // {@link ConversationFinishReason}.
-                return { text: '', toolCalls: [], usage, toolCallsMade, transcript: messages, finishReason: 'preempted' };
+                return { text: '', toolCalls: [], usage, model, toolCallsMade, transcript: messages, finishReason: 'preempted' };
             }
             addUsage(usage, result.usage);
 
@@ -547,7 +572,7 @@ export class LlmService {
             // for a tool there — as a call or as text — is answered by ending the conversation,
             // which is the whole point of withdrawing the declarations.
             if (lastStep) {
-                return { ...result, usage, toolCallsMade, transcript: messages };
+                return { ...result, usage, model, toolCallsMade, transcript: messages };
             }
 
             // A tool call the model wrote as TEXT rather than as a call is still a tool call, and
@@ -585,7 +610,7 @@ export class LlmService {
                     continue;
                 }
 
-                return { ...result, usage, toolCallsMade, transcript: messages };
+                return { ...result, usage, model, toolCallsMade, transcript: messages };
             }
 
             if (signal.aborted) {
@@ -605,7 +630,7 @@ export class LlmService {
                     // refill; one at step 3 costs the answer and keeps the searching.
                     wanted: asked.length,
                 });
-                return { ...result, usage, toolCallsMade, transcript: messages, finishReason: 'preempted' };
+                return { ...result, usage, model, toolCallsMade, transcript: messages, finishReason: 'preempted' };
             }
 
             // The assistant turn AND its calls, as one message. A model that cannot see its own
@@ -712,6 +737,29 @@ export class LlmService {
      * cost of being wrong is a failed generation and the cost of being cautious is a line written
      * without facts.
      */
+    /**
+     * Which model a request will actually be answered by. See {@link LlmConversation.model}.
+     *
+     * The same three-step resolution {@link supportsTools} does, because they are asking about the
+     * same model and two resolutions that could disagree would mean the station recorded tool
+     * support for one model and the answer against another.
+     *
+     * Never throws and never blocks an answer: a plugin whose `models()` fails is one whose
+     * generation is about to be recorded anyway, and a write attempt lost because its bookkeeping
+     * could not name a model would be the record costing the broadcast.
+     */
+    async resolveModel(plugin: LlmPlugin, model: string | undefined): Promise<string> {
+        const named = model?.trim();
+        if (named !== undefined && named.length > 0) return named;
+
+        try {
+            const models = await this.models(plugin);
+            return models.find(entry => entry.default === true)?.id ?? plugin.record.id;
+        } catch {
+            return plugin.record.id;
+        }
+    }
+
     async supportsTools(plugin: LlmPlugin, model: string | undefined): Promise<boolean> {
         const models = await this.models(plugin);
         if (models.length === 0) return false;

@@ -15,5 +15,13 @@ export const Health = z.strictObject({
         .int()
         .min(0)
         .describe('How long this process has been running, so a probe can tell a live server from one that has just restarted under it'),
+    revision: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe(
+            "The commit this station was built from, as the image's `org.opencontainers.image.revision` label says it. Absent when nothing set one, which is what a development tree and a hand-built image both honestly are",
+        ),
 });
 export type Health = z.infer<typeof Health>;

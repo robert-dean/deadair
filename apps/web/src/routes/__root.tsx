@@ -148,7 +148,12 @@ export function RootLayout() {
                             <ActionIcon variant="default" size="lg" aria-label="Jump to anything" onClick={spotlight.open} hiddenFrom="sm">
                                 <IconSearch size={18} stroke={1.8} />
                             </ActionIcon>
-                            <StationClock />
+                            {/* Not on a phone: the phone's own status bar is already a clock an
+                                inch away, and the 70px this frees is what keeps the corner's two
+                                controls on the right side of the bezel. */}
+                            <Box visibleFrom="sm">
+                                <StationClock />
+                            </Box>
                             {/* The rail's footer, for a viewport that has no rail — see the
                                 component for why this is not the drawer coming back. */}
                             <PhoneMenu

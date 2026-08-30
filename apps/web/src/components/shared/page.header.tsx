@@ -2,6 +2,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 import { Group, Stack, Title, VisuallyHidden } from '@mantine/core';
 
 import { Eyebrow } from './eyebrow';
+import { usePhone } from './use.phone';
 
 /**
  * Whether this page is being drawn INSIDE a destination that already named it.
@@ -41,6 +42,10 @@ export interface PageHeaderProps {
  */
 export function PageHeader({ title, eyebrow, description, actions, children }: PageHeaderProps) {
     const embedded = useContext(EmbeddedContext);
+    // On a phone the actions drop under the title and wrap among themselves instead of being
+    // pinned beside it: pinning is what stops a long title crushing them on a desk, and it is
+    // also exactly what pushed a three-button row off the right edge of a 375px page.
+    const phone = usePhone();
 
     // As a tab body, the destination's own heading and the selected tab already say what this is,
     // and repeating it is both a second `<h1>` in the document and a line of dead width above every
@@ -52,10 +57,10 @@ export function PageHeader({ title, eyebrow, description, actions, children }: P
                 <VisuallyHidden>
                     <Title order={2}>{title}</Title>
                 </VisuallyHidden>
-                <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
+                <Group justify="space-between" align="flex-start" wrap={phone ? 'wrap' : 'nowrap'} gap="md">
                     {description ?? <span />}
                     {actions ? (
-                        <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+                        <Group gap="xs" wrap={phone ? 'wrap' : 'nowrap'} style={phone ? undefined : { flexShrink: 0 }}>
                             {actions}
                         </Group>
                     ) : undefined}
@@ -68,12 +73,12 @@ export function PageHeader({ title, eyebrow, description, actions, children }: P
     return (
         <Stack gap="xxs">
             {eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : undefined}
-            <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
+            <Group justify="space-between" align="flex-start" wrap={phone ? 'wrap' : 'nowrap'} gap="md">
                 <Title order={1}>{title}</Title>
                 {actions ? (
                     // Pinned for the same reason as the embedded branch above: a long title must
                     // truncate before it starts crushing the page's own controls.
-                    <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
+                    <Group gap="xs" wrap={phone ? 'wrap' : 'nowrap'} style={phone ? undefined : { flexShrink: 0 }}>
                         {actions}
                     </Group>
                 ) : undefined}

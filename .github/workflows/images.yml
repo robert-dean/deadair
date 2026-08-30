@@ -131,7 +131,13 @@ jobs:
                   context: .
                   push: ${{ inputs.push }}
                   platforms: linux/amd64
-                  build-args: ${{ matrix.args }}
+                  # The variant's own two arguments, plus the commit, which every variant gets and
+                  # so is not in the matrix. It is the same sha the tag above is built from — the
+                  # point of putting it INSIDE the image is that a running station can be asked
+                  # what it is without anybody having to know which tag it was pulled from.
+                  build-args: |
+                      ${{ matrix.args }}
+                      REVISION=${{ github.sha }}
                   tags: ${{ steps.tags.outputs.value }}
                   # The cache lives in the registry beside the images rather than in the Actions
                   # cache, which holds ten gigabytes for the whole repository — less than these

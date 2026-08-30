@@ -24,6 +24,11 @@
 
 ARG WITH_TTS=1
 ARG WITH_DB=0
+# The commit this image was built from. Empty by default, and deliberately: a hand-built image was
+# built from a working tree, not from a commit, and an empty answer is the honest one. CI passes the
+# sha (see `.github/workflows/images.yml`), which is what makes "is the station running what I
+# committed" a question the console can answer.
+ARG REVISION=
 ARG NODE_VERSION=26.7.0
 ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG GO_LIBRESPOT_VERSION=v0.7.4
@@ -178,6 +183,12 @@ ARG WITH_DB
 ARG NODE_VERSION
 ARG S6_OVERLAY_VERSION
 ARG DBMATE_VERSION
+# Declared with the others and USED at the bottom of the file, which is the whole of the care this
+# one needs: a build argument busts the cache at its first use rather than at its declaration, and
+# this is the only argument here whose value changes on every single build. Used up at the top it
+# would rebuild the entire stage — apt, Node, the supervisor, the install — for a string that
+# nothing below reads.
+ARG REVISION
 
 # Everything apt provides, in one layer.
 #
@@ -445,6 +456,21 @@ ENV NODE_ENV=production \
 # default names a host that exists only when the app runs outside the containers, so it has to be
 # said here: nothing in the station fails as quietly as a callback nobody receives.
 ENV PLAYOUT_BASE_URL=http://app:3000/playout
+
+# What this image was built from, said twice on purpose, because the two readers cannot reach each
+# other's copy.
+#
+# The LABEL is for whoever has the daemon: `docker inspect` answers it without starting anything,
+# and the name is the OCI standard one so every registry UI and scanner already knows what it means.
+# The ENV is for the station itself — the API reads it at boot and reports it from `/health` and on
+# the check-up page, which is the reading an operator can actually get to. Without the second one
+# the answer to "is this running what I committed" needs a shell on the host, which is the whole
+# thing this is here to stop.
+#
+# Both are metadata over the layer beneath them, so this is also the cheapest possible place to put
+# the one argument that changes every build: nothing below rebuilds when the sha moves.
+LABEL org.opencontainers.image.revision="${REVISION}"
+ENV BUILD_REVISION=${REVISION}
 
 # The one address the station is reached at: the console, the API under /api, and the stream
 # itself. Everything else here talks to everything else over loopback.

@@ -14,7 +14,14 @@ import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/
 import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
 import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.js';
 import { WEATHER_BREAK_KEYS, WEATHER_TEMPLATES } from '#modules/director/weather.break.writer.js';
-import { DEFAULT_WEATHER_DAYS, MAX_WEATHER_DAYS, WEATHER_SOURCE_KEYS } from '#modules/director/weather.source.js';
+import {
+    DEFAULT_WEATHER_DAYS,
+    DEFAULT_WEATHER_MAX_AGE_MINUTES,
+    MAX_WEATHER_DAYS,
+    MAX_WEATHER_MAX_AGE_MINUTES,
+    MIN_WEATHER_MAX_AGE_MINUTES,
+    WEATHER_SOURCE_KEYS,
+} from '#modules/director/weather.source.js';
 import {
     BULLETIN_KEYS,
     DEFAULT_MAX_AGE_HOURS,
@@ -662,6 +669,20 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help:
             "Days. One is today's high alongside the conditions now, which is what a station between two records says. Zero is the conditions " +
             "alone. More than one is only read by a model, since the station's own phrasings mention today and no further.",
+    },
+    {
+        group: 'rotation',
+        key: WEATHER_SOURCE_KEYS.maxAgeMinutes,
+        label: 'How old a reading may be (minutes)',
+        type: 'number',
+        min: MIN_WEATHER_MAX_AGE_MINUTES,
+        max: MAX_WEATHER_MAX_AGE_MINUTES,
+        default: DEFAULT_WEATHER_MAX_AGE_MINUTES,
+        help:
+            'Measured at the moment the break AIRS, not when it was written: a break is written several records ahead of its slot, so a reading ' +
+            'that was fresh at the keyboard can be stale on air. Anything older than this is not reported, and the slot is passed over rather ' +
+            "than filled with this morning's weather. Two hours is generous on purpose — a national service can be most of an hour behind before " +
+            'the station ever sees a reading, and a tighter setting silences the weather on a station that is working.',
     },
     {
         group: 'rotation',

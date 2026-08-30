@@ -43,11 +43,25 @@ import type { BreakSubject } from './break.writer.js';
  * whose clock asks for the weather every hour and is silent every time needs to be told which of
  * "install a plugin", "say where you are" and "the service is down" it is looking at — and the
  * writer, which sees only the absence, could not say.
+ *
+ * ## A fourth way, which is the reading being right and too old
+ *
+ * A break is written before it airs, so anything it asserts about the present has to survive the
+ * gap. `break.claims.ts` is where the station already knows that, and weather arrived after it and
+ * did not inherit it: `inventedFigure` refuses a figure the reading did not carry, which makes the
+ * numbers unfabricable and says nothing about whether they are still true, because it checks the
+ * script against the reading it was written from rather than against the sky at the slot.
+ *
+ * So the age is judged HERE, against `segments.airs_at` rather than against now — the same argument
+ * and the same parameter as `BulletinSource.storiesFor`, which was already given the air time one
+ * line above the call to this. A reading that will be too old by the time anybody hears it is a
+ * fourth kind of nothing, and it declines exactly like the other three.
  */
 
-/** The `deadair.settings` key. In `rotation`, beside the station's other words. */
+/** The `deadair.settings` keys. In `rotation`, beside the station's other words. */
 export const WEATHER_SOURCE_KEYS = {
     days: 'rotation.weatherDays',
+    maxAgeMinutes: 'rotation.weatherMaxAgeMinutes',
 } as const;
 
 /**
@@ -62,6 +76,32 @@ export const DEFAULT_WEATHER_DAYS = 1;
 
 /** The plugin's own ceiling, restated so a typo in a settings box cannot ask for a month. */
 export const MAX_WEATHER_DAYS = 7;
+
+/**
+ * How old an observation may be at the moment the break AIRS, when the operator has not said.
+ *
+ * Two hours, and the size is deliberately generous rather than tight. What this bounds is this
+ * morning's weather going out at teatime, which is a station saying something false in a confident
+ * voice; it is not an attempt to keep the figure to the minute. A national service can be most of
+ * an hour behind before this station ever sees the reading, and `WRITE_AHEAD` is another twenty-odd
+ * minutes of records on top of that, so anything much tighter would silence the weather on a
+ * perfectly working install and read to an operator as a broken band.
+ *
+ * Measured against `segments.airs_at` rather than against now, which is the whole point: the reading
+ * that was fresh when the words were written is the one that has to still be true when they are
+ * spoken.
+ */
+export const DEFAULT_WEATHER_MAX_AGE_MINUTES = 120;
+
+/**
+ * The narrowest and widest an operator may set that to.
+ *
+ * The floor is a quarter of an hour because below it the write-ahead window alone would decline
+ * every break, and a setting whose every value is silence is a setting nobody can use. The ceiling
+ * is half a day, which is past the point where a reading is still about today's weather at all.
+ */
+export const MIN_WEATHER_MAX_AGE_MINUTES = 15;
+export const MAX_WEATHER_MAX_AGE_MINUTES = 720;
 
 /** What a weather break was given to read, and what it is about. */
 export interface WeatherReport {
@@ -85,8 +125,13 @@ export class WeatherSource {
      *
      * @param kind - The segment's kind. Anything but `weather` answers `undefined`.
      * @param context - The segment's context, which is where a format-clock band puts its location.
+     * @param airsAt - When these words will be spoken, which is what the reading's age is judged
+     *   against. A parameter rather than a clock read for `storiesFor`'s two reasons: the caller
+     *   already holds the instant it is writing for, and a window nothing can pin is a window
+     *   nothing can test. Defaults to now, which is the honest answer for a break whose row does
+     *   not know when it airs.
      */
-    async readingFor(kind: string, context: BreakContext | undefined): Promise<WeatherReport | undefined> {
+    async readingFor(kind: string, context: BreakContext | undefined, airsAt: number = Date.now()): Promise<WeatherReport | undefined> {
         if (kind !== WEATHER_KIND) return undefined;
 
         // Asked before anything else, so a station with no weather plugin costs nothing and says
@@ -120,6 +165,27 @@ export class WeatherSource {
                 // attention: a station whose clock asks for the weather every hour and whose service
                 // is refusing is silent every hour, and this is what says so.
                 this.logger.info('director: a weather break got no reading, so the station passed over the slot', { place });
+                return subject === undefined ? {} : { subject };
+            }
+
+            // The fourth way of having nothing: a reading that is correct and will be too old to be
+            // true by the time anybody hears it. Judged against the SLOT, not against now.
+            const maxAgeMinutes = clamp(
+                this.config.get(WEATHER_SOURCE_KEYS.maxAgeMinutes, DEFAULT_WEATHER_MAX_AGE_MINUTES),
+                MIN_WEATHER_MAX_AGE_MINUTES,
+                MAX_WEATHER_MAX_AGE_MINUTES,
+                DEFAULT_WEATHER_MAX_AGE_MINUTES,
+            );
+            const fresh = freshUntil(reading.observedAt, maxAgeMinutes * 60_000);
+            if (fresh === undefined || fresh <= airsAt) {
+                // At info beside the other three, and it names both fixes because only the operator
+                // can tell them apart: a service that has stopped updating and a window set too
+                // tight for it produce the same silence.
+                this.logger.info(
+                    'director: a weather break had only a reading that will be too old to be true when it airs, so the station passed over the ' +
+                        'slot. The service is behind, or "How old a reading may be" is set tighter than it updates.',
+                    { place, observedAt: reading.observedAt, airsAt: new Date(airsAt).toISOString(), maxAgeMinutes },
+                );
                 return subject === undefined ? {} : { subject };
             }
 
@@ -163,6 +229,23 @@ export class WeatherSource {
  * `get`'s overload widens its return from the DEFAULT — so a set value arrives as text while
  * TypeScript reports a number. `BulletinSource` has the same three lines for the same reason.
  */
+/**
+ * The moment this observation stops being worth saying out loud, or `undefined` for one that cannot
+ * be dated at all.
+ *
+ * `WeatherReading.observedAt` is ISO-8601 by contract and `WeatherService` already refuses a reading
+ * whose is blank, so an unparseable one is a plugin doing something the capability forbids. It is
+ * treated as ALREADY TOO OLD rather than as fresh, which is the direction that fails toward a slot
+ * the station passes over instead of toward a confident sentence about a sky nobody measured.
+ *
+ * Exported for the tests, and because the number itself is what a break has to be held to: see
+ * `segments.claims_reading_until`.
+ */
+export function freshUntil(observedAt: string, maxAgeMs: number): number | undefined {
+    const at = Date.parse(observedAt);
+    return Number.isFinite(at) ? at + maxAgeMs : undefined;
+}
+
 function clamp(value: number, low: number, high: number, fallback: number): number {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return fallback;

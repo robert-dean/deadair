@@ -275,7 +275,12 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // The same arrangement for the kind that reports a PLACE rather than an event, and
         // `undefined` for every other kind for the same reason: asking a weather service costs a
         // request, and a talk break that wants to mention the weather reaches `get_weather` itself.
-        const forecast = await this.weather.readingFor(segment.kind, context);
+        //
+        // Against the same instant as the bulletin above, and it was the only call in this file that
+        // did not know one. A reading is a statement about the present with a shelf life, so which
+        // moment it has to be true AT is the slot rather than now — the two sources ask the same
+        // question of their substrate and must not answer it differently.
+        const forecast = await this.weather.readingFor(segment.kind, context, segment.airsAt ?? Date.now());
 
         // The two sources cannot both answer, because each refuses every kind but its own, so this
         // reads as a chain rather than a merge.

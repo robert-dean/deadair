@@ -158,6 +158,8 @@ export class PlayoutControlClient {
     private up = false;
     /** Whether the last reading said the station was on air. See {@link isOnAir}. */
     private onAir = false;
+    /** When the stream stopped answering, while it is still not answering. See {@link downSince}. */
+    private downAt?: number;
     /** When the running order stopped producing, while it is still stopped. See {@link starvedSince}. */
     private starvedAt?: number;
     /** Consecutive timed-out calls. Reset by anything that answers. See the catch in {@link call}. */
@@ -219,6 +221,22 @@ export class PlayoutControlClient {
     }
 
     /**
+     * Since when the stream has been failing to answer at all, or `undefined` while it answers.
+     *
+     * The EDGE, not a running count of failed calls: it is stamped the first time {@link isUp} goes
+     * false and cleared the first time it comes back, so what it reports is how long the stream has
+     * been gone rather than how long since somebody last asked. `undefined` before the first call
+     * ever made, exactly as {@link isUp}'s `false` is, and for the same reason — nothing has been
+     * heard from yet is not the same fact as a stream that has stopped answering.
+     *
+     * It exists because "not answering" is the one gate in `silence.diagnosis.ts` that had no clock
+     * on it, and a restart is the ordinary reason for it. See `streamUnreachable` there.
+     */
+    downSince(): number | undefined {
+        return this.downAt;
+    }
+
+    /**
      * When the mount fell through to Liquidsoap's local bed, if it is still there.
      *
      * The only state here that the app cannot observe for itself: the reconcile loop
@@ -246,6 +264,24 @@ export class PlayoutControlClient {
     noteStarve(starved: boolean, now = Date.now()): void {
         if (!starved) this.starvedAt = undefined;
         else this.starvedAt ??= now;
+    }
+
+    /**
+     * The stream answered, or did not, and since when it has not.
+     *
+     * {@link noteStarve}'s rule applied to the other state that wants a clock on it: the leading
+     * edge does not overwrite an earlier one, so {@link downSince} reports how long the stream has
+     * been gone rather than how long since the last call that failed. Every call goes through
+     * {@link call} and every call sets this, so without the `??=` a stream that had been down for
+     * ten minutes would report two seconds.
+     *
+     * Written as one method rather than four assignments so the flag and its timestamp cannot
+     * disagree — which they would the first time somebody added a fifth branch and set only one.
+     */
+    private markUp(up: boolean, now = Date.now()): void {
+        this.up = up;
+        if (up) this.downAt = undefined;
+        else this.downAt ??= now;
     }
 
     /** One reading of the queue, or `undefined` when the stream is not reachable. */
@@ -388,7 +424,7 @@ export class PlayoutControlClient {
         const base = await this.endpoint.resolve();
         if (!base) {
             // Nothing answered the probe, so there is no address to be up at.
-            this.up = false;
+            this.markUp(false);
             return undefined;
         }
 
@@ -410,12 +446,12 @@ export class PlayoutControlClient {
                 // Not "down": something answered, it just refused — and a console that
                 // said the stream was unreachable would send the operator looking for
                 // the wrong fault.
-                this.up = true;
+                this.markUp(true);
                 this.timeouts = 0;
                 this.logger.warn(`liquidsoap: ${method} ${path} answered ${response.status}`);
                 return undefined;
             }
-            this.up = true;
+            this.markUp(true);
             this.timeouts = 0;
             return (await response.json()) as unknown;
         } catch (error) {
@@ -448,7 +484,7 @@ export class PlayoutControlClient {
             }
 
             this.timeouts = 0;
-            this.up = false;
+            this.markUp(false);
             this.endpoint.invalidate();
             return undefined;
         }

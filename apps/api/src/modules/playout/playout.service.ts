@@ -192,6 +192,7 @@ export class PlayoutService {
         const health = this.pusher.health(now);
         const audience = this.audience.reading();
         const starvedSince = this.control.starvedSince();
+        const downSince = this.control.downSince();
         const deniedSince = this.control.deniedSince();
         const audioWaitSince = this.director.audioWaitSince();
 
@@ -200,6 +201,10 @@ export class PlayoutService {
             ...(health.stalledForMs === undefined ? {} : { reconcileStalledForMs: health.stalledForMs }),
             ...(health.failure === undefined ? {} : { reconcileFailure: health.failure }),
             streamUp: this.control.isUp(),
+            // The clock under `streamUnreachable`, so a chain the station has just restarted for a
+            // settings change reads as waiting rather than as a fault an operator has to go and look
+            // at. Absent means it is answering, or that nothing has called it yet.
+            ...(downSince === undefined ? {} : { streamDownForMs: now - downSince }),
             ...(deniedSince === undefined ? {} : { controlDeniedForMs: now - deniedSince }),
             driving: this.control.isOnAir(),
             staleConfig: this.staleness.warnings(),

@@ -73,6 +73,14 @@ interface Options {
     audienceAnswered?: boolean;
     /** When the stream started refusing the app's bridge secret, if it is refusing it. */
     deniedSince?: number;
+    /**
+     * When the stream stopped answering at all, if it is not answering.
+     *
+     * Absent by default, and that is the honest default for these tests rather than a shortcut: a
+     * stream that has never been called has no outage to time, and `streamUnreachable` falls to its
+     * fault branch without one, which is what every case here that sets `streamUp: false` expects.
+     */
+    downSince?: number;
 }
 
 const item = {
@@ -107,6 +115,7 @@ function build(options: Options = {}) {
         isOnAir: vi.fn(() => options.onAir ?? true),
         noteStarve: vi.fn(),
         starvedSince: vi.fn(() => undefined),
+        downSince: vi.fn(() => options.downSince),
         deniedSince: vi.fn(() => options.deniedSince),
     } as unknown as PlayoutControlClient;
 
@@ -544,6 +553,18 @@ describe('PlayoutService: what reaches the activity feed', () => {
         await build({ streamUp: false }).service.getStatus();
 
         expect(recorded().mock.calls[0]?.[0]).toMatchObject({ severity: 'fault', data: { cause: 'streamUnreachable' } });
+    });
+
+    it('does not paint a stream the station has just restarted as a fault', async () => {
+        // Saving any stream setting re-renders radio.env, and `config-watch` restarts the audio
+        // chain within seconds. The station is genuinely off air for that, so the row is still
+        // written — as `info`, because there is nothing for an operator to go and do.
+        await build({ listeners: 2 }).service.getStatus();
+        recorded().mockClear();
+
+        await build({ streamUp: false, downSince: Date.now() - 6_000 }).service.getStatus();
+
+        expect(recorded().mock.calls[0]?.[0]).toMatchObject({ severity: 'info', data: { cause: 'streamUnreachable' } });
     });
 
     it('keeps the ordinary first-listener gap out of the feed entirely', () => {

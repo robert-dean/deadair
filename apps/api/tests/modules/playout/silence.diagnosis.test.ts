@@ -159,6 +159,55 @@ describe('diagnose', () => {
         });
     });
 
+    describe('a stream that is not answering', () => {
+        // The station restarts its own audio chain whenever a stream setting is saved, so the
+        // ordinary reason this gate is shut is something the operator did a moment ago and does not
+        // need telling about. Measured live: 17 of these, every timestamp matching a settings write.
+        it('is a wait while it is short, because that is what a restart looks like', () => {
+            const answer = diagnose(airing({ streamUp: false, streamDownForMs: 6_000 }));
+
+            expect(answer.cause).toBe('streamUnreachable');
+            expect(answer.checks.find(check => check.code === 'streamUnreachable')?.state).toBe('waiting');
+        });
+
+        it('still blocks while it waits, because the station really is off air', () => {
+            // A `waiting` gate is not a suppression. Only the colour changes.
+            const answer = diagnose(airing({ streamUp: false, streamDownForMs: 6_000 }));
+
+            expect(answer.audible).toBe(false);
+        });
+
+        it('does not drag notDriving down with it, because it already explains the mount', () => {
+            const answer = diagnose(airing({ streamUp: false, streamDownForMs: 6_000, driving: false }));
+
+            expect(answer.checks.find(check => check.code === 'notDriving')?.state).toBe('ok');
+        });
+
+        it('becomes a fault once no restart could still be running', () => {
+            const answer = diagnose(airing({ streamUp: false, streamDownForMs: 90_000 }));
+
+            expect(answer.checks.find(check => check.code === 'streamUnreachable')?.state).toBe('fault');
+        });
+
+        it('falls to the fault when nobody gathered a duration, which is the safe direction', () => {
+            expect(diagnose(airing({ streamUp: false })).checks.find(check => check.code === 'streamUnreachable')?.state).toBe('fault');
+        });
+
+        it('names a process rather than a container, because the image has only the one', () => {
+            // An operator sent to look at a liquidsoap container finds none on the single-container
+            // image, and stops believing the next warning.
+            const check = diagnose(airing({ streamUp: false })).checks.find(candidate => candidate.code === 'streamUnreachable');
+
+            expect(check?.remedy).not.toMatch(/container/i);
+        });
+
+        it('still yields to a refused secret, which is a different fault with a different fix', () => {
+            const answer = diagnose(airing({ streamUp: false, streamDownForMs: 6_000, controlDeniedForMs: 30_000 }));
+
+            expect(answer.cause).toBe('controlDenied');
+        });
+    });
+
     describe('replaced container config', () => {
         it('is reported as a fault', () => {
             expect(diagnose(airing({ staleConfig: stale })).checks.find(check => check.code === 'configNotAdopted')?.state).toBe('fault');

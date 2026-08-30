@@ -116,6 +116,19 @@ export interface StationFacts {
     reconcileFailure?: { at: number; message: string };
     streamUp: boolean;
     /**
+     * How long the control API has been failing to answer at all.
+     *
+     * `undefined` means it is answering, or that nothing has ever called it — the two are one
+     * answer here deliberately, because both are "there is no outage to time" and only
+     * {@link streamUp} is asked whether the station can be handed anything. A process that has just
+     * started has no outage, and giving it one would put every cold boot into the fault below.
+     *
+     * Read as a duration rather than as a count of failed calls, on the same argument
+     * {@link starvedForMs} is: the question is how long the operator's stream has been gone, and
+     * the reconcile loop's call rate is a property of this app rather than of that.
+     */
+    streamDownForMs?: number;
+    /**
      * How long the control API has been answering and refusing the app's bridge secret.
      *
      * `undefined` is the ordinary state and covers two different ones deliberately: the secret is
@@ -201,6 +214,27 @@ const STARVE_AFTER_MS = RECONCILE_TICK_MS;
  * this is when to stop calling a wait healthy — so they are free to drift apart on purpose.
  */
 const AUDIO_WAIT_AFTER_MS = 60_000;
+
+/**
+ * How long the stream may be unreachable before that stops being an ordinary restart.
+ *
+ * **This gate was the only one here with no clock on it, and the ordinary reason for it to be shut
+ * is the station's own doing.** Every stream setting an operator saves is re-rendered to
+ * `radio.env`, `config-watch` notices within `CONFIG_WATCH_INTERVAL_S` (5s by default) and restarts
+ * Liquidsoap, which then has to boot and compile its script. For the whole of that the control API
+ * refuses connections and this check reported a FAULT, with a remedy telling the operator to go and
+ * look at a container that was restarting exactly as designed. Measured on the running station: 17
+ * of these, and their timestamps match `settings.updated_at` one for one.
+ *
+ * Thirty seconds covers the poll plus a restart with room to spare, and is deliberately shorter than
+ * `stream.staleness.ts`'s `DRIFT_GRACE_MS` — that one is waiting to see whether a restart HAPPENED,
+ * which is a slower question than whether one has finished.
+ *
+ * It is a `waiting` rather than a suppression: the station really is off air for those seconds, so
+ * the gate still blocks and still explains every check under it. Only the colour changes, which is
+ * the same distinction `stoodDown` and `noAudience` are drawn on.
+ */
+const STREAM_DOWN_AFTER_MS = 30_000;
 
 /**
  * Name the gate that is keeping the station quiet.
@@ -301,19 +335,46 @@ function controlDenied(facts: StationFacts): SilenceCheck {
         detail:
             `Liquidsoap has been answering and refusing this app's bridge secret for ${seconds(facts.controlDeniedForMs)}. ` +
             'The stream is running; nothing can be handed to it until the two ends of the bridge hold the same secret.',
-        remedy: "Restart the liquidsoap container so it adopts the rendered radio.env, and check that its PLAYOUT_BRIDGE_SECRET matches the station's stored setting.",
+        // A process rather than a container, for the reason `streamUnreachable`'s remedy says.
+        remedy: "Restart Liquidsoap so it adopts the rendered radio.env, and check that its PLAYOUT_BRIDGE_SECRET matches the station's stored setting.",
     };
 }
 
-/** Liquidsoap's control API is not answering, so nothing can go to air whatever is queued. */
+/**
+ * The audio chain's control API is not answering, so nothing can go to air whatever is queued.
+ *
+ * Two branches on one fact, for {@link STREAM_DOWN_AFTER_MS}'s reason: an audio chain that is not
+ * answering has usually just been restarted by the station itself, and a fault that clears on its
+ * own in five seconds is a red mark next to correct behaviour.
+ *
+ * A reading with no duration falls to the fault, which is the safe direction and is what an older
+ * caller that never gathered one gets: this check has always meant something is wrong, and the
+ * clock only says how long to wait before saying so.
+ */
 function streamUnreachable(facts: StationFacts): SilenceCheck {
-    if (facts.streamUp) return { code: 'streamUnreachable', state: 'ok', detail: "Liquidsoap's control API is answering." };
+    if (facts.streamUp) return { code: 'streamUnreachable', state: 'ok', detail: "The audio chain's control API is answering." };
+
+    const downFor = facts.streamDownForMs;
+    if (downFor !== undefined && downFor <= STREAM_DOWN_AFTER_MS) {
+        return {
+            code: 'streamUnreachable',
+            state: 'waiting',
+            detail:
+                `The audio chain's control API has not answered for ${seconds(downFor)}, so nothing is going to air. ` +
+                'That is what a restart looks like, and saving any stream setting causes one.',
+        };
+    }
 
     return {
         code: 'streamUnreachable',
         state: 'fault',
-        detail: "Liquidsoap's control API is not answering, so nothing can go to air whatever the running order holds.",
-        remedy: 'Check that the liquidsoap container is running and reachable at its control address.',
+        detail:
+            "The audio chain's control API is not answering, so nothing can go to air whatever the running order holds" +
+            `${downFor === undefined ? '' : `, and it has been that way for ${seconds(downFor)}`}.`,
+        // Named as a process rather than as a container: on the single-container image there is no
+        // liquidsoap container to go and look at, and an operator sent hunting for one finds nothing
+        // and stops believing the next warning. See `docker/rootfs/etc/s6-overlay/s6-rc.d/liquidsoap`.
+        remedy: 'Check that Liquidsoap is running and reachable at its control address.',
     };
 }
 

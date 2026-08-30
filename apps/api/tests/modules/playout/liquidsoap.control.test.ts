@@ -633,6 +633,86 @@ describe('itemAnnotations: the blend', () => {
     });
 });
 
+describe('PlayoutControlClient.downSince', () => {
+    // The clock `silence.diagnosis.ts` needs to tell a chain the station has just restarted for a
+    // settings change from one that has genuinely gone. It has to be the EDGE: every reconcile pass
+    // is a call and every call sets `up`, so a running stamp would report two seconds for an outage
+    // that had lasted ten minutes.
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
+    const endpoint = {
+        resolve: async () => 'http://stream.test:8005',
+        secret: () => 'a-secret',
+        invalidate: vi.fn(),
+    } as unknown as LiquidsoapEndpoint;
+    const staleness = { noteLiquidsoap: vi.fn() } as unknown as StreamConfigWatch;
+
+    const clientWith = (fetchImpl: typeof fetch) => {
+        vi.stubGlobal('fetch', fetchImpl);
+        return new PlayoutControlClient(endpoint, staleness, logger);
+    };
+
+    const refusing = async (): Promise<Response> => {
+        throw new Error('connect ECONNREFUSED');
+    };
+    const answering = async (): Promise<Response> => new Response(JSON.stringify({ queued: 0, ready: false }), { status: 200 });
+
+    it('is absent before anything has ever been called', () => {
+        // Not the same fact as a stream that has stopped answering, and a process that has just
+        // started must not read as one: `isUp` is false here too, and only one of them is an outage.
+        expect(new PlayoutControlClient(endpoint, staleness, logger).downSince()).toBeUndefined();
+    });
+
+    it('stamps the first call that finds nothing listening', async () => {
+        const client = clientWith(refusing);
+        try {
+            await client.status();
+            expect(client.downSince()).toBeDefined();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps the original edge across a run of failed calls', async () => {
+        const client = clientWith(refusing);
+        try {
+            await client.status();
+            const first = client.downSince();
+            await client.status();
+            await client.status();
+
+            expect(client.downSince()).toBe(first);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('clears when the stream comes back', async () => {
+        const client = clientWith(refusing);
+        try {
+            await client.status();
+            expect(client.downSince()).toBeDefined();
+
+            vi.stubGlobal('fetch', answering);
+            await client.status();
+
+            expect(client.downSince()).toBeUndefined();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('stays clear while the stream answers and refuses, which is a different fault', async () => {
+        // A 401 leaves `up` true on purpose. There is no outage to time.
+        const client = clientWith(async () => new Response('denied', { status: 401 }));
+        try {
+            await client.status();
+            expect(client.downSince()).toBeUndefined();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+});
+
 describe('PlayoutControlClient.starvedSince', () => {
     // A gap on the mount is the one state the app cannot observe for itself: the
     // reconcile loop looks every couple of seconds, so anything shorter never appears in

@@ -77,6 +77,12 @@
     /* The scanline over the chrome. Light on dark here; a theme on paper wants the opposite sign. */
     --da-texture: rgb(255 255 255 / 2.5%);
 
+    /* What the header, the rail and the phone tabs are made of. Solid, because a desk is a solid
+       object and because what is behind it is one dim lamp the colour of the desk — there is
+       nothing there to let through. The console that has something behind it says so for itself. */
+    --da-chrome: var(--da-bg);
+    --da-chrome-blur: none;
+
     /* What a panel does beyond having an edge, which on a desk is nothing. Only one console glows,
        and it says so for itself below. Declared here so `theme.ts`'s Card default can name it
        unconditionally rather than every theme having to remember to switch it off. */
@@ -200,6 +206,17 @@
         radial-gradient(70% 55% at 50% -10%, rgb(5 222 255 / 14%), transparent 60%),
         radial-gradient(60% 50% at 100% 110%, rgb(255 31 208 / 12%), transparent 60%);
     --da-texture: rgb(5 222 255 / 4%);
+
+    /* Glass, and this is what makes the two corners above worth having.
+     *
+     * The cyan wash is brightest at the top of the viewport, which is exactly where the header is,
+     * so an opaque frame hid the better half of the only thing lighting this console. 82% is the
+     * number: enough that the header still reads as a surface an operator can trust the tally to
+     * sit on, thin enough that the street shows through it. The blur is what stops content
+     * scrolling underneath from being legible through the frame, which is the difference between
+     * frosted glass and a transparency bug. */
+    --da-chrome: color-mix(in srgb, var(--da-bg) 82%, transparent);
+    --da-chrome-blur: blur(12px);
 
     --da-glow-panel: 0 0 0 1px rgb(5 222 255 / 6%), 0 0 18px -8px rgb(5 222 255 / 32%), inset 0 0 22px -16px rgb(255 31 208 / 40%);
     --da-glow-edge: 0 0 12px -4px rgb(5 222 255 / 30%);

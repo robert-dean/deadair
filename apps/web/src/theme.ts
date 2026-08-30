@@ -252,6 +252,45 @@ export function consoleTheme(colors: ConsolePalettes, faces: ConsoleFaces, signa
             Paper: {
                 defaultProps: { radius: 'sm' },
             },
+            AppShell: {
+                /**
+                 * What the chrome is made of, which is the only thing that decides whether a
+                 * console's backdrop is ever seen.
+                 *
+                 * The header, the rail and the phone tabs sit over the fixed body gradient and, at
+                 * `--mantine-color-body`, hide the part of it that is worth seeing — the wash is
+                 * brightest at the top of the viewport, which is precisely where the header is. On a
+                 * desk that costs nothing, because a desk is lit by one dim lamp the colour of its
+                 * own ink. On a console lit from two corners in two colours it costs the whole
+                 * effect, and no amount of turning the gradient up recovers it: the chrome is opaque
+                 * and the gradient is behind it.
+                 *
+                 * So the chrome is a variable rather than a colour. `--da-chrome` is `--da-bg` for
+                 * every theme that wants a solid frame, which is the default and what two of the
+                 * three keep, and glass for the one that has something behind it.
+                 *
+                 * `backgroundColor` rather than `background`: the header also carries
+                 * `.da-scanlines`, which is a `background-image`, and the shorthand would silently
+                 * take the texture with it.
+                 */
+                styles: {
+                    header: {
+                        backgroundColor: 'var(--da-chrome)',
+                        backdropFilter: 'var(--da-chrome-blur)',
+                        WebkitBackdropFilter: 'var(--da-chrome-blur)',
+                    },
+                    navbar: {
+                        backgroundColor: 'var(--da-chrome)',
+                        backdropFilter: 'var(--da-chrome-blur)',
+                        WebkitBackdropFilter: 'var(--da-chrome-blur)',
+                    },
+                    footer: {
+                        backgroundColor: 'var(--da-chrome)',
+                        backdropFilter: 'var(--da-chrome-blur)',
+                        WebkitBackdropFilter: 'var(--da-chrome-blur)',
+                    },
+                },
+            },
             Table: {
                 defaultProps: { verticalSpacing: 6, horizontalSpacing: 'sm', highlightOnHover: true },
             },

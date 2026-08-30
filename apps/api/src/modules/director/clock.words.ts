@@ -28,10 +28,39 @@
 
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-/** The `deadair.settings` key. In the `station` group, beside its name and its presenter's. */
+/** The `deadair.settings` keys. In the `station` group, beside its name and its presenter's. */
 export const CLOCK_KEYS = {
     timezone: 'station.timezone',
+    namesTheTime: 'station.namesTheTime',
 } as const;
+
+/**
+ * Whether the station may name the HOUR, as opposed to the half of the day.
+ *
+ * ## Why an operator can switch off a phrasing that reads perfectly well
+ *
+ * The words are not the problem. {@link roughTime} answers with a window it stays true in, the
+ * window is stamped onto the row, and the hand-over refuses a break that reaches its slot outside
+ * it — a chain that is correct at every link and that depends entirely on one thing being true:
+ * that `air.clock.ts` projects a LOWER bound, so a break lands at or after the moment it was told.
+ *
+ * On the live station it does not. Measured 2026-08-30 over the afternoon's breaks: every one that
+ * carried an hour phrasing reached its slot 8 to 11 minutes BEFORE the window it named, which is
+ * the direction `air.clock.ts` calls the unsurvivable one, and eight of the nine breaks in one
+ * broadcast were dropped for it. The two that aired were a welcome, whose claim is a six-hour
+ * daypart, and one talk break that landed inside its window by 52 seconds.
+ *
+ * So the projection is wrong by more than the narrowest phrasing tolerates, and until it is right
+ * the hour is a promise the station cannot keep. The daypart is: it claims hours rather than
+ * minutes, and it survived every boundary the hour phrasings died on.
+ *
+ * **Off by default, and this is a stop-gap rather than a preference.** It is a setting rather than
+ * a deletion because the phrasing is worth having back the moment the projection earns it, and a
+ * row is how an operator turns it back on to check. Nothing else about the break changes: a writer
+ * handed no clock already says nothing about the hour, which is the same shape as a break whose
+ * `airs_at` was never stamped.
+ */
+export const NAMES_THE_TIME_DEFAULT = false;
 
 /**
  * Whether some words carry a given phrasing of the time.

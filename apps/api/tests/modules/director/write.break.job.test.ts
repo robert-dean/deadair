@@ -328,6 +328,46 @@ describe('WriteBreakJob', () => {
         expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ stories }));
     });
 
+    it('says the half of the day but not the hour, which is what the setting defaults to', async () => {
+        // The daypart survives a projection that runs early and the hour does not: one claims hours
+        // and the other claims minutes. See `NAMES_THE_TIME_DEFAULT` for the measurement.
+        const { job, writers } = harness({
+            lineup: await lineupWithBreak(),
+            segment: planned({ airsAt: 1_700_000_000_000 }),
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ clock: expect.anything() }));
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ dayPart: expect.anything() }));
+    });
+
+    it('names the hour once an operator switches it back on', async () => {
+        const { job, writers } = harness({
+            lineup: await lineupWithBreak(),
+            segment: planned({ airsAt: 1_700_000_000_000 }),
+            settings: { 'station.namesTheTime': 'true' },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.objectContaining({ clock: expect.objectContaining({ words: expect.any(String) }) }));
+    });
+
+    it('reads the switch as the STRING a config layer actually holds', async () => {
+        // `config.get(key, false)` answers `'false'`, which is truthy. Handing a real boolean here
+        // would pass either way and prove nothing.
+        const { job, writers } = harness({
+            lineup: await lineupWithBreak(),
+            segment: planned({ airsAt: 1_700_000_000_000 }),
+            settings: { 'station.namesTheTime': 'false' },
+        });
+
+        await job.run({ segmentId: 'seg-1' });
+
+        expect(writers.write).toHaveBeenCalledWith(expect.not.objectContaining({ clock: expect.anything() }));
+    });
+
     it('hands over what the bulletin turned out to be about, resolved rather than as a key', async () => {
         // The writers are handed a SUBJECT and never the raw context: the label is what a bulletin
         // says out loud, and resolving it in one place is what keeps the model binding and the floor

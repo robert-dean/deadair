@@ -28,7 +28,7 @@ import { isRenderedFirst, priorityForUrgency, type StoredBreakRequest } from './
 import { BulletinSource } from './bulletin.source.js';
 import { WeatherSource } from './weather.source.js';
 import type { BreakTrack, PlayedRecord, WrittenBreak } from './break.writer.js';
-import { dayGreeting, dayPart, roughTime, stationZone } from './clock.words.js';
+import { CLOCK_KEYS, dayGreeting, dayPart, NAMES_THE_TIME_DEFAULT, roughTime, stationZone } from './clock.words.js';
 import { BreakWriterRegistry, declineText, isWritten, type BreakWriteResult } from './break.writer.registry.js';
 import { TALK_BREAK_SHAPE } from './break.prompt.js';
 import { DETERMINISTIC_WRITER, TALK_BREAK_KIND } from './talk.break.writer.js';
@@ -36,6 +36,7 @@ import { STORY_KIND, STORY_SHAPE } from './story.break.writer.js';
 import { isTrackItem, type StationLineup } from './station.lineup.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { rotationOf } from '#modules/shared/rotation.js';
 
 /** How many recent scripts a writer is shown, so it can avoid repeating itself. */
@@ -231,7 +232,13 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // schedule, so by now this job is the only thing that could say what time it is writing
         // about — and asking the clock again here would answer with now, a quarter of an hour early.
         const zone = stationZone(this.config);
-        const clock = segment.airsAt === undefined ? undefined : roughTime(segment.airsAt, zone);
+        // Gated on the setting rather than on `airsAt` alone: an hour phrasing is only as true as
+        // the projection it is derived from, and on this station that projection runs ahead of the
+        // order by more than the phrasing's own window. See `NAMES_THE_TIME_DEFAULT`, which carries
+        // the measurement. Undefined here is the shape every writer already handles — the same one a
+        // break with no `airs_at` is handed — so nothing downstream needs a second branch.
+        const namesTheTime = settingIsOn(this.config, CLOCK_KEYS.namesTheTime, NAMES_THE_TIME_DEFAULT);
+        const clock = segment.airsAt === undefined || !namesTheTime ? undefined : roughTime(segment.airsAt, zone);
         // Off the same instant as the clock, and offered to every kind: which breaks have any
         // business greeting anybody is the writer's own question, and answering it here would put a
         // decision about one kind of break in the job that serves all of them.

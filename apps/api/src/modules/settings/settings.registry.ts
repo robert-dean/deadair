@@ -29,7 +29,7 @@ import {
     DEFAULT_STORY_COUNT_MIN,
     MAX_STORY_COUNT,
 } from '#modules/director/bulletin.source.js';
-import { CLOCK_KEYS } from '#modules/director/clock.words.js';
+import { CLOCK_KEYS, NAMES_THE_TIME_DEFAULT } from '#modules/director/clock.words.js';
 import { DEFAULT_UNITS, WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import {
     BREAK_WORD_KEYS,
@@ -218,6 +218,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         // `Intl.DateTimeFormat` throws at the first break that tries to say the time.
         optionsFrom: 'intl.timeZones',
         help: "An IANA zone name such as Europe/London or America/New_York, which is what the station reads the clock in when it says the time. A station is a place and its listeners are in it, so this is deliberately not the server's zone. Leave empty to use whatever this machine is set to.",
+    },
+    {
+        group: 'station',
+        key: CLOCK_KEYS.namesTheTime,
+        label: 'Let the station say the hour',
+        type: 'boolean',
+        default: NAMES_THE_TIME_DEFAULT,
+        help: 'A break that says "just after half past four" is only true for a few minutes, so the station checks the clock before airing it and drops it if the running order arrived early. While the order runs ahead of what the station projects, that check costs almost every break that names an hour. With this off the station still says "this afternoon", which stays true for hours. Turn it back on once breaks stop being dropped for reaching their slot early.',
     },
     {
         group: 'station',

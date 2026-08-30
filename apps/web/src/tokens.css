@@ -43,6 +43,15 @@
     /* The lamp the desk is lit by: the far end of the body gradient, which recedes into `--da-bg`. */
     --da-bg-glow: #10130f;
 
+    /* The whole background-image, not just its colour.
+     *
+     * `--da-bg-glow` above is enough for a room lit by one lamp, which is what a desk is, and it is
+     * not enough for a street: a console lit from two corners in two colours cannot be expressed by
+     * substituting a hex into one radial. Rather than restate the `body` rule per theme — the exact
+     * trap the header of this file warns about — the theme states the light itself. A theme with one
+     * lamp still says so through `--da-bg-glow` and never touches this. */
+    --da-backdrop: radial-gradient(ellipse 120% 80% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
+
     /* The scanline over the chrome. Light on dark here; a theme on paper wants the opposite sign. */
     --da-texture: rgb(255 255 255 / 2.5%);
 
@@ -102,35 +111,49 @@
 }
 
 /*
- * Neon Transmitter: cyan, magenta and hard edges on ink.
+ * Neon Transmitter: a night-city HUD. Neon yellow on teal-black, lit cyan and magenta.
  *
  * The one theme where a panel does something other than have an edge. The glow is three shadows
- * because it is doing three jobs — a hairline of the accent, a bloom outward, and a magenta wash
- * pulled INWARD from the corners — and dropping any of them leaves a card that looks like it has a
- * mistake in it rather than a light behind it.
+ * because it is doing three jobs — a hairline, a bloom outward, and a magenta wash pulled INWARD
+ * from the corners — and dropping any of them leaves a card that looks like it has a mistake in it
+ * rather than a light behind it.
+ *
+ * The glow is cyan and magenta while the accent is yellow, which is the design and not a leftover:
+ * the bloom is the city, the yellow is the instrument, and a panel glowing in `--da-phosphor` would
+ * take the console's only "you selected this" signal and spread it over every card on the page. The
+ * argument in full is on the `neon` palette in `themes.ts`.
+ *
+ * The surfaces below must agree with that theme's `dark` tuple hex for hex. Overriding one and not
+ * the other is how a console ends up with its own text on somebody else's panels.
  */
 :root[data-da-theme='neon'] {
-    --da-bg: #04040a;
-    --da-panel: #0a0a16;
-    --da-raised: #12122a;
-    --da-border: #241f52;
-    --da-border-strong: #392f7a;
+    --da-bg: #060a0c;
+    --da-panel: #0d1316;
+    --da-raised: #141c20;
+    --da-border: #20282c;
+    --da-border-strong: #333c41;
 
-    --da-text: #e8f9ff;
-    --da-text-secondary: #9fb6d6;
-    --da-text-dimmed: #6b7ba6;
+    --da-text: #eafcff;
+    --da-text-secondary: #a3b0b4;
+    --da-text-dimmed: #7d8b90;
 
-    --da-phosphor: #00f0ff;
-    --da-phosphor-glow: rgb(0 240 255 / 35%);
+    --da-phosphor: #fcee0a;
+    /* Weaker than carbon's 35%: this accent is far brighter, and the same alpha behind a selection
+       reads as a highlighter rather than as a lamp. */
+    --da-phosphor-glow: rgb(252 238 10 / 28%);
     --da-tally-glow: rgb(255 30 70 / 50%);
 
-    /* Violet rather than a darker ink: the desk is lit from above by something that is not the
-       accent, which is what stops the whole screen reading as one hue. */
-    --da-bg-glow: #12063a;
-    --da-texture: rgb(0 240 255 / 4%);
+    /* Two corners rather than one, which is why `--da-backdrop` exists: this console is not lit by
+       its own lamps, it is lit by the street outside — cyan overhead, magenta from below and to the
+       right. `--da-bg-glow` is deliberately not set here; it has no reader once the whole image is
+       stated. */
+    --da-backdrop:
+        radial-gradient(70% 55% at 50% -10%, rgb(5 222 255 / 14%), transparent 60%),
+        radial-gradient(60% 50% at 100% 110%, rgb(255 31 208 / 12%), transparent 60%);
+    --da-texture: rgb(5 222 255 / 4%);
 
-    --da-glow-panel: 0 0 0 1px rgb(0 240 255 / 5%), 0 0 18px -8px rgb(0 240 255 / 35%), inset 0 0 22px -16px rgb(255 31 208 / 40%);
-    --da-glow-edge: 0 0 12px -4px rgb(0 240 255 / 30%);
+    --da-glow-panel: 0 0 0 1px rgb(5 222 255 / 6%), 0 0 18px -8px rgb(5 222 255 / 32%), inset 0 0 22px -16px rgb(255 31 208 / 40%);
+    --da-glow-edge: 0 0 12px -4px rgb(5 222 255 / 30%);
 
     /* Wider than the desk's 0.08em, which is the whole difference between a label printed on a
        panel and one projected onto glass. Every `Eyebrow`, every status word and every table kicker
@@ -147,8 +170,9 @@ body {
 body {
     /* Durations, counts and timecodes line up in columns without anything opting in. */
     font-variant-numeric: tabular-nums;
-    /* A desk lit by its own lamps: barely a gradient, enough that the corners recede. */
-    background-image: radial-gradient(ellipse 120% 80% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
+    /* Whatever the console is lit by. On a desk that is its own lamps: barely a gradient, enough
+       that the corners recede. */
+    background-image: var(--da-backdrop);
     background-attachment: fixed;
 }
 

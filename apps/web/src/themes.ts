@@ -91,30 +91,63 @@ const white = consoleTheme(
 );
 
 /**
- * Neon Transmitter: cyan, magenta and hard edges on ink.
+ * Neon Transmitter: a night-city HUD. Neon yellow on teal-black, lit cyan and magenta.
  *
  * The loudest of the three and the only one where a panel does something other than have an edge —
  * `--da-glow-panel` in `tokens.css` is `none` everywhere else and the Card default names it
  * unconditionally, so this theme switches the glow on by redefining one variable.
  *
+ * ## The accent is yellow and the glow is not
+ *
+ * The bloom around a card stays cyan and magenta while `phosphor` is yellow, which looks like an
+ * oversight and is the entire design: the bloom is the CITY and the yellow is the INSTRUMENT. A card
+ * that glowed in the accent would collapse the two, and the console would lose the only signal it
+ * has for "this is the thing you selected" — every `--da-phosphor` site is exactly that, from the
+ * nav's active bar to the chosen swatch on this page.
+ *
+ * Cyan still has a job in the palette rather than only in the glow: it is `blue`, which is standby.
+ * That is where a theme's second colour belongs here — as a status somebody already reads — instead
+ * of as a ninth tuple nothing resolves through.
+ *
+ * ## Why `yellow` is not yellow
+ *
+ * This is the one hex on the page that will be re-derived by whoever reads it next, so: `phosphor`
+ * is `primaryColor` and `consoleTheme` aliases it to `teal` and `green`, which makes the accent the
+ * console's "this one is good". `status.ts` then maps `fault` and `severityColor.warning` to
+ * `yellow`. A theme with a yellow accent and a yellow warning draws "running" and "broken" in the
+ * same colour, which is precisely the failure that file exists to close off.
+ *
+ * So the two warm status ramps rotate to make room. `yellow` becomes an amber-orange and `orange`
+ * a red-orange, which keeps the half-step the running order depends on — `skipped` in `yellow`
+ * because the station did its job, `unavailable` in `orange` because an operator can go and fix it
+ * — and puts roughly twenty degrees between the accent and the nearest thing that means trouble.
+ * If those two ever read alike on a real page, the fix is to move THESE anchors further apart. The
+ * accent does not move: it is what makes this console the one it is.
+ *
  * `grape` is magenta here rather than violet, which is the one place this theme changes what a hue
  * MEANS rather than what it looks like — and it does not: grape marks a thing the station authored,
- * and magenta against cyan says "not the accent, and not a fault" just as violet does against green.
+ * and magenta says "not the accent, and not a fault" just as violet does against green. It is kept
+ * at the pink end rather than pushed toward red, because the running order draws an authored break
+ * and the tally on the same rows.
  */
 const neon = consoleTheme(
     {
-        phosphor: ['#e0feff', '#b3fbff', '#8ffbff', '#4df5ff', '#00f0ff', '#00d4e2', '#00bcd4', '#0097ab', '#007283', '#004d59'],
+        // The iconic one, re-indexed so it lands on 4 where `primaryShade` and every `.4` call site
+        // expect the anchor.
+        phosphor: ['#ffffe6', '#fdffb0', '#fbff74', '#f9fa3c', '#fcee0a', '#e4d200', '#c4b400', '#a08f00', '#867a00', '#575000'],
         // 7 is the body, 6 a card or an input, 5 and 4 borders, 0 text — the positional contract
-        // carbon's own surfaces ramp is ordered to.
-        dark: ['#e8f9ff', '#c6dcea', '#9fb6d6', '#6b7ba6', '#392f7a', '#241f52', '#0a0a16', '#04040a', '#030308', '#010104'],
-        gray: ['#e8f9ff', '#c6dcea', '#9fb6d6', '#8497bd', '#6b7ba6', '#5a6890', '#4e40a3', '#392f7a', '#241f52', '#17173a'],
+        // carbon's own surfaces ramp is ordered to. These five must agree with the `--da-*` surfaces
+        // in `tokens.css`; a ramp that disagrees is the bug `theme.ts` describes, in slow motion.
+        dark: ['#eafcff', '#c9e3ea', '#a3b0b4', '#7d8b90', '#333c41', '#20282c', '#0d1316', '#060a0c', '#040709', '#020405'],
+        gray: ['#eafcff', '#c9e3ea', '#a3c2cc', '#8fa8b0', '#7d8b90', '#6a777c', '#556065', '#333c41', '#20282c', '#141c20'],
         red: ['#ffe6ea', '#ffc2cc', '#ff7d95', '#ff4f6e', '#ff1e46', '#f00038', '#e00030', '#b30026', '#87001d', '#6d0018'],
-        blue: ['#e6ecff', '#c2d0ff', '#9db8ff', '#6690ff', '#2f6bff', '#1f5af5', '#1a4de0', '#153eb3', '#102f87', '#0a1147'],
-        // Acid rather than amber: a warning has to be visible against cyan, and orange alone is too
-        // close to the alarm below it.
-        yellow: ['#fdffe0', '#fbffb3', '#f9ff9c', '#f7ff66', '#f2ff26', '#e4f000', '#c8d400', '#a3ad00', '#7d8500', '#575c00'],
+        // Cyan: standby, and the theme's second colour doing a job rather than sitting in a shadow.
+        blue: ['#d6fbff', '#a3f5ff', '#66edff', '#2ee6ff', '#05deff', '#00c9f5', '#00a6cc', '#007e9c', '#005a70', '#003a49'],
+        // Amber-orange rather than amber, for the reason above: the accent owns yellow here.
+        yellow: ['#fff3e0', '#ffe0b3', '#ffc880', '#ffab47', '#ff8f00', '#e88100', '#cc7100', '#a85c00', '#804600', '#573000'],
         grape: ['#ffe6fa', '#ffc2f2', '#ff9ceb', '#ff5cdd', '#ff1fd0', '#e800b8', '#c4009c', '#9e007e', '#780060', '#520042'],
-        orange: ['#fff0e6', '#ffd9c2', '#ffb073', '#ff8a33', '#ff6a00', '#e55f00', '#c25000', '#9e4100', '#7a3200', '#552300'],
+        // Pushed the same distance again, so the half-step below `yellow` survives the rotation.
+        orange: ['#ffeae0', '#ffcdb8', '#ffa480', '#ff7847', '#ff4d00', '#e84500', '#c43a00', '#9e2f00', '#782400', '#521800'],
     },
     {
         body: 'Archivo, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif',
@@ -139,6 +172,24 @@ const neon = consoleTheme(
         titleTracking: '0.03em',
         buttonTransform: 'uppercase',
         buttonTracking: '0.08em',
+        /**
+         * Depth as bloom rather than as lift.
+         *
+         * The other two consoles keep Mantine's scale, where a Menu or a Modal casts a shadow to say
+         * it is above the page. Nothing on a city street does that: a sign floats because it is
+         * emitting, so the same five rungs are light instead of dark. Cyan close in and magenta
+         * further out is the same two-colour reading as the backdrop and the panel glow, so a
+         * dropdown looks like it belongs to the room it opened in.
+         *
+         * `xs` stays black. It is a hairline under a Tooltip and a bloom at that radius is a smear.
+         */
+        shadows: {
+            xs: '0 1px 2px rgb(0 0 0 / 60%)',
+            sm: '0 0 12px rgb(5 222 255 / 24%)',
+            md: '0 0 22px rgb(5 222 255 / 28%)',
+            lg: '0 0 40px rgb(255 31 208 / 26%)',
+            xl: '0 0 64px rgb(255 31 208 / 32%)',
+        },
     },
 );
 
@@ -196,10 +247,10 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
     neon: {
         id: 'neon',
         name: 'Neon Transmitter',
-        blurb: 'Cyan, magenta and hard edges on ink. Loudest of the three.',
+        blurb: 'Neon yellow on teal-black, lit cyan and magenta. Loudest of the three.',
         typeLabel: 'Chakra Petch / Archivo',
         displayFont: '"Chakra Petch", sans-serif',
-        swatches: ['#04040a', '#12122a', '#00f0ff', '#ff1fd0'],
+        swatches: ['#060a0c', '#141c20', '#fcee0a', '#ff1e46'],
         scheme: 'dark',
         mantine: neon,
         resolver: cssVariablesResolver,

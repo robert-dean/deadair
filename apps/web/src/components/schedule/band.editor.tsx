@@ -5,6 +5,7 @@ import type { ClockBand, ClockBandInput } from '@deadair/sdk';
 
 import { useTopics } from '../../api/topics.queries';
 import { ErrorAlert } from '../shared/error.alert';
+import { usePhone } from '../shared/use.phone';
 import { clockToMinutes, minutesToClock } from './schedule.day';
 
 /**
@@ -43,6 +44,7 @@ import { clockToMinutes, minutesToClock } from './schedule.day';
  * makes editing this safe while the station is on air.
  */
 export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving, deleting, error }: Props) {
+    const phone = usePhone();
     const opened = target !== undefined;
     const band = target?.kind === 'edit' ? target.band : undefined;
     const topics = useTopics();
@@ -78,7 +80,7 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
     });
 
     return (
-        <Modal opened={opened} onClose={onClose} title={band ? 'Edit band' : 'New band'} size="lg">
+        <Modal opened={opened} onClose={onClose} title={band ? 'Edit band' : 'New band'} size="lg" fullScreen={phone}>
             <form onSubmit={submit}>
                 <Stack gap="md">
                     {error ? <ErrorAlert title="That band could not be saved" error={error} fallback="Nothing was written." /> : undefined}

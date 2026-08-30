@@ -3,6 +3,7 @@ import { Alert, Badge, Button, Divider, FileButton, Group, List, Modal, Stack, T
 import type { PersonaFile, PersonaImportNotice, PersonaImportPlan, PersonaImportResult } from '@deadair/sdk';
 
 import { useImportPersonas, usePreviewPersonaImport } from '../../api/personas.queries';
+import { usePhone } from '../shared/use.phone';
 import { ErrorAlert } from '../shared/error.alert';
 import { toneColor } from '../shared/status';
 
@@ -34,6 +35,7 @@ export interface PersonaImportModalProps {
  * the character on air.
  */
 export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps) {
+    const phone = usePhone();
     const preview = usePreviewPersonaImport();
     const write = useImportPersonas();
 
@@ -78,7 +80,7 @@ export function PersonaImportModal({ opened, onClose }: PersonaImportModalProps)
     const plan = result?.plan ?? preview.data;
 
     return (
-        <Modal opened={opened} onClose={close} title="Import personas" size="lg">
+        <Modal opened={opened} onClose={close} title="Import personas" size="lg" fullScreen={phone}>
             <Stack gap="md">
                 <Text size="sm" c="dimmed">
                     A file saved by this page, or by somebody else&apos;s station. Characters are matched by their key: one this station already has

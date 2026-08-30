@@ -9,6 +9,7 @@ type PersonaKind = NonNullable<PersonaInput['kind']>;
 
 import { useGeneratePersona, useRehearsePersona } from '../../api/personas.queries';
 import { usePads } from '../../api/pads.queries';
+import { usePhone } from '../shared/use.phone';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
@@ -44,6 +45,7 @@ import { Eyebrow } from '../shared/eyebrow';
  * feature from "start me off".
  */
 export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving, error }: Props) {
+    const phone = usePhone();
     // Fixed for the life of the form rather than a field. What a character is FOR decides which
     // half of the roster it lands in and whether it can ever present, and flipping it under a
     // character an operator has already cast would be a quieter change than it looks.
@@ -92,7 +94,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
             onClose={onClose}
             title={titleFor(persona, caller)}
             position="right"
-            size={620}
+            size={phone ? '100%' : 620}
             styles={{
                 content: { display: 'flex', flexDirection: 'column' },
                 // `minHeight: 0` is what actually makes the scroll happen: a flex child's default

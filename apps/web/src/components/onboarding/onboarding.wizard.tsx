@@ -6,6 +6,7 @@ import type { OnboardingRequirement } from '@deadair/sdk';
 
 import { invalidateOnboardingRequirements } from '../../api/onboarding.queries';
 import { ONBOARDING_STEPS } from './onboarding.steps';
+import { usePhone } from '../shared/use.phone';
 
 export interface OnboardingWizardProps {
     /** The outstanding requirements, newest snapshot from the route loader. */
@@ -18,6 +19,7 @@ export interface OnboardingWizardProps {
  * shrinking list decides whether another step appears or the app takes over.
  */
 export function OnboardingWizard({ requirements }: OnboardingWizardProps) {
+    const phone = usePhone();
     const router = useRouter();
     const queryClient = useQueryClient();
     const [skipped, setSkipped] = useState<string[]>([]);
@@ -92,7 +94,11 @@ export function OnboardingWizard({ requirements }: OnboardingWizardProps) {
                     {requirements.length === 0 ? (
                         <Text c="dimmed">Nothing left to configure.</Text>
                     ) : (
-                        <Stepper active={activeIndex === -1 ? requirements.length : activeIndex} allowNextStepsSelect={false}>
+                        <Stepper
+                            active={activeIndex === -1 ? requirements.length : activeIndex}
+                            allowNextStepsSelect={false}
+                            orientation={phone ? 'vertical' : 'horizontal'}
+                        >
                             {requirements.map(requirement => (
                                 <Stepper.Step
                                     key={requirement.key}

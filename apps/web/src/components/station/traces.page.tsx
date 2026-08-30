@@ -8,6 +8,7 @@ import { FeedMoment } from '../shared/dated.feed';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { usePhone } from '../shared/use.phone';
 import { severityColor } from '../shared/status';
 
 /**
@@ -185,9 +186,10 @@ function DecisionTable({ decisions, onOpen }: { decisions: TraceDecision[]; onOp
 /** One decision, opened: its calls in order, and the decisions on either side of it. */
 function TraceDrawer({ id, onClose }: { id: string | undefined; onClose: () => void }) {
     const trace = useTrace(id);
+    const phone = usePhone();
 
     return (
-        <Drawer opened={id !== undefined} onClose={onClose} position="right" size="xl" title={trace.data?.decision.kind ?? 'Decision'}>
+        <Drawer opened={id !== undefined} onClose={onClose} position="right" size={phone ? '100%' : 'xl'} title={trace.data?.decision.kind ?? 'Decision'}>
             {trace.isPending ? <PageSkeleton variant="rows" count={6} /> : undefined}
             {trace.isError ? (
                 <ErrorAlert title="Could not read that decision" error={trace.error} fallback="It may have rotated out of the kept window." />

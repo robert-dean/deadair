@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import type { FaultingCopy, FaultingTrack } from '../../../src/modules/catalog/tracks.repository.js';
 import { attention, type AttentionFacts, type QuotedSilence } from '../../../src/modules/station/station.attention.js';
 
 const airing: QuotedSilence = {
@@ -16,7 +17,26 @@ const airing: QuotedSilence = {
 
 /** A station with nothing wrong with it, which is the case every test below varies one fact of. */
 function facts(overrides: Partial<AttentionFacts> = {}): AttentionFacts {
-    return { silence: airing, benched: 0, failing: 0, tracks: 900, unavailableItems: 0, brokenPlugins: [], ...overrides };
+    return {
+        silence: airing,
+        benched: 0,
+        failing: 0,
+        benchedExamples: [],
+        failingExamples: [],
+        tracks: 900,
+        unavailableItems: 0,
+        brokenPlugins: [],
+        ...overrides,
+    };
+}
+
+/** One copy, as the catalog hands it over: a healthy one, varied a column at a time below. */
+function copy(overrides: Partial<FaultingCopy> = {}): FaultingCopy {
+    return { pluginId: 'deadair.spotify', playable: true, benched: false, attempts: 0, ...overrides };
+}
+
+function faulting(overrides: Partial<FaultingTrack> = {}): FaultingTrack {
+    return { trackId: 'ffffffff-ffff-4fff-8fff-ffffffffffff', title: 'Push It', artists: 'Salt-N-Pepa', copies: [copy()], ...overrides };
 }
 
 describe('attention', () => {
@@ -172,6 +192,71 @@ describe('attention', () => {
         const items = attention(facts({ benched: 4, failing: 11 }));
 
         expect(items.map(item => item.route)).toEqual(['/catalog?state=benched', '/catalog?state=failing']);
+    });
+
+    it('tells a copy the provider refused from one the station benched itself', () => {
+        // The two wear the same word on the catalog page and are opposite instructions. Nothing
+        // clears `playable`, so telling an operator to wait for a sync is advice that cannot work —
+        // which is what the row's own sentence used to promise for both.
+        const refused = attention(facts({ benched: 1, benchedExamples: [faulting({ copies: [copy({ playable: false })] })] }))[0]?.evidence?.[0];
+
+        expect(refused?.reason).toContain('will never serve this copy');
+        expect(refused?.reason).toContain('needs another source');
+        expect(refused?.reason).not.toContain('sync');
+
+        const benched = attention(
+            facts({ benched: 1, benchedExamples: [faulting({ copies: [copy({ benched: true, attempts: 4, lastError: 'HTTP 404' })] })] }),
+        )[0]?.evidence?.[0];
+
+        expect(benched?.reason).toBe('Written off after 4 failed fetches. The next sync that still lists the copy puts it back. HTTP 404');
+    });
+
+    it('carries the recorded error rather than a paraphrase of it', () => {
+        // "HTTP 404 from the audio url" and "ECONNREFUSED" are two different mornings, and this is
+        // the whole reason the evidence is worth carrying at all.
+        const [piece] =
+            attention(
+                facts({
+                    failing: 1,
+                    failingExamples: [
+                        faulting({ title: 'Fuel', artists: 'Metallica', copies: [copy({ attempts: 2, lastError: 'HTTP 404 from the audio url' })] }),
+                    ],
+                }),
+            )[0]?.evidence ?? [];
+
+        expect(piece).toEqual({
+            label: 'Fuel — Metallica',
+            reason: '2 consecutive failures, backing off; four in a row writes the copy off. HTTP 404 from the audio url',
+            route: '/catalog/tracks/ffffffff-ffff-4fff-8fff-ffffffffffff',
+        });
+    });
+
+    it('speaks for the copy that has tried hardest, and says nothing where nothing was recorded', () => {
+        // A record with several copies has several stories and one of them is the answer. A copy
+        // nothing has ever tried has no error, and a sentence ending in a stray "undefined" is worse
+        // than one that stops.
+        const [piece] =
+            attention(
+                facts({
+                    failing: 1,
+                    failingExamples: [faulting({ copies: [copy({ attempts: 1, lastError: 'a blip' }), copy({ pluginId: 'deadair.navidrome' })] })],
+                }),
+            )[0]?.evidence ?? [];
+
+        expect(piece?.reason).toBe('1 consecutive failure, backing off; four in a row writes the copy off. a blip');
+
+        const quiet = attention(facts({ failing: 1, failingExamples: [faulting()] }))[0]?.evidence?.[0];
+
+        expect(quiet?.reason).toBe('Backing off; four in a row writes the copy off.');
+    });
+
+    it('keeps the count true when it is showing fewer than it counted', () => {
+        // The console draws "… and N more" off exactly this difference, so a row that quietly
+        // reported its sample as the whole set would be the shorter list reading as the answer.
+        const [item] = attention(facts({ benched: 40, benchedExamples: [faulting(), faulting({ title: 'Whatta Man' })] }));
+
+        expect(item?.count).toBe(40);
+        expect(item?.evidence).toHaveLength(2);
     });
 
     it('says one record rather than 1 records', () => {

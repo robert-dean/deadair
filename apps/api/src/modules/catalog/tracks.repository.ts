@@ -28,6 +28,33 @@ export type TrackListQuery = CatalogListQuery & {
 type TrackScope = ExpressionBuilder<DB, 'deadair.tracks' | 'deadair.artists' | 'deadair.albums'>;
 
 /**
+ * One copy of a record and what is wrong with it, for whoever has to explain the record.
+ *
+ * The three columns are three different facts and the difference is the whole point of reporting
+ * them separately: `playable: false` is the PROVIDER saying it will never serve this copy and
+ * nothing clears it, `benched` is the STATION's own guess from repeated failures and the next sync
+ * that sees the copy clears it, and `lastError` is what the last fetch actually said.
+ */
+export interface FaultingCopy {
+    pluginId: string;
+    playable: boolean;
+    /** `track_sources.missing_at` is set: the station gave up on this copy and a sync may bring it back. */
+    benched: boolean;
+    /** CONSECUTIVE failures, as `track_audio.attempts` counts them. Zero on a copy nothing has tried. */
+    attempts: number;
+    lastError?: string;
+}
+
+/** A record in a fault state, with the copies that put it there. */
+export interface FaultingTrack {
+    trackId: string;
+    title: string;
+    /** The display credit as written on the release, which is how a person names the record. */
+    artists: string;
+    copies: readonly FaultingCopy[];
+}
+
+/**
  * The bytes are on this machine.
  *
  * `exists` over the binding join rather than a join into the list, because a record with four copies
@@ -320,6 +347,70 @@ export class TracksRepository extends DataRepository {
             benched: Number(counted.benched),
             failing: Number(counted.failing),
         };
+    }
+
+    /**
+     * A few of the records in a fault state, with what is actually wrong with each.
+     *
+     * The counts next door answer "how many", which is where the desk's attention list starts and
+     * where it used to stop: a row reading "4 records have no copy left that will play" sent an
+     * operator to find four records among eight hundred and then to hover a cell on each one's page
+     * to learn why. Every fact needed to say it outright was already stored — the provider's refusal
+     * on `track_sources.playable`, the station's own bench on `missing_at`, the fetch error on
+     * `track_audio.last_error` — and none of it travelled with the number.
+     *
+     * A HANDFUL, deliberately, and bounded by `limit`: this is read on a polled endpoint and the
+     * count stays the true figure. `benched` and `failing` reuse {@link stateFilter}'s own predicates
+     * rather than restating them, so a record listed here is exactly one the state chip lists.
+     *
+     * Two queries rather than one aggregate. The copies are the answer — a record is benched because
+     * of what happened to each of them — and folding them into `bool_or`s would decide in SQL what
+     * `station.attention.ts` exists to decide, which is which of them is worth a sentence. Both are
+     * bounded: `limit` records, and the copies of those records alone.
+     */
+    async faultingTracks(state: 'benched' | 'failing', limit: number, schemaVersion: number): Promise<FaultingTrack[]> {
+        const tracks = await this.readable()
+            .select(['deadair.tracks.id', 'deadair.tracks.title', 'deadair.tracks.artists'])
+            .where(eb => stateFilter(eb, state, schemaVersion))
+            // By title rather than by anything about the fault, so the sample an operator is looking
+            // at does not reshuffle under them between polls.
+            .orderBy('deadair.tracks.title', 'asc')
+            .orderBy('deadair.tracks.id', 'asc')
+            .limit(limit)
+            .execute();
+
+        if (tracks.length === 0) return [];
+
+        const copies = await this.db
+            .selectFrom('deadair.trackSources as s')
+            // Left, because a copy nothing has ever tried to fetch has no `track_audio` row at all
+            // and is still one of the copies that make a record benched.
+            .leftJoin('deadair.trackAudio as a', 'a.sourceId', 's.id')
+            .select(['s.trackId', 's.pluginId', 's.playable', 's.missingAt', 'a.attempts', 'a.lastError'])
+            .where(
+                's.trackId',
+                'in',
+                tracks.map(track => track.id),
+            )
+            .execute();
+
+        return tracks.map(track => ({
+            trackId: track.id,
+            title: track.title,
+            artists: track.artists,
+            copies: copies
+                .filter(copy => copy.trackId === track.id)
+                .map(copy => ({
+                    pluginId: copy.pluginId,
+                    playable: copy.playable,
+                    // The rule this whole file works to: a SQL NULL reads back as `undefined` while
+                    // the generated types say `null`, so both are tested and an absent optional is
+                    // dropped rather than passed through as a third state.
+                    benched: copy.missingAt != null,
+                    attempts: Number(copy.attempts ?? 0),
+                    ...(copy.lastError == null ? {} : { lastError: copy.lastError }),
+                })),
+        }));
     }
 
     /**

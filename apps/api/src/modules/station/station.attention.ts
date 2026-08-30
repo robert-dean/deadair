@@ -1,4 +1,5 @@
-import type { AttentionItem } from './types/station.types.js';
+import type { FaultingCopy, FaultingTrack } from '#modules/catalog/tracks.repository.js';
+import type { AttentionEvidence, AttentionItem } from './types/station.types.js';
 
 /**
  * What needs somebody, as one ordered list.
@@ -59,6 +60,15 @@ export interface QuotedSilence {
     checks: readonly { code: string; state: 'ok' | 'waiting' | 'fault'; detail: string; remedy?: string }[];
 }
 
+/**
+ * How many of a fault's records get a sentence of their own.
+ *
+ * A handful rather than all of them, because this answer is POLLED: a station that has written off
+ * four hundred records must not be four hundred sentences on every reading of the desk. The count
+ * stays the true figure and the console says how many it is not showing.
+ */
+export const EVIDENCE_LIMIT = 5;
+
 /** One reading of everything the console would otherwise have to visit five pages to learn. */
 export interface AttentionFacts {
     /** The transport's own answer about why the station cannot be heard, quoted rather than re-derived. */
@@ -67,6 +77,21 @@ export interface AttentionFacts {
     benched: number;
     /** Records with a fetch failing and backing off. Not benched yet, and usually the state before it. */
     failing: number;
+    /**
+     * A few of the {@link benched} records, with the copies that put them there.
+     *
+     * Capped at {@link EVIDENCE_LIMIT} by whoever reads them, and empty is an ordinary answer — for a
+     * station with none, and for one whose catalog reader was unhappy. The count above is the figure
+     * either way.
+     *
+     * The catalog's own type rather than a structural one of this file's, which is the opposite of
+     * what {@link QuotedSilence} does and for the opposite reason: that one names a wire shape that
+     * is not the diagnosis's internal union, and this is exactly what the repository hands over. A
+     * second declaration of it would be a second thing to drift.
+     */
+    benchedExamples: readonly FaultingTrack[];
+    /** The same, for {@link failing}. */
+    failingExamples: readonly FaultingTrack[];
     /** How many records are in the catalog at all. */
     tracks: number;
     /** Items in the running order the station could not obtain the audio for. */
@@ -239,6 +264,7 @@ function library(facts: AttentionFacts): AttentionItem[] {
             // work this list exists to remove. The console owns which of its pages holds the filter.
             route: '/catalog?state=benched',
             count: facts.benched,
+            evidence: facts.benchedExamples.map(track => evidenceFor(track, benchedReason(track))),
         });
     }
 
@@ -250,8 +276,78 @@ function library(facts: AttentionFacts): AttentionItem[] {
             detail: 'Their fetches are backing off and being retried. They still play if one succeeds; four consecutive failures write the copy off.',
             route: '/catalog?state=failing',
             count: facts.failing,
+            evidence: facts.failingExamples.map(track => evidenceFor(track, failingReason(track))),
         });
     }
 
     return items;
+}
+
+/** One record, named the way a person names it, pointed at the page holding the whole of it. */
+function evidenceFor(track: FaultingTrack, reason: string): AttentionEvidence {
+    return {
+        label: track.artists === '' ? track.title : `${track.title} — ${track.artists}`,
+        reason,
+        route: `/catalog/tracks/${track.trackId}`,
+    };
+}
+
+/**
+ * Why one record has no copy left, worst cause first.
+ *
+ * Two causes wear the same word on the catalog page and they are opposite instructions. A copy with
+ * `playable: false` is the PROVIDER's answer and nothing clears it — not the hourly sync, not a
+ * re-sighting — so waiting is not a plan and the record needs another source. A benched copy is the
+ * station's own guess from repeated failures, and the next sync that still sees it puts it back.
+ * Reporting them as one leaves an operator waiting for a sync that will never help, which is exactly
+ * what the row's own sentence used to promise.
+ */
+function benchedReason(track: FaultingTrack): string {
+    const refused = track.copies.filter(copy => !copy.playable);
+    if (refused.length > 0) {
+        const providers = names(refused);
+        return `${providers} will never serve ${refused.length === 1 ? 'this copy' : 'these copies'}, so nothing will bring ${refused.length === 1 ? 'it' : 'them'} back. The record needs another source.`;
+    }
+
+    const benched = track.copies.filter(copy => copy.benched);
+    const worst = deepest(benched);
+    const attempts = worst?.attempts ?? 0;
+    const failed = attempts === 0 ? 'repeated failures' : `${attempts} failed ${attempts === 1 ? 'fetch' : 'fetches'}`;
+
+    return `Written off after ${failed}. The next sync that still lists the copy puts it back.${detailOf(worst)}`;
+}
+
+/** Why one record's fetch is not landing, off whichever copy has tried hardest. */
+function failingReason(track: FaultingTrack): string {
+    const worst = deepest(track.copies.filter(copy => copy.playable && !copy.benched));
+    const attempts = worst?.attempts ?? 0;
+    const counted = attempts === 0 ? 'Backing off' : `${attempts} consecutive ${attempts === 1 ? 'failure' : 'failures'}, backing off`;
+
+    return `${counted}; four in a row writes the copy off.${detailOf(worst)}`;
+}
+
+/** The copy that has tried hardest, which is the one with anything to say. */
+function deepest(copies: readonly FaultingCopy[]): FaultingCopy | undefined {
+    return copies.reduce<FaultingCopy | undefined>(
+        (worst, copy) => (worst === undefined || copy.attempts > worst.attempts ? copy : worst),
+        undefined,
+    );
+}
+
+/**
+ * What the fetch actually said, where anything said it.
+ *
+ * The recorded error rather than a paraphrase of it, and it is the whole reason this evidence is
+ * worth carrying: "HTTP 404 from the audio url" and "ECONNREFUSED" are two different mornings, and a
+ * row that says only "the fetch failed" costs an operator the diagnosis. It is already served at this
+ * policy on `TrackBinding.lastError`, which is the same text on the same record.
+ */
+function detailOf(copy: FaultingCopy | undefined): string {
+    return copy?.lastError === undefined ? '' : ` ${copy.lastError}`;
+}
+
+/** The providers behind a set of copies, said once each. */
+function names(copies: readonly FaultingCopy[]): string {
+    const unique = [...new Set(copies.map(copy => copy.pluginId))];
+    return unique.length === 1 ? (unique[0] as string) : unique.join(' and ');
 }

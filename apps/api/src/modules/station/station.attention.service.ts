@@ -1,12 +1,12 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ANALYSIS_SCHEMA_VERSION, PLUGIN_CAPABILITY_STREAM } from '@deadair/plugin-sdk';
-import { TracksRepository } from '#modules/catalog/tracks.repository.js';
+import { TracksRepository, type FaultingTrack } from '#modules/catalog/tracks.repository.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { PlayoutService } from '#modules/playout/playout.service.js';
 import { PluginsService } from '#modules/plugins/plugins.service.js';
 import { SpotifyShimClient } from '#modules/stream/spotify.shim.client.js';
-import { attention, type AttentionFacts, type BrokenPlugin, type UnauthorizedFetcher } from './station.attention.js';
+import { attention, EVIDENCE_LIMIT, type AttentionFacts, type BrokenPlugin, type UnauthorizedFetcher } from './station.attention.js';
 import type { StationAttention } from './types/station.types.js';
 
 /**
@@ -42,17 +42,21 @@ export class StationAttentionService {
     ) {}
 
     async read(): Promise<StationAttention> {
-        const [silence, counts, unavailableItems, plugins] = await Promise.all([
+        const [silence, counts, unavailableItems, plugins, benchedExamples, failingExamples] = await Promise.all([
             this.silence(),
             this.counts(),
             this.unavailableItems(),
             this.pluginFacts(),
+            this.faulting('benched'),
+            this.faulting('failing'),
         ]);
 
         const facts: AttentionFacts = {
             silence,
             benched: counts.benched,
             failing: counts.failing,
+            benchedExamples,
+            failingExamples,
             tracks: counts.total,
             unavailableItems,
             brokenPlugins: plugins.broken,
@@ -113,6 +117,23 @@ export class StationAttentionService {
         } catch (error) {
             this.logger.warn(`station: the catalog counts could not be read (${message(error)})`);
             return { total: 0, cached: 0, measured: 0, enriched: 0, benched: 0, failing: 0 };
+        }
+    }
+
+    /**
+     * A few of the records in a fault state, with the copies that put them there.
+     *
+     * Beside {@link counts} rather than part of it: that one is an aggregate over the whole library
+     * and this is a bounded sample of the rows behind it, and folding them into one call would make
+     * a page of counts pay for a list nobody looked at. Both are caught the same way, so a station
+     * whose catalog is unhappy still gets every other row of the list.
+     */
+    private async faulting(state: 'benched' | 'failing'): Promise<FaultingTrack[]> {
+        try {
+            return await this.tracks.faultingTracks(state, EVIDENCE_LIMIT, ANALYSIS_SCHEMA_VERSION);
+        } catch (error) {
+            this.logger.warn(`station: the ${state} records could not be read (${message(error)})`);
+            return [];
         }
     }
 

@@ -2344,7 +2344,34 @@ export class DirectorService {
             // The question itself lives in `break.claims.ts`, because `BreakPlanner.ripen` asks the
             // same one earlier, where the answer is worth a rewrite rather than a dropped break.
             // Two readings of one claim that could disagree would be two bugs waiting.
-            const broken = brokenClaim(segment, this.lineup?.nextTrackAfter(item.id)?.id, Date.now());
+            // The projection, measured against the moment it was projecting.
+            //
+            // `air.clock.ts` guarantees a LOWER bound — everything it cannot measure counts as zero,
+            // so a break is meant to land at or AFTER its `airs_at` — and the whole time claim rests
+            // on that being true, because a break landing early names a time that has not come
+            // round. Nothing ever checked it. When it stopped holding, what the station saw was
+            // breaks being dropped one after another with no number anywhere saying by how much or
+            // in which direction, and the answer had to be reconstructed from `claims_time_from`
+            // against `updated_at` on the rows afterwards.
+            //
+            // So the drift is recorded for EVERY break that reaches a slot rather than only for the
+            // ones a claim then costs: a station whose breaks all air is still one whose projection
+            // may be seconds from the edge, and that is worth seeing before it becomes the other
+            // thing. Positive is late, which is the direction the projection promises; negative is
+            // early, which is the one it says it never takes.
+            const airedAt = Date.now();
+            const projectedAt = segment.airsAt;
+            const driftMs = projectedAt === undefined ? undefined : airedAt - projectedAt;
+            if (projectedAt !== undefined && driftMs !== undefined) {
+                this.logger.debug('director: a break reached its slot against the time the order projected for it', {
+                    segment: item.segmentId,
+                    projected: new Date(projectedAt).toISOString(),
+                    driftMs,
+                    when: driftMs < 0 ? 'early' : 'late',
+                });
+            }
+
+            const broken = brokenClaim(segment, this.lineup?.nextTrackAfter(item.id)?.id, airedAt);
             if (broken?.kind === 'item') {
                 this.logger.info('director: dropping a break whose running order has moved under it', {
                     segment: item.segmentId,
@@ -2375,6 +2402,10 @@ export class DirectorService {
                     when: broken.when,
                     from: new Date(broken.from).toISOString(),
                     until: new Date(broken.until).toISOString(),
+                    // Carried onto the drop as well as logged above it, because this is the line an
+                    // operator reads when the station stops talking and the drift is the number that
+                    // says whether the words or the projection are at fault.
+                    ...(driftMs === undefined ? {} : { driftMs }),
                 });
                 void this.activity.record({
                     module: 'director',
@@ -2383,7 +2414,13 @@ export class DirectorService {
                         broken.when === 'late'
                             ? 'A break was dropped because the time it named has passed.'
                             : 'A break was dropped because it reached its slot before the time it named came round.',
-                    data: { segmentId: item.segmentId, when: broken.when, from: broken.from, until: broken.until },
+                    data: {
+                        segmentId: item.segmentId,
+                        when: broken.when,
+                        from: broken.from,
+                        until: broken.until,
+                        ...(driftMs === undefined ? {} : { driftMs }),
+                    },
                 });
                 skipped.push(item.id);
                 continue;

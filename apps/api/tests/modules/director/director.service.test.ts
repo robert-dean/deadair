@@ -1786,12 +1786,20 @@ describe('DirectorService committing segments', () => {
     // un-recuttable once rendered.
     describe('and the time a break claimed', () => {
         /** A ready break whose words are only true inside a window. */
-        const timed = async (claimsTime: { from: number; until: number }) => {
+        const timed = async (claimsTime: { from: number; until: number }, airsAt?: number) => {
             const harness = build({ items: ['a', 'b'], segments: [] });
             await harness.seed();
             harness.lineup.insertSegment('seg-1', 1);
 
-            const segment = { id: 'seg-1', kind: 'talkbreak', state: 'ready', label: 'Time check', source: 'render', claimsTime };
+            const segment = {
+                id: 'seg-1',
+                kind: 'talkbreak',
+                state: 'ready',
+                label: 'Time check',
+                source: 'render',
+                claimsTime,
+                ...(airsAt === undefined ? {} : { airsAt }),
+            };
             harness.segmentStub.findByIds = vi.fn(async (ids: readonly string[]) =>
                 ids.includes('seg-1') ? new Map([['seg-1', segment as never]]) : new Map(),
             );
@@ -1830,6 +1838,44 @@ describe('DirectorService committing segments', () => {
             await settle();
 
             expect(rundown.upcoming().every(item => item.externalId !== 'seg-1')).toBe(true);
+        });
+
+        // The measurement `air.clock.ts` never took. Its lower-bound guarantee is what the whole
+        // time claim rests on, and when it stopped holding the station dropped break after break
+        // with no number anywhere saying by how much or which way. Negative is EARLY, which is the
+        // direction the projection says it never takes: the sign is the finding, so it is pinned.
+        it('reports how far the slot was from the time the order projected, signed', async () => {
+            const { director, activity } = await timed(
+                { from: Date.now() + 300_000, until: Date.now() + 600_000 },
+                // Projected ten minutes out, reached now: the shape of the live failure.
+                Date.now() + 600_000,
+            );
+
+            await director.start();
+            await settle();
+
+            expect(activity.record).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    kind: 'break.claimStale',
+                    data: expect.objectContaining({ when: 'early', driftMs: expect.any(Number) }),
+                }),
+            );
+            const drift = vi
+                .mocked(activity.record)
+                .mock.calls.map(([event]) => event)
+                .find(event => event.kind === 'break.claimStale')?.data as { driftMs: number };
+            expect(drift.driftMs).toBeLessThan(0);
+        });
+
+        it('leaves the drift off a break the order never projected a time for', async () => {
+            const { director, activity } = await timed({ from: Date.now() + 300_000, until: Date.now() + 600_000 });
+
+            await director.start();
+            await settle();
+
+            expect(activity.record).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'break.claimStale', data: expect.not.objectContaining({ driftMs: expect.anything() }) }),
+            );
         });
     });
 

@@ -333,13 +333,12 @@ COPY --from=shim /out/deadair-shim /usr/local/bin/deadair-shim
 # and the service's own code lands after it, so editing `measure.py` reinstalls nothing.
 #
 # **This list is the SECOND copy of it and is the one that gets forgotten.** `analysis/Dockerfile`
-# carries the same names and its comment records `tags.py` arriving without them; `vocal.py` then
-# arrived and was added there and not here, which would have shipped a production image that builds
-# clean and dies on import while the dev container was fine. Adding a module means editing both.
+# carries the same names, and a module added there and not here builds clean and crash-loops in
+# production while the dev container is perfectly happy. Adding one means editing both.
 COPY analysis/requirements.txt /opt/analysis/requirements.txt
 RUN python3 -m venv /opt/analysis/venv \
  && /opt/analysis/venv/bin/pip install --no-cache-dir -r /opt/analysis/requirements.txt
-COPY analysis/measure.py analysis/loudness.py analysis/vocal.py analysis/tags.py analysis/join.py analysis/app.py /opt/analysis/
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/app.py /opt/analysis/
 
 # The station's own soundboard, copied into the pad library once on a station that has never held a
 # pad. Below the fence with everything else the repository produces, and it is genuinely empty today:

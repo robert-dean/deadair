@@ -11,28 +11,7 @@ completeness flag exactly as "The storage shape" below asks for. `AnalysisModule
 walks the catalog and measures what it finds. The four cue points come from an RMS envelope over
 ffmpeg-decoded samples, and the loudness layer at the end is built and checked against `ebur128`.
 
-**State of the tree, 2026-08-30: the VOCAL half of the beat layer is built.** `analysis/vocal.py`
-produces `vocalCurve` and `vocalOnset`, with no new dependency and no schema bump — see below and
-`analysis/README.md`. What is still deferred is the TEMPO half: `bpm`, `beat_confidence`,
-`downbeats`.
-
-**The two halves were split because they carry completely different risk**, which
-`analysis-licensing.md` says outright ("two of the five are not part of the problem at all"), and
-because the vocal half's consumer is the talk-up limit — heard every break — where the tempo half's
-consumers all sit behind Liquidsoap engine work that has not been spiked.
-
-**Three things the vocal half got wrong first, each now a test.** A ratio is scale-invariant, so it
-needs an absolute floor: a bassline leaking through the band-pass, divided by its own residual, read
-as a confident vocal. A sustain requirement must outlast the smoothing that feeds it, or a 0.4 s
-shout manufactures the very run the check is looking for. And **`to_mono` rectifies**, so a
-band-pass over it lifted a 60 Hz bassline into the vocal band by 64 dB — the vocals fold with
-`to_downmix` and the cue points keep `to_mono`. That third one would have fired on most of a real
-library rather than on an edge case.
-
-**The one number still provisional is `VOCAL_THRESHOLD`**, which is the guard below asking for a
-figure measured on this library rather than a default.
-
-~~**What is still deferred is the beat layer alone**~~ — `bpm`, `beat_confidence`, `downbeats`,
+**What is still deferred is the beat layer alone** — `bpm`, `beat_confidence`, `downbeats`,
 `vocal_onset`, `vocal_curve`. **Its licence question is now answered** in
 [../decisions/analysis-licensing.md](../decisions/analysis-licensing.md), and the answer changes two
 things this file says below. Every dependency in the analysis path is permissive, weights included,
@@ -40,6 +19,11 @@ so no copyleft toolkit is a candidate at all. And the sidecar was NOT chosen for
 was chosen because decoding does not happen in Node, which is the whole of it. Read that file before
 pinning anything, and read it instead of "The licence check comes before the design" below, which it
 supersedes.
+
+**`vocal_onset` was built on 2026-08-30 and REVERTED the same day, and the negative result is the
+most useful thing in this file.** It is written up under "The vocal fields cannot be measured this
+way" below. Read it before reaching for those two fields again: the cheap approach does not work,
+and the reason is not the one anybody would guess.
 
 Three deferred features now depend on measured audio, and each of them was scoped assuming its own
 answer to where the numbers come from. They should share one:
@@ -100,6 +84,55 @@ measurement more expensive, rather than diagnosed afterwards.
 `vocal_curve` can be coarse. A value every half second over a band of roughly 200 Hz to 4 kHz is
 enough for both uses, and storing it at audio frame rate would be storing a signal to make one
 decision from.
+
+## The vocal fields cannot be measured this way
+
+**Built and reverted 2026-08-30.** `analysis-licensing.md` puts `vocal_onset` and `vocal_curve`
+outside the licence question — "two of the five are not part of the problem at all", computed from
+"band-limited energy, 200 Hz to 4 kHz". That is correct about licensing and wrong about
+feasibility, and the difference cost a day.
+
+**Band energy alone measures nothing new**, which was caught at design time: 200 Hz–4 kHz is the
+band `intro_end` already uses, because it is where voices *and lead instruments* live. The
+replacement was the standard speech/music discriminator — a voice is SYLLABIC, so measure the
+envelope's own modulation at 2–8 Hz against the level it is modulating. Pure `scipy.signal`, no
+model, no weights.
+
+**It works on synthetic signals and carries no vocal information on real music.** Measured through
+the sidecar against this library:
+
+| record | vocal enters | presence before | after | step |
+| --- | --- | --- | --- | --- |
+| Rush — YYZ | never (instrumental) | 19.5 | 14.9 | −4.6 |
+| Kansas — Dust in the Wind | 0:22 | 12.0 | 14.9 | **+2.9** |
+| Rolling Stones — Gimme Shelter | 0:35 | 20.5 | 18.4 | −2.0 |
+| AC/DC — Highway to Hell | 0:11 | 22.9 | 19.3 | −3.6 |
+| Black Sabbath — Paranoid | 0:12 | 13.7 | 18.2 | **+4.6** |
+
+The steps are ±5 with a sign unrelated to the truth, and the instrumental's own drift (−4.6) is as
+large as any of them. Across twelve records the presence distribution was p50 17, p90 44 with no
+bimodality for a threshold to cut, three of seven onsets landed on `cue_in`, and **YYZ — an
+instrumental — was given an onset at 0:00.** A refinement contrasting the vocal band against a
+60–160 Hz band (drums move both, a voice moves only the mid) collapsed to zero almost everywhere.
+
+**The reason, which is the part to keep:** syllabic-rate modulation in the vocal band is not
+specific to voice in rhythmic popular music, because drums, rhythm guitar and arpeggios all modulate
+at 2–8 Hz. The synthetic negative control was a *held tone*, and no real instrumental is a held
+tone — so the tests passed while the feature did not work. **A detector whose negative case is
+easier than reality is a detector that ships.**
+
+Three things worth having from it:
+
+- **The calibration pass is what caught it**, exactly as the guard below asks. It was worth building
+  before the threshold was pinned rather than after, and a walk that had swept the library first
+  would have written 762 confident wrong rows.
+- **`to_mono` rectifies**, which is now documented in `loudness.py` and matters to anything spectral
+  the beat layer adds. Folding as `sqrt(mean(x²))` lifted a 60 Hz bassline into the mid band by
+  64 dB. The cue points are calibrated against that signal; a filter must not read it.
+- **What would work is a model**, and the honest next step for this field is not another DSP
+  attempt. [track-lyrics.md](track-lyrics.md) already argues the better route and needs no audio at
+  all: a synced lyric's first timestamp is "a number somebody typed while listening". This result
+  is an argument for that file.
 
 ## Where it runs, and the two constraints that decide it
 

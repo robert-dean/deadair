@@ -34,10 +34,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # a sidecar nobody called.
 #
 # It is a THIRD place, in fact, and the third is the one that gets forgotten: the root
-# `Dockerfile` carries the same list for the single-container production image. `vocal.py` was
-# added here and missed there, which would have built clean and crash-looped in production while
-# this container was perfectly happy. Adding a module means editing both.
-COPY analysis/measure.py analysis/loudness.py analysis/vocal.py analysis/tags.py analysis/join.py analysis/app.py ./
+# `Dockerfile` carries the same list for the single-container production image. A module added
+# here and missed there builds clean and crash-loops in production while this container is fine.
+COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/app.py ./
 
 # Non-root: this service fetches URLs it was handed and runs a decoder over what
 # comes back, which is the one process here that touches bytes from outside.

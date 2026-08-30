@@ -121,6 +121,37 @@ export interface ConsoleFaces {
 }
 
 /**
+ * How a theme SETS a label, as opposed to which face it sets it in.
+ *
+ * This is the one place the "a theme may not change the component conventions" rule bends, and it
+ * bends for a measured reason: the difference between a desk and a heads-up display is not the
+ * hues, it is whether the legends are stencilled. A theme that could only swap colours and faces
+ * came out as the same console tinted, which is exactly the failure this console's own docs warn
+ * about from the other direction.
+ *
+ * So the bend is bounded. Every field here is set by all three themes, so a difference between them
+ * is a decision somebody wrote down rather than one theme quietly opting out — and the list stops
+ * at signage. It does not carry `defaultGradient`, a radius SCALE or an input variant, because
+ * those are how the same console becomes three design languages.
+ */
+export interface ConsoleSignage {
+    /** Headings: a stencilled HUD legend, or sentence case. */
+    titleTransform: 'uppercase' | 'none';
+    titleTracking: string;
+    /** The same claim at control size. */
+    buttonTransform: 'uppercase' | 'none';
+    buttonTracking: string;
+    /**
+     * What a floating surface does when it floats.
+     *
+     * Omitted means Mantine's own scale — a drop shadow, reading as lift. Only a console that
+     * replaces depth with BLOOM sets this, and there is exactly one of those, so restating five
+     * near-identical drop shadows in the other two themes would be noise rather than intent.
+     */
+    shadows?: MantineThemeOverride['shadows'];
+}
+
+/**
  * One console, in a given palette and a given face.
  *
  * Everything a theme does NOT get to choose is here: the spacing scale, the type scale, the
@@ -128,11 +159,14 @@ export interface ConsoleFaces {
  * further down, and a theme that could move them would be a second design language rather than the
  * same console in another light.
  */
-export function consoleTheme(colors: ConsolePalettes, faces: ConsoleFaces): MantineThemeOverride {
+export function consoleTheme(colors: ConsolePalettes, faces: ConsoleFaces, signage: ConsoleSignage): MantineThemeOverride {
     return createTheme({
         primaryColor: 'phosphor',
         primaryShade: 4,
         defaultRadius: 'sm',
+        // Spread rather than assigned, because `shadows: undefined` and an absent `shadows` are not
+        // the same thing to `createTheme`: the first replaces the scale with nothing.
+        ...(signage.shadows ? { shadows: signage.shadows } : {}),
         // Filled surfaces pick their own text colour from what they are filled WITH, rather than
         // always taking white.
         //
@@ -227,9 +261,22 @@ export function consoleTheme(colors: ConsolePalettes, faces: ConsoleFaces): Mant
             Tooltip: {
                 defaultProps: { radius: 'sm', withinPortal: true },
             },
+            Title: {
+                // A heading is either a title or a legend stencilled on a panel, and which one it is
+                // belongs to the theme rather than to the page — every `Title` in the console would
+                // otherwise have to agree by hand, which is how the console ended up with three
+                // letter-spacings for one uppercase label before `Eyebrow` existed.
+                styles: { root: { textTransform: signage.titleTransform, letterSpacing: signage.titleTracking } },
+            },
+            Button: {
+                styles: { root: { textTransform: signage.buttonTransform, letterSpacing: signage.buttonTracking } },
+            },
             Badge: {
                 // Uppercase is the desk's voice for a state, and tracking is what keeps it readable
-                // at badge size.
+                // at badge size. Both come from Mantine's own Badge styles, and neither is in
+                // `ConsoleSignage` beside the Button pair above deliberately: all three consoles
+                // want a state stencilled, so a knob whose three values would be identical is a
+                // knob that exists only to drift.
                 defaultProps: { radius: 'sm' },
             },
             Notification: {
@@ -271,6 +318,14 @@ export const theme = consoleTheme(
         // below it is what makes a heading read as a legend on equipment rather than a title.
         display: '"Chakra Petch", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif',
         radius: '4px',
+    },
+    {
+        // A heading here is a title, not a legend: Chakra Petch is already squared enough that
+        // stencilling it as well would make a page of cards read as a warning label.
+        titleTransform: 'none',
+        titleTracking: 'normal',
+        buttonTransform: 'none',
+        buttonTracking: 'normal',
     },
 );
 

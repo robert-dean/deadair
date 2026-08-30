@@ -80,6 +80,14 @@ const white = consoleTheme(
         // on a white desk reading as a pile of pills.
         radius: '2px',
     },
+    {
+        // A serif masthead set in capitals is a monument, not a schedule. This is the theme with the
+        // strongest reason of the three to leave a heading alone.
+        titleTransform: 'none',
+        titleTracking: 'normal',
+        buttonTransform: 'none',
+        buttonTracking: 'normal',
+    },
 );
 
 /**
@@ -113,6 +121,12 @@ const neon = consoleTheme(
         mono: '"JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
         display: 'Syne, "Space Grotesk", ui-sans-serif, system-ui, sans-serif',
         radius: '2px',
+    },
+    {
+        titleTransform: 'none',
+        titleTracking: 'normal',
+        buttonTransform: 'none',
+        buttonTracking: 'normal',
     },
 );
 

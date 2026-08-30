@@ -85,8 +85,14 @@ installed after the source copy instead. The copy over the top is the MEMBERS, `
 `link-peers.mjs` and nothing else, for the fence's own reason one stage out: it was `COPY . .`, which made a
 JavaScript rebuild a function of every file in the tree, so editing an nginx snippet rebuilt all fifteen
 packages from nothing. Images are built and published by `.github/workflows/`, three variants from two build
-args, and `codegen` is never run there for the reason it is never run anywhere automated: its outputs are
-committed and regenerating them needs a live database.
+args plus a third that selects nothing, and `codegen` is never run there for the reason it is never run
+anywhere automated: its outputs are committed and regenerating them needs a live database.
+
+**That third argument is `REVISION`, and where it is USED is the whole of the care it needs.** A build argument
+costs the cache at its first use rather than at its declaration, and this is the only one here whose value is
+different on every single build — consumed at the top of the final stage it would rebuild apt, Node, the
+supervisor and the install for a string none of them read. So it is declared with the others and spent at the
+bottom, on two lines that are metadata over the layer beneath them and rebuild nothing.
 
 ## Publishing
 
@@ -95,3 +101,13 @@ a registry-side `imagetools` retag), which is what lets the image jobs run besid
 them: what the old `needs: [build]` protected was never the images but `latest`, `slim` and `full`, and those
 still wait. The speech base is pinned by digest for the fence's reason again — a moving tag there rebuilds and
 re-pushes the voice for a change nobody here made.
+
+**The commit goes INSIDE the image as well as into its tag**, which is not redundant: the mutable tags are
+moved onto a sha-tagged image afterwards, so a station pulled as `latest` is running a commit whose name is
+nowhere on the thing that is running. `REVISION` is passed as the same sha the tag is built from and written
+twice — as the standard `org.opencontainers.image.revision` label, which `docker inspect` answers without
+starting anything, and as `BUILD_REVISION` in the environment, which the API reads at boot. The second is what
+makes "is the station running what I committed" answerable from the console: `/health` reports it for a probe,
+`/station/checkup` carries it for the check-up page, and both hand on one string read once by
+`modules/shared/build.revision.ts`. An image built by hand has no argument to pass and reports nothing, which
+is the honest answer for something built from a working tree rather than from a commit.

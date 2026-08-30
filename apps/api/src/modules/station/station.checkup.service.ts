@@ -5,6 +5,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ANALYSIS_SCHEMA_VERSION } from '@deadair/plugin-sdk';
 
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
+import { BuildRevision } from '#modules/shared/build.revision.js';
 import { Heartbeat } from '#modules/shared/heartbeat.js';
 import type { StationBacklog, StationCheckup, StationHeartbeat } from './types/station.types.js';
 
@@ -17,6 +18,12 @@ import type { StationBacklog, StationCheckup, StationHeartbeat } from './types/s
  * needs somebody is `/station/attention`; the plugin statuses are `/plugins`; the disk is
  * `/storage`. Composing any of them again here would be a second answer that can disagree with the
  * first, and the console can hold five readings as easily as one.
+ *
+ * The build revision rides along as a third, and is exposed elsewhere — `/health` reports it too.
+ * That is not a second composition: both hand on one string that `shared/build.revision.ts` read
+ * from config once at boot, so there is nothing for them to disagree about. The reason it has to be
+ * here as well is that `/health` is `operation(internal)` and generates no SDK method, so the route
+ * an operator's console can actually call is this one.
  *
  * ## It adds no probing
  *
@@ -39,6 +46,7 @@ export class StationCheckupService {
     constructor(
         private readonly tracks: TracksRepository,
         private readonly heartbeat: Heartbeat,
+        private readonly revision: BuildRevision,
         private readonly logger: Logger,
     ) {}
 
@@ -49,6 +57,12 @@ export class StationCheckupService {
             // Stamped here rather than left to the console's own clock, so a page that has been open
             // for an hour cannot present an old reading as the present tense.
             readAt: DateTime.utc(),
+            // Not wrapped like the two below, because there is nothing here to fail: it is a string
+            // read from config once at boot, and the only reason it is optional is that a build
+            // nobody stamped genuinely has no answer. Absent here means unstamped, where absent on
+            // every other field means the reader broke — which is why the contract says so on that
+            // field rather than leaving it to the shared rule.
+            ...(this.revision.value === undefined ? {} : { revision: this.revision.value }),
             ...(heartbeats === undefined ? {} : { heartbeats }),
             ...(backlog === undefined ? {} : { backlog }),
         };

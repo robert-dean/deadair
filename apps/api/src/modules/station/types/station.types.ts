@@ -95,11 +95,27 @@ export type StationAttention = z.infer<typeof StationAttention>;
  *
  * Each section is OPTIONAL and absent means that reader failed. A page saying what is wrong is the
  * worst place for one broken reader to take the whole answer down, which is the rule
- * `StationAttentionService` already works to.
- * generated from [StationCheckup](file://./../../../../data/contracts/station/station.types.ck#L58)
+ * `StationAttentionService` already works to. `revision` is the one exception and says so on its
+ * own line: it cannot fail, so absent there means something else.
+ *
+ * The revision is on THIS contract rather than composed from `/health`, which also reports it, and
+ * that is not the second-answer problem the paragraph above describes. Both read one string from one
+ * place at boot, so they cannot disagree. What they differ in is who can reach them: `/health` is
+ * `operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it
+ * — which would leave "which build is this" answerable only from a shell, the one thing carrying it
+ * here exists to fix.
+ * generated from [StationCheckup](file://./../../../../data/contracts/station/station.types.ck#L66)
  */
 export const StationCheckup = z.strictObject({
     readAt: _ZodDatetime.describe('When this reading was taken, so a stale page cannot pass itself off as now'),
+    revision: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe(
+            "The commit this station was built from, as the image's `org.opencontainers.image.revision` label says it. Unlike the sections below, absent is not a failed reader: it means nothing stamped this build, which is what a development tree and a hand-built image both are",
+        ),
     heartbeats: z.array(StationHeartbeat).optional(),
     backlog: StationBacklog.optional(),
 });

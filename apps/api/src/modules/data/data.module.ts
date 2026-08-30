@@ -1,5 +1,6 @@
 import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { BuildRevision, buildRevision } from '#modules/shared/build.revision.js';
 import { Heartbeat } from '#modules/shared/heartbeat.js';
 import { StationBus } from '#modules/shared/station.bus.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
@@ -129,6 +130,16 @@ export const DataModule: ServerKitModule = {
         // opposite sides of the module list — the audience watch is in `playout` and the thing that
         // acts on an arrival is in `director` — and neither may reach for the other.
         registry.register(StationBus).useClass(StationBus).asSingleton();
+
+        // What this build was made from. Nothing to do with data either, and registered here on the
+        // same argument as the three above: the value is resolved from config once and the readers
+        // are scattered, so the chassis module is the one place already in front of all of them.
+        // A singleton because it is one string that cannot change while the process runs — a
+        // per-request copy would be a per-request re-read of a constant.
+        registry
+            .register(BuildRevision)
+            .useFactory(() => new BuildRevision(buildRevision(config)))
+            .asSingleton();
     },
 };
 

@@ -172,7 +172,52 @@ export function CheckupPage() {
                     </Stack>
                 )}
             </Section>
+
+            <Section title="Build" failed={checkup.isError} pending={checkup.isPending}>
+                <Build revision={checkup.data?.revision} />
+            </Section>
         </Stack>
+    );
+}
+
+/**
+ * Which commit this station is running.
+ *
+ * The whole of the point: answering "is it running what I committed" needed a shell on the host and
+ * `docker inspect`, and now it is a line on a page the operator can already reach. The image carries
+ * the sha as its `org.opencontainers.image.revision` label AND in its environment, and this is the
+ * second one read back out.
+ *
+ * Absent is the ordinary case in development and is NOT drawn as a fault: the section above it uses
+ * absence to mean a reader failed, and this one does not, which is why it says what absence means
+ * rather than leaving a blank box. A station built by hand was built from a working tree, and there
+ * is no honest sha to show for one.
+ *
+ * The whole value is copied and only the front of it is shown, on the usual reason a sha is written
+ * short: seven characters is what an operator compares against `git log` by eye, and the full forty
+ * is what they paste back into one.
+ */
+function Build({ revision }: { revision?: string }) {
+    if (revision === undefined) {
+        return (
+            <Text size="sm" c="dimmed">
+                This station was not built from a commit, which is what a development tree and a hand-built image both are.
+            </Text>
+        );
+    }
+
+    return (
+        <Group gap="sm" wrap="wrap">
+            <Text size="sm">Built from</Text>
+            <Code title={revision}>{revision.slice(0, 7)}</Code>
+            <CopyButton value={revision}>
+                {({ copied, copy }) => (
+                    <Button size="compact-xs" variant="subtle" color={copied ? 'green' : undefined} onClick={copy}>
+                        {copied ? 'Copied' : 'Copy'}
+                    </Button>
+                )}
+            </CopyButton>
+        </Group>
     );
 }
 
@@ -306,7 +351,7 @@ function Mounts({ mounts }: { mounts: PlayoutMount[] }) {
         <Stack gap="xxs">
             <Eyebrow>Listen</Eyebrow>
             {mounts.map(mount => (
-                <Group key={mount.path} gap="xs" wrap="nowrap">
+                <Group key={mount.path} gap="xs">
                     <Text size="xs" fw={600} tt="uppercase" w={38}>
                         {mount.format}
                     </Text>

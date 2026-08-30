@@ -8,13 +8,14 @@ import type { Logger } from '@maroonedsoftware/logger';
 
 import { StationCheckupService } from '../../../src/modules/station/station.checkup.service.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
+import { BuildRevision } from '../../../src/modules/shared/build.revision.js';
 import type { Heartbeat } from '../../../src/modules/shared/heartbeat.js';
 
 const quiet = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
 const counts = { total: 581, cached: 570, measured: 13, enriched: 400, benched: 4, failing: 0 };
 
-function service(over: { all?: () => unknown; trackStateCounts?: () => Promise<unknown> } = {}) {
+function service(over: { all?: () => unknown; trackStateCounts?: () => Promise<unknown>; revision?: string } = {}) {
     const tracks = { trackStateCounts: over.trackStateCounts ?? (() => Promise.resolve(counts)) } as unknown as TracksRepository;
     const heartbeat = {
         all:
@@ -27,7 +28,7 @@ function service(over: { all?: () => unknown; trackStateCounts?: () => Promise<u
             ]),
     } as unknown as Heartbeat;
 
-    return new StationCheckupService(tracks, heartbeat, quiet);
+    return new StationCheckupService(tracks, heartbeat, new BuildRevision(over.revision), quiet);
 }
 
 describe('StationCheckupService.read', () => {
@@ -73,6 +74,25 @@ describe('StationCheckupService.read', () => {
         expect(reading.backlog).toBeUndefined();
         expect(reading.heartbeats).toHaveLength(2);
         expect(reading.readAt).toBeDefined();
+    });
+
+    it('carries the build revision, which is what makes the page able to say which station this is', async () => {
+        const reading = await service({ revision: 'a518ad85c82e33e7f535afb067bb6e6f22e9eb11' }).read();
+
+        expect(reading.revision).toBe('a518ad85c82e33e7f535afb067bb6e6f22e9eb11');
+    });
+
+    /**
+     * The one field on this contract where absent does NOT mean a reader failed. A development tree
+     * has no revision to report and the page has to be able to tell that apart from a section it
+     * could not read, so this must never grow a placeholder.
+     */
+    it('omits the revision when nothing stamped the build, and loses no other section for it', async () => {
+        const reading = await service().read();
+
+        expect(reading).not.toHaveProperty('revision');
+        expect(reading.heartbeats).toHaveLength(2);
+        expect(reading.backlog).toEqual({ total: 581, cached: 570, measured: 13 });
     });
 
     it('and the same the other way round', async () => {

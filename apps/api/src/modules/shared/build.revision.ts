@@ -35,3 +35,21 @@ export function buildRevision(config: AppConfig): string | undefined {
     const revision = String(config.get('BUILD_REVISION', '')).trim();
     return revision === '' ? undefined : revision;
 }
+
+/**
+ * The same answer, as something a service can be handed.
+ *
+ * `HealthService` takes the bare string, because `HealthModule` is registered THIRD and must keep
+ * depending on nothing — a token registered by a module further down the list would resolve fine
+ * (resolution happens per request, long after every setup has run) and would still be exactly the
+ * kind of edge that file's comment exists to forbid. Everything else injects this, which is why it
+ * is registered in `DataModule` beside `Heartbeat` and `StationIdentity`: same argument, that the
+ * chassis module is the one place in front of every reader.
+ *
+ * No `@Injectable()`, like `ArtStore`: it is never constructed by the container, only handed over
+ * by the factory that read the config, and the class exists to be a DI token rather than a
+ * behaviour.
+ */
+export class BuildRevision {
+    constructor(readonly value?: string) {}
+}

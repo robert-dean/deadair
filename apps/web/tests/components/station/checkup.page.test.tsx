@@ -140,6 +140,40 @@ describe('CheckupPage', () => {
         expect(screen.getByText('The catalog could not be counted.')).toBeInTheDocument();
     });
 
+    /**
+     * The question this section exists to answer: "is the station running what I committed", asked
+     * without a shell on the host. The image stamps the commit and the console reads it back.
+     */
+    it('says which commit the station was built from, short to read and whole to copy', async () => {
+        allWell();
+        readStationCheckup.mockResolvedValue({ ...checkup(), revision: 'a518ad85c82e33e7f535afb067bb6e6f22e9eb11' });
+
+        render(<CheckupPage />);
+
+        // Seven characters is what gets compared against `git log` by eye.
+        expect(await screen.findByText('a518ad8')).toBeInTheDocument();
+        // And the whole of it is what gets pasted back into one, which is what the copy button
+        // carries and the title attribute shows.
+        expect(screen.getByTitle('a518ad85c82e33e7f535afb067bb6e6f22e9eb11')).toBeInTheDocument();
+    });
+
+    /**
+     * The one field on this contract where absent does NOT mean a reader failed. A development tree
+     * has no commit to report, and drawing that as a broken section would report the ordinary case
+     * as a fault.
+     */
+    it('says an unstamped build was not built from a commit, rather than drawing it as a failure', async () => {
+        allWell();
+
+        render(<CheckupPage />);
+
+        expect(
+            await screen.findByText('This station was not built from a commit, which is what a development tree and a hand-built image both are.'),
+        ).toBeInTheDocument();
+        // The section is present and answering, not one of the boxes that could not be read.
+        expect(screen.queryByText('This could not be read. The rest of the page is unaffected.')).not.toBeInTheDocument();
+    });
+
     it('shows the station’s own verdict rather than wording a second one', async () => {
         allWell();
         getPlayoutStatus.mockResolvedValue(playoutStatus({ silence: stationSilence('noAudience') }));

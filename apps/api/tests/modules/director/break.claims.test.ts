@@ -2,7 +2,8 @@
 // point of the module is that they cannot disagree, so the cases below are about the ANSWER rather
 // than about either caller: a claim that holds, each way one can break, and the instants at the
 // edges of a time window, which is where an off-by-one would show up as a break dropped a second
-// early or aired a second late.
+// early or aired a second late. The reading claim gets the same edge treatment and one case of its
+// own — that it has no `early` — because that absence is what makes it safe to rewrite.
 
 import { describe, expect, it } from 'vitest';
 
@@ -59,6 +60,36 @@ describe('brokenClaim', () => {
             kind: 'item',
             claimed: 'item-2',
             next: 'item-7',
+        });
+    });
+
+    it('holds while what a break reported is still current', () => {
+        expect(brokenClaim({ claimsReadingUntil: NOW + 60_000 }, undefined, NOW)).toBeUndefined();
+        // Half-open at the end, exactly as the time window is: the last instant before it is inside.
+        expect(brokenClaim({ claimsReadingUntil: NOW }, undefined, NOW - 1)).toBeUndefined();
+    });
+
+    it('breaks once the reading behind it has aged out', () => {
+        expect(brokenClaim({ claimsReadingUntil: NOW }, undefined, NOW)).toEqual({ kind: 'reading', until: NOW });
+        expect(brokenClaim({ claimsReadingUntil: NOW }, undefined, NOW + 1)).toEqual({ kind: 'reading', until: NOW });
+    });
+
+    it('reports no direction for a reading, because there is only one', () => {
+        // An observation has no not-true-yet. A reading stamped for the future is simply still
+        // current, which is what every freshly written weather break looks like — and the absence of
+        // an `early` here is what lets the rewrite act on this claim where it must not act on a time
+        // claim that has not arrived.
+        expect(brokenClaim({ claimsReadingUntil: NOW + 3_600_000 }, undefined, NOW)).toBeUndefined();
+    });
+
+    it('reports the record and the clock before the reading when more than one is wrong', () => {
+        const stale = { claimsItemId: 'item-2', claimsTime: window, claimsReadingUntil: NOW - 60_000 };
+
+        expect(brokenClaim(stale, 'item-7', window.until + 1)).toEqual({ kind: 'item', claimed: 'item-2', next: 'item-7' });
+        expect(brokenClaim({ ...stale, claimsItemId: undefined }, undefined, window.until + 1)).toEqual({
+            kind: 'time',
+            ...window,
+            when: 'late',
         });
     });
 });

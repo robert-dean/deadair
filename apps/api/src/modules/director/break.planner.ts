@@ -218,6 +218,13 @@ const NOTHING_RIPENED: RipenResult = { offered: 0, rewritten: [], released: [], 
  * Everything is, except a time claim that has not arrived yet: those words are not wrong, they are
  * early, and the second attempt would derive the same phrasing from the same `airsAt` and land in
  * the same place. See the note in `break.claims.ts` for what acting on it cost the news.
+ *
+ * A `reading` claim needs no case here and that is the point of writing this down: it falls through
+ * as worth rewriting, correctly, because a rewrite goes back to the service and gets a NEW
+ * observation. The loop that shape is guarding against cannot form for the same reason. And when the
+ * service has NOT moved on, `WeatherSource` declines the reading as too old to be true at air, the
+ * write fails the segment, and `reopenSegments` deliberately does not reach a failed row — so the
+ * repair either works or stops.
  */
 const worthRewriting = (broken: BrokenClaim | undefined): boolean => broken !== undefined && !(broken.kind === 'time' && broken.when === 'early');
 
@@ -862,7 +869,11 @@ export class BreakPlanner {
             const segment = segments.get(item.segmentId);
             // A break that claimed nothing cannot be wrong, which is most of them, and skipping
             // them here keeps the ordinary pass free of any question at all.
-            if (segment === undefined || (segment.claimsItemId === undefined && segment.claimsTime === undefined)) continue;
+            if (
+                segment === undefined ||
+                (segment.claimsItemId === undefined && segment.claimsTime === undefined && segment.claimsReadingUntil === undefined)
+            )
+                continue;
 
             const stale = worthRewriting(brokenClaim(segment, lineup.nextTrackAfter(item.id)?.id, now));
             verdicts.set(item.segmentId, (verdicts.get(item.segmentId) ?? true) && stale);

@@ -175,6 +175,12 @@ export class WeatherBreakWriter extends BreakWriter {
             ...(request.clock !== undefined && saysTime(chosen.script, request.clock)
                 ? { claimsTime: { from: request.clock.validFrom, until: request.clock.validUntil } }
                 : {}),
+            // UNCONDITIONAL, which is where this claim differs from the two above it. Those are
+            // answered rather than assumed because a phrasing may have dropped the record or the
+            // time; there is no phrasing here that dropped the reading, since every one of them
+            // carries `{{weather.report}}` outside its optional parts and `usable` throws away any
+            // that cannot fill it. A weather break that got this far has reported the weather.
+            ...(request.weatherFreshUntil === undefined ? {} : { claimsReadingUntil: request.weatherFreshUntil }),
         };
     }
 

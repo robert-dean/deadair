@@ -4,8 +4,9 @@ import type { Segment } from '#modules/render/segment.repository.js';
  * Whether a break's words are still true of the running order and the clock.
  *
  * A break is written minutes before it airs, and what it SAYS is fixed at that moment: "coming up,
- * X" and "it's just after nine" are both statements baked into audio that cannot be re-cut. Two
- * things then read the same question at different moments and must not answer it differently.
+ * X", "it's just after nine" and "it's seventeen and raining" are all statements baked into audio
+ * that cannot be re-cut. Two things then read the same question at different moments and must not
+ * answer it differently.
  * `DirectorService.toPlayerItems` asks at hand-over, where a broken claim costs the break, and
  * `BreakPlanner.ripen` asks in the write-ahead window, where a broken claim is worth a rewrite
  * because there is still time for one.
@@ -38,14 +39,30 @@ import type { Segment } from '#modules/render/segment.repository.js';
  * where the policy lives, because "is this worth reopening" is the caller's question and not this
  * one's. The price, taken deliberately, is that a break running EARLY is no longer rewritten and is
  * dropped at hand-over instead — one silent boundary, where the loop cost the next hour of news.
+ *
+ * ## The third dimension is what the break REPORTED, and it arrived late
+ *
+ * A break that said what it is like outside is a statement about the present with a shelf life, and
+ * for a while nothing here knew that. Weather shipped as a capability after this file was written
+ * and did not inherit it: the guards on that path make a figure unfabricable — `inventedFigure`
+ * refuses any number the reading did not carry — and say nothing at all about whether it is STILL
+ * TRUE, because they check the script against the reading it was written from. That is the one
+ * comparison that cannot catch age.
+ *
+ * `claims_reading_until` is the answer, and it is deliberately shaped unlike the time claim beside
+ * it. One end rather than two, and no direction, because an observation has no not-true-yet. Which
+ * is also why it IS worth a rewrite where an early time claim is not: rewriting re-derives the same
+ * phrasing from the same unchanged `airs_at`, and it fetches a genuinely new observation.
  */
 
-/** Why a break's words are no longer true. The two dimensions a claim can be made in. */
+/** Why a break's words are no longer true. The three dimensions a claim can be made in. */
 export type BrokenClaim =
     /** It named the record that plays next, and something else does. */
     | { kind: 'item'; claimed: string; next?: string }
     /** It named a time, and the clock is outside the window that phrasing is true in. */
-    | { kind: 'time'; from: number; until: number; when: TimeFault };
+    | { kind: 'time'; from: number; until: number; when: TimeFault }
+    /** It reported a measurement, and the observation behind it has aged out. */
+    | { kind: 'reading'; until: number };
 
 /**
  * Which side of its window a time claim fell off.
@@ -56,7 +73,7 @@ export type BrokenClaim =
 export type TimeFault = 'early' | 'late';
 
 /** Everything about a segment this question needs. Narrow, so a test needs no whole row. */
-type Claiming = Pick<Segment, 'claimsItemId' | 'claimsTime'>;
+type Claiming = Pick<Segment, 'claimsItemId' | 'claimsTime' | 'claimsReadingUntil'>;
 
 /**
  * What is wrong with this break's claims, or `undefined` while they hold.
@@ -97,6 +114,20 @@ export function brokenClaim(segment: Claiming, nextTrackId: string | undefined, 
     }
     if (claimedTime !== undefined && now >= claimedTime.until) {
         return { kind: 'time', from: claimedTime.from, until: claimedTime.until, when: 'late' };
+    }
+
+    // The third dimension, and the one the station does not move. A break that REPORTED something —
+    // what it is like outside — was true of a moment that has since passed, and nothing here or in
+    // the running order did anything wrong: the world moved. See `segments.claims_reading_until`.
+    //
+    // No direction is reported, because there is only one. A reading has no not-true-yet: it was
+    // measured, and then it ages. That is also what makes it worth a REWRITE where a time claim
+    // running early is not — the rewrite fetches a new observation, so the second attempt is
+    // genuinely different, and the loop the note above describes cannot form. See
+    // `BreakPlanner.staleClaims`, which acts on this and refuses the other.
+    const readingUntil = segment.claimsReadingUntil;
+    if (readingUntil !== undefined && now >= readingUntil) {
+        return { kind: 'reading', until: readingUntil };
     }
 
     return undefined;

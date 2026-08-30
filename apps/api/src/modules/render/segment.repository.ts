@@ -127,6 +127,16 @@ export interface Segment {
      */
     claimsTime?: { from: number; until: number };
     /**
+     * When what this break REPORTED stops being true, for one that reported a measurement.
+     *
+     * The third dimension beside {@link claimsItemId} and {@link claimsTime}, checked the same way
+     * and at the same two moments. One end rather than two, because an observation has no
+     * not-true-yet: it was measured, and then it ages. See `segments.claims_reading_until`.
+     *
+     * Absent for every break that reported nothing, which is nearly all of them.
+     */
+    claimsReadingUntil?: number;
+    /**
      * The request this break was made for, when something asked for it.
      *
      * Absent for a break the station planted for itself, which is most of them: the spacing rules
@@ -299,6 +309,7 @@ interface SegmentRow {
     airsAt: DateTime | null;
     claimsTimeFrom: DateTime | null;
     claimsTimeUntil: DateTime | null;
+    claimsReadingUntil: DateTime | null;
     requestId: string | null;
     context: unknown;
     productionId: string | null;
@@ -327,6 +338,7 @@ const SEGMENT_COLUMNS = [
     'airsAt',
     'claimsTimeFrom',
     'claimsTimeUntil',
+    'claimsReadingUntil',
     'requestId',
     'context',
     'productionId',
@@ -398,6 +410,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(millisOf(row.claimsTimeFrom) === undefined || millisOf(row.claimsTimeUntil) === undefined
             ? {}
             : { claimsTime: { from: millisOf(row.claimsTimeFrom)!, until: millisOf(row.claimsTimeUntil)! } }),
+        ...(millisOf(row.claimsReadingUntil) === undefined ? {} : { claimsReadingUntil: millisOf(row.claimsReadingUntil)! }),
     };
 }
 
@@ -792,6 +805,7 @@ export class SegmentRepository extends DataRepository {
             writer: string;
             claimsItemId?: string;
             claimsTime?: { from: number; until: number };
+            claimsReadingUntil?: number;
             personaId?: string;
             voice?: string;
             pads?: readonly PadHit[];
@@ -830,6 +844,10 @@ export class SegmentRepository extends DataRepository {
                 // for the same reason.
                 claimsTimeFrom: written.claimsTime === undefined ? null : instant(written.claimsTime.from),
                 claimsTimeUntil: written.claimsTime === undefined ? null : instant(written.claimsTime.until),
+                // And the third: a break that REPORTED a measurement is overtaken by the world.
+                // Written and cleared with the words for the same reason as the two above — the
+                // expiry describes the observation THESE words state, and a rewrite states another.
+                claimsReadingUntil: written.claimsReadingUntil === undefined ? null : instant(written.claimsReadingUntil),
             })
             .where('id', '=', id)
             .where('state', '=', 'writing')
@@ -950,6 +968,11 @@ export class SegmentRepository extends DataRepository {
                 claimsItemId: null,
                 claimsTimeFrom: null,
                 claimsTimeUntil: null,
+                // Cleared with the other two, and this one has a bite the others do not: a reopened
+                // break that kept its old expiry is stale the instant it is read, so the next pass
+                // reopens it again, forever, against a number that can never move. The words go, so
+                // everything that described them goes with them.
+                claimsReadingUntil: null,
                 ...(host === undefined
                     ? {}
                     : {

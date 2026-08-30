@@ -203,4 +203,22 @@ describe('writing', () => {
 
         expect(written?.claimsNext).toBe(false);
     });
+
+    it('stamps how long the reading stays true, whatever the phrasing was', async () => {
+        // Unconditional where the two claims above are answered, and the shortest phrasing there is
+        // proves it: every phrasing carries the reading, so every weather break reports the present.
+        const { writer } = build({ [WEATHER_BREAK_KEYS.templates]: 'And now the weather. {{weather.report}}' });
+
+        const written = await writer.write(request({ weatherFreshUntil: 1_800_000 }));
+
+        expect(written?.claimsReadingUntil).toBe(1_800_000);
+    });
+
+    it('stamps nothing when the source gave it no expiry', async () => {
+        // The two arrive together from `WeatherSource`, so this is the shape of a caller that
+        // predates the field rather than a state the station reaches.
+        const { writer } = build();
+
+        expect((await writer.write(request()))?.claimsReadingUntil).toBeUndefined();
+    });
 });

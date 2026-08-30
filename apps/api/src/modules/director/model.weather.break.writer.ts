@@ -226,6 +226,13 @@ export class ModelWeatherBreakWriter extends BreakWriter {
             // Stamped only when the answer really carries the time, the same posture the bulletin
             // takes and for the same reason. See `timeClaimIn`.
             ...(claimsTime === undefined ? {} : { claimsTime }),
+            // And stamped ALWAYS, which is the opposite posture and is right for the opposite
+            // reason: `WEATHER_SHAPE` exists to make the model state this reading, and
+            // `inventedFigure` above has just refused every number that was not in it. A weather
+            // break that reached here reported the weather. The expiry is `WeatherSource`'s, not
+            // recomputed, so this and the floor beneath it cannot disagree about how long one
+            // observation lasts.
+            ...(request.weatherFreshUntil === undefined ? {} : { claimsReadingUntil: request.weatherFreshUntil }),
         };
     }
 }

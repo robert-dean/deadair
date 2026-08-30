@@ -224,6 +224,17 @@ describe('how old a reading may be when it airs', () => {
         expect((await source.readingFor(WEATHER_KIND, undefined, NOW))?.reading).toBeDefined();
     });
 
+    it('hands the expiry over beside the reading, so both writers stamp the same one', async () => {
+        // Decided here rather than by whichever writer takes it: two writers computing an expiry
+        // from one `observedAt` is two writers that can disagree about how long a break's own words
+        // last. See `segments.claims_reading_until`.
+        const { source } = harness({ reading: observed(30) });
+
+        const report = await source.readingFor(WEATHER_KIND, undefined, NOW);
+
+        expect(report?.freshUntil).toBe(NOW - 30 * MINUTE + DEFAULT_WEATHER_MAX_AGE_MINUTES * MINUTE);
+    });
+
     it('declines one already past the window, and names both fixes', async () => {
         const { source, logger } = harness({ reading: observed(DEFAULT_WEATHER_MAX_AGE_MINUTES + 1) });
 

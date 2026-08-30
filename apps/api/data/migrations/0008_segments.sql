@@ -196,6 +196,24 @@ create table deadair.segments (
     -- their window together so the two cannot disagree.
     claims_time_from timestamptz,
     claims_time_until timestamptz,
+    -- When what this break REPORTED stops being true.
+    --
+    -- The third dimension, and the three make one argument read three ways. `claims_item_id` exists
+    -- because a break naming the next RECORD is overtaken by an edit. `claims_time_*` because one
+    -- naming the TIME is overtaken by the clock. This because one reporting a MEASUREMENT — what it
+    -- is like outside — is overtaken by the world, which moves whether or not anything in this
+    -- station does.
+    --
+    -- One end rather than two, and the asymmetry is the point: a clock phrasing has a moment it
+    -- becomes true as well as one it stops, so "just after nine" said at ten to is as wrong as it is
+    -- at half past. An observation has no not-true-yet. It was measured, and then it ages.
+    --
+    -- The bound comes from the READING rather than from a constant, exactly as a time claim's comes
+    -- from the phrasing: `observed_at` plus `rotation.weatherMaxAgeMinutes`, computed once in
+    -- `weather.source.ts` so the floor and the model binding above it cannot stamp different
+    -- expiries onto the same substrate. Null for every break that reported nothing, which is nearly
+    -- all of them.
+    claims_reading_until timestamptz,
     constraint segments_claims_time_check check (
         (claims_time_from is null) = (claims_time_until is null)
         and (claims_time_until is null or claims_time_until > claims_time_from)

@@ -226,4 +226,25 @@ describe('what it produces', () => {
 
         expect(await writer.write(request())).toBeUndefined();
     });
+
+    it("stamps the source's expiry rather than one of its own", async () => {
+        // The same number the floor beneath it would stamp, which is the point of it coming from
+        // `WeatherSource`: one observation cannot have two shelf lives depending on who wrote it up.
+        const { writer } = build("It's 17 and raining.");
+
+        const written = await writer.write(request({ weatherFreshUntil: 1_800_000 }));
+
+        expect(written?.claimsReadingUntil).toBe(1_800_000);
+    });
+
+    it('stamps it even when the answer named no time and claimed no record', async () => {
+        // Unconditional where `claimsTime` is answered: `WEATHER_SHAPE` exists to make the model
+        // state this reading, and `inventedFigure` has just refused every number that was not in it.
+        const { writer } = build("It's raining.");
+
+        const written = await writer.write(request({ weatherFreshUntil: 1_800_000 }));
+
+        expect(written?.claimsTime).toBeUndefined();
+        expect(written?.claimsReadingUntil).toBe(1_800_000);
+    });
 });

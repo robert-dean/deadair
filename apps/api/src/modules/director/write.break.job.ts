@@ -299,6 +299,9 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
             ...(context === undefined ? {} : { context }),
             ...(bulletin === undefined ? {} : { stories: bulletin.stories }),
             ...(forecast?.reading === undefined ? {} : { weather: forecast.reading }),
+            // The reading's own shelf life, travelling beside it so whichever writer takes it stamps
+            // the same expiry. See `BreakWriteRequest.weatherFreshUntil`.
+            ...(forecast?.freshUntil === undefined ? {} : { weatherFreshUntil: forecast.freshUntil }),
             // What the format clock asked this break to be ABOUT, resolved out of the context above
             // by the thing that owns the kind's substrate. A writer reads it here rather than
             // digging the key out of `context` itself, so the model binding and the floor cannot

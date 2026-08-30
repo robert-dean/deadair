@@ -1080,6 +1080,28 @@ describe('BreakPlanner.ripen', () => {
             expect(built.known.get(segmentId)).toMatchObject({ state: 'written' });
         });
 
+        it('un-writes a break whose reading has aged out, which a rewrite genuinely repairs', async () => {
+            // The third dimension. Unlike a time claim, this one is worth reopening in BOTH
+            // directions there are none of: an observation has no not-true-yet, and the rewrite goes
+            // back to the service for a new one rather than re-deriving the same words.
+            const { built, lineup, segmentId } = await written();
+            const segment = built.known.get(segmentId)!;
+            const { claimsItemId, ...rest } = segment;
+            built.known.set(segmentId, { ...rest, claimsReadingUntil: Date.now() - 60_000 });
+
+            expect((await built.planner.ripen(lineup)).rewritten).toEqual([segmentId]);
+        });
+
+        it('leaves alone a break whose reading is still current', async () => {
+            const { built, lineup, segmentId } = await written();
+            const segment = built.known.get(segmentId)!;
+            const { claimsItemId, ...rest } = segment;
+            built.known.set(segmentId, { ...rest, claimsReadingUntil: Date.now() + 3_600_000 });
+
+            expect((await built.planner.ripen(lineup)).rewritten).toEqual([]);
+            expect(built.known.get(segmentId)).toMatchObject({ state: 'written' });
+        });
+
         it('will not touch a break somebody is in the middle of rendering', async () => {
             // The state guard lives in the repository, because a row moved underneath a job finishes
             // into a state its caller no longer owns.

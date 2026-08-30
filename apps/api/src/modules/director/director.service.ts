@@ -2374,6 +2374,26 @@ export class DirectorService {
                 continue;
             }
 
+            if (broken?.kind === 'reading') {
+                // The third dimension, and the only one where nothing in this station did anything
+                // wrong: the words named no record and no time, they REPORTED something, and the
+                // world moved. `BreakPlanner.ripen` would have rewritten this if the slot had come
+                // round later; reaching here means it did not, and a station stating this morning's
+                // weather at teatime is the kind of error a listener remembers.
+                this.logger.info('director: dropping a break whose reading is too old to still be true', {
+                    segment: item.segmentId,
+                    until: new Date(broken.until).toISOString(),
+                });
+                void this.activity.record({
+                    module: 'director',
+                    kind: 'break.claimStale',
+                    detail: 'A break was dropped because what it reported is no longer current.',
+                    data: { segmentId: item.segmentId, until: broken.until },
+                });
+                skipped.push(item.id);
+                continue;
+            }
+
             // A talk-over is not an item the player is handed and never becomes one: it is heard
             // ALONGSIDE the record that follows it rather than in the gap before it, so it rides
             // on that record and the pusher arms it as the record is handed over.

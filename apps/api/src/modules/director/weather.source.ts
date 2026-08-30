@@ -107,6 +107,14 @@ export const MAX_WEATHER_MAX_AGE_MINUTES = 720;
 export interface WeatherReport {
     /** The reading, in the units this break should be read in. Absent when there is none. */
     reading?: SpokenWeather;
+    /**
+     * When that reading stops being worth saying, as epoch millis. Present exactly when
+     * {@link reading} is.
+     *
+     * Decided here rather than by whichever writer takes it, so the floor and the model binding
+     * above it stamp the same expiry onto the same substrate. See `segments.claims_reading_until`.
+     */
+    freshUntil?: number;
     /** The location the format clock asked for, when it asked for one. */
     subject?: BreakSubject;
 }
@@ -189,7 +197,7 @@ export class WeatherSource {
                 return subject === undefined ? {} : { subject };
             }
 
-            return { reading, ...(subject === undefined ? {} : { subject }) };
+            return { reading, freshUntil: fresh, ...(subject === undefined ? {} : { subject }) };
         } catch (error) {
             // `WeatherService` already swallows a plugin's failures, so reaching here means something
             // else went wrong. Absorbed for the same reason everything else is: a break the station

@@ -382,6 +382,20 @@ export interface BreakWriteRequest {
      */
     weather?: SpokenWeather;
     /**
+     * When {@link weather} stops being worth saying, as epoch millis.
+     *
+     * Beside the reading rather than on it, because `SpokenWeather` is a units conversion and this
+     * is a policy: how long an observation stays true is the station's judgement, and
+     * `weather.words.ts` is deliberately arithmetic with no settings in it.
+     *
+     * Present whenever {@link weather} is, and decided ONCE in `WeatherSource` — the same reason the
+     * reading itself is fetched once. Two writers computing an expiry from the same `observedAt` is
+     * two writers that can disagree about how long one break's own words last.
+     *
+     * A writer that uses the reading passes it through to {@link WrittenBreak.claimsReadingUntil}.
+     */
+    weatherFreshUntil?: number;
+    /**
      * What this break is ABOUT, when something asked it to be about one thing.
      *
      * A `deadair.topics` row for this break's kind, resolved by the CALLER out of the context the
@@ -492,6 +506,21 @@ export interface WrittenBreak {
      * `segments.claims_time_from`.
      */
     claimsTime?: { from: number; until: number };
+    /**
+     * When what these words REPORTED stops being true, for a writer that stated a measurement.
+     *
+     * The third claim, and unlike the two above it this one is not conditional on the wording. A
+     * break naming the next record may or may not have named it, and a phrasing may or may not have
+     * said the time — but there is no version of a weather break that does not report the weather,
+     * since every phrasing carries `{{weather.report}}` outside its optional parts and the model
+     * shape's whole job is to state the reading. So a writer handed a reading and using it stamps
+     * this, always.
+     *
+     * Taken straight from {@link BreakWriteRequest.weatherFreshUntil} rather than recomputed, for
+     * {@link claimsTime}'s reason: the substrate and its expiry are decided in one place, so the
+     * floor and the model binding above it cannot disagree about how long the same reading lasts.
+     */
+    claimsReadingUntil?: number;
 }
 
 /**

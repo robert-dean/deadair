@@ -825,8 +825,23 @@ export class BreakPlanner {
      * The projection is the same expression the planting walks use — `projectAirTimes` against the
      * same {@link AirClock} — for the reason `break.claims.ts` gives about its own predicate: two
      * ideas of when a boundary airs would disagree, and the one that decided where the break went
-     * is the one that should decide what it says. It is a LOWER bound, so a break lands at or after
-     * the moment it is told, which is the direction a phrasing can absorb.
+     * is the one that should decide what it says.
+     *
+     * ## Refreshing it is what keeps its error inside the tolerance the phrasings assume
+     *
+     * `air.clock.ts` counts everything it cannot measure as zero — a segment's own length, the
+     * overlap a crossfade eats — so this is a LOWER bound and a break always lands at or after the
+     * moment it is told. That file argues the direction is the safe one because "a break placed late
+     * says 'just after nine' a minute or two late, which is what the phrasing is vague enough to
+     * absorb", and the arithmetic behind that is a HORIZON: a handful of unmeasured segments is a
+     * minute, and the narrowest phrasing in `clock.words.ts` is seven.
+     *
+     * Stamped once at planting, that horizon was the whole tail — forty minutes of it, and ten
+     * minutes of accumulated error, which no phrasing absorbs and which is what the loop was made
+     * of. Refreshed here every boundary, the horizon is the write-ahead window and the error is back
+     * to the minute the argument was made about. So the guard and the projection are the same
+     * guarantee read from two ends, and this is not an optimisation: it is what makes the sentence
+     * in `air.clock.ts` true.
      *
      * **The EARLIEST position wins for a row that holds several.** An ident comes from a shared
      * library and legitimately sits at three slots in an hour, and one column cannot describe three

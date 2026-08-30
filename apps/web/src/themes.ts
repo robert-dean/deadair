@@ -117,16 +117,28 @@ const neon = consoleTheme(
         orange: ['#fff0e6', '#ffd9c2', '#ffb073', '#ff8a33', '#ff6a00', '#e55f00', '#c25000', '#9e4100', '#7a3200', '#552300'],
     },
     {
-        body: '"Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif',
-        mono: '"JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
-        display: 'Syne, "Space Grotesk", ui-sans-serif, system-ui, sans-serif',
+        body: 'Archivo, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif',
+        // Two weights, 400 and 700, and nothing between — see the note beside the import in
+        // `main.tsx`. A timecode is a timecode, but this one is stamped rather than printed.
+        mono: '"Space Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+        // The same angular face carbon sets its headings in, and it is not a duplication: what a
+        // display face means here is decided by what sits UNDER it. Chakra Petch over Plex Sans is a
+        // silkscreened label on a panel; Chakra Petch over Archivo, in capitals, at this tracking,
+        // is a readout projected onto glass. The body pair is what tells the two consoles apart in
+        // the Appearance swatch, which is why this theme's `typeLabel` names it second.
+        display: '"Chakra Petch", Archivo, ui-sans-serif, system-ui, sans-serif',
+        // Hard edges on ink, and deliberately not softened to match the rest of the theme's move:
+        // a rounder neon than carbon would invert the console's own geometry, where the desk is the
+        // forgiving surface and this one is not.
         radius: '2px',
     },
     {
-        titleTransform: 'none',
-        titleTracking: 'normal',
-        buttonTransform: 'none',
-        buttonTracking: 'normal',
+        // The only console that stencils. Every legend on a heads-up display is set this way and
+        // the tracking is what stops capitals at heading size closing up into a block.
+        titleTransform: 'uppercase',
+        titleTracking: '0.03em',
+        buttonTransform: 'uppercase',
+        buttonTracking: '0.08em',
     },
 );
 
@@ -185,8 +197,8 @@ export const THEMES: Record<ThemeId, ThemeDefinition> = {
         id: 'neon',
         name: 'Neon Transmitter',
         blurb: 'Cyan, magenta and hard edges on ink. Loudest of the three.',
-        typeLabel: 'Syne / Space Grotesk',
-        displayFont: 'Syne, sans-serif',
+        typeLabel: 'Chakra Petch / Archivo',
+        displayFont: '"Chakra Petch", sans-serif',
         swatches: ['#04040a', '#12122a', '#00f0ff', '#ff1fd0'],
         scheme: 'dark',
         mantine: neon,

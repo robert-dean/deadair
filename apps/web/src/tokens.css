@@ -131,6 +131,12 @@
 
     --da-glow-panel: 0 0 0 1px rgb(0 240 255 / 5%), 0 0 18px -8px rgb(0 240 255 / 35%), inset 0 0 22px -16px rgb(255 31 208 / 40%);
     --da-glow-edge: 0 0 12px -4px rgb(0 240 255 / 30%);
+
+    /* Wider than the desk's 0.08em, which is the whole difference between a label printed on a
+       panel and one projected onto glass. Every `Eyebrow`, every status word and every table kicker
+       already reads this variable, so the theme's voice reaches all of them for one line — which is
+       the argument for having put the tracking in a token in the first place. */
+    --da-tracking-eyebrow: 0.2em;
 }
 
 html,

@@ -11,7 +11,7 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 //
 // All three themes' faces are imported here, eagerly, and that costs almost nothing: an import
 // brings in `@font-face` DECLARATIONS, and a browser fetches a woff2 only when rendered text
-// actually matches one. An operator on carbon never downloads Syne. Lazily importing per theme
+// actually matches one. An operator on carbon never downloads Archivo. Lazily importing per theme
 // would buy a few KB of CSS and pay for it in a frame of fallback type on every theme switch.
 import '@fontsource/chakra-petch/500.css';
 import '@fontsource/chakra-petch/600.css';
@@ -30,17 +30,16 @@ import '@fontsource/public-sans/400.css';
 import '@fontsource/public-sans/500.css';
 import '@fontsource/public-sans/600.css';
 import '@fontsource/public-sans/700.css';
-// Neon Transmitter.
-import '@fontsource/syne/600.css';
-import '@fontsource/syne/700.css';
-import '@fontsource/syne/800.css';
-import '@fontsource/space-grotesk/400.css';
-import '@fontsource/space-grotesk/500.css';
-import '@fontsource/space-grotesk/600.css';
-import '@fontsource/space-grotesk/700.css';
-import '@fontsource/jetbrains-mono/400.css';
-import '@fontsource/jetbrains-mono/500.css';
-import '@fontsource/jetbrains-mono/600.css';
+// Neon Transmitter: a grotesque under the same angular display face carbon uses, which is the pair
+// a heads-up display is set in. Space Mono ships 400 and 700 and nothing between, so the `fw={600}`
+// every `Eyebrow` asks for in the mono face resolves to 700 here. That is the right answer for a
+// silkscreened legend and the wrong kind of surprise to leave undocumented.
+import '@fontsource/archivo/400.css';
+import '@fontsource/archivo/500.css';
+import '@fontsource/archivo/600.css';
+import '@fontsource/archivo/700.css';
+import '@fontsource/space-mono/400.css';
+import '@fontsource/space-mono/700.css';
 
 // This order is required rather than conventional: `@mantine/schedule` builds on `@mantine/dates`,
 // which builds on core, and each expects the one below it to have been laid down first. Loaded out

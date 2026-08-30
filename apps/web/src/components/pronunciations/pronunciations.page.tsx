@@ -236,10 +236,10 @@ export function PronunciationsPage() {
                         </Table.ScrollContainer>
                     )}
 
-                    <Group gap="xs" align="flex-end" wrap="nowrap">
+                    <Group gap="xs" align="flex-end">
                         <TextInput
                             size="xs"
-                            w={200}
+                            w={{ base: '100%', sm: 200 }}
                             label="Written"
                             placeholder="Röyksopp"
                             value={written}

@@ -94,7 +94,7 @@ export function PluginLogsCard({ plugin }: PluginLogsCardProps) {
                         onChange={value => {
                             setFilterLevel((value as PluginLogLevel | null) ?? undefined);
                         }}
-                        w={180}
+                        w={{ base: '100%', sm: 180 }}
                     />
                     <Group gap="sm">
                         <Button

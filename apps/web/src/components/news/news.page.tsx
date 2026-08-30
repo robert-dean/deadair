@@ -75,7 +75,7 @@ export function NewsPage() {
                 <Group gap="md" wrap="wrap" align="flex-end">
                     <Select
                         size="xs"
-                        w={280}
+                        w={{ base: '100%', sm: 280 }}
                         label="Feed"
                         data={[{ value: EVERYTHING, label: 'Every feed' }, ...known.map(feed => ({ value: feed.id, label: feed.name }))]}
                         value={feedId}
@@ -89,7 +89,7 @@ export function NewsPage() {
                     {categories.length > 0 ? (
                         <Select
                             size="xs"
-                            w={220}
+                            w={{ base: '100%', sm: 220 }}
                             label="Category"
                             description="What the operator called the feed"
                             data={[{ value: EVERYTHING, label: 'Every category' }, ...categories.map(one => ({ value: one, label: one }))]}

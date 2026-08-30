@@ -311,7 +311,7 @@ function ComposeSegment({ onDone }: { onDone: () => void }) {
                 <Group gap="md" wrap="wrap">
                     <TextInput
                         label="Kind"
-                        w={200}
+                        w={{ base: '100%', sm: 200 }}
                         description="ident, stinger, talkbreak"
                         value={kind}
                         onChange={event => {
@@ -320,7 +320,7 @@ function ComposeSegment({ onDone }: { onDone: () => void }) {
                     />
                     <Select
                         label="Voice"
-                        w={220}
+                        w={{ base: '100%', sm: 220 }}
                         description="Leave empty for the plugin's own default"
                         clearable
                         // The plugin's own default answers to the empty string, which Mantine cannot hold as

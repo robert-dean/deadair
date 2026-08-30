@@ -64,7 +64,7 @@ export function ChartsPage() {
                     <Group gap="md" align="flex-end" wrap="wrap">
                         <Select
                             size="xs"
-                            w={320}
+                            w={{ base: '100%', sm: 320 }}
                             label="Chart"
                             data={offered.map(one => ({ value: one.id, label: labelFor(one) }))}
                             value={showing.id}

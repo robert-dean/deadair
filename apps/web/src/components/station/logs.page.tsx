@@ -116,7 +116,7 @@ export function LogsPage() {
                             setChosenId(value);
                         }}
                         allowDeselect={false}
-                        w={320}
+                        w={{ base: '100%', sm: 320 }}
                     />
                     <Group gap="sm" align="flex-end">
                         {source.levels ? (
@@ -130,7 +130,7 @@ export function LogsPage() {
                                 onChange={value => {
                                     setLevel((value as LogLevel | null) ?? undefined);
                                 }}
-                                w={180}
+                                w={{ base: '100%', sm: 180 }}
                             />
                         ) : undefined}
                         <Button

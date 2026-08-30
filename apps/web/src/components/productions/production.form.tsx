@@ -1,4 +1,4 @@
-import { Button, Card, Group, NumberInput, Select, Stack, Textarea, TextInput } from '@mantine/core';
+import { Button, Card, Group, NumberInput, Select, SimpleGrid, Stack, Textarea, TextInput } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import type { ProductionRequest } from '@deadair/sdk';
 
@@ -97,7 +97,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                         {...form.getInputProps('brief')}
                     />
 
-                    <Group grow align="flex-start">
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <TextInput label="Kind" description="Free text, and what a clock band names." {...form.getInputProps('kind')} />
                         <NumberInput
                             label="Minutes"
@@ -105,9 +105,9 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                             min={1}
                             {...form.getInputProps('minutes')}
                         />
-                    </Group>
+                    </SimpleGrid>
 
-                    <Group grow align="flex-start">
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <Select
                             label="How much to write it"
                             description="Leave empty for the station's default."
@@ -123,7 +123,7 @@ export function ProductionForm({ pending, error, onSubmit, onCancel }: Productio
                             searchable
                             {...form.getInputProps('personaId')}
                         />
-                    </Group>
+                    </SimpleGrid>
 
                     <Group justify="flex-end">
                         <Button variant="subtle" onClick={onCancel} disabled={pending}>

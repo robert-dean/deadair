@@ -31,7 +31,9 @@ export function CatalogPagination({ total, pageSize, page, onChange, onPageSizeC
             <Text size="sm" c="dimmed">
                 {total === 1 ? '1 result' : `${total.toLocaleString()} results`}
             </Text>
-            <Group gap="sm" wrap="nowrap">
+            {/* Allowed to wrap: at phone width a pager past a handful of pages is wider than the
+                row, and the size control dropping under it beats the page scrolling sideways. */}
+            <Group gap="sm" justify="flex-end">
                 {pageCount > 1 ? (
                     <Pagination
                         total={pageCount}

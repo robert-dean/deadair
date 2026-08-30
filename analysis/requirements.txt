@@ -21,3 +21,69 @@ uvicorn==0.41.0
 numpy==2.4.1
 scipy==1.16.2
 pydantic==2.13.1
+
+# ── the beat layer ───────────────────────────────────────────────────────────
+#
+# `beat_this` (CPJKU) predicts beats AND downbeats jointly and exposes framewise
+# logits, which is where `beat_confidence` comes from. Both halves are MIT: the
+# code and THE CHECKPOINTS, and the second is the one that matters here --
+# madmom, the best-in-class alternative, is BSD code around CC BY-NC-SA weights,
+# which is an NC dependency wearing a permissive licence. Checked by hand from
+# each project's own licence file, because a scanner reads the package metadata
+# and the weights are not in it. See docs/decisions/analysis-licensing.md.
+#
+# librosa was the permissive alternative and is refused on DESIGN rather than
+# licence: no downbeats, and no calibrated confidence, which is the one field
+# `docs/todo/track-analysis.md` calls load-bearing.
+#
+# **beat_this's own dependency list is NOT all permissive, and that is why it is
+# installed with `--no-deps` in the Dockerfile rather than named here.** It
+# requires `soxr`, which is LGPL-2.1-or-later -- copyleft, and refused by the
+# rule at the top of this file. Found by checking each transitive entry by hand
+# before the first build, which is the review step `analysis-licensing.md` says
+# this failure mode needs.
+#
+# Refusing it costs nothing, because soxr's entire role there is ONE line:
+# `inference.py` imports it to resample the input to 22050 Hz. `scipy.signal`
+# is already pinned above and already does that job for the true-peak
+# oversampling. And `soxr` is imported in `inference.py` ALONE -- the path this
+# service needs (`preprocessing` -> `model.beat_tracker` -> `model.postprocessor`)
+# never touches that module. So the resample happens here, in scipy, and the
+# LGPL package is never installed.
+#
+# The price is real and belongs beside the benefit: reaching the model without
+# `inference.py` means depending on beat_this's internal layout rather than its
+# public entry points, so an upstream refactor breaks this where it would not
+# break an ordinary caller. The version is pinned exactly for that reason.
+#
+# **torch comes from the CPU index and that line is not optional.** The default
+# PyPI wheel for linux/x86_64 is 858 MB and hard-depends on the whole CUDA stack
+# -- nvidia-cudnn, nvidia-cublas and six more -- for a machine that will never
+# have a GPU. The CPU build is 176 MB and exists only on this index.
+#
+# **The versions are pinned WITHOUT `+cpu`, and that is deliberate rather than
+# sloppy.** The obvious `torch==2.9.1+cpu` builds on x86_64 and fails outright on
+# arm64, because the `+cpu` local version is published for x86_64 and Windows
+# only -- on aarch64 there is no CUDA build to distinguish it from, so the plain
+# wheel IS the CPU wheel. Pinning the local version therefore makes the file
+# architecture-specific, which for a station that ships to other people's
+# machines is a build that works here and breaks there.
+#
+# `==2.9.1` resolves correctly on both, and the mechanism is worth stating
+# because it looks like luck: PEP 440 sorts `2.9.1+cpu` AFTER `2.9.1`, and pip
+# takes the highest match across both indexes -- so x86_64 gets the `+cpu` build
+# and arm64 gets the only one there is. PyPI stays the primary index, so nothing
+# else in this file is resolved from the pytorch mirror.
+#
+# Licences, each read from the project rather than from a summary: torch BSD-3,
+# einops MIT, rotary-embedding-torch MIT (needing only einops and torch, both
+# already here). **torchaudio declares NOTHING in its package metadata** and is
+# BSD-2 in the PyTorch repository, which is the exact shape of gap this file's
+# rule is about -- a scanner reports "unknown" and moves on. It is here only
+# because beat_this imports it for its log-mel front end; nothing loads audio
+# through it.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.9.1
+torchaudio==2.9.1
+einops==0.8.2
+rotary-embedding-torch==0.9.1

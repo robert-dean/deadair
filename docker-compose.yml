@@ -109,6 +109,23 @@ services:
             # localhost only. Nothing outside needs it, and it will fetch any URL it is
             # handed, so it is not something to expose.
             - '127.0.0.1:9321:9321'
+        volumes:
+            # The service's own source, over the copy baked into the image, so editing a
+            # measurement is a container restart rather than a rebuild. DEV ONLY — the
+            # production image (root `Dockerfile`) has no such mount and ships the code
+            # it was built with.
+            #
+            # It is here because the loop without it is punishing in a specific way: the
+            # only honest test of a detector is running it over real records, the
+            # answers take a minute each, and a rebuild between every attempt turns a
+            # morning of calibration into a day of waiting. The vocal detector was
+            # disproved by exactly that loop and would have shipped without it.
+            #
+            # Read-only, so the container cannot write back into the repository, and the
+            # module list in `analysis/Dockerfile` still governs what the IMAGE holds:
+            # a new module that works here and was never added there is the crash loop
+            # that file's comment is about, and this mount would hide it until deploy.
+            - ./analysis:/srv:ro
         healthcheck:
             # python rather than curl: the slim image ships no HTTP client, and this
             # endpoint is deliberately cheap enough to poll.

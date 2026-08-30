@@ -26,6 +26,17 @@ WORKDIR /srv
 COPY analysis/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# The beat tracker, WITHOUT its dependency list, which is the whole point of the
+# separate line. It requires `soxr` (LGPL-2.1-or-later), and copyleft is refused
+# in the analysis path outright — see the long note in requirements.txt for why
+# that costs nothing here, and `docs/decisions/analysis-licensing.md` for the rule.
+#
+# Everything it actually needs is pinned in the file above, so `--no-deps` removes
+# exactly one package and leaves the model intact. If beat_this ever imports soxr
+# outside `inference.py`, this fails LOUDLY at import rather than quietly pulling
+# an LGPL library in, which is the right way round.
+RUN pip install --no-cache-dir --no-deps beat_this==1.1.0
+
 # Named individually rather than `COPY analysis/*.py`, so the tests do not ride into the
 # image. The cost is that this list is a second place a new module has to be added, and it
 # has already been missed once: `tags.py` arrived with the ReplayGain read and was not added

@@ -12,8 +12,18 @@ import { clientKey, hlsHeartbeatMiddleware } from '../../../src/server/middlewar
 
 const PEER = '172.18.0.4';
 
-/** Trusts the edge, as the production image does. */
+/** Trusts the edge, as the production image does, and refuses nobody. */
 const config = { get: (key: string, fallback: unknown) => (key === 'TRUST_PROXY' ? 'true' : fallback) } as AppConfig;
+
+/** The same, with an operator's refusal list on it. */
+const configRefusing = (list: string): AppConfig =>
+    ({
+        get: (key: string, fallback: unknown) => {
+            if (key === 'TRUST_PROXY') return 'true';
+            if (key === 'stream.hlsRefuseAgents') return list;
+            return fallback;
+        },
+    }) as AppConfig;
 
 /**
  * A request as Koa presents it, plus the register the middleware resolves out of the scope.
@@ -116,6 +126,50 @@ describe('hlsHeartbeatMiddleware', () => {
         expect(shared.count()).toBe(1);
         shared.seen(clientKey(second.ctx as never, true));
         expect(shared.count()).toBe(2);
+    });
+});
+
+describe('hlsHeartbeatMiddleware, refusing what the operator named', () => {
+    it('refuses a named player with 403 and never reaches the handler', async () => {
+        const { ctx, audience } = contextFor('/hls/mp3.m3u8', 'Lavf/59.27.100');
+        const next = vi.fn(async () => {});
+
+        const thrown = await hlsHeartbeatMiddleware(configRefusing('Lavf/'))(ctx as never, next).catch(
+            (error: unknown) => error as { status?: number; statusCode?: number },
+        );
+
+        expect(thrown.status ?? thrown.statusCode).toBe(403);
+        expect(next).not.toHaveBeenCalled();
+        // The point of the whole thing: a client the station refuses is not an audience, so an
+        // audience-gated station stops producing a programme for it.
+        expect(audience.count()).toBe(0);
+    });
+
+    it('serves and counts everybody the list does not name', async () => {
+        const { ctx, audience } = contextFor('/hls/mp3.m3u8', 'TuneIn Radio/42.3 (Linux;Android 17) AndroidXMedia3/1.10.1');
+
+        await hlsHeartbeatMiddleware(configRefusing('Lavf/ Go-http-client'))(ctx as never, serves(ctx));
+
+        expect(audience.count()).toBe(1);
+    });
+
+    it('refuses nothing while the setting is empty, which is every station by default', async () => {
+        const { ctx, audience } = contextFor('/hls/mp3.m3u8', 'Lavf/59.27.100');
+
+        await hlsHeartbeatMiddleware(configRefusing(''))(ctx as never, serves(ctx));
+
+        expect(audience.count()).toBe(1);
+    });
+
+    it('does not refuse a named player on a path that is not a playlist', async () => {
+        // The list is about the heartbeat, and the segments are nginx's in every real deployment.
+        // Refusing here as well would be a rule enforced in one deployment and not the other.
+        const { ctx } = contextFor('/hls/mp3_31912.mp3', 'Lavf/59.27.100');
+        const next = vi.fn(async () => {});
+
+        await hlsHeartbeatMiddleware(configRefusing('Lavf/'))(ctx as never, next);
+
+        expect(next).toHaveBeenCalledOnce();
     });
 });
 

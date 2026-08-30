@@ -92,6 +92,10 @@ import {
     PRODUCTION_KEYS,
 } from '#modules/productions/production.settings.js';
 import { AAC_BITRATES, MP3_BITRATES, OPUS_BITRATES, STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+// Deliberately NOT in `STREAM_KEYS`: that set is what `isStreamSettingKey` marks as needing the
+// stream config re-rendered and the audio chain restarted, and this one is read per request by a
+// middleware. Putting it there would bounce Liquidsoap to change a list the app alone consults.
+import { HLS_REFUSE_DEFAULT, HLS_REFUSE_KEY } from '#modules/stream/hls.refusal.js';
 import { ACTIVITY_DEFAULTS, ACTIVITY_KEYS } from '#modules/activity/activity.settings.js';
 import { DEFAULT_SWEEP_MAX_PERCENT, SWEEP_MAX_PERCENT_KEY } from '#modules/catalog/ingest/catalog.sweep.guard.js';
 
@@ -306,6 +310,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'boolean',
         default: STREAM_DEFAULTS.hlsEnabled,
         help: 'One address a player picks its own format from, instead of choosing a mount by hand. It is also the only one here that survives a phone moving between wifi and mobile: the mounts above are a single connection that dies with the network, while this is ordinary web requests a player simply retries. Costs a few seconds more delay than the mounts, and two more encoders.',
+    },
+    {
+        group: 'station',
+        key: HLS_REFUSE_KEY,
+        label: 'Players the station will not serve',
+        type: 'string',
+        default: HLS_REFUSE_DEFAULT,
+        help: 'Names from a player\'s "user agent", separated by spaces — anything matching is answered with a refusal and is not counted as a listener. Leave empty unless something is streaming that should not be: with the station set to air only while somebody is listening, one program fetching the stream around the clock keeps it broadcasting to nobody. Use the short product name, such as `Lavf/` or `Go-http-client`, so it keeps matching when that thing updates.',
     },
     {
         group: 'station',

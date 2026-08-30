@@ -2,7 +2,9 @@ import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Context } from 'koa';
 import type { ScopedContainer } from 'injectkit';
 import { ServerKitMiddleware } from '@maroonedsoftware/koa';
+import { httpError } from '@maroonedsoftware/errors';
 import { HlsAudience } from '#modules/stream/hls.audience.js';
+import { refusesAgent } from '#modules/stream/hls.refusal.js';
 import { trustsProxy } from '#modules/shared/request.trust.js';
 import { clientAddress } from './rate.limit.middleware.js';
 
@@ -22,10 +24,13 @@ import { clientAddress } from './rate.limit.middleware.js';
  * Gating the PREFIX also means a second HLS route added later is counted by
  * construction rather than by whoever remembers.
  *
- * It records and never refuses. Nothing here can fail a listener's request — a
- * heartbeat is a side effect of serving the playlist, and a station that stopped
- * serving playlists because it could not count them would have the failure exactly
- * backwards.
+ * It records and never refuses **on its own account**. Nothing about COUNTING may fail a
+ * listener's request — a heartbeat is a side effect of serving the playlist, and a station
+ * that stopped serving playlists because it could not count them would have the failure
+ * exactly backwards. The one refusal here is not that: it is the operator's own list, and
+ * it is enforced in front of the record for the reason `modules/stream/hls.refusal.ts`
+ * gives — a client the station will not serve is not an audience, and this is the only
+ * place that knows both who asked and that they asked for a playlist.
  *
  * **A heartbeat is a playlist that was SERVED**, which is why the tick is recorded
  * after the handler rather than in front of it. It used to be recorded on the way
@@ -62,6 +67,16 @@ export const hlsHeartbeatMiddleware = (config: AppConfig): ServerKitMiddleware =
 
     return async (ctx, next) => {
         const isPlaylist = ctx.path.startsWith(HLS_PATH_PREFIX) && IS_PLAYLIST.test(ctx.path);
+
+        // Whom the operator has said the station does not serve. Read per request rather than
+        // at construction, unlike `trusted` above: that is a property of the deployment and
+        // this is a list somebody edits in the console expecting it to take on the next
+        // request. 403 rather than 404 — the station knows exactly what was asked for and is
+        // declining, and a refusal that pretends to be an absence is a refusal nobody can
+        // diagnose from the far end.
+        if (isPlaylist && refusesAgent(config, ctx.req.headers['user-agent'])) {
+            throw httpError(403).withDetails({ message: 'this player is not served by this station' });
+        }
 
         // Before the tick, always: a request that throws must reach the error middleware
         // exactly as it would if nothing were counting, and a refusal is not a heartbeat,

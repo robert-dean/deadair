@@ -56,6 +56,20 @@ and the HLS count apart and re-adds them in `recount`, so neither source can ove
 arrival deliberately does NOT stamp `lastReadAt` — it is evidence somebody is there and no evidence whatever
 about Icecast.
 
+**The operator can say "not that one", and `stream.hlsRefuseAgents` is how.** A space-separated list of
+product tokens from a player's user agent; anything matching is answered 403 in
+`hls.heartbeat.middleware` before the handler, and so is never served and never counted. It exists because
+the register cannot tell a person from a program and neither can anything else here — measured on the live
+station, one client on the operator's own network pulled the MP3 variant continuously under two user agents
+(a Go fetcher and the ffmpeg reader it handed the URL to) and held an `audience`-gated station on air around
+the clock for nobody. That is not a counting bug to fix; it is a judgement only the operator can make, since
+the same user agent is a robot on one station and somebody's hi-fi on another. A SETTING rather than an
+nginx rule deliberately: the edge would need a rebuild and a recreate to change and would be invisible from
+the settings page, where whoever is wondering why their new player gets nothing is already standing. What
+that costs is the segments, which nginx serves and the app never sees — a refused player keeps the names its
+last playlist gave it and stalls within one window, because a live playlist is the only way to learn the next
+ones. `hls.refusal.ts` carries the whole argument.
+
 **That register is keyed on address plus user agent, so it is only ever as good as the address the edge
 reports.** nginx sets `X-Real-IP` to `$remote_addr` and `clientKey` reads it through `clientAddress`, which
 means that behind a tunnel or a reverse proxy every listener arrives as the SAME address and the key collapses

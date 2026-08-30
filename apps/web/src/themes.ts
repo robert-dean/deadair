@@ -216,6 +216,13 @@ const neon = consoleTheme(
  * `consoleTheme`. Those are the density argument rather than a look, and a theme that could move
  * them would be a second design language rather than the same console in another light.
  *
+ * `ConsoleSignage` is the one exception and it is a narrow one: the case and tracking of a heading
+ * and of a button, and a shadow scale. Those went into the seam because without them a theme could
+ * only ever be the same console tinted — the difference between a desk and a heads-up display is
+ * whether the legends are stencilled, not which hues they are stencilled in. The boundary is that
+ * signage is how a label is SET, while the conventions above are how the page is BUILT. A gradient,
+ * a radius scale or an input variant would be the second kind and are deliberately absent.
+ *
  * ## Carbon is the default and is not special
  *
  * It is first in this record and it is what an install with no stored preference gets, which is the

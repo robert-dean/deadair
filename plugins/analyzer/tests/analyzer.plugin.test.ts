@@ -297,6 +297,25 @@ describe('AnalyzerPlugin.testConnection', () => {
         expect(result.message).not.toMatch(/at once/);
     });
 
+    it('reports what that machine is currently holding, which is the one figure here that moves', async () => {
+        const { plugin } = await started({
+            health: { body: { status: 'ok', schemaVersion: 1, analyzer: 'deadair-analysis/0.1.0', maxConcurrent: 4, rssMb: 118.4 } },
+        });
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(true);
+        expect(result.message).toContain('Using 118.4 MB');
+    });
+
+    it('says nothing about memory an analyzer did not report, which is every one running off Linux', async () => {
+        // The sidecar omits `rssMb` where the platform will not answer, rather than reporting a
+        // figure that means something different per platform. Absent has to stay absent all the way
+        // to the sentence an operator reads.
+        const { plugin } = await started();
+
+        expect((await plugin.testConnection()).message).not.toMatch(/MB/);
+    });
+
     it('says so when there is no URL set at all', async () => {
         const { plugin } = await started({ config: { baseUrl: '' } });
         expect(await plugin.testConnection()).toEqual({ ok: false, message: 'No analyzer URL set.' });

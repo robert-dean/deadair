@@ -45,7 +45,7 @@ permissive too, or it will not be pinned.
 Cheap. Does no work, decodes nothing.
 
 ```json
-{ "status": "ok", "schemaVersion": 1, "analyzer": "deadair-analysis/0.1.0", "maxConcurrent": 4 }
+{ "status": "ok", "schemaVersion": 1, "analyzer": "deadair-analysis/0.1.0", "maxConcurrent": 4, "rssMb": 118.4 }
 ```
 
 Two callers, two purposes. The plugin's connection test uses it so the console can say "not
@@ -56,6 +56,14 @@ reason to write rows nothing can read.
 `maxConcurrent` is the decode ceiling — see `ANALYSIS_WORKERS` below. It is reported rather than
 enforced on the caller: the station repeats it on the connection test so that asking for more than
 this is visible, since the alternative is a walk that got no faster and nothing anywhere saying why.
+
+`rssMb` is this process's resident memory right now, and it is the only field here that moves between
+two calls. It is reported because a process that decodes whole records accumulates resident memory
+the allocator does not return — independent of any leak — and the symptom of that is a container
+killed hours later with nothing to attribute it to. Nothing acts on it; it exists so there is a
+baseline to compare against when the measurements get more expensive. **Optional**, and omitted off
+Linux rather than faked: `resource.getrusage` looks like the portable answer and reports the PEAK
+rather than the current figure, in kilobytes on Linux and bytes on macOS.
 
 ### `POST /analyze`
 

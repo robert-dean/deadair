@@ -568,6 +568,55 @@ def _loudness_of(samples: np.ndarray) -> dict:
     return {key: round(value, 2) for key, value in fields.items() if value is not None}
 
 
+def resident_mb_in(status: str) -> float | None:
+    """The `VmRSS` line of a `/proc/self/status` body, in megabytes.
+
+    Split from the file read and given a name of its own for one reason: the
+    container is Linux and the machine this is developed on is not, so the only
+    place this parse ever runs is the one place nobody can step through it. That
+    is exactly the shape of code that ships broken, so it takes a string and
+    `test_app.py` hands it one.
+
+    `None` for a body with no such line, which is every non-Linux kernel that
+    serves a `status` file at all, and for a line that does not parse. The
+    kernel reports kB.
+    """
+    for line in status.splitlines():
+        if not line.startswith("VmRSS:"):
+            continue
+        try:
+            return round(int(line.split()[1]) / 1024, 1)
+        except (ValueError, IndexError):
+            return None
+
+    return None
+
+
+def _resident_mb() -> float | None:
+    """This process's resident memory, or `None` where the platform will not say.
+
+    Reported because a long-running Python process that decodes whole records
+    accumulates resident memory the allocator does not return -- independent of
+    any leak in the code, and a known way for an analysis worker to grow
+    unbounded over long uptime. Nothing here acts on it. It is a reading, taken
+    now so there is a BASELINE from before the measurements get more expensive;
+    the cheap answers if it climbs are trim thresholds or recycling the worker
+    every N records, and both are much easier to justify against a number.
+
+    `/proc` rather than `resource.getrusage`, which looks like the portable
+    choice and is not: `ru_maxrss` is the PEAK rather than the current figure,
+    and it is kilobytes on Linux and bytes on macOS. A number that is plausible
+    and means something different per platform is worse than no number, so this
+    omits the field off Linux rather than guessing. The container is
+    python:3.13-slim, so the service that matters always answers.
+    """
+    try:
+        with open("/proc/self/status", encoding="utf-8") as handle:
+            return resident_mb_in(handle.read())
+    except OSError:
+        return None
+
+
 @app.get("/health")
 async def health() -> dict:
     # `maxConcurrent` is the CEILING and not a current reading, which is why it is
@@ -575,7 +624,19 @@ async def health() -> dict:
     # station reports it on its connection test, so an operator who asks for more
     # than this is told here rather than finding out from a walk that got no
     # faster. See WORKERS.
-    return {"status": "ok", "schemaVersion": SCHEMA_VERSION, "analyzer": ANALYZER, "maxConcurrent": WORKERS}
+    #
+    # `rssMb` is the opposite kind of number -- a reading of right now, and the
+    # only one here that moves between two calls. Omitted rather than faked where
+    # the platform will not answer. See `_resident_mb`.
+    resident = _resident_mb()
+
+    return {
+        "status": "ok",
+        "schemaVersion": SCHEMA_VERSION,
+        "analyzer": ANALYZER,
+        "maxConcurrent": WORKERS,
+        **({} if resident is None else {"rssMb": resident}),
+    }
 
 
 @app.post("/analyze")

@@ -22,6 +22,8 @@ interface AnalyzeResponse {
     analyzer?: string;
     /** `/health` only: the most this analyzer will decode at once. See {@link AnalyzerPlugin.testConnection}. */
     maxConcurrent?: number;
+    /** `/health` only: what that machine is holding right now, where it will say. Absent off Linux. */
+    rssMb?: number;
     complete?: boolean;
     durationMs?: number;
     data?: Record<string, unknown>;
@@ -108,6 +110,17 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
         const ceiling =
             typeof body?.maxConcurrent === 'number' && body.maxConcurrent > 0 ? ` It will measure up to ${body.maxConcurrent} at once.` : '';
 
+        // What that machine is currently holding, which is the one figure here that
+        // moves between two calls. Optional exactly as the ceiling is, and for a
+        // second reason on top of its own: the analyzer omits it off Linux rather
+        // than reporting a number that means something different per platform.
+        //
+        // Worth putting in front of an operator at all because the failure it
+        // belongs to is invisible from the station's side — a decode-heavy process
+        // grows resident memory the allocator never gives back, and the symptom is
+        // a container that is killed hours later with nothing to attribute it to.
+        const resident = typeof body?.rssMb === 'number' && body.rssMb > 0 ? ` Using ${body.rssMb} MB.` : '';
+
         // A version mismatch is reported here rather than at analysis time,
         // because this is the one moment an operator is looking at the answer. A
         // newer analyzer is not refused — the host stores what it is told and its
@@ -116,11 +129,11 @@ export class AnalyzerPlugin extends Plugin implements AnalysisProvider, MixerPro
         if (typeof version === 'number' && version !== ANALYSIS_SCHEMA_VERSION) {
             return {
                 ok: true,
-                message: `Connected to ${analyzer}, which measures schema v${version} where this station reads v${ANALYSIS_SCHEMA_VERSION}. Measurements may be stored and then ignored.${ceiling}`,
+                message: `Connected to ${analyzer}, which measures schema v${version} where this station reads v${ANALYSIS_SCHEMA_VERSION}. Measurements may be stored and then ignored.${ceiling}${resident}`,
             };
         }
 
-        return { ok: true, message: `Connected to ${analyzer}.${ceiling}` };
+        return { ok: true, message: `Connected to ${analyzer}.${ceiling}${resident}` };
     }
 
     async analyzeTrack(ref: AnalysisRef): Promise<TrackAnalysis> {

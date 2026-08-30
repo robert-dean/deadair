@@ -40,6 +40,28 @@
     --da-phosphor-glow: rgb(47 217 140 / 35%);
     --da-tally-glow: rgb(255 75 75 / 40%);
 
+    /* What a LINK is drawn in, which is the accent on two of the three consoles and deliberately not
+       on the third. A title in the running order, an artist credit and every entry in the settings
+       rail all go through `Anchor` with no colour of their own, so this one name decides the colour
+       of most of the words on a dense page — which is exactly why it is separable from the accent
+       rather than being it. */
+    --da-link: var(--da-phosphor);
+
+    /* Mantine's light VARIANT for the accent: a tinted surface with the accent's own ink on it.
+     *
+     * These three are Mantine's own computation from each theme's `phosphor` tuple, written down so
+     * that one console can disagree with it. The pinning is the cost of that: `cssVariablesResolver`
+     * publishes all three themes through one set of names, and a name only some themes define
+     * resolves to nothing on the rest — so carbon and Studio White state what they already had, hex
+     * for hex, and if either one's `phosphor` tuple moves, its three values here move with it.
+     *
+     * The reason this became worth a token at all is in the neon block: a light variant is the
+     * accent blended toward the background, and a yellow blended toward black is olive. Green and
+     * printer's green survive that blend. Yellow does not. */
+    --da-accent-light: rgb(1 40 23);
+    --da-accent-light-hover: rgb(1 56 31);
+    --da-accent-light-color: #e3fbf1;
+
     /* The lamp the desk is lit by: the far end of the body gradient, which recedes into `--da-bg`. */
     --da-bg-glow: #10130f;
 
@@ -105,6 +127,13 @@
     --da-phosphor-glow: rgb(14 114 71 / 18%);
     --da-tally-glow: rgb(200 31 34 / 28%);
 
+    /* The same three, and the mirror of carbon's: on paper a light variant is a pale tint carrying
+       dark ink rather than a dark tint carrying light ink. `--da-link` is not restated because the
+       inherited `var(--da-phosphor)` already answers this theme's printer's green. */
+    --da-accent-light: #c3e0d3;
+    --da-accent-light-hover: #8ec9b1;
+    --da-accent-light-color: #042a1a;
+
     --da-bg-glow: #fbf9f4;
     /* Dark on light, and fainter than carbon's: a rule 1px in 3 reads much louder on paper. */
     --da-texture: rgb(24 22 15 / 3%);
@@ -142,6 +171,26 @@
        reads as a highlighter rather than as a lamp. */
     --da-phosphor-glow: rgb(252 238 10 / 28%);
     --da-tally-glow: rgb(255 30 70 / 50%);
+
+    /* The city, not the instrument. This is the one console where a link is not the accent, and the
+       reason is a count rather than a taste: a running order draws every title and every artist
+       through `Anchor`, and the settings rail draws its whole contents that way, so at #fcee0a most
+       of the words on the densest page in the console were the brightest thing on it. Yellow is far
+       more luminous than carbon's green at the same saturation, so what reads as an accent there
+       reads as a page of highlighter here.
+       Cyan takes the job, which is also what puts the theme's two colours where they belong: yellow
+       is what you PRESS or have SELECTED, cyan is what you can go and read. */
+    --da-link: #05deff;
+
+    /* A light variant is the accent blended toward the background, and a yellow blended toward black
+       is olive — `rgb(44 40 0)` was the measured result, on the Library button, on Replan, on Take a
+       call and on every `hosted by` badge. No amount of tuning fixes that: dark yellow IS mud.
+       So the surface takes the theme's other colour and the ink stays the accent. Yellow on dark
+       teal is the same pairing as the glow, it keeps the control unmistakably the accent's, and it
+       is the only reading of "light variant" that survives this palette. */
+    --da-accent-light: #052730;
+    --da-accent-light-hover: #073642;
+    --da-accent-light-color: #fcee0a;
 
     /* Two corners rather than one, which is why `--da-backdrop` exists: this console is not lit by
        its own lamps, it is lit by the street outside — cyan overhead, magenta from below and to the

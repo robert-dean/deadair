@@ -351,6 +351,27 @@ export const cssVariablesResolver: CSSVariablesResolver = () => {
         '--mantine-color-dimmed': 'var(--da-text-dimmed)',
         '--mantine-color-text': 'var(--da-text)',
         '--mantine-color-placeholder': 'var(--da-text-dimmed)',
+        // What a link is, and what the accent's light variant is. Both are things Mantine DERIVES
+        // from the accent tuple, and both are derivations a console has to be able to refuse: see
+        // `--da-link` and `--da-accent-light` in `tokens.css` for the two measurements that made
+        // that necessary.
+        //
+        // All three accent names are listed because `consoleTheme` aliases `teal` and `green` to
+        // `phosphor`, so Mantine emits three identical families and a `color="teal"` — which is what
+        // the whole status vocabulary writes for `ok` — would otherwise keep the derived value while
+        // its neighbours took the theme's.
+        '--mantine-color-anchor': 'var(--da-link)',
+        ...Object.fromEntries(
+            ['phosphor', 'teal', 'green'].flatMap(name => [
+                [`--mantine-color-${name}-light`, 'var(--da-accent-light)'],
+                [`--mantine-color-${name}-light-hover`, 'var(--da-accent-light-hover)'],
+                [`--mantine-color-${name}-light-color`, 'var(--da-accent-light-color)'],
+            ]),
+        ),
+        // The same values again under the name a component with no `color` at all resolves through.
+        '--mantine-primary-color-light': 'var(--da-accent-light)',
+        '--mantine-primary-color-light-hover': 'var(--da-accent-light-hover)',
+        '--mantine-primary-color-light-color': 'var(--da-accent-light-color)',
     };
     return { variables: {}, light: surfaces, dark: surfaces };
 };

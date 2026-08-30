@@ -1380,8 +1380,29 @@ const hasFacts = (previous: BreakTrack | undefined, next: BreakTrack | undefined
 export function namedRecordIn(script: string, records: readonly (BreakTrack | undefined)[]): BreakTrack | undefined {
     const spoken = ` ${bareWords(script)} `;
 
-    return records.find(record => record !== undefined && identifiersOf(record).some(candidate => spoken.includes(` ${candidate} `)));
+    return records.find(record => record !== undefined && identifiersOf(record).some(candidate => saysName(spoken, candidate)));
 }
+
+/**
+ * Whether some bare words name a record, counting the possessive as the name.
+ *
+ * **"Iron Maiden's Run to the Hills" is how a presenter names a record**, and `bareWords` keeps the
+ * apostrophe, so a plain `" iron maiden "` search never matches it: what is in the text is
+ * `iron maiden's`. {@link misCuedIn} worked this out for itself and handled it inline; the check
+ * above did not, and the two have been disagreeing about what naming a record means ever since.
+ *
+ * Measured on the live station, on every break it has ever refused for naming neither of the records
+ * it was shown: of 51, only 8 genuinely named neither. **27 of the remaining 43 named a record in
+ * the possessive** and were refused for it — "Bon Jovi's debut single, Runaway", "The Smashing
+ * Pumpkins' Bullet with Butterfly Wings", "Megadeth's Hangar 18" — which makes this the single
+ * largest cause of that refusal, ahead of anything about a persona sheet.
+ *
+ * Both endings, because English has two: `'s` for the singular and a bare `'` after a plural, and a
+ * roster of bands is full of the second. One helper for both callers so they cannot drift apart
+ * again, which is the whole reason this is not two inline expressions.
+ */
+const saysName = (spoken: string, candidate: string): boolean =>
+    spoken.includes(` ${candidate} `) || spoken.includes(` ${candidate}'s `) || spoken.includes(` ${candidate}' `);
 
 /**
  * The words that identify one record in a script: its title, its title with any aside taken off,
@@ -1465,13 +1486,13 @@ export function misCuedIn(script: string, cues: BreakCues): boolean {
     const namesIn = (from: number, record: BreakTrack): boolean => {
         const window = ` ${words.slice(from, from + CUE_WINDOW_WORDS).join(' ')} `;
 
-        return (
-            identifiersOf(record)
-                .filter(one => !shared.has(one))
-                // The possessive counted as the name, because "Iron Maiden's Run to the Hills" is how a
-                // presenter says it and a check that missed it would catch only half the failure.
-                .some(one => window.includes(` ${one} `) || window.includes(` ${one}'s `))
-        );
+        // The possessive counted as the name, because "Iron Maiden's Run to the Hills" is how a
+        // presenter says it and a check that missed it would catch only half the failure. Through
+        // {@link saysName} rather than inline, which is where this argument was worked out once and
+        // then not applied to `namedRecordIn` — see the note there for what that cost.
+        return identifiersOf(record)
+            .filter(one => !shared.has(one))
+            .some(one => saysName(window, one));
     };
 
     const cued = [

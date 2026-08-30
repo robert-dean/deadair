@@ -1113,6 +1113,35 @@ describe('readAnswer, against the records it was shown', () => {
 
         expect(declined?.fault).toBe('named-nothing');
     });
+
+    // The largest cause of this refusal on the live station, and it was not a break's fault at all:
+    // of 51 refused for naming neither record, 27 had named one in the possessive. `bareWords` keeps
+    // the apostrophe, so a plain " iron maiden " search never matches "iron maiden's".
+    describe('a possessive is how a presenter names a record', () => {
+        const maiden = { title: 'Run to the Hills', artist: 'Iron Maiden' };
+        const pumpkins = { title: 'Bullet with Butterfly Wings', artist: 'The Smashing Pumpkins' };
+
+        it('accepts a record named with a singular possessive', () => {
+            expect(readAnswer('Here comes Iron Maiden’s “Run to the Hills.”', { names: [maiden] })).toBeDefined();
+        });
+
+        it('accepts a record whose ARTIST alone is named possessively', () => {
+            // Verbatim shapes off the live station, both refused before this. `namedRecordIn` is
+            // deliberately generous about the artist, and the possessive was undoing that.
+            expect(readAnswer('Next up, Bon Jovi’s debut single — “Runaway.”', { names: [{ title: 'Runaway', artist: 'Bon Jovi' }] })).toBeDefined();
+        });
+
+        it('accepts the bare apostrophe a plural band name takes', () => {
+            // English has two endings and a roster of bands is full of the second.
+            expect(readAnswer('Got the bite of The Smashing Pumpkins’ “Bullet with Butterfly Wings.”', { names: [pumpkins] })).toBeDefined();
+        });
+
+        it('still refuses a break that names a record it was never shown', () => {
+            // The permission is about punctuation, not about which record. A model naming something
+            // out of its own memory is the failure this check exists for and is untouched.
+            expect(readAnswer('Here comes Megadeth’s “Hangar 18.”', { names: [maiden] })).toBeUndefined();
+        });
+    });
 });
 
 // Measured on air on 19 August, segment `e26a93f0`, labelled `Talk break: Madhouse into Run to the

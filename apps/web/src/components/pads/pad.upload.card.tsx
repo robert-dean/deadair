@@ -109,64 +109,68 @@ export function PadUploadCard({ sets }: { sets: PadSet[] }) {
 
                 {staged.length === 0 ? undefined : (
                     <>
-                        <Table verticalSpacing="xs">
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>File</Table.Th>
-                                    <Table.Th>What a script will write</Table.Th>
-                                    <Table.Th>Name</Table.Th>
-                                    <Table.Th />
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {staged.map((one, index) => (
-                                    <Table.Tr key={`${one.file.name}-${index}`}>
-                                        <Table.Td>
-                                            <Text size="xs" c="dimmed">
-                                                {one.file.name}
-                                            </Text>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Group gap="xs" wrap="nowrap">
-                                                <Badge
-                                                    variant="light"
-                                                    color="grape"
-                                                    styles={{ label: { fontFamily: 'var(--mantine-font-family-monospace)', textTransform: 'none' } }}
-                                                >
-                                                    [sfx:{one.name || '…'}]
-                                                </Badge>
+                        <Table.ScrollContainer minWidth={560}>
+                            <Table verticalSpacing="xs">
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>File</Table.Th>
+                                        <Table.Th>What a script will write</Table.Th>
+                                        <Table.Th>Name</Table.Th>
+                                        <Table.Th />
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {staged.map((one, index) => (
+                                        <Table.Tr key={`${one.file.name}-${index}`}>
+                                            <Table.Td>
+                                                <Text size="xs" c="dimmed">
+                                                    {one.file.name}
+                                                </Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Group gap="xs" wrap="nowrap">
+                                                    <Badge
+                                                        variant="light"
+                                                        color="grape"
+                                                        styles={{
+                                                            label: { fontFamily: 'var(--mantine-font-family-monospace)', textTransform: 'none' },
+                                                        }}
+                                                    >
+                                                        [sfx:{one.name || '…'}]
+                                                    </Badge>
+                                                    <TextInput
+                                                        size="xs"
+                                                        aria-label={`Name for ${one.file.name}`}
+                                                        value={one.name}
+                                                        onChange={event => amend(setStaged, index, { name: tokenOf(event.currentTarget.value) })}
+                                                    />
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
                                                 <TextInput
                                                     size="xs"
-                                                    aria-label={`Name for ${one.file.name}`}
-                                                    value={one.name}
-                                                    onChange={event => amend(setStaged, index, { name: tokenOf(event.currentTarget.value) })}
+                                                    aria-label={`Label for ${one.file.name}`}
+                                                    value={one.label}
+                                                    onChange={event => amend(setStaged, index, { label: event.currentTarget.value })}
                                                 />
-                                            </Group>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <TextInput
-                                                size="xs"
-                                                aria-label={`Label for ${one.file.name}`}
-                                                value={one.label}
-                                                onChange={event => amend(setStaged, index, { label: event.currentTarget.value })}
-                                            />
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Tooltip label="Take it off the list">
-                                                <ActionIcon
-                                                    variant="subtle"
-                                                    color="red"
-                                                    aria-label={`Discard ${one.file.name}`}
-                                                    onClick={() => setStaged(held => held.filter((_, at) => at !== index))}
-                                                >
-                                                    <IconTrash size={16} />
-                                                </ActionIcon>
-                                            </Tooltip>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
-                            </Table.Tbody>
-                        </Table>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Tooltip label="Take it off the list">
+                                                    <ActionIcon
+                                                        variant="subtle"
+                                                        color="red"
+                                                        aria-label={`Discard ${one.file.name}`}
+                                                        onClick={() => setStaged(held => held.filter((_, at) => at !== index))}
+                                                    >
+                                                        <IconTrash size={16} />
+                                                    </ActionIcon>
+                                                </Tooltip>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
+                        </Table.ScrollContainer>
 
                         <Group justify="flex-end">
                             <Button variant="default" onClick={() => setStaged([])} disabled={upload.isPending}>

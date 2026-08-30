@@ -218,80 +218,82 @@ function SetList({
                 </Text>
 
                 {sets.length === 0 ? undefined : (
-                    <Table verticalSpacing="xs">
-                        <Table.Tbody>
-                            {sets.map(set => (
-                                <Table.Tr key={set.id}>
-                                    <Table.Td>
-                                        {editing?.id === set.id ? (
-                                            <TextInput
-                                                size="xs"
-                                                value={editing.key}
-                                                onChange={event => setEditing({ id: set.id, key: event.currentTarget.value })}
-                                                onKeyDown={event => (event.key === 'Enter' ? void save() : undefined)}
-                                            />
-                                        ) : (
-                                            <Badge variant="light" styles={{ label: { textTransform: 'none' } }}>
-                                                {set.key}
-                                            </Badge>
-                                        )}
-                                    </Table.Td>
-                                    <Table.Td className="da-num">
-                                        <Text size="sm" c="dimmed">
-                                            {set.pads} {set.pads === 1 ? 'sound' : 'sounds'}
-                                        </Text>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Text size="xs" c={set.personas.length === 0 ? 'dimmed' : undefined}>
-                                            {set.personas.length === 0 ? 'nobody is pointed at it' : set.personas.join(', ')}
-                                        </Text>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Group gap="xs" justify="flex-end" wrap="nowrap">
+                    <Table.ScrollContainer minWidth={520}>
+                        <Table verticalSpacing="xs">
+                            <Table.Tbody>
+                                {sets.map(set => (
+                                    <Table.Tr key={set.id}>
+                                        <Table.Td>
                                             {editing?.id === set.id ? (
-                                                <>
-                                                    <ActionIcon variant="subtle" aria-label="Save" onClick={() => void save()}>
-                                                        <IconCheck size={16} />
-                                                    </ActionIcon>
-                                                    <ActionIcon variant="subtle" aria-label="Cancel" onClick={() => setEditing(undefined)}>
-                                                        <IconX size={16} />
-                                                    </ActionIcon>
-                                                </>
+                                                <TextInput
+                                                    size="xs"
+                                                    value={editing.key}
+                                                    onChange={event => setEditing({ id: set.id, key: event.currentTarget.value })}
+                                                    onKeyDown={event => (event.key === 'Enter' ? void save() : undefined)}
+                                                />
                                             ) : (
-                                                <>
-                                                    <Tooltip
-                                                        label={
-                                                            set.personas.length === 0
-                                                                ? 'Rename this set'
-                                                                : `Renaming unpoints ${set.personas.join(', ')} — a persona names a set by its name`
-                                                        }
-                                                    >
-                                                        <ActionIcon
-                                                            variant="subtle"
-                                                            aria-label={`Rename ${set.key}`}
-                                                            onClick={() => setEditing({ id: set.id, key: set.key })}
-                                                        >
-                                                            <IconPencil size={16} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                    <Tooltip label="Remove the set. Every sound on it stays in the library.">
-                                                        <ActionIcon
-                                                            variant="subtle"
-                                                            color="red"
-                                                            aria-label={`Delete ${set.key}`}
-                                                            onClick={() => setDeleting(set)}
-                                                        >
-                                                            <IconTrash size={16} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                </>
+                                                <Badge variant="light" styles={{ label: { textTransform: 'none' } }}>
+                                                    {set.key}
+                                                </Badge>
                                             )}
-                                        </Group>
-                                    </Table.Td>
-                                </Table.Tr>
-                            ))}
-                        </Table.Tbody>
-                    </Table>
+                                        </Table.Td>
+                                        <Table.Td className="da-num">
+                                            <Text size="sm" c="dimmed">
+                                                {set.pads} {set.pads === 1 ? 'sound' : 'sounds'}
+                                            </Text>
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <Text size="xs" c={set.personas.length === 0 ? 'dimmed' : undefined}>
+                                                {set.personas.length === 0 ? 'nobody is pointed at it' : set.personas.join(', ')}
+                                            </Text>
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <Group gap="xs" justify="flex-end" wrap="nowrap">
+                                                {editing?.id === set.id ? (
+                                                    <>
+                                                        <ActionIcon variant="subtle" aria-label="Save" onClick={() => void save()}>
+                                                            <IconCheck size={16} />
+                                                        </ActionIcon>
+                                                        <ActionIcon variant="subtle" aria-label="Cancel" onClick={() => setEditing(undefined)}>
+                                                            <IconX size={16} />
+                                                        </ActionIcon>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Tooltip
+                                                            label={
+                                                                set.personas.length === 0
+                                                                    ? 'Rename this set'
+                                                                    : `Renaming unpoints ${set.personas.join(', ')} — a persona names a set by its name`
+                                                            }
+                                                        >
+                                                            <ActionIcon
+                                                                variant="subtle"
+                                                                aria-label={`Rename ${set.key}`}
+                                                                onClick={() => setEditing({ id: set.id, key: set.key })}
+                                                            >
+                                                                <IconPencil size={16} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                        <Tooltip label="Remove the set. Every sound on it stays in the library.">
+                                                            <ActionIcon
+                                                                variant="subtle"
+                                                                color="red"
+                                                                aria-label={`Delete ${set.key}`}
+                                                                onClick={() => setDeleting(set)}
+                                                            >
+                                                                <IconTrash size={16} />
+                                                            </ActionIcon>
+                                                        </Tooltip>
+                                                    </>
+                                                )}
+                                            </Group>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ))}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
                 )}
 
                 <Group gap="xs">
@@ -339,130 +341,137 @@ interface PadTableProps {
 
 function PadTable({ pads, sets, preview, onToggle, onReject, onRestore, onDelete }: PadTableProps) {
     return (
-        <Table verticalSpacing="xs" highlightOnHover>
-            <Table.Thead>
-                <Table.Tr>
-                    <Table.Th>What a script writes</Table.Th>
-                    <Table.Th>Name</Table.Th>
-                    <Table.Th className="da-num">Length</Table.Th>
-                    <Table.Th className="da-num">Loudness</Table.Th>
-                    <Table.Th>Last hit</Table.Th>
-                    {sets.map(set => (
-                        <Table.Th key={set.id} style={{ textAlign: 'center' }}>
-                            <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                                {set.key}
-                            </Text>
-                        </Table.Th>
-                    ))}
-                    <Table.Th />
-                </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-                {pads.map(pad => (
-                    <Table.Tr key={pad.id}>
-                        <Table.Td>
-                            {/* Exactly as it has to be written, because this is the string a model is
-                                offered and the only spelling the answer parser will find. */}
-                            <Badge
-                                variant="light"
-                                color="grape"
-                                // `tt: none` because a Badge upper-cases by default, and this column
-                                // is titled "what a script writes": showing [SFX:RIMSHOT] for a token
-                                // that is lower-case is the one thing this cell must not do.
-                                styles={{ label: { fontFamily: 'var(--mantine-font-family-monospace)', textTransform: 'none' } }}
-                            >
-                                [sfx:{pad.name}]
-                            </Badge>
-                        </Table.Td>
-                        <Table.Td>
-                            <Text size="sm">{pad.label}</Text>
-                            {pad.sourcePath ? (
-                                <Text size="xs" c="dimmed">
-                                    {pad.sourcePath}
+        <Table.ScrollContainer minWidth={700}>
+            <Table verticalSpacing="xs" highlightOnHover>
+                <Table.Thead>
+                    <Table.Tr>
+                        <Table.Th>What a script writes</Table.Th>
+                        <Table.Th>Name</Table.Th>
+                        <Table.Th className="da-num">Length</Table.Th>
+                        <Table.Th className="da-num">Loudness</Table.Th>
+                        <Table.Th>Last hit</Table.Th>
+                        {sets.map(set => (
+                            <Table.Th key={set.id} style={{ textAlign: 'center' }}>
+                                <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                                    {set.key}
                                 </Text>
-                            ) : undefined}
-                        </Table.Td>
-                        <Table.Td className="da-num">{pad.durationMs === undefined ? '—' : `${(pad.durationMs / 1000).toFixed(1)}s`}</Table.Td>
-                        <Table.Td className="da-num">
-                            {pad.loudnessLufs === undefined ? (
-                                <Tooltip label="Nothing measured it. A sound under about half a second produces no loudness reading at all, which is most drops.">
-                                    <Text size="sm" c="dimmed">
-                                        —
+                            </Table.Th>
+                        ))}
+                        <Table.Th />
+                    </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                    {pads.map(pad => (
+                        <Table.Tr key={pad.id}>
+                            <Table.Td>
+                                {/* Exactly as it has to be written, because this is the string a model is
+                                offered and the only spelling the answer parser will find. */}
+                                <Badge
+                                    variant="light"
+                                    color="grape"
+                                    // `tt: none` because a Badge upper-cases by default, and this column
+                                    // is titled "what a script writes": showing [SFX:RIMSHOT] for a token
+                                    // that is lower-case is the one thing this cell must not do.
+                                    styles={{ label: { fontFamily: 'var(--mantine-font-family-monospace)', textTransform: 'none' } }}
+                                >
+                                    [sfx:{pad.name}]
+                                </Badge>
+                            </Table.Td>
+                            <Table.Td>
+                                <Text size="sm">{pad.label}</Text>
+                                {pad.sourcePath ? (
+                                    <Text size="xs" c="dimmed">
+                                        {pad.sourcePath}
                                     </Text>
-                                </Tooltip>
-                            ) : (
-                                `${pad.loudnessLufs.toFixed(1)} LUFS`
-                            )}
-                        </Table.Td>
-                        <Table.Td>
-                            {/* The feed's own stamp rather than a second way of writing a time. A pad
+                                ) : undefined}
+                            </Table.Td>
+                            <Table.Td className="da-num">{pad.durationMs === undefined ? '—' : `${(pad.durationMs / 1000).toFixed(1)}s`}</Table.Td>
+                            <Table.Td className="da-num">
+                                {pad.loudnessLufs === undefined ? (
+                                    <Tooltip label="Nothing measured it. A sound under about half a second produces no loudness reading at all, which is most drops.">
+                                        <Text size="sm" c="dimmed">
+                                            —
+                                        </Text>
+                                    </Tooltip>
+                                ) : (
+                                    `${pad.loudnessLufs.toFixed(1)} LUFS`
+                                )}
+                            </Table.Td>
+                            <Table.Td>
+                                {/* The feed's own stamp rather than a second way of writing a time. A pad
                                 nobody has reached for says so in words, because "—" here would read
                                 as a value the station failed to record. */}
-                            {pad.lastUsedAt === undefined ? (
-                                <Text size="xs" c="dimmed">
-                                    never
-                                </Text>
-                            ) : (
-                                <FeedMoment at={pad.lastUsedAt} />
-                            )}
-                        </Table.Td>
-                        {sets.map(set => (
-                            <Table.Td key={set.id} style={{ textAlign: 'center' }}>
-                                <Checkbox
-                                    size="xs"
-                                    checked={pad.sets.includes(set.key)}
-                                    aria-label={`${pad.name} on ${set.key}`}
-                                    onChange={event => onToggle?.(set.id, pad.id, event.currentTarget.checked)}
-                                />
+                                {pad.lastUsedAt === undefined ? (
+                                    <Text size="xs" c="dimmed">
+                                        never
+                                    </Text>
+                                ) : (
+                                    <FeedMoment at={pad.lastUsedAt} />
+                                )}
                             </Table.Td>
-                        ))}
-                        <Table.Td>
-                            <Group gap="xs" justify="flex-end" wrap="nowrap">
-                                <Tooltip label="Hear it">
-                                    <ActionIcon
-                                        variant="subtle"
-                                        aria-label={`Play ${pad.label}`}
-                                        loading={preview.isLoading(pad.id)}
-                                        onClick={() => preview.play(pad.id, () => fetchPadAudio(pad.id), 'That pad would not play.')}
-                                    >
-                                        {preview.isPlaying(pad.id) ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlay size={16} />}
-                                    </ActionIcon>
-                                </Tooltip>
-                                <Tooltip label="Download the file">
-                                    <ActionIcon variant="subtle" aria-label={`Download ${pad.label}`} onClick={() => void download(pad)}>
-                                        <IconDownload size={16} />
-                                    </ActionIcon>
-                                </Tooltip>
-                                {onReject ? (
-                                    <Tooltip label="Take it out of use. Kept, so the next scan does not put it back.">
-                                        <ActionIcon variant="subtle" color="red" aria-label={`Reject ${pad.label}`} onClick={() => onReject(pad.id)}>
-                                            <IconX size={16} />
+                            {sets.map(set => (
+                                <Table.Td key={set.id} style={{ textAlign: 'center' }}>
+                                    <Checkbox
+                                        size="xs"
+                                        checked={pad.sets.includes(set.key)}
+                                        aria-label={`${pad.name} on ${set.key}`}
+                                        onChange={event => onToggle?.(set.id, pad.id, event.currentTarget.checked)}
+                                    />
+                                </Table.Td>
+                            ))}
+                            <Table.Td>
+                                <Group gap="xs" justify="flex-end" wrap="nowrap">
+                                    <Tooltip label="Hear it">
+                                        <ActionIcon
+                                            variant="subtle"
+                                            aria-label={`Play ${pad.label}`}
+                                            loading={preview.isLoading(pad.id)}
+                                            onClick={() => preview.play(pad.id, () => fetchPadAudio(pad.id), 'That pad would not play.')}
+                                        >
+                                            {preview.isPlaying(pad.id) ? <IconPlayerPauseFilled size={16} /> : <IconPlayerPlay size={16} />}
                                         </ActionIcon>
                                     </Tooltip>
-                                ) : undefined}
-                                {onRestore ? (
-                                    <Tooltip label="Put it back in use">
-                                        <ActionIcon variant="subtle" aria-label={`Restore ${pad.label}`} onClick={() => onRestore(pad.id)}>
-                                            <IconRotate size={16} />
+                                    <Tooltip label="Download the file">
+                                        <ActionIcon variant="subtle" aria-label={`Download ${pad.label}`} onClick={() => void download(pad)}>
+                                            <IconDownload size={16} />
                                         </ActionIcon>
                                     </Tooltip>
-                                ) : undefined}
-                                {/* Only for a file this console wrote. One the operator dropped in
+                                    {onReject ? (
+                                        <Tooltip label="Take it out of use. Kept, so the next scan does not put it back.">
+                                            <ActionIcon
+                                                variant="subtle"
+                                                color="red"
+                                                aria-label={`Reject ${pad.label}`}
+                                                onClick={() => onReject(pad.id)}
+                                            >
+                                                <IconX size={16} />
+                                            </ActionIcon>
+                                        </Tooltip>
+                                    ) : undefined}
+                                    {onRestore ? (
+                                        <Tooltip label="Put it back in use">
+                                            <ActionIcon variant="subtle" aria-label={`Restore ${pad.label}`} onClick={() => onRestore(pad.id)}>
+                                                <IconRotate size={16} />
+                                            </ActionIcon>
+                                        </Tooltip>
+                                    ) : undefined}
+                                    {/* Only for a file this console wrote. One the operator dropped in
                                     themselves is theirs, and deleting the row would only bring it
                                     back on the next scan; the reject above is the answer there. */}
-                                {onDelete && pad.source !== 'library' ? (
-                                    <Tooltip label="Delete it, and the file that was written for it">
-                                        <ActionIcon variant="subtle" color="red" aria-label={`Delete ${pad.label}`} onClick={() => onDelete(pad)}>
-                                            <IconTrash size={16} />
-                                        </ActionIcon>
-                                    </Tooltip>
-                                ) : undefined}
-                            </Group>
-                        </Table.Td>
-                    </Table.Tr>
-                ))}
-            </Table.Tbody>
-        </Table>
+                                    {onDelete && pad.source !== 'library' ? (
+                                        <Tooltip label="Delete it, and the file that was written for it">
+                                            <ActionIcon variant="subtle" color="red" aria-label={`Delete ${pad.label}`} onClick={() => onDelete(pad)}>
+                                                <IconTrash size={16} />
+                                            </ActionIcon>
+                                        </Tooltip>
+                                    ) : undefined}
+                                </Group>
+                            </Table.Td>
+                        </Table.Tr>
+                    ))}
+                </Table.Tbody>
+            </Table>
+        </Table.ScrollContainer>
     );
 }
 

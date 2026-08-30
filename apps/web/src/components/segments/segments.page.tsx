@@ -168,102 +168,104 @@ function SegmentTable({ segments, onDelete }: { segments: Segment[]; onDelete?: 
     const preview = useVoicePreview();
 
     return (
-        <Table highlightOnHover>
-            <Table.Thead>
-                <Table.Tr>
-                    <Table.Th w={44} />
-                    {/* Wide enough for a real label. Left to share the row with the script, a
+        <Table.ScrollContainer minWidth={800}>
+            <Table highlightOnHover>
+                <Table.Thead>
+                    <Table.Tr>
+                        <Table.Th w={44} />
+                        {/* Wide enough for a real label. Left to share the row with the script, a
                         generated one like "Open line: the last word (7/7)" wraps to five lines and
                         makes every row four times as tall as the sentence beside it. */}
-                    <Table.Th w={220}>Label</Table.Th>
-                    <Table.Th>Script</Table.Th>
-                    <Table.Th w={130}>State</Table.Th>
-                    <Table.Th w={110}>Voice</Table.Th>
-                    <Table.Th w={90}>Length</Table.Th>
-                    <Table.Th w={44} />
-                </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-                {segments.map(segment => {
-                    const failure = preview.failureFor(segment.id);
+                        <Table.Th w={220}>Label</Table.Th>
+                        <Table.Th>Script</Table.Th>
+                        <Table.Th w={130}>State</Table.Th>
+                        <Table.Th w={110}>Voice</Table.Th>
+                        <Table.Th w={90}>Length</Table.Th>
+                        <Table.Th w={44} />
+                    </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                    {segments.map(segment => {
+                        const failure = preview.failureFor(segment.id);
 
-                    return (
-                        <Table.Tr key={segment.id}>
-                            <Table.Td>
-                                {/* Only where there is audio to play. `playable` is the row's own
+                        return (
+                            <Table.Tr key={segment.id}>
+                                <Table.Td>
+                                    {/* Only where there is audio to play. `playable` is the row's own
                                     answer to that, so a segment still being rendered offers no
                                     button rather than one that 404s. */}
-                                {segment.playable ? (
-                                    <ActionIcon
-                                        variant="subtle"
-                                        size="sm"
-                                        aria-label={`Play ${segment.label}`}
-                                        loading={preview.isLoading(segment.id)}
-                                        onClick={() => {
-                                            preview.play(segment.id, () => fetchSegmentAudio(segment.id), 'That segment would not play.');
-                                        }}
-                                    >
-                                        {preview.isPlaying(segment.id) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
-                                    </ActionIcon>
-                                ) : undefined}
-                            </Table.Td>
-                            <Table.Td>
-                                <Text size="sm">{segment.label}</Text>
-                                <Text size="xs" c="dimmed">
-                                    {segment.source}
-                                </Text>
-                                {failure === undefined ? undefined : (
-                                    <Text size="xs" c="red.4">
-                                        {failure}
-                                    </Text>
-                                )}
-                            </Table.Td>
-                            <Table.Td>
-                                <Text size="sm" c="dimmed" lineClamp={2}>
-                                    {segment.script ?? '—'}
-                                </Text>
-                            </Table.Td>
-                            <Table.Td>
-                                <StatusLamp tone={STATE_TONE[segment.state] ?? 'standby'} label={segment.state} />
-                                {/* The reason it failed, which is the only thing that makes a failed
-                                    row actionable: there is no retry button, so what is left is
-                                    knowing what to fix. */}
-                                {segment.error === undefined ? undefined : (
-                                    <Text size="xs" c="red.4" lineClamp={2}>
-                                        {segment.error}
-                                    </Text>
-                                )}
-                            </Table.Td>
-                            <Table.Td>
-                                <Text size="xs" c="dimmed">
-                                    {segment.voice ?? 'default'}
-                                </Text>
-                            </Table.Td>
-                            <Table.Td className="da-num">{segment.durationMs === undefined ? '—' : formatDuration(segment.durationMs)}</Table.Td>
-                            <Table.Td>
-                                {/* Only for a recording the station was GIVEN. Anything it wrote and
-                                    spoke for itself is named by the running order and recorded in
-                                    the script history, and the way to have it again is a re-render
-                                    rather than a re-upload — so there is nothing here to take back. */}
-                                {segment.source === 'library' ? (
-                                    <Tooltip label="Remove it, and the inbox file behind it">
+                                    {segment.playable ? (
                                         <ActionIcon
                                             variant="subtle"
                                             size="sm"
-                                            color="red"
-                                            aria-label={`Delete ${segment.label}`}
-                                            onClick={() => onDelete?.(segment)}
+                                            aria-label={`Play ${segment.label}`}
+                                            loading={preview.isLoading(segment.id)}
+                                            onClick={() => {
+                                                preview.play(segment.id, () => fetchSegmentAudio(segment.id), 'That segment would not play.');
+                                            }}
                                         >
-                                            <IconTrash size={14} />
+                                            {preview.isPlaying(segment.id) ? <IconPlayerPauseFilled size={14} /> : <IconPlayerPlayFilled size={14} />}
                                         </ActionIcon>
-                                    </Tooltip>
-                                ) : undefined}
-                            </Table.Td>
-                        </Table.Tr>
-                    );
-                })}
-            </Table.Tbody>
-        </Table>
+                                    ) : undefined}
+                                </Table.Td>
+                                <Table.Td>
+                                    <Text size="sm">{segment.label}</Text>
+                                    <Text size="xs" c="dimmed">
+                                        {segment.source}
+                                    </Text>
+                                    {failure === undefined ? undefined : (
+                                        <Text size="xs" c="red.4">
+                                            {failure}
+                                        </Text>
+                                    )}
+                                </Table.Td>
+                                <Table.Td>
+                                    <Text size="sm" c="dimmed" lineClamp={2}>
+                                        {segment.script ?? '—'}
+                                    </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                    <StatusLamp tone={STATE_TONE[segment.state] ?? 'standby'} label={segment.state} />
+                                    {/* The reason it failed, which is the only thing that makes a failed
+                                    row actionable: there is no retry button, so what is left is
+                                    knowing what to fix. */}
+                                    {segment.error === undefined ? undefined : (
+                                        <Text size="xs" c="red.4" lineClamp={2}>
+                                            {segment.error}
+                                        </Text>
+                                    )}
+                                </Table.Td>
+                                <Table.Td>
+                                    <Text size="xs" c="dimmed">
+                                        {segment.voice ?? 'default'}
+                                    </Text>
+                                </Table.Td>
+                                <Table.Td className="da-num">{segment.durationMs === undefined ? '—' : formatDuration(segment.durationMs)}</Table.Td>
+                                <Table.Td>
+                                    {/* Only for a recording the station was GIVEN. Anything it wrote and
+                                    spoke for itself is named by the running order and recorded in
+                                    the script history, and the way to have it again is a re-render
+                                    rather than a re-upload — so there is nothing here to take back. */}
+                                    {segment.source === 'library' ? (
+                                        <Tooltip label="Remove it, and the inbox file behind it">
+                                            <ActionIcon
+                                                variant="subtle"
+                                                size="sm"
+                                                color="red"
+                                                aria-label={`Delete ${segment.label}`}
+                                                onClick={() => onDelete?.(segment)}
+                                            >
+                                                <IconTrash size={14} />
+                                            </ActionIcon>
+                                        </Tooltip>
+                                    ) : undefined}
+                                </Table.Td>
+                            </Table.Tr>
+                        );
+                    })}
+                </Table.Tbody>
+            </Table>
+        </Table.ScrollContainer>
     );
 }
 

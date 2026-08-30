@@ -168,65 +168,67 @@ function BindingsCard({ detail }: { detail: TrackDetail }) {
                         No provider holds a copy of this record, so nothing can play it. That is usually an import whose lookup never resolved.
                     </EmptyState>
                 ) : (
-                    <Table verticalSpacing="xs" horizontalSpacing="sm">
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Provider</Table.Th>
-                                <Table.Th>State</Table.Th>
-                                <Table.Th>Format</Table.Th>
-                                <Table.Th ta="right">Held</Table.Th>
-                                <Table.Th ta="right">Last played from</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {detail.bindings.map(binding => {
-                                const status = bindingStatus(binding);
-                                return (
-                                    <Table.Tr key={binding.sourceId}>
-                                        <Table.Td>
-                                            <Stack gap="xxxs">
-                                                <Group gap="xxs">
-                                                    <Text size="sm">{binding.pluginId}</Text>
-                                                    {/* A discovered copy is in no playlist, which is why the
+                    <Table.ScrollContainer minWidth={600}>
+                        <Table verticalSpacing="xs" horizontalSpacing="sm">
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>Provider</Table.Th>
+                                    <Table.Th>State</Table.Th>
+                                    <Table.Th>Format</Table.Th>
+                                    <Table.Th ta="right">Held</Table.Th>
+                                    <Table.Th ta="right">Last played from</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {detail.bindings.map(binding => {
+                                    const status = bindingStatus(binding);
+                                    return (
+                                        <Table.Tr key={binding.sourceId}>
+                                            <Table.Td>
+                                                <Stack gap="xxxs">
+                                                    <Group gap="xxs">
+                                                        <Text size="sm">{binding.pluginId}</Text>
+                                                        {/* A discovered copy is in no playlist, which is why the
                                                         sync's sweep may not judge it. Worth saying on a page
                                                         about why a record behaves as it does. */}
-                                                    {binding.origin === 'discovered' ? (
-                                                        <Tooltip label="Looked up by name when something chose this record, rather than seen in a playlist.">
-                                                            <Badge size="xs" variant="light" color="grape">
-                                                                found
-                                                            </Badge>
-                                                        </Tooltip>
-                                                    ) : undefined}
-                                                </Group>
-                                                <Text size="xs" c="dimmed">
-                                                    {binding.externalId}
+                                                        {binding.origin === 'discovered' ? (
+                                                            <Tooltip label="Looked up by name when something chose this record, rather than seen in a playlist.">
+                                                                <Badge size="xs" variant="light" color="grape">
+                                                                    found
+                                                                </Badge>
+                                                            </Tooltip>
+                                                        ) : undefined}
+                                                    </Group>
+                                                    <Text size="xs" c="dimmed">
+                                                        {binding.externalId}
+                                                    </Text>
+                                                </Stack>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Tooltip label={status.detail} multiline w={280}>
+                                                    <span>
+                                                        <StatusLamp tone={status.tone} label={status.label} />
+                                                    </span>
+                                                </Tooltip>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="sm" c="dimmed">
+                                                    {binding.format ?? '—'}
+                                                    {binding.bitrate === undefined ? '' : ` • ${Math.round(binding.bitrate / 1000)}k`}
                                                 </Text>
-                                            </Stack>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Tooltip label={status.detail} multiline w={280}>
-                                                <span>
-                                                    <StatusLamp tone={status.tone} label={status.label} />
-                                                </span>
-                                            </Tooltip>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Text size="sm" c="dimmed">
-                                                {binding.format ?? '—'}
-                                                {binding.bitrate === undefined ? '' : ` • ${Math.round(binding.bitrate / 1000)}k`}
-                                            </Text>
-                                        </Table.Td>
-                                        <Table.Td ta="right" className="da-num">
-                                            {formatBytes(binding.byteSize)}
-                                        </Table.Td>
-                                        <Table.Td ta="right" className="da-num">
-                                            {moment(binding.lastServedAt)}
-                                        </Table.Td>
-                                    </Table.Tr>
-                                );
-                            })}
-                        </Table.Tbody>
-                    </Table>
+                                            </Table.Td>
+                                            <Table.Td ta="right" className="da-num">
+                                                {formatBytes(binding.byteSize)}
+                                            </Table.Td>
+                                            <Table.Td ta="right" className="da-num">
+                                                {moment(binding.lastServedAt)}
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    );
+                                })}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
                 )}
             </Stack>
         </Card>

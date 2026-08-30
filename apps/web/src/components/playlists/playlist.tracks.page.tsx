@@ -71,36 +71,38 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
             {tracks.data?.tracks.length === 0 ? <EmptyState>This playlist has no tracks.</EmptyState> : undefined}
 
             {tracks.data && tracks.data.tracks.length > 0 ? (
-                <Table>
-                    <Table.Thead>
-                        <Table.Tr>
-                            <Table.Th>Title</Table.Th>
-                            <Table.Th>Artists</Table.Th>
-                            <Table.Th>Album</Table.Th>
-                            <Table.Th>Duration</Table.Th>
-                        </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                        {/* A playlist is the PROVIDER's list, so most of these rows are plain text
+                <Table.ScrollContainer minWidth={600}>
+                    <Table>
+                        <Table.Thead>
+                            <Table.Tr>
+                                <Table.Th>Title</Table.Th>
+                                <Table.Th>Artists</Table.Th>
+                                <Table.Th>Album</Table.Th>
+                                <Table.Th>Duration</Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                            {/* A playlist is the PROVIDER's list, so most of these rows are plain text
                             on a library that has not been synced: the ids arrive only for a copy
                             the station has actually ingested, and the three links draw as the words
                             they always were without one. */}
-                        {tracks.data.tracks.map((track: CatalogTrack) => (
-                            <Table.Tr key={track.id}>
-                                <Table.Td>
-                                    <TrackLink id={track.trackId}>{track.title}</TrackLink>
-                                </Table.Td>
-                                <Table.Td>
-                                    <ArtistLink id={track.artistId}>{formatArtists(track.artists)}</ArtistLink>
-                                </Table.Td>
-                                <Table.Td>
-                                    <AlbumLink id={track.albumId}>{track.album ?? ''}</AlbumLink>
-                                </Table.Td>
-                                <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
-                            </Table.Tr>
-                        ))}
-                    </Table.Tbody>
-                </Table>
+                            {tracks.data.tracks.map((track: CatalogTrack) => (
+                                <Table.Tr key={track.id}>
+                                    <Table.Td>
+                                        <TrackLink id={track.trackId}>{track.title}</TrackLink>
+                                    </Table.Td>
+                                    <Table.Td>
+                                        <ArtistLink id={track.artistId}>{formatArtists(track.artists)}</ArtistLink>
+                                    </Table.Td>
+                                    <Table.Td>
+                                        <AlbumLink id={track.albumId}>{track.album ?? ''}</AlbumLink>
+                                    </Table.Td>
+                                    <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
+                                </Table.Tr>
+                            ))}
+                        </Table.Tbody>
+                    </Table>
+                </Table.ScrollContainer>
             ) : undefined}
         </Stack>
     );

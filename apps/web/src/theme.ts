@@ -294,6 +294,13 @@ export function consoleTheme(colors: ConsolePalettes, faces: ConsoleFaces, signa
             Table: {
                 defaultProps: { verticalSpacing: 6, horizontalSpacing: 'sm', highlightOnHover: true },
             },
+            // Native rather than Mantine's `scrollarea` variant: `tokens.css` already themes the
+            // native scrollbar, which is why `station.order.table`'s own scroll port is native too.
+            TableScrollContainer: {
+                defaultProps: {
+                    type: 'native',
+                },
+            },
             Skeleton: {
                 defaultProps: { radius: 'sm' },
             },

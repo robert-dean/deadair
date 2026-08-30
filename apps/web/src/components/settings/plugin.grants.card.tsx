@@ -57,22 +57,24 @@ export function PluginGrantsCard() {
                 ) : undefined}
 
                 {grants.data ? (
-                    <Table verticalSpacing="sm" horizontalSpacing="sm" layout="fixed">
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th w="34%">Plugin</Table.Th>
-                                <Table.Th>Asked for</Table.Th>
-                                <Table.Th w={200} ta="right">
-                                    Answer
-                                </Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {grants.data.grants.map(grant => (
-                                <GrantRow key={`${grant.pluginId}:${grant.capability}`} grant={grant} />
-                            ))}
-                        </Table.Tbody>
-                    </Table>
+                    <Table.ScrollContainer minWidth={550}>
+                        <Table verticalSpacing="sm" horizontalSpacing="sm" layout="fixed">
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th w="34%">Plugin</Table.Th>
+                                    <Table.Th>Asked for</Table.Th>
+                                    <Table.Th w={200} ta="right">
+                                        Answer
+                                    </Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {grants.data.grants.map(grant => (
+                                    <GrantRow key={`${grant.pluginId}:${grant.capability}`} grant={grant} />
+                                ))}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
                 ) : undefined}
             </Stack>
         </Card>

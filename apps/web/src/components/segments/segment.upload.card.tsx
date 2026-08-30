@@ -97,50 +97,54 @@ export function SegmentUploadCard({ kinds, onDone }: { kinds: string[]; onDone: 
 
                 {staged.length === 0 ? undefined : (
                     <>
-                        <Table verticalSpacing="xs">
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>File</Table.Th>
-                                    <Table.Th>What it is called on air</Table.Th>
-                                    <Table.Th />
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {staged.map((one, index) => (
-                                    <Table.Tr key={`${one.file.name}-${index}`}>
-                                        <Table.Td>
-                                            <Text size="xs" c="dimmed">
-                                                {one.file.name}
-                                            </Text>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <TextInput
-                                                size="xs"
-                                                aria-label={`Label for ${one.file.name}`}
-                                                value={one.label}
-                                                onChange={event =>
-                                                    setStaged(held =>
-                                                        held.map((row, at) => (at === index ? { ...row, label: event.currentTarget.value } : row)),
-                                                    )
-                                                }
-                                            />
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Tooltip label="Take it off the list">
-                                                <ActionIcon
-                                                    variant="subtle"
-                                                    color="red"
-                                                    aria-label={`Discard ${one.file.name}`}
-                                                    onClick={() => setStaged(held => held.filter((_, at) => at !== index))}
-                                                >
-                                                    <IconTrash size={16} />
-                                                </ActionIcon>
-                                            </Tooltip>
-                                        </Table.Td>
+                        <Table.ScrollContainer minWidth={480}>
+                            <Table verticalSpacing="xs">
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>File</Table.Th>
+                                        <Table.Th>What it is called on air</Table.Th>
+                                        <Table.Th />
                                     </Table.Tr>
-                                ))}
-                            </Table.Tbody>
-                        </Table>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {staged.map((one, index) => (
+                                        <Table.Tr key={`${one.file.name}-${index}`}>
+                                            <Table.Td>
+                                                <Text size="xs" c="dimmed">
+                                                    {one.file.name}
+                                                </Text>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <TextInput
+                                                    size="xs"
+                                                    aria-label={`Label for ${one.file.name}`}
+                                                    value={one.label}
+                                                    onChange={event =>
+                                                        setStaged(held =>
+                                                            held.map((row, at) =>
+                                                                at === index ? { ...row, label: event.currentTarget.value } : row,
+                                                            ),
+                                                        )
+                                                    }
+                                                />
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Tooltip label="Take it off the list">
+                                                    <ActionIcon
+                                                        variant="subtle"
+                                                        color="red"
+                                                        aria-label={`Discard ${one.file.name}`}
+                                                        onClick={() => setStaged(held => held.filter((_, at) => at !== index))}
+                                                    >
+                                                        <IconTrash size={16} />
+                                                    </ActionIcon>
+                                                </Tooltip>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
+                        </Table.ScrollContainer>
 
                         <Group justify="flex-end">
                             <Button variant="default" onClick={() => setStaged([])} disabled={upload.isPending}>

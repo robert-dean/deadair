@@ -101,72 +101,74 @@ export function ChartsPage() {
                     ) : undefined}
 
                     {chart.data && chart.data.records.length > 0 ? (
-                        <Table highlightOnHover>
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th w={60}>#</Table.Th>
-                                    <Table.Th>Title</Table.Th>
-                                    <Table.Th>Artist</Table.Th>
-                                    <Table.Th visibleFrom="lg">Album</Table.Th>
-                                    <Table.Th w={80}>Peak</Table.Th>
-                                    <Table.Th w={90}>Weeks</Table.Th>
-                                    <Table.Th w={130} />
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {chart.data.records.map(record => (
-                                    <Table.Tr key={`${record.rank}-${record.title}-${record.artist}`}>
-                                        {/* Every figure here counts or ranks, so all of them are
+                        <Table.ScrollContainer minWidth={700}>
+                            <Table highlightOnHover>
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th w={60}>#</Table.Th>
+                                        <Table.Th>Title</Table.Th>
+                                        <Table.Th>Artist</Table.Th>
+                                        <Table.Th visibleFrom="lg">Album</Table.Th>
+                                        <Table.Th w={80}>Peak</Table.Th>
+                                        <Table.Th w={90}>Weeks</Table.Th>
+                                        <Table.Th w={130} />
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {chart.data.records.map(record => (
+                                        <Table.Tr key={`${record.rank}-${record.title}-${record.artist}`}>
+                                            {/* Every figure here counts or ranks, so all of them are
                                             tabular: a column of proportional digits in a ranked
                                             table reads as ragged. */}
-                                        <Table.Td className="da-num">{record.rank}</Table.Td>
-                                        <Table.Td>
-                                            <Text size="sm">{record.title}</Text>
-                                            {/* The lead artist is what the row is filed under, so the
+                                            <Table.Td className="da-num">{record.rank}</Table.Td>
+                                            <Table.Td>
+                                                <Text size="sm">{record.title}</Text>
+                                                {/* The lead artist is what the row is filed under, so the
                                                 other credits ride here rather than being joined into
                                                 one name the catalog would never match. */}
-                                            {record.featuring === undefined || record.featuring.length === 0 ? undefined : (
-                                                <Text size="xs" c="dimmed">
-                                                    feat. {record.featuring.join(', ')}
+                                                {record.featuring === undefined || record.featuring.length === 0 ? undefined : (
+                                                    <Text size="xs" c="dimmed">
+                                                        feat. {record.featuring.join(', ')}
+                                                    </Text>
+                                                )}
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Text size="sm">{record.artist}</Text>
+                                                {record.year === undefined ? undefined : (
+                                                    <Text size="xs" c="dimmed" className="da-num">
+                                                        {record.year}
+                                                    </Text>
+                                                )}
+                                            </Table.Td>
+                                            <Table.Td visibleFrom="lg">
+                                                <Text size="sm" c="dimmed">
+                                                    {record.album ?? '—'}
                                                 </Text>
-                                            )}
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Text size="sm">{record.artist}</Text>
-                                            {record.year === undefined ? undefined : (
-                                                <Text size="xs" c="dimmed" className="da-num">
-                                                    {record.year}
-                                                </Text>
-                                            )}
-                                        </Table.Td>
-                                        <Table.Td visibleFrom="lg">
-                                            <Text size="sm" c="dimmed">
-                                                {record.album ?? '—'}
-                                            </Text>
-                                        </Table.Td>
-                                        <Table.Td className="da-num">{record.peak ?? '—'}</Table.Td>
-                                        <Table.Td className="da-num">{record.weeksOn ?? '—'}</Table.Td>
-                                        <Table.Td>
-                                            {/* A search rather than a claim about ownership. The
+                                            </Table.Td>
+                                            <Table.Td className="da-num">{record.peak ?? '—'}</Table.Td>
+                                            <Table.Td className="da-num">{record.weeksOn ?? '—'}</Table.Td>
+                                            <Table.Td>
+                                                {/* A search rather than a claim about ownership. The
                                                 contract carries no catalog id and should not: this
                                                 asks the question rather than pretending to know. */}
-                                            <Anchor
-                                                renderRoot={(props: object) => (
-                                                    <Link
-                                                        to="/catalog/tracks"
-                                                        search={{ ...CATALOG_TRACK_DEFAULTS, search: record.title }}
-                                                        {...props}
-                                                    />
-                                                )}
-                                                size="xs"
-                                            >
-                                                Find in catalog
-                                            </Anchor>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
-                            </Table.Tbody>
-                        </Table>
+                                                <Anchor
+                                                    renderRoot={(props: object) => (
+                                                        <Link
+                                                            to="/catalog/tracks"
+                                                            search={{ ...CATALOG_TRACK_DEFAULTS, search: record.title }}
+                                                            {...props}
+                                                        />
+                                                    )}
+                                                    size="xs"
+                                                >
+                                                    Find in catalog
+                                                </Anchor>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
+                        </Table.ScrollContainer>
                     ) : undefined}
                 </>
             )}

@@ -129,53 +129,55 @@ export function TopicsPage() {
                                     No {kind.nounMany} yet, which is a working station: every break of this sort covers whatever it finds.
                                 </Text>
                             ) : (
-                                <Table verticalSpacing="xs" highlightOnHover>
-                                    <Table.Tbody>
-                                        {held.map(topic => (
-                                            <Table.Tr
-                                                key={topic.id}
-                                                style={{ cursor: 'pointer' }}
-                                                onClick={() => setEditing({ kind, target: { kind: 'edit', topic } })}
-                                            >
-                                                <Table.Td w={220}>
-                                                    <Text size="sm">{topic.label}</Text>
-                                                </Table.Td>
-                                                <Table.Td>
-                                                    <Text size="xs" c="dimmed">
-                                                        {summarize(topic, kind)}
-                                                    </Text>
-                                                </Table.Td>
-                                                <Table.Td w={60}>
-                                                    <Group gap={2} justify="flex-end" onClick={event => event.stopPropagation()}>
-                                                        <ActionIcon
-                                                            size="sm"
-                                                            variant="subtle"
-                                                            color="red"
-                                                            aria-label={`Delete ${topic.label}`}
-                                                            loading={remove.isPending}
-                                                            onClick={() => {
-                                                                // A band that asked for this goes
-                                                                // with it: one that quietly lost its
-                                                                // subject would read a general break
-                                                                // under this name, which is the
-                                                                // failure the whole feature exists
-                                                                // to prevent. The count is read here
-                                                                // rather than in the dialog so the
-                                                                // dialog stays a dumb question.
-                                                                setDeleting({
-                                                                    topic,
-                                                                    bands: bands.filter(band => band.topicId === topic.id).length,
-                                                                });
-                                                            }}
-                                                        >
-                                                            <IconTrash size={14} />
-                                                        </ActionIcon>
-                                                    </Group>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        ))}
-                                    </Table.Tbody>
-                                </Table>
+                                <Table.ScrollContainer minWidth={500}>
+                                    <Table verticalSpacing="xs" highlightOnHover>
+                                        <Table.Tbody>
+                                            {held.map(topic => (
+                                                <Table.Tr
+                                                    key={topic.id}
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={() => setEditing({ kind, target: { kind: 'edit', topic } })}
+                                                >
+                                                    <Table.Td w={220}>
+                                                        <Text size="sm">{topic.label}</Text>
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Text size="xs" c="dimmed">
+                                                            {summarize(topic, kind)}
+                                                        </Text>
+                                                    </Table.Td>
+                                                    <Table.Td w={60}>
+                                                        <Group gap={2} justify="flex-end" onClick={event => event.stopPropagation()}>
+                                                            <ActionIcon
+                                                                size="sm"
+                                                                variant="subtle"
+                                                                color="red"
+                                                                aria-label={`Delete ${topic.label}`}
+                                                                loading={remove.isPending}
+                                                                onClick={() => {
+                                                                    // A band that asked for this goes
+                                                                    // with it: one that quietly lost its
+                                                                    // subject would read a general break
+                                                                    // under this name, which is the
+                                                                    // failure the whole feature exists
+                                                                    // to prevent. The count is read here
+                                                                    // rather than in the dialog so the
+                                                                    // dialog stays a dumb question.
+                                                                    setDeleting({
+                                                                        topic,
+                                                                        bands: bands.filter(band => band.topicId === topic.id).length,
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <IconTrash size={14} />
+                                                            </ActionIcon>
+                                                        </Group>
+                                                    </Table.Td>
+                                                </Table.Tr>
+                                            ))}
+                                        </Table.Tbody>
+                                    </Table>
+                                </Table.ScrollContainer>
                             )}
                         </Stack>
                     </Card>

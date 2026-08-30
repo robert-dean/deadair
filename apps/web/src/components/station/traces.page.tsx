@@ -118,65 +118,67 @@ function DecisionTable({ decisions, onOpen }: { decisions: TraceDecision[]; onOp
     for (const root of roots) walk(root, 0);
 
     return (
-        <Table highlightOnHover verticalSpacing="xs">
-            <Table.Thead>
-                <Table.Tr>
-                    <Table.Th w={120}>When</Table.Th>
-                    <Table.Th>Decision</Table.Th>
-                    <Table.Th w={90}>Spent</Table.Th>
-                    <Table.Th w={80}>Calls</Table.Th>
-                    <Table.Th w={90}>Failed</Table.Th>
-                    <Table.Th w={50} />
-                </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-                {rows.map(({ decision, depth }) => (
-                    <Table.Tr key={decision.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(decision.id)}>
-                        <Table.Td>
-                            <FeedMoment at={decision.at} />
-                        </Table.Td>
-                        <Table.Td>
-                            {/* The indent is the causal edge and nothing else carries it, so a child
+        <Table.ScrollContainer minWidth={650}>
+            <Table highlightOnHover verticalSpacing="xs">
+                <Table.Thead>
+                    <Table.Tr>
+                        <Table.Th w={120}>When</Table.Th>
+                        <Table.Th>Decision</Table.Th>
+                        <Table.Th w={90}>Spent</Table.Th>
+                        <Table.Th w={80}>Calls</Table.Th>
+                        <Table.Th w={90}>Failed</Table.Th>
+                        <Table.Th w={50} />
+                    </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                    {rows.map(({ decision, depth }) => (
+                        <Table.Tr key={decision.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(decision.id)}>
+                            <Table.Td>
+                                <FeedMoment at={decision.at} />
+                            </Table.Td>
+                            <Table.Td>
+                                {/* The indent is the causal edge and nothing else carries it, so a child
                                 also says so in words: an operator scanning a column of names should
                                 not have to measure whitespace to know one thing caused another. */}
-                            <Group gap="xs" wrap="nowrap" style={{ paddingLeft: depth * 20 }}>
-                                {depth > 0 ? (
-                                    <Tooltip label="Enqueued by the decision above it">
-                                        <IconArrowUpRight size={13} stroke={1.8} style={{ transform: 'rotate(90deg)', opacity: 0.5 }} />
-                                    </Tooltip>
-                                ) : undefined}
-                                <Text size="sm">{decision.kind}</Text>
-                            </Group>
-                        </Table.Td>
-                        <Table.Td>
-                            {/* Zero is a decision recorded before the station wrote a span for the
+                                <Group gap="xs" wrap="nowrap" style={{ paddingLeft: depth * 20 }}>
+                                    {depth > 0 ? (
+                                        <Tooltip label="Enqueued by the decision above it">
+                                            <IconArrowUpRight size={13} stroke={1.8} style={{ transform: 'rotate(90deg)', opacity: 0.5 }} />
+                                        </Tooltip>
+                                    ) : undefined}
+                                    <Text size="sm">{decision.kind}</Text>
+                                </Group>
+                            </Table.Td>
+                            <Table.Td>
+                                {/* Zero is a decision recorded before the station wrote a span for the
                                 job itself, not a decision that took no time. Saying so beats a `0ms`
                                 that reads as a measurement. */}
-                            <Text size="sm" className="da-num" c={decision.ms === 0 ? 'dimmed' : undefined}>
-                                {decision.ms === 0 ? '—' : formatSpent(decision.ms)}
-                            </Text>
-                        </Table.Td>
-                        <Table.Td>
-                            <Text size="sm" className="da-num">
-                                {decision.calls}
-                            </Text>
-                        </Table.Td>
-                        <Table.Td>
-                            {decision.failed > 0 ? (
-                                <Badge size="sm" color={severityColor.failure} variant="light" className="da-num">
-                                    {decision.failed}
-                                </Badge>
-                            ) : undefined}
-                        </Table.Td>
-                        <Table.Td>
-                            <Text size="xs" c="dimmed" className="da-num">
-                                {decision.id.slice(0, 8)}
-                            </Text>
-                        </Table.Td>
-                    </Table.Tr>
-                ))}
-            </Table.Tbody>
-        </Table>
+                                <Text size="sm" className="da-num" c={decision.ms === 0 ? 'dimmed' : undefined}>
+                                    {decision.ms === 0 ? '—' : formatSpent(decision.ms)}
+                                </Text>
+                            </Table.Td>
+                            <Table.Td>
+                                <Text size="sm" className="da-num">
+                                    {decision.calls}
+                                </Text>
+                            </Table.Td>
+                            <Table.Td>
+                                {decision.failed > 0 ? (
+                                    <Badge size="sm" color={severityColor.failure} variant="light" className="da-num">
+                                        {decision.failed}
+                                    </Badge>
+                                ) : undefined}
+                            </Table.Td>
+                            <Table.Td>
+                                <Text size="xs" c="dimmed" className="da-num">
+                                    {decision.id.slice(0, 8)}
+                                </Text>
+                            </Table.Td>
+                        </Table.Tr>
+                    ))}
+                </Table.Tbody>
+            </Table>
+        </Table.ScrollContainer>
     );
 }
 

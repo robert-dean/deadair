@@ -107,58 +107,60 @@ export function AlbumDetailPage({ albumId, page, order, onPageChange }: AlbumDet
 
             {tracks.data && rows.length > 0 ? (
                 <>
-                    <Table>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th w={44} />
-                                <Table.Th>Title</Table.Th>
-                                <Table.Th>Credit</Table.Th>
-                                <Table.Th w={120}>Duration</Table.Th>
-                                <Table.Th w={150}>Rating</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {rows.map(track => (
-                                <Fragment key={track.id}>
-                                    <Table.Tr>
-                                        <Table.Td>
-                                            <TrackExpandButton
-                                                open={expansion.isOpen(track.id)}
-                                                title={track.title}
-                                                onToggle={() => {
-                                                    expansion.toggle(track.id);
-                                                }}
-                                            />
-                                        </Table.Td>
-                                        {/* Linked like the same record is in the flat tracks table:
+                    <Table.ScrollContainer minWidth={650}>
+                        <Table>
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th w={44} />
+                                    <Table.Th>Title</Table.Th>
+                                    <Table.Th>Credit</Table.Th>
+                                    <Table.Th w={120}>Duration</Table.Th>
+                                    <Table.Th w={150}>Rating</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {rows.map(track => (
+                                    <Fragment key={track.id}>
+                                        <Table.Tr>
+                                            <Table.Td>
+                                                <TrackExpandButton
+                                                    open={expansion.isOpen(track.id)}
+                                                    title={track.title}
+                                                    onToggle={() => {
+                                                        expansion.toggle(track.id);
+                                                    }}
+                                                />
+                                            </Table.Td>
+                                            {/* Linked like the same record is in the flat tracks table:
                                             an operator reading a release is exactly as likely to
                                             want one track's own page from here. */}
-                                        <Table.Td>
-                                            <TrackLink id={track.id}>{track.title}</TrackLink>
-                                        </Table.Td>
-                                        {/* The credit as written on the release, which is not the same
+                                            <Table.Td>
+                                                <TrackLink id={track.id}>{track.title}</TrackLink>
+                                            </Table.Td>
+                                            {/* The credit as written on the release, which is not the same
                                             as the canonical artist this album hangs off. */}
-                                        <Table.Td>{track.artists}</Table.Td>
-                                        <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
-                                        <Table.Td>
-                                            <RatingControl
-                                                size="xs"
-                                                rating={track.rating}
-                                                label={track.title}
-                                                busy={rateTrack.isPending && rateTrack.variables?.id === track.id}
-                                                onChange={rating => {
-                                                    rateTrack.mutate({ id: track.id, rating });
-                                                }}
-                                            />
-                                        </Table.Td>
-                                    </Table.Tr>
-                                    {/* One wider than the row above it, so the expansion still spans
+                                            <Table.Td>{track.artists}</Table.Td>
+                                            <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
+                                            <Table.Td>
+                                                <RatingControl
+                                                    size="xs"
+                                                    rating={track.rating}
+                                                    label={track.title}
+                                                    busy={rateTrack.isPending && rateTrack.variables?.id === track.id}
+                                                    onChange={rating => {
+                                                        rateTrack.mutate({ id: track.id, rating });
+                                                    }}
+                                                />
+                                            </Table.Td>
+                                        </Table.Tr>
+                                        {/* One wider than the row above it, so the expansion still spans
                                         the table now that the rating has its own column. */}
-                                    <TrackEnrichmentRow trackId={track.id} open={expansion.isOpen(track.id)} colSpan={5} />
-                                </Fragment>
-                            ))}
-                        </Table.Tbody>
-                    </Table>
+                                        <TrackEnrichmentRow trackId={track.id} open={expansion.isOpen(track.id)} colSpan={5} />
+                                    </Fragment>
+                                ))}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
                     <CatalogPagination total={tracks.data.meta.total} pageSize={order.pageSize} page={page} onChange={onPageChange} />
                 </>
             ) : undefined}

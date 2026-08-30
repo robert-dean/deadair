@@ -110,42 +110,44 @@ export function ArtistDetailPage({ artistId, page, order, onPageChange }: Artist
 
             {albums.data && rows.length > 0 ? (
                 <>
-                    <Table highlightOnHover>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th w={56} />
-                                <Table.Th>Album</Table.Th>
-                                <Table.Th w={100}>Year</Table.Th>
-                                <Table.Th w={120}>Tracks</Table.Th>
-                                <Table.Th w={150}>Rating</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {rows.map(album => (
-                                <Table.Tr key={album.id}>
-                                    <Table.Td>
-                                        <Artwork src={album.imageUrl} alt={album.name} size={40} />
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <AlbumLink id={album.id}>{album.name}</AlbumLink>
-                                    </Table.Td>
-                                    <Table.Td className="da-num">{album.year ?? ''}</Table.Td>
-                                    <Table.Td className="da-num">{album.trackCount}</Table.Td>
-                                    <Table.Td>
-                                        <RatingControl
-                                            size="xs"
-                                            rating={album.rating}
-                                            label={album.name}
-                                            busy={rateAlbum.isPending && rateAlbum.variables?.id === album.id}
-                                            onChange={rating => {
-                                                rateAlbum.mutate({ id: album.id, rating });
-                                            }}
-                                        />
-                                    </Table.Td>
+                    <Table.ScrollContainer minWidth={600}>
+                        <Table highlightOnHover>
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th w={56} />
+                                    <Table.Th>Album</Table.Th>
+                                    <Table.Th w={100}>Year</Table.Th>
+                                    <Table.Th w={120}>Tracks</Table.Th>
+                                    <Table.Th w={150}>Rating</Table.Th>
                                 </Table.Tr>
-                            ))}
-                        </Table.Tbody>
-                    </Table>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {rows.map(album => (
+                                    <Table.Tr key={album.id}>
+                                        <Table.Td>
+                                            <Artwork src={album.imageUrl} alt={album.name} size={40} />
+                                        </Table.Td>
+                                        <Table.Td>
+                                            <AlbumLink id={album.id}>{album.name}</AlbumLink>
+                                        </Table.Td>
+                                        <Table.Td className="da-num">{album.year ?? ''}</Table.Td>
+                                        <Table.Td className="da-num">{album.trackCount}</Table.Td>
+                                        <Table.Td>
+                                            <RatingControl
+                                                size="xs"
+                                                rating={album.rating}
+                                                label={album.name}
+                                                busy={rateAlbum.isPending && rateAlbum.variables?.id === album.id}
+                                                onChange={rating => {
+                                                    rateAlbum.mutate({ id: album.id, rating });
+                                                }}
+                                            />
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ))}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
                     <CatalogPagination total={albums.data.meta.total} pageSize={order.pageSize} page={page} onChange={onPageChange} />
                 </>
             ) : undefined}

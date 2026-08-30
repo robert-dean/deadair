@@ -47,33 +47,35 @@ export function StorageCard() {
 
                 {storage.data ? (
                     <>
-                        <Table verticalSpacing="xs" horizontalSpacing="sm">
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>Store</Table.Th>
-                                    <Table.Th ta="right">On disk</Table.Th>
-                                    <Table.Th ta="right">Files</Table.Th>
-                                    <Table.Th ta="right">Unclaimed</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {storage.data.stores.map(store => (
-                                    <StoreRow key={store.id} store={store} />
-                                ))}
-                            </Table.Tbody>
-                            <Table.Tfoot>
-                                <Table.Tr>
-                                    <Table.Th>Everything</Table.Th>
-                                    <Table.Th ta="right" className="da-num">
-                                        {formatBytes(storage.data.totalBytes)}
-                                    </Table.Th>
-                                    <Table.Th ta="right" className="da-num">
-                                        {storage.data.totalFiles}
-                                    </Table.Th>
-                                    <Table.Th />
-                                </Table.Tr>
-                            </Table.Tfoot>
-                        </Table>
+                        <Table.ScrollContainer minWidth={550}>
+                            <Table verticalSpacing="xs" horizontalSpacing="sm">
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>Store</Table.Th>
+                                        <Table.Th ta="right">On disk</Table.Th>
+                                        <Table.Th ta="right">Files</Table.Th>
+                                        <Table.Th ta="right">Unclaimed</Table.Th>
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {storage.data.stores.map(store => (
+                                        <StoreRow key={store.id} store={store} />
+                                    ))}
+                                </Table.Tbody>
+                                <Table.Tfoot>
+                                    <Table.Tr>
+                                        <Table.Th>Everything</Table.Th>
+                                        <Table.Th ta="right" className="da-num">
+                                            {formatBytes(storage.data.totalBytes)}
+                                        </Table.Th>
+                                        <Table.Th ta="right" className="da-num">
+                                            {storage.data.totalFiles}
+                                        </Table.Th>
+                                        <Table.Th />
+                                    </Table.Tr>
+                                </Table.Tfoot>
+                            </Table>
+                        </Table.ScrollContainer>
 
                         <Text size="xs" c="dimmed">
                             Read {formatTimeOfDay(storage.data.readAt)}. Walking the directories is real work, so this is a reading rather than a live

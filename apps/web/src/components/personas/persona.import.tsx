@@ -166,44 +166,46 @@ function ImportPlan({ plan }: { plan: PersonaImportPlan }) {
 
             <Divider />
 
-            <Table verticalSpacing="xs">
-                <Table.Thead>
-                    <Table.Tr>
-                        <Table.Th>Character</Table.Th>
-                        <Table.Th w={90}>Lands as</Table.Th>
-                        <Table.Th w={140}>Stories</Table.Th>
-                    </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                    {plan.personas.map(entry => (
-                        <Table.Tr key={entry.key}>
-                            <Table.Td>
-                                <Stack gap="xxs">
-                                    <Group gap="xs">
-                                        <Text size="sm">{entry.label}</Text>
-                                        {entry.kind === 'caller' ? (
-                                            <Badge size="xs" variant="outline" color="gray">
-                                                Caller
-                                            </Badge>
-                                        ) : undefined}
-                                    </Group>
-                                    {entry.notices.length > 0 ? <Notices notices={entry.notices} /> : undefined}
-                                </Stack>
-                            </Table.Td>
-                            <Table.Td>
-                                <Badge size="sm" variant="light" color={entry.outcome === 'create' ? 'teal' : 'blue'}>
-                                    {entry.outcome === 'create' ? 'New' : 'Rewrite'}
-                                </Badge>
-                            </Table.Td>
-                            <Table.Td>
-                                <Text size="xs" c="dimmed" className="da-num">
-                                    {storyLine(entry.storiesNew, entry.storiesHeld)}
-                                </Text>
-                            </Table.Td>
+            <Table.ScrollContainer minWidth={500}>
+                <Table verticalSpacing="xs">
+                    <Table.Thead>
+                        <Table.Tr>
+                            <Table.Th>Character</Table.Th>
+                            <Table.Th w={90}>Lands as</Table.Th>
+                            <Table.Th w={140}>Stories</Table.Th>
                         </Table.Tr>
-                    ))}
-                </Table.Tbody>
-            </Table>
+                    </Table.Thead>
+                    <Table.Tbody>
+                        {plan.personas.map(entry => (
+                            <Table.Tr key={entry.key}>
+                                <Table.Td>
+                                    <Stack gap="xxs">
+                                        <Group gap="xs">
+                                            <Text size="sm">{entry.label}</Text>
+                                            {entry.kind === 'caller' ? (
+                                                <Badge size="xs" variant="outline" color="gray">
+                                                    Caller
+                                                </Badge>
+                                            ) : undefined}
+                                        </Group>
+                                        {entry.notices.length > 0 ? <Notices notices={entry.notices} /> : undefined}
+                                    </Stack>
+                                </Table.Td>
+                                <Table.Td>
+                                    <Badge size="sm" variant="light" color={entry.outcome === 'create' ? 'teal' : 'blue'}>
+                                        {entry.outcome === 'create' ? 'New' : 'Rewrite'}
+                                    </Badge>
+                                </Table.Td>
+                                <Table.Td>
+                                    <Text size="xs" c="dimmed" className="da-num">
+                                        {storyLine(entry.storiesNew, entry.storiesHeld)}
+                                    </Text>
+                                </Table.Td>
+                            </Table.Tr>
+                        ))}
+                    </Table.Tbody>
+                </Table>
+            </Table.ScrollContainer>
         </Stack>
     );
 }

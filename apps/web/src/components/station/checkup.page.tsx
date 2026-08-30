@@ -220,39 +220,41 @@ function Loops({ heartbeats, readAt }: { heartbeats: StationHeartbeat[]; readAt:
     const taken = new Date(readAt).getTime();
 
     return (
-        <Table>
-            <Table.Thead>
-                <Table.Tr>
-                    <Table.Th>Loop</Table.Th>
-                    <Table.Th w={140}>Last pass</Table.Th>
-                    <Table.Th w={140}>Started</Table.Th>
-                </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-                {heartbeats.map(beat => (
-                    <Table.Tr key={beat.name}>
-                        <Table.Td>
-                            <Text size="sm" ff="monospace">
-                                {beat.name}
-                            </Text>
-                        </Table.Td>
-                        <Table.Td>
-                            {/* A loop that has never finished a pass says so rather than showing a
+        <Table.ScrollContainer minWidth={500}>
+            <Table>
+                <Table.Thead>
+                    <Table.Tr>
+                        <Table.Th>Loop</Table.Th>
+                        <Table.Th w={140}>Last pass</Table.Th>
+                        <Table.Th w={140}>Started</Table.Th>
+                    </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                    {heartbeats.map(beat => (
+                        <Table.Tr key={beat.name}>
+                            <Table.Td>
+                                <Text size="sm" ff="monospace">
+                                    {beat.name}
+                                </Text>
+                            </Table.Td>
+                            <Table.Td>
+                                {/* A loop that has never finished a pass says so rather than showing a
                                 dash, because the two are different facts and `startedAt` beside it
                                 is what tells a slow first pass from a stopped loop. */}
-                            <Text size="sm" c="dimmed" className="da-num">
-                                {beat.lastBeat === undefined ? 'not yet' : `${ago(taken, beat.lastBeat)} ago`}
-                            </Text>
-                        </Table.Td>
-                        <Table.Td>
-                            <Text size="xs" c="dimmed" className="da-num">
-                                {ago(taken, beat.startedAt)} ago
-                            </Text>
-                        </Table.Td>
-                    </Table.Tr>
-                ))}
-            </Table.Tbody>
-        </Table>
+                                <Text size="sm" c="dimmed" className="da-num">
+                                    {beat.lastBeat === undefined ? 'not yet' : `${ago(taken, beat.lastBeat)} ago`}
+                                </Text>
+                            </Table.Td>
+                            <Table.Td>
+                                <Text size="xs" c="dimmed" className="da-num">
+                                    {ago(taken, beat.startedAt)} ago
+                                </Text>
+                            </Table.Td>
+                        </Table.Tr>
+                    ))}
+                </Table.Tbody>
+            </Table>
+        </Table.ScrollContainer>
     );
 }
 

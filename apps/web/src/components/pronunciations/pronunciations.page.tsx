@@ -109,44 +109,46 @@ export function PronunciationsPage() {
                             </Text>
                         </Stack>
 
-                        <Table verticalSpacing="sm" highlightOnHover>
-                            <Table.Tbody>
-                                {suggested.map(entry => (
-                                    <Table.Tr key={entry.id}>
-                                        <Table.Td w={340}>
-                                            <Said entry={entry} />
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Evidence entry={entry} />
-                                        </Table.Td>
-                                        <Table.Td w={110}>
-                                            <Group gap={4} justify="flex-end">
-                                                <ActionIcon
-                                                    size="sm"
-                                                    variant="subtle"
-                                                    color="teal"
-                                                    aria-label={`Say ${entry.written} this way`}
-                                                    loading={setState.isPending}
-                                                    onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
-                                                >
-                                                    <IconCheck size={14} />
-                                                </ActionIcon>
-                                                <ActionIcon
-                                                    size="sm"
-                                                    variant="subtle"
-                                                    color="gray"
-                                                    aria-label={`Turn down ${entry.written}`}
-                                                    loading={setState.isPending}
-                                                    onClick={() => setState.mutate({ id: entry.id, body: { state: 'rejected' } })}
-                                                >
-                                                    <IconX size={14} />
-                                                </ActionIcon>
-                                            </Group>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
-                            </Table.Tbody>
-                        </Table>
+                        <Table.ScrollContainer minWidth={600}>
+                            <Table verticalSpacing="sm" highlightOnHover>
+                                <Table.Tbody>
+                                    {suggested.map(entry => (
+                                        <Table.Tr key={entry.id}>
+                                            <Table.Td w={340}>
+                                                <Said entry={entry} />
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Evidence entry={entry} />
+                                            </Table.Td>
+                                            <Table.Td w={110}>
+                                                <Group gap={4} justify="flex-end">
+                                                    <ActionIcon
+                                                        size="sm"
+                                                        variant="subtle"
+                                                        color="teal"
+                                                        aria-label={`Say ${entry.written} this way`}
+                                                        loading={setState.isPending}
+                                                        onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
+                                                    >
+                                                        <IconCheck size={14} />
+                                                    </ActionIcon>
+                                                    <ActionIcon
+                                                        size="sm"
+                                                        variant="subtle"
+                                                        color="gray"
+                                                        aria-label={`Turn down ${entry.written}`}
+                                                        loading={setState.isPending}
+                                                        onClick={() => setState.mutate({ id: entry.id, body: { state: 'rejected' } })}
+                                                    >
+                                                        <IconX size={14} />
+                                                    </ActionIcon>
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
+                        </Table.ScrollContainer>
                     </Stack>
                 </Card>
             ) : undefined}
@@ -160,74 +162,78 @@ export function PronunciationsPage() {
                             Nothing here yet. Add a name whose letters are not its sounds, and the station says it your way from the next break on.
                         </EmptyState>
                     ) : (
-                        <Table verticalSpacing="xs" highlightOnHover>
-                            <Table.Tbody>
-                                {active.map(entry => (
-                                    <Table.Tr key={entry.id}>
-                                        {editing?.id === entry.id ? (
-                                            <Table.Td colSpan={3}>
-                                                <Group gap="xs" wrap="nowrap">
-                                                    <TextInput
-                                                        size="xs"
-                                                        w={200}
-                                                        aria-label="Written"
-                                                        value={editing.written}
-                                                        onChange={event => setEditing({ ...editing, written: event.currentTarget.value })}
-                                                    />
-                                                    <Text size="xs" c="dimmed">
-                                                        is said
-                                                    </Text>
-                                                    <TextInput
-                                                        size="xs"
-                                                        flex={1}
-                                                        aria-label="Spoken"
-                                                        value={editing.spoken}
-                                                        onChange={event => setEditing({ ...editing, spoken: event.currentTarget.value })}
-                                                    />
-                                                    <Button size="xs" variant="light" loading={update.isPending} onClick={save}>
-                                                        Save
-                                                    </Button>
-                                                    <Button size="xs" variant="subtle" color="gray" onClick={() => setEditing(undefined)}>
-                                                        Cancel
-                                                    </Button>
-                                                </Group>
-                                            </Table.Td>
-                                        ) : (
-                                            <>
-                                                <Table.Td w={340}>
-                                                    <Said entry={entry} />
-                                                </Table.Td>
-                                                <Table.Td>
-                                                    <Evidence entry={entry} />
-                                                </Table.Td>
-                                                <Table.Td w={110}>
-                                                    <Group gap={4} justify="flex-end">
-                                                        <ActionIcon
-                                                            size="sm"
-                                                            variant="subtle"
-                                                            aria-label={`Edit ${entry.written}`}
-                                                            onClick={() => setEditing({ id: entry.id, written: entry.written, spoken: entry.spoken })}
-                                                        >
-                                                            <IconPencil size={14} />
-                                                        </ActionIcon>
-                                                        <ActionIcon
-                                                            size="sm"
-                                                            variant="subtle"
-                                                            color="red"
-                                                            aria-label={`Delete ${entry.written}`}
-                                                            loading={remove.isPending}
-                                                            onClick={() => setDeleting(entry)}
-                                                        >
-                                                            <IconTrash size={14} />
-                                                        </ActionIcon>
+                        <Table.ScrollContainer minWidth={600}>
+                            <Table verticalSpacing="xs" highlightOnHover>
+                                <Table.Tbody>
+                                    {active.map(entry => (
+                                        <Table.Tr key={entry.id}>
+                                            {editing?.id === entry.id ? (
+                                                <Table.Td colSpan={3}>
+                                                    <Group gap="xs" wrap="nowrap">
+                                                        <TextInput
+                                                            size="xs"
+                                                            w={200}
+                                                            aria-label="Written"
+                                                            value={editing.written}
+                                                            onChange={event => setEditing({ ...editing, written: event.currentTarget.value })}
+                                                        />
+                                                        <Text size="xs" c="dimmed">
+                                                            is said
+                                                        </Text>
+                                                        <TextInput
+                                                            size="xs"
+                                                            flex={1}
+                                                            aria-label="Spoken"
+                                                            value={editing.spoken}
+                                                            onChange={event => setEditing({ ...editing, spoken: event.currentTarget.value })}
+                                                        />
+                                                        <Button size="xs" variant="light" loading={update.isPending} onClick={save}>
+                                                            Save
+                                                        </Button>
+                                                        <Button size="xs" variant="subtle" color="gray" onClick={() => setEditing(undefined)}>
+                                                            Cancel
+                                                        </Button>
                                                     </Group>
                                                 </Table.Td>
-                                            </>
-                                        )}
-                                    </Table.Tr>
-                                ))}
-                            </Table.Tbody>
-                        </Table>
+                                            ) : (
+                                                <>
+                                                    <Table.Td w={340}>
+                                                        <Said entry={entry} />
+                                                    </Table.Td>
+                                                    <Table.Td>
+                                                        <Evidence entry={entry} />
+                                                    </Table.Td>
+                                                    <Table.Td w={110}>
+                                                        <Group gap={4} justify="flex-end">
+                                                            <ActionIcon
+                                                                size="sm"
+                                                                variant="subtle"
+                                                                aria-label={`Edit ${entry.written}`}
+                                                                onClick={() =>
+                                                                    setEditing({ id: entry.id, written: entry.written, spoken: entry.spoken })
+                                                                }
+                                                            >
+                                                                <IconPencil size={14} />
+                                                            </ActionIcon>
+                                                            <ActionIcon
+                                                                size="sm"
+                                                                variant="subtle"
+                                                                color="red"
+                                                                aria-label={`Delete ${entry.written}`}
+                                                                loading={remove.isPending}
+                                                                onClick={() => setDeleting(entry)}
+                                                            >
+                                                                <IconTrash size={14} />
+                                                            </ActionIcon>
+                                                        </Group>
+                                                    </Table.Td>
+                                                </>
+                                            )}
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
+                        </Table.ScrollContainer>
                     )}
 
                     <Group gap="xs" align="flex-end" wrap="nowrap">
@@ -267,32 +273,34 @@ export function PronunciationsPage() {
                             </Text>
                         </Stack>
 
-                        <Table verticalSpacing="xs">
-                            <Table.Tbody>
-                                {rejected.map(entry => (
-                                    <Table.Tr key={entry.id}>
-                                        <Table.Td w={340}>
-                                            <Said entry={entry} dimmed />
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <Evidence entry={entry} />
-                                        </Table.Td>
-                                        <Table.Td w={110}>
-                                            <Group gap={4} justify="flex-end">
-                                                <Button
-                                                    size="compact-xs"
-                                                    variant="subtle"
-                                                    loading={setState.isPending}
-                                                    onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
-                                                >
-                                                    Say it
-                                                </Button>
-                                            </Group>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
-                            </Table.Tbody>
-                        </Table>
+                        <Table.ScrollContainer minWidth={600}>
+                            <Table verticalSpacing="xs">
+                                <Table.Tbody>
+                                    {rejected.map(entry => (
+                                        <Table.Tr key={entry.id}>
+                                            <Table.Td w={340}>
+                                                <Said entry={entry} dimmed />
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <Evidence entry={entry} />
+                                            </Table.Td>
+                                            <Table.Td w={110}>
+                                                <Group gap={4} justify="flex-end">
+                                                    <Button
+                                                        size="compact-xs"
+                                                        variant="subtle"
+                                                        loading={setState.isPending}
+                                                        onClick={() => setState.mutate({ id: entry.id, body: { state: 'active' } })}
+                                                    >
+                                                        Say it
+                                                    </Button>
+                                                </Group>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
+                        </Table.ScrollContainer>
                     </Stack>
                 </Card>
             ) : undefined}

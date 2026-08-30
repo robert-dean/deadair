@@ -818,63 +818,65 @@ function RowsField({ field, name, rows, error, disabled, cellProps, cellKey, opt
                         {field.placeholder ?? 'Nothing here yet.'}
                     </Text>
                 ) : (
-                    <Table verticalSpacing="xs" horizontalSpacing="xs" withRowBorders={false}>
-                        <Table.Thead>
-                            <Table.Tr>
-                                {columns.map(column => (
-                                    <Table.Th key={column.key}>{column.label}</Table.Th>
-                                ))}
-                                {/* The remove control's column. Headed by nothing, because a heading
+                    <Table.ScrollContainer minWidth={700}>
+                        <Table verticalSpacing="xs" horizontalSpacing="xs" withRowBorders={false}>
+                            <Table.Thead>
+                                <Table.Tr>
+                                    {columns.map(column => (
+                                        <Table.Th key={column.key}>{column.label}</Table.Th>
+                                    ))}
+                                    {/* The remove control's column. Headed by nothing, because a heading
                                     over a row of buttons reads as a third piece of data. */}
-                                <Table.Th w={40} />
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {rows.map((row, index) => (
-                                <Table.Tr key={cellKey(`${name}.${index}`)}>
-                                    {columns.map((column, at) => {
-                                        const path = `${name}.${index}.${cellNameOf(at)}`;
-                                        const choices = optionsFor(column);
-                                        return (
-                                            <Table.Td key={column.key}>
-                                                {choices.length > 0 ? (
-                                                    <Autocomplete
-                                                        aria-label={column.label}
-                                                        placeholder={column.placeholder}
-                                                        disabled={disabled}
-                                                        {...suggestionsAsValues(choices)}
-                                                        limit={Infinity}
-                                                        {...cellProps(path)}
-                                                    />
-                                                ) : (
-                                                    <TextInput
-                                                        aria-label={column.label}
-                                                        placeholder={column.placeholder}
-                                                        disabled={disabled}
-                                                        {...(column.type === 'url' ? { inputMode: 'url' as const } : {})}
-                                                        {...cellProps(path)}
-                                                    />
-                                                )}
-                                            </Table.Td>
-                                        );
-                                    })}
-                                    <Table.Td>
-                                        <ActionIcon
-                                            variant="subtle"
-                                            color="red"
-                                            aria-label={`Remove row ${index + 1}`}
-                                            disabled={disabled}
-                                            onClick={() => {
-                                                onRemove(index);
-                                            }}
-                                        >
-                                            <IconTrash size={16} />
-                                        </ActionIcon>
-                                    </Table.Td>
+                                    <Table.Th w={40} />
                                 </Table.Tr>
-                            ))}
-                        </Table.Tbody>
-                    </Table>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {rows.map((row, index) => (
+                                    <Table.Tr key={cellKey(`${name}.${index}`)}>
+                                        {columns.map((column, at) => {
+                                            const path = `${name}.${index}.${cellNameOf(at)}`;
+                                            const choices = optionsFor(column);
+                                            return (
+                                                <Table.Td key={column.key}>
+                                                    {choices.length > 0 ? (
+                                                        <Autocomplete
+                                                            aria-label={column.label}
+                                                            placeholder={column.placeholder}
+                                                            disabled={disabled}
+                                                            {...suggestionsAsValues(choices)}
+                                                            limit={Infinity}
+                                                            {...cellProps(path)}
+                                                        />
+                                                    ) : (
+                                                        <TextInput
+                                                            aria-label={column.label}
+                                                            placeholder={column.placeholder}
+                                                            disabled={disabled}
+                                                            {...(column.type === 'url' ? { inputMode: 'url' as const } : {})}
+                                                            {...cellProps(path)}
+                                                        />
+                                                    )}
+                                                </Table.Td>
+                                            );
+                                        })}
+                                        <Table.Td>
+                                            <ActionIcon
+                                                variant="subtle"
+                                                color="red"
+                                                aria-label={`Remove row ${index + 1}`}
+                                                disabled={disabled}
+                                                onClick={() => {
+                                                    onRemove(index);
+                                                }}
+                                            >
+                                                <IconTrash size={16} />
+                                            </ActionIcon>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ))}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
                 )}
 
                 <Group justify="flex-start">

@@ -118,96 +118,98 @@ export function CatalogTracksPage({
 
             {tracks.data && rows.length > 0 ? (
                 <>
-                    <Table highlightOnHover>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th w={52} />
-                                <Table.Th w={44} />
-                                <SortableTh sortBy="title" {...sorting}>
-                                    Title
-                                </SortableTh>
-                                <SortableTh sortBy="artist" {...sorting}>
-                                    Artist
-                                </SortableTh>
-                                <SortableTh sortBy="album" {...sorting}>
-                                    Album
-                                </SortableTh>
-                                <SortableTh sortBy="duration" w={120} {...sorting}>
-                                    Duration
-                                </SortableTh>
-                                {/* Not sortable, and the contract says why: a state is three
+                    <Table.ScrollContainer minWidth={800}>
+                        <Table highlightOnHover>
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th w={52} />
+                                    <Table.Th w={44} />
+                                    <SortableTh sortBy="title" {...sorting}>
+                                        Title
+                                    </SortableTh>
+                                    <SortableTh sortBy="artist" {...sorting}>
+                                        Artist
+                                    </SortableTh>
+                                    <SortableTh sortBy="album" {...sorting}>
+                                        Album
+                                    </SortableTh>
+                                    <SortableTh sortBy="duration" w={120} {...sorting}>
+                                        Duration
+                                    </SortableTh>
+                                    {/* Not sortable, and the contract says why: a state is three
                                     independent booleans, so there is no order of it an operator
                                     would agree with. */}
-                                <Table.Th w={110}>State</Table.Th>
-                                <SortableTh sortBy="rating" w={150} {...sorting}>
-                                    Rating
-                                </SortableTh>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {rows.map(track => (
-                                <Fragment key={track.id}>
-                                    <Table.Tr>
-                                        {/* The record's cover, since nothing hangs art off a recording. Blank for a
+                                    <Table.Th w={110}>State</Table.Th>
+                                    <SortableTh sortBy="rating" w={150} {...sorting}>
+                                        Rating
+                                    </SortableTh>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {rows.map(track => (
+                                    <Fragment key={track.id}>
+                                        <Table.Tr>
+                                            {/* The record's cover, since nothing hangs art off a recording. Blank for a
                                         single ingested outside any release, which has no record to borrow from. */}
-                                        <Table.Td>
-                                            <Artwork src={track.albumImageUrl} alt={track.albumName ?? track.title} size={36} />
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <TrackExpandButton
-                                                open={expansion.isOpen(track.id)}
-                                                title={track.title}
-                                                onToggle={() => {
-                                                    expansion.toggle(track.id);
-                                                }}
-                                            />
-                                        </Table.Td>
-                                        <Table.Td>
-                                            {/* Drawn like the artist and album links beside it rather
+                                            <Table.Td>
+                                                <Artwork src={track.albumImageUrl} alt={track.albumName ?? track.title} size={36} />
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <TrackExpandButton
+                                                    open={expansion.isOpen(track.id)}
+                                                    title={track.title}
+                                                    onToggle={() => {
+                                                        expansion.toggle(track.id);
+                                                    }}
+                                                />
+                                            </Table.Td>
+                                            <Table.Td>
+                                                {/* Drawn like the artist and album links beside it rather
                                                 than as plain text: the title is now the way into
                                                 everything a record has accumulated, and a link
                                                 nobody can see is a page nobody finds. */}
-                                            <TrackLink id={track.id}>{track.title}</TrackLink>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <ArtistLink id={track.artistId}>{track.artistName}</ArtistLink>
-                                        </Table.Td>
-                                        {/* A track ingested outside any release has no album, which is a
+                                                <TrackLink id={track.id}>{track.title}</TrackLink>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <ArtistLink id={track.artistId}>{track.artistName}</ArtistLink>
+                                            </Table.Td>
+                                            {/* A track ingested outside any release has no album, which is a
                                         blank cell rather than a broken link — which is what an absent
                                         id already means to `AlbumLink`. */}
-                                        <Table.Td>
-                                            <AlbumLink id={track.albumId}>{track.albumName ?? ''}</AlbumLink>
-                                        </Table.Td>
-                                        <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
-                                        {/* Three facts, as three marks rather than three columns: what
+                                            <Table.Td>
+                                                <AlbumLink id={track.albumId}>{track.albumName ?? ''}</AlbumLink>
+                                            </Table.Td>
+                                            <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
+                                            {/* Three facts, as three marks rather than three columns: what
                                             a row can afford is a glance, and anything more detailed is
                                             the record's own page one click away. */}
-                                        <Table.Td>
-                                            <Group gap="xxs" wrap="nowrap">
-                                                <StateMark on={track.hasAudio} label="audio on this machine" mark="A" />
-                                                <StateMark on={track.measured} label="measured" mark="M" />
-                                                <StateMark on={track.enriched} label="described by a provider" mark="E" />
-                                            </Group>
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <RatingControl
-                                                size="xs"
-                                                rating={track.rating}
-                                                label={track.title}
-                                                busy={rate.isPending && rate.variables?.id === track.id}
-                                                onChange={rating => {
-                                                    rate.mutate({ id: track.id, rating });
-                                                }}
-                                            />
-                                        </Table.Td>
-                                    </Table.Tr>
-                                    {/* One wider than the row above it, so the expansion still spans
+                                            <Table.Td>
+                                                <Group gap="xxs" wrap="nowrap">
+                                                    <StateMark on={track.hasAudio} label="audio on this machine" mark="A" />
+                                                    <StateMark on={track.measured} label="measured" mark="M" />
+                                                    <StateMark on={track.enriched} label="described by a provider" mark="E" />
+                                                </Group>
+                                            </Table.Td>
+                                            <Table.Td>
+                                                <RatingControl
+                                                    size="xs"
+                                                    rating={track.rating}
+                                                    label={track.title}
+                                                    busy={rate.isPending && rate.variables?.id === track.id}
+                                                    onChange={rating => {
+                                                        rate.mutate({ id: track.id, rating });
+                                                    }}
+                                                />
+                                            </Table.Td>
+                                        </Table.Tr>
+                                        {/* One wider than the row above it, so the expansion still spans
                                         the table now that the rating has its own column. */}
-                                    <TrackEnrichmentRow trackId={track.id} open={expansion.isOpen(track.id)} colSpan={8} />
-                                </Fragment>
-                            ))}
-                        </Table.Tbody>
-                    </Table>
+                                        <TrackEnrichmentRow trackId={track.id} open={expansion.isOpen(track.id)} colSpan={8} />
+                                    </Fragment>
+                                ))}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
                     <CatalogPagination
                         total={tracks.data.meta.total}
                         pageSize={order.pageSize}

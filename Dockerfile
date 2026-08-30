@@ -183,12 +183,6 @@ ARG WITH_DB
 ARG NODE_VERSION
 ARG S6_OVERLAY_VERSION
 ARG DBMATE_VERSION
-# Declared with the others and USED at the bottom of the file, which is the whole of the care this
-# one needs: a build argument busts the cache at its first use rather than at its declaration, and
-# this is the only argument here whose value changes on every single build. Used up at the top it
-# would rebuild the entire stage — apt, Node, the supervisor, the install — for a string that
-# nothing below reads.
-ARG REVISION
 
 # Everything apt provides, in one layer.
 #
@@ -469,6 +463,14 @@ ENV PLAYOUT_BASE_URL=http://app:3000/playout
 #
 # Both are metadata over the layer beneath them, so this is also the cheapest possible place to put
 # the one argument that changes every build: nothing below rebuilds when the sha moves.
+#
+# DECLARED here rather than with the other arguments at the top of the stage. The reasoning for
+# putting it up there was that an argument busts the cache at its first USE, not at its
+# declaration — which is not what the builds do. The first release after this argument was added
+# reused 10 of its layers where the release before it reused 36, and every step of the final stage
+# rebuilt, apt included, on a commit that touched nothing the stage reads. Declaring it one line
+# above the only two lines that read it leaves nothing behind it to invalidate.
+ARG REVISION
 LABEL org.opencontainers.image.revision="${REVISION}"
 ENV BUILD_REVISION=${REVISION}
 

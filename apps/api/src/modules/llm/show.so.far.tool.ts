@@ -71,6 +71,9 @@ export class ShowSoFarTool implements ToolSource {
     async tools(): Promise<StationTool[]> {
         return [
             {
+                // History, and history only grows: a record played is still played when the break
+                // airs. The same verdict `BreakWriteRequest.played` gets, and for the same reason.
+                freshness: 'timeless',
                 declaration: {
                     name: 'show_so_far',
                     // Written for the model, and it says what the answer is FOR. Without the last

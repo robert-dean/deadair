@@ -695,15 +695,43 @@ Revised after the second pass, with the original reasons kept, and marked after 
 **Added by the fifth pass, and it goes at the top rather than into the list**, because it is a defect
 in shipped code and everything above it is a feature:
 
-0. **Give a weather reading an expiry**, which is the smallest correct version of what the fifth pass
-   found. The inputs are all in hand — `observedAt` is on the reading, `airsAt` is on the segment, and
-   `write.break.job.ts` already passes the second to the bulletin source on the line above. Three
-   sizes, and the first is worth having alone: pass `airsAt` into `readingFor` and decline a reading
-   already too old to be true at air; then a third `BrokenClaim` kind so a stale one is rewritten in
-   the write-ahead window rather than dropped at hand-over; then the same question asked of every
-   other source of a present-tense fact, which is what stops this recurring the next time a capability
-   lands. **Do the third one whatever else happens**: the finding is not that weather was done badly,
-   it is that a new capability does not inherit an old guard and nothing fails when it doesn't.
+0. ~~**Give a weather reading an expiry**~~, which is the smallest correct version of what the fifth
+   pass found. **Built 2026-08-30**, in the three sizes and the order this entry gave them, and the
+   estimate held: the inputs really were all in hand and the first size really was worth having
+   alone. `readingFor` takes `airs_at` — the same argument `storiesFor` was already handed one line
+   above it — and `rotation.weatherMaxAgeMinutes` bounds the age at two hours by default, wide on
+   purpose because a national service can be most of an hour behind before this station sees a
+   reading. `segments.claims_reading_until` is the third `BrokenClaim` kind, rewritten by `ripen` and
+   dropped by `toPlayerItems` through the one predicate.
+
+   Three things the design above did not have:
+
+   - **The third claim is shaped unlike the second, and the difference is what makes it safe.** One
+     end rather than two and no direction, because an observation has no not-true-yet — which is
+     also exactly why it IS worth a rewrite where an early time claim is not: the rewrite fetches a
+     new observation instead of re-deriving the same phrasing from the same unchanged `airs_at`. And
+     size 1 is what stops the loop when the service has NOT moved on, because the reading is then
+     declined, the segment fails, and `reopenSegments` does not reach a failed row. **The ordering
+     this entry gave was load-bearing rather than merely sensible.**
+   - **Both weather writers stamp it UNCONDITIONALLY**, where `claimsNext` and `claimsTime` are
+     answered rather than assumed. Those are conditional because a phrasing may have dropped the
+     record or the time; there is no weather break that dropped the weather, since every phrasing
+     carries the reading outside its optional parts and `WEATHER_SHAPE` exists to make the model
+     state it.
+   - **The third size came out as a type rather than as a rule**, which is the part worth keeping.
+     `SUBSTRATE_FRESHNESS` maps every field of `BreakWriteRequest` to what keeps it true until air,
+     so a new field fails `tsc` until somebody answers — `boundary.json.safe.ts`'s shape, for
+     `boundary.json.safe.ts`'s reason. The vocabulary's most useful value is `perishable`, which
+     admits there is no guard: a list offering only guards pushes somebody toward the nearest one
+     that almost fits, and a table naming a guard that does not run is worse than no table.
+     `StationTool.freshness` asks the same question of the tool loop, which the table cannot see.
+
+   **And the audit's most useful result was a negative one, which the method predicted.** Every break
+   writer passes `tools: false`, so `get_weather`, `read_news` and `search_web` reach a model only on
+   the set-generator and persona paths and no tool answer is currently spoken on air as a statement
+   about the present. That is exposure DEFERRED, not avoided — the day one of those five writers
+   turns tools on, three `perishable` declarations become three claims going to air with no expiry,
+   and the required field is what asks.
 
 **Added by the fourth pass, and neither is ranked against the list above**, because both are answers
 to a deadline rather than choices about what to build next:
@@ -749,3 +777,11 @@ worth repeating is not reading somebody else's tree, it is keeping their list of
 and running it against ours whenever this one grows a new surface.** A guard is a claim about code
 that existed when it was written, and nothing in a test suite notices when a new caller quietly opts
 out of one.
+
+**And what building rank 0 added to THAT**, which is the last word this file has on method: the best
+outcome of a hard-won question is not an answer, it is a type that asks it again for free. The fifth
+pass's finding was that nothing failed when weather skipped `break.claims.ts`, and the fix for the
+weather path is a column while the fix for the FINDING is `SUBSTRATE_FRESHNESS`. A pass like this one
+can only be run when somebody thinks to run it; a mapped type over the substrate runs on every build,
+against every field anybody adds, forever. **Where a question can be moved into the compiler, that is
+where the answer to it belongs.**

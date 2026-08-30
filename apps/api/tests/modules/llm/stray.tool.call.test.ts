@@ -9,6 +9,7 @@ import { strayToolCall } from '../../../src/modules/llm/stray.tool.call.js';
 
 const declare = (name: string, properties: Record<string, unknown>, required: string[] = []): StationTool => ({
     declaration: { name, description: `does ${name}`, parameters: { type: 'object', properties, required, additionalProperties: false } },
+    freshness: 'timeless',
     run: async () => ({}),
 });
 

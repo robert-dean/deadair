@@ -64,6 +64,9 @@ export class ChartsTool implements ToolSource {
 
         return [
             {
+                // A chart moves weekly, which is timeless at the scale of one break: this week's
+                // number one is still this week's number one twenty minutes later.
+                freshness: 'timeless',
                 declaration: {
                     name: 'browse_charts',
                     // Written for the model. It says that calling it without an id is the way to

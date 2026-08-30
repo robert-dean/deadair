@@ -78,6 +78,30 @@ words named, and `toPlayerItems` drops the break when that is no longer what pla
 record is offered to a writer only when it is the adjacent line, since a promise made across an
 intervening segment is the least trustworthy kind. Silence on one boundary beats a wrong fact.
 
+**There are three dimensions of that, and they are one argument read three ways.** A break naming the
+next RECORD is overtaken by an edit (`claims_item_id`); one naming the TIME is overtaken by the clock
+(`claims_time_from`/`until`); one reporting a MEASUREMENT is overtaken by the world
+(`claims_reading_until`). `brokenClaim` is the single expression all three are read through, because
+`BreakPlanner.ripen` asks in the write-ahead window where the answer is worth a rewrite and
+`toPlayerItems` asks at hand-over where it costs the break, and two readings that could disagree
+would be two bugs waiting. The shapes differ where the questions do: a time claim has two ends and
+reports which one it fell off, because "just after nine" is wrong at ten to as well as at half past,
+and a reading has ONE end and no direction because an observation has no not-true-yet. That asymmetry
+is also which claims are worth rewriting — an early time claim re-derives the same phrasing from the
+same unchanged `airs_at` and loops (it cost seven bulletins in two hours on 24 August), where a
+reading claim sends the writer back to the service for a genuinely new observation.
+
+**And which substrates need a claim at all is declared, in a table the compiler checks.**
+`SUBSTRATE_FRESHNESS` in `break.freshness.ts` maps every field of `BreakWriteRequest` to what keeps
+it true between the writing and the slot, so adding a field fails `tsc` until somebody answers. It
+exists because weather did not: a whole capability shipped months after `break.claims.ts`, inherited
+none of it, and **nothing in the tree failed when nobody asked**. The vocabulary's most important
+value is `perishable`, which admits there is no guard — a list offering only guards pushes somebody
+toward the nearest one that almost fits, which is how a table like that becomes a lie.
+`StationTool.freshness` asks the same question of the tool loop, which the table cannot see, and the
+three `perishable` answers there (`get_weather`, `read_news`, `search_web`) are exposure DEFERRED
+rather than avoided: every break writer passes `tools: false` today, so no tool answer reaches air.
+
 ## What the prompt says, and what it left out
 
 **What buys a character room is what the break does not have to say, never the word ceiling.** Measured before
@@ -199,10 +223,22 @@ story, because it knows roughly what August in Atlanta is like and will fill one
 of having invented anything. Two gaps in it are deliberate and are tests rather than comments — a
 spelled-out number gets through, and a clock time, a date or a year is not read as a measurement.
 
-**The three ways of having nothing are told apart in the SOURCE and nowhere else.** No plugin, nowhere
-named, a service that is down: one silence to the writer, and three different things for an operator
-to do. A station whose clock asks for the weather every hour and is silent every time needs to be told
-which, so `WeatherSource` names the fix in the log and the writer only declines.
+**The four ways of having nothing are told apart in the SOURCE and nowhere else.** No plugin, nowhere
+named, a service that is down, and a reading that will be too old to be true when the break airs: one
+silence to the writer, and four different things for an operator to do. A station whose clock asks for
+the weather every hour and is silent every time needs to be told which, so `WeatherSource` names the
+fix in the log and the writer only declines.
+
+**The reading's age is judged against the SLOT, and that is the half this shipped without.** A break
+is written up to eight records ahead of it, so `readingFor` takes `segments.airs_at` — the same
+parameter `BulletinSource.storiesFor` was already given one line above the call — and declines a
+reading that `rotation.weatherMaxAgeMinutes` says will have aged out by then. Two hours by default,
+generously, because a national service can be most of an hour behind before this station sees a
+reading and a tighter window silences the weather on a working install. What survives past that is
+drift: `airs_at` is a projection, so both writers stamp `claims_reading_until` unconditionally —
+unlike `claimsNext` and `claimsTime`, which are answered, because there is no weather break that
+dropped the weather. `inventedFigure` and that stamp are the two halves: one makes the numbers
+unfabricable, the other makes them expire, and neither could have done the other's job.
 
 **Where the station is, is a SETTING and not a topic.** `station.location` is the default for every
 weather feature, so a fresh install reports its own conditions without an operator creating anything;

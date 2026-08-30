@@ -78,6 +78,7 @@ function scriptedPlugin(turns: Turn[], options: { tools?: boolean } = {}) {
 
 const tool = (name: string, run: StationTool['run']): StationTool => ({
     declaration: { name, description: `does ${name}`, parameters: { type: 'object' } },
+    freshness: 'timeless',
     run,
 });
 
@@ -357,6 +358,7 @@ describe('a tool call the model wrote as text', () => {
             description: 'neighbours',
             parameters: { type: 'object', properties: { artist: { type: 'string' }, limit: { type: 'number' } }, required: ['artist'] },
         },
+        freshness: 'timeless',
         run,
     });
 

@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import type { LlmToolCall, LlmToolDeclaration } from '@deadair/plugin-sdk';
+import type { Freshness } from '#modules/shared/freshness.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -28,6 +29,25 @@ import { errorText } from '#modules/shared/error.text.js';
 /** One thing the model can call. */
 export interface StationTool {
     declaration: LlmToolDeclaration;
+
+    /**
+     * Whether what this answers with can stop being true between a break being written and aired.
+     *
+     * Required, and that is the whole of what it is for. `SUBSTRATE_FRESHNESS` asks this question of
+     * every field a writer is HANDED, and cannot see a fact that reaches a script through the
+     * conversation instead — a model that called `get_weather` and wrote the number down has put a
+     * perishable claim in a script with nothing anywhere holding its expiry. A required field is
+     * what makes a new tool source answer the question rather than never being asked it.
+     *
+     * **Nothing branches on this today, and the reason is measured**: every break writer passes
+     * `tools: false` (`model.talk.break.writer.ts`, `model.news.break.writer.ts`,
+     * `model.weather.break.writer.ts`, `model.story.break.writer.ts`, `model.welcome.writer.ts`), so
+     * the only conversations that reach a tool are the set generator and the persona passes, and
+     * neither puts a tool's answer on air as a statement about the present. That is exposure
+     * DEFERRED rather than avoided: the day one of those five turns tools on, every `perishable`
+     * below is a claim going to air with no expiry, and this field is the list of them.
+     */
+    freshness: Freshness;
 
     /**
      * Do it, and answer with something JSON-serializable.

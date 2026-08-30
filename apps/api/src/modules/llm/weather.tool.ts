@@ -87,6 +87,12 @@ export class WeatherTool implements ToolSource {
 
         return [
             {
+                // The one this whole vocabulary was written because of, and the only tool whose
+                // answer the station has somewhere to put an expiry for: a weather BREAK stamps
+                // `segments.claims_reading_until` off the same reading. A talk break that called
+                // this and wrote the number down has no such stamp, so `perishable` is the honest
+                // answer for the tool even though the kind above it is guarded.
+                freshness: 'perishable',
                 declaration: {
                     name: 'get_weather',
                     // Written for the model, and it says three things

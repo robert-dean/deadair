@@ -59,6 +59,8 @@ export class SimilarArtistsTool implements ToolSource {
 
         return [
             {
+                // Who sounds like whom. As slow-moving as the catalog it is about.
+                freshness: 'timeless',
                 declaration: {
                     name: 'similar_artists',
                     // Written for the model, and it says what the answer is FOR: both programming

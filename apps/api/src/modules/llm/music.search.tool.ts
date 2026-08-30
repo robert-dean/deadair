@@ -154,6 +154,9 @@ export class MusicSearchTool implements ToolSource {
     async tools(): Promise<StationTool[]> {
         return [
             {
+                // The catalog. It moves when somebody ingests, not on its own, and a record that
+                // existed when the break was written still exists when it airs.
+                freshness: 'timeless',
                 declaration: {
                     name: 'search_music',
                     // Written for the model, not for a developer. It says what the answer MEANS

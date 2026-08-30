@@ -11,6 +11,7 @@ const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.
 
 const tool = (name: string, run: StationTool['run']): StationTool => ({
     declaration: { name, description: `does ${name}`, parameters: { type: 'object' } },
+    freshness: 'timeless',
     run,
 });
 

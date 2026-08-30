@@ -75,6 +75,10 @@ export class WebSearchTool implements ToolSource {
 
         return [
             {
+                // The widest exposure of the three, because there is no bound on what a page says:
+                // an answer here can be a fact about right now, about last week, or about nothing
+                // that was ever true. Nothing records when any of it stops holding.
+                freshness: 'perishable',
                 declaration: {
                     name: 'search_web',
                     // Written for the model, and it says three things

@@ -42,6 +42,9 @@ export class StationTasteTool implements ToolSource {
     async tools(): Promise<StationTool[]> {
         return [
             {
+                // What this station is, out of what it has played. A shape rather than an event,
+                // and one more break does not move it.
+                freshness: 'timeless',
                 declaration: {
                     name: 'station_taste',
                     // Written for the model. It says what the answer IS (somebody's opinion) and

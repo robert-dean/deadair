@@ -89,6 +89,11 @@ export class NewsTool implements ToolSource {
 
         return [
             {
+                // A headline is a statement about the present. `BulletinSource` fetches the same
+                // stories against `segments.airs_at` and is therefore `fetched-for-air`; this fetches
+                // against the moment the model asked, and nothing anywhere records how long the
+                // answer stays worth saying.
+                freshness: 'perishable',
                 declaration: {
                     name: 'read_news',
                     // Written for the model, and it says two things deliberately:

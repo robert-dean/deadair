@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { AppShell, Box, Button, Group, Kbd, ScrollArea, Text } from '@mantine/core';
+import { ActionIcon, AppShell, Box, Button, Group, Kbd, ScrollArea, Text } from '@mantine/core';
 import { useHotkeys } from '@mantine/hooks';
+import { IconSearch } from '@tabler/icons-react';
 import { spotlight } from '@mantine/spotlight';
 import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
@@ -19,6 +20,7 @@ import { ErrorAlert } from '../components/shared/error.alert';
 import { usePhone } from '../components/shared/use.phone';
 import { JumpTo } from '../components/shell/jump.to';
 import { NavFooter } from '../components/shell/nav.footer';
+import { PhoneMenu } from '../components/shell/phone.menu';
 import { PhoneTabs } from '../components/shell/phone.tabs';
 import { DESTINATION_KEYS, SideNav } from '../components/shell/side.nav';
 import { StationMark } from '../components/shell/station.mark';
@@ -141,7 +143,20 @@ export function RootLayout() {
                             >
                                 Jump to anything
                             </Button>
+                            {/* The same door with no keycap on it: a phone has no ⌘K, and a button
+                                reading "Jump to anything" is wider than the header can spare. */}
+                            <ActionIcon variant="default" size="lg" aria-label="Jump to anything" onClick={spotlight.open} hiddenFrom="sm">
+                                <IconSearch size={18} stroke={1.8} />
+                            </ActionIcon>
                             <StationClock />
+                            {/* The rail's footer, for a viewport that has no rail — see the
+                                component for why this is not the drawer coming back. */}
+                            <PhoneMenu
+                                loggingOut={logout.isPending}
+                                onLogout={() => {
+                                    void handleLogout();
+                                }}
+                            />
                         </Group>
                     ) : undefined}
                 </Group>

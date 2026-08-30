@@ -237,19 +237,27 @@ export function useRateAlbum() {
  * Also invalidates the running order, which carries each item's rating so the on-air table can draw
  * a control that is not lying. Without it the row would keep its old answer until the next poll.
  */
-/** Which of a record's derived things to throw away. Each is a verb of its own; see `catalog.ck`. */
-export type TrackClear = 'audio' | 'analysis' | 'enrichment' | 'retry';
+/**
+ * Which of a record's verbs to press. Each is an operation of its own; see `catalog.ck`.
+ *
+ * `offer` is the one that throws nothing away — it puts copies a provider refused back on offer —
+ * and it is here rather than in a hook of its own because it is the same gesture as the rest: an
+ * operator looking at a record that will not play and deciding what to do about it.
+ */
+export type TrackClear = 'audio' | 'analysis' | 'enrichment' | 'retry' | 'offer';
 
 /**
- * Throw away one of the things the station can work out again about a record.
+ * Do one of the things an operator can do about what the station holds of a record.
  *
- * One mutation for the four rather than four hooks, because they are one gesture with a different
- * object: the page holds a single pending state and shows a single answer, and a menu of four
- * buttons wired to four hooks would have four of each.
+ * One mutation for the five rather than five hooks, because they are one gesture with a different
+ * object: the page holds a single pending state and shows a single answer, and a menu of five
+ * buttons wired to five hooks would have five of each.
  *
- * The detail read is invalidated and nothing else: a clear changes what the station HAS of a record,
- * which is what that read describes. The lists get it on their own next fetch, and the enrichment
- * read is invalidated only when the clear was about enrichment.
+ * The detail read is invalidated, plus what the answer visibly changes elsewhere. A clear changes
+ * what the station HAS of a record, which the detail read describes; the enrichment read is
+ * invalidated only when the clear was about enrichment, and the desk's attention list only for the
+ * two verbs that can empty a row on it — otherwise "4 records have no copy left" sits there for a
+ * poll after the operator has just fixed one.
  */
 export function useClearTrack() {
     const queryClient = useQueryClient();
@@ -258,11 +266,13 @@ export function useClearTrack() {
             if (what === 'audio') return sdk.catalog.clearTrackAudio(id);
             if (what === 'analysis') return sdk.catalog.clearTrackAnalysis(id);
             if (what === 'enrichment') return sdk.catalog.clearTrackEnrichment(id);
+            if (what === 'offer') return sdk.catalog.offerTrackCopiesAgain(id);
             return sdk.catalog.retryTrackAudio(id);
         },
         onSuccess: (_result, { id, what }) => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.track(id) });
             if (what === 'enrichment') void queryClient.invalidateQueries({ queryKey: queryKeys.catalog.trackEnrichment(id) });
+            if (what === 'retry' || what === 'offer') void queryClient.invalidateQueries({ queryKey: queryKeys.station.attention() });
         },
     });
 }

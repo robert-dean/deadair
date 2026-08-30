@@ -381,9 +381,10 @@ describe('TracksService.getTrack', () => {
     });
 });
 
-// Every one of these removes something DERIVED, and every one is stamped with the operator who
-// asked — a re-fetch or a re-measure that appeared from nowhere reads as the station churning.
-describe('throwing away what the station can work out again', () => {
+// Four of these remove something DERIVED and the fifth puts a refused copy back on offer, and every
+// one is stamped with the operator who asked — a re-fetch or a re-measure that appeared from nowhere
+// reads as the station churning.
+describe('what an operator can do about a record that will not play', () => {
     const exists = { findTrack: vi.fn().mockResolvedValue(trackRow()) };
 
     it('drops the local copies and says how many', async () => {
@@ -456,6 +457,37 @@ describe('throwing away what the station can work out again', () => {
         expect(result.detail).toMatch(/2 copies are available to try again/);
     });
 
+    // The only thing in the station that clears `track_sources.playable`, and the whole reason it is
+    // safe is that it is not automatic: not the hourly sync, not a re-sighting, not the retry above.
+    // Without it the desk reported records nobody could act on under a sentence promising a sync
+    // would un-bench them, which for a refused copy is never true.
+    it('puts refused copies back on offer, and clears their backoff in the same breath', async () => {
+        const offerBindingsAgain = vi.fn().mockResolvedValue(2);
+        const retryForTrack = vi.fn().mockResolvedValue(2);
+        const service = tracksService({ ...exists, offerBindingsAgain }, { retryForTrack });
+
+        const result = await service.offerAudio(TRACK_ID);
+
+        expect(offerBindingsAgain).toHaveBeenCalledWith(TRACK_ID);
+        // Both, because they are one instruction: a copy the provider refused has four failures and
+        // a backoff behind it, so re-offering and leaving it backed off is a button that appears to
+        // do nothing until the gate expires.
+        expect(retryForTrack).toHaveBeenCalledWith(TRACK_ID);
+        expect(result).toMatchObject({ cleared: 2 });
+        expect(result.detail).toMatch(/2 refused copies are on offer again/);
+    });
+
+    // Zero is a real answer rather than a failure, and the more interesting one: it says whatever
+    // stops this record playing is not a refusal.
+    it('says plainly when no copy of the record was refused', async () => {
+        const service = tracksService({ ...exists, offerBindingsAgain: vi.fn().mockResolvedValue(0) });
+
+        const result = await service.offerAudio(TRACK_ID);
+
+        expect(result.cleared).toBe(0);
+        expect(result.detail).toMatch(/No copy of this record was refused/);
+    });
+
     it('stamps every clear with the operator who asked', async () => {
         const record = vi.fn().mockResolvedValue(undefined);
         const service = tracksService(exists, { record, clearAnalysis: vi.fn().mockResolvedValue(1) });
@@ -486,7 +518,8 @@ describe('throwing away what the station can work out again', () => {
         ['analysis', (service: ReturnType<typeof tracksService>) => service.clearAnalysis(TRACK_ID)],
         ['enrichment', (service: ReturnType<typeof tracksService>) => service.clearEnrichment(TRACK_ID, {})],
         ['retry', (service: ReturnType<typeof tracksService>) => service.retryAudio(TRACK_ID)],
-    ])('404s on clearing the %s of a record the catalog does not hold', async (_, call) => {
+        ['offer', (service: ReturnType<typeof tracksService>) => service.offerAudio(TRACK_ID)],
+    ])('404s on the %s verb for a record the catalog does not hold', async (_, call) => {
         const service = tracksService({ findTrack: vi.fn().mockResolvedValue(undefined) });
 
         await expect(call(service)).rejects.toMatchObject({ statusCode: 404 });

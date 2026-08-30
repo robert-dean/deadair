@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AttentionItem } from '@deadair/sdk';
 
 import { AttentionList } from '../../../src/components/station/attention.list';
-import { render, screen, setupUser } from '../../utils/render';
+import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 vi.mock('@tanstack/react-router', () => ({
     Link: ({ to, params, children, ...rest }: { to: string; params?: Record<string, string>; children?: ReactNode }) => {
@@ -64,7 +64,12 @@ describe('AttentionList', () => {
 
         expect(screen.getByText('Push It — Salt-N-Pepa')).toBeInTheDocument();
         expect(screen.getByText('The provider will never serve this copy.')).toBeInTheDocument();
-        expect(screen.getByRole('link', { name: 'Record →' })).toHaveAttribute('href', '/catalog/tracks/d8cbe47c-301f-401d-b4b3-a10794defd33');
+        // Through `waitFor` because the panel animates open: until the collapse settles the link is
+        // in the document and not yet in the accessibility tree, which is why a role query for it
+        // races where the text queries above do not.
+        await waitFor(() =>
+            expect(screen.getByRole('link', { name: 'Record →' })).toHaveAttribute('href', '/catalog/tracks/d8cbe47c-301f-401d-b4b3-a10794defd33'),
+        );
     });
 
     it('says how many it is not showing, because the station caps what it sends', async () => {

@@ -42,7 +42,9 @@ const FILTERS: { state: TrackStateParam; label: string; help: string; count: (co
     {
         state: 'benched',
         label: 'Benched',
-        help: 'Every copy written off. These cannot air until a sync sees one of them again.',
+        // Two causes wearing one word, and only one of them heals. A copy the provider refused is
+        // never brought back by a sync, so a chip promising one is a chip an operator waits on.
+        help: 'Every copy written off. A sync brings back the ones the provider still lists; one it refused stays off until you offer it again.',
         count: counts => counts.benched,
     },
 ];

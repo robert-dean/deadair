@@ -205,6 +205,42 @@ export class TracksService {
         });
     }
 
+    /**
+     * Put a record's refused copies back on offer, and try them now.
+     *
+     * The one verb here that throws nothing away, and the only thing in the station that clears
+     * `track_sources.playable`. Nothing automatic may — see `TracksRepository.markBindingUnplayable`
+     * — and that rule is intact: this is an operator overriding a provider's answer deliberately,
+     * on one record, once.
+     *
+     * It retries as well as re-offers, because they are one instruction rather than two. A copy the
+     * provider refused has four failures and a backoff behind it, so putting it on offer and leaving
+     * it backed off would be a button that appears to do nothing until the gate expires — and an
+     * operator pressing this has already decided the upstream is worth another go.
+     *
+     * The count is copies it CHANGED, so zero is a real answer rather than a failure: it says
+     * nothing about this record was refused, and whatever stops it playing is something else.
+     *
+     * @throws 404 for a record the catalog does not hold.
+     */
+    async offerAudio(id: string): Promise<TrackClearResult> {
+        await this.mustExist(id);
+        const offered = await this.tracksRepository.offerBindingsAgain(id);
+        await this.audio.retryForTrack(id);
+
+        return this.cleared(id, offered, {
+            kind: 'track.offerReset',
+            detail:
+                offered === 0
+                    ? 'An operator asked the station to offer a record’s refused copies again, but none of them was refused.'
+                    : `An operator put ${offered} refused ${offered === 1 ? 'copy' : 'copies'} of a record back on offer, overriding the provider’s answer.`,
+            answer:
+                offered === 0
+                    ? 'No copy of this record was refused by its provider, so nothing changed. Its backoff was cleared anyway.'
+                    : `${offered} refused ${offered === 1 ? 'copy is' : 'copies are'} on offer again, with the backoff cleared. The station tries ${offered === 1 ? 'it' : 'them'} when the record next comes round.`,
+        });
+    }
+
     /** The bindings of a record, or a 404 if the catalog does not hold it. */
     private async bindingsOf(id: string) {
         await this.mustExist(id);

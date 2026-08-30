@@ -1,6 +1,7 @@
-// Four verbs that all send the station off to do work again, so what is pinned here is the part an
+// Five verbs that all send the station off to do work again, so what is pinned here is the part an
 // operator relies on: nothing happens without a confirmation, the answer stays on screen afterwards,
-// and a refusal is shown rather than swallowed.
+// and a refusal is shown rather than swallowed. The fifth is the one that OVERRIDES the station
+// rather than clearing something, so its confirmation has to say what it is contradicting.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
@@ -13,6 +14,7 @@ const clearTrackAudio = vi.fn();
 const clearTrackAnalysis = vi.fn();
 const clearTrackEnrichment = vi.fn();
 const retryTrackAudio = vi.fn();
+const offerTrackCopiesAgain = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     BASE_URL: '/api',
@@ -22,6 +24,7 @@ vi.mock('../../../src/api/client', () => ({
             clearTrackAnalysis: (...args: unknown[]) => clearTrackAnalysis(...args),
             clearTrackEnrichment: (...args: unknown[]) => clearTrackEnrichment(...args),
             retryTrackAudio: (...args: unknown[]) => retryTrackAudio(...args),
+            offerTrackCopiesAgain: (...args: unknown[]) => offerTrackCopiesAgain(...args),
         },
     },
 }));
@@ -102,10 +105,22 @@ describe('TrackClearMenu', () => {
         expect(await screen.findByText(/facts, the ones with a source and a quote, are not touched/)).toBeInTheDocument();
     });
 
+    // A refused copy is a PROVIDER's answer and nothing in the station un-refuses it, so this one
+    // verb is an operator overriding that. The confirmation has to say so before it is pressed,
+    // because it is the only entry here that contradicts something rather than rebuilding it.
+    it('says what a re-offer is overriding, before it is pressed', async () => {
+        render(<TrackClearMenu trackId={TRACK_ID} />);
+
+        await open('Offer refused copies again');
+
+        expect(await screen.findByText(/never will, so nothing in the station un-refuses it/)).toBeInTheDocument();
+    });
+
     it.each([
         ['Forget the measurement', 'Forget it', () => clearTrackAnalysis],
         ['Forget what the providers said', 'Forget them', () => clearTrackEnrichment],
         ['Try the copies again now', 'Try again', () => retryTrackAudio],
+        ['Offer refused copies again', 'Offer them again', () => offerTrackCopiesAgain],
     ])('sends %s', async (item, confirm, call) => {
         call().mockResolvedValue({ trackId: TRACK_ID, cleared: 1, detail: 'Done.' });
         render(<TrackClearMenu trackId={TRACK_ID} />);

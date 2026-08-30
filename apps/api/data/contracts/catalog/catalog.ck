@@ -274,6 +274,36 @@ operation /catalog/tracks/{id}/retry: {
     }
 }
 
+# The one verb here that does not throw anything away, and it is beside these four because it is the
+# same gesture: an operator looking at a record that will not play and deciding what to do about it.
+#
+# `track_sources.playable = false` is a PROVIDER's answer — it said it has no audio for this copy and
+# never will — and nothing in the station clears it. Not the hourly sync, not a re-sighting, not the
+# retry above, all three deliberately: a mark that healed itself would put the record back in
+# rotation to fail again next hour, which is what it was written to stop.
+#
+# What was missing is the operator. A refused copy left the desk reporting records it could not act
+# on, under a sentence promising that the next sync would un-bench them, which for these is never
+# true. This is that override, and its being explicit is the whole of why it is safe: nothing
+# automatic clears the mark and this is nobody's automatic.
+operation /catalog/tracks/{id}/offer: {
+    params: {
+        id: uuid
+    }
+    post: { # Put copies a provider refused back on offer, and clear their backoff so they are tried now
+        name: Offer track copies again
+        service: TracksService.offerAudio
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: TrackClearResult
+            }
+        }
+    }
+}
+
 operation /catalog/tracks/{id}/enrichment: {
     params: {
         id: uuid

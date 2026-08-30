@@ -290,9 +290,12 @@ function library(facts: AttentionFacts): AttentionItem[] {
             code: 'benchedCopies',
             severity: 'warning',
             title: `${facts.benched} ${facts.benched === 1 ? 'record has' : 'records have'} no copy left that will play`,
+            // Two causes, both named, because the row used to promise only the first and the second
+            // is the one an operator gets stuck on: nothing clears a provider's refusal, so waiting
+            // for a sync is advice that cannot work. The evidence below says which each record is.
             detail:
-                'Every copy of them has been written off after four consecutive fetch failures, so they cannot be chosen at all. ' +
-                'The next catalog sync un-benches any the provider still lists.',
+                'Their copies have all been written off, so they cannot be chosen at all. The next catalog sync un-benches any the ' +
+                'provider still lists — but a copy the provider REFUSED stays off until somebody offers it again on the record’s own page.',
             // The STATE as well as the page. A row about four records that lands on the whole library
             // has told an operator to go and find them, which on a station of eight hundred is the
             // work this list exists to remove. The console owns which of its pages holds the filter.

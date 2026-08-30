@@ -164,6 +164,15 @@ export class CatalogClient {
     }
 
     /**
+     * @name Offer track copies again
+     * @description Put copies a provider refused back on offer, and clear their backoff so they are tried now
+     */
+    async offerTrackCopiesAgain(id: string): Promise<TrackClearResult> {
+        const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/offer`, { method: 'POST' });
+        return await parseJson<TrackClearResult>(result);
+    }
+
+    /**
      * @name Get track enrichment
      * @description What the providers said about one recording, including everything no canonical column holds
      */

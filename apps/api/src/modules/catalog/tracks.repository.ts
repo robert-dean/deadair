@@ -864,10 +864,16 @@ export class TracksRepository extends DataRepository {
      * Stop offering a copy for good, because the provider says it has no audio for it.
      *
      * The permanent twin of {@link markBindingMissing}, and the difference is which column: this
-     * writes `playable`, which **nothing clears** — not the hourly sync, not a re-sighting, not the
-     * operator's retry, which is deliberate on all three counts. `missing_at` is the station's own
-     * guess from repeated failures and has to be revisable; this is the provider answering, and a
-     * mark that healed itself would put the record back in rotation to fail again next hour.
+     * writes `playable`, which **nothing in the station clears** — not the hourly sync, not a
+     * re-sighting, not the operator's retry, which is deliberate on all three counts. `missing_at` is
+     * the station's own guess from repeated failures and has to be revisable; this is the provider
+     * answering, and a mark that healed itself would put the record back in rotation to fail again
+     * next hour.
+     *
+     * All three of those stay true. {@link offerBindingsAgain} is not a fourth of them: it is an
+     * operator saying so, once, on one record, and the whole reason it is safe is that it is not
+     * automatic. The desk was otherwise reporting records nobody could act on under a sentence
+     * promising a sync would fix them, which for a refused copy is never true.
      *
      * `upsertTrackSource` leaves `playable` alone on update precisely so this survives, and has said
      * so since before anything wrote it.
@@ -885,6 +891,28 @@ export class TracksRepository extends DataRepository {
             .executeTakeFirst();
 
         return (result.numUpdatedRows ?? 0n) > 0n;
+    }
+
+    /**
+     * Put a record's refused copies back on offer, because an operator said to.
+     *
+     * The only thing that undoes {@link markBindingUnplayable}, and the only caller is the route an
+     * operator presses. See that method for why nothing automatic may do this.
+     *
+     * `where playable = false` so the answer is copies this actually CHANGED rather than copies the
+     * record has: "Put 2 copies back on offer" and "nothing here was refused" are different facts
+     * about the record, and the second is the more interesting one — it says the record will not
+     * play for some other reason.
+     */
+    async offerBindingsAgain(trackId: string): Promise<number> {
+        const result = await this.db
+            .updateTable('deadair.trackSources')
+            .set({ playable: true })
+            .where('trackId', '=', trackId)
+            .where('playable', '=', false)
+            .executeTakeFirst();
+
+        return Number(result.numUpdatedRows ?? 0n);
     }
 
     /**

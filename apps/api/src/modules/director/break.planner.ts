@@ -3,7 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { nextBoundaryAtOrAfter, projectAirTimes } from './air.clock.js';
-import { brokenClaim, type BrokenClaim } from './break.claims.js';
+import { brokenClaim, reasonFor, type BrokenClaim } from './break.claims.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { isAnchored, nextOccurrence, type ClockBand, type ClockBandSubject } from './clock.bands.js';
 import { ClockBandRepository } from './clock.band.repository.js';
@@ -758,7 +758,7 @@ export class BreakPlanner {
         // The other order would leave it queued to say the wrong thing correctly.
         const unstuck = await this.releaseStranded(ids);
         const stale = this.staleClaims(lineup, window, segments);
-        const rewritten = await this.rewriteStale([...stale]);
+        const rewritten = await this.rewriteStale(stale);
         const rerendered = await this.retryRenders(ids, stale, unstuck.rendering);
 
         // `planned`, and what this pass has just returned to `planned`. A break already being
@@ -881,23 +881,37 @@ export class BreakPlanner {
      * same failure: a repair that could not run costs one break its rewrite, and the words of every
      * OTHER break in this window are still worth asking for.
      */
-    private async rewriteStale(stale: readonly string[]): Promise<string[]> {
-        if (stale.length === 0) return [];
+    private async rewriteStale(stale: ReadonlyMap<string, BrokenClaim>): Promise<string[]> {
+        if (stale.size === 0) return [];
 
-        try {
-            // Nothing is filtered by state first: `reopenSegments` will not touch a row a job has
-            // claimed, and keeping that rule in one place is what stops the two from drifting.
-            const reopened = await this.segments.reopenSegments(stale);
-            if (reopened.length > 0) {
-                this.logger.info('director: a break in the window no longer says anything true, so it will be written again', {
-                    segments: reopened,
-                });
-            }
-            return reopened;
-        } catch (error) {
-            this.logger.warn(`director: could not re-open a break whose words had gone stale (${errorText(error)})`);
-            return [];
+        // Grouped by the sentence rather than reopened one at a time, because the reason is a column
+        // on the row: the ordinary pass has one fault and makes one statement, and a mixed pass makes
+        // two rather than one per break. See `reasonFor`, which is why this is not a single call.
+        const byReason = new Map<string, string[]>();
+        for (const [segmentId, broken] of stale) {
+            const reason = reasonFor(broken);
+            byReason.set(reason, [...(byReason.get(reason) ?? []), segmentId]);
         }
+
+        const reopened: string[] = [];
+        for (const [reason, ids] of byReason) {
+            try {
+                // Nothing is filtered by state first: `reopenSegments` will not touch a row a job has
+                // claimed, and keeping that rule in one place is what stops the two from drifting.
+                reopened.push(...(await this.segments.reopenSegments(ids, reason)));
+            } catch (error) {
+                // Per group rather than around the loop, so one fault's statement failing does not
+                // cost the breaks reopened for a different one their rewrite.
+                this.logger.warn(`director: could not re-open a break whose words had gone stale (${errorText(error)})`);
+            }
+        }
+
+        if (reopened.length > 0) {
+            this.logger.info('director: a break in the window no longer says anything true, so it will be written again', {
+                segments: reopened,
+            });
+        }
+        return reopened;
     }
 
     /**
@@ -916,11 +930,14 @@ export class BreakPlanner {
      * cannot repair — it would re-derive the same phrasing from the same `airsAt`. Read the note in
      * `break.claims.ts` before removing this: acting on it looped, and the loop spent the news.
      */
-    private staleClaims(lineup: StationLineup, window: readonly StationLineupItem[], segments: Map<string, Segment>): Set<string> {
+    private staleClaims(lineup: StationLineup, window: readonly StationLineupItem[], segments: Map<string, Segment>): Map<string, BrokenClaim> {
         const now = Date.now();
-        // Segment id to whether every position it holds is broken. Seeded true by the first
-        // position and narrowed by the rest, so one position that still holds spares the row.
-        const verdicts = new Map<string, boolean>();
+        // Segment id to whether every position it holds is broken, and to the fault at the FIRST
+        // position that was. Seeded by the first position and narrowed by the rest, so one position
+        // that still holds spares the row. The fault is kept because `rewriteStale` writes it to the
+        // row as the reason — see `reasonFor` — and the earliest position is the one whose slot
+        // arrives first, so it is the fault an operator meets.
+        const verdicts = new Map<string, { broken: boolean; fault?: BrokenClaim }>();
 
         for (const item of window) {
             if (item.kind !== 'segment') continue;
@@ -934,11 +951,22 @@ export class BreakPlanner {
             )
                 continue;
 
-            const stale = worthRewriting(brokenClaim(segment, lineup.nextTrackAfter(item.id)?.id, now));
-            verdicts.set(item.segmentId, (verdicts.get(item.segmentId) ?? true) && stale);
+            const fault = brokenClaim(segment, lineup.nextTrackAfter(item.id)?.id, now);
+            const seen = verdicts.get(item.segmentId);
+            // The first position's fault is the one kept, and a later position can only ever clear
+            // the verdict rather than change what it is recorded as. A row that survives to be
+            // reopened was broken at EVERY position, so the one held here is never absent.
+            const kept = seen?.fault ?? fault;
+
+            verdicts.set(item.segmentId, {
+                broken: (seen?.broken ?? true) && worthRewriting(fault),
+                ...(kept === undefined ? {} : { fault: kept }),
+            });
         }
 
-        return new Set([...verdicts].flatMap(([segmentId, broken]) => (broken ? [segmentId] : [])));
+        return new Map(
+            [...verdicts].flatMap(([segmentId, verdict]) => (verdict.broken && verdict.fault !== undefined ? [[segmentId, verdict.fault]] : [])),
+        );
     }
 
     /**
@@ -1006,7 +1034,7 @@ export class BreakPlanner {
         }
     }
 
-    private async retryRenders(ids: readonly string[], stale: ReadonlySet<string>, alsoRender: readonly string[]): Promise<string[]> {
+    private async retryRenders(ids: readonly string[], stale: ReadonlyMap<string, BrokenClaim>, alsoRender: readonly string[]): Promise<string[]> {
         if (this.speech.speaker() === undefined) return [];
 
         try {

@@ -2131,9 +2131,15 @@ export class DirectorService {
                 // the other producer of the same event already lives.
                 const ripened = await planner.ripen(lineup, clock);
                 if (ripened.rewritten.length > 0) {
+                    // General on purpose, where `segment_events.reason` is exact. One pass can
+                    // reopen breaks for two different faults — the order moved under one and the
+                    // clock past another — so a feed line naming a cause would be wrong for half
+                    // the batch. It said "about the running order" for every fault until 30 August
+                    // and that is precisely what it got wrong. `reasonFor` writes the specific
+                    // sentence onto each row, which is where somebody asking about ONE break looks.
                     this.reportRewriting(ripened.rewritten, {
-                        one: 'no longer said anything true about the running order',
-                        many: 'no longer said anything true about the running order',
+                        one: 'no longer said anything true',
+                        many: 'no longer said anything true',
                     });
                 }
                 if (ripened.rerendered.length > 0) {

@@ -12,7 +12,7 @@ import type { ClockBand } from '../../../src/modules/director/clock.bands.js';
 import { TALK_BREAK_KIND } from '../../../src/modules/director/talk.break.writer.js';
 import { WELCOME_KIND } from '../../../src/modules/director/welcome.writer.js';
 import { settingsConfig } from '../../utils/settings.config.js';
-import { StationLineup } from '../../../src/modules/director/station.lineup.js';
+import { StationLineup, type StationLineupSegmentItem } from '../../../src/modules/director/station.lineup.js';
 import { resolveRules } from '../../../src/modules/director/rotation.rules.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { PlannedSegment, Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
@@ -86,7 +86,10 @@ const build = (
     // The SQL's own state guard, mirrored: `writing` and `rendering` are a job's claim and are never
     // reset underneath one. Kept here rather than in the planner for exactly that reason — one rule,
     // one place — so a case about a claimed row is really testing the rule the database enforces.
-    const reopenSegments = vi.fn(async (ids: readonly string[]) => {
+    // The reason rides the call rather than the statement, because three different faults come
+    // through here and only the planner knows which. `reasons` is what a case asserts against.
+    const reasons = new Map<string, string>();
+    const reopenSegments = vi.fn(async (ids: readonly string[], reason: string) => {
         const reopened: string[] = [];
         for (const id of ids) {
             const segment = known.get(id);
@@ -94,6 +97,7 @@ const build = (
 
             const { script, writer, claimsItemId, claimsTime, ...rest } = segment;
             known.set(id, { ...rest, state: 'planned' });
+            reasons.set(id, reason);
             reopened.push(id);
         }
         return reopened;
@@ -180,6 +184,7 @@ const build = (
         markFailed,
         presenting,
         reopenSegments,
+        reasons,
         reprojectAirTimes,
         releaseStranded,
         failedWithScript,
@@ -1079,6 +1084,9 @@ describe('BreakPlanner.ripen', () => {
             expect(built.known.get(segmentId)).toMatchObject({ state: 'planned' });
             expect(built.known.get(segmentId)!.script).toBeUndefined();
             expect(built.known.get(segmentId)!.claimsItemId).toBeUndefined();
+            // And the row says which of the three faults it was, rather than the one sentence all
+            // three used to get. See `reasonFor`.
+            expect(built.reasons.get(segmentId)).toBe('the record it named is no longer what plays next');
         });
 
         it('un-writes a break whose words are no longer true of the time', async () => {
@@ -1089,6 +1097,9 @@ describe('BreakPlanner.ripen', () => {
             built.known.set(segmentId, { ...rest, claimsTime: { from: Date.now() - 7_200_000, until: Date.now() - 3_600_000 } });
 
             expect((await built.planner.ripen(lineup, clock())).rewritten).toEqual([segmentId]);
+            // Nothing about the running order moved, and the row must not say it did: that sentence
+            // sends whoever reads it to look at an order that never changed.
+            expect(built.reasons.get(segmentId)).toBe('the clock has moved past the time it named');
         });
 
         it('leaves alone a break written for a window that has not come round yet', async () => {
@@ -1117,6 +1128,43 @@ describe('BreakPlanner.ripen', () => {
             built.known.set(segmentId, { ...rest, claimsReadingUntil: Date.now() - 60_000 });
 
             expect((await built.planner.ripen(lineup, clock())).rewritten).toEqual([segmentId]);
+            expect(built.reasons.get(segmentId)).toBe('what it reported has aged out');
+        });
+
+        it('makes one statement per fault when a pass finds two different ones', async () => {
+            // The reason is a column, so a mixed pass cannot be one call — and it must not be one
+            // call per break either, or the ordinary pass pays a round trip per segment to write a
+            // sentence it already knows.
+            const built = build({ canWrite: true });
+            const lineup = await lineupOf(14);
+            await built.planner.plant(lineup, rules({ breakEveryMinutes: 2 * TRACK_MINUTES }), clock());
+
+            const breaks = lineup.all().flatMap(item => (item.kind === 'segment' ? [item] : []));
+            expect(breaks.length).toBeGreaterThanOrEqual(2);
+
+            const [moved, overtaken] = breaks as [StationLineupSegmentItem, StationLineupSegmentItem];
+            // One that named the record after it, which then went to the back of the order.
+            built.known.set(moved.segmentId, {
+                ...built.known.get(moved.segmentId)!,
+                state: 'written',
+                script: 'Coming up.',
+                claimsItemId: lineup.nextTrackAfter(moved.id)!.id,
+            });
+            // One that named a time the clock has since passed. Nothing about the order is wrong.
+            built.known.set(overtaken.segmentId, {
+                ...built.known.get(overtaken.segmentId)!,
+                state: 'written',
+                script: 'Just after nine.',
+                claimsTime: { from: Date.now() - 7_200_000, until: Date.now() - 3_600_000 },
+            });
+            lineup.move(lineup.nextTrackAfter(moved.id)!.id, lineup.all().length - 1);
+
+            const result = await built.planner.ripen(lineup, clock());
+
+            expect(result.rewritten).toEqual(expect.arrayContaining([moved.segmentId, overtaken.segmentId]));
+            expect(built.reasons.get(moved.segmentId)).toBe('the record it named is no longer what plays next');
+            expect(built.reasons.get(overtaken.segmentId)).toBe('the clock has moved past the time it named');
+            expect(built.reopenSegments).toHaveBeenCalledTimes(2);
         });
 
         it('leaves alone a break whose reading is still current', async () => {

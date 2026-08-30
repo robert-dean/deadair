@@ -99,6 +99,35 @@ export type TimeFault = 'early' | 'late';
 type Claiming = Pick<Segment, 'claimsItemId' | 'claimsTime' | 'claimsReadingUntil'>;
 
 /**
+ * Why a break is being written again, in the words an operator reads on the row.
+ *
+ * Here rather than in `SegmentRepository`, which owns the sentence for its other two reopen paths,
+ * because this one is not a property of the statement: three different faults go through one
+ * `reopenSegments`, and only the caller holding the verdict knows which. It used to say "what it
+ * said is no longer true of the running order" for all three, so a break reopened because the CLOCK
+ * had moved past its phrasing was recorded as an edit to the order — which is a sentence that sends
+ * whoever is investigating to look at a running order that never changed. It cost most of a session
+ * on 30 August.
+ *
+ * `segment_events.reason` is where these land, which is the per-break audit trail rather than the
+ * feed: a pass can reopen breaks for two different faults at once, so the feed line stays general
+ * and the row says exactly what happened to it.
+ */
+export function reasonFor(broken: BrokenClaim): string {
+    switch (broken.kind) {
+        // Deliberately not `reopenClaims`' sentence, which is about a record announcing its own
+        // departure. This is the other half: the record is still going to air, and what moved is
+        // where it sits relative to the break that named it.
+        case 'item':
+            return 'the record it named is no longer what plays next';
+        case 'time':
+            return 'the clock has moved past the time it named';
+        case 'reading':
+            return 'what it reported has aged out';
+    }
+}
+
+/**
  * What is wrong with this break's claims, or `undefined` while they hold.
  *
  * `nextTrackId` is the id of the running-order LINE that will actually play next, passed in rather

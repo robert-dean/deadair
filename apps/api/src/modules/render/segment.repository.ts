@@ -974,11 +974,20 @@ export class SegmentRepository extends DataRepository {
      *
      * Everything above about the state guard and the absent deadline applies unchanged. It is the
      * same statement with a different `where`.
+     *
+     * **The reason comes from the caller**, unlike the other two here, and that is the one asymmetry
+     * worth explaining. Those each describe a single fault a single call site found, so the sentence
+     * is a property of the statement. Three different faults reach this one — the order moved, the
+     * clock moved, the world moved — and only the caller holds the verdict that says which. It said
+     * "what it said is no longer true of the running order" for all three until 30 August, which
+     * recorded a clock fault as an edit to the running order and sent whoever read it to look at an
+     * order that had never changed. `reasonFor` in `break.claims.ts` owns the vocabulary, beside the
+     * verdicts it is written from.
      */
-    async reopenSegments(ids: readonly string[]): Promise<string[]> {
+    async reopenSegments(ids: readonly string[], reason: string): Promise<string[]> {
         if (ids.length === 0) return [];
 
-        return await this.reopen('id', ids, 'what it said is no longer true of the running order');
+        return await this.reopen('id', ids, reason);
     }
 
     /**

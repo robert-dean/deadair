@@ -1,4 +1,5 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
+import type { LogLevel } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -103,5 +104,53 @@ export function useTrace(id: string | undefined) {
         queryFn: () => sdk.station.readTrace(id!),
         enabled: id !== undefined,
         staleTime: TRACES_STALE_MS,
+    });
+}
+
+/**
+ * How long the list of logs stays fresh.
+ *
+ * Slower than the tail below it, because what moves on this reading is a size and a mtime rather
+ * than the lines themselves — and the one thing on it that genuinely appears out of nowhere, a
+ * stream log the first time the audio chain runs, is not a thing anybody is watching for.
+ */
+const LOG_SOURCES_STALE_MS = 30_000;
+
+/**
+ * How long a fetched tail stays fresh.
+ *
+ * The same three seconds `PLUGIN_LOGS_STALE_TIME` uses, for the reason that constant gives: unlike a
+ * record, which moves only when an operator moves it, a log fills continuously while the process
+ * writing it runs, so anything near the 30 seconds above would show a tail tens of seconds behind.
+ * Not the same constant, deliberately — these are two log stores with two reasons to change, and
+ * sharing a number would make one of them look like a consequence of the other.
+ */
+const LOG_STALE_MS = 3_000;
+
+export const logSourcesOptions = queryOptions({
+    queryKey: queryKeys.station.logSources(),
+    queryFn: () => sdk.station.listLogs(),
+    staleTime: LOG_SOURCES_STALE_MS,
+});
+
+/** Which logs this install has, present or not. */
+export function useLogSources() {
+    return useQuery(logSourcesOptions);
+}
+
+/**
+ * A tail of one log, newest first.
+ *
+ * Not polled, like everything else on Check-up that is a file rather than a reading: an operator
+ * looking into something wants the tail they asked for to hold still while they read it, and the
+ * Refresh button is how they ask for the next one. `enabled` gates it until a source is picked,
+ * matching `useTrace` above.
+ */
+export function useLog(id: string | undefined, level: LogLevel | undefined) {
+    return useQuery({
+        queryKey: queryKeys.station.log(id ?? '', level),
+        queryFn: () => sdk.station.readLog(id!, level === undefined ? {} : { level }),
+        enabled: id !== undefined,
+        staleTime: LOG_STALE_MS,
     });
 }

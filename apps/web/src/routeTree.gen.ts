@@ -14,6 +14,7 @@ import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as ChartsRouteImport } from './routes/charts'
 import { Route as CheckupRouteImport } from './routes/checkup'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LogsRouteImport } from './routes/logs'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ScheduleRouteImport } from './routes/schedule'
@@ -54,6 +55,11 @@ const CheckupRoute = CheckupRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LogsRoute = LogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NewsRoute = NewsRouteImport.update({
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/charts': typeof ChartsRoute
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
+  '/logs': typeof LogsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/schedule': typeof ScheduleRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByTo {
   '/charts': typeof ChartsRoute
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
+  '/logs': typeof LogsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/schedule': typeof ScheduleRoute
@@ -191,6 +199,7 @@ export interface FileRoutesById {
   '/charts': typeof ChartsRoute
   '/checkup': typeof CheckupRoute
   '/login': typeof LoginRoute
+  '/logs': typeof LogsRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/schedule': typeof ScheduleRoute
@@ -216,6 +225,7 @@ export interface FileRouteTypes {
     | '/charts'
     | '/checkup'
     | '/login'
+    | '/logs'
     | '/news'
     | '/onboarding'
     | '/schedule'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/charts'
     | '/checkup'
     | '/login'
+    | '/logs'
     | '/news'
     | '/onboarding'
     | '/schedule'
@@ -262,6 +273,7 @@ export interface FileRouteTypes {
     | '/charts'
     | '/checkup'
     | '/login'
+    | '/logs'
     | '/news'
     | '/onboarding'
     | '/schedule'
@@ -286,6 +298,7 @@ export interface RootRouteChildren {
   ChartsRoute: typeof ChartsRoute
   CheckupRoute: typeof CheckupRoute
   LoginRoute: typeof LoginRoute
+  LogsRoute: typeof LogsRoute
   NewsRoute: typeof NewsRoute
   OnboardingRoute: typeof OnboardingRoute
   ScheduleRoute: typeof ScheduleRoute
@@ -339,6 +352,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/logs': {
+      id: '/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof LogsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/news': {
@@ -462,6 +482,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChartsRoute: ChartsRoute,
   CheckupRoute: CheckupRoute,
   LoginRoute: LoginRoute,
+  LogsRoute: LogsRoute,
   NewsRoute: NewsRoute,
   OnboardingRoute: OnboardingRoute,
   ScheduleRoute: ScheduleRoute,

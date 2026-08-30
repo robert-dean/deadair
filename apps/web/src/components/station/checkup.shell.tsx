@@ -9,15 +9,17 @@ export const CHECKUP_TABS = [
     { key: 'machinery', label: 'Machinery' },
     { key: 'history', label: 'What it has been doing' },
     { key: 'cost', label: 'What it cost' },
+    { key: 'logs', label: 'Logs' },
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type CheckupTab = (typeof CHECKUP_TABS)[number]['key'];
 
 /** Where each tab goes, so the palette and the tab strip cannot disagree about it. */
-export const CHECKUP_ROUTES: Record<CheckupTab, '/checkup' | '/activity' | '/traces'> = {
+export const CHECKUP_ROUTES: Record<CheckupTab, '/checkup' | '/activity' | '/traces' | '/logs'> = {
     machinery: '/checkup',
     history: '/activity',
     cost: '/traces',
+    logs: '/logs',
 };
 
 export interface CheckupShellProps {
@@ -26,12 +28,17 @@ export interface CheckupShellProps {
 }
 
 /**
- * The machinery, what the station has been doing, and what that cost.
+ * The machinery, what the station has been doing, what that cost, and the raw record underneath.
  *
- * Three nav links that were one question asked in three tenses. Check-up says what the machinery is
- * doing NOW — five loops turning, six of nine plugins up — the activity feed says what it DID, and
- * the traces say what each decision spent doing it. An operator who finds a stalled loop on the
- * first page immediately wants the second, and one who finds a warning there wants the third.
+ * The first three are one question asked in three tenses. Check-up says what the machinery is doing
+ * NOW — five loops turning, six of nine plugins up — the activity feed says what it DID, and the
+ * traces say what each decision spent doing it. An operator who finds a stalled loop on the first
+ * page immediately wants the second, and one who finds a warning there wants the third.
+ *
+ * Logs is not a fourth tense. The other three are the station's own account of itself, composed and
+ * worded; this is what the processes actually wrote, including the two that are not the station at
+ * all. It is where somebody ends up when the composed answer was not enough, which is why it is last
+ * rather than first.
  *
  * Separate routes rather than a search param, unlike Voice: each carries its own filters and its own
  * scroll or drawer state, and there is nothing to gain by moving that into a sibling's query string.
@@ -45,8 +52,8 @@ export function CheckupShell({ active, children }: CheckupShellProps) {
             <Stack gap="xxs">
                 <Title order={1}>Check-up</Title>
                 <Text size="sm" c="dimmed" maw={720}>
-                    The machinery, what the station has been doing, and what that cost. Nothing here probes it: every figure is a reading it was
-                    already keeping.
+                    The machinery, what the station has been doing, what that cost, and the logs underneath. Nothing here probes it: every figure is a
+                    reading it was already keeping.
                 </Text>
             </Stack>
 

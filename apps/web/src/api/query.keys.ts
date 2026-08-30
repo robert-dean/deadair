@@ -129,6 +129,13 @@ export const queryKeys = {
             ['station', 'traces', filter.kind ?? 'all', filter.failedOnly === true ? 'failed' : 'all'] as const,
         /** One decision, by the id or prefix that was asked for. */
         trace: (id: string) => ['station', 'trace', id] as const,
+        /** Which logs this install has. One key: it is a reading of the box, and there is only one. */
+        logSources: () => ['station', 'log-sources'] as const,
+        /**
+         * A tail of one log. Keyed on the level too, on the same rule the plugin log tail follows:
+         * a filtered tail is a different page rather than a stale one.
+         */
+        log: (id: string, level: string | undefined) => ['station', 'log', id, level ?? 'all'] as const,
     },
     playlists: {
         list: () => ['playlists', 'list'] as const,

@@ -1495,13 +1495,34 @@ end
 # The AAC encoder, at TOP LEVEL because two outputs need it: the Icecast mount below and the
 # HLS variant at the end. A branch over fixed rates because `%fdkaac` is documented as wanting
 # its bitrate at parse time, and one definition so the two callers cannot drift apart.
+#
+# **`aot` is stated, and leaving it out was a bug that could be HEARD.** `%fdkaac` defaults to
+# `mpeg4_he_aac_v2`, so every branch below shipped HE-AAC v2 — SBR plus parametric stereo — at
+# bitrates from 96 kbps up. That is a codec designed for 32-48 kbps, asked to do a job it was
+# not built for, and it cost three separate things:
+#
+#   1. A blip every two seconds on HLS, which is what led here. SBR and PS carry decoder state
+#      ACROSS frames, and an HLS segment is decoded as a stream of its own — so a player starts
+#      each segment with that state cold. Measured on the station's real segments, decoding them
+#      one by one against decoding the same bytes as one stream: 40% error against the signal in
+#      the 40ms around every segment boundary, against 5% everywhere else. Re-encoding the same
+#      audio as AAC-LC and cutting it the same way: 1.8% at the boundary against 2.2% inside it,
+#      which is to say no boundary at all.
+#   2. Parametric stereo, which reconstructs a stereo image from a mono downmix plus side
+#      information. At 192 kbps there is no reason to approximate a stereo image that fits.
+#   3. `CODECS="mp4a.40.29"` in the master playlist, which is the string that tells the hardware
+#      this variant exists FOR — a Sonos, a kitchen radio — that it needs an HE-AAC v2 decoder.
+#      Plenty of them do not have one and will pass over the variant, or take the downmix.
+#
+# The Icecast mount had the same encoder and therefore problems 2 and 3, without the blip: one
+# long connection is one decoder, so the state it keeps is never thrown away.
 def aac_encoder(rate) =
-  if rate == 96 then %fdkaac(bitrate=96)
-  elsif rate == 128 then %fdkaac(bitrate=128)
-  elsif rate == 160 then %fdkaac(bitrate=160)
-  elsif rate == 256 then %fdkaac(bitrate=256)
-  elsif rate == 320 then %fdkaac(bitrate=320)
-  else %fdkaac(bitrate=192)
+  if rate == 96 then %fdkaac(bitrate=96, aot="mpeg4_aac_lc")
+  elsif rate == 128 then %fdkaac(bitrate=128, aot="mpeg4_aac_lc")
+  elsif rate == 160 then %fdkaac(bitrate=160, aot="mpeg4_aac_lc")
+  elsif rate == 256 then %fdkaac(bitrate=256, aot="mpeg4_aac_lc")
+  elsif rate == 320 then %fdkaac(bitrate=320, aot="mpeg4_aac_lc")
+  else %fdkaac(bitrate=192, aot="mpeg4_aac_lc")
   end
 end
 

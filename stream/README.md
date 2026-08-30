@@ -125,7 +125,7 @@ control, since a broken harness reports every encoder missing in exactly the sam
 one.
 
 ```
-for e in '%opus(bitrate=160)' '%fdkaac(bitrate=192)' '%ogg(%flac)' '%mp3(bitrate=128)'; do
+for e in '%opus(bitrate=160)' '%fdkaac(bitrate=192, aot="mpeg4_aac_lc")' '%ogg(%flac)' '%mp3(bitrate=128)'; do
   printf '%-28s ' "$e"
   docker compose exec -T liquidsoap sh -lc "echo 'ignore($e)' > /tmp/p.liq; liquidsoap --check /tmp/p.liq" >/dev/null 2>&1 && echo OK || echo MISSING
 done
@@ -134,6 +134,11 @@ done
 Measured on `savonet/liquidsoap:v2.4.5`, 2026-08-28: all four are present. `--list-plugins` is not a
 substitute — it lists no `opus` line at all on this image, encoder or decoder, and the encoder is
 there regardless.
+
+The `aot` on the `%fdkaac` line is not decoration. It is what `radio.liq` actually passes, and an
+AOT the linked libfdk-aac does not support is a CONFIGURATION error rather than a missing encoder:
+Liquidsoap refuses to start, which takes every mount down and not just AAC. So the probe has to ask
+about the encoder the station uses, not a bare one that happens to parse.
 
 The voice is a **live harbor input**, not files: the app streams each rendered segment — talk
 breaks, station sign-ons, podcast episodes — to Liquidsoap's `input.harbor` mount (`HARBOR_PORT`,

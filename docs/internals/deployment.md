@@ -39,6 +39,30 @@ database and an operator's slower one.
 And **everything the station keeps is under `/data`**, so a backup is one directory; the runtime user is
 99:100 to match what a home server's app share is owned by, so there is no ownership step.
 
+## What is in front of it
+
+**Behind a tunnel or a reverse proxy, every listener is the same caller until the operator says otherwise.**
+The edge inside the container sets `X-Real-IP` to `$remote_addr`, which is the last hop rather than the
+client, and the app believes it: `clientAddress` prefers that header, the rate limiter consumes on it (100
+points per 5s, so one bucket for the whole internet) and the HLS audience register keys on it plus the user
+agent, which then counts listeners by player rather than by person. Measured on a live station behind a
+tunnel: two "listeners" that were one client fetching the playlist under two user agents.
+
+`REAL_IP_FROM` is the opt-in, naming the proxy's address or CIDR — `172.16.0.0/12` covers a sibling container
+reached through Docker's published port, which rewrites the source address to the bridge gateway and makes
+every container look alike. `REAL_IP_HEADER` names where that proxy puts the address, defaulting to
+`X-Forwarded-For` (walked recursively, since it is a list) and set to `CF-Connecting-IP` for a Cloudflare
+tunnel. `scripts/init-station` renders both into `/etc/nginx/realip.d/`, which the edge includes with a
+wildcard so an empty directory is a no-op, and **runs `nginx -t` before letting it stand**: a CIDR nginx
+cannot parse would otherwise be the station off the air over a knob that only makes an address more accurate,
+so a bad value is logged and dropped instead.
+
+It is empty by default for the reason `TRUST_PROXY` is opted into rather than assumed. A forwarded address is
+a header, and trusting one from a peer that is not really a proxy lets anybody who reaches the port be a
+different caller on every request — rate limiting nobody at all, which is worse than rate limiting everybody
+together. The compose edge takes the same include and expects a mounted file rather than an environment
+variable.
+
 ## What the layer rules forbid
 
 And **nothing derived from this repository may sit above the fence comment in the final stage**, which is the

@@ -73,6 +73,15 @@ export const hlsHeartbeatMiddleware = (config: AppConfig): ServerKitMiddleware =
  * `clientAddress` rather than `ctx.ip`, so this reads the same address the rate limiter
  * and the audit trail do, including the argument about which end of `X-Forwarded-For`
  * the edge can actually vouch for.
+ *
+ * **The undercount above assumes the address means something.** Behind a tunnel or a
+ * reverse proxy it does not: nginx sets `X-Real-IP` to `$remote_addr`, which is the hop
+ * rather than the listener, so every caller shares one address and this key collapses to
+ * the user agent. That is wrong in BOTH directions — one client fetching the playlist
+ * under two agents counts as two listeners, two people using one player count as one —
+ * and it is not fixable here, because nothing on this side can tell a proxy's address
+ * from a listener's. `REAL_IP_FROM` tells the edge, which can; see
+ * `docs/internals/deployment.md`.
  */
 export function clientKey(ctx: Pick<Context, 'ip' | 'req'>, trusted: boolean): string {
     const agent = ctx.req.headers['user-agent'];

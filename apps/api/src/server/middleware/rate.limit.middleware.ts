@@ -58,6 +58,15 @@ export { TRUST_PROXY_KEY, TRUST_PROXY_DEFAULT } from '#modules/shared/request.tr
  * With two proxies the rightmost is the inner one and this would want a hop
  * count. There is one proxy; a second would be a change to this line and to the
  * comment above it.
+ *
+ * **A second proxy is answered at the EDGE rather than here.** nginx sets
+ * `X-Real-IP` to `$remote_addr`, so behind a tunnel or another reverse proxy that
+ * header is the hop and every caller on the internet arrives as one address —
+ * one rate limit bucket for all of them, and one key for the HLS audience
+ * register that reads the same function. `REAL_IP_FROM` makes nginx replace
+ * `$remote_addr` with what its trusted proxy reported, which is why this needs no
+ * hop count and no second header of its own: by the time the request is here, the
+ * edge has already decided who asked. See `docs/internals/deployment.md`.
  */
 export function clientAddress(ctx: Pick<Context, 'ip' | 'req'>, trustProxy: boolean): string {
     if (!trustProxy) return ctx.ip;

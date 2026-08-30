@@ -56,3 +56,60 @@ for name in app icecast liquidsoap analysis kokoro; do
         exit 1
     }
 done
+
+# WHO a request came from, where the operator has said what is in front of this container.
+#
+# The edge sets `X-Real-IP` to `$remote_addr`, and behind a tunnel or a reverse proxy that address
+# is the PROXY — the same value for every caller on the internet. The app takes it at its word:
+# `clientAddress` prefers that header, and the rate limit bucket and the HLS audience register are
+# both keyed on what it answers. Measured on a live station reached through a tunnel: every visitor
+# shared one rate limit bucket, and the audience was counted by user agent alone, so one client
+# presenting two of them (its own fetcher, and the ffmpeg reader it handed the URL to) was counted
+# as two listeners while two people using the same player would have been counted as one.
+#
+# `real_ip` fixes it at the edge instead of in the app: nginx replaces `$remote_addr` with the
+# address the trusted proxy reported, and `X-Real-IP` and everything keyed on it become the real
+# caller with nothing downstream changed.
+#
+# OPT-IN and empty by default, for the reason `TRUST_PROXY` is opt-in. A forwarded address is a
+# header, and believing one from a peer that is not a proxy lets anybody who can reach this port be
+# a different caller on every request — which is worse than one bucket, because it is rate limiting
+# nobody at all. So the operator names the proxy they put there rather than the station guessing
+# that a private address must be one.
+realip_dir=/etc/nginx/realip.d
+realip_conf="$realip_dir/realip.conf"
+mkdir -p "$realip_dir"
+# Written fresh every boot, so clearing the variable is how it is turned off again.
+rm -f "$realip_conf"
+
+if [ -n "${REAL_IP_FROM:-}" ]; then
+    realip_header="${REAL_IP_HEADER:-X-Forwarded-For}"
+    {
+        # Commas as well as spaces, because a list of CIDRs is written both ways and an operator
+        # typing the wrong one gets nginx refusing to start rather than a hint.
+        for peer in $(echo "$REAL_IP_FROM" | tr ',' ' '); do
+            echo "set_real_ip_from $peer;"
+        done
+        echo "real_ip_header $realip_header;"
+        # Only `X-Forwarded-For` is a LIST, and only a list can be walked. Recursing takes the
+        # rightmost address that is not itself a trusted proxy, which is what resolves a chain of
+        # two (a CDN in front of a reverse proxy) to the client rather than to the hop before it.
+        # A single-value header such as `CF-Connecting-IP` has nothing to recurse and is left
+        # alone, which is also why the header is a knob: the right answer depends on what is there.
+        case "$realip_header" in
+            [Xx]-[Ff]orwarded-[Ff]or) echo 'real_ip_recursive on;' ;;
+        esac
+    } > "$realip_conf"
+
+    # A CIDR nginx cannot parse is nginx refusing to start, and that is the whole station off the
+    # air over a knob whose only job is to make an address more accurate. So it is TESTED here,
+    # where there is still somewhere to put the complaint, and dropped rather than shipped — the
+    # station then counts a listener as the proxy in front of them, which is where it started.
+    if ! realip_check=$(nginx -t 2>&1); then
+        echo "init-station: REAL_IP_FROM=\"$REAL_IP_FROM\" is not something nginx accepts, so it is being ignored; listeners will be counted as whatever is in front of them" >&2
+        echo "$realip_check" >&2
+        rm -f "$realip_conf"
+    else
+        echo "init-station: trusting $realip_header from $REAL_IP_FROM for the caller's address"
+    fi
+fi

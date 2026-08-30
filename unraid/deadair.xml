@@ -102,6 +102,14 @@
     <Config Name="Sign-in client secret" Target="GOOGLE_OIDC_CLIENT_SECRET" Default="" Mode=""
         Description="Optional." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
 
+    <Config Name="Proxy in front" Target="REAL_IP_FROM" Default="" Mode=""
+        Description="Leave empty unless a tunnel or a reverse proxy sits in front of this station. When one does, every listener reaches the station as THAT, so they all share one rate limit and the listener count collapses to however many different players are tuned in. Naming the proxy here — an address or a CIDR, and 172.16.0.0/12 covers another container on this box — lets the station see who actually asked. Only name something you put there yourself: it means believing an address that arrives in a header."
+        Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+
+    <Config Name="Proxy address header" Target="REAL_IP_HEADER" Default="X-Forwarded-For" Mode=""
+        Description="Which header the proxy above puts the listener's address in. X-Forwarded-For suits almost everything; a Cloudflare tunnel also sends CF-Connecting-IP. Ignored while the field above is empty."
+        Type="Variable" Display="advanced" Required="false" Mask="false">X-Forwarded-For</Config>
+
     <Config Name="Apply migrations at start" Target="MIGRATE_ON_BOOT" Default="true" Mode=""
         Description="Leave on unless you apply the schema yourself. An out-of-date schema otherwise degrades quietly rather than failing."
         Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>

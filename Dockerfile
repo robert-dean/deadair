@@ -268,7 +268,7 @@ COPY --from=icecast /usr/share/icecast/ /usr/share/icecast/
 RUN set -eux; \
     groupadd --gid 100 --non-unique deadair 2>/dev/null || true; \
     useradd --uid 99 --gid 100 --non-unique --no-create-home --home-dir /data --shell /usr/sbin/nologin deadair 2>/dev/null || true; \
-    mkdir -p /data /var/log/icecast /var/cache/nginx /var/log/nginx; \
+    mkdir -p /data /var/log/icecast /var/cache/nginx /var/log/nginx /etc/nginx/realip.d; \
     chown 99:100 /data /var/log/icecast /var/cache/nginx /var/log/nginx
 
 # What the speech server needs from apt, kept OUT of the copy below rather than fused into it.
@@ -425,6 +425,16 @@ ENV NODE_ENV=production \
     ESPEAK_DATA_PATH=/usr/share/espeak-ng-data \
     LOG_FILE=/data/streamlogs/liquidsoap.log \
     TRUST_PROXY=true \
+    # What sits in FRONT of this container, which is a different question from the line above:
+    # that one says the app may believe the edge inside the image, this one says the edge may
+    # believe whatever the operator put in front of it. Empty means nobody, and then a caller is
+    # whoever nginx can see for itself — which behind a tunnel is the tunnel, identically for
+    # everyone, and is what makes one rate limit bucket out of the whole internet. Set it to the
+    # proxy's address or CIDR (`172.16.0.0/12` covers a sibling container reached through Docker's
+    # published port) and, where the proxy sends one, name its header:
+    # `REAL_IP_HEADER=CF-Connecting-IP`. `scripts/init-station` renders and tests it at boot.
+    REAL_IP_FROM= \
+    REAL_IP_HEADER=X-Forwarded-For \
     MIGRATE_ON_BOOT=true \
     WITH_DB=${WITH_DB} \
     S6_KEEP_ENV=1 \

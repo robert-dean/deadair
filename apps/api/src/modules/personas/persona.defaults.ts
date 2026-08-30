@@ -606,6 +606,34 @@ const HOSTS = [
         // and the eleven written since the list last changed still all pass. Two slots of the
         // sixteen are left, deliberately: the next word to go in one should be measured the same
         // way rather than chosen for how well it reads here.
+        //
+        // ## What that measurement then said, taken against the live station
+        //
+        // It predicted a large improvement and delivered four tenths of a point: refusals for being
+        // out of character went from 13.1% of her attempts to 12.7%. The reason the prediction was
+        // wrong is the corpus — 57 breaks she had already written, which is what a marker list gets
+        // MEASURED on, and is not the same population as what a model produces next.
+        //
+        // `scripts/break.declines.ts` is that measurement taken properly, over 298 of her answers
+        // through the live station's own `script_history`. It says the list still misses her a third
+        // of the time, and that what it misses is not a different voice — it is the same voice in
+        // words one letter away from a word already here:
+        //
+        // - `pretends to` was never the phrase. She writes "a piece that pretends gravity" and "the
+        //   band pretends nothing happened", and the trailing `to` refused every one of them. It is
+        //   now `pretends`, which is the same judgement stated the way she actually states it, costs
+        //   no slot, and still fires on nobody else.
+        // - `ambition` is `ambitious` as a noun, and she reaches for it in 39 of the 298. The whole
+        //   argument for `ambitious` above applies to it unchanged.
+        //
+        // Together: 56.7% of her answers carry a marker, up to 64.8%, and 18 of the 40 answers this
+        // station actually refused as out of character would have been kept. Both re-measured on the
+        // current roster and on the plain-English lines, and neither fires on either.
+        //
+        // ONE slot is now left rather than two. `polite` was the obvious third — she is the sheet
+        // whose politeness is the weapon, and it fires on 13% of her answers with no collision — and
+        // it is deliberately NOT here: it rescues exactly one more of the forty, which is not what
+        // the last slot on this sheet is for.
         dictionMarkers: [
             'not the worst',
             'good for them',
@@ -620,7 +648,8 @@ const HOSTS = [
             'delighted',
             'brave',
             'ambitious',
-            'pretends to',
+            'ambition',
+            'pretends',
         ],
         // The fence, and it is the second line rather than the whole list. This character is the one
         // seed aimed at the person listening, which is a decision the file argues two screens up —

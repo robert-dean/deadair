@@ -301,6 +301,31 @@ loop is wrong at any step and its fixed point is a character that has one idea. 
 `in use` split guards the CLAIM (nothing can verify an inference, so an inference is only ever
 offered) and says nothing about the claim's shelf life.
 
+**Which TIER this is, decided 2026-08-30, because the three candidates below were all one tier and
+that was not obvious until a second one was named.** A continuity store can be bounded in three ways:
+soft decay on age or use, a boundary reset at an edge the product actually has, and an operator's hard
+purge. They are not alternatives, they are different questions, and this tree already has one of them
+built.
+
+**The boundary tier exists and is correct, one layer down.** `BreakWriteRequest.recent` is the
+BROADCAST's memory rather than all-time history, and is kind-agnostic, on the argument written out at
+[break.writer.ts:306](../../apps/api/src/modules/director/break.writer.ts:306): a listener who tuned
+in twenty minutes ago has heard this show and none of the one before it, so a phrase is spent only if
+it was spent tonight.
+
+**The notebook must not get that tier, and that is the whole reason it needs its own.** `persona_notes`
+exists precisely to outlive a broadcast. Resetting it at a boundary would delete the feature. So the
+notebook wants **soft decay specifically**, the hard purge is already built as the operator's reject
+and delete, and the boundary tier is correctly somebody else's. Anything proposed below is a decay
+rule and should be read as one.
+
+One thing that falls out of naming the tiers, and it is not about decay at all: **an "already said, do
+not repeat" block is not a forget mechanism.** Telling a model what it may not say makes the thing more
+available to it, not less. This tree does not have that bug, and it is worth knowing why rather than
+being glad: `break.prompt.ts` bans a spent signature and in the same sentence invites a replacement,
+and `characterFault` refuses a script that ignores the ban. A decay rule that quietly turns into a
+longer avoid-list would be walking back into it.
+
 Three candidate answers, cheapest first, and they are not exclusive:
 
 - **A half-life on `last_used_at`, no schema change.** A note not reached for in N passes stops being

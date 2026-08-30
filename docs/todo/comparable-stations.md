@@ -20,6 +20,14 @@ reading it as a conclusion. It asked four questions of this tree and measured ev
 its four findings are numbers showing there is nothing wrong. It also corrects a claim the third pass
 made here about artist name-variant folding.
 
+**Fifth pass:** 2026-08-30, and the first one whose main finding is about code written HERE in the
+window rather than about anything the other station does. Weather shipped as a capability, and it did
+not inherit `break.claims.ts`: a reading is fetched at write time, carries an `observedAt` that
+nothing reads, and nothing expires it before air. Also: the other station's continuity-decay reasoning
+sharpens [personas.md](personas.md) §6 into choosing a tier rather than a rule, and the non-Latin
+speech class it keeps taking bugs on is measured at 0 here for a reason that belongs to the library
+and not to the code.
+
 **Status: three of these are built now, and the rest is still a survey.** It was written down for the reason
 [stream-server-alternatives.md](stream-server-alternatives.md) is: the pass was done once and should
 not have to be done again. The findings are stated on their own terms rather than as a comparison,
@@ -486,6 +494,115 @@ every binding in `track_sources` at once. That is not a comparison and it is not
 is an external deadline with real code under it, and it has its own file at
 [provider-id-stability.md](provider-id-stability.md).
 
+## The fifth pass, where the sharpest question was about this tree's own new code
+
+**2026-08-30**, two days after the fourth, and the method is unchanged: take what the other
+implementation guards, ask the same question here, measure the answer. What is different is the
+subject. **This tree shipped a capability in the window** — weather, as a plugin, a capability, a
+source, a floor writer and a model writer — and the best question this pass had was not about the
+other station at all. It was whether a capability built AFTER a guard inherits it.
+
+It did not.
+
+### A new claim, and nothing expires it
+
+The other station has spent four separate bugs on the same lesson: a break is written before it airs,
+so anything it asserts about the present has to survive the gap. This tree reached that first and
+better. `break.claims.ts` gives a phrasing a window, `BreakPlanner.ripen` rewrites what has drifted,
+`toPlayerItems` drops what cannot be rewritten in time, and the two callers share one predicate
+precisely so they cannot disagree.
+
+**`brokenClaim` knows two kinds of claim, `item` and `time`, and a weather reading is a third that
+nobody added.** The `time` kind is only the clock PHRASING: `claims_time_from` / `claims_time_until`
+come from `roughTime`, so what is protected is "it's just after nine" and not "it's raining".
+
+The rest of the weather path is careful, which is what makes the gap easy to miss:
+
+- `WeatherService` **refuses a reading with no `observedAt`** (`weather.service.ts:131`), so the age
+  of the observation is known to be present.
+- It is carried into `SpokenWeather` (`weather.words.ts:32`), and handed to the model's own tool
+  (`weather.tool.ts:178`).
+- `inventedFigure` in `model.weather.break.writer.ts` refuses any digit the reading did not contain,
+  on the excellent argument that a forecast's claims ARE its numbers and the true set is known
+  exactly.
+
+So the numbers cannot be fabricated. **They can only be out of date**, and `inventedFigure` validates
+against the reading the script was written from rather than against the weather at air, which is the
+one comparison it cannot make.
+
+**The window, measured.** `WRITE_AHEAD` is 8 items (`break.planner.ts:79`), and that file states that
+at the default quarter-hour break interval the window holds two or three breaks. A weather break is
+therefore written up to eight records ahead of its slot, and the staleness at air is that plus the
+provider's own observation age, which for a national service can be most of an hour before this tree
+ever sees it.
+
+**The evidence that this is an omission rather than a decision is one line above it.**
+`write.break.job.ts` reasons about air time everywhere: the clock at 234, the greeting at 238, the
+daypart at 242, and `bulletin.storiesFor(segment.kind, context, segment.airsAt ?? Date.now())` at
+273, where the news source is told when the break will air. Line 278 is
+`weather.readingFor(segment.kind, context)`. It is the only call in that file that does not know.
+
+**And the pattern is already in the tree, one module over.** `rundown.ts` holds an `observedAt` on
+the playhead and decays the reading by its own age on every read:
+`remainingMs - (Date.now() - observedAt)`. That is exactly the arithmetic the weather path has the
+inputs for and does not do.
+
+This is the same SHAPE as the era bug the third pass found: the data was present, the column was
+right, and the question was never asked of it. A capability that arrives after a guard does not
+inherit it, and nothing in the tree fails when it doesn't.
+
+### Two convergences that sharpen a section written two days ago
+
+The other implementation closed its continuity-decay issue in this window, and its reasoning is worth
+more than its fix, which is not in the issue. Two sentences from it:
+
+**"Negative prompting is not a forget mechanism."** An "already said, do not repeat" block makes a
+topic MORE salient rather than less. This tree reached the same conclusion independently and answered
+it better: `break.prompt.ts` bans a spent signature and in the same breath invites a replacement,
+because "told only what it may not say, a model reaches for the nearest other thing the sheet gave
+it" — and `characterFault` refuses a script that ignores the ban, so the ban is enforced rather than
+merely requested. No action.
+
+**"The recency store has no scoping boundary that matches the product's actual boundaries."** Their
+proposed direction is three tiers: soft decay, boundary reset, and an operator's hard purge. That
+framing is the useful part, and read against this tree it says something [personas.md](personas.md)
+§6 did not, because §6 was written two days ago with three candidate rules that were all decay:
+
+- **The boundary tier is already built here, and is correct.** `BreakWriteRequest.recent` is the
+  BROADCAST's memory and is kind-agnostic, on the argument that a listener who tuned in twenty minutes
+  ago has heard this show and none of the one before it. A station that has just gone on air inherits
+  no ban from a programme nobody heard.
+- **The notebook must NOT get that tier**, and saying so is the point. `persona_notes` exists to
+  outlive a broadcast: a character that accumulates is the feature. Boundary reset would delete the
+  thing the store is for. So the notebook wants soft decay specifically, and §6 is now explicit about
+  which tier it is choosing and why the neighbouring one is wrong for it.
+
+### A guard that is absent rather than unnecessary, measured at 0
+
+The other station has taken at least five bugs on reading non-Latin text aloud: a phonemizer routing
+every language through one engine, kanji read as character descriptions, a language code that needed a
+region, and mixed-script track names. It has now moved to native phonemizers per script.
+
+**Measured on this library: 0 of 766 tracks carry CJK, Cyrillic, Hebrew or Arabic in a title or a
+credit.** 15 carry extended-Latin accents and they are almost all decorative metal umlauts (`Mötley
+Crüe`, `Blue Öyster Cult`), which is a pronunciation question and not a phonemizer one, and
+`deadair.pronunciations` is already the seam for it.
+
+So none of that class is live here, **and the reason is the library rather than the code**. That is
+exposure deferred, not exposure avoided, and it is worth recording in that form because this tree is
+meant to ship for other people to run: the first operator with a Japanese or Russian library meets all
+five at once, on a speech path that has never been asked to read a non-Latin character. Not worth
+building against today. Worth knowing that the 0 is a fact about this operator's records.
+
+### Nothing in the window is a feature gap
+
+Two releases in the window. What is in them is the settings surface, native lock-screen presence,
+first-class station credentials, a max-listeners setting, on-demand jingles, and front-padding a
+listener request's intro. Of those, the listener-facing half is already recorded below as deliberately
+not wanted, on-demand jingles are `deadair.pads` reached from another direction, and a max-listeners
+cap is the only one that is both absent and arguably wanted here, now that the mount is public. It is a
+small one and is noted with the others.
+
 ## What is deliberately not wanted
 
 Recording these stops the survey being re-run to reach the same answer.
@@ -575,6 +692,19 @@ Revised after the second pass, with the original reasons kept, and marked after 
    mechanism and not small in authorization, so it waits on
    [service-actors.md](service-actors.md) rather than sitting beside the other two.
 
+**Added by the fifth pass, and it goes at the top rather than into the list**, because it is a defect
+in shipped code and everything above it is a feature:
+
+0. **Give a weather reading an expiry**, which is the smallest correct version of what the fifth pass
+   found. The inputs are all in hand — `observedAt` is on the reading, `airsAt` is on the segment, and
+   `write.break.job.ts` already passes the second to the bulletin source on the line above. Three
+   sizes, and the first is worth having alone: pass `airsAt` into `readingFor` and decline a reading
+   already too old to be true at air; then a third `BrokenClaim` kind so a stale one is rewritten in
+   the write-ahead window rather than dropped at hand-over; then the same question asked of every
+   other source of a present-tense fact, which is what stops this recurring the next time a capability
+   lands. **Do the third one whatever else happens**: the finding is not that weather was done badly,
+   it is that a new capability does not inherit an old guard and nothing fails when it doesn't.
+
 **Added by the fourth pass, and neither is ranked against the list above**, because both are answers
 to a deadline rather than choices about what to build next:
 
@@ -606,3 +736,16 @@ and no work, and those are the entries most likely to save a future pass, becaus
 question invites the survey to be run again while an answered one does not. **Record the negative
 results, with the queries that produced them.** The failure mode of the third pass's lesson, left
 unqualified, is a standing invitation to go looking for bugs and to find things that are not there.
+
+**What the fifth pass adds, and it is the last thing this file needs to say about method.** Its best
+finding was not about the other station. It was about a capability this tree shipped two days earlier,
+and the question that found it — "does the new thing inherit the old guard?" — did not need a
+comparable station at all. The other implementation supplied only the prompt: it has spent four bugs
+on breaks whose words outlive their truth, which is what made "what else asserts something about the
+present?" the obvious question to ask here.
+
+So the honest ranking of what this file is for has moved. The survey was worth doing once. **What is
+worth repeating is not reading somebody else's tree, it is keeping their list of hard-won questions
+and running it against ours whenever this one grows a new surface.** A guard is a claim about code
+that existed when it was written, and nothing in a test suite notices when a new caller quietly opts
+out of one.

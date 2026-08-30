@@ -42,6 +42,23 @@ describe('TrackStateAction', () => {
         expect(screen.queryByRole('button')).not.toBeInTheDocument();
     });
 
+    // A press that WORKS empties the list it was pressed on, so the answer has to outlive the rows
+    // it was about: otherwise it vanishes at exactly the moment there is one, and the operator is
+    // left on an empty page with no idea whether anything happened.
+    it('keeps the tally after the rows it acted on have left the list', async () => {
+        offerTrackCopiesAgain.mockResolvedValue({ trackId: IDS[0], cleared: 1, detail: 'Done.' });
+        const { rerender } = render(<TrackStateAction state="benched" trackIds={IDS} />);
+
+        await userEvent.click(screen.getByRole('button', { name: 'Offer these again (2)' }));
+        await userEvent.click(await screen.findByRole('button', { name: 'Offer them again' }));
+        await screen.findByText('2 records reopened.');
+
+        rerender(<TrackStateAction state="benched" trackIds={[]} />);
+
+        expect(screen.getByText('2 records reopened.')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Offer these again/ })).not.toBeInTheDocument();
+    });
+
     it('asks before it does anything, and says what a re-offer overrides', async () => {
         render(<TrackStateAction state="benched" trackIds={IDS} />);
 

@@ -34,6 +34,44 @@ export interface CatalogTracksPageProps {
     onOrderChange: (order: TrackListOrder) => void;
 }
 
+/** How each state reads when nothing is in it, in the operator's terms rather than the column's. */
+const NOTHING_IN_STATE: Record<TrackStateParam, string> = {
+    cached: 'Nothing is on this machine yet. The station fetches a record a few boundaries before its slot.',
+    uncached: 'Every record is already on this machine.',
+    unmeasured: 'Every record has been measured, so the station has cue points and a level for all of them.',
+    failing: 'No fetch is failing.',
+    benched: 'No record has had all its copies written off.',
+};
+
+/**
+ * Why a list has nothing in it, which is three different facts.
+ *
+ * Only one of them is a problem. A station with no records at all is its first hour; a search that
+ * matches nothing is a typo; and a fault filter that matches nothing is the answer an operator was
+ * hoping for. Reading "the catalog is empty" over a library of eight hundred records was the third
+ * case wearing the first one's words.
+ *
+ * The search is asked FIRST and that ordering is load-bearing: `total` is the counts' own total, and
+ * the counts honour the search — so a term nothing matches answers zero over a full library and
+ * would otherwise read as an empty catalog. They deliberately do not honour the STATE, which is why
+ * `total` is trustworthy as the library's size by the time the state is asked about.
+ */
+function NothingHere({ search, state, total }: { search: string; state: TrackStateParam | ''; total: number }) {
+    if (search !== '') {
+        return <EmptyState title={`Nothing matches “${search}”`}>Try a shorter term, or part of the title rather than all of it.</EmptyState>;
+    }
+
+    if (total === 0) {
+        return <EmptyState title="The catalog is empty">The catalog fills as enabled plugins are scanned. Nothing has been ingested yet.</EmptyState>;
+    }
+
+    if (state !== '') return <EmptyState title="Nothing is in this state">{NOTHING_IN_STATE[state]}</EmptyState>;
+
+    // Unreachable in practice: an unfiltered list of a non-empty catalog has rows. Answered rather
+    // than left blank, because a page drawing nothing at all reads as broken.
+    return <EmptyState title="Nothing to show">This page of the catalog has no records on it.</EmptyState>;
+}
+
 /**
  * One of the three state marks on a row.
  *
@@ -114,13 +152,14 @@ export function CatalogTracksPage({
 
             {tracks.isPending ? <PageSkeleton variant="table" /> : undefined}
 
-            {tracks.data && rows.length === 0 ? (
-                <EmptyState title={search === '' ? 'The catalog is empty' : `Nothing matches “${search}”`}>
-                    {search === ''
-                        ? 'The catalog fills as enabled plugins are scanned. Nothing has been ingested yet.'
-                        : 'Try a shorter term, or part of the title rather than all of it.'}
-                </EmptyState>
-            ) : undefined}
+            {/* Three empty lists rather than two, because they are three different facts and only one
+                of them is a problem. An install with nothing ingested is the first hour of a station;
+                a search that matches nothing is a typo; and a state filter that matches nothing is
+                GOOD NEWS — nothing is benched — which reading "the catalog is empty" over a library
+                of eight hundred records was actively lying about. It became worth telling apart when
+                the desk started linking straight to a filtered list: the row an operator has just
+                emptied lands them here. */}
+            {tracks.data && rows.length === 0 ? <NothingHere search={search} state={state} total={tracks.data.states.total} /> : undefined}
 
             {tracks.data && rows.length > 0 ? (
                 <>

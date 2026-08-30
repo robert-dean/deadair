@@ -147,6 +147,30 @@ describe('CatalogTracksPage', () => {
         expect(screen.getAllByRole('link')).toHaveLength(3);
     });
 
+    // Three empty lists, three different facts, and only one of them is a problem. A benched filter
+    // with nothing in it is the answer an operator was hoping for, and it used to wear the words of
+    // a station that has never ingested anything — over a library of eight hundred records.
+    it('reads an empty fault filter as good news rather than as an empty catalog', async () => {
+        listTracks.mockResolvedValue(page([], 0, counts({ total: 766 })));
+
+        render(
+            <CatalogTracksPage
+                order={ORDER('title')}
+                onOrderChange={noop}
+                page={0}
+                search=""
+                state="benched"
+                onPageChange={noop}
+                onSearchChange={noop}
+                onStateChange={noop}
+            />,
+        );
+
+        expect(await screen.findByText('Nothing is in this state')).toBeInTheDocument();
+        expect(screen.getByText('No record has had all its copies written off.')).toBeInTheDocument();
+        expect(screen.queryByText('The catalog is empty')).not.toBeInTheDocument();
+    });
+
     it('blames the search term when one is set and nothing matched', async () => {
         listTracks.mockResolvedValue(page([]));
 

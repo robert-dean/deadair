@@ -71,7 +71,11 @@ export function TrackStateAction({ state, trackIds }: TrackStateActionProps) {
     const queryClient = useQueryClient();
 
     const action = state === 'benched' || state === 'failing' ? ACTIONS[state] : undefined;
-    if (action === undefined || trackIds.length === 0) return undefined;
+    // An outcome outlives the rows it was about, deliberately. A press that WORKS empties the list it
+    // was pressed on, so a component that vanished with the last row would take the answer away at
+    // exactly the moment there was one — leaving an operator looking at an empty page with no idea
+    // whether anything happened.
+    if (action === undefined || (trackIds.length === 0 && outcome === undefined)) return undefined;
 
     const run = async () => {
         setRunning(true);
@@ -104,16 +108,18 @@ export function TrackStateAction({ state, trackIds }: TrackStateActionProps) {
     return (
         <>
             <Group gap="sm" align="center">
-                <Button
-                    variant="default"
-                    size="compact-sm"
-                    onClick={() => {
-                        setOutcome(undefined);
-                        setAsking(true);
-                    }}
-                >
-                    {action.verb} ({trackIds.length})
-                </Button>
+                {trackIds.length > 0 ? (
+                    <Button
+                        variant="default"
+                        size="compact-sm"
+                        onClick={() => {
+                            setOutcome(undefined);
+                            setAsking(true);
+                        }}
+                    >
+                        {action.verb} ({trackIds.length})
+                    </Button>
+                ) : undefined}
                 {outcome ? (
                     <Text size="xs" c="dimmed">
                         {outcome.done} {outcome.done === 1 ? 'record' : 'records'} reopened

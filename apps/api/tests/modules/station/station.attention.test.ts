@@ -166,6 +166,14 @@ describe('attention', () => {
         ]);
     });
 
+    it('sends the state as well as the page, so the row lands on the records it counted', () => {
+        // The whole complaint the state carries is here: a row about four records that lands on a
+        // library of eight hundred has told an operator to go and find them.
+        const items = attention(facts({ benched: 4, failing: 11 }));
+
+        expect(items.map(item => item.route)).toEqual(['/catalog?state=benched', '/catalog?state=failing']);
+    });
+
     it('says one record rather than 1 records', () => {
         expect(attention(facts({ benched: 1 }))[0]?.title).toBe('1 record has no copy left that will play');
     });

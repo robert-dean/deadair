@@ -234,7 +234,10 @@ function library(facts: AttentionFacts): AttentionItem[] {
             detail:
                 'Every copy of them has been written off after four consecutive fetch failures, so they cannot be chosen at all. ' +
                 'The next catalog sync un-benches any the provider still lists.',
-            route: '/catalog',
+            // The STATE as well as the page. A row about four records that lands on the whole library
+            // has told an operator to go and find them, which on a station of eight hundred is the
+            // work this list exists to remove. The console owns which of its pages holds the filter.
+            route: '/catalog?state=benched',
             count: facts.benched,
         });
     }
@@ -245,7 +248,7 @@ function library(facts: AttentionFacts): AttentionItem[] {
             severity: 'warning',
             title: `${facts.failing} ${facts.failing === 1 ? 'record is' : 'records are'} failing to download`,
             detail: 'Their fetches are backing off and being retried. They still play if one succeeds; four consecutive failures write the copy off.',
-            route: '/catalog',
+            route: '/catalog?state=failing',
             count: facts.failing,
         });
     }

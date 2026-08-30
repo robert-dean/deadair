@@ -1,7 +1,7 @@
 import type { LinkProps } from '@tanstack/react-router';
 import type { AttentionItem } from '@deadair/sdk';
 
-import { CATALOG_TRACK_DEFAULTS } from '../catalog/catalog.page.params';
+import { CATALOG_TRACK_DEFAULTS, TRACK_STATES, type TrackStateParam } from '../catalog/catalog.page.params';
 import type { Severity } from '../shared/status';
 
 /**
@@ -47,6 +47,16 @@ export interface AttentionDestination {
 export function attentionDestinationOf(route: string): AttentionDestination | undefined {
     const plugin = /^\/plugins\/(.+)$/.exec(route);
     if (plugin?.[1]) return { link: { to: '/plugins/$id', params: { id: plugin[1] } }, label: 'Plugin' };
+
+    // The Tracks list narrowed to one state, which is what a row about four records out of eight
+    // hundred has to land on to be worth pressing. The station names the state and this decides
+    // which page carries the filter — an unknown word falls back to the unfiltered list rather than
+    // reaching the router, on `catalog.page.params.ts`'s rule about validating what arrives as text.
+    const asked = /^\/catalog\?state=(.+)$/.exec(route)?.[1];
+    if (asked !== undefined) {
+        const state: TrackStateParam | '' = TRACK_STATES.find(offered => offered === asked) ?? '';
+        return { link: { to: '/catalog/tracks', search: { ...CATALOG_TRACK_DEFAULTS, state } }, label: 'Library' };
+    }
 
     switch (route) {
         // The station still names `/onair` for anything about the broadcast. The desk is where that

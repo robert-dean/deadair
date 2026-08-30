@@ -82,10 +82,14 @@ export const MAX_WEATHER_DAYS = 7;
  *
  * Two hours, and the size is deliberately generous rather than tight. What this bounds is this
  * morning's weather going out at teatime, which is a station saying something false in a confident
- * voice; it is not an attempt to keep the figure to the minute. A national service can be most of
- * an hour behind before this station ever sees the reading, and `WRITE_AHEAD` is another twenty-odd
- * minutes of records on top of that, so anything much tighter would silence the weather on a
- * perfectly working install and read to an operator as a broken band.
+ * voice; it is not an attempt to keep the figure to the minute.
+ *
+ * **Measured against the real services rather than guessed** (`scripts/weather.smoke.ts`, which
+ * reports the age and whether it survives the window, 2026-08-30): Open-Meteo answered 14 minutes
+ * behind, and the US National Weather Service **44**. Add `WRITE_AHEAD` — eight records, call it
+ * thirty-five minutes — and an NWS reading reaches its slot at about eighty minutes old, with forty
+ * to spare. An hour would have declined every weather break on every NWS station, silently, and read
+ * to that operator as a band that does not work.
  *
  * Measured against `segments.airs_at` rather than against now, which is the whole point: the reading
  * that was fresh when the words were written is the one that has to still be true when they are

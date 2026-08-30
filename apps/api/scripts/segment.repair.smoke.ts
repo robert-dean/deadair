@@ -65,6 +65,44 @@ async function written(claimsItemId: string): Promise<string> {
     return planned.id;
 }
 
+/**
+ * All three claims through the column, the mapper and back out.
+ *
+ * Worth a real database rather than a unit test for the half a double cannot have: a `timestamptz`
+ * written as epoch millis and read back as one, through `instant` on the way in and `millisOf` on
+ * the way out. A column that silently rounded, shifted by a zone or came back as a string would give
+ * the station an expiry that is wrong by hours and looks entirely plausible in a log.
+ *
+ * And the clearing, which is the one with teeth: a reopened break that kept its reading expiry is
+ * stale the instant it is read, so the next pass reopens it again against a number that can never
+ * move. That is a loop, and it is invisible except as a break that is never written.
+ */
+async function carriesEveryClaim(): Promise<void> {
+    const until = Date.now() + 3_600_000;
+    const planned = await segments.plan({ kind: KIND, label: 'Smoke' });
+    await segments.claimForWrite(planned.id);
+    await segments.writeScript(planned.id, {
+        script: "It's 17 and raining in Atlanta.",
+        label: 'Smoke',
+        writer: 'deterministic',
+        claimsItemId: 'item-1',
+        claimsTime: { from: until - 7_200_000, until },
+        claimsReadingUntil: until,
+    });
+
+    const row = await segments.findById(planned.id);
+    check(
+        row?.claimsReadingUntil === until,
+        `the reading's expiry survives the column exactly (it read ${row?.claimsReadingUntil} against ${until})`,
+    );
+    check(row?.claimsTime?.until === until, 'and so does the time window beside it, on the same instant');
+
+    await segments.reopenSegments([planned.id]);
+    const reopened = await segments.findById(planned.id);
+    check(reopened?.claimsReadingUntil === undefined, 'the reading expiry is cleared with the words, or the next pass reopens it forever');
+    check(reopened?.claimsTime === undefined && reopened?.claimsItemId === undefined, 'and the other two go with them');
+}
+
 /** The states this row has been through, oldest first. */
 const trail = async (id: string): Promise<string[]> => (await segments.events(id)).map(event => `${event.fromState ?? 'new'}→${event.toState}`);
 
@@ -243,6 +281,7 @@ console.log('segment repair\n');
 
 try {
     await reopens();
+    await carriesEveryClaim();
     await refusesAClaimedRow();
     await releasesAStrandedWrite();
     await releasesAStrandedRender();

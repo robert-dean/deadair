@@ -51,7 +51,7 @@ jobs:
             # instead — three variants of this station do not fit in ten gigabytes alongside
             # anything. That is what leaves room for this. Keep it that way.
             - name: Restore the task cache
-              uses: actions/cache@v4
+              uses: actions/cache@v6
               with:
                   path: .turbo/cache
                   key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -147,7 +147,7 @@ jobs:
             # previous release's entry is a good enough starting point, and anything this commit
             # actually changed is recompiled here in parallel rather than once in series.
             - name: Restore the task cache
-              uses: actions/cache/restore@v4
+              uses: actions/cache/restore@v6
               with:
                   path: .turbo/cache
                   key: turbo-${{ runner.os }}-${{ github.sha }}

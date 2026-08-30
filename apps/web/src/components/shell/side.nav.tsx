@@ -57,8 +57,6 @@ export const DESTINATION_KEYS: { hint: string; to: NavItemProps['to'] }[] = DEST
 );
 
 export interface SideNavProps {
-    /** Called after a link is followed, so the mobile drawer can shut itself. */
-    onNavigate?: () => void;
     /**
      * What needs somebody, straight from `GET /station/attention`.
      *
@@ -69,7 +67,7 @@ export interface SideNavProps {
     attention?: readonly AttentionItem[];
 }
 
-export function SideNav({ onNavigate, attention = [] }: SideNavProps) {
+export function SideNav({ attention = [] }: SideNavProps) {
     const counts = attentionCounts(attention);
 
     return (
@@ -80,7 +78,6 @@ export function SideNav({ onNavigate, attention = [] }: SideNavProps) {
                     to={item.to}
                     label={item.label}
                     hint={item.hint}
-                    onNavigate={onNavigate}
                     attention={typeof item.to === 'string' ? counts.get(item.to) : undefined}
                 />
             ))}

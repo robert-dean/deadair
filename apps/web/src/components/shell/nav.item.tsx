@@ -23,8 +23,6 @@ export interface NavItemProps {
      * that does nothing is worse than no hint at all.
      */
     hint?: string;
-    /** Closes the drawer on a phone, where following a link should not leave the nav over the page. */
-    onNavigate?: () => void;
     /** How many things on this page need somebody, and the worst of them. Absent means nothing does. */
     attention?: { count: number; severity: Severity };
 }
@@ -47,7 +45,7 @@ export interface NavItemProps {
  * So the label is written out only when there IS attention, and a link with nothing waiting keeps
  * its plain name rather than announcing that nothing is wrong with it.
  */
-export function NavItem({ to, label, hint, onNavigate, attention }: NavItemProps) {
+export function NavItem({ to, label, hint, attention }: NavItemProps) {
     return (
         <NavLink
             classNames={{ root: classes.item, label: classes.label }}
@@ -75,22 +73,10 @@ export function NavItem({ to, label, hint, onNavigate, attention }: NavItemProps
                     </Badge>
                 )
             }
-            // `onClick` is pulled out of the spread rather than set beside it: the props Mantine
-            // hands back land last, so an `onClick` written before them is silently discarded.
-            //
             // Annotated for the reason every `renderRoot` in this console is: Mantine hands back
             // `any`, and spreading an `any` into a `Link` switches off the check that `to` is a
             // route that exists. This is the nav, so that check is the one worth having most.
-            renderRoot={({ onClick, ...props }: { onClick?: React.MouseEventHandler<HTMLAnchorElement> }) => (
-                <Link
-                    to={to}
-                    onClick={event => {
-                        onClick?.(event);
-                        onNavigate?.();
-                    }}
-                    {...props}
-                />
-            )}
+            renderRoot={(props: object) => <Link to={to} {...props} />}
         />
     );
 }

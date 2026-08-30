@@ -28,7 +28,7 @@ const PHONE_TABS: (Pick<NavItemProps, 'to' | 'label'> & { key: string })[] = [
  * decorative here rather than a shortcut, which is why it is `aria-hidden`: a phone has no keyboard
  * to press it on, and announcing "D Desk" to a screen reader would be noise.
  */
-export function PhoneTabs({ onNavigate }: { onNavigate?: () => void }) {
+export function PhoneTabs() {
     return (
         <Group
             component="nav"
@@ -42,7 +42,6 @@ export function PhoneTabs({ onNavigate }: { onNavigate?: () => void }) {
                 <Link
                     key={tab.label}
                     to={tab.to}
-                    onClick={onNavigate}
                     // 64px tall and a quarter of the width: comfortably past the 44px the
                     // design asks for, in both directions, because this is the control an
                     // operator uses one-handed and half-asleep.

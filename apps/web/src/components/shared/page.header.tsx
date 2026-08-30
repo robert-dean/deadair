@@ -71,7 +71,9 @@ export function PageHeader({ title, eyebrow, description, actions, children }: P
             <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
                 <Title order={1}>{title}</Title>
                 {actions ? (
-                    <Group gap="xs" wrap="nowrap">
+                    // Pinned for the same reason as the embedded branch above: a long title must
+                    // truncate before it starts crushing the page's own controls.
+                    <Group gap="xs" wrap="nowrap" style={{ flexShrink: 0 }}>
                         {actions}
                     </Group>
                 ) : undefined}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { AppShell, Box, Button, Group, Kbd, ScrollArea, Text, useMantineTheme } from '@mantine/core';
-import { useHotkeys, useMediaQuery } from '@mantine/hooks';
+import { AppShell, Box, Button, Group, Kbd, ScrollArea, Text } from '@mantine/core';
+import { useHotkeys } from '@mantine/hooks';
 import { spotlight } from '@mantine/spotlight';
 import { createRootRouteWithContext, Outlet, redirect, useNavigate } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
@@ -16,6 +16,7 @@ import { isAuthenticated, isSessionActive, useSession } from '../auth/session.st
 import { usePlayoutStatus } from '../api/playout.queries';
 import { useStationAttention } from '../api/station.queries';
 import { ErrorAlert } from '../components/shared/error.alert';
+import { usePhone } from '../components/shared/use.phone';
 import { JumpTo } from '../components/shell/jump.to';
 import { NavFooter } from '../components/shell/nav.footer';
 import { PhoneTabs } from '../components/shell/phone.tabs';
@@ -44,7 +45,6 @@ function noDialogOpen(): boolean {
 }
 
 export function RootLayout() {
-    const theme = useMantineTheme();
     const session = useSession();
     // The same predicate the auth gate uses: a token that exists but has expired is not a session,
     // and offering Logout for one would promise something the shell cannot deliver.
@@ -62,11 +62,10 @@ export function RootLayout() {
     // gestures to reach any page — open it, then choose — and it covers the thing you were looking
     // at while you decide.
     //
-    // `useMediaQuery` rather than CSS alone because `AppShell` reserves the footer's height in
-    // layout whether or not its contents render, so the shell has to KNOW rather than just hide it.
-    // The fallback is `false`, which is the desktop: a first paint with no bar is a page that has
-    // its nav somewhere else for a frame, where the reverse is 64px of empty bar on a desk.
-    const phone = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`, false);
+    // A hook rather than CSS alone because `AppShell` reserves the footer's height in layout
+    // whether or not its contents render, so the shell has to KNOW rather than just hide it. The
+    // hook's first-paint fallback is the desktop, and `use.phone.ts` says why.
+    const phone = usePhone();
 
     // The letters drawn in the rail's gutter, bound to the destinations that draw them. Read off
     // `DESTINATION_KEYS` rather than restated here, so a hint the nav shows and a key the shell

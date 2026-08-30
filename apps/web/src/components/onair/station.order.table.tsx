@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActionIcon, Badge, Box, Button, Card, Group, Stack, Table, Text, Tooltip, useMantineTheme } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { ActionIcon, Badge, Box, Button, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconX } from '@tabler/icons-react';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
@@ -8,6 +7,7 @@ import { RatingControl } from '../catalog/rating.control';
 import { Artwork } from '../shared/artwork';
 import { AlbumLink, ArtistLink, ScriptLink, TrackLink } from '../shared/catalog.links';
 import { formatDuration } from '../shared/format.duration';
+import { usePhone } from '../shared/use.phone';
 import classes from './station.order.table.module.css';
 
 export interface StationOrderTableProps {
@@ -342,10 +342,9 @@ export function StationOrderTable({
     const nextUp = firstPlannedIndex(items);
     const anchor = anchorOf(items);
     const [historyOpen, setHistoryOpen] = useState(false);
-    const theme = useMantineTheme();
     // `false` while unknown, which is the desk: a table drawn for a frame and replaced is cheaper
-    // than a phone layout flashing on every desktop load.
-    const phone = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`, false);
+    // than a phone layout flashing on every desktop load. The hook carries that fallback.
+    const phone = usePhone();
 
     // Everything before the row the order is read from. Taken by POSITION rather than by state,
     // because that is what "behind us" means here: a removed item sitting among the planned ones is

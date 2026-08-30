@@ -37,8 +37,6 @@ const ITEMS: Pick<NavItemProps, 'to' | 'label'>[] = [
 ];
 
 export interface NavFooterProps {
-    /** Called after a link is followed, so the mobile drawer can shut itself. */
-    onNavigate?: () => void;
     /** What needs somebody. Same list the rail above reads, so the two halves cannot disagree. */
     attention?: readonly AttentionItem[];
     /**
@@ -49,7 +47,7 @@ export interface NavFooterProps {
     loggingOut?: boolean;
 }
 
-export function NavFooter({ onNavigate, attention = [], onLogout, loggingOut }: NavFooterProps) {
+export function NavFooter({ attention = [], onLogout, loggingOut }: NavFooterProps) {
     const counts = attentionCounts(attention);
 
     return (
@@ -60,7 +58,6 @@ export function NavFooter({ onNavigate, attention = [], onLogout, loggingOut }: 
                         key={item.label}
                         to={item.to}
                         label={item.label}
-                        onNavigate={onNavigate}
                         attention={typeof item.to === 'string' ? counts.get(item.to) : undefined}
                     />
                 ))}

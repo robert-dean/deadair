@@ -26,6 +26,16 @@ import { clientAddress } from './rate.limit.middleware.js';
  * heartbeat is a side effect of serving the playlist, and a station that stopped
  * serving playlists because it could not count them would have the failure exactly
  * backwards.
+ *
+ * **A heartbeat is a playlist that was SERVED**, which is why the tick is recorded
+ * after the handler rather than in front of it. It used to be recorded on the way
+ * in, on nothing but the path, so a client polling a URL that answered 404 counted
+ * as a listener for as long as it kept asking. Measured on a live station: HLS
+ * switched off and every playlist deleted, nothing listening to anything, and the
+ * station still reported two listeners and stayed on air — writing breaks and
+ * rendering speech for a client being handed errors. The gate is the reason this
+ * matters rather than the number: in `audience` mode a request nobody answered was
+ * enough to keep the mount up indefinitely.
  */
 
 /**
@@ -51,11 +61,21 @@ export const hlsHeartbeatMiddleware = (config: AppConfig): ServerKitMiddleware =
     const trusted = trustsProxy(config);
 
     return async (ctx, next) => {
-        if (ctx.path.startsWith(HLS_PATH_PREFIX) && IS_PLAYLIST.test(ctx.path)) {
-            const container = ctx.container as ScopedContainer;
-            container.get(HlsAudience).seen(clientKey(ctx, trusted));
-        }
+        const isPlaylist = ctx.path.startsWith(HLS_PATH_PREFIX) && IS_PLAYLIST.test(ctx.path);
+
+        // Before the tick, always: a request that throws must reach the error middleware
+        // exactly as it would if nothing were counting, and a refusal is not a heartbeat,
+        // so a throw from below skips the record by construction rather than by a branch.
         await next();
+
+        // A status the handler set, which is why this is not `ctx.body !== undefined`: the
+        // playlist route answers with a Buffer, and a 404 built by `httpError` further down
+        // carries a body too. Anything from 400 up is the station failing to serve somebody,
+        // and somebody who is not being served is not listening.
+        if (!isPlaylist || ctx.status >= 400) return;
+
+        const container = ctx.container as ScopedContainer;
+        container.get(HlsAudience).seen(clientKey(ctx, trusted));
     };
 };
 

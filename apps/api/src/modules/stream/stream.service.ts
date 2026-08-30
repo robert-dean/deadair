@@ -15,7 +15,8 @@ import {
     writeStreamConfig,
     type StreamPlayoutConfig,
 } from './stream.config.js';
-import { ensureStreamSecrets, resolveStreamSettings, type StreamSettings } from './stream.settings.js';
+import { ensureStreamSecrets, resolveStreamSettings, STREAM_DEFAULTS, STREAM_KEYS, type StreamSettings } from './stream.settings.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { hlsPlaylistPath } from './hls.playlist.js';
 import { SpotifyShimClient, type FetcherResult } from './spotify.shim.client.js';
 import { StreamConfigWatch } from './stream.staleness.js';
@@ -124,6 +125,20 @@ export class StreamService {
      * something that is not there wants the same answer either way.
      */
     async getHlsPlaylist(name: string): Promise<{ body: Buffer; headers: { cacheControl?: string } }> {
+        // The SETTING, before the disk, because the two disagree for as long as an hour after
+        // it is switched off. Liquidsoap stops writing at once and nothing deletes what it
+        // already wrote, so the playlists and the segments beneath them stay exactly where
+        // they were — and this route serves whatever is in that directory. Measured on a live
+        // station: HLS switched off, and a client went on being served a frozen playlist,
+        // counted as a listener, holding an audience-gated station on air. A switch that stops
+        // PRODUCING without stopping SERVING is not a switch a listener can tell was thrown.
+        //
+        // `settingIsOn` rather than `settings()`, which decrypts the stream secrets: this is
+        // an anonymous route a player hits every few seconds, and it needs one flag.
+        if (!settingIsOn(this.config, STREAM_KEYS.hlsEnabled, STREAM_DEFAULTS.hlsEnabled)) {
+            throw httpError(404).withDetails({ message: 'no such playlist' });
+        }
+
         const path = hlsPlaylistPath(this.config.get('STREAM_HLS_DIR', defaultStreamHlsDir()), name);
         if (path === undefined) throw httpError(404).withDetails({ message: 'not a playlist' });
 

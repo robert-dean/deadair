@@ -42,8 +42,14 @@ listener on a mount no message had mentioned yet.
 
 **An HLS listener is counted differently because there is nothing to ask.** They hold no connection open, so
 Icecast knows nothing about them. What a live player does instead is re-fetch the media playlist every target
-duration, because that is the only way to learn about the next segment — so a playlist request IS a heartbeat,
-and `HlsAudience` is the register of who has ticked inside the last fifteen seconds. That is not the
+duration, because that is the only way to learn about the next segment — so a playlist request that was
+SERVED is a heartbeat, and `HlsAudience` is the register of who has ticked inside the last fifteen seconds.
+The tick is recorded after the handler and only above a 400, because it used to be recorded on the way in on
+nothing but the path: with HLS switched off and every playlist deleted, a client polling the URL still counted
+as a listener and still held the gate open, so the station aired a full programme for somebody it was handing
+404s to. The switch itself had the same shape of bug — `getHlsPlaylist` served whatever was on the volume, and
+nothing deletes what Liquidsoap already wrote, so turning HLS off stopped it being PRODUCED and not being
+SERVED; it reads `stream.hlsEnabled` now. That is not the
 access-log counting this file refuses below: a log is a record of what happened, and this is a reading of what
 is true now, so zero here means nobody rather than "could not tell". `AudienceWatch` keeps the Icecast total
 and the HLS count apart and re-adds them in `recount`, so neither source can overwrite the other, and an HLS

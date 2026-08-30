@@ -734,14 +734,23 @@ export class BreakPlanner {
      * and whatever it returns to `planned` is offered in the same pass. See `break.claims.ts` for
      * the question, which the director asks again at hand-over for the breaks this did not reach in
      * time.
+     *
+     * And it repairs the row's own facts before it repairs its words. {@link reproject} moves each
+     * break's `airs_at` to where the order now says it lands, which is what makes a rewrite
+     * different from the attempt it replaces rather than a copy of it. Read its note in
+     * `SegmentRepository` before moving it after `rewriteStale`: the write jobs sent at the bottom
+     * of this method are what read the number, so it has to be current by then, and the verdict
+     * itself does not depend on it either way.
      */
-    async ripen(lineup: StationLineup): Promise<RipenResult> {
+    async ripen(lineup: StationLineup, clock: AirClock): Promise<RipenResult> {
         const items = lineup.all();
         const from = lineup.committedThrough();
         const window = items.slice(Math.max(0, from), Math.max(0, from) + WRITE_AHEAD);
 
         const ids = [...new Set(window.flatMap(item => (item.kind === 'segment' ? [item.segmentId] : [])))];
         if (ids.length === 0) return NOTHING_RIPENED;
+
+        await this.reproject(items, clock, Math.max(0, from), Math.max(0, from) + WRITE_AHEAD);
 
         const segments = await this.segments.findByIds(ids);
         // Before the claims, deliberately: a stranded render handed back becomes `written`, and if
@@ -802,6 +811,56 @@ export class BreakPlanner {
         } catch (error) {
             this.logger.warn(`director: could not take back a break whose job never finished (${errorText(error)})`);
             return { writing: [], rendering: [] };
+        }
+    }
+
+    /**
+     * Move every break in this window to the air time the order now projects for it.
+     *
+     * The repair that has to happen before the words are judged rather than after, because it is
+     * what makes the rewrite the judgement asks for worth making. `SegmentRepository.reprojectAirTimes`
+     * carries the argument and the measurement; what is decided HERE is only which number each
+     * break gets.
+     *
+     * The projection is the same expression the planting walks use — `projectAirTimes` against the
+     * same {@link AirClock} — for the reason `break.claims.ts` gives about its own predicate: two
+     * ideas of when a boundary airs would disagree, and the one that decided where the break went
+     * is the one that should decide what it says. It is a LOWER bound, so a break lands at or after
+     * the moment it is told, which is the direction a phrasing can absorb.
+     *
+     * **The EARLIEST position wins for a row that holds several.** An ident comes from a shared
+     * library and legitimately sits at three slots in an hour, and one column cannot describe three
+     * moments. The next time those words will be heard is the honest answer, and it is the one the
+     * writer needs: it is being asked what to say next, not what to say the third time. Taking the
+     * last would have the row describe a moment two records after the one it is about to fill.
+     *
+     * Swallowed for {@link rewriteStale}'s reason exactly. A projection that could not be written
+     * costs the breaks in this window a rewrite that says something new, and the words of every
+     * other break here are still worth asking for.
+     */
+    private async reproject(items: readonly StationLineupItem[], clock: AirClock, from: number, until: number): Promise<void> {
+        const projected = projectAirTimes(items, clock.anchorAt, clock.from);
+
+        const airTimes = new Map<string, number>();
+        for (let index = from; index < Math.min(until, items.length); index++) {
+            const item = items[index]!;
+            if (item.kind !== 'segment') continue;
+
+            const at = projected[index];
+            // `undefined` past the end of what the projection covers, and for anything before the
+            // clock's own anchor. Both are positions this cannot speak for, and a break with no
+            // `airs_at` is an ordinary state the writer already answers for by saying nothing about
+            // the time — which is a better answer than a number this does not have.
+            if (at === undefined || airTimes.has(item.segmentId)) continue;
+
+            airTimes.set(item.segmentId, at);
+        }
+
+        try {
+            const moved = await this.segments.reprojectAirTimes(airTimes);
+            if (moved > 0) this.logger.debug('director: moved breaks to the air time the order now projects', { count: moved });
+        } catch (error) {
+            this.logger.warn(`director: could not bring a break's projected air time up to date (${errorText(error)})`);
         }
     }
 

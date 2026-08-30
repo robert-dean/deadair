@@ -21,11 +21,12 @@ import type { Segment } from '#modules/render/segment.repository.js';
  * `when` is what says which. At hand-over both are equally fatal — a break saying "just after half
  * past three" is wrong at twenty-five past and wrong again at twenty to, and airing either is the
  * station stating something false about the clock. In the write-ahead window they are opposites:
- * `late` means the slot has drifted past the phrasing and a rewrite fixes it, while `early` is the
- * ORDINARY state of every break written ahead of its own window and a rewrite cannot fix it at all.
- * The words come from `segments.airs_at`, which the rewrite does not change, so the second attempt
- * re-derives the same phrasing and re-stamps the same window, and the pass after that finds it
- * early again.
+ * `late` means the slot has drifted past the phrasing and a rewrite fixes it — as long as something
+ * moves `segments.airs_at` first, which is the subsection below — while `early` is the ORDINARY
+ * state of every break written ahead of its own window and a rewrite cannot fix it at all. The
+ * words come from `airs_at`, and re-projecting cannot make a break air sooner than the order says
+ * it will, so the second attempt re-derives the same phrasing and re-stamps the same window, and
+ * the pass after that finds it early again.
  *
  * That loop was live. `WRITE_AHEAD` is eight items and the phrasings in `clock.words.ts` are seven
  * minutes wide, so a bulletin planted on a clock band was stamped for a window half an hour out and
@@ -39,6 +40,28 @@ import type { Segment } from '#modules/render/segment.repository.js';
  * where the policy lives, because "is this worth reopening" is the caller's question and not this
  * one's. The price, taken deliberately, is that a break running EARLY is no longer rewritten and is
  * dropped at hand-over instead — one silent boundary, where the loop cost the next hour of news.
+ *
+ * ### And `late` was the same loop, which took another five weeks to notice
+ *
+ * "A rewrite fixes it" was true of the intent and false of the code, for exactly the reason the
+ * paragraph above gives about `early`: the phrasing came from `segments.airs_at`, and nothing
+ * revised that either. So an order running LATE past a break's window had every rewrite re-derive
+ * the same words, re-stamp the same closed window, and be reopened on the next boundary — until the
+ * slot arrived, the reopen landed in the same pass as the hand-over, and the break was dropped for
+ * still being `planned`. Measured on the live station on 30 August: 234 reopens in seven days
+ * against 94 for a record genuinely leaving the order, 64 breaks written three or more times, one
+ * written twelve, and 76 passed over at their slot. Every attempt at one of them said "coming up to
+ * quarter to one" about a moment already eight minutes gone.
+ *
+ * The half that was missing is now `BreakPlanner.reproject`, which moves `airs_at` to where the
+ * order says the break lands before any of this is asked. `late` is therefore worth a rewrite again
+ * — genuinely, rather than by assertion — because the second attempt is derived from a different
+ * moment than the first. **Both halves have to hold**: if the projection ever stops being refreshed,
+ * this is a loop again and the exclusion below is the only thing standing between the station and it.
+ *
+ * Why it surfaced when it did is worth keeping. Talk breaks had no `airs_at` at all until they were
+ * given one, so the station's most common break made no time claim and could not loop; switching it
+ * on turned a latent bug in the bulletin path into the ordinary case.
  *
  * ## The third dimension is what the break REPORTED, and it arrived late
  *

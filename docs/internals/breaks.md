@@ -88,8 +88,22 @@ would be two bugs waiting. The shapes differ where the questions do: a time clai
 reports which one it fell off, because "just after nine" is wrong at ten to as well as at half past,
 and a reading has ONE end and no direction because an observation has no not-true-yet. That asymmetry
 is also which claims are worth rewriting — an early time claim re-derives the same phrasing from the
-same unchanged `airs_at` and loops (it cost seven bulletins in two hours on 24 August), where a
-reading claim sends the writer back to the service for a genuinely new observation.
+same `airs_at` and loops (it cost seven bulletins in two hours on 24 August), where a reading claim
+sends the writer back to the service for a genuinely new observation.
+
+**A LATE time claim was the same loop, and it needed the other half of the fix rather than the same
+exclusion.** "The slot has drifted past the phrasing, so a rewrite fixes it" was true of the intent
+and false of the code: `airs_at` was stamped once at planting and never revised, so every rewrite
+re-derived the same words, re-stamped the same closed window, and was reopened on the next boundary
+until the slot arrived — at which point the reopen landed in the same pass as the hand-over and the
+break was dropped for still being `planned`. Measured on 30 August: 234 reopens in seven days against
+94 for a record genuinely leaving the order, 64 breaks written three or more times, one written
+twelve, 76 passed over at their slot. `BreakPlanner.reproject` moves `airs_at` to where the order now
+projects the break on every boundary, so the second attempt is derived from a different moment than
+the first and the verdict lands on `early` — which is already excluded, and is therefore where this
+terminates. **The two halves are one guard**: stop refreshing the projection and the exclusion is all
+that is left. It surfaced when it did because talk breaks had no `airs_at` until they were given one,
+which turned a latent bug in the bulletin path into the station's ordinary case.
 
 **And which substrates need a claim at all is declared, in a table the compiler checks.**
 `SUBSTRATE_FRESHNESS` in `break.freshness.ts` maps every field of `BreakWriteRequest` to what keeps

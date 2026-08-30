@@ -110,13 +110,18 @@ export interface Segment {
      * When this break is expected to AIR, as epoch millis, for one placed by a rule on the station
      * clock.
      *
-     * Written by the planner and read by the writer, because the words are asked for on a later
-     * pass than the one that planted the break and nothing recomputes the schedule in between.
-     * Absent for a break planted by ordinary spacing, which is not about a time.
+     * Written by the planner and read by the writer, because the words are asked for on a later pass
+     * than the one that planted the break. Absent for a break the order cannot place on the clock,
+     * which the writer answers by saying nothing about the time.
      *
      * The projected time rather than the time the operator asked for: a band at half past lands on
      * the first gap at or after it, and what the break says has to describe when it will be spoken
      * rather than when it was due.
+     *
+     * **It is a projection, so it is kept up to date** — see {@link SegmentRepository.reprojectAirTimes},
+     * which moves it on every boundary. This note used to end "and nothing recomputes the schedule in
+     * between", stated as a property of the design; it was the bug, and it cost the station 76 breaks
+     * in a week.
      */
     airsAt?: number;
     /**
@@ -225,9 +230,11 @@ export interface PlannedSegment {
      * What this break is ABOUT, for one the station planted for itself.
      *
      * The planted sibling of a request's `context`, and it travels on the ROW for the same reason
-     * `airsAt` does: the words are asked for on a later pass, and nothing recomputes the schedule in
-     * between. Deliberately shapeless — the writers for a kind read what they expect and nothing
-     * generic reads it. For a news bulletin planted by a band, the category the band named.
+     * `airsAt` does: the words are asked for on a later pass than the one that planted the break.
+     * Unlike `airsAt` it needs no revising, because what a break is ABOUT is a decision rather than a
+     * projection and the order moving under it does not make it another subject. Deliberately
+     * shapeless — the writers for a kind read what they expect and nothing generic reads it. For a
+     * news bulletin planted by a band, the category the band named.
      */
     context?: BreakContext;
 }
@@ -857,6 +864,74 @@ export class SegmentRepository extends DataRepository {
         if (wrote) await this.record(id, 'writing', 'written');
 
         return wrote;
+    }
+
+    /**
+     * Move each break's projected air time to where the order now says it lands.
+     *
+     * `airs_at` is a PROJECTION, and until this existed it was stamped once when the break was
+     * planted and never revised — which the field's own note said out loud ("nothing recomputes the
+     * schedule in between") as though it were a property rather than a bug. It is read by
+     * `WriteBreakJob` to derive the clock, the greeting and the daypart, and by `patienceFor` to
+     * decide how long the break may wait for a model slot. Both of those are questions about the
+     * moment the words are SPOKEN, so both were being answered from a number that stopped being
+     * true the first time the order drifted.
+     *
+     * ## The loop this closes
+     *
+     * A break planted forty minutes ahead is projected forty minutes ahead, and the projection is a
+     * lower bound over items whose lengths are partly unknown. When the order runs late past it, the
+     * phrasing the break was written with — "coming up to quarter to one" — falls out of the window
+     * `claims_time_*` records, `brokenClaim` reports `late`, and `BreakPlanner.rewriteStale` reopens
+     * it. The rewrite then derived the SAME phrasing from the SAME unrevised `airs_at` and stamped
+     * the SAME already-closed window, so the next pass reopened it again, once per boundary, until
+     * the slot arrived and the break was dropped for still being `planned`.
+     *
+     * That is precisely the loop `break.claims.ts` documents for an EARLY time claim and excludes
+     * from rewriting. `late` was left in on the reading that "the slot has drifted past the phrasing
+     * and a rewrite fixes it", which is true only if the rewrite is told where the slot actually is.
+     * This is what tells it. Measured on the live station on 30 August: 234 reopens in seven days,
+     * one break written twelve times, and 76 breaks passed over at their slot for being `planned`.
+     *
+     * With the projection current, a rewrite derives a phrasing for a moment that has not passed, so
+     * the verdict becomes `early` at worst — which the planner already refuses to act on, and which
+     * is therefore where the loop terminates rather than where it restarts.
+     *
+     * ## What it deliberately does not touch
+     *
+     * `writing` and `rendering` are left alone. Not for {@link reopen}'s reason — this moves no
+     * state and takes nothing out from under a job — but because the job holding such a row has
+     * ALREADY read `airs_at` and derived its phrasing from it, so re-stamping under it would leave
+     * the row describing a projection its own words were not written from. They are caught on the
+     * next pass, in whatever state they finish in.
+     *
+     * A row already at the value it would be given is skipped by the statement rather than by the
+     * caller, so a settled order costs one query and no writes.
+     *
+     * Best-effort at the call site, like everything else that repairs rather than decides: a
+     * projection that could not be written leaves the row exactly as stale as it already was.
+     *
+     * @param projections segment id to when the order now says that segment airs, as epoch millis.
+     * @returns how many rows actually moved.
+     */
+    async reprojectAirTimes(projections: ReadonlyMap<string, number>): Promise<number> {
+        if (projections.size === 0) return 0;
+
+        // A VALUES join rather than one statement per row: the window is small but this runs on
+        // every boundary, and the alternative is a round trip per break to write one column.
+        const rows = [...projections].map(([id, at]) => sql`(${id}::uuid, ${instant(at)})`);
+
+        const result = await sql<never>`
+            update deadair.segments as s
+            set airs_at = v.airs_at
+            from (values ${sql.join(rows)}) as v (id, airs_at)
+            where s.id = v.id
+              and s.station_key = ${this.identity.stationKey}
+              and s.state in ('planned', 'written', 'ready')
+              and s.airs_at is distinct from v.airs_at
+        `.execute(this.db);
+
+        return Number(result.numAffectedRows ?? 0);
     }
 
     /**

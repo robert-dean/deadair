@@ -2100,7 +2100,16 @@ export class DirectorService {
             await inScope(this.container, async scope => {
                 const planner = scope.get(BreakPlanner);
 
-                const planted = await planner.plant(lineup, rules, this.airClock(lineup));
+                // One reading for both walks rather than one each. Planting writes to the database,
+                // so a second reading taken after it can find a different item on air — and these
+                // two are the projection that decides where a break GOES and the projection that
+                // decides what it SAYS. Anchored to different instants they disagree about the same
+                // boundary, which is the shape of bug `break.claims.ts` keeps one predicate to
+                // avoid. Planting cannot invalidate this one: it inserts only ahead of the cursor,
+                // and the anchor is the index of the item already airing.
+                const clock = this.airClock(lineup);
+
+                const planted = await planner.plant(lineup, rules, clock);
 
                 // Written THROUGH rather than soon, and only on a pass that planted something.
                 // What is about to be asked for is the words of breaks in this order, and the job
@@ -2120,7 +2129,7 @@ export class DirectorService {
                 // It also repairs what it finds. The feed line is written from here rather than
                 // from the planner, because the planner has no recorder and because this is where
                 // the other producer of the same event already lives.
-                const ripened = await planner.ripen(lineup);
+                const ripened = await planner.ripen(lineup, clock);
                 if (ripened.rewritten.length > 0) {
                     this.reportRewriting(ripened.rewritten, {
                         one: 'no longer said anything true about the running order',

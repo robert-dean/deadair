@@ -99,6 +99,23 @@ const build = (
         return reopened;
     });
 
+    // The same state guard again, and the statement's own `is distinct from`: a row already at the
+    // projection it would be given is not counted as moved, which is what lets a settled order cost
+    // no writes. `writing` and `rendering` are left alone here for a different reason than they are
+    // in `reopenSegments` — see the repository — but the list of states is the same one.
+    const reprojectAirTimes = vi.fn(async (projections: ReadonlyMap<string, number>) => {
+        let moved = 0;
+        for (const [id, airsAt] of projections) {
+            const segment = known.get(id);
+            if (segment === undefined || !['planned', 'written', 'ready'].includes(segment.state)) continue;
+            if (segment.airsAt === airsAt) continue;
+
+            known.set(id, { ...segment, airsAt });
+            moved += 1;
+        }
+        return moved;
+    });
+
     // The other half of the SQL, mirrored: a row is handed back only when its claim is older than
     // the caller's bound, and `rendering` goes back to `written` only when the words are on it.
     // `touched` stands in for `updated_at`, which the database maintains by trigger.
@@ -140,7 +157,16 @@ const build = (
 
     return {
         planner: new BreakPlanner(
-            { listReady, plan, markFailed, findByIds, reopenSegments, releaseStranded, failedWithScript } as unknown as SegmentRepository,
+            {
+                listReady,
+                plan,
+                markFailed,
+                findByIds,
+                reopenSegments,
+                reprojectAirTimes,
+                releaseStranded,
+                failedWithScript,
+            } as unknown as SegmentRepository,
             writers as never,
             speech as never,
             clockBands as never,
@@ -154,6 +180,7 @@ const build = (
         markFailed,
         presenting,
         reopenSegments,
+        reprojectAirTimes,
         releaseStranded,
         failedWithScript,
         send,
@@ -910,7 +937,7 @@ describe('BreakPlanner.ripen', () => {
         const lineup = await lineupOf(12);
         await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
 
-        await planner.ripen(lineup);
+        await planner.ripen(lineup, clock());
 
         expect(asked(send)).toContain('planned-1');
     });
@@ -922,7 +949,7 @@ describe('BreakPlanner.ripen', () => {
         const lineup = await lineupOf(40);
         await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
 
-        await planner.ripen(lineup);
+        await planner.ripen(lineup, clock());
 
         const planted = lineup.all().flatMap(item => (item.kind === 'segment' ? [item.segmentId] : []));
         expect(planted.length).toBeGreaterThan(asked(send).length);
@@ -937,8 +964,8 @@ describe('BreakPlanner.ripen', () => {
         const lineup = await lineupOf(12);
         await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
 
-        await planner.ripen(lineup);
-        await planner.ripen(lineup);
+        await planner.ripen(lineup, clock());
+        await planner.ripen(lineup, clock());
 
         expect(asked(send).filter(id => id === 'planned-1')).toHaveLength(2);
     });
@@ -947,10 +974,10 @@ describe('BreakPlanner.ripen', () => {
         const { planner, send, known } = build({ canWrite: true });
         const lineup = await lineupOf(12);
         await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
-        await planner.ripen(lineup);
+        await planner.ripen(lineup, clock());
         known.set('planned-1', { ...known.get('planned-1')!, state: 'writing' });
 
-        await planner.ripen(lineup);
+        await planner.ripen(lineup, clock());
 
         expect(asked(send).filter(id => id === 'planned-1')).toHaveLength(1);
     });
@@ -961,7 +988,7 @@ describe('BreakPlanner.ripen', () => {
         await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
         for (const [id, segment] of known) if (id.startsWith('planned-')) known.set(id, { ...segment, state });
 
-        expect((await planner.ripen(lineup)).offered).toBe(0);
+        expect((await planner.ripen(lineup, clock())).offered).toBe(0);
         expect(asked(send)).toEqual([]);
     });
 
@@ -971,7 +998,7 @@ describe('BreakPlanner.ripen', () => {
         const { planner, send } = build({ canWrite: true });
         const lineup = await lineupOf(12);
 
-        expect((await planner.ripen(lineup)).offered).toBe(0);
+        expect((await planner.ripen(lineup, clock())).offered).toBe(0);
         expect(send).not.toHaveBeenCalled();
     });
 
@@ -979,11 +1006,11 @@ describe('BreakPlanner.ripen', () => {
         const { planner, send } = build({ canWrite: true, idents: [] });
         const lineup = await lineupOf(40);
         await planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
-        await planner.ripen(lineup);
+        await planner.ripen(lineup, clock());
         const before = new Set(asked(send));
 
         hand(lineup, 20);
-        await planner.ripen(lineup);
+        await planner.ripen(lineup, clock());
 
         // Breaks that were out of reach the first time are asked for once the station has played its
         // way toward them, which is the whole behaviour: the window travels with the cursor.
@@ -1002,8 +1029,8 @@ describe('BreakPlanner.ripen', () => {
         await often.planner.plant(busy, rules({ breakEveryMinutes: 1 * TRACK_MINUTES }), clock());
         await rarely.planner.plant(quiet, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), clock());
 
-        await often.planner.ripen(busy);
-        await rarely.planner.ripen(quiet);
+        await often.planner.ripen(busy, clock());
+        await rarely.planner.ripen(quiet, clock());
 
         expect(asked(often.send).length).toBeGreaterThan(asked(rarely.send).length);
         expect(asked(often.send).length).toBeLessThanOrEqual(WRITE_AHEAD);
@@ -1031,7 +1058,7 @@ describe('BreakPlanner.ripen', () => {
         it('leaves a break alone while its promise still holds', async () => {
             const { built, lineup } = await written();
 
-            const result = await built.planner.ripen(lineup);
+            const result = await built.planner.ripen(lineup, clock());
 
             expect(result.rewritten).toEqual([]);
             // And it is not re-offered either: a written break needs no words.
@@ -1043,7 +1070,7 @@ describe('BreakPlanner.ripen', () => {
             // The operator's edit. The record the break named is no longer what plays after it.
             lineup.move(promised, lineup.all().length - 1);
 
-            const result = await built.planner.ripen(lineup);
+            const result = await built.planner.ripen(lineup, clock());
 
             expect(result.rewritten).toEqual([segmentId]);
             expect(asked(built.send)).toEqual([segmentId]);
@@ -1061,7 +1088,7 @@ describe('BreakPlanner.ripen', () => {
             // A break that said "it's just after nine" at ten past. Nothing moved; the clock did.
             built.known.set(segmentId, { ...rest, claimsTime: { from: Date.now() - 7_200_000, until: Date.now() - 3_600_000 } });
 
-            expect((await built.planner.ripen(lineup)).rewritten).toEqual([segmentId]);
+            expect((await built.planner.ripen(lineup, clock())).rewritten).toEqual([segmentId]);
         });
 
         it('leaves alone a break written for a window that has not come round yet', async () => {
@@ -1075,7 +1102,7 @@ describe('BreakPlanner.ripen', () => {
             const { claimsItemId, ...rest } = segment;
             built.known.set(segmentId, { ...rest, claimsTime: { from: Date.now() + 1_800_000, until: Date.now() + 2_220_000 } });
 
-            expect((await built.planner.ripen(lineup)).rewritten).toEqual([]);
+            expect((await built.planner.ripen(lineup, clock())).rewritten).toEqual([]);
             // And it keeps its words: nothing about it is wrong yet.
             expect(built.known.get(segmentId)).toMatchObject({ state: 'written' });
         });
@@ -1089,7 +1116,7 @@ describe('BreakPlanner.ripen', () => {
             const { claimsItemId, ...rest } = segment;
             built.known.set(segmentId, { ...rest, claimsReadingUntil: Date.now() - 60_000 });
 
-            expect((await built.planner.ripen(lineup)).rewritten).toEqual([segmentId]);
+            expect((await built.planner.ripen(lineup, clock())).rewritten).toEqual([segmentId]);
         });
 
         it('leaves alone a break whose reading is still current', async () => {
@@ -1098,7 +1125,7 @@ describe('BreakPlanner.ripen', () => {
             const { claimsItemId, ...rest } = segment;
             built.known.set(segmentId, { ...rest, claimsReadingUntil: Date.now() + 3_600_000 });
 
-            expect((await built.planner.ripen(lineup)).rewritten).toEqual([]);
+            expect((await built.planner.ripen(lineup, clock())).rewritten).toEqual([]);
             expect(built.known.get(segmentId)).toMatchObject({ state: 'written' });
         });
 
@@ -1109,7 +1136,7 @@ describe('BreakPlanner.ripen', () => {
             built.known.set(segmentId, { ...built.known.get(segmentId)!, state: 'rendering' });
             lineup.move(promised, lineup.all().length - 1);
 
-            expect((await built.planner.ripen(lineup)).rewritten).toEqual([]);
+            expect((await built.planner.ripen(lineup, clock())).rewritten).toEqual([]);
             expect(built.known.get(segmentId)).toMatchObject({ state: 'rendering' });
         });
 
@@ -1126,7 +1153,7 @@ describe('BreakPlanner.ripen', () => {
             built.known.set(segmentId, { ...built.known.get(segmentId)!, claimsItemId: lineup.nextTrackAfter(second.id)!.id });
             lineup.move(promised, lineup.all().length - 1);
 
-            expect((await built.planner.ripen(lineup)).rewritten).toEqual([]);
+            expect((await built.planner.ripen(lineup, clock())).rewritten).toEqual([]);
         });
 
         it('carries on with the pass when the repair itself fails', async () => {
@@ -1136,7 +1163,112 @@ describe('BreakPlanner.ripen', () => {
 
             // Answers rather than throwing, so a repair that could not run costs one break its
             // rewrite and does not take the words of everything else in the window with it.
-            await expect(built.planner.ripen(lineup)).resolves.toMatchObject({ rewritten: [] });
+            await expect(built.planner.ripen(lineup, clock())).resolves.toMatchObject({ rewritten: [] });
+        });
+    });
+
+    // `airs_at` was stamped once when a break was planted and never revised, and it is what the
+    // writer derives the clock, the greeting and the daypart from — so an order that ran late past
+    // the projection had every rewrite re-derive the same phrasing from the same dead number,
+    // stamp the same already-closed window, and be reopened again on the next boundary. Measured on
+    // the live station: 234 reopens in a week and one break written twelve times, each attempt
+    // saying "coming up to quarter to one" about a moment eight minutes gone.
+    describe('the air time the order projects', () => {
+        /** Where a break's own line lands, given the records in front of it. Tracks are the only length here. */
+        const projectionFor = (lineup: StationLineup, at: number, anchorAt: number): number =>
+            anchorAt +
+            lineup
+                .all()
+                .slice(0, at)
+                .filter(item => item.kind === 'track').length *
+                TRACK_MINUTES *
+                60_000;
+
+        /** One planted break, and a clock that has since moved on by `driftMs` — which is what being on air is. */
+        const drifted = async (driftMs: number) => {
+            const built = build({ canWrite: true });
+            const lineup = await lineupOf(12);
+            const planted = clock();
+            await built.planner.plant(lineup, rules({ breakEveryMinutes: 4 * TRACK_MINUTES }), planted);
+
+            const at = lineup.all().findIndex(item => item.kind === 'segment');
+            const segmentId = (lineup.all()[at] as { segmentId: string }).segmentId;
+            const later = clock(planted.now + driftMs);
+
+            return { built, lineup, at, segmentId, planted, later };
+        };
+
+        it('moves a break to where the order now says it lands', async () => {
+            const { built, lineup, at, segmentId, planted, later } = await drifted(9 * 60_000);
+            // What planting left on the row: right when it was written down, and nine minutes wrong
+            // by the time the order got here.
+            expect(built.known.get(segmentId)!.airsAt).toBe(projectionFor(lineup, at, planted.anchorAt));
+
+            await built.planner.ripen(lineup, later);
+
+            expect(built.known.get(segmentId)!.airsAt).toBe(projectionFor(lineup, at, later.anchorAt));
+        });
+
+        it('gives a break reopened for a closed window a moment that has not passed yet', async () => {
+            // The whole loop in one case. The break said something true of 09:05, the order is at
+            // 09:14, and the rewrite must not be handed 09:05 a second time — otherwise it re-derives
+            // the same phrasing, re-stamps the same closed window, and is reopened again on the next
+            // boundary, forever, until its slot arrives and it is dropped for still being `planned`.
+            const { built, lineup, at, segmentId, later } = await drifted(9 * 60_000);
+            const segment = built.known.get(segmentId)!;
+            built.known.set(segmentId, {
+                ...segment,
+                state: 'written',
+                script: 'Coming up to five past nine.',
+                claimsTime: { from: later.now - 9 * 60_000, until: later.now - 2 * 60_000 },
+            });
+
+            const result = await built.planner.ripen(lineup, later);
+
+            expect(result.rewritten).toEqual([segmentId]);
+            // Reopened AND re-projected, in that one pass, so the words asked for next are about a
+            // moment the station has not reached. What the writer then derives is `early` at worst,
+            // which is the one verdict `staleClaims` refuses to act on — so this is where the loop
+            // stops rather than where it goes round again.
+            expect(built.known.get(segmentId)!.airsAt).toBe(projectionFor(lineup, at, later.anchorAt));
+            expect(built.known.get(segmentId)!.airsAt).toBeGreaterThan(later.now);
+        });
+
+        it('describes the next time a shared row will be heard, not the last', async () => {
+            // An ident sits at three slots in an hour and one column cannot hold three moments. The
+            // writer is being asked what to say NEXT, so the earliest position is the honest answer;
+            // the last would have the row describe a moment two records after the one it fills.
+            const { built, lineup, at, segmentId, later } = await drifted(9 * 60_000);
+            lineup.insertSegment(segmentId, at + 2);
+
+            await built.planner.ripen(lineup, later);
+
+            expect(built.known.get(segmentId)!.airsAt).toBe(projectionFor(lineup, at, later.anchorAt));
+            // And the second appearance is a whole record further on, so taking the last would have
+            // been visibly wrong rather than coincidentally right.
+            expect(projectionFor(lineup, at + 2, later.anchorAt)).toBeGreaterThan(projectionFor(lineup, at, later.anchorAt));
+        });
+
+        it('leaves alone a row whose words are being written right now', async () => {
+            // Not for `reopenSegments`' reason — this moves no state — but because the job holding it
+            // has already read `airs_at` and derived its phrasing from it. Re-stamping underneath
+            // would leave the row describing a projection its own words were not written from.
+            const { built, lineup, at, segmentId, planted, later } = await drifted(9 * 60_000);
+            built.known.set(segmentId, { ...built.known.get(segmentId)!, state: 'writing' });
+
+            await built.planner.ripen(lineup, later);
+
+            expect(built.known.get(segmentId)!.airsAt).toBe(projectionFor(lineup, at, planted.anchorAt));
+        });
+
+        it('carries on with the pass when the projection cannot be written', async () => {
+            const { built, lineup, later } = await drifted(9 * 60_000);
+            built.reprojectAirTimes.mockRejectedValueOnce(new Error('the database said no'));
+
+            // Same terms as every other repair here: a break left describing the wrong moment is
+            // worth less than the words of every other break in the window.
+            await expect(built.planner.ripen(lineup, later)).resolves.toMatchObject({ rewritten: [] });
+            expect(asked(built.send).length).toBeGreaterThan(0);
         });
     });
 
@@ -1160,7 +1292,7 @@ describe('BreakPlanner.ripen', () => {
         it('takes back a break nobody finished writing, and asks for its words again', async () => {
             const { built, lineup, segmentId } = await stranded('writing', 600_000);
 
-            const result = await built.planner.ripen(lineup);
+            const result = await built.planner.ripen(lineup, clock());
 
             expect(result.released).toEqual([segmentId]);
             expect(built.known.get(segmentId)).toMatchObject({ state: 'planned' });
@@ -1174,7 +1306,7 @@ describe('BreakPlanner.ripen', () => {
             // worse than a break that took a minute longer.
             const { built, lineup, segmentId } = await stranded('writing', 30_000);
 
-            expect((await built.planner.ripen(lineup)).released).toEqual([]);
+            expect((await built.planner.ripen(lineup, clock())).released).toEqual([]);
             expect(built.known.get(segmentId)).toMatchObject({ state: 'writing' });
         });
 
@@ -1183,7 +1315,7 @@ describe('BreakPlanner.ripen', () => {
             // decided instead of paying a writer to invent different ones.
             const { built, lineup, segmentId } = await stranded('rendering', 1_800_000, 'That was the last one.');
 
-            expect((await built.planner.ripen(lineup)).released).toEqual([segmentId]);
+            expect((await built.planner.ripen(lineup, clock())).released).toEqual([segmentId]);
             expect(built.known.get(segmentId)).toMatchObject({ state: 'written', script: 'That was the last one.' });
             // And it is not offered for writing: it has its words.
             expect(asked(built.send)).toEqual([]);
@@ -1193,7 +1325,7 @@ describe('BreakPlanner.ripen', () => {
             const { built, lineup } = await stranded('writing', 600_000);
             built.releaseStranded.mockRejectedValueOnce(new Error('the database said no'));
 
-            await expect(built.planner.ripen(lineup)).resolves.toMatchObject({ released: [] });
+            await expect(built.planner.ripen(lineup, clock())).resolves.toMatchObject({ released: [] });
         });
     });
 
@@ -1222,7 +1354,7 @@ describe('BreakPlanner.ripen', () => {
         it('asks again for the audio of a break whose words survived', async () => {
             const { built, lineup, segmentId } = await failedRender();
 
-            expect((await built.planner.ripen(lineup)).rerendered).toEqual([segmentId]);
+            expect((await built.planner.ripen(lineup, clock())).rerendered).toEqual([segmentId]);
             expect(rendered(built.send)).toEqual([segmentId]);
             // And it is NOT offered for writing: the words are not what failed.
             expect(asked(built.send)).toEqual([]);
@@ -1233,7 +1365,7 @@ describe('BreakPlanner.ripen', () => {
             // run of bad luck, and asking forever fills a job queue for as long as an engine is down.
             const { built, lineup } = await failedRender({ failures: 3 });
 
-            expect((await built.planner.ripen(lineup)).rerendered).toEqual([]);
+            expect((await built.planner.ripen(lineup, clock())).rerendered).toEqual([]);
             expect(rendered(built.send)).toEqual([]);
         });
 
@@ -1242,7 +1374,7 @@ describe('BreakPlanner.ripen', () => {
             // before the query rather than after it.
             const { built, lineup } = await failedRender({ speaker: false });
 
-            expect((await built.planner.ripen(lineup)).rerendered).toEqual([]);
+            expect((await built.planner.ripen(lineup, clock())).rerendered).toEqual([]);
             expect(built.failedWithScript).not.toHaveBeenCalled();
         });
 
@@ -1254,7 +1386,7 @@ describe('BreakPlanner.ripen', () => {
             expect(script).toBeDefined();
             built.known.set(segmentId, wordless);
 
-            expect((await built.planner.ripen(lineup)).rerendered).toEqual([]);
+            expect((await built.planner.ripen(lineup, clock())).rerendered).toEqual([]);
         });
 
         it('will not pay for the audio of a break whose promise has broken', async () => {
@@ -1265,7 +1397,7 @@ describe('BreakPlanner.ripen', () => {
             built.known.set(segmentId, { ...built.known.get(segmentId)!, claimsItemId: promised });
             lineup.move(promised, lineup.all().length - 1);
 
-            expect((await built.planner.ripen(lineup)).rerendered).toEqual([]);
+            expect((await built.planner.ripen(lineup, clock())).rerendered).toEqual([]);
         });
 
         it('speaks a stranded render that the sweep handed back', async () => {
@@ -1278,7 +1410,7 @@ describe('BreakPlanner.ripen', () => {
             built.known.set(segmentId, { ...built.known.get(segmentId)!, state: 'rendering', script: 'Coming up.' });
             built.touched.set(segmentId, Date.now() - 1_800_000);
 
-            const result = await built.planner.ripen(lineup);
+            const result = await built.planner.ripen(lineup, clock());
 
             expect(result.released).toEqual([segmentId]);
             expect(result.rerendered).toEqual([segmentId]);

@@ -14,6 +14,7 @@ import { Artwork } from '../shared/artwork';
 import { TrackLink } from '../shared/catalog.links';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatDuration } from '../shared/format.duration';
+import { usePhone } from '../shared/use.phone';
 import { HostOnAir } from '../onair/host.on.air';
 
 export interface OnAirNowProps {
@@ -108,6 +109,7 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
     const { nowPlaying, upNext, queuedCount, silence } = status;
     const reading = readSilence(silence);
     const playhead = usePlayhead(nowPlaying);
+    const phone = usePhone();
 
     // Named actions sharing one stack, rather than each hiding in the tooltip of the button that
     // asked for it: a tooltip is hover-only, so a failure on the console's landing page would be
@@ -128,7 +130,10 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                 // station is the single most misleading mark this console could make.
                 style={{ borderTop: `2px solid ${reading.live ? 'var(--mantine-color-red-6)' : 'var(--da-border)'}` }}
             >
-                <Group align="flex-start" wrap="nowrap" gap="lg">
+                {/* On a phone the row is allowed to wrap, and the transport goes full-width below —
+                    88px of art plus 214px of controls is more than a 375px viewport holds, and of
+                    the three things here the transport is the one that works at any width. */}
+                <Group align="flex-start" wrap={phone ? 'wrap' : 'nowrap'} gap="lg">
                     {/* Only while there is something on air. An empty square beside "waiting for a
                         listener" reads as a second thing being wrong rather than as art the station
                         does not have — and the station is most often idle at exactly the moment an
@@ -236,7 +241,7 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                         "Confirr", and sizing to the content instead would move Skip out from under
                         the pointer between the press that arms Stop and the press that fires it —
                         which is the one moment on this page when nothing may move. */}
-                    <Stack gap="xs" w={214} style={{ flexShrink: 0 }}>
+                    <Stack gap="xs" w={phone ? '100%' : 214} style={{ flexShrink: 0 }}>
                         <Group gap="xs" wrap="nowrap">
                             <Tooltip label="Ends the track on air. The next one starts immediately.">
                                 <Button
@@ -257,7 +262,7 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                                     multiline
                                     maw={320}
                                 >
-                                    <Button h={44} w={124} loading={start.isPending} onClick={() => start.mutate()}>
+                                    <Button h={44} w={phone ? undefined : 124} style={phone ? { flex: 1 } : undefined} loading={start.isPending} onClick={() => start.mutate()}>
                                         Start
                                     </Button>
                                 </Tooltip>
@@ -273,11 +278,17 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                                 >
                                     {/* Filled once armed rather than outlined, so the state is
                                         legible across the room and not only in the word. */}
+                                    {/* On a phone both halves are `flex: 1`, which keeps the two
+                                        invariants the fixed 124 keeps on a desk: fifty-fifty is the
+                                        same width whatever the label says, so "Confirm stop" cannot
+                                        clip and Skip does not move between the press that arms Stop
+                                        and the press that fires it. */}
                                     <Button
                                         color="red"
                                         variant={stopping.armed ? 'filled' : 'outline'}
                                         h={44}
-                                        w={124}
+                                        w={phone ? undefined : 124}
+                                        style={phone ? { flex: 1 } : undefined}
                                         loading={stop.isPending}
                                         onClick={stopping.press}
                                     >

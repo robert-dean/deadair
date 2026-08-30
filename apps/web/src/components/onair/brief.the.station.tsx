@@ -123,9 +123,13 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
                             This starts a new broadcast: everything still to come below is dropped, and what is playing stops.
                         </Text>
                     ) : undefined}
-                    <Group gap="sm" wrap="nowrap" w="100%" align="flex-start">
+                    {/* Wraps rather than shrinks: on a phone the brief, the host and the button
+                        each take the full width, in that order — a 220px Select beside a flexible
+                        input is already wider than a 375px viewport. On a desk nothing wraps,
+                        because everything fits. */}
+                    <Group gap="sm" w="100%" align="flex-start">
                         <TextInput
-                            flex={1}
+                            style={{ flex: '1 1 220px', minWidth: 0 }}
                             placeholder="heavy metal hits"
                             aria-label="What the station should play"
                             value={brief}
@@ -136,7 +140,7 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
                             }}
                         />
                         <Select
-                            w={220}
+                            w={{ base: '100%', sm: 220 }}
                             aria-label="Who is hosting"
                             placeholder="The station's host"
                             clearable
@@ -158,12 +162,18 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
                             multiline
                             maw={320}
                         >
-                            <Button color={failure ? 'red' : undefined} loading={onAir.isPending} disabled={asked.length === 0} onClick={start}>
+                            <Button
+                                w={{ base: '100%', sm: 'auto' }}
+                                color={failure ? 'red' : undefined}
+                                loading={onAir.isPending}
+                                disabled={asked.length === 0}
+                                onClick={start}
+                            >
                                 Go on air
                             </Button>
                         </Tooltip>
                     </Group>
-                    <Group gap="sm" wrap="nowrap" align="flex-start">
+                    <Group gap="sm" align="flex-start">
                         <NumberInput
                             w={120}
                             aria-label="Earliest year"
@@ -188,7 +198,9 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
                             value={eraTo}
                             onChange={setEraTo}
                         />
-                        <Text size="xs" c="dimmed" style={{ lineHeight: '36px' }}>
+                        {/* Beside the inputs on a desk, under them on a phone: squeezed into the
+                            sliver a 375px row leaves, the sentence sets one word per line. */}
+                        <Text size="xs" c="dimmed" w={{ base: '100%', sm: 'auto' }} style={{ lineHeight: '36px' }}>
                             A period, if you want one. Unlike the words, it holds without a model.
                         </Text>
                     </Group>

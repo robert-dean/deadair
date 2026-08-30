@@ -139,6 +139,21 @@ healthy-looking server with an empty logs directory. `LoggingModule` owns only t
 and reaches it through `getLogStore()` rather than the container, because the DI token is registered
 by `PluginsModule`, which tears down long before it.
 
+**`/logs` is the read side of that store, and `LogsService` reaches it through `getLogStore()` for the
+same reason `LoggingModule` does.** For a long time `/plugins/{id}/logs` was the only log route there
+was, so the one file carrying every subsystem could be read only by somebody with a shell on the box
+— which the single-container deployment exists partly to make unnecessary. Three sources, a closed
+table in `modules/station/logs.sources.ts`: the app channel, and the audio chain's and the shim's own
+files, which `stream/radio.liq` says were put on disk so all three could be read on one timeline.
+Their directory is `STREAM_LOGS_DIR`, or the sibling `streamlogs` of `LOGS_DIR` when nothing set one,
+which is already right for the production image and deliberately absent in the dev tree, where the
+API cannot see those files at all. **Neither of those two is rotated by anything**, so both the tail
+and the download read a bounded number of bytes off the END of the file through
+`logging/file.tail.ts` rather than reading the file — a `readFile` there is a read of however much
+disk the operator's uptime has earned. The route is `platform.manage` rather than `platform.view`,
+on `traces.ck`'s argument plus a concrete case: at `LOG_LEVEL=4` the harbor logs every header of
+every control call, so the bridge secret can be in `liquidsoap.log` in plain text.
+
 ## Plugins, from the host side
 
 **A capability with several plugins and no setting picks the FIRST, and says so.** `selectPlugin`

@@ -3,6 +3,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { StationAttentionService } from './station.attention.service.js';
 import { StationCheckupService } from './station.checkup.service.js';
 import { TracesService } from './traces.service.js';
+import { LogsService } from './logs.service.js';
 
 /**
  * The station about itself, composed across everything else.
@@ -37,5 +38,11 @@ export const StationModule: ServerKitModule = {
         // files. What decides the lifetime here is that it is a request-path service and nothing
         // else, which is the same answer the two above give for different reasons.
         registry.register(TracesService).useClass(TracesService).asScoped();
+        // Scoped on the same answer `TracesService` gives above: it reads files rather than a
+        // repository or a singleton, so nothing forces a lifetime on it, and being a request-path
+        // service is the whole of the reason. The `RotatingLogStore` it also reads is NOT injected —
+        // it comes from the process-wide holder, which is what keeps this module free of a
+        // registration `PluginsModule` owns.
+        registry.register(LogsService).useClass(LogsService).asScoped();
     },
 };

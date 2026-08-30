@@ -1,5 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { parseJson, buildQueryString } from '../sdk-options.js';
+import type { LogPage, LogQuery, LogSourceList } from './types/logs.types.js';
 import type { StationAttention, StationCheckup } from './types/station.types.js';
 import type { TraceDetail, TracesPage, TracesQuery } from './types/traces.types.js';
 
@@ -43,5 +44,36 @@ export class StationClient {
     async readStationCheckup(): Promise<StationCheckup> {
         const result = await this.fetch(`/station/checkup`, { method: 'GET' });
         return await parseJson<StationCheckup>(result);
+    }
+
+    /**
+     * @name List logs
+     * @description Every log this install has, present or not, with its size and when it was last written
+     */
+    async listLogs(): Promise<LogSourceList> {
+        const result = await this.fetch(`/logs`, { method: 'GET' });
+        return await parseJson<LogSourceList>(result);
+    }
+
+    /**
+     * @name Read log
+     * @description A tail of one log, newest first
+     */
+    async readLog(id: string, query?: LogQuery): Promise<LogPage> {
+        const qs = buildQueryString(query);
+        const result = await this.fetch(`/logs/${encodeURIComponent(id)}${qs}`, {
+            method: 'GET',
+        });
+        return await parseJson<LogPage>(result);
+    }
+
+    /**
+     * @name Download log
+     * @description The retained log as a plain-text attachment, oldest first, as the file is written
+     */
+    async downloadLog(id: string): Promise<{ data: string; headers: { contentDisposition?: string } }> {
+        const result = await this.fetch(`/logs/${encodeURIComponent(id)}/download`, { method: 'GET' });
+        const data = await result.text();
+        return { data, headers: { contentDisposition: result.headers.get('Content-Disposition') ?? undefined } };
     }
 }

@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { isPluginError } from '@deadair/plugin-sdk';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { leadClaims } from './fact.lead.js';
 import { extractPrompt, readClaims, verified, verifyPrompt, type ExtractionSubject } from './fact.model.js';
@@ -101,9 +102,31 @@ export interface ExtractionSummary {
     /** Documents that produced nothing. Recorded as read all the same, so they are not read again. */
     empty: number;
     failed: number;
+    /**
+     * Whether the pass stopped early because the station wanted its model back.
+     *
+     * Not a failure and deliberately not counted as one: nothing went wrong, the remaining documents
+     * are outstanding exactly as they were, and the next pass asks again. It is reported because the
+     * three numbers above cannot say it — a pass that stopped after one document and one that found
+     * one document to read are the same `read: 1`, and only the first means the station is busy.
+     *
+     * Absent from {@link empty}'s starting shape by being `false` there rather than optional: an
+     * operator reading a pass line wants `yielded=false` to mean the pass ran to the end, not to
+     * mean nobody set it.
+     */
+    yielded: boolean;
 }
 
-const empty = (): ExtractionSummary => ({ read: 0, written: 0, empty: 0, failed: 0 });
+const empty = (): ExtractionSummary => ({ read: 0, written: 0, empty: 0, failed: 0, yielded: false });
+
+/**
+ * Whether a failure is the station wanting its model back, rather than anything wrong here.
+ *
+ * The same predicate `RenderService` keeps for the speech gate, spelled the same way and for the
+ * same reason: `LlmGate` reports a caller that gave up in the queue as `timeout`, and that is a fact
+ * about how busy the station is rather than about the document being read.
+ */
+const isBusy = (error: unknown): boolean => isPluginError(error) && error.code === 'timeout';
 
 /**
  * Turning stored prose into claims the station can stand behind.
@@ -188,16 +211,39 @@ export class FactExtractionService {
             if (stop?.aborted) break;
 
             try {
-                const claims = await this.modelClaimsFor(document, stop);
+                const { claims, yielded } = await this.modelClaimsFor(document, stop);
                 const written = await this.facts.recordExtraction(document, 'model', claims);
                 summary.read++;
                 summary.written += written;
                 if (written === 0) summary.empty++;
+
+                // A break took the model off this document. The next one in the list would queue
+                // behind that same break and wait {@link MODEL_WAIT_MS} to be told so, which is the
+                // churn described on {@link ExtractionSummary.yielded}.
+                if (yielded) {
+                    summary.yielded = true;
+                    break;
+                }
             } catch (error) {
-                // Includes the gate's own `timeout`, which is not a failure of
-                // this pass so much as the station using its model for something
-                // that matters more. Either way the document keeps no mark and
-                // is picked up next time.
+                // The gate's own `timeout` ENDS the pass rather than costing one document.
+                //
+                // It used to be stepped over like any other failure, on the reasoning that the
+                // document keeps no mark and is picked up next time — true of the document, and
+                // wrong about the pass. Every remaining document queues for the same one slot, so a
+                // busy model does not fail one read, it fails all of them, five seconds at a time.
+                // Measured on the live station: eight `waited 5000ms` warnings in 36 minutes and
+                // four consecutive passes that read ZERO documents, at a cost of one wait per
+                // document per pass, for nothing.
+                //
+                // Stopping is not a retreat: the whole list is still outstanding, exactly as it was,
+                // and the next pass asks again. What changes is that a station whose model is busy
+                // pays one wait to find out instead of `limit` of them.
+                if (isBusy(error)) {
+                    summary.yielded = true;
+                    this.logger.debug(`facts: the model is wanted elsewhere, so this pass stops here (${errorText(error)})`);
+                    break;
+                }
+
                 summary.failed++;
                 this.logger.warn(`facts: a model could not read ${document.url} (${errorText(error)})`);
             }
@@ -216,7 +262,7 @@ export class FactExtractionService {
      * caller cannot tell the difference and should not, since every one of them
      * means the same thing about the claim.
      */
-    private async modelClaimsFor(document: PendingDocument, stop?: AbortSignal): Promise<FactWrite[]> {
+    private async modelClaimsFor(document: PendingDocument, stop?: AbortSignal): Promise<{ claims: FactWrite[]; yielded: boolean }> {
         const model = this.config.get(MODEL_FACTS_KEYS.model, '').trim();
         const subject: ExtractionSubject = {
             kind: SUBJECT_KIND[document.subject.type],
@@ -233,9 +279,32 @@ export class FactExtractionService {
         const found = readClaims(answer.text, document.text);
         const kept: FactWrite[] = [];
 
+        // A preemption is the same signal the gate's `timeout` is, arriving through the answer
+        // rather than through a throw: the conversation was cut off because something with a
+        // deadline wanted the model. It is reported rather than thrown because the claims found
+        // BEFORE the cut are still good, and throwing would discard them for a fact about the
+        // station's schedule.
+        let yielded = answer.finishReason === 'preempted';
+
         for (const claim of found) {
             if (stop?.aborted) break;
-            if (!(await this.supported(claim.claim, claim.quote, model))) continue;
+
+            let holds: boolean;
+            try {
+                holds = await this.supported(claim.claim, claim.quote, model);
+            } catch (error) {
+                // The verifier could not be reached, which is NOT a claim that failed verification.
+                // `supported` answers `false` for everything else on the argument that a broken
+                // verifier must not become a route by which unverified claims reach the table — and
+                // that argument makes a busy station look like a refutation, drops every remaining
+                // claim on the floor, and pays five seconds per claim to do it. The same distinction
+                // this file already draws about a verifier that says nothing.
+                if (!isBusy(error)) throw error;
+                yielded = true;
+                break;
+            }
+
+            if (!holds) continue;
 
             kept.push({
                 subject: document.subject,
@@ -263,7 +332,7 @@ export class FactExtractionService {
             ...(answer.usage === undefined ? {} : { tokens: answer.usage.totalTokens ?? answer.usage.outputTokens }),
         });
 
-        return kept;
+        return { claims: kept, yielded };
     }
 
     /**
@@ -308,6 +377,13 @@ export class FactExtractionService {
 
             return verified(answer.text);
         } catch (error) {
+            // Rethrown, alone among the failures here, and the caller stops the pass on it. Every
+            // other way this can fail is a verifier that ran and could not be trusted, which is what
+            // `false` is the right answer to; a caller that never got INTO the queue has not
+            // verified anything, and calling that a refutation drops good claims and pays
+            // `MODEL_WAIT_MS` per claim for the privilege.
+            if (isBusy(error)) throw error;
+
             this.logger.debug(`facts: could not check a claim (${errorText(error)})`);
             return false;
         }

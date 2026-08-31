@@ -6,6 +6,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { Logger } from '@maroonedsoftware/logger';
+import { PluginError } from '@deadair/plugin-sdk';
 
 import { FactExtractionService, MODEL_FACTS_KEYS } from '../../../src/modules/enrichment/fact.extraction.service.js';
 import type { FactRepository, PendingDocument } from '../../../src/modules/enrichment/fact.repository.js';
@@ -37,10 +38,18 @@ interface Options {
     /** `unknown` rather than `boolean`, so a case can hand over the STRING a settings row holds. */
     enabled?: unknown;
     canGenerate?: boolean;
-    /** Answers in call order: the extraction, then one verification per claim. */
-    answers?: (string | Error)[];
+    /**
+     * Answers in call order: the extraction, then one verification per claim.
+     *
+     * An object carries a finish reason as well as the words, for the cases about a conversation the
+     * gate cut off — a preemption arrives as an ordinary answer that stopped early, never a throw.
+     */
+    answers?: (string | Error | { text: string; finishReason: string })[];
     documents?: PendingDocument[];
 }
+
+/** The gate refusing a caller that waited its turn and gave up. `LlmGate` codes this `timeout`. */
+const busy = (): Error => new PluginError('waited 5000ms for the model and it is still busy').withCode('timeout');
 
 function build(options: Options = {}) {
     const written: unknown[][] = [];
@@ -63,6 +72,7 @@ function build(options: Options = {}) {
         void options;
         const next = answers.shift();
         if (next instanceof Error) throw next;
+        if (typeof next === 'object' && next !== null) return { text: next.text, finishReason: next.finishReason };
         return { text: next ?? '', finishReason: 'stop' };
     });
 
@@ -193,5 +203,73 @@ describe('the model pass', () => {
 
         expect(await service.extractModel(10, stop)).toMatchObject({ read: 0 });
         expect(facts.recordExtraction).not.toHaveBeenCalled();
+    });
+});
+
+// Every remaining document queues for the same one slot, so a busy model does not fail one read, it
+// fails all of them, five seconds at a time. Measured on the live station: eight `waited 5000ms`
+// warnings in 36 minutes and four consecutive passes that read ZERO documents.
+describe('when the station wants its model back', () => {
+    const three = [
+        { ...document, url: 'https://en.wikipedia.org/wiki/One' },
+        { ...document, url: 'https://en.wikipedia.org/wiki/Two' },
+        { ...document, url: 'https://en.wikipedia.org/wiki/Three' },
+    ];
+
+    it('stops the pass on the first refusal rather than paying one wait per document', async () => {
+        const { service, converse } = build({ documents: three, answers: [busy(), busy(), busy()] });
+
+        const summary = await service.extractModel(10);
+
+        expect(converse).toHaveBeenCalledTimes(1);
+        expect(summary).toMatchObject({ read: 0, failed: 0, yielded: true });
+    });
+
+    it('does not count the refusal as a document that failed', async () => {
+        // Nothing went wrong with the article. Counting it would make a busy station look like a
+        // corpus the pass cannot read, which is the one thing `failed` is for.
+        const { service } = build({ documents: three, answers: [busy()] });
+
+        expect((await service.extractModel(10)).failed).toBe(0);
+    });
+
+    it('still steps over a document whose own read failed, and carries on', async () => {
+        // The behaviour this replaces, kept for everything that is genuinely about one document.
+        const { service, converse } = build({
+            documents: three,
+            answers: [new Error('that article is gibberish'), FOUND, 'yes', FOUND, 'yes'],
+        });
+
+        const summary = await service.extractModel(10);
+
+        expect(converse).toHaveBeenCalledTimes(5);
+        expect(summary).toMatchObject({ read: 2, failed: 1, yielded: false });
+    });
+
+    it('stops after a conversation the gate cut off, keeping what it found first', async () => {
+        // A preemption arrives as an answer that stopped early rather than as a throw, and the
+        // claims found before the cut are still good.
+        const { service, converse, written } = build({
+            documents: three,
+            answers: [{ text: FOUND, finishReason: 'preempted' }, 'yes'],
+        });
+
+        const summary = await service.extractModel(10);
+
+        expect(written[0]).toHaveLength(1);
+        expect(summary).toMatchObject({ read: 1, written: 1, yielded: true });
+        expect(converse).toHaveBeenCalledTimes(2);
+    });
+
+    it('treats a verifier it could not reach as unreached, never as a refutation', async () => {
+        // `supported` answers `false` for every other failure, on the argument that a broken
+        // verifier must not pass unverified claims. A caller that never got into the queue has not
+        // verified anything, and calling that a refutation drops good claims at five seconds each.
+        const { service, converse } = build({ documents: three, answers: [FOUND, busy()] });
+
+        const summary = await service.extractModel(10);
+
+        expect(converse).toHaveBeenCalledTimes(2);
+        expect(summary).toMatchObject({ yielded: true });
     });
 });

@@ -27,6 +27,8 @@ interface Options {
     seeds?: string[];
     similar?: SimilarArtist[];
     tracks?: ArtistTrack[];
+    /** The broadcast on air, for the tests about what a brief may seed from. */
+    broadcast?: string;
 }
 
 function build(options: Options = {}) {
@@ -47,12 +49,15 @@ function build(options: Options = {}) {
         topTracks,
     } as unknown as SimilarityService;
 
-    const recentArtists = vi.fn(async (_limit: number, _station: string) => options.seeds ?? ['Portishead']);
+    const recentArtists = vi.fn(async (_limit: number, _station: string, _broadcast?: string) => options.seeds ?? ['Portishead']);
     const history = { recentArtists } as unknown as PlayHistoryRepository;
     const logger = stubLogger();
 
+    const identity = new StationIdentity();
+    if (options.broadcast !== undefined) identity.began(options.broadcast);
+
     return {
-        generator: new SimilarSetGenerator(similarity, history, new StationIdentity(), config, logger as unknown as Logger),
+        generator: new SimilarSetGenerator(similarity, history, identity, config, logger as unknown as Logger),
         similarTo,
         topTracks,
         recentArtists,
@@ -127,11 +132,42 @@ describe('seeding', () => {
     it('asks for the artists most RECENTLY aired, never the most played', async () => {
         // A frequency ranking is a positive feedback loop: what aired is what is offered, so what
         // is offered is what airs. Pointing outward from the recent past is the opposite move.
-        const { generator, recentArtists } = build();
+        const { generator, recentArtists } = build({ broadcast: 'show-1' });
 
         await generator.generate(inputs());
 
-        expect(recentArtists).toHaveBeenCalledWith(expect.any(Number), expect.any(String));
+        // Station-wide with no brief in force, which is the reach-outward habit this binding is for.
+        expect(recentArtists).toHaveBeenCalledWith(expect.any(Number), expect.any(String), undefined);
+    });
+
+    it('seeds a briefed hour from THIS broadcast, never from what the last brief was playing', async () => {
+        // The failure this closes, live 2026-08-31: a station asked for "Artists like Mitch murder"
+        // opened with thirteen thrash records, because the model died mid-answer and this filled the
+        // set from Exodus and Kreator — the previous brief's play history.
+        const { generator, recentArtists } = build({ broadcast: 'show-2' });
+
+        await generator.generate(inputs({ brief: 'Artists like Mitch Murder' }));
+
+        expect(recentArtists).toHaveBeenCalledWith(expect.any(Number), expect.any(String), 'show-2');
+    });
+
+    it('offers nothing to a briefed hour with no broadcast, rather than falling back to the station', async () => {
+        // The station-wide read IS the bug, so reaching for it as a fallback would reintroduce it in
+        // the one case this cannot see. A short answer is what the chain already handles.
+        const { generator, recentArtists } = build();
+
+        const picks = await generator.generate(inputs({ brief: 'Artists like Mitch Murder' }));
+
+        expect(picks).toEqual([]);
+        expect(recentArtists).not.toHaveBeenCalled();
+    });
+
+    it('reads a brief of nothing but spaces as no brief at all', async () => {
+        const { generator, recentArtists } = build({ broadcast: 'show-3' });
+
+        await generator.generate(inputs({ brief: '   ' }));
+
+        expect(recentArtists).toHaveBeenCalledWith(expect.any(Number), expect.any(String), undefined);
     });
 
     it('takes one record per neighbour, so a batch spreads across artists', async () => {

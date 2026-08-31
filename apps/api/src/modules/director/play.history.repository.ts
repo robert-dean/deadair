@@ -163,13 +163,23 @@ export class PlayHistoryRepository extends DataRepository {
      * is the bubble the similarity path exists to break rather than to deepen. See
      * `docs/todo/station-intelligence.md` §5.
      */
-    async recentArtists(limit: number, stationKey: string): Promise<string[]> {
+    async recentArtists(limit: number, stationKey: string, broadcastId?: string): Promise<string[]> {
         if (limit <= 0) return [];
+
+        // Captured so the predicate and the narrowing read the same value: `$if`'s callback cannot
+        // see the guard on its own condition, and re-testing the parameter inside it would be a
+        // second place for the two to disagree.
+        const scoped = broadcastId;
 
         const rows = await this.db
             .selectFrom('deadair.playHistory')
             .select(['artist', 'artistKey'])
             .where('stationKey', '=', stationKey)
+            // Narrowed to one broadcast where the caller names one. The station-wide answer is the
+            // right one for "what has this station been playing" and the wrong one the moment an
+            // operator changes what it is playing: see `SimilarSetGenerator.seeds`, which is the
+            // only caller that passes this and the only one for which the difference is audible.
+            .$if(scoped !== undefined, query => query.where('broadcastId', '=', scoped as string))
             .orderBy('airedAt', 'desc')
             // Several rows per artist is the normal case, so the scan is deliberately
             // wider than the answer: taking `limit` rows would return one artist's

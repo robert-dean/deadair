@@ -33,6 +33,12 @@ import { settingIsOn } from '#modules/shared/setting.flags.js';
  * The seeds are also deduplicated against themselves, so an evening dominated by one act does not
  * produce an hour of that act's neighbours.
  *
+ * **Under a brief the seeds are this BROADCAST's records rather than the station's.** What excuses
+ * this binding from `ignoresBrief` is that its seeds actually aired, so under a brief it draws from
+ * the brief's own results — true while an hour has been running, and false at the moment the brief
+ * changes, when play history is entirely the previous one. See {@link SimilarSetGenerator.seeds},
+ * which carries what that cost on air.
+ *
  * ## It names records and decides nothing
  *
  * Picks are names. `PickResolver` runs the dislike veto, the repeat window, the artist cooldown and
@@ -141,7 +147,7 @@ export class SimilarSetGenerator extends SetGenerator {
 
         const want = Math.max(1, Math.round(inputs.count * mix));
 
-        const seeds = await this.seeds();
+        const seeds = await this.seeds(inputs);
         if (seeds.length === 0) {
             // The ordinary state on a station that has just gone on air for the first time, rather
             // than a fault: there is nothing to be similar TO yet. It fixes itself after one record.
@@ -233,9 +239,41 @@ export class SimilarSetGenerator extends SetGenerator {
      * {@link PlayHistoryRepository.recentArtists}: a frequency ranking here would make the station
      * orbit whatever it already orbits.
      */
-    private async seeds(): Promise<string[]> {
+    private async seeds(inputs: SetInputs): Promise<string[]> {
+        // Under a brief, only THIS broadcast's own records may seed.
+        //
+        // The paragraph at the top of this file argues that seeding from what aired is safe under a
+        // brief because "it draws from the brief's own results", and that is what excuses this
+        // binding from `ignoresBrief`. It holds in the steady state and fails at exactly one moment:
+        // the one where the brief CHANGES. Play history is then entirely the PREVIOUS brief, and
+        // this extrapolates from it confidently — which is the only moment anybody is listening for
+        // the difference, because it is the moment they asked for one.
+        //
+        // Measured on the live station, 2026-08-31: a station asked for "Artists like Mitch murder"
+        // opened with thirteen thrash records. The model had found Mitch Murder's neighbours and
+        // died mid-answer; this filled all fourteen slots from Exodus, Testament and Kreator, which
+        // is what the last brief had been playing. `rotation.briefOnly` was ON and did not stop it,
+        // because that switch reads `ignoresBrief` and this binding declares it false.
+        //
+        // Narrowing rather than declaring `ignoresBrief` keeps what the excuse was actually for: a
+        // briefed hour that has been running a while still reaches outward from its own records,
+        // which is the bubble-breaking this binding exists to do. It only stops borrowing the
+        // previous programme's taste to do it.
+        //
+        // With no broadcast to scope to, a briefed station seeds NOTHING rather than falling back to
+        // the station-wide read. That read is the bug, so reaching for it as a fallback would
+        // reintroduce it in the one case this cannot see; a short answer here is what the chain
+        // already handles, and `rotation.briefOnly` is where an operator says whether silence beats
+        // an off-brief record.
+        const briefed = (inputs.brief ?? '').trim().length > 0;
+        const broadcast = this.identity.current();
+        if (briefed && broadcast === undefined) {
+            this.logger.debug('director: no broadcast to draw neighbours from, and a brief is in force, so none are offered');
+            return [];
+        }
+
         try {
-            return await this.history.recentArtists(MAX_SEEDS, this.identity.stationKey);
+            return await this.history.recentArtists(MAX_SEEDS, this.identity.stationKey, briefed ? broadcast : undefined);
         } catch (error) {
             this.logger.warn(`director: could not read what has been playing (${errorText(error)})`);
             return [];

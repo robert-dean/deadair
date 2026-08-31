@@ -285,6 +285,7 @@ describe('SetGeneratorChain with the real bindings', () => {
             {} as never,
             {} as never,
             {} as never,
+            {} as never,
             { get: (_key: string, fallback: unknown) => fallback, has: () => false } as never,
             logger,
         );

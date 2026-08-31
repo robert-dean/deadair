@@ -20,6 +20,7 @@ import {
 } from '../../../src/modules/director/model.set.generator.js';
 import { RefillPreemption } from '../../../src/modules/director/refill.preemption.js';
 import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
+import { SearchedRecords } from '../../../src/modules/shared/searched.records.js';
 import { DEFAULT_RULES } from '../../../src/modules/director/rotation.rules.js';
 import type { SetInputs } from '../../../src/modules/director/set.generator.js';
 
@@ -52,6 +53,8 @@ interface Options {
     stylesFail?: boolean;
     /** What the model was shown, for the capture switch. */
     transcript?: LlmConversation['transcript'];
+    /** What the search tool handed the model, which a failed run falls back to. */
+    searched?: { title: string; artist: string }[];
 }
 
 /** An empty side of the operator's taste: nothing said, and nothing hidden behind a limit. */
@@ -116,13 +119,19 @@ function build(options: Options = {}) {
     const preemption = new RefillPreemption();
 
     const queued = new QueuedRecords();
+    // What the search tool would have written during the conversation. Seeded directly here: this
+    // suite drives `converse` through a double, so no tool ever runs.
+    const searched = new SearchedRecords();
+    if (options.searched !== undefined) searched.remember(options.searched);
+
     return {
-        generator: new ModelSetGenerator(llm, taste, tracks, preemption, queued, config, logger),
+        generator: new ModelSetGenerator(llm, taste, tracks, preemption, queued, searched, config, logger),
         converse,
         taste,
         styleVocabulary,
         preemption,
         queued,
+        searched,
     };
 }
 
@@ -572,6 +581,66 @@ describe('ModelSetGenerator', () => {
     it('lets a model failure reach the chain, which is what absorbs it', async () => {
         // Not caught here. `SetGeneratorChain.ask` flattens every way of failing to "it named
         // nothing" in one place, so a second generator does not reimplement the same catch.
+        const { generator } = build({ enabled: true, fails: true });
+
+        await expect(generator.generate(inputs(5))).rejects.toThrow(/model host is down/);
+    });
+});
+
+// The records were found, filtered and handed over; the only thing missing was the sentence naming
+// which of them to play, and that sentence is the least reliable part of the exchange. A station
+// asked for "Artists like Mitch murder" opened with thirteen thrash records with ten synthwave ones
+// sitting in the conversation that had just failed.
+describe('when the model goes quiet, what its searches found', () => {
+    const found = [
+        { title: 'Miami Nights', artist: 'Mitch Murder' },
+        { title: 'Accelerated', artist: 'Lost Years' },
+        { title: 'Nightcall', artist: 'Kavinsky' },
+    ];
+
+    it('fills the hour when the conversation throws', async () => {
+        const { generator } = build({ enabled: true, fails: true, searched: found });
+
+        await expect(generator.generate(inputs(5))).resolves.toEqual([
+            { title: 'Miami Nights', artist: 'Mitch Murder' },
+            { title: 'Accelerated', artist: 'Lost Years' },
+            { title: 'Nightcall', artist: 'Kavinsky' },
+        ]);
+    });
+
+    it('fills the hour when the model answers with nothing this can read', async () => {
+        const { generator } = build({ enabled: true, text: '', toolCallsMade: 4, finishReason: 'stop', searched: found });
+
+        const picked = await generator.generate(inputs(5));
+
+        expect(picked.map(pick => pick.artist)).toEqual(['Mitch Murder', 'Lost Years', 'Kavinsky']);
+    });
+
+    it('never names more than it was asked for', async () => {
+        const { generator } = build({ enabled: true, text: '', toolCallsMade: 4, finishReason: 'stop', searched: found });
+
+        expect(await generator.generate(inputs(2))).toHaveLength(2);
+    });
+
+    it('leaves a PREEMPTED refill alone, because that one is owed a retry', async () => {
+        // A retry against a model the station interrupted is better than the leftovers of one
+        // search, and `RefillPreemption` is what asks for it. Rescuing here would spend the slot
+        // that retry was going to use and hide the interruption behind an answer.
+        const { generator, preemption } = build({
+            enabled: true,
+            text: '',
+            toolCallsMade: 2,
+            finishReason: 'preempted',
+            searched: found,
+        });
+
+        expect(await generator.generate(inputs(5))).toEqual([]);
+        expect(preemption.took()).toBe(true);
+    });
+
+    it('still lets a failure through when nothing was searched', async () => {
+        // A refill that died before its first search has nothing to rescue, and the chain's own
+        // reporting is the right thing to reach.
         const { generator } = build({ enabled: true, fails: true });
 
         await expect(generator.generate(inputs(5))).rejects.toThrow(/model host is down/);

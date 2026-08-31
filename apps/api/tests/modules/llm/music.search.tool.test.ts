@@ -12,6 +12,7 @@ import { ADVISORY_KEY } from '../../../src/modules/director/advisory.policy.js';
 import { MUSIC_SEARCH_KEYS, MusicSearchTool } from '../../../src/modules/llm/music.search.tool.js';
 import type { ProviderSearch, FoundTrack } from '../../../src/modules/llm/provider.search.js';
 import { QueuedRecords } from '../../../src/modules/shared/queued.records.js';
+import { SearchedRecords } from '../../../src/modules/shared/searched.records.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
 import { songKey } from '../../../src/modules/director/rotation.keys.js';
 
@@ -70,7 +71,16 @@ function build({
     const identity = new StationIdentity();
     if (broadcastId !== undefined) identity.began(broadcastId);
 
-    return { tool: new MusicSearchTool(tracks, providers, queued, identity, config, logger), searchPlayable, search, ownership, dislikedArtistKeys };
+    const searched = new SearchedRecords();
+
+    return {
+        tool: new MusicSearchTool(tracks, providers, queued, searched, identity, config, logger),
+        searchPlayable,
+        search,
+        ownership,
+        dislikedArtistKeys,
+        searched,
+    };
 }
 
 const only = async (tool: MusicSearchTool) => (await tool.tools())[0]!;
@@ -395,5 +405,33 @@ describe('MusicSearchTool', () => {
         await run(tool, { query: 'a', limit: 400 });
 
         expect(searchPlayable).toHaveBeenCalledWith('a', 25, false, {});
+    });
+
+    // The other half of the wiring `SearchedRecords` exists for: a refill can only fall back to what
+    // it was shown if the tool wrote it down as it answered. Nothing here reads it back — that is
+    // `ModelSetGenerator`'s job — so what is asserted is only that the rows arrive.
+    it('keeps what it answered with, so a refill whose model goes quiet has something to play', async () => {
+        const library = [
+            { title: 'Miami Nights', artistName: 'Mitch Murder' },
+            { title: 'Accelerated', artistName: 'Lost Years' },
+        ];
+        const { tool, searched } = build({ library });
+
+        await run(tool, { query: 'Mitch Murder' });
+
+        expect(searched.all()).toEqual([
+            { title: 'Miami Nights', artist: 'Mitch Murder' },
+            { title: 'Accelerated', artist: 'Lost Years' },
+        ]);
+    });
+
+    it('counts a record answered by two searches once', async () => {
+        const library = [{ title: 'Miami Nights', artistName: 'Mitch Murder' }];
+        const { tool, searched } = build({ library });
+
+        await run(tool, { query: 'Mitch Murder' });
+        await run(tool, { query: 'Miami Nights' });
+
+        expect(searched.size).toBe(1);
     });
 });

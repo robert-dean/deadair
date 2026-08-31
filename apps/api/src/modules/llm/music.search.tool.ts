@@ -6,6 +6,7 @@ import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { advisoryPolicy, demandsClean } from '#modules/director/advisory.policy.js';
 import { songKey } from '#modules/director/rotation.keys.js';
 import { QueuedRecords } from '#modules/shared/queued.records.js';
+import { SearchedRecords } from '#modules/shared/searched.records.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
 import { ProviderSearch, type FoundTrack } from './provider.search.js';
@@ -146,6 +147,9 @@ export class MusicSearchTool implements ToolSource {
         private readonly tracks: TracksRepository,
         private readonly providers: ProviderSearch,
         private readonly queued: QueuedRecords,
+        // Written to and never read here: this tool answers the model, and what a refill does with
+        // the answer when the model stops talking is the refill's question. See `SearchedRecords`.
+        private readonly searched: SearchedRecords,
         private readonly identity: StationIdentity,
         private readonly config: AppConfig,
         private readonly logger: Logger,
@@ -235,6 +239,11 @@ export class MusicSearchTool implements ToolSource {
         const fromProviders = await this.fromProviders(reached, owned);
         const fromLibrary = owned.map(row => this.mark(toOwnedRow(row))).slice(0, ownedAllowance(limit, fromProviders.length));
         const rows = [...fromLibrary, ...fromProviders].slice(0, limit);
+        // Kept in the order the answer carries, before it is serialized for the model. A refill
+        // whose model never names anything uses these rather than nothing; see `SearchedRecords`
+        // for the run that cost an hour and for why the transcript is the wrong place to read it
+        // back from.
+        this.searched.remember(rows);
         this.logger.debug('llm: searched for music', { query, ...filters, owned: owned.length, reached: reached.length, answered: rows.length });
 
         return { tracks: rows };

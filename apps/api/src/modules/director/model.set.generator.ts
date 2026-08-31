@@ -6,6 +6,7 @@ import { TasteRepository, type StationTaste } from '#modules/catalog/taste.repos
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { QueuedRecords } from '#modules/shared/queued.records.js';
+import { SearchedRecords } from '#modules/shared/searched.records.js';
 import { writeCapture } from '#modules/llm/llm.capture.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
@@ -238,6 +239,9 @@ export class ModelSetGenerator extends SetGenerator {
         // being left to the avoid list alone — which is capped, and whose remainder the model is
         // told only the size of. See `QueuedRecords`.
         private readonly queued: QueuedRecords,
+        // What the search tool handed the model, for the runs where the model then says nothing
+        // this can read. See `SearchedRecords` and {@link ModelSetGenerator.rescue}.
+        private readonly searched: SearchedRecords,
         private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {
@@ -291,45 +295,60 @@ export class ModelSetGenerator extends SetGenerator {
         );
 
         const started = Date.now();
-        const result = await this.llm.converse(
-            {
-                messages,
-                ...(model.length === 0 ? {} : { model }),
-                maxOutputTokens: answerCeiling,
-                // The same call `ModelTalkBreakWriter` makes, for the same MEASURED reason, and it
-                // was not obvious that programming an hour would want it too: choosing records
-                // looks far more like a reasoning problem than writing a link does.
-                //
-                // It is not, and the first live run proved it. At `high` this searched eight times,
-                // spent 14,377 tokens over 85 seconds, finished on `length` and emitted an empty
-                // answer -- the model used its entire visible allowance thinking and never said a
-                // word. That is the identical failure recorded on `MAX_OUTPUT_TOKENS` in the break
-                // writer. The work here is recall and filtering, which the tool does; what is left
-                // for the model is choosing between rows it has been handed.
-                reasoningEffort: 'low',
-            },
-            // `background` is what makes this yield rather than compete: nobody is waiting on a
-            // refill, so it queues behind every break AND is told to stop when one arrives while it
-            // holds the model. Losing a refill mid-answer costs nothing that lasts — the chain asks
-            // the next pass for whatever is still missing, and `CatalogSetGenerator` is underneath
-            // it either way.
-            {
-                budgetMs: BUDGET_MS,
-                maxWaitMs: MAX_WAIT_MS,
-                maxToolSteps: MAX_TOOL_STEPS,
-                priority: 'background',
-                // What an answer IS, here, which the loop cannot know: a JSON array of records. Two
-                // measured runs ended with several good searches and then a final message the loop
-                // read as an answer and this could not read at all — one empty, one a plan in prose
-                // (`Need more. Let's fetch Lost Years.`). Both cost the whole refill with the records
-                // already found. Saying so buys one more step, once, with the searches kept.
-                //
-                // Deliberately the same reader the answer is parsed with rather than a looser test,
-                // or the loop would accept something this then drops, which is the failure one rung
-                // down wearing a different hat.
-                answersWith: (text: string) => readPicks(text, inputs.count).length > 0,
-            },
-        );
+        let result;
+        try {
+            result = await this.llm.converse(
+                {
+                    messages,
+                    ...(model.length === 0 ? {} : { model }),
+                    maxOutputTokens: answerCeiling,
+                    // The same call `ModelTalkBreakWriter` makes, for the same MEASURED reason, and it
+                    // was not obvious that programming an hour would want it too: choosing records
+                    // looks far more like a reasoning problem than writing a link does.
+                    //
+                    // It is not, and the first live run proved it. At `high` this searched eight times,
+                    // spent 14,377 tokens over 85 seconds, finished on `length` and emitted an empty
+                    // answer -- the model used its entire visible allowance thinking and never said a
+                    // word. That is the identical failure recorded on `MAX_OUTPUT_TOKENS` in the break
+                    // writer. The work here is recall and filtering, which the tool does; what is left
+                    // for the model is choosing between rows it has been handed.
+                    reasoningEffort: 'low',
+                },
+                // `background` is what makes this yield rather than compete: nobody is waiting on a
+                // refill, so it queues behind every break AND is told to stop when one arrives while it
+                // holds the model. Losing a refill mid-answer costs nothing that lasts — the chain asks
+                // the next pass for whatever is still missing, and `CatalogSetGenerator` is underneath
+                // it either way.
+                {
+                    budgetMs: BUDGET_MS,
+                    maxWaitMs: MAX_WAIT_MS,
+                    maxToolSteps: MAX_TOOL_STEPS,
+                    priority: 'background',
+                    // What an answer IS, here, which the loop cannot know: a JSON array of records. Two
+                    // measured runs ended with several good searches and then a final message the loop
+                    // read as an answer and this could not read at all — one empty, one a plan in prose
+                    // (`Need more. Let's fetch Lost Years.`). Both cost the whole refill with the records
+                    // already found. Saying so buys one more step, once, with the searches kept.
+                    //
+                    // Deliberately the same reader the answer is parsed with rather than a looser test,
+                    // or the loop would accept something this then drops, which is the failure one rung
+                    // down wearing a different hat.
+                    answersWith: (text: string) => readPicks(text, inputs.count).length > 0,
+                },
+            );
+        } catch (error) {
+            // A conversation that throws has no result and therefore no picks, and until this
+            // existed it also discarded every record the searches had already found. `No output
+            // generated. Check the stream for errors.` is what that looked like on air: the model
+            // had asked for Mitch Murder's neighbours, been handed ten records for Miami Nights
+            // 1984, and died before naming any of them.
+            //
+            // Rethrown when there is nothing to rescue, so a refill that failed before its first
+            // search still reaches `SetGeneratorChain`'s own reporting unchanged.
+            const rescued = this.rescue(inputs, `the model failed: ${errorText(error)}`);
+            if (rescued.length > 0) return rescued;
+            throw error;
+        }
 
         const named = readPicks(result.text, inputs.count);
         const picks = spaceOwnArtists(named);
@@ -462,7 +481,53 @@ export class ModelSetGenerator extends SetGenerator {
                     said: result.text.trim().slice(0, ANSWER_LOG_CHARS),
                 });
             }
+
+            // Every empty answer EXCEPT a preemption, which is deliberately left alone: that branch
+            // marks `RefillPreemption` and is owed a retry, and a retry against a model the station
+            // interrupted is better than the leftovers of one search. The other two shapes have no
+            // second attempt coming and nothing else to offer.
+            if (result.finishReason !== 'preempted') {
+                const rescued = this.rescue(inputs, `the model named nothing (${result.finishReason})`);
+                if (rescued.length > 0) return rescued;
+            }
         }
+
+        return picks;
+    }
+
+    /**
+     * What the searches found, when the model would not say which of it to play.
+     *
+     * Not a set the model programmed and not pretending to be one: these are search results in the
+     * order the tool answered, owned rows first, and the ONLY claim being made for them is that
+     * every one came back from a query the model wrote out of the brief. That is a far stronger
+     * claim than the floor beneath this can make, which seeds from what has already aired and so
+     * answers a brief-switch with the previous programme's taste.
+     *
+     * It stays inside the chain's ordinary contract by naming records and deciding nothing:
+     * `PickResolver` runs the dislike veto, the repeat window, the artist cooldown and the
+     * per-artist cap over these exactly as over a chosen set, and looks up anything the library has
+     * never held. So a duplicate or a banned record costs a slot and cannot reach the air, which is
+     * the same bargain `SimilarSetGenerator` already makes and the reason nothing is filtered here.
+     *
+     * Spaced by artist on the way out, because three searches for one act answer with three of its
+     * records in a row and that is audible in a way the unspaced list is not.
+     */
+    private rescue(inputs: SetInputs, why: string): TrackPick[] {
+        if (this.searched.size === 0) return [];
+
+        const picks = spaceOwnArtists(this.searched.all()).slice(0, inputs.count);
+        if (picks.length === 0) return [];
+
+        // Info rather than warn: something went wrong upstream and it has already been reported
+        // there, at the severity it deserved. This line is the recovery, and an operator reading it
+        // wants to know the hour is on-brief rather than to be told twice that the model failed.
+        this.logger.info('director: the model went quiet, so the hour is filled from what its own searches found', {
+            ...(inputs.brief === undefined ? {} : { brief: inputs.brief }),
+            why,
+            shown: this.searched.size,
+            using: picks.length,
+        });
 
         return picks;
     }

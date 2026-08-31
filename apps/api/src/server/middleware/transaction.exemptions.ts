@@ -22,7 +22,7 @@
 // handler returns rather than when a commit lands. An exempt route must
 // therefore not send a job describing work that could still fail, and must not
 // rely on `AfterCommit` for anything a caller will read back in the same
-// request. Today's exemptions (streaming, infra, now-playing) do neither.
+// request. Today's exemptions (streaming, infra, art, now-playing) do neither.
 //
 // This used to say the bar was about the `app.actor_org_id` GUC and the
 // org-isolation RLS policies. Neither exists — see
@@ -45,6 +45,28 @@ export const infraExemption: TransactionExemption = ({ method, path }) =>
 // authz is ReBAC / public-kind, and they enqueue nothing.
 export const streamingExemption: TransactionExemption = ({ path }) => path.startsWith('/media/') || path.endsWith('/content');
 
+// Cached cover art, which is the same "must not pin a connection" case as streaming and earned its
+// own entry by being the one that actually took the pool down.
+//
+// `ArtService.getArt` is one row read and then bytes off the art store. It writes nothing and
+// enqueues nothing, so a transaction buys it no atomicity — what it costs is a pooled connection
+// held from the lookup until the last byte is on the socket, for a request whose body does not come
+// from the database at all.
+//
+// The bill for that is paid by the CONSOLE rather than by a listener, and it is not small.
+// `station.order.table.tsx` renders a row per item with no virtualisation, so opening the Desk over
+// a long running order asks for one `/art/{id}` per row at once: measured on the live station,
+// 250 requests for one page load, 122 of them art. Against `DATABASE_POOL_MAX` of 10 that is 250
+// transactions queueing for ten connections, and on 2026-08-31 at 18:40 it ended where that has to
+// end — 50 requests giving up with `timeout exceeded when trying to connect`, ten seconds each,
+// while the station's own control calls were queued behind the same ten.
+//
+// This does NOT fix the burst itself. Every one of those requests still counts against the rate
+// limiter's 100-per-5s budget and most of them are still refused with a 429; what changes is that a
+// refused thumbnail no longer costs a database connection on the way. The console asking for
+// hundreds of images at once is a separate thing to fix, in the console.
+export const artExemption: TransactionExemption = ({ method, path }) => method === 'GET' && path.startsWith('/art/');
+
 // The public now-playing answer is served entirely out of memory: the rundown holds what is on air
 // and the station's name is pushed into the service at boot. It touches no tenant data and needs no
 // database at all, and it is polled — by a hi-fi streamer, a station page, whatever displays the track
@@ -54,7 +76,12 @@ export const nowPlayingExemption: TransactionExemption = ({ method, path }) => m
 
 // The exemptions applied by default. Compose additional ones onto this list where the middleware is
 // wired (setup.middleware) when a new opt-out route is introduced.
-export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [infraExemption, streamingExemption, nowPlayingExemption];
+export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
+    infraExemption,
+    streamingExemption,
+    artExemption,
+    nowPlayingExemption,
+];
 
 export const isTransactionExempt = (request: ExemptionRequest, exemptions: readonly TransactionExemption[]): boolean =>
     exemptions.some(exemption => exemption(request));

@@ -20,27 +20,36 @@ import { afterAll, beforeAll } from 'vitest';
  * overscan — see the constants in `station.order.table.tsx`.
  */
 export function measureTheOrderPort(height = 600, width = 780): void {
-    const isPort = (element: HTMLElement): boolean => element.getAttribute('aria-label') === 'Running order';
-    const realHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')!;
-    const realWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!;
+    const isPort = (element: Element): boolean => element.getAttribute('aria-label') === 'Running order';
+
+    // `scrollHeight` as well, because the virtualizer clamps every computed offset to
+    // `scrollHeight - clientHeight` — the port's real scroll limit in a browser, and zero minus
+    // zero under jsdom, which silently clamps every pin target to the top of the table. Answered
+    // as a mile of content rather than derived from any real fixture, so no clamp ever engages;
+    // nothing in the tests scrolls to the genuine bottom.
+    const shims: Array<[object, string, () => number]> = [
+        [HTMLElement.prototype, 'offsetHeight', () => height],
+        [HTMLElement.prototype, 'offsetWidth', () => width],
+        [Element.prototype, 'clientHeight', () => height],
+        [Element.prototype, 'scrollHeight', () => 1_000_000],
+    ];
+    const real = shims.map(([proto, name]) => Object.getOwnPropertyDescriptor(proto, name)!);
 
     beforeAll(() => {
-        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
-            configurable: true,
-            get(this: HTMLElement): number {
-                return isPort(this) ? height : (realHeight.get!.call(this) as number);
-            },
-        });
-        Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
-            configurable: true,
-            get(this: HTMLElement): number {
-                return isPort(this) ? width : (realWidth.get!.call(this) as number);
-            },
-        });
+        for (const [proto, name, answer] of shims) {
+            const inherited = Object.getOwnPropertyDescriptor(proto, name)!;
+            Object.defineProperty(proto, name, {
+                configurable: true,
+                get(this: Element): number {
+                    return isPort(this) ? answer() : (inherited.get!.call(this) as number);
+                },
+            });
+        }
     });
 
     afterAll(() => {
-        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', realHeight);
-        Object.defineProperty(HTMLElement.prototype, 'offsetWidth', realWidth);
+        shims.forEach(([proto, name], index) => {
+            Object.defineProperty(proto, name, real[index]!);
+        });
     });
 }

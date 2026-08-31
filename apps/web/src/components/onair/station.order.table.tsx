@@ -1,6 +1,7 @@
-import { memo, useCallback, useEffect, useRef, useState, type Ref } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type Ref, type RefObject } from 'react';
 import { ActionIcon, Badge, Box, Button, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconX } from '@tabler/icons-react';
+import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
 
 import { RatingControl } from '../catalog/rating.control';
@@ -187,6 +188,24 @@ function historyLabel(played: number, passed: number): string {
     return clauses.length > 0 ? clauses.join(', ') : 'Earlier in this broadcast';
 }
 
+/**
+ * What a row is guessed to cost before it has been measured, in px: the artwork plus the table's
+ * `xs` vertical padding. Only ever a first word — every mounted row is measured and the guess
+ * replaced — but a guess near the truth is what keeps the first pin from landing a screen away.
+ */
+const ROW_ESTIMATE = 50;
+
+/**
+ * How many rows are mounted beyond each edge of the window.
+ *
+ * Enough that a smooth scroll's intermediate frames and the one-thead skew of the window (see
+ * `pinnedTop`) never show blank rows. It is also a fact the DESK TESTS lean on: at jsdom's
+ * zero-height viewport the virtualizer's range is a single row, so a fixture of nine or fewer items
+ * mounts whole and the existing suites hold without measurement shims. A larger fixture needs the
+ * shims in `tests/components/onair/station.order.table.test.tsx`.
+ */
+const OVERSCAN = 8;
+
 /** How near the pinned position counts as being back at it, in px. */
 const RE_ARM_SLACK = 12;
 
@@ -208,23 +227,37 @@ const PIN_SETTLE_MS = 800;
  * hook's own scrolling has to be told apart from a person's, which is what `pinning` is for. It
  * re-arms when the anchor is back at the top, whoever put it there.
  */
-function usePinnedToAir(anchorId: string | undefined, itemCount: number) {
-    const portRef = useRef<HTMLDivElement>(null);
-    const headRef = useRef<HTMLTableSectionElement>(null);
-    const anchorRef = useRef<HTMLTableRowElement>(null);
+function usePinnedToAir(
+    anchorId: string | undefined,
+    anchorIndex: number | undefined,
+    itemCount: number,
+    virtualizer: Virtualizer<HTMLDivElement, HTMLTableRowElement>,
+    portRef: RefObject<HTMLDivElement | null>,
+) {
     const [following, setFollowing] = useState(true);
     // The first pin is the page arriving at a running order already in progress, which should not
     // read as an animation of something that just happened.
     const settled = useRef(false);
 
-    /** Where the port would have to be scrolled for the anchor row to sit under the header. */
+    /**
+     * Where the port would have to be scrolled for the anchor row to sit under the header.
+     *
+     * Arithmetic over the virtualizer's offsets rather than a measurement of the row, because with
+     * the table windowed the anchor row need not be mounted at all — which is exactly the state the
+     * re-arm below has to reason about, an operator away in the tail with the anchor scrolled out.
+     *
+     * The thead never appears in this sum, and that is a cancellation rather than an omission: the
+     * virtualizer's offsets start at the top of the tbody, which sits one thead below the top of the
+     * scroll content, and the pin target is the anchor one thead below the top of the viewport. The
+     * two theads cancel, so the anchor's own offset IS the scroll position — the same reason the
+     * virtualizer needs no `scrollMargin`, since the rows its window is off by are exactly the rows
+     * hidden under the sticky header, and overscan covers the difference besides.
+     */
     const pinnedTop = useCallback((): number | undefined => {
-        const port = portRef.current;
-        const row = anchorRef.current;
-        if (!port || !row) return undefined;
-        const head = headRef.current?.getBoundingClientRect().height ?? 0;
-        return Math.max(0, row.getBoundingClientRect().top - port.getBoundingClientRect().top + port.scrollTop - head);
-    }, []);
+        if (anchorIndex === undefined) return undefined;
+        const offset = virtualizer.getOffsetForIndex(anchorIndex, 'start');
+        return offset === undefined ? undefined : Math.max(0, offset[0]);
+    }, [anchorIndex, virtualizer]);
 
     // Whether the scroll now under way is this hook's own. A smooth scroll arrives as a run of
     // scroll events at positions that are not the pinned one, and without this every one of them
@@ -251,7 +284,7 @@ function usePinnedToAir(anchorId: string | undefined, itemCount: number) {
             portRef.current?.scrollTo({ top, behavior: behavior === 'smooth' && !document.hidden ? 'smooth' : 'auto' });
             setFollowing(true);
         },
-        [pinnedTop, holdPinning],
+        [pinnedTop, holdPinning, portRef],
     );
 
     useEffect(
@@ -272,31 +305,28 @@ function usePinnedToAir(anchorId: string | undefined, itemCount: number) {
     // A pin is arithmetic over the CURRENT heights of everything above the anchor, and those keep
     // moving after the effect above has run: every row above carries a sleeve that arrives from the
     // network, and a row is shorter until its image lands. Measured on this station, that left the
-    // anchor a row low. So the table's own size is watched and the pin retaken, which covers the
-    // artwork, a wrapped title on a narrow window and the window being resized, all as one fact.
-    // Mirrored into a ref so the observer below reads the live answer without being torn down and
-    // rebuilt every time it changes.
+    // anchor a row low. The old shape watched the table with a ResizeObserver; with the rows
+    // windowed the virtualizer is already the thing doing the measuring, so its total size is the
+    // one number that moves whenever any mounted row changes height — the artwork, a wrapped title
+    // on a narrow window and the window being resized, all as one fact. It is also the
+    // self-correction for the windowing itself: a pin lands on estimated offsets, the rows around
+    // the landing point mount and measure, the total shifts, and the pin is retaken exactly.
+    // `following` is mirrored into a ref so a pin that just SET it does not immediately re-run this
+    // effect and turn its own smooth scroll into a jump.
+    const totalSize = virtualizer.getTotalSize();
     const followingNow = useRef(following);
     useEffect(() => {
         followingNow.current = following;
     }, [following]);
     useEffect(() => {
-        const content = portRef.current?.firstElementChild;
-        if (!content) return;
-        const observer = new ResizeObserver(() => {
-            if (followingNow.current) pin('auto');
-        });
-        observer.observe(content);
-        return () => {
-            observer.disconnect();
-        };
-    }, [pin]);
+        if (!followingNow.current) return;
+        // A jump while parked is invisible; a jump while one of this hook's own smooth scrolls is
+        // in flight is not, and rows measuring as the animation passes them is the ordinary way
+        // this fires mid-flight. Retargeting the animation keeps it an animation.
+        pin(pinning.current === undefined ? 'auto' : 'smooth');
+    }, [totalSize, pin]);
 
     return {
-        portRef,
-        headRef,
-        anchorRef,
-        following,
         /** Offered as a control only when there is something to go back TO. */
         pinnable: anchorId !== undefined && !following,
         pin,
@@ -359,9 +389,46 @@ export function StationOrderTable({
     // wants to know something did not play, and the row says which of the two it was.
     const played = history.filter(item => item.state === 'played').length;
     const passed = history.filter(item => item.state === 'skipped' || item.state === 'unavailable').length;
-    // Destructured rather than kept as one object: the refs have to reach `ref=` as plain
-    // identifiers for the hooks lint to see them as refs rather than as a read during render.
-    const { portRef, headRef, anchorRef, pinnable, pin, handlers } = usePinnedToAir(anchor?.id, items.length);
+
+    const portRef = useRef<HTMLDivElement>(null);
+    // Only a window of rows is mounted: a rotation order is forty-odd rows, but a setlist replays a
+    // whole playlist and never trims its past, and an operator opening the desk on one should not
+    // pay for eight hundred rows of artwork and badges to read the four that fit on screen.
+    //
+    // The suppressed warning is advisory about the React Compiler, which this build does not run;
+    // the rows are memoised by hand instead.
+    // eslint-disable-next-line react-hooks/incompatible-library
+    const virtualizer = useVirtualizer<HTMLDivElement, HTMLTableRowElement>({
+        count: shown.length,
+        getScrollElement: () => portRef.current,
+        estimateSize: () => ROW_ESTIMATE,
+        overscan: OVERSCAN,
+        // What the port is assumed to measure before it has been measured, which is only the very
+        // first render: without it that render works from a rect of zero and mounts an empty
+        // tbody, a flash of no table at all before the effect that measures has run. The height is
+        // the port's own `max-height` floor. It does not survive measurement anywhere — including
+        // under jsdom, which measures every element at zero; the tests that want mounted rows give
+        // the port a height instead (`tests/utils/order.port.ts`).
+        initialRect: { width: 780, height: 320 },
+        // The item's id rather than its index, so a measured height survives the splices that move
+        // every index at once: the fold opening, and a refill landing behind the anchor.
+        getItemKey: index => shown[index]!.id,
+        // The fallback is production-real rather than a test crutch: on a phone the port is
+        // `display: none` and every mounted row measures zero, and a zero once cached would still
+        // be the row's height when the window widens back to the desk.
+        measureElement: element => {
+            const height = element.getBoundingClientRect().height;
+            return height > 0 ? height : ROW_ESTIMATE;
+        },
+    });
+    const { pinnable, pin, handlers } = usePinnedToAir(anchor?.id, anchor ? (folding ? 0 : anchorAt) : undefined, items.length, virtualizer, portRef);
+
+    const virtualItems = virtualizer.getVirtualItems();
+    // What the unmounted rows would have occupied, held by a spacer row at each end so the
+    // scrollbar and every offset read as if the whole order were mounted.
+    const padTop = virtualItems.length > 0 ? virtualItems[0]!.start : 0;
+    const padBottom = virtualItems.length > 0 ? virtualizer.getTotalSize() - virtualItems[virtualItems.length - 1]!.end : 0;
+    const columns = 5 + (onRate ? 1 : 0) + (editable ? 1 : 0);
 
     return (
         // Scrolled inside its own box rather than by the page, on both axes. The row is genuinely
@@ -420,11 +487,16 @@ export function StationOrderTable({
                 aria-label="Running order"
                 {...handlers}
             >
-                <Table highlightOnHover verticalSpacing="xs" miw={780} stickyHeader stickyHeaderOffset={0}>
-                    <Table.Thead ref={headRef}>
+                {/* `layout="fixed"` because only a window of rows is mounted: under the default
+                    auto layout every column is sized from the content that happens to be on
+                    screen, so scrolling would re-measure the table and the columns would breathe.
+                    Fixed layout sizes them from the header row once; Title takes its share
+                    explicitly and the credit and album split what the fixed columns leave. */}
+                <Table highlightOnHover verticalSpacing="xs" miw={780} stickyHeader stickyHeaderOffset={0} layout="fixed">
+                    <Table.Thead>
                         <Table.Tr>
                             <Table.Th w={40}>#</Table.Th>
-                            <Table.Th>Title</Table.Th>
+                            <Table.Th w="40%">Title</Table.Th>
                             <Table.Th>Artists</Table.Th>
                             <Table.Th visibleFrom="xl">Album</Table.Th>
                             <Table.Th w={90}>Duration</Table.Th>
@@ -433,28 +505,41 @@ export function StationOrderTable({
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                        {shown.map((item, index) => (
-                            <OrderRow
-                                key={item.id}
-                                // The row the table holds at the top. A ref rather than an id lookup
-                                // because it is the measured height of everything above it that the
-                                // scroll needs, and only the element carries that.
-                                ref={item.id === anchor?.id ? anchorRef : undefined}
-                                item={item}
-                                // Where this row sits in the WHOLE order rather than in the visible
-                                // slice, which is the number both the row's own count and the move
-                                // it offers are stated against.
-                                position={index + (folding ? anchorAt : 0)}
-                                nextUp={nextUp}
-                                editable={editable}
-                                onRemove={onRemove}
-                                removing={removingItemId === item.id}
-                                onMove={onMove}
-                                moving={movingItemId === item.id}
-                                onRate={onRate}
-                                writingRating={item.kind === 'track' && ratingTrackId === item.trackId}
-                            />
-                        ))}
+                        {padTop > 0 ? (
+                            <Table.Tr aria-hidden className={classes.spacer}>
+                                <Table.Td colSpan={columns} style={{ height: padTop }} />
+                            </Table.Tr>
+                        ) : undefined}
+                        {virtualItems.map(row => {
+                            const item = shown[row.index]!;
+                            return (
+                                <OrderRow
+                                    key={row.key}
+                                    // How the virtualizer finds its way back from the element to the
+                                    // item it measured, and the ref is what does the measuring.
+                                    data-index={row.index}
+                                    ref={virtualizer.measureElement}
+                                    item={item}
+                                    // Where this row sits in the WHOLE order rather than in the
+                                    // visible slice, which is the number both the row's own count
+                                    // and the move it offers are stated against.
+                                    position={row.index + (folding ? anchorAt : 0)}
+                                    nextUp={nextUp}
+                                    editable={editable}
+                                    onRemove={onRemove}
+                                    removing={removingItemId === item.id}
+                                    onMove={onMove}
+                                    moving={movingItemId === item.id}
+                                    onRate={onRate}
+                                    writingRating={item.kind === 'track' && ratingTrackId === item.trackId}
+                                />
+                            );
+                        })}
+                        {padBottom > 0 ? (
+                            <Table.Tr aria-hidden className={classes.spacer}>
+                                <Table.Td colSpan={columns} style={{ height: padBottom }} />
+                            </Table.Tr>
+                        ) : undefined}
                     </Table.Tbody>
                 </Table>
             </Box>
@@ -499,6 +584,8 @@ interface OrderRowProps {
     moving: boolean;
     onRate?: (trackId: string, rating: Rating) => void;
     writingRating: boolean;
+    /** How the virtualizer's measurement finds the item this element belongs to. */
+    'data-index': number;
     ref?: Ref<HTMLTableRowElement>;
 }
 
@@ -521,6 +608,7 @@ const OrderRow = memo(function OrderRow({
     moving,
     onRate,
     writingRating,
+    'data-index': dataIndex,
     ref,
 }: OrderRowProps) {
     const state = STATE_LABEL[item.state];
@@ -530,6 +618,7 @@ const OrderRow = memo(function OrderRow({
     return (
         <Table.Tr
             ref={ref}
+            data-index={dataIndex}
             className={item.state === 'airing' ? classes.airing : undefined}
             // Dimmed rather than hidden: what is beyond editing is how an operator
             // reads where the station has got to. The item ON AIR is not dimmed,
@@ -553,17 +642,12 @@ const OrderRow = memo(function OrderRow({
                     {position + 1}
                 </Text>
             </Table.Td>
-            {/* `maxWidth` rather than `minWidth` is what actually caps this: a table
-                                    column sizes to its content, so an upper bound on the cell is the
-                                    only thing the layout algorithm will honour, and the `minWidth: 0`
-                                    below is what then makes the title the part that gives. */}
-            <Table.Td style={{ maxWidth: 430 }}>
+            <Table.Td>
                 {/* `minWidth: 0` in both places, and both are load-bearing: a flex
                                         child defaults to `min-width: auto`, so a truncating title
-                                        still reports its full width to the table's column algorithm
-                                        and the row grows instead of the text shrinking. The Group
-                                        needs it to be shrinkable at all; the Text needs it to be the
-                                        thing that gives. */}
+                                        would otherwise refuse to shrink inside its fixed column and
+                                        overflow it instead. The Group needs it to be shrinkable at
+                                        all; the Text needs it to be the thing that gives. */}
                 <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
                     <Artwork src={item.artworkUrl} alt={item.title} size={28} radius="xs" />
                     {/* The way into whatever this row IS, which is where an
@@ -644,7 +728,7 @@ const OrderRow = memo(function OrderRow({
                                     anchor is indistinguishable from the text beside it: a link
                                     nobody can see is a page nobody finds, which is the reason the
                                     catalog's own table draws these two as links at all. */}
-            <Table.Td style={{ maxWidth: 220 }}>
+            <Table.Td>
                 <ArtistLink id={item.artistId} size="sm" c={item.artistId === undefined ? 'dimmed' : undefined} truncate>
                     {formatArtists(item.artists)}
                 </ArtistLink>

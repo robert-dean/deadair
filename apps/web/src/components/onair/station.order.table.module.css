@@ -1,8 +1,8 @@
 /*
- * The running order's own two things a Mantine theme cannot say.
- *
- * Both are about ONE row: the one that is going out. Everything else on this table is drawn by the
- * theme, and a rule that could live in `theme.components` belongs there rather than here.
+ * The running order's own few things a Mantine theme cannot say: the scroll port the pinning and
+ * the windowing both hang off, the row that is going out, and the spacers standing in for the rows
+ * not mounted. Everything else on this table is drawn by the theme, and a rule that could live in
+ * `theme.components` belongs there rather than here.
  */
 
 /**
@@ -21,6 +21,22 @@
        controls stay on screen while it scrolls. The page still scrolls; this only stops the table
        taking the whole document with it. */
     max-height: max(320px, calc(100vh - 20rem));
+    /* The rows are windowed, so scrolling resizes the spacer rows, and the browser's own scroll
+       anchoring reads that as content jumping and "compensates" — which is the lurch it causes,
+       not the one it prevents. The virtualizer owns every offset in here. */
+    overflow-anchor: none;
+}
+
+/**
+ * The two rows standing in for everything not mounted, one at each end of the window.
+ *
+ * Their height is written inline by the table, because it is data. This strips the theme's cell
+ * padding and border, which would otherwise add phantom height the virtualizer never accounted
+ * for and hold every offset slightly wrong.
+ */
+.spacer td {
+    padding: 0;
+    border: 0;
 }
 
 /**

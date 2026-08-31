@@ -8,9 +8,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StationOrder, StationOrderItem } from '@deadair/sdk';
 
 import { DeskPage } from '../../../src/components/desk/desk.page';
+import { measureTheOrderPort } from '../../utils/order.port';
 import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
 import { stationAir } from '../../utils/station.fixture';
 import { render, screen, setupUser, waitFor } from '../../utils/render';
+
+// The table mounts a window of rows sized from the port's rect, and jsdom measures every rect at
+// zero — without this, the tbody is empty and the running-order assertions fail against it.
+measureTheOrderPort();
 
 const getStationAir = vi.fn();
 const getTheRunningOrder = vi.fn();

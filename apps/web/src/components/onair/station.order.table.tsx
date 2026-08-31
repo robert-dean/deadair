@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import { ActionIcon, Badge, Box, Button, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconX } from '@tabler/icons-react';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
@@ -400,7 +400,9 @@ export function StationOrderTable({
                         <PhoneRow
                             key={item.id}
                             item={item}
-                            {...(onRemove && !isSpent(item.state) ? { onRemove: () => onRemove(item) } : {})}
+                            // The handler itself rather than a closure over it, so an unchanged row
+                            // survives the memo comparison across the five-second poll.
+                            onRemove={onRemove && !isSpent(item.state) ? onRemove : undefined}
                             removing={removingItemId === item.id}
                         />
                     ))}
@@ -431,223 +433,28 @@ export function StationOrderTable({
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                        {shown.map((item, index) => {
-                            const state = STATE_LABEL[item.state];
-                            // Where this row sits in the WHOLE order rather than in the visible
-                            // slice, which is the number both the row's own count and the move
-                            // below are stated against.
-                            const position = index + (folding ? anchorAt : 0);
-                            // A segment is the station's own words, and a record the catalog has never seen
-                            // has no row to hold an opinion — a station can air one it never ingested.
-                            const trackId = item.kind === 'track' ? item.trackId : undefined;
-                            return (
-                                <Table.Tr
-                                    key={item.id}
-                                    // The row the table holds at the top. A ref rather than an id lookup
-                                    // because it is the measured height of everything above it that the
-                                    // scroll needs, and only the element carries that.
-                                    ref={item.id === anchor?.id ? anchorRef : undefined}
-                                    className={item.state === 'airing' ? classes.airing : undefined}
-                                    // Dimmed rather than hidden: what is beyond editing is how an operator
-                                    // reads where the station has got to. The item ON AIR is not dimmed,
-                                    // because it is the one thing on the page that is happening.
-                                    //
-                                    // A SKIPPED segment is dimmed further still, which is not a third
-                                    // opinion about states but a fact about how they arrive: a played
-                                    // record is one row and a break the station passed over comes in
-                                    // runs, four and five deep, each one an identical line saying News
-                                    // SEGMENT MODEL SKIPPED. At the same weight as the history around
-                                    // them they read as the order rather than as the gaps in it. The row
-                                    // stays a row, because which break was skipped and where is exactly
-                                    // what an operator scrolls back to find.
-                                    opacity={opacityFor(item)}
-                                >
-                                    <Table.Td>
-                                        {/* Numbered against the WHOLE order rather than the rows on
-                                            screen: with the history folded away, a first visible row
-                                            called 1 would quietly renumber the broadcast. */}
-                                        <Text size="xs" c="dimmed" className="da-num">
-                                            {position + 1}
-                                        </Text>
-                                    </Table.Td>
-                                    {/* `maxWidth` rather than `minWidth` is what actually caps this: a table
-                                    column sizes to its content, so an upper bound on the cell is the
-                                    only thing the layout algorithm will honour, and the `minWidth: 0`
-                                    below is what then makes the title the part that gives. */}
-                                    <Table.Td style={{ maxWidth: 430 }}>
-                                        {/* `minWidth: 0` in both places, and both are load-bearing: a flex
-                                        child defaults to `min-width: auto`, so a truncating title
-                                        still reports its full width to the table's column algorithm
-                                        and the row grows instead of the text shrinking. The Group
-                                        needs it to be shrinkable at all; the Text needs it to be the
-                                        thing that gives. */}
-                                        <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                                            <Artwork src={item.artworkUrl} alt={item.title} size={28} radius="xs" />
-                                            {/* The way into whatever this row IS, which is where an
-                                            operator hearing something odd actually wants to go: a
-                                            record goes to everything it has accumulated and a break
-                                            goes to the words it was written from. Both draw as the
-                                            same plain text they always were when there is nothing
-                                            to reach — an uningested record, a segment the library
-                                            no longer holds. */}
-                                            <Title item={item} id={item.kind === 'segment' ? item.segmentId : trackId} />
-                                            {/* A segment is not a record and should not have to be worked
-                                            out from an empty artist column. */}
-                                            {item.kind === 'segment' ? (
-                                                <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
-                                                    segment
-                                                </Badge>
-                                            ) : undefined}
-                                            {/* A talk-over never becomes something the player is handed: it
-                                            is heard ALONGSIDE the record after it, with the music
-                                            ducked under it. */}
-                                            {item.overAtMs === undefined ? undefined : (
-                                                <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
-                                                    over the next record
-                                                </Badge>
-                                            )}
-                                            {/* Which writer produced the words. Without it a model that
-                                            degrades to the station's own phrasings on every single
-                                            break looks exactly like a model that is working, and the
-                                            answer has been on the row since it was written. */}
-                                            {item.segmentWriter === undefined ? undefined : (
-                                                <Tooltip label={writerHint(item.segmentWriter)} multiline maw={360}>
-                                                    <Badge
-                                                        size="xs"
-                                                        variant="light"
-                                                        color={item.segmentWriter === 'model' ? 'grape' : 'gray'}
-                                                        style={{ flexShrink: 0 }}
-                                                    >
-                                                        {item.segmentWriter}
-                                                    </Badge>
-                                                </Tooltip>
-                                            )}
-                                            {/* The station SKIPS a segment that has no audio when it comes
-                                            round, rather than waiting for one. An operator reading the
-                                            order has to be able to see which items will not be heard. */}
-                                            {item.kind === 'segment' && item.playable === false && item.state === 'planned' ? (
-                                                // The reason when the row carries one. A break that could
-                                                // not be written and a DJ that simply talks less look
-                                                // identical without it, and the difference is a sentence
-                                                // already on the segment.
-                                                <Tooltip
-                                                    multiline
-                                                    maw={360}
-                                                    label={
-                                                        item.segmentError ??
-                                                        `This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}`
-                                                    }
-                                                >
-                                                    <Badge size="xs" variant="light" color="yellow" style={{ flexShrink: 0 }}>
-                                                        will skip
-                                                    </Badge>
-                                                </Tooltip>
-                                            ) : undefined}
-                                            {state ? (
-                                                <Tooltip label={state.hint} multiline maw={360}>
-                                                    {/* Mono, like every other legend on the desk, and pulsing on the one
-                                                    row that is actually going out. */}
-                                                    <Text
-                                                        size="xs"
-                                                        c={state.colour}
-                                                        ff="monospace"
-                                                        tt="uppercase"
-                                                        className={item.state === 'airing' ? 'da-lamp-pulse' : undefined}
-                                                        style={{ letterSpacing: 'var(--da-tracking-eyebrow)', whiteSpace: 'nowrap', flexShrink: 0 }}
-                                                    >
-                                                        {state.label}
-                                                    </Text>
-                                                </Tooltip>
-                                            ) : undefined}
-                                        </Group>
-                                    </Table.Td>
-                                    {/* The CREDIT is drawn and the LEAD is linked, which is the same
-                                    split the rest of the station runs on: `artists` is what the
-                                    provider wrote on the copy and `artistId` is who it is by.
-
-                                    `dimmed` only where there is nowhere to go, because a dimmed
-                                    anchor is indistinguishable from the text beside it: a link
-                                    nobody can see is a page nobody finds, which is the reason the
-                                    catalog's own table draws these two as links at all. */}
-                                    <Table.Td style={{ maxWidth: 220 }}>
-                                        <ArtistLink id={item.artistId} size="sm" c={item.artistId === undefined ? 'dimmed' : undefined} truncate>
-                                            {formatArtists(item.artists)}
-                                        </ArtistLink>
-                                    </Table.Td>
-                                    <Table.Td visibleFrom="xl">
-                                        <AlbumLink id={item.albumId} size="sm" c={item.albumId === undefined ? 'dimmed' : undefined} truncate>
-                                            {item.album ?? ''}
-                                            {item.year ? ` (${item.year})` : ''}
-                                        </AlbumLink>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Text size="xs" c="dimmed" className="da-num">
-                                            {formatDuration(item.durationMs)}
-                                        </Text>
-                                    </Table.Td>
-                                    {onRate ? (
-                                        <Table.Td>
-                                            {trackId === undefined ? undefined : (
-                                                <RatingControl
-                                                    size="xs"
-                                                    rating={item.rating}
-                                                    label={item.title}
-                                                    busy={ratingTrackId === trackId}
-                                                    onChange={rating => {
-                                                        onRate(trackId, rating);
-                                                    }}
-                                                />
-                                            )}
-                                        </Table.Td>
-                                    ) : undefined}
-                                    {editable ? (
-                                        <Table.Td>
-                                            <Group gap={2} wrap="nowrap">
-                                                {/* Not on the row already at the front: a control
-                                                whose only effect is to leave the order exactly as
-                                                it was teaches an operator that this corner of the
-                                                row does nothing, which is the same argument the
-                                                spent rows below are drawn bare on. */}
-                                                {onMove && item.state === 'planned' && position !== nextUp ? (
-                                                    <Tooltip
-                                                        label="Moves this in front of everything the player is not already holding. Not necessarily the next thing heard: whatever has been handed over plays first."
-                                                        multiline
-                                                        maw={340}
-                                                    >
-                                                        <ActionIcon
-                                                            variant="subtle"
-                                                            color="gray"
-                                                            aria-label={`Play ${item.title} next`}
-                                                            loading={movingItemId === item.id}
-                                                            onClick={() => onMove(item, nextUp)}
-                                                        >
-                                                            <IconChevronsUp size={15} stroke={1.8} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                ) : undefined}
-                                                {/* Nothing at all on a spent item, rather than a disabled
-                                            control: the player is holding it or it is behind us, and an
-                                            affordance that could only ever answer 422 is worse than no
-                                            affordance. */}
-                                                {onRemove && !isSpent(item.state) ? (
-                                                    <Tooltip label="Drop this item">
-                                                        <ActionIcon
-                                                            variant="subtle"
-                                                            color="red"
-                                                            aria-label={`Drop ${item.title}`}
-                                                            loading={removingItemId === item.id}
-                                                            onClick={() => onRemove(item)}
-                                                        >
-                                                            <IconX size={15} stroke={1.8} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                ) : undefined}
-                                            </Group>
-                                        </Table.Td>
-                                    ) : undefined}
-                                </Table.Tr>
-                            );
-                        })}
+                        {shown.map((item, index) => (
+                            <OrderRow
+                                key={item.id}
+                                // The row the table holds at the top. A ref rather than an id lookup
+                                // because it is the measured height of everything above it that the
+                                // scroll needs, and only the element carries that.
+                                ref={item.id === anchor?.id ? anchorRef : undefined}
+                                item={item}
+                                // Where this row sits in the WHOLE order rather than in the visible
+                                // slice, which is the number both the row's own count and the move
+                                // it offers are stated against.
+                                position={index + (folding ? anchorAt : 0)}
+                                nextUp={nextUp}
+                                editable={editable}
+                                onRemove={onRemove}
+                                removing={removingItemId === item.id}
+                                onMove={onMove}
+                                moving={movingItemId === item.id}
+                                onRate={onRate}
+                                writingRating={item.kind === 'track' && ratingTrackId === item.trackId}
+                            />
+                        ))}
                     </Table.Tbody>
                 </Table>
             </Box>
@@ -678,6 +485,245 @@ export function StationOrderTable({
     );
 }
 
+interface OrderRowProps {
+    item: StationOrderItem;
+    /** Where the item sits in the WHOLE order, not in the visible slice. */
+    position: number;
+    /** {@link firstPlannedIndex} of the whole order, which is the only index a move ever targets. */
+    nextUp: number;
+    /** Whether the table is drawing the edit column at all, so an uneditable row still lines up. */
+    editable: boolean;
+    onRemove?: (item: StationOrderItem) => void;
+    removing: boolean;
+    onMove?: (item: StationOrderItem, toIndex: number) => void;
+    moving: boolean;
+    onRate?: (trackId: string, rating: Rating) => void;
+    writingRating: boolean;
+    ref?: Ref<HTMLTableRowElement>;
+}
+
+/**
+ * One desktop row of the running order.
+ *
+ * Memoised because the order is re-fetched every five seconds and almost nothing on it changes
+ * between polls: the query's structural sharing keeps an unchanged item's identity, so an unchanged
+ * row costs a comparison rather than a render of a title, three badges, two links and a rating
+ * control. The busy flags are computed by the parent so that one flipping re-renders one row.
+ */
+const OrderRow = memo(function OrderRow({
+    item,
+    position,
+    nextUp,
+    editable,
+    onRemove,
+    removing,
+    onMove,
+    moving,
+    onRate,
+    writingRating,
+    ref,
+}: OrderRowProps) {
+    const state = STATE_LABEL[item.state];
+    // A segment is the station's own words, and a record the catalog has never seen
+    // has no row to hold an opinion — a station can air one it never ingested.
+    const trackId = item.kind === 'track' ? item.trackId : undefined;
+    return (
+        <Table.Tr
+            ref={ref}
+            className={item.state === 'airing' ? classes.airing : undefined}
+            // Dimmed rather than hidden: what is beyond editing is how an operator
+            // reads where the station has got to. The item ON AIR is not dimmed,
+            // because it is the one thing on the page that is happening.
+            //
+            // A SKIPPED segment is dimmed further still, which is not a third
+            // opinion about states but a fact about how they arrive: a played
+            // record is one row and a break the station passed over comes in
+            // runs, four and five deep, each one an identical line saying News
+            // SEGMENT MODEL SKIPPED. At the same weight as the history around
+            // them they read as the order rather than as the gaps in it. The row
+            // stays a row, because which break was skipped and where is exactly
+            // what an operator scrolls back to find.
+            opacity={opacityFor(item)}
+        >
+            <Table.Td>
+                {/* Numbered against the WHOLE order rather than the rows on
+                                            screen: with the history folded away, a first visible row
+                                            called 1 would quietly renumber the broadcast. */}
+                <Text size="xs" c="dimmed" className="da-num">
+                    {position + 1}
+                </Text>
+            </Table.Td>
+            {/* `maxWidth` rather than `minWidth` is what actually caps this: a table
+                                    column sizes to its content, so an upper bound on the cell is the
+                                    only thing the layout algorithm will honour, and the `minWidth: 0`
+                                    below is what then makes the title the part that gives. */}
+            <Table.Td style={{ maxWidth: 430 }}>
+                {/* `minWidth: 0` in both places, and both are load-bearing: a flex
+                                        child defaults to `min-width: auto`, so a truncating title
+                                        still reports its full width to the table's column algorithm
+                                        and the row grows instead of the text shrinking. The Group
+                                        needs it to be shrinkable at all; the Text needs it to be the
+                                        thing that gives. */}
+                <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
+                    <Artwork src={item.artworkUrl} alt={item.title} size={28} radius="xs" />
+                    {/* The way into whatever this row IS, which is where an
+                                            operator hearing something odd actually wants to go: a
+                                            record goes to everything it has accumulated and a break
+                                            goes to the words it was written from. Both draw as the
+                                            same plain text they always were when there is nothing
+                                            to reach — an uningested record, a segment the library
+                                            no longer holds. */}
+                    <Title item={item} id={item.kind === 'segment' ? item.segmentId : trackId} />
+                    {/* A segment is not a record and should not have to be worked
+                                            out from an empty artist column. */}
+                    {item.kind === 'segment' ? (
+                        <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                            segment
+                        </Badge>
+                    ) : undefined}
+                    {/* A talk-over never becomes something the player is handed: it
+                                            is heard ALONGSIDE the record after it, with the music
+                                            ducked under it. */}
+                    {item.overAtMs === undefined ? undefined : (
+                        <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                            over the next record
+                        </Badge>
+                    )}
+                    {/* Which writer produced the words. Without it a model that
+                                            degrades to the station's own phrasings on every single
+                                            break looks exactly like a model that is working, and the
+                                            answer has been on the row since it was written. */}
+                    {item.segmentWriter === undefined ? undefined : (
+                        <Tooltip label={writerHint(item.segmentWriter)} multiline maw={360}>
+                            <Badge size="xs" variant="light" color={item.segmentWriter === 'model' ? 'grape' : 'gray'} style={{ flexShrink: 0 }}>
+                                {item.segmentWriter}
+                            </Badge>
+                        </Tooltip>
+                    )}
+                    {/* The station SKIPS a segment that has no audio when it comes
+                                            round, rather than waiting for one. An operator reading the
+                                            order has to be able to see which items will not be heard. */}
+                    {item.kind === 'segment' && item.playable === false && item.state === 'planned' ? (
+                        // The reason when the row carries one. A break that could
+                        // not be written and a DJ that simply talks less look
+                        // identical without it, and the difference is a sentence
+                        // already on the segment.
+                        <Tooltip
+                            multiline
+                            maw={360}
+                            label={item.segmentError ?? `This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}`}
+                        >
+                            <Badge size="xs" variant="light" color="yellow" style={{ flexShrink: 0 }}>
+                                will skip
+                            </Badge>
+                        </Tooltip>
+                    ) : undefined}
+                    {state ? (
+                        <Tooltip label={state.hint} multiline maw={360}>
+                            {/* Mono, like every other legend on the desk, and pulsing on the one
+                                                    row that is actually going out. */}
+                            <Text
+                                size="xs"
+                                c={state.colour}
+                                ff="monospace"
+                                tt="uppercase"
+                                className={item.state === 'airing' ? 'da-lamp-pulse' : undefined}
+                                style={{ letterSpacing: 'var(--da-tracking-eyebrow)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                            >
+                                {state.label}
+                            </Text>
+                        </Tooltip>
+                    ) : undefined}
+                </Group>
+            </Table.Td>
+            {/* The CREDIT is drawn and the LEAD is linked, which is the same
+                                    split the rest of the station runs on: `artists` is what the
+                                    provider wrote on the copy and `artistId` is who it is by.
+
+                                    `dimmed` only where there is nowhere to go, because a dimmed
+                                    anchor is indistinguishable from the text beside it: a link
+                                    nobody can see is a page nobody finds, which is the reason the
+                                    catalog's own table draws these two as links at all. */}
+            <Table.Td style={{ maxWidth: 220 }}>
+                <ArtistLink id={item.artistId} size="sm" c={item.artistId === undefined ? 'dimmed' : undefined} truncate>
+                    {formatArtists(item.artists)}
+                </ArtistLink>
+            </Table.Td>
+            <Table.Td visibleFrom="xl">
+                <AlbumLink id={item.albumId} size="sm" c={item.albumId === undefined ? 'dimmed' : undefined} truncate>
+                    {item.album ?? ''}
+                    {item.year ? ` (${item.year})` : ''}
+                </AlbumLink>
+            </Table.Td>
+            <Table.Td>
+                <Text size="xs" c="dimmed" className="da-num">
+                    {formatDuration(item.durationMs)}
+                </Text>
+            </Table.Td>
+            {onRate ? (
+                <Table.Td>
+                    {trackId === undefined ? undefined : (
+                        <RatingControl
+                            size="xs"
+                            rating={item.rating}
+                            label={item.title}
+                            busy={writingRating}
+                            onChange={rating => {
+                                onRate(trackId, rating);
+                            }}
+                        />
+                    )}
+                </Table.Td>
+            ) : undefined}
+            {editable ? (
+                <Table.Td>
+                    <Group gap={2} wrap="nowrap">
+                        {/* Not on the row already at the front: a control
+                                                whose only effect is to leave the order exactly as
+                                                it was teaches an operator that this corner of the
+                                                row does nothing, which is the same argument the
+                                                spent rows below are drawn bare on. */}
+                        {onMove && item.state === 'planned' && position !== nextUp ? (
+                            <Tooltip
+                                label="Moves this in front of everything the player is not already holding. Not necessarily the next thing heard: whatever has been handed over plays first."
+                                multiline
+                                maw={340}
+                            >
+                                <ActionIcon
+                                    variant="subtle"
+                                    color="gray"
+                                    aria-label={`Play ${item.title} next`}
+                                    loading={moving}
+                                    onClick={() => onMove(item, nextUp)}
+                                >
+                                    <IconChevronsUp size={15} stroke={1.8} />
+                                </ActionIcon>
+                            </Tooltip>
+                        ) : undefined}
+                        {/* Nothing at all on a spent item, rather than a disabled
+                                            control: the player is holding it or it is behind us, and an
+                                            affordance that could only ever answer 422 is worse than no
+                                            affordance. */}
+                        {onRemove && !isSpent(item.state) ? (
+                            <Tooltip label="Drop this item">
+                                <ActionIcon
+                                    variant="subtle"
+                                    color="red"
+                                    aria-label={`Drop ${item.title}`}
+                                    loading={removing}
+                                    onClick={() => onRemove(item)}
+                                >
+                                    <IconX size={15} stroke={1.8} />
+                                </ActionIcon>
+                            </Tooltip>
+                        ) : undefined}
+                    </Group>
+                </Table.Td>
+            ) : undefined}
+        </Table.Tr>
+    );
+});
+
 /**
  * One item of the running order, on a phone.
  *
@@ -687,7 +733,15 @@ export function StationOrderTable({
  * at a glance. A row that dropped columns until it fit would keep the ones that happened to be
  * leftmost.
  */
-function PhoneRow({ item, onRemove, removing }: { item: StationOrderItem; onRemove?: () => void; removing: boolean }) {
+const PhoneRow = memo(function PhoneRow({
+    item,
+    onRemove,
+    removing,
+}: {
+    item: StationOrderItem;
+    onRemove?: (item: StationOrderItem) => void;
+    removing: boolean;
+}) {
     const state = STATE_LABEL[item.state];
     const airing = item.state === 'airing';
 
@@ -739,11 +793,19 @@ function PhoneRow({ item, onRemove, removing }: { item: StationOrderItem; onRemo
                     thumb. Nothing at all on a spent item, rather than a disabled affordance that
                     could only ever answer 422. */}
                 {onRemove ? (
-                    <ActionIcon variant="subtle" color="red" w={44} h={44} aria-label={`Drop ${item.title}`} loading={removing} onClick={onRemove}>
+                    <ActionIcon
+                        variant="subtle"
+                        color="red"
+                        w={44}
+                        h={44}
+                        aria-label={`Drop ${item.title}`}
+                        loading={removing}
+                        onClick={() => onRemove(item)}
+                    >
                         <IconX size={16} stroke={1.8} />
                     </ActionIcon>
                 ) : undefined}
             </Group>
         </Card>
     );
-}
+});

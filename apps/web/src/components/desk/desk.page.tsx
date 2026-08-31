@@ -1,6 +1,8 @@
+import { useCallback } from 'react';
 import { Button, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { Anchor } from '@mantine/core';
+import type { Rating, StationOrderItem } from '@deadair/sdk';
 
 import { useRateTrack } from '../../api/catalog.queries';
 import { useExtendOrder, useMoveOrderItem, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
@@ -62,6 +64,23 @@ export function DeskPage() {
     const removeItem = useRemoveOrderItem();
     const moveItem = useMoveOrderItem();
     const rateTrack = useRateTrack();
+
+    // Stable across renders, so the table's memoised rows survive the five-second poll instead of
+    // re-rendering under handlers that are new objects each time. `mutate` is destructured because
+    // the mutation object is new each render and its `mutate` is not, and the deps lint counts
+    // identifiers rather than knowing that.
+    const { mutate: removeOrderItem } = removeItem;
+    const { mutate: moveOrderItem } = moveItem;
+    const { mutate: rateRecord } = rateTrack;
+    const onRemove = useCallback((item: StationOrderItem) => removeOrderItem(item.id), [removeOrderItem]);
+    // The only way to reorder the hour that is not Shuffle, which reorders all of it. The table
+    // decides the index, because what is legal is a fact about the rows it is holding rather than
+    // something this page can work out.
+    const onMove = useCallback((item: StationOrderItem, toIndex: number) => moveOrderItem({ itemId: item.id, toIndex }), [moveOrderItem]);
+    // The running order is where an operator actually forms an opinion about a record: they are
+    // hearing it. The write goes to the catalog rather than to the order, and the order is re-read
+    // because it carries each row's rating.
+    const onRate = useCallback((trackId: string, rating: Rating) => rateRecord({ id: trackId, rating }), [rateRecord]);
 
     const loaded = order.data;
     const items = loaded?.items ?? [];
@@ -211,19 +230,11 @@ export function DeskPage() {
                         items={items}
                         collapseHistory
                         removingItemId={removeItem.isPending ? removeItem.variables : undefined}
-                        onRemove={item => removeItem.mutate(item.id)}
-                        // The only way to reorder the hour that is not Shuffle, which reorders all
-                        // of it. The table decides the index, because what is legal is a fact about
-                        // the rows it is holding rather than something this page can work out.
+                        onRemove={onRemove}
                         movingItemId={moveItem.isPending ? moveItem.variables?.itemId : undefined}
-                        onMove={(item, toIndex) => moveItem.mutate({ itemId: item.id, toIndex })}
-                        // The running order is where an operator actually forms an opinion about a
-                        // record: they are hearing it. The write goes to the catalog rather than to
-                        // the order, and the order is re-read because it carries each row's rating.
+                        onMove={onMove}
                         ratingTrackId={rateTrack.isPending ? rateTrack.variables?.id : undefined}
-                        onRate={(trackId, rating) => {
-                            rateTrack.mutate({ id: trackId, rating });
-                        }}
+                        onRate={onRate}
                     />
                 ) : undefined}
 

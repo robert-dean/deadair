@@ -18,6 +18,12 @@
             "runtimeExecutable": "pnpm",
             "runtimeArgs": ["--filter", "@deadair/web", "dev", "--port", "3022"],
             "port": 3022
+        },
+        {
+            "name": "web-alt2",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": ["--filter", "@deadair/web", "dev", "--port", "3033"],
+            "port": 3033
         }
     ]
 }

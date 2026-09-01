@@ -55,6 +55,8 @@ import '@mantine/spotlight/styles.css';
 import './tokens.css';
 
 import { createQueryClient } from './api/query.client';
+import { PageSkeleton } from './components/shared/page.skeleton';
+import { RouteError } from './components/shared/route.error';
 import { routeTree } from './routeTree.gen';
 import { useTheme } from './theme.store';
 
@@ -62,7 +64,19 @@ const queryClient = createQueryClient();
 
 // The router's gates fetch through the same cache the components read from, so a loader and the
 // hook rendering its data are one request, not two.
-const router = createRouter({ routeTree, context: { queryClient } });
+//
+// The two defaults are the console's floor rather than its preference: a route that says nothing
+// about failing or waiting gets these, and a page with a better answer of its own still overrides
+// them. Before they existed a loader that threw drew an unstyled message with no way back, and a
+// slow one drew nothing at all.
+const router = createRouter({
+    routeTree,
+    context: { queryClient },
+    defaultErrorComponent: RouteError,
+    // `rows` because that is what most of this console is, and the skeleton being the wrong SHAPE
+    // is the flicker `page.skeleton.tsx` was written to stop.
+    defaultPendingComponent: () => <PageSkeleton variant="rows" count={4} />,
+});
 
 declare module '@tanstack/react-router' {
     interface Register {

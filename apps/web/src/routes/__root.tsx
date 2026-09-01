@@ -16,6 +16,7 @@ import { apiErrorMessage } from '../api/sdk.error';
 import { isAuthenticated, isSessionActive, useSession } from '../auth/session.store';
 import { usePlayoutStatus } from '../api/playout.queries';
 import { useStationAttention } from '../api/station.queries';
+import { ApiStatusBanner } from '../components/shared/api.status.banner';
 import { ErrorAlert } from '../components/shared/error.alert';
 import { usePhone } from '../components/shared/use.phone';
 import { JumpTo } from '../components/shell/jump.to';
@@ -198,6 +199,12 @@ export function RootLayout() {
                 </AppShell.Navbar>
             ) : undefined}
             <AppShell.Main>
+                {/* Above everything, including the page's own failures, and drawn whether or not
+                    anybody is signed in: an unreachable API is why the login page will not submit
+                    either, and that is worth saying rather than leaving as a spinner. It carries
+                    its own spacing and renders nothing at all while the station answers, so there
+                    is no wrapper here holding a gap open for a banner that is not there. */}
+                <ApiStatusBanner />
                 {logoutError ? (
                     <Box mb="lg">
                         <ErrorAlert

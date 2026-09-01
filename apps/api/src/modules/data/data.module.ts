@@ -146,9 +146,20 @@ export const DataModule: ServerKitModule = {
                         // and no stack, which is how "Transaction is already committed" sat
                         // in the log on every boot for days without anyone being able to
                         // say which statement caused it.
+                        //
+                        // The SQL and how many parameters it took, and NOT the parameters. They are
+                        // the row's values, and the rows that fail are exactly the ones nobody wants
+                        // in a log: a constraint violation on `actors_password_factors` carries the
+                        // hash and salt, one on `plugin_configs` the secrets map, one on `settings`
+                        // a secret's ciphertext, and a session insert its token. The store's
+                        // redaction is keyed on the meta KEY (`token`, `secret`, `password`...), which
+                        // `parameters` matches nothing in, and the stdout copy has no redaction at
+                        // all — so for as long as they were here every one of those landed in
+                        // `docker logs` and in the file `/logs` serves. The count still says which
+                        // statement it was when the SQL alone is ambiguous.
                         logger.error(`db: query failed: ${errorText(event.error)}`, {
                             sql: event.query.sql,
-                            parameters: event.query.parameters,
+                            parameterCount: event.query.parameters.length,
                             durationMs: Math.round(event.queryDurationMillis),
                         });
                     },

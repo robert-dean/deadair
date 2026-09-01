@@ -24,9 +24,9 @@ settings.log.level := 4
 
 s = mksafe(blank())
 
-# The same two variants radio.liq builds, at the same default rates. Both encoders are present
-# in this image (measured), so a failure here is about HLS packaging rather than the codec.
-streams = [("aac", %fdkaac(bitrate=192)), ("mp3", %mp3(bitrate=128))]
+# The same single variant radio.liq builds, at the same default rate. The encoder is present in
+# this image (measured), so a failure here is about HLS packaging rather than the codec.
+streams = [("aac", %fdkaac(bitrate=192))]
 
 output.file.hls(
   playlist = "live.m3u8",

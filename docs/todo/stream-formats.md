@@ -3,8 +3,9 @@
 **Written:** 2026-08-09, when there was one `%mp3` mount and this file was a proposal.
 **Rewritten:** 2026-08-28, when the mounts and the HLS output landed. What follows is a record of
 what shipped and why, not a plan.
+**Amended:** 2026-09-01, when the HLS MP3 variant was dropped. See "Why HLS carries AAC alone".
 **State of the tree:** MP3 always, plus Opus, AAC and FLAC as opt-in Icecast mounts, plus an opt-in
-HLS output carrying AAC and MP3. All four extras are off on a station nobody has configured.
+HLS output carrying AAC. All four extras are off on a station nobody has configured.
 
 This file is about WHICH outputs the station serves. For how good the audio on any of them can get,
 and why the ceiling is the source rather than the encoder, see
@@ -41,7 +42,7 @@ always present.
 | Opus mount | `stream.opusEnabled` | 160 kbps | best quality per bit; browsers and modern players |
 | AAC mount | `stream.aacEnabled` | 192 kbps | the one that widens HARDWARE reach |
 | FLAC mount | `stream.flacEnabled` | ~900 kbps | lossless transport, behind a lossless library |
-| HLS | `stream.hlsEnabled` | AAC 192 + MP3 128 | one URL a player picks from, and the only output that survives a phone changing networks |
+| HLS | `stream.hlsEnabled` | AAC 192 | one URL, and the only output that survives a phone changing networks |
 
 The mount PATHS are derived from `stream.mount` by swapping the extension, in `streamMounts`
 ([stream.settings.ts](../../apps/api/src/modules/stream/stream.settings.ts)), which is the single
@@ -58,22 +59,40 @@ reach, which inverts the ordering this file originally proposed.
 nothing — an encoder is real CPU in the stream container, 24/7 — which is why every one of them is
 off by default rather than something a station pays for without asking.
 
-### Why HLS is here, and why it carries only two of the four
+### Why HLS is here, and why it carries AAC alone
 
 Not for quality and not for latency (it is worse on both counts than a mount). An Icecast mount is
 one long-lived TCP connection, so a phone moving between wifi and mobile changes its source address,
 the socket dies, and the stream simply ends with no reconnect. Nothing on the server side carries a
 TCP connection across that and no Icecast setting touches it. HLS is a sequence of ordinary HTTP
 requests for small files, so the same handoff costs at most one segment fetch and the player asks
-again. It is also the only output a player can CHOOSE from: the master playlist advertises each
-variant with its `CODECS` and `BANDWIDTH`.
+again.
 
-**AAC and MP3 only.** The HLS spec allows mp3 and aac; Opus and FLAC need fragmented MP4, which
-Liquidsoap supports since 2.4.3 and which carries **no in-stream metadata at all** — so those
-variants would play, on the few clients that manage them, with no idea what is on. They stay on
-their Icecast mounts where their metadata works. Sonos reads ID3v2 out of an HLS stream and ICY out
-of everything else ([HLS docs](https://docs.sonos.com/docs/http-live-streaming-hls)), which is
-exactly what these two produce.
+**AAC only.** Opus and FLAC need fragmented MP4, which Liquidsoap supports since 2.4.3 and which
+carries **no in-stream metadata at all**, so those variants would play, on the few clients that
+manage them, with no idea what is on. They stay on their Icecast mounts where their metadata works.
+Sonos reads ID3v2 out of an HLS stream and ICY out of everything else
+([HLS docs](https://docs.sonos.com/docs/http-live-streaming-hls)), which is what this produces.
+
+**MP3 was the second variant until 2026-09-01, and it was closing the output to every
+Chromium-based browser.** The spec allows packed MP3 audio and Liquidsoap writes it; Safari and
+ffmpeg take it and Chromium does not. A `%mp3` segment fails Chromium's demuxer outright
+(`DEMUXER_ERROR_COULD_NOT_PARSE`) or, worse, hangs the media element at `loadstart` with
+`readyState 0` and never fires `error`, so the player sits there looking like a station that went
+off the air. What turned that from a fallback into a total failure is variant SELECTION: Chromium
+picks the lowest `BANDWIDTH` on a cold start, which was the MP3 one, every time. Measured in Brave
+against the live station: `/hls/aac.m3u8` on its own played clean, `/hls/mp3.m3u8` hung
+indefinitely, and `/live.m3u8` chose MP3 and failed on 4 attempts out of 4, while an AAC-only master
+played on 3 of 3. **The reach argument that put it there was backwards.** MP3 is the compatibility
+floor on an Icecast MOUNT, where it stays and where MP3-only clients still find it. Inside HLS it
+was not a wider net, it was the only thing a large class of clients ever tried.
+
+If a second variant is ever wanted, the move is MPEG-2 TS, not the packed-audio one again. Two
+things to know before attempting it. Chromium's support for MP3-in-TS is unverified. And
+Liquidsoap's `%mp3` HLS segments are not frame-aligned: each begins with 76 to 113 bytes of the
+previous frame's tail, where the `%fdkaac` ones start exactly on an ADTS sync. That is a real defect
+and it is a SEPARATE one. Repairing the alignment by hand and replaying only moved Chromium's error
+to `CHUNK_DEMUXER_ERROR_APPEND_FAILED`.
 
 **It runs whenever it is enabled and does NOT follow the mount lease.** The instinct is to write
 segments only while the station is on air, and it is wrong: the playlist has to exist before anybody

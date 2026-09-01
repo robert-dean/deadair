@@ -42,8 +42,8 @@ export const STREAM_KEYS = {
     /** Lossless TRANSPORT, which is only worth anything when the sources are lossless too. */
     flacEnabled: 'stream.flacEnabled',
     /**
-     * The HLS output: one URL a player picks its own format from, and the only
-     * transport here that survives a phone moving between wifi and mobile.
+     * The HLS output: one URL carrying AAC, and the only transport here that
+     * survives a phone moving between wifi and mobile.
      *
      * An Icecast mount is a single long-lived TCP connection, so the handoff changes
      * the source address, the socket dies, and the stream simply ends. Nothing on the
@@ -51,8 +51,8 @@ export const STREAM_KEYS = {
      * requests, so a network change costs at most one segment fetch and the player
      * retries.
      *
-     * Off by default like the format mounts, and for the same reason: it is two more
-     * encoders running whether or not anybody is listening.
+     * Off by default like the format mounts, and for the same reason: it is one more
+     * encoder running whether or not anybody is listening.
      */
     hlsEnabled: 'stream.hlsEnabled',
     hlsSegmentSeconds: 'stream.hlsSegmentSeconds',

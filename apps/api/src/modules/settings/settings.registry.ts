@@ -317,7 +317,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Also publish an HLS stream',
         type: 'boolean',
         default: STREAM_DEFAULTS.hlsEnabled,
-        help: 'One address a player picks its own format from, instead of choosing a mount by hand. It is also the only one here that survives a phone moving between wifi and mobile: the mounts above are a single connection that dies with the network, while this is ordinary web requests a player simply retries. Costs a few seconds more delay than the mounts, and two more encoders.',
+        help: 'One address, carrying AAC, that survives a phone moving between wifi and mobile: the mounts above are a single connection that dies with the network, while this is ordinary web requests a player simply retries. Costs a few seconds more delay than the mounts, and one more encoder.',
     },
     {
         group: 'station',

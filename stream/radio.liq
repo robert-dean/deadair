@@ -1572,16 +1572,36 @@ end
 # that, and no Icecast setting touches it. HLS is a sequence of ordinary HTTP requests for small
 # files, so the same handoff costs at most one segment fetch and the player asks again.
 #
-# It is also the only output here a player can CHOOSE from. The master playlist lists each
-# variant with its codec and bandwidth, so a client picks one it can actually decode instead of
-# an operator picking a URL on its behalf.
+# It is also the only output here that DESCRIBES itself. The master playlist names each variant
+# with its codec and bandwidth, so a client can tell whether it is able to decode what is on the
+# far end before it commits to it. That was meant to be a choice between variants; it now carries
+# exactly one, for the reason below, so what survives is the declaration rather than the pick.
 #
-# **Two variants, AAC and MP3, and deliberately not the other two.** The HLS spec allows mp3 and
-# aac; Opus and FLAC would need fragmented MP4, which Liquidsoap supports and which carries NO
-# in-stream metadata at all — so those variants would play, on the few clients that manage them,
-# with no idea what is on. Opus and FLAC stay on their Icecast mounts where their metadata works.
-# AAC is also the format hardware asks for: a Sonos takes MP3 or AAC and reads ID3v2 out of an
-# HLS stream, which is exactly what these two produce.
+# **One variant, AAC, and the other three are each refused for their own reason.** Opus and FLAC
+# would need fragmented MP4, which Liquidsoap supports and which carries NO in-stream metadata at
+# all, so those variants would play, on the few clients that manage them, with no idea what is on.
+# They stay on their Icecast mounts where their metadata works. AAC is also the format hardware
+# asks for: a Sonos takes MP3 or AAC and reads ID3v2 out of an HLS stream, which is what this
+# produces.
+#
+# **MP3 was the second variant and had to go, because Chromium cannot play it and picks it
+# anyway.** The HLS spec allows packed MP3 audio, Liquidsoap writes it, and Safari and ffmpeg take
+# it. Chromium does not: a `%mp3` segment fails its demuxer outright
+# (`DEMUXER_ERROR_COULD_NOT_PARSE`), or worse, hangs the element at `loadstart` with `readyState 0`
+# and never fires `error`, so a player sits there looking like a station that went off the air.
+# What made this a total failure rather than a fallback is variant SELECTION: Chromium picks the
+# lowest `BANDWIDTH` on a cold start, which was this one, every time. Measured in Brave against
+# the live station: `/hls/aac.m3u8` on its own played clean, `/hls/mp3.m3u8` hung indefinitely, and
+# `/live.m3u8` chose the MP3 variant and failed on 4 attempts out of 4. An AAC-only master played
+# on 3 of 3. So the variant that was there to widen reach was instead the only thing any
+# Chromium-based browser ever tried, and it closed the output to all of them.
+#
+# Repackaging it as MPEG-2 TS is the move if a second variant is ever wanted, NOT restoring the
+# packed-audio one. Note also, if that is ever attempted, that Liquidsoap's `%mp3` HLS segments are
+# not frame-aligned: each begins with 76 to 113 bytes of the previous frame's tail, where the
+# `%fdkaac` ones start exactly on an ADTS sync. Tolerant players resync past it. It is a real
+# defect and it is NOT this one: repairing the alignment by hand and replaying only moved
+# Chromium's error to `CHUNK_DEMUXER_ERROR_APPEND_FAILED`.
 #
 # **It runs whenever it is enabled, and must not follow the mount lease.** The instinct is to
 # write segments only while the station is on air, and it is wrong: the playlist has to exist
@@ -1590,13 +1610,10 @@ end
 # directory holds `segments + segments_overhead` files and no more.
 hls_dir = environment.get("STREAM_HLS_DIR", default="")
 if hls_dir != "" then
-  # The same closed-set branch the Icecast encoders need, and for the same reason: these
-  # bitrates are read when this script is PARSED. Fixed at the MP3 mount's rate and the AAC
-  # setting's, so a station that raised either gets it here too.
-  hls_streams = [
-    ("aac", aac_encoder(aac_bitrate)),
-    ("mp3", %mp3(bitrate=int_of_float(env_float("STREAM_BITRATE", 128.))))
-  ]
+  # The same closed-set branch the Icecast encoders need, and for the same reason: this bitrate
+  # is read when this script is PARSED. Fixed at the AAC setting's, so a station that raised it
+  # gets it here too.
+  hls_streams = [("aac", aac_encoder(aac_bitrate))]
 
   # `persist_at` is what makes a restart survivable, and this container restarts on every
   # stream-settings change (config-watch.sh). Without it Liquidsoap starts numbering segments

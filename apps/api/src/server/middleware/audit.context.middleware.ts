@@ -44,41 +44,49 @@ export const auditContextMiddleware: () => ServerKitMiddleware = () => {
         const requestId = ctx.requestId;
         const actorIp = ctx.ipAddress ?? null;
 
-        await db.transaction().execute(async trx => {
-            // Written and, today, read by NOTHING: no trigger, no policy, no `current_setting`
-            // anywhere in the schema. They are a prepared seam rather than a live control, kept
-            // because the alternative is a database-side audit trail that starts with no history
-            // and because they cost one statement on a connection already being set up. Say so
-            // rather than implying otherwise — see `docs/todo/row-level-security.md` for what
-            // would have to be true for them to matter, including the `app.actor_org_id` this
-            // deliberately does not set because there is no organization to name.
-            await sql`
-                select set_config('app.actor_type', ${actorType}, true),
-                       set_config('app.actor_id', ${actorId}, true),
-                       set_config('app.request_id', ${requestId}, true),
-                       set_config('app.actor_ip', ${actorIp}, true)
-            `.execute(trx);
+        try {
+            await db.transaction().execute(async trx => {
+                // Written and, today, read by NOTHING: no trigger, no policy, no `current_setting`
+                // anywhere in the schema. They are a prepared seam rather than a live control, kept
+                // because the alternative is a database-side audit trail that starts with no history
+                // and because they cost one statement on a connection already being set up. Say so
+                // rather than implying otherwise — see `docs/todo/row-level-security.md` for what
+                // would have to be true for them to matter, including the `app.actor_org_id` this
+                // deliberately does not set because there is no organization to name.
+                await sql`
+                    select set_config('app.actor_type', ${actorType}, true),
+                           set_config('app.actor_id', ${actorId}, true),
+                           set_config('app.request_id', ${requestId}, true),
+                           set_config('app.actor_ip', ${actorIp}, true)
+                `.execute(trx);
 
-            (ctx.container as ScopedContainer).override(Kysely<DB>, trx);
-            // Bind job enqueues to this request transaction: the scoped
-            // JobBroker reads its executor from this provider, so jobs sent
-            // during the request commit/roll back atomically with it.
-            (ctx.container as ScopedContainer).override(PgBossConnectionProvider, new KyselyTransactionConnectionProvider(trx));
+                (ctx.container as ScopedContainer).override(Kysely<DB>, trx);
+                // Bind job enqueues to this request transaction: the scoped
+                // JobBroker reads its executor from this provider, so jobs sent
+                // during the request commit/roll back atomically with it.
+                (ctx.container as ScopedContainer).override(PgBossConnectionProvider, new KyselyTransactionConnectionProvider(trx));
 
-            await next();
-        });
+                await next();
+            });
+        } finally {
+            // The scope is pointed back at the pool on BOTH paths, which is what the `finally` is
+            // for: the transaction object is over either way, and only the committing path used to
+            // put it back. When `next()` threw, the request's `Kysely` was left pointing at the
+            // transaction that had just rolled back, so anything resolving one from the error path
+            // (an error handler that wanted to write down what happened being the obvious one)
+            // would be answered with `Transaction is already rolled back` rather than with the
+            // pool. Nothing upstream of here touches the database today, which is the only reason
+            // that was invisible instead of a bug, and is exactly what makes it a trap for whoever
+            // adds the first one.
+            (ctx.container as ScopedContainer).override(Kysely<DB>, db);
+            (ctx.container as ScopedContainer).override(PgBossConnectionProvider, pooledJobConnections);
+        }
 
         // Past here the transaction has COMMITTED. It rejects instead when `next()`
         // threw, so a rolled-back request never reaches the follow-up work its
         // handler registered, which is the point of registering it rather than doing
-        // it inline.
-        //
-        // The scope is pointed back at the pool first: its `Kysely` is still the
-        // transaction object that has just ended, and anything resolving one from
-        // here would get `Transaction is already committed`.
-        (ctx.container as ScopedContainer).override(Kysely<DB>, db);
-        (ctx.container as ScopedContainer).override(PgBossConnectionProvider, pooledJobConnections);
-
+        // it inline. The `finally` above does not change that: a throw carries straight
+        // past this line.
         await ctx.container.get(AfterCommit).run();
     };
 };

@@ -6,8 +6,23 @@ import { PluginRegistry } from './plugin.registry.js';
 import { serverkitErrorText } from '#modules/shared/error.text.js';
 import { recordSpan, spanError } from '#modules/shared/trace.spans.js';
 
-/** How long a single call into plugin code may run before it is abandoned. */
-export const PLUGIN_INVOKE_TIMEOUT_MS = 15_000;
+/**
+ * How long a single call into plugin code may run before it is abandoned.
+ *
+ * Under `DATABASE_POOL_CONNECTION_TIMEOUT_MS` (10s in `data.module.ts`), and that ordering is the
+ * whole of the figure. A plugin call on the request path (`testConnection`, the OAuth pair, a
+ * catalog page, a search) runs inside the request's transaction, so it holds one of
+ * `DATABASE_POOL_MAX` connections for exactly as long as it lasts. At 15s it outlived the patience
+ * of everything queued behind it: a request waiting for a connection gave up at 10s while the call
+ * holding the connection still had five seconds of its own budget to spend. Whichever of the two
+ * numbers moves, they have to keep this order, or the pool starts shedding requests to protect
+ * itself from a call the host had already decided was acceptable.
+ *
+ * Only the default, and only for calls that ask for nothing. Everything that genuinely needs longer
+ * says so per call and is off the request path when it does: `speech.speak`, `llm.generate`,
+ * `analysis.analyzeTrack`, `mixer.join`, the enrichment walk.
+ */
+export const PLUGIN_INVOKE_TIMEOUT_MS = 8_000;
 
 /** Consecutive failures that trip the breaker and quarantine the plugin. */
 export const PLUGIN_FAILURE_THRESHOLD = 3;

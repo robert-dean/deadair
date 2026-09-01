@@ -22,7 +22,8 @@
 // handler returns rather than when a commit lands. An exempt route must
 // therefore not send a job describing work that could still fail, and must not
 // rely on `AfterCommit` for anything a caller will read back in the same
-// request. Today's exemptions (streaming, infra, art, now-playing) do neither.
+// request. Today's exemptions (streaming, infra, art, now-playing, persona
+// drafting) do neither.
 //
 // This used to say the bar was about the `app.actor_org_id` GUC and the
 // org-isolation RLS policies. Neither exists — see
@@ -74,6 +75,29 @@ export const artExemption: TransactionExemption = ({ method, path }) => method =
 // and a transaction each time. Anything that grows a database read here has to come out of this list.
 export const nowPlayingExemption: TransactionExemption = ({ method, path }) => method === 'GET' && path === '/nowplaying';
 
+// Drafting a persona, which is the "must not pin a connection" case again with the holding time set
+// by a language model rather than by a file read.
+//
+// `PersonasService.generate` writes NOTHING. It hands the model's answer straight back for the
+// console to open in its editor, and the operator saves it through the ordinary create route, so
+// there is nothing here for a transaction to make atomic. What the transaction cost instead was one
+// of `DATABASE_POOL_MAX` connections held idle for the length of a whole generation:
+// `persona.writer.ts` gives the call `BUDGET_MS` (4 minutes) plus `MAX_WAIT_MS` (1 minute) waiting
+// for the model slot, and against the slow remote model this station is pointed at, most of that
+// budget is routinely spent. Ten of those and the pool is gone, which is the art-thumbnail failure
+// again with a hundredth of the traffic needed to cause it.
+//
+// It also reads nothing worth a connection: `LlmService` holds no repository, the model choice comes
+// from the config (a layer of `AppConfig`, so no query), and the call is made with `tools: false`,
+// which is what keeps a tool round trip from reaching the database behind this exemption's back.
+// Anything that gives this route a write, or gives that call its tools, has to come out of this list.
+//
+// The sibling routes are deliberately NOT here. `POST /personas/import` and the notes and stories
+// routes write, so their transaction is doing the job it exists for, and `POST /personas/:id/rehearse`
+// runs the break writers and holds a connection the same way this did. Rehearsal is the next
+// candidate rather than a fifth entry today: it is worth checking what it writes first.
+export const personaDraftExemption: TransactionExemption = ({ method, path }) => method === 'POST' && path === '/personas/generate';
+
 // The exemptions applied by default. Compose additional ones onto this list where the middleware is
 // wired (setup.middleware) when a new opt-out route is introduced.
 export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
@@ -81,6 +105,7 @@ export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
     streamingExemption,
     artExemption,
     nowPlayingExemption,
+    personaDraftExemption,
 ];
 
 export const isTransactionExempt = (request: ExemptionRequest, exemptions: readonly TransactionExemption[]): boolean =>

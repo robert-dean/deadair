@@ -1333,8 +1333,22 @@ describe('PluginHostFactory network.open grant', () => {
 describe('PluginHostFactory fetch budget', () => {
     const allowlisted = (...network: string[]): PluginManifest => manifest({ permissions: { network, storage: false, oauth: false } });
 
+    // Strictly under rather than at most, because the fetch budget covers a `Retry-After` back-off
+    // and the retry as well as the request: a default equal to the whole invocation spends it all on
+    // the first attempt and describes a second one that can never happen.
     it('never gives a fetch a default budget the invoker would not honour', () => {
-        expect(PLUGIN_FETCH_TIMEOUT_MS).toBeLessThanOrEqual(PLUGIN_INVOKE_TIMEOUT_MS);
+        expect(PLUGIN_FETCH_TIMEOUT_MS).toBeLessThan(PLUGIN_INVOKE_TIMEOUT_MS);
+    });
+
+    // The other end of the same ordering, and the one that was inverted: a call on the request path
+    // runs inside the request's transaction, so it holds one of the pool's connections for its whole
+    // duration. `DATABASE_POOL_CONNECTION_TIMEOUT_MS` defaults to 10s in `data.module.ts`, so at the
+    // old 15s the call outlived the patience of everything queued behind it: the queue gave up
+    // while the connection holder still had five seconds of budget left. The figure is repeated here
+    // rather than imported because importing it would pull the whole chassis module into this suite
+    // for one number.
+    it('gives up before the pool stops handing out the connection such a call is holding', () => {
+        expect(PLUGIN_INVOKE_TIMEOUT_MS).toBeLessThan(10_000);
     });
 
     it('clamps a plugin asking for longer than the invoke deadline down to it', async () => {
@@ -1658,7 +1672,7 @@ describe('PluginHostFactory.createHost oauth', () => {
 
 // Sanity check that the constant referenced by these tests matches the source, per the package note.
 describe('PLUGIN_FETCH_TIMEOUT_MS', () => {
-    it('defaults the fetch budget to 10s', () => {
-        expect(PLUGIN_FETCH_TIMEOUT_MS).toBe(10_000);
+    it('defaults the fetch budget to 6s', () => {
+        expect(PLUGIN_FETCH_TIMEOUT_MS).toBe(6_000);
     });
 });

@@ -35,6 +35,46 @@ export const DataModule: ServerKitModule = {
             idleTimeoutMillis: numberOr('DATABASE_POOL_IDLE_TIMEOUT_MS', 10_000),
         };
 
+        // The database's own backstop on a connection this process has stopped using, and NOT the
+        // same thing as `idleTimeoutMillis` above however alike the two read: that one retires a
+        // client sitting unused IN THE POOL, which is a connection nobody is holding. This one ends
+        // a session sitting idle INSIDE A TRANSACTION, which is a connection somebody is holding and
+        // has stopped doing anything with.
+        //
+        // Nothing else in the process ends that. Every non-exempt request opens a transaction in
+        // `audit.context.middleware` and holds one of `max` connections for its whole lifetime, and
+        // `connectionTimeoutMillis` bounds only how long a request waits FOR a connection, never how
+        // long one may be held. So a handler that wedges awaiting something that never answers takes
+        // a pool slot out of circulation for the life of the process, and ten of those are the whole
+        // pool. That is the shape the art-thumbnail burst took in `transaction.exemptions.ts`,
+        // except that one at least ended.
+        //
+        // Ten minutes rather than the thirty seconds that would make it a tight backstop, because
+        // the console has routes that legitimately sit idle in their transaction for minutes: they
+        // ask the model for something and hold the connection until it answers. `POST
+        // /personas/:id/rehearse` runs the break writers that way, and the model this station is
+        // pointed at is a slow remote one, so anything tight enough to catch a wedge is tight enough
+        // to kill those, intermittently. The figure is set well clear of the worst legitimate hold
+        // instead, which is still the difference between a pool slot lost until a restart and one
+        // that comes back on its own.
+        //
+        // `POST /personas/generate` used to be the longest of them, at `BUDGET_MS` (4 minutes) plus
+        // `MAX_WAIT_MS` (1 minute) waiting for the model slot. It no longer holds a transaction at
+        // all: it writes nothing, so it is exempt (`transaction.exemptions.ts`). Tightening this is
+        // worth doing the day the rest of them are exempt too or have moved off the request path.
+        //
+        // Deliberately NOT joined by a `statement_timeout` or a `lock_timeout`. Background jobs run
+        // on this same pool, so both of those trade a hang nobody has measured for a new way to kill
+        // work that is going fine, and the one lock-wait hang this codebase has actually measured
+        // (`plugins.service.ts`, the reinit that blocked on the request's own lock) was fixed by not
+        // making the call rather than by bounding it.
+        //
+        // Sent as a startup parameter rather than a `SET` on connect, so it is in force on the first
+        // statement of every connection this pool opens with no round trip of its own, and it
+        // reaches only this pool: dbmate and pg-boss hold owner connections built elsewhere.
+        const idleInTransactionMs = Math.round(numberOr('DATABASE_IDLE_IN_TRANSACTION_TIMEOUT_MS', 600_000));
+        const startupOptions = idleInTransactionMs > 0 ? { options: `-c idle_in_transaction_session_timeout=${idleInTransactionMs}` } : {};
+
         // The runtime query pool connects as the non-owner `app_user` role where one is configured,
         // falling back to the owner otherwise. dbmate (migrations) and pg-boss (queue-schema
         // management, see JobsModule) keep their own owner connections.
@@ -47,7 +87,7 @@ export const DataModule: ServerKitModule = {
         // Which role that is gets decided in one place rather than here, because there are now two
         // callers of the answer: this pool, and the settings config source that reads
         // `deadair.settings` in `setup.server.ts` before any pool exists.
-        const dbConfig = { ...resolveRuntimeConnection(config), ...poolTuning, types: KyselyPgTypeOverrides };
+        const dbConfig = { ...resolveRuntimeConnection(config), ...poolTuning, ...startupOptions, types: KyselyPgTypeOverrides };
 
         registry
             .register(KyselyPool)
@@ -56,6 +96,35 @@ export const DataModule: ServerKitModule = {
                 const logger = container.get(Logger);
                 pool.on('error', err => {
                     logger.error(`db: pool error: ${errorText(err)}`);
+                });
+                // The handler above covers a connection sitting IDLE IN THE POOL and nothing else,
+                // which is not where the interesting failure happens. `pg-pool` attaches its own
+                // error listener when a connection is released and REMOVES it again when one is
+                // checked out, so for the whole time a request is holding a connection there is no
+                // listener on it at all. An `'error'` event with no listener is not an error in
+                // Node, it is `throw`, from an event handler, with no request to attribute it to.
+                //
+                // That is not a hypothetical either, and it is specifically the failure mode of the
+                // `idle_in_transaction_session_timeout` set above: the timeout does not make the next
+                // query fail, it makes the SERVER hang up (`FATAL 25P03`), which arrives
+                // asynchronously on a connection somebody is holding and nobody is listening to.
+                // Measured against this install's database, at a one second timeout, in exactly the
+                // shape used here (Kysely, this pool, the handler above already registered): the API
+                // process died on an unhandled `'error'` event. Turning one wedged connection into a
+                // dead station is not a trade worth making, so the timeout does not ship without
+                // this.
+                //
+                // Attached on `'connect'` because that is once per real connection and `pg-pool`
+                // only ever removes its OWN listener, so this one survives every checkout the
+                // connection goes through. What it buys is what the same measurement showed with it
+                // in place: the process lives, the held transaction rejects with something a handler
+                // can turn into a 500, and the pool discards the dead connection and opens a fresh
+                // one on demand. A connection that fails while idle now says so twice, once here and
+                // once above, which is a small price for the two being genuinely different events.
+                pool.on('connect', client => {
+                    client.on('error', err => {
+                        logger.error(`db: connection error: ${errorText(err)}`);
+                    });
                 });
                 return pool;
             })

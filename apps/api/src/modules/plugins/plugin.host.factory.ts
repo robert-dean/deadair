@@ -44,8 +44,14 @@ export const PLUGIN_FETCH_WINDOW_SECONDS = 1;
  * invocation to ask). That ceiling is not arbitrary: the call into plugin code
  * is already abandoned by `PluginInvoker` at that deadline, so a fetch budget
  * above it describes time the plugin will never be given.
+ *
+ * Strictly under {@link PLUGIN_INVOKE_TIMEOUT_MS} rather than equal to it, because this budget is
+ * supposed to cover a `Retry-After` back-off and the retry as well as the request itself, and a
+ * default that spends the entire invocation on the first attempt leaves nothing for the second one
+ * it is meant to include. The two moved together when the invoke default came down under the pool's
+ * acquire timeout; the ratio between them is what was kept.
  */
-export const PLUGIN_FETCH_TIMEOUT_MS = 10_000;
+export const PLUGIN_FETCH_TIMEOUT_MS = 6_000;
 
 /**
  * How many server-directed hops a single `host.fetch` will follow before giving

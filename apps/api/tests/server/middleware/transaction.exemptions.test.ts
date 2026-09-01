@@ -12,6 +12,7 @@ import {
     infraExemption,
     isTransactionExempt,
     nowPlayingExemption,
+    personaDraftExemption,
 } from '../../../src/server/middleware/transaction.exemptions.js';
 
 const exempt = (method: string, path: string) => isTransactionExempt({ method, path }, DEFAULT_TRANSACTION_EXEMPTIONS);
@@ -75,5 +76,29 @@ describe('nowPlayingExemption', () => {
         // `/playout/status` reads the same rundown but is gated and sits with the
         // rest of the API's transactional routes.
         expect(exempt('GET', '/playout/status')).toBe(false);
+    });
+});
+
+describe('personaDraftExemption', () => {
+    it('exempts drafting a persona', () => {
+        // It writes nothing and hands the model's answer back for the operator to save
+        // through the ordinary create route, so the transaction bought no atomicity and
+        // cost a pooled connection held for a whole generation.
+        expect(personaDraftExemption({ method: 'POST', path: '/personas/generate' })).toBe(true);
+        expect(exempt('POST', '/personas/generate')).toBe(true);
+    });
+
+    it('leaves every persona route that writes alone', () => {
+        // The saving routes are what the drafted persona is saved THROUGH, so their
+        // transaction is doing the job it exists for.
+        expect(exempt('POST', '/personas')).toBe(false);
+        expect(exempt('POST', '/personas/import')).toBe(false);
+        expect(exempt('PUT', '/personas/some-persona')).toBe(false);
+        expect(exempt('POST', '/personas/some-persona/rehearse')).toBe(false);
+    });
+
+    it('exempts nothing else that merely starts with the same path', () => {
+        expect(exempt('GET', '/personas/generate')).toBe(false);
+        expect(exempt('POST', '/personas/generate/again')).toBe(false);
     });
 });

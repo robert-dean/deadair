@@ -29,6 +29,7 @@ import { isDialogue, speakerOrder, turnWeights, type CastMember, type Production
 import { ProductionCaster } from './production.caster.js';
 import { cuesFor } from './production.cues.js';
 import { planProduction, turnsFor } from './production.plan.js';
+import { askForBeat } from './beat.answer.js';
 import { beatPrompt, outlinePrompt, runInFrom } from './production.prompt.js';
 import { coerceOutline, priorityForSlot, type Production, type ProductionPass, type ProductionPlan } from './production.js';
 import { firstPass, nextPass, runsPass } from './production.passes.js';
@@ -76,17 +77,6 @@ export const WAIT_MS = 60_000;
  */
 export const OUTLINE_OUTPUT_TOKENS = 8_000;
 export const BEAT_OUTPUT_TOKENS = 8_000;
-
-/**
- * How many times a beat that came back with nothing is asked again.
- *
- * One, and it is not the same thing as the `check` pass's re-draft: that one is about a beat being
- * WRONG, this is about a beat not existing. An empty answer is the model losing its allowance to
- * reasoning or the host hiccuping, and neither is a reason to throw away a programme that is
- * otherwise twenty beats long — which is what failing here does, since a production cannot air with
- * a hole in it.
- */
-export const EMPTY_BEAT_RETRIES = 1;
 
 /**
  * Kinds of production that are REPORTED rather than presented, and are shown no character memory.
@@ -438,36 +428,54 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
             // retry after it are two things that happened, and a store that kept only the winner
             // would report a model that failed half the time as one that never did.
             const attempts: ScriptWrite[] = [];
-            let script = '';
 
-            // Asked again before the production is written off. A beat that came back empty is the
-            // model having spent its allowance on reasoning rather than an answer, which is a bad
-            // roll rather than a bad brief — and failing here throws away every beat already
-            // written, since a production cannot air with a hole in it.
-            for (let attempt = 0; script.length === 0 && attempt <= EMPTY_BEAT_RETRIES; attempt++) {
-                if (attempt > 0) {
-                    this.logger.info('productions: a beat came back empty, so it is being asked again', {
-                        production: claimed.id,
-                        beat: beat.ordinal,
-                    });
-                }
-
-                const answer = await ask();
+            // Asked again before the production is written off, on two different counts; see
+            // `beat.answer.ts` for why an empty answer and a preempted one are not the same thing.
+            // Failing here throws away every beat already written, since a production cannot air
+            // with a hole in it, which is why neither is given up on at the first refusal.
+            const outcome = await askForBeat(
+                ask,
                 // Speakable, which a beat has never been. The engine reads what it is given, so a
                 // stage direction is a word in the audio — the first live call-in aired an album
                 // title with the asterisks still round it. The strip spares exactly the cues this
                 // speaker was offered.
-                script = speakable(answer.text, reactions, board.names);
+                answer => speakable(answer.text, reactions, board.names),
+                {
+                    onEmpty: () =>
+                        this.logger.info('productions: a beat came back empty, so it is being asked again', {
+                            production: claimed.id,
+                            beat: beat.ordinal,
+                        }),
+                    onPreempted: preemptions =>
+                        this.logger.info('productions: a break took the model back mid-beat; it is being asked again', {
+                            production: claimed.id,
+                            beat: beat.ordinal,
+                            preemptions,
+                        }),
+                },
+            );
+            // One row per ATTEMPT, which is `script_history`'s own rule: an empty answer and the
+            // retry after it are two things that happened, and a store that kept only the winner
+            // would report a model that failed half the time as one that never did. A preempted
+            // ask is not among them: nothing was said, and a row for it would blame the model.
+            for (const { answer, script } of outcome.asked) {
                 attempts.push(this.attemptOf(claimed, { label, script, speaker, answer, messages: prompt }));
             }
+            const script = outcome.script;
 
             if (script.length === 0) {
                 // Out of attempts. Not survivable the way a missing break is: another break is along
                 // shortly and a programme with a hole in it is not a shorter programme. The attempts
                 // are still written down: a production that failed is exactly when somebody wants to
-                // read what the model actually said.
+                // read what the model actually said. And the reason names which count ran out, so a
+                // programme the station's own breaks kept cutting off is not read as a model fault.
                 await this.remember(attempts);
-                await this.productions.fail(claimed.id, `beat ${beat.ordinal + 1} came back empty twice`);
+                await this.productions.fail(
+                    claimed.id,
+                    outcome.reason === 'preempted'
+                        ? `beat ${beat.ordinal + 1} was preempted by a break ${outcome.preempted} times`
+                        : `beat ${beat.ordinal + 1} came back empty twice`,
+                );
                 return false;
             }
 

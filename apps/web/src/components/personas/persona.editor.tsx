@@ -1,5 +1,21 @@
 import { useState } from 'react';
-import { ActionIcon, Autocomplete, Button, Card, Code, Divider, Drawer, Group, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import {
+    ActionIcon,
+    Autocomplete,
+    Button,
+    Card,
+    Code,
+    Divider,
+    Drawer,
+    Group,
+    Select,
+    SimpleGrid,
+    Stack,
+    Text,
+    TextInput,
+    Textarea,
+} from '@mantine/core';
+import type { SelectProps } from '@mantine/core';
 import { IconDice5, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
@@ -13,8 +29,10 @@ import { usePhone } from '../shared/use.phone';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
 import { suggestAirName } from './air.names';
+import { personaKeyFor } from './persona.key';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
 import { faultInTemplate, templateLines } from './template.vocabulary';
+import { ConfirmModal } from '../shared/confirm.modal';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 
@@ -44,6 +62,22 @@ import { Eyebrow } from '../shared/eyebrow';
  * Offered only when writing a new one, deliberately. On an existing persona the same button would
  * overwrite an operator's own work with no way back, and "regenerate this character" is a different
  * feature from "start me off".
+ *
+ * ## Every textarea autosizes, and that is about the SCROLL rather than about the box
+ *
+ * Ten boxes at a fixed `rows` all overflowed their own content, and each one is a scroll container
+ * the wheel is captured by. Working down this sheet, the page stopped dead every time the cursor
+ * crossed a field — which on a column that is almost entirely fields is most of the way down it.
+ * Autosizing removes the inner scrollbar for anything short of `maxRows`, so the wheel reaches the
+ * sheet, and it has the second effect of showing a list whole rather than four lines of it.
+ *
+ * ## Nothing pressed in the footer can fail out of sight
+ *
+ * The three validated fields are the first three, the save error was above them, and Save is pinned
+ * to the bottom — so from where an operator actually stands, both ways a save can fail looked like a
+ * button that does nothing. The error moved to the footer and a failed validation scrolls its field
+ * back on screen. Neither is decoration: this was the sheet's only silent failure and it had two
+ * doors.
  */
 export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving, error }: Props) {
     const phone = usePhone();
@@ -57,6 +91,15 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
     const preview = useVoicePreview();
     const rehearse = useRehearsePersona();
     const [description, setDescription] = useState('');
+    // Whether closing is being questioned rather than done. Only ever true with unsaved work in the
+    // fields; see `requestClose`.
+    const [discarding, setDiscarding] = useState(false);
+    // Whether the key is the operator's own word or one this form derived from the name. State rather
+    // than a ref because the field's own description says which of the two it is, so flipping it has
+    // to redraw. It is deliberately NOT a comparison against the derived value: an operator who
+    // happens to type the slug this would have written still owns it, and would otherwise watch it
+    // follow the name they typed next.
+    const [ownKey, setOwnKey] = useState(persona !== undefined);
 
     const form = useForm<FormValues>({
         initialValues: valuesOf(persona),
@@ -78,6 +121,52 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
     // in.
     const boardOptions = (pads.data?.sets ?? []).map(set => set.key);
 
+    /**
+     * Closing, or asking first.
+     *
+     * The three ways out of this sheet — Escape, the scrim and Cancel — all used to drop whatever was
+     * in the fields without a word, which on a nineteen-field character sheet is the most expensive
+     * thing this component can do and the only one with no undo. It asks only when there is something
+     * to lose: a sheet opened and read is closed by pressing Escape, and a dialog in the way of that
+     * is a dialog nobody reads by the third time.
+     *
+     * `isDirty` covers a generated draft too, which is right — the model's answer is unsaved work in
+     * exactly the way a typed one is.
+     */
+    const requestClose = () => {
+        if (form.isDirty()) setDiscarding(true);
+        else onClose();
+    };
+
+    const discard = () => {
+        setDiscarding(false);
+        onClose();
+    };
+
+    /**
+     * Where the save went wrong, put back on screen.
+     *
+     * The three validated fields are the first three in the sheet and Save is pinned to the footer,
+     * so pressing it from the bottom set an error on a field sixteen boxes above the viewport and
+     * looked, from where the operator was standing, like a button that does nothing.
+     *
+     * The field is found through `getInputNode` rather than by hunting the DOM for `aria-invalid`.
+     * This runs from Mantine's own validation-failure callback, which is BEFORE React has committed
+     * the errors it just set — so at that moment nothing in the sheet is marked invalid yet, and the
+     * query found nothing every time. Asking the form for the node needs no render to have happened.
+     *
+     * `VALIDATED` rather than the errors object's own key order, because that follows the order the
+     * rules were declared in and the operator is looking at the order the fields are drawn in.
+     */
+    const showFirstFault = (errors: Record<string, unknown>) => {
+        const first = VALIDATED.find(field => errors[field] !== undefined);
+        if (first === undefined) return;
+
+        const node = form.getInputNode(first);
+        node?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        node?.focus({ preventScroll: true });
+    };
+
     return (
         /* A character sheet is fourteen fields and is read whole, which is why this is one scroll
            rather than tabs: a field behind a tab is a field an author does not know is there. What
@@ -92,7 +181,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
            this is the one sheet long enough to need it; the day a second one is, it moves. */
         <Drawer
             opened={opened}
-            onClose={onClose}
+            onClose={requestClose}
             title={titleFor(persona, caller)}
             position="right"
             size={phone ? '100%' : 620}
@@ -105,14 +194,10 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
             }}
         >
             <form
-                onSubmit={form.onSubmit(values => onSubmit(draftOf(values, kind)))}
+                onSubmit={form.onSubmit(values => onSubmit(draftOf(values, kind)), showFirstFault)}
                 style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
             >
                 <Stack gap="md" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }} pr="xs">
-                    {error === undefined ? undefined : (
-                        <ErrorAlert title="That could not be saved" error={error} fallback="The persona could not be saved." />
-                    )}
-
                     {persona === undefined ? (
                         <Card withBorder padding="sm">
                             <Stack gap="xs">
@@ -124,7 +209,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                             : 'a 1970s northern soul DJ who broadcasts from the back of a chip shop'
                                     }
                                     description="Fills in the fields below. Nothing is saved until you press Save, and you can change any of it first."
-                                    rows={2}
+                                    autosize
+                                    minRows={2}
+                                    maxRows={8}
                                     value={description}
                                     onChange={event => setDescription(event.currentTarget.value)}
                                 />
@@ -152,7 +239,12 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                             generate.mutate(description, {
                                                 // Straight into the fields. Nothing is saved and nothing is
                                                 // locked: what arrives is a starting point to edit.
-                                                onSuccess: written => form.setValues(valuesOf(written.persona)),
+                                                onSuccess: written => {
+                                                    // The model names the character, so its key is
+                                                    // its own and the name no longer drives it.
+                                                    setOwnKey(true);
+                                                    form.setValues(valuesOf(written.persona));
+                                                },
                                             })
                                         }
                                     >
@@ -165,16 +257,48 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
 
                     <Section title="Who they are" blurb='The half of a character the model is told about. Everything here completes "You are …".' />
 
-                    <Group grow align="flex-start">
-                        <TextInput label="Name" placeholder="Late-night companion" {...form.getInputProps('label')} />
-                        <TextInput label="Key" description="A short slug, unique to this station." {...form.getInputProps('key')} />
-                    </Group>
+                    {/* Both halves carry a description, which is not padding: one field had one and
+                        the other did not, so the two inputs sat eighteen pixels apart on a row that
+                        is meant to read as one. */}
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                        <TextInput
+                            label="Name"
+                            description="What the roster calls them."
+                            placeholder="Late-night companion"
+                            {...form.getInputProps('label')}
+                            // The key follows the name until somebody says otherwise, which is what
+                            // makes the field beside this one something to skip rather than something
+                            // to invent. Never on an existing character: the key is what
+                            // `script_history` stamps, so moving it silently under a rename would
+                            // detach a character from everything it has said.
+                            onChange={event => {
+                                const written = event.currentTarget.value;
+                                form.setFieldValue('label', written);
+                                if (!ownKey) form.setFieldValue('key', personaKeyFor(written));
+                            }}
+                        />
+                        <TextInput
+                            label="Key"
+                            description={
+                                ownKey
+                                    ? 'A short slug, unique to this station.'
+                                    : 'A short slug, unique to this station. Follows the name until you write your own.'
+                            }
+                            {...form.getInputProps('key')}
+                            onChange={event => {
+                                setOwnKey(true);
+                                form.setFieldValue('key', event.currentTarget.value);
+                            }}
+                        />
+                    </SimpleGrid>
 
                     <Textarea
                         label="Who they are"
                         description='Completes "You are …". Who they ARE; how they talk is below.'
                         placeholder="a quiet late-night host sitting close to the mic"
-                        rows={2}
+                        autosize
+                        minRows={2}
+                        maxRows={8}
                         {...form.getInputProps('style')}
                     />
 
@@ -204,7 +328,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     <Textarea
                         label="True about them"
                         description="A couple of grounded facts they may mention about themselves."
-                        rows={2}
+                        autosize
+                        minRows={2}
+                        maxRows={8}
                         {...form.getInputProps('background')}
                     />
 
@@ -217,7 +343,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         label="How they speak"
                         description="The dialect, one rule per line. This applies to EVERY sentence, including the ones stating a plain fact."
                         placeholder={'Always contract: "you\'re", "that\'s"\nSpeak to one person, not a crowd'}
-                        rows={5}
+                        autosize
+                        minRows={5}
+                        maxRows={14}
                         {...form.getInputProps('diction')}
                     />
 
@@ -225,26 +353,32 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         label="Words that prove it"
                         description="One per line. A break that comes back carrying none of these is treated as out of character and the phrasings below write it instead. An entry ending in an apostrophe matches as a suffix, so in' catches every dropped g. Leave empty to check nothing."
                         placeholder={"ye\naye\nmatey\nin'"}
-                        rows={4}
+                        autosize
+                        minRows={4}
+                        maxRows={12}
                         {...form.getInputProps('dictionMarkers')}
                     />
 
                     <Textarea
                         label="In character"
                         description="What they always and never do on air, one per line."
-                        rows={4}
+                        autosize
+                        minRows={4}
+                        maxRows={12}
                         {...form.getInputProps('quirks')}
                     />
 
-                    <Group grow align="flex-start">
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <Textarea
                             label="Signature phrases"
                             description="One per line. Asked for sparingly: at most one, and not every break."
-                            rows={3}
+                            autosize
+                            minRows={3}
+                            maxRows={10}
                             {...form.getInputProps('catchphrases')}
                         />
-                        <Textarea label="Never say" description="One per line." rows={3} {...form.getInputProps('avoid')} />
-                    </Group>
+                        <Textarea label="Never say" description="One per line." autosize minRows={3} maxRows={10} {...form.getInputProps('avoid')} />
+                    </SimpleGrid>
 
                     {/* A caller has no floor and should not have one: phrasings are what the STATION
                         says when the model declines, and a phone-in whose caller was written by a
@@ -261,7 +395,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                 label="Their own phrasings"
                                 description="One per line, in the same syntax as the station's break phrasings. These are what the station says when the model declines, which is most breaks — so a character with none falls back to plain English."
                                 placeholder="That was {{previous.title}}, from {{previous.artist}}.[[ Next up, {{next.title}}.]]"
-                                rows={6}
+                                autosize
+                                minRows={6}
+                                maxRows={16}
                                 {...form.getInputProps('templates')}
                             />
 
@@ -272,7 +408,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     <Textarea
                         label="Lines in their voice"
                         description="One per line. Used as examples for the model, which is asked to reuse the grammar and never the sentences."
-                        rows={3}
+                        autosize
+                        minRows={3}
+                        maxRows={10}
                         {...form.getInputProps('samples')}
                     />
 
@@ -281,7 +419,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         blurb="Dials with real consequences on air. They change what the station ASKS its presenter for — how long a break is, how much room it gets, and how often one happens. None of them can loosen what the station always sends: every refusal, and your explicit-content setting, hold whatever is set here."
                     />
 
-                    <Group grow align="flex-start">
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         {voiceOptions.length > 0 ? (
                             <Select
                                 label="Voice"
@@ -336,10 +474,18 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             data={boardOptions}
                             {...form.getInputProps('soundboard')}
                         />
-                    </Group>
+                    </SimpleGrid>
 
-                    <Group grow align="flex-start">
+                    {/* A grid rather than `Group grow`. Four controls across a 620px sheet is 110px
+                        each, which is narrower than every one of these options: all four read
+                        "The station's u…" and an operator could not see what any of them was set
+                        to. The descriptions are also four different heights, so the row put its
+                        four dropdowns at four different altitudes and read as broken. A grid fixes
+                        both at once — two per row is wide enough for the longest option, and grid
+                        rows align their tracks whatever the prose above does. */}
+                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md" verticalSpacing="md">
                         <Select
+                            {...DIAL}
                             label="How much they say"
                             description="Only shorter than the station's usual, because the length of a break is set by where the model stops rather than by the ceiling. It asks for less; nothing refuses a break for running past it."
                             data={[
@@ -347,11 +493,11 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                 { value: 'short', label: 'Says less — a sentence or two' },
                                 { value: 'one-line', label: 'Says almost nothing — one line' },
                             ]}
-                            allowDeselect={false}
                             {...form.getInputProps('brevity')}
                         />
 
                         <Select
+                            {...DIAL}
                             label="How much rope they get"
                             description="Room to follow a thought instead of making one point, with a longer break to do it in. On links, welcomes and the character's own stories, never the news or the weather. The station's explicit-content setting still outranks it, and a break that names neither record or drops the character is still refused."
                             data={[
@@ -359,11 +505,11 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                 { value: 'loose', label: 'Room — follows a thought where it goes' },
                                 { value: 'unleashed', label: 'Off the leash — and says it however they like' },
                             ]}
-                            allowDeselect={false}
                             {...form.getInputProps('latitude')}
                         />
 
                         <Select
+                            {...DIAL}
                             label="How often they bring up their own past"
                             description="Their stories are kept on this character's own shelf, and at most one ever reaches a break. This is only about ordinary talk breaks: a story band on your clock asks for one whatever this says."
                             data={[
@@ -371,11 +517,11 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                 { value: 'often', label: 'Often — most breaks' },
                                 { value: 'never', label: 'Never in a link' },
                             ]}
-                            allowDeselect={false}
                             {...form.getInputProps('storytelling')}
                         />
 
                         <Select
+                            {...DIAL}
                             label="How often they talk"
                             description="Scales the gap your station leaves between its own breaks. It does not touch anything on your clock: a band asking for news at nine is you asking in as many words. There is no silent setting — turning breaks off is a station setting, and two switches for one thing would disagree."
                             data={[
@@ -385,10 +531,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                                 { value: 'sparing', label: 'Sparing — a little less often' },
                                 { value: 'reserved', label: 'Reserved — half as often' },
                             ]}
-                            allowDeselect={false}
                             {...form.getInputProps('chattiness')}
                         />
-                    </Group>
+                    </SimpleGrid>
 
                     {/* The two compose, and neither control can say so on its own: a terse character
                         can be unfiltered, and reading the pair back is the only way an operator sees
@@ -402,7 +547,9 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         label="What they keep coming back to"
                         description="One subject per line. Only ONE of these reaches any break, chosen in turn, so a longer list is more variety rather than more to say at once. These are subjects; the rules about how they behave belong above."
                         placeholder={'the pressing plant\nthe session that booked four hours\nthe running order of this station'}
-                        rows={4}
+                        autosize
+                        minRows={4}
+                        maxRows={12}
                         {...form.getInputProps('preoccupations')}
                     />
 
@@ -414,6 +561,15 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     the fields: it is about what SAVING does, so it belongs beside the button that
                     does it. */}
                 <Stack gap="sm" pt="md" mt="md" style={{ borderTop: '1px solid var(--da-border)' }}>
+                    {/* Beside the button that caused it, on the same rule the standing-rules sentence
+                        below follows. It was at the top of the fields, which is sixteen boxes above
+                        where an operator is standing when they press Save — and a taken key is
+                        reported exactly there, so the one save that fails for a reason worth reading
+                        was the one that looked like a button doing nothing. */}
+                    {error === undefined ? undefined : (
+                        <ErrorAlert title="That could not be saved" error={error} fallback="The persona could not be saved." />
+                    )}
+
                     {/* The rehearsal is pinned to the footer so the effect of an edit is audible from
                         where it is made, rather than from a button on a card behind this sheet.
 
@@ -454,7 +610,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                             has.
                         </Text>
                         <Group wrap="nowrap">
-                            <Button variant="subtle" onClick={onClose}>
+                            <Button variant="subtle" onClick={requestClose}>
                                 Cancel
                             </Button>
                             <Button type="submit" loading={saving}>
@@ -464,9 +620,40 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                     </Group>
                 </Stack>
             </form>
+
+            {/* Inside the drawer rather than beside it, so it is drawn above the sheet it is asking
+                about rather than behind it. What it is asking is the one question this component
+                cannot answer on the operator's behalf: nineteen fields of writing has no undo, and
+                Escape is one keystroke. */}
+            <ConfirmModal
+                opened={discarding}
+                onClose={() => setDiscarding(false)}
+                onConfirm={discard}
+                title={persona === undefined ? 'Throw this character away?' : `Throw away your changes to ${persona.label}?`}
+                confirmLabel="Discard"
+            >
+                {persona === undefined
+                    ? 'Nothing here has been saved, so closing now leaves the station with no such character. Keep writing to come back to it.'
+                    : 'Nothing here has been saved. The character stays exactly as it was, and everything you have typed since opening this goes.'}
+            </ConfirmModal>
         </Drawer>
     );
 }
+
+/**
+ * What every dial in "How far they go" has in common.
+ *
+ * The caveat goes UNDER the control rather than above it. Four of these sit in a grid and their
+ * caveats run to three, seven, five and eight lines, so with the description in its usual place the
+ * four dropdowns landed at four different heights and the row read as broken rather than as four
+ * answers to one question. Moving it below puts every control directly under a one-line label, which
+ * lines them up — and it reads better anyway: the question, the answer, then what the answer costs.
+ */
+const DIAL = {
+    // Mantine types this one mutable, so `as const` on the object makes the tuple unassignable.
+    inputWrapperOrder: ['label', 'input', 'description', 'error'] as SelectProps['inputWrapperOrder'],
+    allowDeselect: false,
+} as const;
 
 /**
  * What the two voice settings come to together.
@@ -681,6 +868,14 @@ interface FormValues {
     avoid: string;
     samples: string;
 }
+
+/**
+ * The validated fields, in the order the sheet draws them.
+ *
+ * Not derived from the `validate` object: that is keyed in the order the rules happened to be
+ * written, and a save that faults on two of them should land on whichever the operator meets first.
+ */
+const VALIDATED = ['label', 'key', 'style'] as const;
 
 const linesOf = (values: string[] | undefined): string => (values ?? []).join('\n');
 

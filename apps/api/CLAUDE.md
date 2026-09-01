@@ -125,6 +125,16 @@ running their loops after being told to stop, one of them probing Liquidsoap for
 `apps/api/tests/modules/modules.test.ts` holds the whole ordering, and reads every assertion through a
 `tearsDownBefore` helper rather than through raw positions.
 
+**A `ready` hook that throws is logged and boot carries on, so a hook the station cannot run without has
+to stop the process itself.** ServerKit's ready loop is fault-isolated, which is right for a cache warm
+and was wrong for `JobsModule`: the runner is what consumes every row the director enqueues and what
+fires every cron, and with its `start()` failed the process printed "Boot complete", served every route
+and answered `/health` 200 while the running order ran out with nothing to fill it. That module now
+catches the failure, sets `process.exitCode = 1` and sends itself `SIGTERM`: the same graceful close a
+supervisor's stop takes, so every module still tears down in order and the log store flushes the line
+that says why. Nothing else in the list has earned that; a new hook that does should copy the shape
+rather than call `process.exit`, which skips both.
+
 **Logging is process-level and predates DI.** `RotatingLogStore` is constructed in
 `setup.server.ts` before any container exists, published through `setLogStore`, and wrapped by
 `DeadairLogger` so every module's lines land on stdout and in `logs/`. `PluginLog` tees plugin

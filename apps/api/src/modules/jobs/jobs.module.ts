@@ -8,6 +8,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { JobMappings, jobClassOf } from './job.mappings.js';
 import { Logger } from '@maroonedsoftware/logger';
 import { resolveOwnerConnection } from '#modules/data/database.connection.js';
+import { serverkitErrorText } from '#modules/shared/error.text.js';
 
 export const JobsModule: ServerKitModule = {
     name: 'Jobs',
@@ -97,10 +98,33 @@ export const JobsModule: ServerKitModule = {
     // so workers stop consuming before the plugin instances under them are
     // disposed. It sat ahead of PluginsModule for as long as teardown ran
     // forwards, which bought the same guarantee from the opposite side.
+    //
+    // And a runner that cannot start STOPS THE STATION. The ready loop is fault-isolated by design:
+    // a hook that throws is logged and boot carries on, which is right for a cache warm and wrong
+    // for this. Everything on a schedule runs through the runner — the clock's changeovers, the
+    // catalog sync and its enrichment, the scrobble flush — and every refill, break and render the
+    // director asks for is a row the runner consumes. With `start()` failed (the owner credentials
+    // wrong, the pg-boss schema migration refused, a queue that would not create) the process
+    // printed "Boot complete", answered every route and reported healthy while the running order
+    // ran out and nothing was written to fill it: a station that was up in every way except the one
+    // that airs. That is the wrong side of fail-open, so the failure is made the loud kind. It asks
+    // for the same graceful close a SIGTERM does rather than calling `process.exit` itself, so every
+    // module still tears down in order and the log store flushes the line that says why; the exit
+    // code is set first so what supervises the process sees a failure rather than a clean stop.
     ready: async (container: Container, signal: AbortSignal) => {
         if (signal.aborted) return;
         const jobRunner = container.get(JobRunner);
-        await jobRunner.start();
+        try {
+            await jobRunner.start();
+        } catch (error) {
+            // A start abandoned because shutdown already began is not a failure of the runner.
+            if (signal.aborted) return;
+            container
+                .get(Logger)
+                .error('jobs: the runner failed to start; stopping the station rather than serving without it', { error: serverkitErrorText(error) });
+            process.exitCode = 1;
+            process.kill(process.pid, 'SIGTERM');
+        }
     },
     shutdown: async (container: Container) => {
         const jobRunner = container.get(JobRunner);

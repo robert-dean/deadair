@@ -12,7 +12,9 @@ import { Eyebrow } from '../shared/eyebrow';
 import { formatBytes } from '../shared/format.bytes';
 import { formatTimeOfDay } from '../shared/feed.moment';
 import { PageHeader } from '../shared/page.header';
+import { PhoneCard } from '../shared/phone.card';
 import { StatusLamp } from '../shared/status.lamp';
+import { usePhone } from '../shared/use.phone';
 import type { StatusTone } from '../shared/status';
 
 /**
@@ -36,6 +38,12 @@ export function CheckupPage() {
     const plugins = useQuery(pluginsListOptions);
     const storage = useStorage();
     const checkup = useStationCheckup();
+
+    // Read here rather than in `Loops`, which mounts only once the reading has arrived: by then
+    // the answer must already be settled, or its first paint is a desk-shaped frame the phone
+    // replaces a beat later. This page is mounted before any data, where that one corrected frame
+    // is the hook's documented, accepted cost.
+    const phone = usePhone();
 
     return (
         <Stack gap="lg">
@@ -104,7 +112,7 @@ export function CheckupPage() {
                         The station could not say what its loops are doing.
                     </Text>
                 ) : (
-                    <Loops heartbeats={checkup.data.heartbeats} readAt={checkup.data.readAt} />
+                    <Loops heartbeats={checkup.data.heartbeats} readAt={checkup.data.readAt} phone={phone} />
                 )}
             </Section>
 
@@ -257,12 +265,37 @@ function Section({ title, failed, pending, children }: { title: string; failed: 
  * reconcile and a nightly sweep are both healthy, and a page that painted one red would be picking
  * a number the station deliberately did not.
  */
-function Loops({ heartbeats, readAt }: { heartbeats: StationHeartbeat[]; readAt: string }) {
+function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; readAt: string; phone: boolean }) {
     if (heartbeats.length === 0) {
         return <EmptyState>Nothing is being watched, which on a running station means the loops have not registered yet.</EmptyState>;
     }
 
     const taken = new Date(readAt).getTime();
+
+    // The phone gets cards: the same two ages fold into one fact line under the loop's name,
+    // rather than holding columns that push the whole section into a sideways scroll.
+    if (phone) {
+        return (
+            <Stack gap="xxs">
+                {heartbeats.map(beat => (
+                    <PhoneCard
+                        key={beat.name}
+                        title={
+                            <Text size="sm" ff="monospace" truncate>
+                                {beat.name}
+                            </Text>
+                        }
+                        subtitle={
+                            <Text size="xs" c="dimmed" className="da-num">
+                                {beat.lastBeat === undefined ? 'no pass yet' : `last pass ${ago(taken, beat.lastBeat)} ago`}
+                                {` · started ${ago(taken, beat.startedAt)} ago`}
+                            </Text>
+                        }
+                    />
+                ))}
+            </Stack>
+        );
+    }
 
     return (
         <Table.ScrollContainer minWidth={500}>

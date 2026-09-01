@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
 import { CheckupPage, silenceTone } from '../../../src/components/station/checkup.page';
+import { stubPhoneMedia } from '../../utils/phone';
 import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
 import { render, screen, within } from '../../utils/render';
 
@@ -98,6 +99,24 @@ describe('CheckupPage', () => {
 
         const row = screen.getByText('audience.poll').closest('tr');
         expect(within(row as HTMLElement).getByText('not yet')).toBeInTheDocument();
+    });
+
+    // On a phone the loops table becomes cards, and the two ages fold into one fact line that
+    // keeps both facts — including the never-passed one, which stays distinct from a stopped loop.
+    it('gives a phone the loops as cards with the ages folded into one line', async () => {
+        const restore = stubPhoneMedia();
+        try {
+            allWell();
+
+            render(<CheckupPage />);
+
+            expect(await screen.findByText('playout.reconcile')).toBeInTheDocument();
+            expect(screen.getByText('last pass 5s ago · started 1h ago')).toBeInTheDocument();
+            expect(screen.getByText('no pass yet · started 1h ago')).toBeInTheDocument();
+            expect(screen.getByText('audience.poll').closest('tr')).toBeNull();
+        } finally {
+            restore();
+        }
     });
 
     /**

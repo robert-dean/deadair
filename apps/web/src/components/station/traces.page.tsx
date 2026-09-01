@@ -8,6 +8,7 @@ import { FeedMoment } from '../shared/dated.feed';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { PhoneCard } from '../shared/phone.card';
 import { usePhone } from '../shared/use.phone';
 import { severityColor } from '../shared/status';
 
@@ -52,6 +53,12 @@ export function TracesPage() {
     const [failedOnly, setFailedOnly] = useState(false);
     const [open, setOpen] = useState<string | undefined>(undefined);
 
+    // Read here rather than in `DecisionTable`, which mounts only once the rows have arrived: by
+    // then the answer must already be settled, or the table's first paint is a desk-shaped frame
+    // the phone replaces a beat later. This page is mounted before any data, where that one
+    // corrected frame is the hook's documented, accepted cost.
+    const phone = usePhone();
+
     const traces = useTraces({ ...(failedOnly ? { failedOnly: true } : {}) });
 
     if (traces.isPending) return <PageSkeleton variant="table" />;
@@ -86,7 +93,7 @@ export function TracesPage() {
                 </EmptyState>
             ) : (
                 <>
-                    <DecisionTable decisions={decisions} onOpen={setOpen} />
+                    <DecisionTable decisions={decisions} phone={phone} onOpen={setOpen} />
                     <Text size="xs" c="dimmed">
                         Showing {decisions.length} of {total} decisions, read from {spans} recorded calls.
                     </Text>
@@ -99,7 +106,7 @@ export function TracesPage() {
 }
 
 /** The forest: roots by what they last did, and whatever each one caused indented beneath it. */
-function DecisionTable({ decisions, onOpen }: { decisions: TraceDecision[]; onOpen: (id: string) => void }) {
+function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[]; phone: boolean; onOpen: (id: string) => void }) {
     const byId = new Map(decisions.map(decision => [decision.id, decision]));
     const childrenOf = new Map<string, TraceDecision[]>();
     for (const decision of decisions) {
@@ -117,6 +124,58 @@ function DecisionTable({ decisions, onOpen }: { decisions: TraceDecision[]; onOp
         for (const child of childrenOf.get(decision.id) ?? []) walk(child, depth + 1);
     };
     for (const root of roots) walk(root, 0);
+
+    // The phone gets cards rather than a table that scrolls sideways: same walk, same order, and
+    // the whole card opens the drawer the row's click did. The indent survives as the card's own
+    // depth, because the causal edge is the point of this page; the short id is the one dropped
+    // column, being a debugging handle rather than something read at a glance.
+    if (phone) {
+        return (
+            <Stack gap="xxs">
+                {rows.map(({ decision, depth }) => (
+                    <PhoneCard
+                        key={decision.id}
+                        depth={depth}
+                        onClick={() => onOpen(decision.id)}
+                        aria-label={`Open ${decision.kind}`}
+                        leading={<FeedMoment at={decision.at} />}
+                        title={
+                            <>
+                                {depth > 0 ? (
+                                    <IconArrowUpRight
+                                        size={13}
+                                        stroke={1.8}
+                                        style={{ transform: 'rotate(90deg)', opacity: 0.5, flexShrink: 0 }}
+                                        aria-hidden
+                                    />
+                                ) : undefined}
+                                <Text size="sm" truncate>
+                                    {decision.kind}
+                                </Text>
+                            </>
+                        }
+                        subtitle={
+                            <>
+                                <Text size="xs" c="dimmed" className="da-num">
+                                    {decision.calls} calls
+                                </Text>
+                                {decision.failed > 0 ? (
+                                    <Badge size="sm" color={severityColor.failure} variant="light" className="da-num" style={{ flexShrink: 0 }}>
+                                        {decision.failed}
+                                    </Badge>
+                                ) : undefined}
+                            </>
+                        }
+                        figure={
+                            <Text size="sm" className="da-num" c={decision.ms === 0 ? 'dimmed' : undefined}>
+                                {decision.ms === 0 ? '—' : formatSpent(decision.ms)}
+                            </Text>
+                        }
+                    />
+                ))}
+            </Stack>
+        );
+    }
 
     return (
         <Table.ScrollContainer minWidth={650}>

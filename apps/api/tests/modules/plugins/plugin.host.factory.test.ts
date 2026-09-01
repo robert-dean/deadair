@@ -22,7 +22,7 @@ import {
 } from '../../../src/modules/plugins/plugin.storage.repository.js';
 import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.service.js';
 import { PluginGrantsService } from '../../../src/modules/plugins/plugin.grants.service.js';
-import { NETWORK_OPEN } from '../../../src/modules/plugins/plugin.grants.js';
+import { NETWORK_OPEN, type AddressResolver } from '../../../src/modules/plugins/plugin.grants.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 import { stubShimClient } from '../../utils/spotify.shim.fixture.js';
 import { stubContainer } from '../../utils/stub.container.js';
@@ -128,6 +128,15 @@ const stubGrants = (allowed: readonly string[] = []): PluginGrantsService =>
         holds: (pluginId: string, capability: string) => capability === NETWORK_OPEN && allowed.includes(pluginId),
     }) as unknown as PluginGrantsService;
 
+/**
+ * Where a name off the allowlist resolves to, for the private-address check behind `network.open`.
+ *
+ * Public unless a test says otherwise, and never the system resolver: the names here are made up,
+ * and the sandbox the suite runs in has no resolver to ask.
+ */
+const resolvesTo = new Map<string, string[]>();
+const resolving: AddressResolver = vi.fn(async (hostname: string) => resolvesTo.get(hostname) ?? ['93.184.216.34']);
+
 function scopedFactory(
     storage: PluginStorageRepository = new FakeStorageRepository() as unknown as PluginStorageRepository,
     configService: PluginConfigService = unusedConfigService(),
@@ -141,7 +150,13 @@ function scopedFactory(
     return {
         ...stub,
         pluginLog,
-        factory: new PluginHostFactory(new PluginHostFactoryOptions('https://host.example'), stub.container, pluginLog.log, stubShimClient(), grants),
+        factory: new PluginHostFactory(
+            new PluginHostFactoryOptions('https://host.example', resolving),
+            stub.container,
+            pluginLog.log,
+            stubShimClient(),
+            grants,
+        ),
     };
 }
 
@@ -1247,6 +1262,80 @@ describe('PluginHostFactory network.open grant', () => {
 
         await expectPluginError(host.fetch(url), 'forbidden', /not allowed to reach/);
         expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    // The same guard for a NAME. A public name is whatever its owner points it at, and a feed item is
+    // exactly where such a name arrives from; reading only the name let it through to loopback.
+    it.each([
+        ['loopback', ['127.0.0.1']],
+        ['a private range', ['10.0.0.7']],
+        ['the hex spelling of mapped loopback', ['::ffff:7f00:1']],
+        ['one private answer among public ones', ['93.184.216.34', '169.254.169.254']],
+    ])('refuses a public name that resolves to %s', async (_what, addresses) => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        resolvesTo.set('innocent.example', addresses);
+        const host = unrestrictedFactory().factory.createHost(declaring('feeds.example.org'));
+
+        try {
+            await expectPluginError(host.fetch('https://innocent.example/story'), 'forbidden', /resolves to the private address/);
+            expect(fetchMock).not.toHaveBeenCalled();
+        } finally {
+            resolvesTo.delete('innocent.example');
+        }
+    });
+
+    it('refuses a redirect to a public name that resolves privately, and counts it against the upstream', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue(new Response(null, { status: 302, headers: { location: 'https://innocent.example/admin' } })),
+        );
+        resolvesTo.set('innocent.example', ['127.0.0.1']);
+        const host = unrestrictedFactory().factory.createHost(declaring('feeds.example.org'));
+
+        try {
+            await expectPluginError(host.fetch('https://www.example.com/story'), 'upstream', /resolves to the private address/);
+        } finally {
+            resolvesTo.delete('innocent.example');
+        }
+    });
+
+    it('fails closed on a name that will not resolve', async () => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+        const failing: AddressResolver = async () => {
+            throw new Error('ENOTFOUND');
+        };
+        const stub = stubContainer([
+            [PluginConfigService, unusedConfigService()],
+            [PluginStorageRepository, new FakeStorageRepository() as unknown as PluginStorageRepository],
+        ]);
+        const built = new PluginHostFactory(
+            new PluginHostFactoryOptions('https://host.example', failing),
+            stub.container,
+            stubPluginLog().log,
+            stubShimClient(),
+            stubGrants(['test.plugin']),
+        );
+        const host = built.createHost(declaring('feeds.example.org'));
+
+        await expectPluginError(host.fetch('https://gone.example/story'), 'upstream', /could not resolve/);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    // A declared host is the author's or the operator's choice, and is allowed to be a Navidrome on
+    // the LAN: only the open web is resolved before it is reached.
+    it('never resolves a host the manifest named', async () => {
+        vi.stubGlobal('fetch', okFetch());
+        const spy = resolving as ReturnType<typeof vi.fn>;
+        spy.mockClear();
+        const host = unrestrictedFactory().factory.createHost(declaring('feeds.example.org'));
+
+        await host.fetch('https://feeds.example.org/rss');
+        expect(spy).not.toHaveBeenCalled();
+
+        await host.fetch('https://www.example.com/story');
+        expect(spy).toHaveBeenCalledWith('www.example.com');
     });
 
     it('follows a redirect off the allowlist, and checks that hop the same way', async () => {

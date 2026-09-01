@@ -21,7 +21,7 @@ import { PluginConfigService } from './plugin.config.service.js';
 import { invocationRemainingMs, invocationSignal } from './plugin.invocation.deadline.js';
 import { PLUGIN_INVOKE_TIMEOUT_MS } from './plugin.invoker.js';
 import { PluginLog } from './plugin.log.js';
-import { isPrivateAddress, NETWORK_OPEN } from './plugin.grants.js';
+import { isPrivateAddress, NETWORK_OPEN, privateAddressBehind, resolveAddresses as systemResolver, type AddressResolver } from './plugin.grants.js';
 import { PluginGrantsService } from './plugin.grants.service.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginStorageRepository } from './plugin.storage.repository.js';
@@ -107,7 +107,15 @@ export const PLUGIN_RESPONSE_MAX_BYTES = 64 * 1024 * 1024;
  */
 @Injectable()
 export class PluginHostFactoryOptions {
-    constructor(readonly baseUrl: string) {}
+    constructor(
+        readonly baseUrl: string,
+        /**
+         * How a hostname off the allowlist is turned into the addresses it reaches, for the private-
+         * address check behind the `network.open` grant. The system resolver unless a test says
+         * otherwise; see {@link privateAddressBehind}.
+         */
+        readonly resolveAddresses: AddressResolver = systemResolver,
+    ) {}
 }
 
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
@@ -928,7 +936,8 @@ export class PluginHostFactory {
         init?: HostFetchInit,
     ): Promise<Response> {
         const entries = await networkEntries();
-        const { url: target, entry } = this.assertAllowed(manifest, entries, logger, url);
+        const { url: target, entry, open } = this.assertAllowed(manifest, entries, logger, url);
+        if (open) await this.assertPublicAddress(manifest, logger, target);
         const { deadlineAt, budgetMs } = this.budgetFor(manifest, target, init);
 
         const { controller, dispose } = egressController(deadlineAt, init?.signal);
@@ -1096,7 +1105,7 @@ export class PluginHostFactory {
         logger: PluginLogger,
         url: string,
         from?: URL,
-    ): { url: URL; entry: NetworkEntry } {
+    ): { url: URL; entry: NetworkEntry; open: boolean } {
         let target: URL;
         try {
             target = new URL(url, from);
@@ -1123,7 +1132,8 @@ export class PluginHostFactory {
         }
 
         const hostname = target.hostname.toLowerCase();
-        const matched = entries.find(entry => matchesHost(hostname, entry.pattern)) ?? this.openWebEntry(manifest, logger, hostname, from);
+        const declared = entries.find(entry => matchesHost(hostname, entry.pattern));
+        const matched = declared ?? this.openWebEntry(manifest, logger, hostname, from);
         if (matched === undefined) {
             const message = `plugin "${manifest.id}" is not allowed to reach "${hostname}"; add it to permissions.network`;
             if (from !== undefined) {
@@ -1141,7 +1151,42 @@ export class PluginHostFactory {
             throw new PluginError(message).withCode('forbidden');
         }
 
-        return { url: target, entry: matched };
+        // `open` says the host was reached through the grant rather than the manifest, which is the
+        // one case the address behind the name is checked: a declared host is the plugin author's or
+        // the operator's choice and is allowed to be a Navidrome on the LAN, while an open one is
+        // whatever the data said.
+        return { url: target, entry: matched, open: declared === undefined };
+    }
+
+    /**
+     * The other half of the private-address guard, for a host reached through `network.open`:
+     * {@link openWebEntry} refuses a private NAME, and this refuses a public name that resolves to a
+     * private address. See {@link privateAddressBehind} for what it does and does not close.
+     *
+     * `upstream` on a redirect hop for the reason {@link assertAllowed} gives it there — the plugin
+     * asked for something allowed and the server sent it here — and `forbidden` on the first hop,
+     * which is the plugin's own request and says nothing about its health.
+     */
+    private async assertPublicAddress(manifest: PluginManifest, logger: PluginLogger, target: URL, from?: URL): Promise<void> {
+        const hostname = target.hostname.toLowerCase();
+        let hidden: string | undefined;
+        try {
+            hidden = await privateAddressBehind(hostname, this.options.resolveAddresses);
+        } catch (error) {
+            logger.warn('plugin fetch denied: hostname could not be resolved', { hostname, error: errorText(error) });
+            throw new PluginError(`plugin "${manifest.id}" could not resolve "${hostname}"`).withCode('upstream');
+        }
+        if (hidden === undefined) return;
+
+        const redirected = from === undefined ? '' : ` (redirected there by "${from.hostname.toLowerCase()}")`;
+        logger.warn('plugin fetch denied: hostname resolves to a private address', {
+            hostname,
+            address: hidden,
+            ...(from === undefined ? {} : { from: from.hostname.toLowerCase() }),
+        });
+        throw new PluginError(
+            `plugin "${manifest.id}" is not allowed to reach "${hostname}": it resolves to the private address ${hidden}${redirected}`,
+        ).withCode(from === undefined ? 'forbidden' : 'upstream');
     }
 
     /**
@@ -1321,7 +1366,8 @@ export class PluginHostFactory {
                 // Hops are checked, but not charged: the redirect cap is what
                 // bounds a chain, and spending the plugin's allowance on moves
                 // it did not ask for would pace it for the server's choices.
-                const { url: next } = this.assertAllowed(manifest, entries, logger, location, current);
+                const { url: next, open } = this.assertAllowed(manifest, entries, logger, location, current);
+                if (open) await this.assertPublicAddress(manifest, logger, next, current);
 
                 // Method rewriting per the fetch spec: 303 means "go look at
                 // this other thing", and 301/302 after a POST is what every

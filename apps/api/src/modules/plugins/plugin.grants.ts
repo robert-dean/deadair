@@ -1,3 +1,6 @@
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
+
 /**
  * The capabilities a plugin may ask the operator for, and what each one opens up.
  *
@@ -52,7 +55,7 @@ export const HOST_CAPABILITIES: readonly HostCapability[] = [
         // "this plugin may reach your router", and an operator deciding needs the first sentence to
         // be true.
         describes:
-            'Lets this plugin fetch any public address, not only the ones its manifest names or that you gave it. Private, loopback and link-local addresses stay refused either way, and every new host it reaches is written to its log the first time.',
+            'Lets this plugin fetch any public address, not only the ones its manifest names or that you gave it. Private, loopback and link-local addresses stay refused either way, whether named outright or behind a public name that resolves to one, and every new host it reaches is written to its log the first time.',
         enforcedAt: 'PluginHostFactory.assertAllowed',
     },
 ];
@@ -80,9 +83,16 @@ export function isPrivateAddress(hostname: string): boolean {
     // unique-local / link-local prefixes.
     if (host === '::1' || host === '::') return true;
     if (/^f[cd][0-9a-f]{2}:/.test(host) || /^fe[89ab][0-9a-f]:/.test(host)) return true;
-    // An IPv4 address written as an IPv6 one reaches the same place.
-    const mapped = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(host);
+    // An IPv4 address written as an IPv6 one reaches the same place. Two spellings, because the
+    // WHATWG parser serialises `http://[::ffff:127.0.0.1]/` as `::ffff:7f00:1` — the hex form, which
+    // for as long as only the dotted one was read here was a loopback address this let through.
+    const mapped = /^(?:0:0:0:0:0|:):ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(host);
     if (mapped) return isPrivateAddress(mapped[1]!);
+    const hexMapped = /^(?:0:0:0:0:0|:):ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host);
+    if (hexMapped) {
+        const [high, low] = [parseInt(hexMapped[1]!, 16), parseInt(hexMapped[2]!, 16)];
+        return isPrivateAddress(`${high >> 8}.${high & 0xff}.${low >> 8}.${low & 0xff}`);
+    }
 
     const octets = IPV4.exec(host);
     if (!octets) return false;
@@ -97,6 +107,46 @@ export function isPrivateAddress(hostname: string): boolean {
     if (first === 100 && second >= 64 && second <= 127) return true;
 
     return false;
+}
+
+/**
+ * Every address a hostname currently answers to. The one thing here that touches the network.
+ *
+ * Injected into the host factory rather than called there, so the guard below can be tested against
+ * names that resolve wherever a test says they do, and so a sandbox with no resolver does not fail
+ * the suite.
+ */
+export type AddressResolver = (hostname: string) => Promise<string[]>;
+
+/** The system resolver, every address rather than the first: a name behind a load balancer answers with several. */
+export const resolveAddresses: AddressResolver = async hostname => (await lookup(hostname, { all: true })).map(entry => entry.address);
+
+/**
+ * The private address a hostname reaches, if it reaches one, or `undefined` for a name that is
+ * public all the way down.
+ *
+ * {@link isPrivateAddress} reads the NAME, which is the right test for a literal and no test at all
+ * for a hostname: a public name in an RSS item or a search result can be pointed at `127.0.0.1` by
+ * whoever owns it, and for as long as only the name was read, the host connected — to the analysis
+ * sidecar, to the anonymous routes, to whatever else answers on this machine. So a name is resolved
+ * first and every address it answers with is read the same way, and one private answer among several
+ * is enough, since the connection may land on any of them.
+ *
+ * A literal address is judged without a lookup, and a name that does not resolve is an error rather
+ * than an answer: the fetch behind it would fail on the same lookup, and "could not resolve" fails
+ * closed, where "resolved to nothing private" would not.
+ *
+ * What this does NOT close is a name that answers differently to the lookup here and to the one the
+ * connection makes a moment later (rebinding). Closing that means pinning the connection to the
+ * address that was checked, which is a custom dispatcher on the fetch and is not built.
+ */
+export async function privateAddressBehind(hostname: string, resolve: AddressResolver): Promise<string | undefined> {
+    const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (isIP(host) !== 0) return isPrivateAddress(host) ? host : undefined;
+    if (isPrivateAddress(host)) return host;
+
+    const addresses = await resolve(host);
+    return addresses.find(address => isPrivateAddress(address));
 }
 
 /** What an operator can have said about one. Absent from the store is a third state; see `PluginGrantsService`. */

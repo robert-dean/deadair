@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ActionIcon, Autocomplete, Button, Card, Code, Divider, Drawer, Group, Select, Stack, Text, TextInput, Textarea } from '@mantine/core';
-import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
+import { IconDice5, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { useForm } from '@mantine/form';
 import type { Persona, PersonaDraftView, PersonaInput } from '@deadair/sdk';
 
@@ -12,6 +12,7 @@ import { usePads } from '../../api/pads.queries';
 import { usePhone } from '../shared/use.phone';
 import { fetchVoiceSample, useVoices } from '../../api/voices.queries';
 import { useVoicePreview } from '../voices/voice.preview';
+import { suggestAirName } from './air.names';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
 import { faultInTemplate, templateLines } from './template.vocabulary';
 import { ErrorAlert } from '../shared/error.alert';
@@ -181,6 +182,23 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
                         label="On-air name"
                         description="Overrides the station's presenter name while this persona is on air. Leave empty to keep it."
                         {...form.getInputProps('djName')}
+                        // Inside the field rather than beside it, so the suggestion lands where the
+                        // operator is already looking. A button rather than a pre-filled value:
+                        // empty means "keep the station's name", which is a real answer and not one
+                        // a suggestion may quietly overwrite.
+                        rightSection={
+                            <ActionIcon
+                                variant="subtle"
+                                color="gray"
+                                aria-label="Suggest an on-air name"
+                                title="Suggest an on-air name"
+                                onClick={() => {
+                                    form.setFieldValue('djName', suggestAirName(form.getValues().djName));
+                                }}
+                            >
+                                <IconDice5 size={16} stroke={1.8} />
+                            </ActionIcon>
+                        }
                     />
 
                     <Textarea

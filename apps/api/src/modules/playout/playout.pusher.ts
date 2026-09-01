@@ -90,8 +90,17 @@ const SKIP_CONFIRM_INTERVAL_MS = 100;
 export class PlayoutPusher {
     private timer?: NodeJS.Timeout;
     private readonly unsubscribes: (() => void)[] = [];
-    /** One reconcile at a time: `next()` emits a change, which would otherwise re-enter here. */
-    private busy = false;
+    /**
+     * The pass that holds the transport right now, or nothing.
+     *
+     * One pass at a time: `next()` emits a change, which would otherwise re-enter {@link reconcile}.
+     * A timer's pass that finds one running simply goes round again next tick. An operator's skip
+     * WAITS for it instead, and then holds the same guard for its whole length — the skip takes
+     * readings every 100ms while it waits for the boundary, and each of those reconciles the
+     * running order, which was exactly the wrong thing to do underneath a pass that was halfway
+     * through handing an item over.
+     */
+    private inFlight?: Promise<void>;
     /**
      * What the last pass threw, cleared by the next one that does not.
      *
@@ -256,18 +265,21 @@ export class PlayoutPusher {
      *   not be reported as one that happened.
      */
     async skipCurrent(): Promise<boolean> {
-        await this.reconcile();
+        const took = await this.exclusively(async () => {
+            await this.pass();
 
-        const before = this.rundown.nowPlaying()?.item.id;
-        const reading = await this.control.skip();
-        if (!reading) return false;
+            const before = this.rundown.nowPlaying()?.item.id;
+            const reading = await this.control.skip();
+            if (!reading) return false;
 
-        this.rundown.reconcile(reading);
-        await this.confirmBoundary(before);
+            this.rundown.reconcile(reading);
+            await this.confirmBoundary(before);
+            return true;
+        });
 
         // The skip consumed the lead, so refill it now rather than waiting out the tick.
-        this.tick();
-        return true;
+        if (took) this.tick();
+        return took;
     }
 
     /**
@@ -276,9 +288,35 @@ export class PlayoutPusher {
      * actually short.
      */
     async reconcile(): Promise<void> {
-        if (this.busy) return;
-        this.busy = true;
+        if (this.inFlight !== undefined) return;
+        await this.exclusively(() => this.pass());
+    }
 
+    /**
+     * Run `work` as the one thing touching the transport.
+     *
+     * Waits for whatever holds the guard rather than declining, which is the difference between
+     * this and {@link reconcile}'s own early return: a tick that finds a pass running loses nothing
+     * by going round again, while a skip that ran beside one hands the same record over twice.
+     * The guard is released by the `finally`, so a pass that throws cannot wedge it.
+     */
+    private async exclusively<T>(work: () => Promise<T>): Promise<T> {
+        while (this.inFlight !== undefined) await this.inFlight;
+        const run = work();
+        // Settled either way, so a waiter is woken by a failure as surely as by a success.
+        this.inFlight = run.then(
+            () => undefined,
+            () => undefined,
+        );
+        try {
+            return await run;
+        } finally {
+            this.inFlight = undefined;
+        }
+    }
+
+    /** One pass of {@link reconcile}, with the guard already held by the caller. */
+    private async pass(): Promise<void> {
         // Whether this pass got all the way round, which is not the same as it having
         // done anything: the several early returns below are completed passes, and the
         // only exit that is not is a throw. Beating in the `finally` without this would
@@ -417,7 +455,6 @@ export class PlayoutPusher {
             this.lastFailure = { at: Date.now(), message: errorText(error) };
             throw error;
         } finally {
-            this.busy = false;
             if (!threw) {
                 this.heartbeat.beat(HEARTBEATS.playoutReconcile);
                 // Cleared by a pass that worked, so what a reader sees is always the

@@ -306,6 +306,10 @@ export class Rundown {
      * window it is neither counted in `queued` nor reported as `onAir`. A reconcile
      * that read that gap as a lost push would hand the same item over twice, and the
      * listener would hear the track twice. See {@link RESOLVE_GRACE_MS}.
+     *
+     * Stamped when the item is marked `handed`, BEFORE this process resolves it, so the grace
+     * covers the app's own resolve as well as the player's fetch: an item that is `handed` is
+     * never without a stamp, and a reading that lands mid-resolve has nothing to misread.
      */
     private servedAt = new Map<string, number>();
     /**
@@ -568,16 +572,28 @@ export class Rundown {
             // in flight. A retraction takes it back to `planned` on its own, which is exactly the
             // behaviour wanted: the epoch check below then declines to hand it over.
             this.order?.markHanded(item.id);
+            // Stamped HERE, with the hand-over, and not after the resolve. The stamp is what
+            // `reconcileServed` reads to tell "the player is still fetching this" from "this push
+            // never landed", and for as long as it was written after the awaits below there was a
+            // window in which the item was `handed` with no stamp at all — which that walk read as
+            // lost the moment a reading arrived. An operator's skip takes readings every 100ms for a
+            // second, so it arrived: the item was reclaimed to `planned` mid-resolve, this pass
+            // finished and handed it over anyway, and the next pass handed it over again. Two copies
+            // in the player's queue, and the listener heard the record twice.
+            this.servedAt.set(item.id, Date.now());
             const url = await this.resolver.resolve(item);
 
             if (!this.epoch.isCurrent(token)) {
-                // Deliberately nothing to undo: a retraction has already reclaimed this item, and
-                // a stand-down means there is nothing to go back to.
+                // Nothing to undo in the ORDER: a retraction has already reclaimed this item, and a
+                // stand-down means there is nothing to go back to. The stamp is this class's own and
+                // comes off with the item.
+                this.servedAt.delete(item.id);
                 this.logger.info('rundown: the running order changed while an item was being resolved; dropping it', { item: item.id });
                 return undefined;
             }
 
             if (!url) {
+                this.servedAt.delete(item.id);
                 // `unavailable` rather than `skipped`: nothing here is a decision the station made.
                 // The resolver answers with nothing when every copy of the record is benched or the
                 // provider will not serve one, which is a fact about the COPY and the one thing on
@@ -596,7 +612,6 @@ export class Rundown {
             // missing is an audible one.
             const voice = item.voice === undefined ? undefined : await this.resolveVoice(item.voice);
 
-            this.servedAt.set(item.id, Date.now());
             // Read AFTER `markHanded` above, so this item is no longer the first planned one
             // and the same question answers with the one behind it. Read after the resolve
             // too, which is the point: the order can have changed while it was in flight and

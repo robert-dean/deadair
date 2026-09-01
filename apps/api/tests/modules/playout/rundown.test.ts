@@ -391,6 +391,35 @@ describe('Rundown.reconcile', () => {
         }
     });
 
+    it('leaves an item this process is still resolving alone, even when a reading lands mid-resolve', async () => {
+        // The other half of the grace. A hand-over marks the item `handed` and then awaits the
+        // resolve, and an operator's skip takes a reading every 100ms while it waits for the
+        // boundary. For as long as the stamp was written AFTER the resolve, a reading in that window
+        // found a handed item with no stamp, called it lost, and reclaimed it: this pass then handed
+        // it over anyway, the next pass handed it over again, and the listener heard it twice.
+        let release: (url: string) => void = () => {};
+        const resolver = {
+            resolve: () => new Promise<string>(resolve => (release = resolve)),
+        } as unknown as TrackResolver;
+        const rundown = rundownWith(['a', 'b'], resolver);
+
+        const handing = rundown.next();
+        // Let `next()` reach its await.
+        await Promise.resolve();
+        expect(rundown.queuedCount()).toBe(1);
+
+        // The skip's reading: the player holds nothing, because nothing has been pushed yet.
+        rundown.reconcile({ queued: 0, ready: true, onAir: 'something-else' });
+
+        release('https://example.test/a.ogg');
+        const pulled = await handing;
+
+        expect(pulled?.item.externalId).toBe('a');
+        // Still handed over, exactly once: not reclaimed, so the next pass offers `b` and not `a` again.
+        expect(rundown.queuedCount()).toBe(1);
+        expect(rundown.upcoming().map(entry => entry.externalId)).toEqual(['a', 'b']);
+    });
+
     it('leaves the running order alone when the player holds what it was given', async () => {
         const rundown = rundownWith(['a', 'b']);
         const pulled = await rundown.next();

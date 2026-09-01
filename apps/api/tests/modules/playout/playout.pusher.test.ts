@@ -617,6 +617,53 @@ describe('PlayoutPusher.skipCurrent', () => {
     });
 });
 
+describe('PlayoutPusher.skipCurrent against a pass in flight', () => {
+    it('waits for a running pass rather than skipping beside it', async () => {
+        // A pass is halfway through: it has taken its reading and is resolving an item. The skip
+        // used to go straight ahead, and its own readings reconciled the running order underneath
+        // the pass — which is how a record ended up in the player's queue twice.
+        const { pusher, spy } = setup(['a', 'b'], { queued: 0, ready: true, onAir: 'x' });
+        let release: (status: QueueStatus) => void = () => {};
+        // On air with a programme, the pass reads through the lease renewal rather than the poll.
+        spy.assertOnAir.mockImplementationOnce(() => new Promise<QueueStatus>(resolve => (release = resolve)));
+
+        const pass = pusher.reconcile();
+        await Promise.resolve();
+        const skip = pusher.skipCurrent();
+        await Promise.resolve();
+
+        // The pass holds the transport, so the skip has not cut anything yet.
+        expect(spy.skip).not.toHaveBeenCalled();
+
+        release({ queued: 0, ready: true, onAir: 'x' });
+        await pass;
+        expect(await skip).toBe(true);
+        expect(spy.skip).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the timer out while the skip is confirming the boundary', async () => {
+        // A skip into a queue with nothing behind it never crosses a boundary, so the confirm runs
+        // its whole budget; a tick that fires meanwhile finds the guard held and goes round again.
+        const { pusher, control, first } = await onAirStation(['a', 'b']);
+        control.reading = { queued: 0, ready: true, onAir: first };
+
+        vi.useFakeTimers();
+        try {
+            const skip = pusher.skipCurrent();
+            await vi.advanceTimersByTimeAsync(150);
+            const readsDuringSkip = control.status.mock.calls.length + control.assertOnAir.mock.calls.length;
+
+            await pusher.reconcile();
+            expect(control.status.mock.calls.length + control.assertOnAir.mock.calls.length).toBe(readsDuringSkip);
+
+            await vi.advanceTimersByTimeAsync(3_000);
+            expect(await skip).toBe(true);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+});
+
 describe('PlayoutPusher lifecycle', () => {
     it('takes back what has not aired when the running order is replaced', async () => {
         // The station has abandoned that order; leaving it queued would air it anyway.

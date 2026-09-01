@@ -154,9 +154,21 @@ export const LATITUDE_MAX_WORDS: Record<PersonaLatitude, number> = {
  * written against: it would have produced neither the character nor the restraint.
  *
  * So the licence now says only what the extra room is FOR, and the sheet says who it is pointed at.
- * The remaining sentence still names the record, the industry and the presenter, which is a steer
- * rather than a prohibition: a character whose own sheet adds the listener is adding to that list
- * rather than contradicting it.
+ * The remaining sentence still names a list of targets, which is a steer rather than a prohibition:
+ * a character whose own sheet adds the listener is adding to that list rather than contradicting it.
+ *
+ * ## What the second pass widened, and why it is a wording change rather than a new permission
+ *
+ * The first version asked for the register and stopped there, and a model reading it wrote the rude
+ * line and then took it back — the caveat, the "but that is just me", the balancing sentence. That
+ * is the same hedge this whole file is written against, arriving one sentence later than usual, and
+ * no ceiling or guard can see it: a break that undoes itself is a perfectly valid break.
+ *
+ * So it now names the hedge and refuses it in as many words, and widens the target list to the
+ * artist and the station. **Nothing about what the STATION will permit changed with it.** This is
+ * still one line in a list, still emitted only where the content policy already left the presenter
+ * free, and still underneath the grounding rules — a character told it may be scathing about a
+ * record may still only be scathing about a record it was actually given.
  *
  * **Nothing enforces a target, and nothing ever did.** The old clause was an instruction to a model
  * exactly as the seeds' fences are, so what changed is which instruction gets sent, not what the
@@ -164,8 +176,10 @@ export const LATITUDE_MAX_WORDS: Record<PersonaLatitude, number> = {
  * standing grounding rules underneath are what no sheet can loosen.
  */
 export const LATITUDE_LICENCE =
-    'Nothing is off limits in how you say it: swear if you would swear, be as rude about the music as you actually are, and do not ' +
-    'soften a line to make it comfortable. Be rude about the record, the industry and yourself.';
+    'Nothing is off limits in how you say it, and nothing you actually think is off limits to say: swear properly if you would swear, ' +
+    'be as rude, crude or unfair as you genuinely are, and never soften a line, add a caveat, or balance it out afterwards. You owe ' +
+    'nobody a kind word or a second opinion. Be as scathing as you like about the record, the artist, the industry, this station and ' +
+    'yourself.';
 
 /**
  * The rung this sheet carries, or `undefined` for the station's ordinary discipline.

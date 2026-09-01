@@ -571,8 +571,14 @@ describe('latitude', () => {
     // a model resolves by hedging between them. The licence decides the register; the sheet decides
     // the target. See `LATITUDE_LICENCE`.
     it('licences the register and names a target without forbidding one', () => {
-        expect(LATITUDE_LICENCE).toMatch(/swear if you would swear/i);
-        expect(LATITUDE_LICENCE).toMatch(/rude about the record, the industry and yourself/i);
+        expect(LATITUDE_LICENCE).toMatch(/swear properly if you would swear/i);
+        expect(LATITUDE_LICENCE).toMatch(/about the record, the artist, the industry, this station and yourself/i);
         expect(LATITUDE_LICENCE).not.toMatch(/never about the person listening/i);
+    });
+
+    // The hedge arrives one sentence after the rude line rather than instead of it, so no ceiling or
+    // guard can see it: a break that undoes itself is a valid break. Naming it is the only lever.
+    it('refuses the caveat as well as the softening', () => {
+        expect(LATITUDE_LICENCE).toMatch(/never soften a line, add a caveat, or balance it out afterwards/i);
     });
 });

@@ -76,11 +76,22 @@ export const STORY_SHAPE: BreakPromptShape = {
     // A story is the presenter being a person for forty-five seconds, which is what a reaction is
     // for. See `BreakPromptShape.allowsCues`.
     allowsCues: true,
-    // Deliberately NOT offered. A rung buys a character room on a break that would otherwise be a
-    // link, and this kind is already the room — `rotation.storyWords` is its ceiling, and letting a
-    // latitude raise it further would mean an `unleashed` character's stories ran to a different
-    // length than the station asked for with nothing on the settings page saying so.
-    allowsLatitude: false,
+    // Offered, and it used to be refused here. The old argument was that a rung buys a character room
+    // on a break that would otherwise be a link and this kind is already the room, so a latitude
+    // raising the ceiling further would mean an `unleashed` character's stories ran to a length the
+    // settings page never mentions.
+    //
+    // What that missed is that `maxWordsFor` takes the LARGER of the two, and `rotation.storyWords`
+    // defaults to 120 against the top rung's 100: at any story ceiling the station would plausibly
+    // set, the rung changes the length by nothing at all. What it changes is the register, which is
+    // the whole of what an operator was asking for — a character whose links are unleashed and whose
+    // stories about its own life are told in careful broadcast English was two characters.
+    //
+    // The one case where it does move the ceiling is an operator who has pulled `rotation.storyWords`
+    // down near its floor of 40. There the rung lifts a story back to 70 or 100 words, which is the
+    // same bargain the talk break already makes and is visible on the persona page rather than
+    // nowhere.
+    allowsLatitude: true,
     opening: () =>
         'Tell the story below as you would tell it on air: in your own words, out loud, to one person listening. ' +
         'Start in the middle of it rather than announcing that you are about to tell a story, and finish it — ' +
@@ -90,6 +101,20 @@ export const STORY_SHAPE: BreakPromptShape = {
             'nothing in it is something the station is claiming to know.',
         'Land it. One story, one ending, and then hand back to the record coming up in a line. Do not start a second one, and do not ' +
             'fill the end with atmosphere — when the story is over, you are done.',
+    ],
+    // The first rule word for word, because it is the one thing no amount of room excuses: a story
+    // that turns into a claim about a real record is the failure this whole kind is written against,
+    // and a rule quietly dropped from a prompt the station still refuses over would be the trick
+    // question every guard here avoids.
+    //
+    // The second is turned around only where it asked for restraint. "Do not fill the end with
+    // atmosphere" and "take the thought as far as it goes" are the same slot said twice, so what
+    // survives is the half about landing it: one story, one ending, and a hand back to the record.
+    latitudeRules: [
+        'It happened to YOU. Tell it as your own, and do not turn it into a fact about a record, an artist, or anybody real: ' +
+            'nothing in it is something the station is claiming to know.',
+        'Tell the whole of it. Take the detour if there is one, say the part you would normally leave out, and do not tidy it up on the ' +
+            'way. It is still ONE story with an ending: land it, hand back to the record coming up, and do not start a second.',
     ],
 };
 

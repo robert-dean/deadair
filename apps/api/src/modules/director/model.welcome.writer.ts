@@ -5,7 +5,16 @@ import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, DEFAULT_MAX_WORDS, readAnswer, writeDecline, writeTrim, type AnswerGuard, type BreakPromptShape } from './break.prompt.js';
+import {
+    breakPrompt,
+    maxWordsFor,
+    readAnswer,
+    writeDecline,
+    writeTrim,
+    type AnswerGuard,
+    type BreakPromptShape,
+    type PromptSettings,
+} from './break.prompt.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
 import { BreakWriter, type BreakWriteRequest, type WriteDetail, type WrittenBreak, patienceFor } from './break.writer.js';
@@ -52,6 +61,23 @@ export const WELCOME_SHAPE: BreakPromptShape = {
         'Make one point, and make it the way only you would. A greeting is a single thought said well, not a list of facts about the ' +
             'record coming up: the words you save by leaving those out are yours to spend on sounding like yourself.',
     ],
+    // The front door is a place a character is allowed to sound like itself. See `allowsLatitude`
+    // for why this was off and what changed: a station whose links are unleashed and whose greeting
+    // is prim was two characters, and the arriving listener meets the prim one first.
+    //
+    // It does NOT lengthen a greeting by itself. `maxWordsFor` takes the larger of this kind's own
+    // ceiling and the rung's, and a welcome's ceiling is `DEFAULT_MAX_WORDS`, so the rung raises it
+    // to 70 or 100 words. That is the one cost of this flag worth watching: a greeting is the one
+    // break with a listener who has heard nothing yet, and there is no evidence a long one is better.
+    allowsLatitude: true,
+    // The rule above with its first half turned around, and its second half kept word for word. The
+    // list-of-facts half is what the running-time failure argued for and no amount of room excuses
+    // it: a greeting that spends 100 words listing the sleeve notes is the same fault at more length.
+    latitudeRules: [
+        'Say the whole of what you actually want to say to somebody who has just walked in. This is not a formality to get through: if ' +
+            'you have a thought about being on air right now, follow it, and stop when you are finished rather than when you have been ' +
+            'brief. What it must not turn into is a list of facts about the record coming up, however long you take.',
+    ],
     opening: request =>
         [
             'Somebody has just tuned in. They have not heard anything before this, so tell them what they are listening to.',
@@ -93,26 +119,26 @@ export class ModelWelcomeWriter extends BreakWriter {
         }
 
         const model = this.config.get(MODEL_WRITER_KEYS.model, '').trim();
-        const messages = breakPrompt(
-            request,
-            {
-                station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-                dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
-                cleanLanguage: speaksClean(advisoryPolicy(this.config)),
-                ...(request.persona === undefined ? {} : { persona: request.persona }),
-                // Carried across like the persona. Note the SHAPE decides what a welcome does with
-                // it: `showsPlayed` is off here because an arriving listener heard none of the show,
-                // and the same argument does not reach a notebook — somebody tuning in has heard this
-                // station before, which is the whole premise of a note.
-                ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
-                // Passed and then declined by `WELCOME_SHAPE`, which does not set `allowsCues`. Handed
-                // over anyway so every model writer assembles its settings the same way: what a kind
-                // of break permits belongs on the shape, and a writer that pre-empted its own shape
-                // would put the same decision in two places.
-                ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
-            },
-            WELCOME_SHAPE,
-        );
+        // Held rather than passed inline, for `ModelTalkBreakWriter`'s reason: a persona's latitude
+        // decides the word ceiling now that `WELCOME_SHAPE` offers one, and the number the model is
+        // told has to be the number the guard refuses at. One `maxWordsFor` call over one object.
+        const settings: PromptSettings = {
+            station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
+            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
+            cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+            ...(request.persona === undefined ? {} : { persona: request.persona }),
+            // Carried across like the persona. Note the SHAPE decides what a welcome does with
+            // it: `showsPlayed` is off here because an arriving listener heard none of the show,
+            // and the same argument does not reach a notebook — somebody tuning in has heard this
+            // station before, which is the whole premise of a note.
+            ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
+            // Passed and then declined by `WELCOME_SHAPE`, which does not set `allowsCues`. Handed
+            // over anyway so every model writer assembles its settings the same way: what a kind
+            // of break permits belongs on the shape, and a writer that pre-empted its own shape
+            // would put the same decision in two places.
+            ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
+        };
+        const messages = breakPrompt(request, settings, WELCOME_SHAPE);
 
         const result = await this.llm.converse(
             {
@@ -134,7 +160,9 @@ export class ModelWelcomeWriter extends BreakWriter {
         );
 
         const guard: AnswerGuard = {
-            maxWords: DEFAULT_MAX_WORDS,
+            // The prompt's own ceiling rather than this kind's default, which for a persona with
+            // latitude is a larger number. See the note beside `settings`.
+            maxWords: maxWordsFor(settings, WELCOME_SHAPE),
             ...(request.persona === undefined ? {} : { persona: request.persona }),
             // The list the prompt was built from, so a signature is refused here only where the
             // prompt named it as spent. See `AnswerGuard.recent`.

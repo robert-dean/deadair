@@ -88,9 +88,18 @@ describe('STORY_SHAPE', () => {
         expect(STORY_SHAPE.showsNotebook).not.toBe(false);
     });
 
-    // `rotation.storyWords` is this kind's ceiling. A latitude raising it further would mean an
-    // unleashed character's stories ran to a length the settings page never mentions.
-    it('offers no latitude, because the room is the kind rather than the character', () => {
-        expect(STORY_SHAPE.allowsLatitude).toBe(false);
+    // `rotation.storyWords` is this kind's ceiling and `maxWordsFor` takes the larger of the two, so
+    // at the 120-word default the rung moves the length by nothing. What it moves is the register: a
+    // character whose links are unleashed and whose own stories are told in careful broadcast English
+    // was two characters. See `allowsLatitude`.
+    it('offers latitude, for the register rather than for the room', () => {
+        expect(STORY_SHAPE.allowsLatitude).toBe(true);
+    });
+
+    // Both lists carry the grounding rule word for word. A rule quietly dropped from a prompt the
+    // station still refuses over is the trick question every guard here is written to avoid.
+    it('keeps the it-happened-to-you rule in both rule lists', () => {
+        expect(STORY_SHAPE.latitudeRules).toHaveLength(STORY_SHAPE.rules?.length ?? 0);
+        expect(STORY_SHAPE.latitudeRules?.[0]).toBe(STORY_SHAPE.rules?.[0]);
     });
 });

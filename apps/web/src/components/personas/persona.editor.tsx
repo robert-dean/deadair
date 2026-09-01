@@ -353,7 +353,7 @@ export function PersonaEditor({ persona, kind, opened, onClose, onSubmit, saving
 
                         <Select
                             label="How much rope they get"
-                            description="Room to follow a thought instead of making one point, with a longer break to do it in. Only on ordinary talk breaks — never the news. The station's explicit-content setting still outranks it, and a break that names neither record or drops the character is still refused."
+                            description="Room to follow a thought instead of making one point, with a longer break to do it in. On links, welcomes and the character's own stories, never the news or the weather. The station's explicit-content setting still outranks it, and a break that names neither record or drops the character is still refused."
                             data={[
                                 { value: '', label: "The station's usual discipline" },
                                 { value: 'loose', label: 'Room — follows a thought where it goes' },

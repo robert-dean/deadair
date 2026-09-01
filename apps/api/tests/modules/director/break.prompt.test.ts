@@ -1013,14 +1013,36 @@ describe('breakPrompt', () => {
         });
 
         it('is not offered by a kind that did not ask for it', () => {
-            // The shape has the veto and the sheet only offers: a bulletin's accuracy is not a
-            // character choice, and a welcome is a greeting rather than a slot for a monologue.
+            // The shape has the veto and the sheet only offers: a report's accuracy is not a
+            // character choice, so a station whose character is unleashed still reads the news in
+            // forty words. That is the half of the old line that survived the widening below.
             const bulletin = { job: 'You read the news.', showsPrevious: false };
             const rules = system(breakPrompt({ kind: 'news', next }, { persona: unleashed }, bulletin));
 
             expect(rules).toMatch(new RegExp(`under ${DEFAULT_MAX_WORDS} words`));
             expect(rules).not.toContain(LATITUDE_INSTRUCTIONS.unleashed);
             expect(rules).not.toContain(LATITUDE_LICENCE);
+        });
+
+        // The front door was refused a rung on the argument that a greeting is not a slot for a
+        // monologue, which was an argument about LENGTH. What a character gains here is the register,
+        // and a station whose links are unleashed and whose greeting is prim was two characters.
+        it('is offered by a welcome, which is the station in its own voice', () => {
+            const rules = system(breakPrompt({ kind: 'welcome', next }, { persona: unleashed }, WELCOME_SHAPE));
+
+            expect(rules).toContain(LATITUDE_INSTRUCTIONS.unleashed);
+            expect(rules).toContain(LATITUDE_LICENCE);
+            expect(rules).toMatch(new RegExp(`under ${LATITUDE_MAX_WORDS.unleashed} words`));
+        });
+
+        // Swapped rather than appended, for the talk break's reason: "make one point" and "say the
+        // whole of it" are the same slot said twice, and a model handed both hedges between them.
+        it('swaps a welcome’s one-point rule for the room, and keeps the fact-list refusal', () => {
+            const rules = system(breakPrompt({ kind: 'welcome', next }, { persona: unleashed }, WELCOME_SHAPE));
+
+            expect(rules).not.toMatch(/A greeting is a single thought said well/);
+            expect(rules).toMatch(/Say the whole of what you actually want to say/);
+            expect(rules).toMatch(/must not turn into is a list of facts about the record coming up/);
         });
 
         it('reads a hand-edited row that names no rung as no room at all', () => {

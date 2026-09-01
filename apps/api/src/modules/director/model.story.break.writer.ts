@@ -5,7 +5,7 @@ import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, readAnswer, writeDecline, writeTrim, type AnswerGuard } from './break.prompt.js';
+import { breakPrompt, maxWordsFor, readAnswer, writeDecline, writeTrim, type AnswerGuard, type PromptSettings } from './break.prompt.js';
 import { resolveStoryWords } from './break.words.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
@@ -73,21 +73,23 @@ export class ModelStoryBreakWriter extends BreakWriter {
         // The station's own ceiling for this kind, read once and used twice: what the model is told
         // and what `readAnswer` cuts at have to be the same number, or a story is asked for at a
         // hundred and twenty words and refused at forty in silence.
-        const maxWords = resolveStoryWords(this.config);
-        const messages = breakPrompt(
-            request,
-            {
-                station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
-                dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
-                maxWords,
-                cleanLanguage: speaksClean(advisoryPolicy(this.config)),
-                ...(request.persona === undefined ? {} : { persona: request.persona }),
-                ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
-                ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
-                story: request.story,
-            },
-            STORY_SHAPE,
-        );
+        //
+        // Both numbers now come off `maxWordsFor` rather than off this one, because `STORY_SHAPE`
+        // offers a latitude: at the default ceiling the rung raises nothing, and on a station that
+        // pulled `rotation.storyWords` down it does. Held in a `settings` object for that reason,
+        // exactly as the talk break holds one.
+        const settings: PromptSettings = {
+            station: this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title),
+            dj: request.persona?.djName ?? this.config.get(TEMPLATE_KEYS.djName, ''),
+            maxWords: resolveStoryWords(this.config),
+            cleanLanguage: speaksClean(advisoryPolicy(this.config)),
+            ...(request.persona === undefined ? {} : { persona: request.persona }),
+            ...(request.notebook === undefined ? {} : { notebook: request.notebook }),
+            ...(request.reactions === undefined ? {} : { reactions: request.reactions }),
+            story: request.story,
+        };
+        const maxWords = maxWordsFor(settings, STORY_SHAPE);
+        const messages = breakPrompt(request, settings, STORY_SHAPE);
 
         const result = await this.llm.converse(
             {

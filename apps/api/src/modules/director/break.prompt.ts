@@ -190,10 +190,22 @@ export interface BreakPromptShape {
      *
      * Off unless a shape asks for it, and the shape has the last word rather than the sheet — which
      * is the same asymmetry {@link BreakPromptShape.mustNameRecord} has, pointed the other way. A
-     * persona is who the station IS, and a kind of break is a job it is doing: a bulletin's accuracy
-     * is not a character choice, and a welcome is a greeting to somebody who has just arrived rather
-     * than a slot for a monologue. So only the ordinary link offers the room, and a station whose
-     * character is unleashed still reads the news in forty words.
+     * persona is who the station IS, and a kind of break is a job it is doing.
+     *
+     * ## The line is REPORTING, and it moved once
+     *
+     * It used to sit around the ordinary link alone, on two arguments: a welcome is a greeting to
+     * somebody who has just arrived rather than a slot for a monologue, and a story already has all
+     * the room it needs. Both were arguments about LENGTH, and length is the half a rung least
+     * decides. {@link LATITUDE_MAX_WORDS} reaches a kind through {@link maxWordsFor}'s `Math.max`, so
+     * a ceiling the station set higher is never pulled down by a rung, and what those two kinds
+     * actually gain is the REGISTER: the character an operator chose the rung for in the first place.
+     * A station whose links are unleashed and whose greeting is prim was two characters, and nothing
+     * on either page said which one a listener would get.
+     *
+     * A bulletin and a forecast still refuse it, which is the half of the old argument that holds: a
+     * report's accuracy is not a character choice, so a station whose character is unleashed still
+     * reads the news in forty words.
      */
     allowsLatitude?: boolean;
     /**

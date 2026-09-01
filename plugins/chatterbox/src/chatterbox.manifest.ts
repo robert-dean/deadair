@@ -39,7 +39,7 @@ export const DEFAULT_VOICE = 'Olivia.wav';
  *
  * **The NAMES are the point, and they are the other engine's names on purpose.**
  * A persona names a station voice, so the two bundled speech plugins shipping the
- * same thirteen slots is what makes switching engines a settings change rather than
+ * same twelve slots is what makes switching engines a settings change rather than
  * a rewrite of the whole roster. That is the whole of what the indirection was
  * built for, and it is only true if both maps actually cover the same vocabulary
  * — `voice.slots.test.ts` in the API holds them to it, because a slot that exists
@@ -52,7 +52,7 @@ export const DEFAULT_VOICE = 'Olivia.wav';
  * voices are reference clips named after people — nothing in `Olivia.wav` says
  * whether it growls — so these are assigned to match the other map's gender and to
  * keep every character distinct, and nothing more. They are a starting point that
- * makes the station sound like thirteen different people rather than one, which is
+ * makes the station sound like twelve different people rather than one, which is
  * the failure worth fixing first; which clip actually suits a given character is a
  * question for whoever listens, and it is one table row to answer.
  *
@@ -82,7 +82,6 @@ export const DEFAULT_VOICE = 'Olivia.wav';
 export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?: string }[] = [
     { name: 'classic', engine: 'Olivia.wav' },
     { name: 'latenight', engine: 'Miles.wav' },
-    { name: 'quietstorm', engine: 'Layla.wav' },
     { name: 'countdown', engine: 'Michael.wav' },
     { name: 'wisecrack', engine: 'Cora.wav' },
     { name: 'shockjock', engine: 'Austin.wav' },

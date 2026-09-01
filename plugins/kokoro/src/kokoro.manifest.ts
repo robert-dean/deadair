@@ -61,7 +61,7 @@ export const DEFAULT_VOICE = 'af_heart';
  * ## Two rules about the rows
  *
  * **No two characters that could air in one shift share a voice.** They are all
- * distinct here, which is easy at thirteen against sixty-eight; the rule matters
+ * distinct here, which is easy at twelve against sixty-eight; the rule matters
  * on an engine with fewer, where sharing is fine between characters a schedule
  * keeps apart and wrong between two a listener hears in an hour.
  *
@@ -73,7 +73,6 @@ export const DEFAULT_VOICE = 'af_heart';
 export const DEFAULT_VOICE_ROWS: readonly { name: string; engine: string; speed?: string }[] = [
     { name: 'classic', engine: 'af_heart' },
     { name: 'latenight', engine: 'am_echo', speed: '0.95' },
-    { name: 'quietstorm', engine: 'af_river', speed: '0.9' },
     { name: 'countdown', engine: 'am_michael' },
     { name: 'wisecrack', engine: 'af_jessica' },
     { name: 'shockjock', engine: 'am_adam', speed: '1.1' },

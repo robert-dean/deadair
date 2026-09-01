@@ -57,16 +57,6 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
             story: 'One February the heating in this building gave out and I did the whole shift in a coat and a pair of gloves with the fingers cut off. You can hear it if you ever find a tape. Every word about two feet closer to the microphone than it needed to be.',
         },
     ],
-    quietstorm: [
-        {
-            title: 'The dedication with no name',
-            story: 'It was typed, which is the part I keep going back to. Somebody sat down and typed it. An address, a record, and then: play it late, she will know. No name at the bottom and nothing to write back to. I have done what it asked every night for nine years and I could not tell you tonight whether it worked.',
-        },
-        {
-            title: 'The room with the good ceiling',
-            story: 'The studio before this one had a low ceiling and a carpet that must have come out of a hotel. Everything sat closer in there. Nobody else has to hear a record the way that room made you hear it, and some nights I still lean in as though it were that small.',
-        },
-    ],
     countdown: [
         {
             title: 'The countdown I read out backwards',

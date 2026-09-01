@@ -28,7 +28,7 @@
 // half of each pair left the building.
 //
 // That matters because the corpus IS the test: a marker is only evidence in proportion to how many
-// other voices it has been measured against, and this file is weaker at twelve characters than it
+// other voices it has been measured against, and this file is weaker at eleven characters than it
 // was at twenty-four. The measurement did not improve; it lost resolution. So the mechanism stays
 // exactly as it was — per sheet, asserted as a CEILING, so improving a sheet is always allowed and
 // regressing one fails — and the table stays here empty rather than being deleted along with its
@@ -70,7 +70,7 @@ const PLAIN_ENGLISH = [
  * roster. `plain` is how many of {@link PLAIN_ENGLISH} it passes on.
  */
 const BUDGET: Record<string, { crossfire?: number; plain?: number; why: string }> = {
-    // Empty, and measured empty rather than assumed: with the roster at twelve, no sheet's markers
+    // Empty, and measured empty rather than assumed: with the roster at eleven, no sheet's markers
     // fire on another character's samples or on plain announcer English. Read the note above before
     // reading that as a compliment to the sheets.
     //

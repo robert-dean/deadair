@@ -79,7 +79,7 @@ grounds that which ids exist is a question only the installed engine can answer 
 wrong about the STATION name the column holds, and it cost the whole roster sounding identical: nineteen
 sheets, nineteen sets of diction markers, and a listener hearing one warm American female read all of them,
 with nothing on any page saying that was a default rather than a choice. That count is the roster as it stood
-when the failure was measured, not the roster today, which is ten hosts and two callers. Both bundled speech plugins ship a
+when the failure was measured, not the roster today, which is nine hosts and two callers. Both bundled speech plugins ship a
 `DEFAULT_VOICE_ROWS` map covering every seeded key plus `newsreader`, so a seed resolves on either engine and
 switching engines rewrites nothing — which is the entire thing the voice indirection was built for and is only
 true while the two maps agree, so `voice.slots.test.ts` holds the three lists together (the seeds say which

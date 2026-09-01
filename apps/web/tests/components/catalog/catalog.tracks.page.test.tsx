@@ -324,6 +324,44 @@ describe('CatalogTracksPage', () => {
         expect(await screen.findByRole('checkbox', { name: /Benched/ })).toBeDisabled();
     });
 
+    /**
+     * The bar's segments are a partition of the library, not overlapping claims about it.
+     *
+     * They were the second: a cached-but-unmeasured record was counted by both the ready segment
+     * and the unmeasured one, so with the measurement walk part way through a fetched library the
+     * row summed past 100% and the states worth seeing were the ones pushed off the end of a
+     * clipped flex row. The floor is the other half of it — a state worth a fraction of a percent
+     * drew at a width nobody could see, which reads as the state not existing. Both assertions are
+     * the shape of those bugs rather than the widths, which are a design decision and may move.
+     */
+    it('draws the readiness bar as segments that fit', async () => {
+        listTracks.mockResolvedValue(page([track()], 924, counts({ total: 924, cached: 920, measured: 919, benched: 3 })));
+
+        const { container } = render(
+            <CatalogTracksPage
+                order={ORDER('title')}
+                onOrderChange={noop}
+                page={0}
+                search=""
+                state=""
+                onPageChange={noop}
+                onSearchChange={noop}
+                onStateChange={noop}
+            />,
+        );
+        await screen.findByText(/records are ready to air right now/);
+
+        const widths = [...container.querySelectorAll('.mantine-Progress-section')].map(section =>
+            Number.parseFloat((section as HTMLElement).style.getPropertyValue('--progress-section-size')),
+        );
+
+        expect(widths).toHaveLength(2);
+        expect(widths.reduce((sum, width) => sum + width, 0)).toBeLessThanOrEqual(100);
+        // And a state with records behind it is never drawn at a width nobody can see. One
+        // unmeasured record out of 924 is 0.1% of the bar, which is a single pixel.
+        for (const width of widths) expect(width).toBeGreaterThan(1);
+    });
+
     it('marks each row with what the station has of it', async () => {
         listTracks.mockResolvedValue(page([track({ hasAudio: true, measured: false, enriched: true })]));
 

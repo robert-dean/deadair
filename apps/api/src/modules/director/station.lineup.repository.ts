@@ -212,7 +212,16 @@ const toItems = (value: unknown): StationLineupItem[] => {
         // Described as the JSON it is rather than as a `Partial` of the union: intersecting the two
         // arms collapses their literal `kind`s to `never` and takes every other field with it.
         const line = raw as
-            | { id?: unknown; kind?: unknown; state?: unknown; segmentId?: unknown; over?: { atMs?: unknown }; track?: Partial<RundownTrack> }
+            | {
+                  id?: unknown;
+                  kind?: unknown;
+                  state?: unknown;
+                  segmentId?: unknown;
+                  segmentKind?: unknown;
+                  groupId?: unknown;
+                  over?: { atMs?: unknown };
+                  track?: Partial<RundownTrack>;
+              }
             | null
             | undefined;
         if (typeof line?.id !== 'string') return items;
@@ -226,7 +235,23 @@ const toItems = (value: unknown): StationLineupItem[] => {
             // fires the instant a record starts is worse than one that plays in the gap, and a
             // hand-edited row should degrade to the simpler behaviour.
             const atMs = typeof line.over?.atMs === 'number' && line.over.atMs >= 0 ? line.over.atMs : undefined;
-            items.push({ id: line.id, kind: 'segment', state, segmentId: line.segmentId, ...(atMs === undefined ? {} : { over: { atMs } }) });
+            // Both optional fields come back, or a restart changes what the row means. `save`
+            // writes the item whole, and for a long time this read it back without `segmentKind`
+            // or `groupId`: after every resume a planted bulletin was an unlabelled station break
+            // (so an anchored news band replanted a second one beside it and the spacing walk
+            // counted it against the wrong kind), and a production's beats were no longer a block
+            // (so an unheard episode was never handed back at a changeover, and removing one beat
+            // left the rest to air around the hole). The round-trip test beside this file is
+            // what keeps the two halves of the serializer the same shape.
+            items.push({
+                id: line.id,
+                kind: 'segment',
+                state,
+                segmentId: line.segmentId,
+                ...(typeof line.segmentKind === 'string' ? { segmentKind: line.segmentKind } : {}),
+                ...(atMs === undefined ? {} : { over: { atMs } }),
+                ...(typeof line.groupId === 'string' ? { groupId: line.groupId } : {}),
+            });
             return items;
         }
 

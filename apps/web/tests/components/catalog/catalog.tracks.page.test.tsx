@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SdkError } from '@deadair/sdk';
 
 import { CatalogTracksPage } from '../../../src/components/catalog/catalog.tracks.page';
+import { stubPhoneMedia } from '../../utils/phone';
 import { render, screen, waitFor } from '../../utils/render';
 import { DEFAULT_PAGE_SIZE } from '../../../src/components/catalog/catalog.page.params';
 
@@ -400,5 +401,115 @@ describe('CatalogTracksPage', () => {
         );
 
         expect(await screen.findByText('The tracks could not be loaded')).toBeInTheDocument();
+    });
+
+    // Below the sm breakpoint the table becomes cards, and these cases pin what must survive the
+    // change of shape: the ordering (now a control rather than a heading), the rating, and the
+    // expansion's mount-only-when-open economy.
+    describe('on a phone', () => {
+        const onPhone = (over: { onOrderChange?: (order: unknown) => void } = {}) => {
+            render(
+                <CatalogTracksPage
+                    order={ORDER('title')}
+                    onOrderChange={over.onOrderChange ?? noop}
+                    page={0}
+                    search=""
+                    state=""
+                    onPageChange={noop}
+                    onSearchChange={noop}
+                    onStateChange={noop}
+                />,
+            );
+        };
+
+        it('gives cards rather than a sideways-scrolling table, dropping the album', async () => {
+            const restore = stubPhoneMedia();
+            try {
+                listTracks.mockResolvedValue(page([track()]));
+
+                onPhone();
+
+                expect(await screen.findByText('Vaka')).toBeInTheDocument();
+                expect(screen.getByText('Sigur Rós')).toBeInTheDocument();
+                expect(screen.getByText('6:34')).toBeInTheDocument();
+                expect(screen.queryByRole('table')).not.toBeInTheDocument();
+                expect(screen.queryByText('( )')).not.toBeInTheDocument();
+            } finally {
+                restore();
+            }
+        });
+
+        it('sorts through the control, on the same terms as a heading click', async () => {
+            const restore = stubPhoneMedia();
+            try {
+                listTracks.mockResolvedValue(page([track()]));
+                const onOrderChange = vi.fn();
+
+                onPhone({ onOrderChange });
+                await screen.findByText('Vaka');
+
+                await userEvent.click(screen.getByRole('combobox', { name: 'Sort by' }));
+                await userEvent.click(await screen.findByRole('option', { name: 'Artist' }));
+                expect(onOrderChange).toHaveBeenCalledWith({ sortBy: 'artist', sort: 'asc', pageSize: DEFAULT_PAGE_SIZE });
+
+                await userEvent.click(screen.getByRole('button', { name: 'Ascending. Turn the sort around' }));
+                expect(onOrderChange).toHaveBeenCalledWith({ sortBy: 'title', sort: 'desc', pageSize: DEFAULT_PAGE_SIZE });
+            } finally {
+                restore();
+            }
+        });
+
+        it('rates a track from its card', async () => {
+            const restore = stubPhoneMedia();
+            try {
+                listTracks.mockResolvedValue(page([track()]));
+                rateTrack.mockResolvedValue(track({ rating: 'liked' }));
+
+                onPhone();
+                await screen.findByText('Vaka');
+
+                await userEvent.click(screen.getByRole('radio', { name: 'Like Vaka' }));
+
+                await waitFor(() => {
+                    expect(rateTrack).toHaveBeenCalledWith('33333333-3333-4333-8333-333333333333', { rating: 'liked' });
+                });
+            } finally {
+                restore();
+            }
+        });
+
+        it('asks for enrichment only once a card is opened', async () => {
+            const restore = stubPhoneMedia();
+            try {
+                listTracks.mockResolvedValue(page([track()]));
+                getTrackEnrichment.mockResolvedValue({
+                    trackId: '33333333-3333-4333-8333-333333333333',
+                    merged: { label: 'Fat Cat' },
+                    sources: [
+                        {
+                            provider: 'deadair.musicbrainz',
+                            fetchedAt: '2026-08-02T09:00:00.000Z',
+                            stale: false,
+                            found: true,
+                            data: { label: 'Fat Cat' },
+                        },
+                    ],
+                });
+
+                onPhone();
+                await screen.findByText('Vaka');
+
+                expect(getTrackEnrichment).not.toHaveBeenCalled();
+
+                await userEvent.click(screen.getByRole('button', { name: 'Show what is known about Vaka' }));
+
+                await waitFor(() => {
+                    expect(getTrackEnrichment).toHaveBeenCalledWith('33333333-3333-4333-8333-333333333333');
+                });
+                expect(await screen.findByText('Fat Cat')).toBeInTheDocument();
+            } finally {
+                restore();
+            }
+        });
     });
 });

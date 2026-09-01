@@ -11,15 +11,18 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { PhoneCard } from '../shared/phone.card';
 import { SortableTh } from '../shared/sortable.th';
+import { usePhone } from '../shared/use.phone';
 import { CatalogPagination } from './catalog.pagination';
 import type { TrackSort } from '@deadair/sdk';
 import { CATALOG_SEARCH_DEFAULTS, type TrackListOrder, type TrackStateParam } from './catalog.page.params';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
+import { TrackSortSelect } from './track.sort.select';
 import { TrackStateAction } from './track.state.action';
 import { TrackStateFilter } from './track.state.filter';
-import { TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';
+import { TrackEnrichmentCollapse, TrackEnrichmentRow, TrackExpandButton, useTrackExpansion } from './track.expansion';
 
 export interface CatalogTracksPageProps {
     page: number;
@@ -109,6 +112,7 @@ export function CatalogTracksPage({
     const rows = tracks.data?.data ?? [];
     const expansion = useTrackExpansion();
     const rate = useRateTrack();
+    const phone = usePhone();
 
     // Spread into every heading, so a column cannot be drawn active while sorting by another.
     const sorting = {
@@ -161,7 +165,80 @@ export function CatalogTracksPage({
                 emptied lands them here. */}
             {tracks.data && rows.length === 0 ? <NothingHere search={search} state={state} total={tracks.data.states.total} /> : undefined}
 
-            {tracks.data && rows.length > 0 ? (
+            {/* The phone gets cards rather than a table that scrolls sideways, on the desk's own
+                argument: what survives 375px is a different selection, and the album is the
+                dropped column. The sort — a column heading's job everywhere else — becomes a
+                control, writing through the same URL params so it survives the breakpoint. Chosen
+                with the media query rather than `hiddenFrom`, because a hundred rows each carrying
+                artwork, links and a rating control is a real cost to render twice. */}
+            {phone && tracks.data && rows.length > 0 ? (
+                <>
+                    <TrackSortSelect order={order} onOrderChange={onOrderChange} />
+                    <Stack gap="xxs">
+                        {rows.map(track => (
+                            <PhoneCard
+                                key={track.id}
+                                leading={<Artwork src={track.albumImageUrl} alt={track.albumName ?? track.title} size={36} />}
+                                title={
+                                    <>
+                                        <TrackLink id={track.id} size="sm" truncate>
+                                            {track.title}
+                                        </TrackLink>
+                                        <Group gap="xxs" wrap="nowrap" style={{ flexShrink: 0 }}>
+                                            <StateMark on={track.hasAudio} label="audio on this machine" mark="A" />
+                                            <StateMark on={track.measured} label="measured" mark="M" />
+                                            <StateMark on={track.enriched} label="described by a provider" mark="E" />
+                                        </Group>
+                                    </>
+                                }
+                                subtitle={
+                                    <ArtistLink id={track.artistId} size="xs" c="dimmed" truncate>
+                                        {track.artistName}
+                                    </ArtistLink>
+                                }
+                                figure={
+                                    <Text size="xs" c="dimmed" className="da-num">
+                                        {formatDuration(track.durationMs)}
+                                    </Text>
+                                }
+                                action={
+                                    <TrackExpandButton
+                                        size={44}
+                                        open={expansion.isOpen(track.id)}
+                                        title={track.title}
+                                        onToggle={() => {
+                                            expansion.toggle(track.id);
+                                        }}
+                                    />
+                                }
+                                below={
+                                    <Stack gap="xxs" pt="xxs">
+                                        <RatingControl
+                                            size="xs"
+                                            rating={track.rating}
+                                            label={track.title}
+                                            busy={rate.isPending && rate.variables?.id === track.id}
+                                            onChange={rating => {
+                                                rate.mutate({ id: track.id, rating });
+                                            }}
+                                        />
+                                        <TrackEnrichmentCollapse trackId={track.id} open={expansion.isOpen(track.id)} />
+                                    </Stack>
+                                }
+                            />
+                        ))}
+                    </Stack>
+                    <CatalogPagination
+                        total={tracks.data.meta.total}
+                        pageSize={order.pageSize}
+                        page={page}
+                        onChange={onPageChange}
+                        onPageSizeChange={pageSize => onOrderChange({ ...order, pageSize })}
+                    />
+                </>
+            ) : undefined}
+
+            {!phone && tracks.data && rows.length > 0 ? (
                 <>
                     <Table.ScrollContainer minWidth={800}>
                         <Table highlightOnHover>

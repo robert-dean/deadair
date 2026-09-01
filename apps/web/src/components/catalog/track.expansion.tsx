@@ -29,14 +29,18 @@ export interface TrackExpandButtonProps {
     open: boolean;
     title: string;
     onToggle: () => void;
+    /** A bigger target where the pointer is a thumb; the phone card asks for the desk's 44px. */
+    size?: number;
 }
 
 /** The control that opens a row. */
-export function TrackExpandButton({ open, title, onToggle }: TrackExpandButtonProps) {
+export function TrackExpandButton({ open, title, onToggle, size }: TrackExpandButtonProps) {
     return (
         <ActionIcon
             variant="subtle"
             color="gray"
+            w={size}
+            h={size}
             aria-expanded={open}
             aria-label={`${open ? 'Hide' : 'Show'} what is known about ${title}`}
             onClick={onToggle}
@@ -53,22 +57,27 @@ export interface TrackEnrichmentRowProps {
     colSpan: number;
 }
 
+/** A second row under a track, holding what the providers said about it. */
+export function TrackEnrichmentRow({ trackId, open, colSpan }: TrackEnrichmentRowProps) {
+    return (
+        <Table.Tr>
+            <Table.Td colSpan={colSpan} p={open ? undefined : 0} bd="none">
+                <TrackEnrichmentCollapse trackId={trackId} open={open} />
+            </Table.Td>
+        </Table.Tr>
+    );
+}
+
 /**
- * A second row under a track, holding what the providers said about it.
+ * The collapse itself, without the table row around it, so the phone card can hold the same thing.
  *
  * The query lives inside the collapsed content and the content is only mounted while open, so a
  * page of fifty tracks costs one request for the list and nothing else until an operator asks
  * about a particular one. That is also why this is a component rather than a hook the table calls:
  * a hook would run for every row.
  */
-export function TrackEnrichmentRow({ trackId, open, colSpan }: TrackEnrichmentRowProps) {
-    return (
-        <Table.Tr>
-            <Table.Td colSpan={colSpan} p={open ? undefined : 0} bd="none">
-                <Collapse expanded={open}>{open ? <TrackEnrichment trackId={trackId} /> : undefined}</Collapse>
-            </Table.Td>
-        </Table.Tr>
-    );
+export function TrackEnrichmentCollapse({ trackId, open }: { trackId: string; open: boolean }) {
+    return <Collapse expanded={open}>{open ? <TrackEnrichment trackId={trackId} /> : undefined}</Collapse>;
 }
 
 function TrackEnrichment({ trackId }: { trackId: string }) {

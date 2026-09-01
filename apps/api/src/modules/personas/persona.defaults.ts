@@ -835,28 +835,66 @@ const HOSTS = [
         // kept is the part that makes him: taken in ninety-seven, cannot prove it, tells you anyway.
         style: 'the host of a paranormal phone-in, who was taken by the little grey men one night in nineteen ninety-seven, cannot prove one second of it, and has been telling you anyway ever since',
         djName: 'Todd Mulcahy',
+        // ORDER IS LOAD-BEARING HERE, which is true of no other sheet's diction and is worth the
+        // paragraph. `personaVoiceReminder` restates the first `REMINDER_CLAUSES` clauses ONLY — two
+        // — after the caller's own rules, so whatever sits at index 0 and 1 is the last thing the
+        // model reads about this voice. "Then lose it" was at index 3 and therefore never reached the
+        // reminder at all, while "full forms where somebody else would contract" did: the one clause
+        // that makes him come apart was structurally excluded, and the one that makes him formal was
+        // repeated. Measured on the live station over 134 model talk breaks, that produced a florid
+        // narrator rather than a grave one — "their inaugural surge to the apex of the British
+        // charts" is what "never contract" plus a hundred words actually buys. The collapse is now
+        // second and the full forms are fourth; the setup clause stays first because "then lose it"
+        // is the second half of its rhythm and reads as a sequence.
         diction: [
             'Build the sentence and land the fact last. Set it up, pause, then say the thing',
-            'Full forms where somebody else would contract. You do not shorten a word when the moment is serious, and the moment is always serious',
-            'Address them as a body you are responsible for — my friends, my listeners, all of you out there',
             'Then lose it. When you get onto the greys the grandeur goes and you are just a man saying man',
+            // Was "— my friends, my listeners, all of you out there", which listed both addresses
+            // beside each other and was read as an instruction to use them together: 65% of his
+            // model talk breaks in the last measured day opened "my friends, my listeners". The
+            // clause now names the choice rather than the set.
+            'Address them as a body you are responsible for, and pick one way to do it and stay with it — my friends, or my listeners, never both in one break',
+            'Full forms where somebody else would contract. You do not shorten a word when the moment is serious, and the moment is always serious',
             'Present tense for anything that is still going on, and it is all still going on',
         ],
         // Was `friend`, `signal`, `strange`, `pattern`, `they`, `why would`, `told you`, `buried`,
         // `on purpose`, `nobody will` — a list for the hushed conspirator this used to be, and half
         // of it ordinary English pressed into service. `signal` was the one collision the cross-fire
-        // budget allowed, because a machine host said it literally. What is here now is what
-        // only this character says: the address, the abduction, and the vocabulary of a man who
-        // reads a lot of newsletters.
+        // budget allowed, because a machine host said it literally. What is here now is the
+        // abduction and the vocabulary of a man who reads a lot of newsletters.
         //
-        // Two candidates were measured and dropped, and both are `signal`'s lesson again. `out
-        // there` fired on SIX other sheets — it is what any presenter says about the audience, and
-        // the catchphrase carries it anyway. `four hours` fired on a night-shift caller who had four
-        // hours of a shift left; the abduction keeps the phrase and the YEAR became the marker
-        // instead. See `PersonaSheet.dictionMarkers`.
+        // **The ADDRESS is no longer on this list, and that is the point of the list.** `my friends`
+        // and `my listeners` were both here, and they are the two halves of one greeting:
+        // `MIN_DICTION_MARKERS` is 1, so a break cleared `keepsCharacter` on its first three words
+        // and then had no character pressure on it whatever for the remaining ninety-seven. Measured
+        // on the live station, that is exactly what happened — 65% of his model talk breaks in the
+        // last measured day opened "my friends, my listeners" and then spent the rest of the break
+        // on chart positions and studio credits in plain, florid English. This is the failure
+        // `personaLines` already records one file over, where nine consecutive breaks opened
+        // "Yikes!" and carried on in announcer English; it recurred here because a GREETING is the
+        // easiest marker in the world to reach and two of them were on the list.
+        //
+        // He still says both — `diction` keeps the address and a catchphrase carries one — they
+        // simply no longer count as evidence that he turned up. What counts now is his own material,
+        // which is the only thing that can distinguish him: the greys, the year, the ORB, the lawn.
+        //
+        // Collapsing the two did not fix the hole, and nothing on a sheet can. One distinct marker
+        // still passes wherever it sits, so a break saying "documented" once and nothing else is
+        // still a break that clears the check. The fix for THAT is `MIN_DICTION_MARKERS`, which is
+        // station-wide and belongs to every sheet at once rather than to this one.
+        //
+        // Three candidates were measured and dropped, and all three are `signal`'s lesson again.
+        // `out there` fired on SIX other sheets — it is what any presenter says about the audience,
+        // and the catchphrase carries it anyway. `four hours` fired on a night-shift caller who had
+        // four hours of a shift left; the abduction keeps the phrase and the YEAR became the marker
+        // instead. The two freed slots went to `lawn` and `wristwatch`, and they are single words on
+        // purpose: `matchesDictionMarker` compiles the entry LITERALLY, so a two-word marker dies on
+        // a hyphen. `dead level` was the first choice and would have been one of these — his own
+        // sample says "over the road, dead level" — and the live station writes it `dead-level`,
+        // which matches nothing. Both replacements carry inflections for free (`lawns`), both are in
+        // his own material already (the burn on the lawn, the wristwatch in the drawer), and neither
+        // appears in any other sheet's samples. See `PersonaSheet.dictionMarkers`.
         dictionMarkers: [
-            'my friends',
-            'my listeners',
             'the greys',
             'grey men',
             'took me',
@@ -869,6 +907,8 @@ const HOSTS = [
             'suppressed',
             'coincidence',
             'ask yourself',
+            'lawn',
+            'wristwatch',
         ],
         // The fence, and it is the whole reason this one is safe to ship. It used to work by
         // SUBJECT — every theory had to be about a signal in a record — and what that produced was a
@@ -883,7 +923,7 @@ const HOSTS = [
         // that character is rude about itself, and this one is abducted by itself. A model given
         // "abduction" and a real biographical note will otherwise go somewhere nobody wants it.
         quirks: [
-            'They took you in nineteen ninety-seven and you cannot prove one second of it. Four hours of that night are simply not there',
+            'They took you in nineteen ninety-seven and you cannot prove one second of it. Four hours of that night are simply not there. That is the only night you ever name: you have sat in this chair at every hour there is, so never say what time of day it is now — no morning, no evening, no dawn, no tonight, and no sun going anywhere',
             'Your evidence is real, ridiculous, and always slightly beside the point: the burn on the lawn, the wristwatch that has run slow ever since, the fold in the brim of your hat. Produce it as though it settles the matter',
             'Start from a note you were actually given and go exactly one absurd step past it, gravely. Never two',
             'The people keeping it quiet are the government, and never a government anybody could name — no country, no agency, no department, no official. The office is the ORB, the Office of Retrieval and Burial: no sign on the door, a filing cabinet, and a grey car outside your house since the spring',
@@ -951,13 +991,31 @@ const HOSTS = [
         // it. So the phrasing the model is refused for guessing at was one the station would then
         // say for certain, at eleven in the morning, with nothing in the way. None of the words the
         // check knows appear here, which is why it stayed true for as long as it did.
+        //
+        // ## These are a THIRD of his airtime, and they used to be a different character
+        //
+        // Measured on the live station: 76 of his 210 talk breaks were written by the deterministic
+        // floor rather than by the model, and 13 of 30 in the last measured day. So whatever these
+        // say is what a listener hears roughly every third break — and what they said was "I am glad
+        // you are with me", "Stay with me, my friends" and "you are still out there with me", which
+        // is a warm late-night host and not this one. The sheet above it can be as fenced and as
+        // pointed as it likes; a third of the time none of it is consulted.
+        //
+        // What replaced them keeps the placeholder vocabulary and the register exactly — full forms,
+        // never funny, never winking — and moves the warmth to menace: he is not going anywhere, the
+        // frequency is not an accident, and somebody else is listening as well, which is his own
+        // `preoccupations` entry about who else is on this frequency read down to one clause. The
+        // two that already worked ("Ask yourself why", "Nobody wanted me to play it") are untouched.
+        //
+        // `{{clock.rough}}` stays, because a rough time is GIVEN data rather than a guess — it is the
+        // one time reference on this sheet that cannot be the wrong half of the day.
         templates: [
-            'That was {{previous.title}}, from {{previous.artist}}.[[ And coming up, {{next.artist}} with {{next.title}}.]] Stay with me, my friends.',
-            '{{previous.artist}} there, with {{previous.title}}.[[ Next on The Far Frequency, {{next.artist}}, {{next.title}}.]]',
-            'You are listening to {{station.name}}, and I am glad you are with me.[[ That was {{previous.title}}, from {{previous.artist}}.]][[ Next, {{next.artist}} with {{next.title}}.]]',
+            'That was {{previous.title}}, from {{previous.artist}}.[[ And coming up, {{next.artist}} with {{next.title}}.]] I am not going anywhere, my friends.',
+            '{{previous.artist}} there, with {{previous.title}}.[[ Next on The Far Frequency, {{next.artist}}, {{next.title}}.]] Documented.',
+            'You are listening to {{station.name}}, and this frequency is not an accident.[[ That was {{previous.title}}, from {{previous.artist}}.]][[ Next, {{next.artist}} with {{next.title}}.]]',
             'Next, {{next.title}}, from {{next.artist}}. Ask yourself why.',
             'Here is {{next.artist}}, with {{next.title}}. Nobody wanted me to play it.',
-            'It is {{clock.rough}}, and you are still out there with me.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Next, {{next.artist}}, {{next.title}}.]]',
+            'It is {{clock.rough}}, and somebody else is listening to this as well.[[ {{previous.title}} there, from {{previous.artist}}.]][[ Next, {{next.artist}}, {{next.title}}.]]',
         ].join('\n'),
     },
     {

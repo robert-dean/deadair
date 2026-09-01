@@ -5,6 +5,7 @@ import { RateLimiterMemory, RateLimiterRedis } from 'rate-limiter-flexible';
 import { Redis } from 'ioredis';
 import { auditContextMiddleware } from './middleware/audit.context.middleware.js';
 import { authorizationContextMiddleware } from './middleware/authorization.context.middleware.js';
+import { signedAudioMiddleware } from './middleware/signed.audio.middleware.js';
 import { refreshCookieMiddleware } from './middleware/refresh.cookie.middleware.js';
 import { conditionalGetMiddleware } from './middleware/conditional.get.middleware.js';
 import { bridgeSecretMiddleware } from './middleware/bridge.secret.middleware.js';
@@ -73,6 +74,11 @@ export const setupMiddleware = (container: Container) => {
     // existed. There is no organization table and no RLS to read one — see
     // `docs/todo/row-level-security.md`.
     middlewares.push(authorizationContextMiddleware());
+    // The gate on the audio the player fetches: a URL signed with the bridge secret, or the read
+    // floor a session would have met. After the authorization context because the second branch
+    // needs the session it resolved, and before the routes because those three are `security: none`
+    // in the contract for the bridge's reason — see the middleware for why the routes stay so.
+    middlewares.push(signedAudioMiddleware());
     // Pushed after jsonMiddleware so its response-side hook runs INSIDE json's (Koa onion): it sees
     // the still-object token body, moves the refresh token into an httpOnly cookie, and strips it
     // before json serializes. No-op unless the client opted into cookie-based refresh.

@@ -6,6 +6,7 @@ import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { MixerService } from '#modules/render/mixer.service.js';
 import { resolvePlayoutBaseUrl, segmentAudioUrl } from '#modules/playout/playout.urls.js';
+import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import { SegmentStore, extensionForMime } from '#modules/render/segment.store.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -62,6 +63,8 @@ export class StitchProductionJob extends PlainJob<StitchProductionPayload> {
         private readonly mixer: MixerService,
         private readonly analysis: AnalysisService,
         private readonly config: AppConfig,
+        // The beats' URLs are fetched by the mixer and the analyzer with no session, so each is signed.
+        private readonly signer: AudioUrlSigner,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -117,7 +120,7 @@ export class StitchProductionJob extends PlainJob<StitchProductionPayload> {
         // joined are the bytes that aired, and it is reachable from a sidecar container where a path
         // on this machine's disk is not.
         const base = resolvePlayoutBaseUrl(this.config);
-        const urls = beats.map(beat => segmentAudioUrl(base, beat.id));
+        const urls = beats.map(beat => this.signer.sign(segmentAudioUrl(base, beat.id)));
         const gapMs = stationGapMs(this.config);
 
         const joined = await this.mixer.join(production.title, urls, gapMs);
@@ -180,7 +183,10 @@ export class StitchProductionJob extends PlainJob<StitchProductionPayload> {
      */
     private async measure(segmentId: string): Promise<void> {
         try {
-            const result = await this.analysis.measureAudio(segmentId, segmentAudioUrl(resolvePlayoutBaseUrl(this.config), segmentId));
+            const result = await this.analysis.measureAudio(
+                segmentId,
+                this.signer.sign(segmentAudioUrl(resolvePlayoutBaseUrl(this.config), segmentId)),
+            );
             const loudnessLufs = result?.data.integratedLufs;
             if (typeof loudnessLufs !== 'number' || !Number.isFinite(loudnessLufs)) return;
 

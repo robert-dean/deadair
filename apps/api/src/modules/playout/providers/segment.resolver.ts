@@ -6,6 +6,7 @@ import { RENDER_PLUGIN_ID } from '#modules/render/segment.source.js';
 import { TrackResolver } from '../playout.capability.js';
 import type { RundownItem } from '../rundown.js';
 import { segmentAudioUrl } from '../playout.urls.js';
+import { AudioUrlSigner } from '../audio.url.signer.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
 
@@ -37,6 +38,7 @@ export class SegmentTrackResolver extends TrackResolver {
         private readonly container: Container,
         private readonly baseUrl: string,
         private readonly logger: Logger,
+        private readonly signer: AudioUrlSigner,
     ) {
         super();
     }
@@ -59,7 +61,8 @@ export class SegmentTrackResolver extends TrackResolver {
                     return undefined;
                 }
 
-                return segmentAudioUrl(this.baseUrl, segment.id);
+                // Signed, because the player fetches it with no session; see `playout.audio.token.ts`.
+                return this.signer.sign(segmentAudioUrl(this.baseUrl, segment.id));
             });
         } catch (error) {
             // One item's worth of failure, handled the way the plugin resolver handles its own:

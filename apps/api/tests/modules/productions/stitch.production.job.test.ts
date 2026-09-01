@@ -16,6 +16,10 @@ import type { SegmentStore } from '../../../src/modules/render/segment.store.js'
 import type { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
 import type { MixerService } from '../../../src/modules/render/mixer.service.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import type { AudioUrlSigner } from '../../../src/modules/playout/audio.url.signer.js';
+
+/** Hands URLs back unsigned: what is signed and how is `AudioUrlSigner`'s own test. */
+const signer = { sign: (url: string) => url } as unknown as AudioUrlSigner;
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -93,6 +97,7 @@ function harness(
         mixer,
         analysis,
         config,
+        signer,
         { id: 'job-1' } as never,
         {} as never,
         logger as never,

@@ -12,6 +12,10 @@ import { SegmentTrackResolver } from '../../../src/modules/playout/providers/seg
 import type { RundownItem } from '../../../src/modules/playout/rundown.js';
 import { SegmentRepository, type Segment } from '../../../src/modules/render/segment.repository.js';
 import { RENDER_PLUGIN_ID } from '../../../src/modules/render/segment.source.js';
+import type { AudioUrlSigner } from '../../../src/modules/playout/audio.url.signer.js';
+
+/** Hands URLs back unsigned: what is signed and how is `AudioUrlSigner`'s own test. */
+const signer = { sign: (url: string) => url } as unknown as AudioUrlSigner;
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -46,7 +50,7 @@ const build = (options: { segment?: Segment; error?: Error } = {}) => {
         createScopedContainer: () => ({ get: (token: unknown) => (token === SegmentRepository ? { findById } : undefined), disposeAsync }),
     } as unknown as Container;
 
-    return { resolver: new SegmentTrackResolver(container, DEFAULT_PLAYOUT_BASE_URL, logger), findById, disposeAsync };
+    return { resolver: new SegmentTrackResolver(container, DEFAULT_PLAYOUT_BASE_URL, logger, signer), findById, disposeAsync };
 };
 
 describe('SegmentTrackResolver', () => {

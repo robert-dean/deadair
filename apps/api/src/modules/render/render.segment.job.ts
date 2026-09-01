@@ -6,6 +6,7 @@ import { isPluginError } from '@deadair/plugin-sdk';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { resolvePlayoutBaseUrl, segmentAudioUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
+import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
 import type { AudioOverlay } from '@deadair/plugin-sdk';
 import { splitOnPads, withoutPads } from './pad.cues.js';
 import { PadRepository } from './pad.repository.js';
@@ -70,6 +71,8 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
         // resolves, and this is resolved when a job runs.
         private readonly analysis: AnalysisService,
         private readonly config: AppConfig,
+        // Every URL below is fetched by the mixer or the analyzer with no session, so each is signed.
+        private readonly signer: AudioUrlSigner,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -242,7 +245,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
                     continue;
                 }
 
-                const url = storedAudioUrl(base, pad.audioChecksum, pad.audioExt);
+                const url = this.signer.sign(storedAudioUrl(base, pad.audioChecksum, pad.audioExt));
                 if (under > 0 && urls.length > 0) {
                     // Anchored to the join AFTER the take just pushed, which is the boundary this
                     // pad sits at in the sentence. `urls.length - 1` because a join is named by the
@@ -261,7 +264,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
             }
 
             const take = await this.say(part.text, segment.voice);
-            urls.push(storedAudioUrl(base, take.checksum, take.ext));
+            urls.push(this.signer.sign(storedAudioUrl(base, take.checksum, take.ext)));
             spoken.push(take.spokenText);
         }
 
@@ -332,7 +335,7 @@ export class RenderSegmentJob extends PlainJob<RenderSegmentPayload> {
      */
     private async measure(segmentId: string): Promise<void> {
         try {
-            const url = segmentAudioUrl(resolvePlayoutBaseUrl(this.config), segmentId);
+            const url = this.signer.sign(segmentAudioUrl(resolvePlayoutBaseUrl(this.config), segmentId));
             const result = await this.analysis.measureAudio(segmentId, url);
             // `integratedLufs` is the ANALYZER's name for it and `loudnessLufs` is the item's, the
             // same translation `PickResolver.loudness` makes for a record. Reading the item's name

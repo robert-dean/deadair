@@ -61,11 +61,12 @@ export function playoutStarveUrl(base: string): string {
  * Where the player fetches a rendered segment's audio.
  *
  * The same route the console previews a segment through, deliberately, rather
- * than a second signed one beside it. That route is already anonymous because it
- * is the src of a media element, so a signed twin would gate one door of a room
- * with two, and what is behind either is audio the station is broadcasting
- * unauthenticated to anyone who opens the mount. See the note at the top of
- * `render.ck`.
+ * than a second one beside it. The console fetches it through the SDK with its
+ * bearer and plays a blob; the player fetches it with no session on a URL that
+ * `AudioUrlSigner` has signed over the path. One route, two ways in, and
+ * `signed.audio.middleware` is the gate on both. This builds the unsigned form:
+ * signing needs the secret, and the five places that hand a URL to a player do
+ * it there. See the note on the operation in `render.ck`.
  *
  * Derived from the playout base by dropping its last segment, rather than from a
  * config key of its own. Two keys naming the same server is two keys that can
@@ -100,9 +101,10 @@ export function storedAudioUrl(base: string, checksum: string, ext: string): str
  * console previews it.
  *
  * Deliberately NOT under {@link BRIDGE}. Everything under that prefix is gated on
- * the shared secret, and this is fetched by the same headerless Liquidsoap GET
- * that fetches segment audio — see the note on the operation in `playout.ck` for
- * why signing it would gate one door of a room with two.
+ * a secret in a HEADER, and this is fetched by the same headerless Liquidsoap GET
+ * that fetches segment audio. It is gated the same way as that route instead: the
+ * resolver signs the URL it hands the player, and `signed.audio.middleware` reads
+ * the token off the query. See the note on the operation in `playout.ck`.
  */
 export function trackAudioUrl(base: string, sourceId: string): string {
     return `${base}/audio/${sourceId}`;

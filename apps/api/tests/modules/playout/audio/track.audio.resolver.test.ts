@@ -11,6 +11,10 @@ import { TrackAudioRepository } from '../../../../src/modules/playout/audio/trac
 import { DEFAULT_PLAYOUT_BASE_URL } from '../../../../src/modules/playout/playout.urls.js';
 import { TrackAudioResolver } from '../../../../src/modules/playout/providers/track.audio.resolver.js';
 import type { RundownItem } from '../../../../src/modules/playout/rundown.js';
+import type { AudioUrlSigner } from '../../../../src/modules/playout/audio.url.signer.js';
+
+/** Hands URLs back unsigned: what is signed and how is `AudioUrlSigner`'s own test. */
+const signer = { sign: (url: string) => url } as unknown as AudioUrlSigner;
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -39,7 +43,7 @@ const build = (options: { sourceId?: string; error?: Error } = {}) => {
         }),
     } as unknown as Container;
 
-    return { resolver: new TrackAudioResolver(container, DEFAULT_PLAYOUT_BASE_URL, logger), findPlayableSourceId, disposeAsync };
+    return { resolver: new TrackAudioResolver(container, DEFAULT_PLAYOUT_BASE_URL, logger, signer), findPlayableSourceId, disposeAsync };
 };
 
 describe('TrackAudioResolver', () => {

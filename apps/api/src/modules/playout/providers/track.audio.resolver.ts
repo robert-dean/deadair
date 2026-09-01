@@ -4,6 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { TrackAudioRepository } from '../audio/track.audio.repository.js';
 import { TrackResolver } from '../playout.capability.js';
 import { trackAudioUrl } from '../playout.urls.js';
+import { AudioUrlSigner } from '../audio.url.signer.js';
 import type { RundownItem } from '../rundown.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { inScope } from '#modules/shared/scoped.work.js';
@@ -38,6 +39,7 @@ export class TrackAudioResolver extends TrackResolver {
         private readonly container: Container,
         private readonly baseUrl: string,
         private readonly logger: Logger,
+        private readonly signer: AudioUrlSigner,
     ) {
         super();
     }
@@ -65,7 +67,8 @@ export class TrackAudioResolver extends TrackResolver {
                 // which is what skips it.
                 if (sourceId === undefined) return undefined;
 
-                return trackAudioUrl(this.baseUrl, sourceId);
+                // Signed, because the player fetches it with no session; see `playout.audio.token.ts`.
+                return this.signer.sign(trackAudioUrl(this.baseUrl, sourceId));
             });
         } catch (error) {
             // One item's worth of failure, handled the way the other links handle their own. There is

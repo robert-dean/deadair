@@ -22,6 +22,10 @@ import type { PadSetRepository } from '../../../src/modules/render/pad.set.repos
 import { SegmentStore } from '../../../src/modules/render/segment.store.js';
 import type { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import type { AudioUrlSigner } from '../../../src/modules/playout/audio.url.signer.js';
+
+/** Hands URLs back unsigned: what is signed and how is `AudioUrlSigner`'s own test. */
+const signer = { sign: (url: string) => url } as unknown as AudioUrlSigner;
 
 let root: string;
 let libraryDir: string;
@@ -116,7 +120,7 @@ describe('PadLibrary.scan', () => {
         await write('wisecrack/airhorn.mp3', 'one');
         await write('rimshot.mp3', 'two');
 
-        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer).scan();
 
         expect(result).toMatchObject({ scanned: 2, imported: 2, replaced: 0, skipped: 0 });
         expect(imports.map(one => `${one.board}/${one.name}`).sort()).toEqual(['station/rimshot', 'wisecrack/airhorn']);
@@ -125,7 +129,7 @@ describe('PadLibrary.scan', () => {
     it('is silent on a second pass over a directory nobody has touched', async () => {
         const { repository } = fakeRepository();
         await write('wisecrack/airhorn.mp3', 'one');
-        const library = new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger);
+        const library = new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer);
 
         await library.scan();
         const again = await library.scan();
@@ -137,7 +141,7 @@ describe('PadLibrary.scan', () => {
     it('replaces what a slot holds when the file under a name changes', async () => {
         const { repository } = fakeRepository();
         await write('wisecrack/airhorn.mp3', 'the first one');
-        const library = new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger);
+        const library = new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer);
         await library.scan();
 
         await write('wisecrack/airhorn.mp3', 'a better one');
@@ -152,7 +156,7 @@ describe('PadLibrary.scan', () => {
         const { repository, imports } = fakeRepository();
         await write('wisecrack/airhorn.opus', 'one');
 
-        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer).scan();
 
         expect(result).toMatchObject({ scanned: 0, skipped: 1 });
         expect(imports).toHaveLength(0);
@@ -166,7 +170,7 @@ describe('PadLibrary.scan', () => {
         const { repository, imports } = fakeRepository();
         await write('wisecrack/---.mp3', 'one');
 
-        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer).scan();
 
         expect(result).toMatchObject({ skipped: 1 });
         expect(imports).toHaveLength(0);
@@ -177,7 +181,7 @@ describe('PadLibrary.scan', () => {
         await write('.DS_Store', 'not a delivery');
         await write('wisecrack/.DS_Store', 'nor this');
 
-        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer).scan();
 
         expect(result).toMatchObject({ scanned: 0, imported: 0, skipped: 0 });
     });
@@ -185,13 +189,13 @@ describe('PadLibrary.scan', () => {
     it('makes the libraryDir when it is missing, so there is a place to drop files', async () => {
         const { repository } = fakeRepository();
 
-        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer).scan();
 
         expect(result).toMatchObject({ scanned: 0 });
         // The directory now exists: a second scan reads it rather than catching its way past a
         // missing path.
         await write('rimshot.mp3', 'one');
-        expect(await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan()).toMatchObject({ imported: 1 });
+        expect(await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer).scan()).toMatchObject({ imported: 1 });
     });
 });
 
@@ -202,7 +206,7 @@ describe('PadLibrary joining a pad to its set', () => {
         const { repository } = fakeRepository();
         await write('wisecrack/airhorn.mp3', 'one');
 
-        await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
+        await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer).scan();
 
         expect(sets.ensure).toHaveBeenCalledWith({ key: 'wisecrack', label: 'wisecrack' });
         expect(sets.add).toHaveBeenCalledWith('set-wisecrack', 'pad-wisecrack/airhorn');
@@ -214,7 +218,7 @@ describe('PadLibrary joining a pad to its set', () => {
         // and the library full, with nothing saying why.
         const { repository } = fakeRepository();
         await write('wisecrack/airhorn.mp3', 'one');
-        const library = new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger);
+        const library = new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer);
 
         await library.scan();
         await library.scan();
@@ -230,7 +234,7 @@ describe('PadLibrary joining a pad to its set', () => {
         (sets as unknown as { add: { mockResolvedValueOnce: (v: unknown) => void } }).add.mockResolvedValueOnce('name-taken');
         await write('wisecrack/airhorn.mp3', 'one');
 
-        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer).scan();
 
         expect(result).toMatchObject({ imported: 1, contested: 1, skipped: 0 });
     });
@@ -240,7 +244,7 @@ describe('PadLibrary joining a pad to its set', () => {
         (sets as unknown as { ensure: { mockRejectedValueOnce: (v: unknown) => void } }).ensure.mockRejectedValueOnce(new Error('no database'));
         await write('wisecrack/airhorn.mp3', 'one');
 
-        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger).scan();
+        const result = await new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer).scan();
 
         expect(result).toMatchObject({ imported: 1, skipped: 0 });
     });
@@ -257,7 +261,7 @@ describe('PadLibrary.seed', () => {
         await writeFile(join(assets, 'station', 'airhorn.wav'), 'shipped');
     });
 
-    const library = (repository: PadRepository) => new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger);
+    const library = (repository: PadRepository) => new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer);
 
     it('lays the pack down in a library that has never held anything', async () => {
         const { repository } = fakeRepository();
@@ -299,7 +303,7 @@ describe('PadLibrary.seed', () => {
 });
 
 describe('PadLibrary.ingest', () => {
-    const library = (repository: PadRepository) => new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger);
+    const library = (repository: PadRepository) => new PadLibrary(store, repository, sets, libraryDir, analysis, config, logger, signer);
 
     it('writes the bytes into the library, because that directory is what a backup carries', async () => {
         const { repository } = fakeRepository();

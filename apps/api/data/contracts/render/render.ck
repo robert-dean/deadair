@@ -229,9 +229,9 @@ operation /voices/sample: {
 # sample line, so remapping a voice mints a new key rather than serving the old one back. The first
 # click therefore waits for a synthesis and no later one does.
 #
-# Unlike `/segments/{id}/audio` this is NOT anonymous: that route is open because Liquidsoap fetches
-# it, and nothing but a signed-in operator ever fetches this. The console reads it through the SDK
-# and plays a blob, because a bearer token cannot ride on an <audio src>.
+# Unlike `/segments/{id}/audio` this is not gated by `signed.audio.middleware`: that route is fetched
+# by Liquidsoap on a signed URL, and nothing but a signed-in operator ever fetches this. The console
+# reads it through the SDK and plays a blob, because a bearer token cannot ride on an <audio src>.
 operation /voices/{voiceId}/sample: {
     params: {
         voiceId: string
@@ -313,6 +313,16 @@ operation /segments/{id}: {
     }
 }
 
+# `security: none` here is not an absence, and it is not "anyone may have this". Liquidsoap fetches a
+# segment with a headerless GET from another container, so a policy, which evaluates against a
+# session, cannot be the gate; `signed.audio.middleware` is, and it admits a URL carrying a token cut
+# over the path with the bridge secret (`playout.audio.token.ts`, the shape the shim's track URLs
+# already have) or a session holding the file's read floor, which is what the console's SDK fetch
+# presents. For a long time the route was simply open, on the argument that the mount broadcasts the
+# same audio to anyone: it does not, and the argument was retired with `/playout/audio/{sourceId}`,
+# which was a full-length record fetched through the operator's credentials for whoever asked.
+# A route added to that middleware's list has to be one of these, and the test beside it checks that
+# every `security: none` operation in this area is either there or under the bridge.
 operation /segments/{id}/audio: {
     params: {
         id: uuid
@@ -359,8 +369,8 @@ operation /segments/{id}/audio: {
 # checksum. Which of them a caller wanted is a question the row answers, and no row is involved here.
 #
 # `security: none` for `/segments/{id}/audio`'s reason exactly -- the thing fetching it is a mixer in
-# another container with no session -- and the exposure is narrower than that route's, because a
-# checksum cannot be guessed or enumerated where a uuid at least appears in the console's own JSON.
+# another container with no session -- and gated the same way: `signed.audio.middleware` takes a URL
+# signed with the bridge secret, or a session holding the read floor, and nothing else.
 #
 # The extension is its own path segment rather than a suffix on the checksum, because the DSL binds
 # one parameter per segment. It is needed at all because the store files bytes under `<checksum>.<ext>`
@@ -627,7 +637,6 @@ operation /pads/{id}/audio: {
     get: { # The sound itself, so an operator can hear what they dropped in
         name: Get pad audio
         service: RenderService.getPadAudio
-        security: none
         response: {
             200: {
                 audio/mpeg: binary

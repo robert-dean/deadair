@@ -95,6 +95,25 @@ undercount `clientKey` documents is the acceptable direction; this is both direc
 cannot tell a proxy's address from a listener's and nginx can be told. The same address keys the rate limiter,
 which is the more serious half: without it the whole internet shares one bucket.
 
+## What the player fetches, and who else may
+
+**The audio the player pulls is on a signed URL, and the routes that serve it are gated by
+`signed.audio.middleware` rather than by a policy.** Liquidsoap fetches a segment, a stored take and
+the station's own copy of a record with a headerless GET from another container (`request.create`
+in `radio.liq`), the mixer and the analysis sidecar fetch the same routes the same way, and none of
+them can hold a session or present the bridge secret in a header. So the three routes are
+`security: none` in the contract for the reason the bridge's are, and the URL carries what a header
+cannot: a token over the PATH with an expiry, cut with the bridge secret in the same shape as the
+shim's track URLs (`playout.audio.token.ts`), put there by `AudioUrlSigner` at the five places a URL
+is handed to a player. The console fetches the same routes through the SDK with its bearer, and the
+middleware holds that call to the read floor exactly as the generated route would have. For a long
+time the routes were simply open, on the argument that the mount broadcasts the same audio to
+anyone; the mount is a mixed, ducked broadcast and `/playout/audio/{sourceId}` was the full-length
+file, fetched from the provider through the operator's credentials for whoever asked. An hour's TTL,
+because a cue's URL is armed when the record it rides is pushed and fetched when the cue fires. A
+new anonymous audio route goes on the middleware's list, and its test reads the contracts to check
+that nothing `security: none` in `render.ck` or `playout.ck` is outside the list or the bridge.
+
 ## Knowing who is listening
 
 **The FEED is the mechanism and the poll is the failsafe.** `IcecastEventFeed` holds `/admin/eventfeed` open

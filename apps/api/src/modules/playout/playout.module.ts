@@ -10,6 +10,7 @@ import { TrackCachePlanner } from './audio/track.cache.planner.js';
 import { TrackStore } from './audio/track.store.js';
 import { AudienceWatch } from './audience.watch.js';
 import { LiquidsoapEndpoint } from './liquidsoap.endpoint.js';
+import { AudioUrlSigner } from './audio.url.signer.js';
 import { PlayoutControlClient } from './liquidsoap.control.js';
 import { CompositeTrackResolver, TrackResolver } from './playout.capability.js';
 import { resolvePlayoutBaseUrl } from './playout.urls.js';
@@ -45,6 +46,13 @@ export const PlayoutModule: ServerKitModule = {
     name: 'Playout',
     setup: async (registry: Registry, config: AppConfig) => {
         registry.register(LiquidsoapEndpoint).useClass(LiquidsoapEndpoint).asSingleton();
+        // Beside the endpoint because it signs with the endpoint's secret, and a singleton for the same
+        // reason: the secret is read per call, so a URL built before the secret is seeded is the only
+        // one that goes out unsigned, and it says so.
+        registry
+            .register(AudioUrlSigner)
+            .useFactory(container => new AudioUrlSigner(container.get(LiquidsoapEndpoint), container.get(Logger)))
+            .asSingleton();
         registry.register(PlayoutControlClient).useClass(PlayoutControlClient).asSingleton();
 
         // Where a record's audio comes from: the files, the rows saying what is in them, and the one
@@ -99,11 +107,15 @@ export const PlayoutModule: ServerKitModule = {
         // first link declines it on a lookup rather than on a mode set somewhere.
         registry
             .register(SegmentTrackResolver)
-            .useFactory(container => new SegmentTrackResolver(container, resolvePlayoutBaseUrl(config), container.get(Logger)))
+            .useFactory(
+                container => new SegmentTrackResolver(container, resolvePlayoutBaseUrl(config), container.get(Logger), container.get(AudioUrlSigner)),
+            )
             .asSingleton();
         registry
             .register(TrackAudioResolver)
-            .useFactory(container => new TrackAudioResolver(container, resolvePlayoutBaseUrl(config), container.get(Logger)))
+            .useFactory(
+                container => new TrackAudioResolver(container, resolvePlayoutBaseUrl(config), container.get(Logger), container.get(AudioUrlSigner)),
+            )
             .asSingleton();
         registry
             .register(TrackResolver)

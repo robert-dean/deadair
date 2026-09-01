@@ -93,11 +93,14 @@ operation /playout/stop: {
 
 # ── The station's own copy of a record ─────────────────────────────────────────────────
 
-# Where the player fetches a record the station has cached. Anonymous, and NOT under
-# `/playout/bridge/`: Liquidsoap fetches this with no headers from us, exactly as it fetches
-# `/segments/{id}/audio`, and putting it behind the bridge secret would mean minting a signed
-# URL for audio the station is already broadcasting unauthenticated to anyone who opens the
-# mount. See the note at the top of `render.ck`, which is the same argument.
+# Where the player fetches a record the station has cached. NOT under `/playout/bridge/`, because
+# Liquidsoap fetches this with no headers from us, exactly as it fetches `/segments/{id}/audio`,
+# and a header is what the bridge gate reads. Gated the way that route is instead: the URL the
+# resolver hands the player carries a token cut over the path with the same bridge secret, and
+# `signed.audio.middleware` admits that or a session holding the read floor. It used to be open on
+# the argument that the mount broadcasts the same audio anyway; it does not -- the mount is a mixed,
+# ducked broadcast and this is the full-length file, fetched from the provider through the
+# operator's own credentials on a miss. See the note on `/segments/{id}/audio` in `render.ck`.
 #
 # It does NOT check `playout.trackCache`. A URL already handed to the player for an item about
 # to air has to keep working, and refusing to serve a file that exists would turn a settings

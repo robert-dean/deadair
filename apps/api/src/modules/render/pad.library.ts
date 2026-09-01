@@ -5,6 +5,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { resolvePlayoutBaseUrl, storedAudioUrl } from '#modules/playout/playout.urls.js';
+import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { PAD_SOURCES, PadRepository, type Pad, type PadImport } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
@@ -105,6 +106,7 @@ export class PadLibrary {
         private readonly analysis: AnalysisService,
         private readonly config: AppConfig,
         private readonly logger: Logger,
+        private readonly signer: AudioUrlSigner,
     ) {}
 
     /**
@@ -395,7 +397,7 @@ export class PadLibrary {
      */
     private async measure(pad: Pad): Promise<void> {
         try {
-            const url = storedAudioUrl(resolvePlayoutBaseUrl(this.config), pad.audioChecksum, pad.audioExt);
+            const url = this.signer.sign(storedAudioUrl(resolvePlayoutBaseUrl(this.config), pad.audioChecksum, pad.audioExt));
             const result = await this.analysis.measureAudio(pad.id, url);
             if (result === undefined) return;
 

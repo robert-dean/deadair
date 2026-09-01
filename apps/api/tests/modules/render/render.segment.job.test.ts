@@ -14,6 +14,10 @@ import type { SegmentStore } from '../../../src/modules/render/segment.store.js'
 import type { PadRepository } from '../../../src/modules/render/pad.repository.js';
 import type { AnalysisService } from '../../../src/modules/analysis/analysis.service.js';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import type { AudioUrlSigner } from '../../../src/modules/playout/audio.url.signer.js';
+
+/** Hands URLs back unsigned: what is signed and how is `AudioUrlSigner`'s own test. */
+const signer = { sign: (url: string) => url } as unknown as AudioUrlSigner;
 
 vi.mock('../../../src/modules/jobs/job.authorization.js', () => ({ overrideJobActor: vi.fn() }));
 
@@ -92,7 +96,19 @@ function harness(
     const config = { get: vi.fn((key: string, fallback: string) => options.settings?.[key] ?? fallback) } as unknown as AppConfig;
 
     const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
-    const job = new RenderSegmentJob(segments, speech, mixer, store, pads, analysis, config, { id: 'job-1' } as never, {} as never, logger as never);
+    const job = new RenderSegmentJob(
+        segments,
+        speech,
+        mixer,
+        store,
+        pads,
+        analysis,
+        config,
+        signer,
+        { id: 'job-1' } as never,
+        {} as never,
+        logger as never,
+    );
 
     return { job, segments, speech, mixer, store, pads, analysis, logger };
 }

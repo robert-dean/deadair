@@ -6,6 +6,7 @@ import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AnalysisService } from '#modules/analysis/analysis.service.js';
 import { MixerService } from './mixer.service.js';
 import { PadLibrary } from './pad.library.js';
+import { AudioUrlSigner } from '#modules/playout/audio.url.signer.js';
 import { PadRepository } from './pad.repository.js';
 import { PadSetRepository } from './pad.set.repository.js';
 import { DEFAULT_PRONUNCIATIONS } from './pronunciation.lexicon.js';
@@ -156,6 +157,7 @@ export const RenderModule: ServerKitModule = {
                         container.get(AnalysisService),
                         config,
                         container.get(Logger),
+                        container.get(AudioUrlSigner),
                     ),
             )
             .asScoped();

@@ -78,7 +78,7 @@ PlayoutRouter.post('/playout/stop', requirePolicy({ policy: 'platform.manage' })
 
 /**
  * The station's own copy of one record, by the provider binding it was cached for
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L113)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L116)
  * anonymous access, no security required
  * @internal
  */
@@ -106,7 +106,7 @@ PlayoutRouter.get('/playout/audio/:sourceId', async ctx => {
 
 /**
  * Confirms which rundown item actually started playing. An item is pushed, and downloaded, one item AHEAD of air, so this notify is the only thing that knows what the listener is hearing the moment it changes
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L165)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L168)
  * anonymous access, no security required
  * @internal
  */
@@ -121,7 +121,7 @@ PlayoutRouter.post('/playout/bridge/aired', async ctx => {
 
 /**
  * Reports that the running order stopped producing audio, or started again. The mount has fallen through to the local bed in between, so nothing deadair programmed is being heard
- * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L185)
+ * from [playout.ck](file://./../../data/contracts/playout/playout.ck#L188)
  * anonymous access, no security required
  * @internal
  */

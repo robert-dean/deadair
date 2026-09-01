@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StorageReport } from '@deadair/sdk';
 
 import { StorageCard } from '../../../src/components/settings/storage.card';
+import { stubPhoneMedia } from '../../utils/phone';
 import { render, screen, waitFor } from '../../utils/render';
 
 const readStorage = vi.fn();
@@ -97,6 +98,28 @@ describe('StorageCard', () => {
 
         expect(await screen.findByText('70% of 5.0 GB')).toBeInTheDocument();
         expect(screen.getAllByLabelText('Share of the limit in use')).toHaveLength(1);
+    });
+
+    // The desk explains both disagreements through a tooltip, and a phone has no hover — so the
+    // fold has to put the meaning into the words. What is pinned is that nothing was dropped: the
+    // two columns become a fact line, the limit keeps its bar, and the foot row keeps both totals.
+    it('gives a phone cards whose folded columns say what they are', async () => {
+        const restore = stubPhoneMedia();
+        try {
+            readStorage.mockResolvedValue(REPORT);
+            render(<StorageCard />);
+
+            expect(await screen.findByText('Cover art')).toBeInTheDocument();
+            expect(screen.getByText('/media/art')).toBeInTheDocument();
+            expect(screen.getByText('920 files')).toBeInTheDocument();
+            expect(screen.getByText('2 missing')).toBeInTheDocument();
+            expect(screen.getByText('29.3 MB unclaimed')).toBeInTheDocument();
+            expect(screen.getByText('70% of 5.0 GB')).toBeInTheDocument();
+            expect(screen.getByText('3.7 GB · 1556 files')).toBeInTheDocument();
+            expect(screen.queryByRole('table')).not.toBeInTheDocument();
+        } finally {
+            restore();
+        }
     });
 
     it('says so when the figures cannot be read at all', async () => {

@@ -3,6 +3,7 @@ import { SdkError } from '@deadair/sdk';
 import type { ConfigFieldDescriptor } from '@deadair/sdk';
 
 import { PluginConfigForm } from '../../../src/components/plugins/plugin.config.form';
+import { stubPhoneMedia } from '../../utils/phone';
 import { pluginDetail } from '../../utils/plugin.fixture';
 import { render, screen, setupUser, waitFor } from '../../utils/render';
 
@@ -224,6 +225,38 @@ describe('PluginConfigForm', () => {
             await waitFor(() => {
                 expect(submittedConfig()).toEqual({ feeds: JSON.stringify([{ name: 'Sport', url: 'https://two.example.net/rss' }]) });
             });
+        });
+
+        // A table of text boxes is the one shape a sideways scroll ruins, because typing needs the
+        // box and the thing it is for on screen together. On a phone the column heading is gone, so
+        // what is pinned is that each control names itself instead, that removing still reaches the
+        // right row, and that a `url` column keeps the keyboard that is the whole point of it.
+        it('gives a phone a card per row, with every control labelled', async () => {
+            const restore = stubPhoneMedia();
+            try {
+                const plugin = withRows({ name: 'World', url: 'https://one.example.com/rss' }, { name: 'Sport', url: 'https://two.example.net/rss' });
+                updatePluginConfiguration.mockResolvedValue(plugin);
+                const user = setupUser();
+
+                render(<PluginConfigForm plugin={plugin} />);
+
+                expect(screen.getByText('Row 1')).toBeInTheDocument();
+                expect(screen.getByText('Row 2')).toBeInTheDocument();
+                expect(screen.queryByRole('table')).not.toBeInTheDocument();
+
+                const addresses = screen.getAllByLabelText('Address');
+                expect(addresses).toHaveLength(2);
+                expect(addresses[0]).toHaveAttribute('inputmode', 'url');
+
+                await user.click(screen.getByRole('button', { name: 'Remove row 1' }));
+                await save();
+
+                await waitFor(() => {
+                    expect(submittedConfig()).toEqual({ feeds: JSON.stringify([{ name: 'Sport', url: 'https://two.example.net/rss' }]) });
+                });
+            } finally {
+                restore();
+            }
         });
 
         it("offers the station's own categories in a column that asked for them", async () => {

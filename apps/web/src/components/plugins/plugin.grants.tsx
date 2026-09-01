@@ -32,7 +32,8 @@ export function usePluginGrantsFor(pluginId: string): PluginGrant[] {
 
 export interface GrantAnswerProps {
     grant: PluginGrant;
-    size?: 'xs' | 'sm';
+    /** `md` is the phone's, where the two positions have to be thumb-sized rather than dense. */
+    size?: 'xs' | 'sm' | 'md';
 }
 
 /**

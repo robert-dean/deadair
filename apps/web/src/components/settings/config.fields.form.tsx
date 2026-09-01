@@ -33,6 +33,9 @@ import type { ConfigFieldColumn, ConfigFieldDescriptor, ConfigFieldOption } from
 
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
+import { Eyebrow } from '../shared/eyebrow';
+import { PhoneCard } from '../shared/phone.card';
+import { usePhone } from '../shared/use.phone';
 import { columnSuggestionKey, useDeclaredOptions } from './declared.options';
 import classes from './config.fields.form.module.css';
 
@@ -426,6 +429,13 @@ export function ConfigFieldsForm({
 }: ConfigFieldsFormProps) {
     const [cleared, setCleared] = useState<ReadonlySet<string>>(new Set());
 
+    // Read here rather than inside `RowsField`, so one answer serves every rows field in a form.
+    // This form mounts only once its descriptors have arrived, which means a phone pays the hook's
+    // documented one corrected frame; a `rows` field is rare enough, and the alternative — threading
+    // a media query through the public props of a form shared by three pages — is worse than the
+    // frame.
+    const phone = usePhone();
+
     // The one thing this form reads for itself, and it still knows nothing about what it is
     // configuring: a column declaring `optionsFrom` names a STATION vocabulary, which neither the
     // plugin nor the settings page is in a position to answer. Resolved here rather than at the two
@@ -633,6 +643,7 @@ export function ConfigFieldsForm({
                         key={field.key}
                         field={field}
                         name={name}
+                        phone={phone}
                         rows={rowsOf(form.getValues()[name])}
                         error={typeof fieldError === 'string' ? fieldError : undefined}
                         disabled={pending}
@@ -785,6 +796,8 @@ interface RowsFieldProps {
     field: ConfigFieldDescriptor;
     /** The field's name inside the form, which every cell path is built from. */
     name: string;
+    /** Whether to draw each row as a card of labelled controls rather than as a table row. */
+    phone: boolean;
     rows: readonly FieldRow[];
     error?: string;
     disabled: boolean;
@@ -806,8 +819,18 @@ interface RowsFieldProps {
  * Every cell is addressed by path (`f3.0.c1`, see {@link cellNameOf}) so the form's own list handlers
  * do the inserting and removing. Nothing here holds state of its own, which is what keeps a row that
  * was removed from leaving its typed-in values behind on the row that took its place.
+ *
+ * ## On a phone it is a stack of cards, and every control grows a label
+ *
+ * A table of text boxes is the one shape that cannot survive a sideways scroll: an operator TYPING
+ * has to see the box and the thing it is for at the same time, and half a row off the right edge is
+ * a value entered under the wrong heading. So each row becomes a card of full-width controls, one
+ * per column, and the column heading moves onto each control as its label — the heading was the only
+ * thing saying what a cell held, so dropping the header row without moving it would leave a stack of
+ * unlabelled boxes. Both shapes draw their cells through {@link RowCell}, so a column type only ever
+ * decides its control once.
  */
-function RowsField({ field, name, rows, error, disabled, cellProps, cellKey, optionsFor, onAdd, onRemove }: RowsFieldProps) {
+function RowsField({ field, name, phone, rows, error, disabled, cellProps, cellKey, optionsFor, onAdd, onRemove }: RowsFieldProps) {
     const columns = columnsOf(field);
 
     return (
@@ -817,6 +840,30 @@ function RowsField({ field, name, rows, error, disabled, cellProps, cellKey, opt
                     <Text size="sm" c="dimmed">
                         {field.placeholder ?? 'Nothing here yet.'}
                     </Text>
+                ) : phone ? (
+                    <Stack gap="xs">
+                        {rows.map((row, index) => (
+                            <PhoneCard
+                                key={cellKey(`${name}.${index}`)}
+                                title={<Eyebrow>Row {index + 1}</Eyebrow>}
+                                action={<RemoveRow index={index} disabled={disabled} onRemove={onRemove} />}
+                                below={
+                                    <Stack gap="xs" mt="xs">
+                                        {columns.map((column, at) => (
+                                            <RowCell
+                                                key={column.key}
+                                                column={column}
+                                                labelled
+                                                choices={optionsFor(column)}
+                                                disabled={disabled}
+                                                cell={cellProps(`${name}.${index}.${cellNameOf(at)}`)}
+                                            />
+                                        ))}
+                                    </Stack>
+                                }
+                            />
+                        ))}
+                    </Stack>
                 ) : (
                     <Table.ScrollContainer minWidth={700}>
                         <Table verticalSpacing="xs" horizontalSpacing="xs" withRowBorders={false}>
@@ -833,44 +880,18 @@ function RowsField({ field, name, rows, error, disabled, cellProps, cellKey, opt
                             <Table.Tbody>
                                 {rows.map((row, index) => (
                                     <Table.Tr key={cellKey(`${name}.${index}`)}>
-                                        {columns.map((column, at) => {
-                                            const path = `${name}.${index}.${cellNameOf(at)}`;
-                                            const choices = optionsFor(column);
-                                            return (
-                                                <Table.Td key={column.key}>
-                                                    {choices.length > 0 ? (
-                                                        <Autocomplete
-                                                            aria-label={column.label}
-                                                            placeholder={column.placeholder}
-                                                            disabled={disabled}
-                                                            {...suggestionsAsValues(choices)}
-                                                            limit={Infinity}
-                                                            {...cellProps(path)}
-                                                        />
-                                                    ) : (
-                                                        <TextInput
-                                                            aria-label={column.label}
-                                                            placeholder={column.placeholder}
-                                                            disabled={disabled}
-                                                            {...(column.type === 'url' ? { inputMode: 'url' as const } : {})}
-                                                            {...cellProps(path)}
-                                                        />
-                                                    )}
-                                                </Table.Td>
-                                            );
-                                        })}
+                                        {columns.map((column, at) => (
+                                            <Table.Td key={column.key}>
+                                                <RowCell
+                                                    column={column}
+                                                    choices={optionsFor(column)}
+                                                    disabled={disabled}
+                                                    cell={cellProps(`${name}.${index}.${cellNameOf(at)}`)}
+                                                />
+                                            </Table.Td>
+                                        ))}
                                         <Table.Td>
-                                            <ActionIcon
-                                                variant="subtle"
-                                                color="red"
-                                                aria-label={`Remove row ${index + 1}`}
-                                                disabled={disabled}
-                                                onClick={() => {
-                                                    onRemove(index);
-                                                }}
-                                            >
-                                                <IconTrash size={16} />
-                                            </ActionIcon>
+                                            <RemoveRow index={index} disabled={disabled} onRemove={onRemove} />
                                         </Table.Td>
                                     </Table.Tr>
                                 ))}
@@ -1197,5 +1218,63 @@ function SecretField({ field, inputProps, stored, cleared, disabled, onToggleCle
                 </Group>
             ) : undefined}
         </Stack>
+    );
+}
+
+interface RowCellProps {
+    column: ConfigFieldColumn;
+    /**
+     * Whether the control names itself. The desk's table says what a cell is for once, in the column
+     * heading; the phone's card has no heading row, so the label rides the control. Either way the
+     * `aria-label` is there, which is what every test and every screen reader reads.
+     */
+    labelled?: boolean;
+    /** Whatever this column can be, which decides between free text and free text WITH suggestions. */
+    choices: { value: string; label: string }[];
+    disabled: boolean;
+    cell: GetInputPropsReturnType;
+}
+
+/**
+ * One cell of a rows field, whichever shape is drawing it.
+ *
+ * The column's type decides the control and does so in exactly one place. Drawn twice — once per a
+ * table cell, once per a card — this was the pair most likely to drift, and the way it would drift
+ * is a `url` column losing its keyboard on the surface where the keyboard is the whole point.
+ */
+function RowCell({ column, labelled, choices, disabled, cell }: RowCellProps) {
+    const common = {
+        label: labelled ? column.label : undefined,
+        'aria-label': column.label,
+        placeholder: column.placeholder,
+        disabled,
+    };
+
+    if (choices.length > 0) {
+        return <Autocomplete {...common} {...suggestionsAsValues(choices)} limit={Infinity} {...cell} />;
+    }
+
+    return <TextInput {...common} {...(column.type === 'url' ? { inputMode: 'url' as const } : {})} {...cell} />;
+}
+
+/**
+ * Take a row away.
+ *
+ * Its own component only because both shapes need it and the accessible name is built from the
+ * index, which is the part that would be got wrong if it were written twice.
+ */
+function RemoveRow({ index, disabled, onRemove }: { index: number; disabled: boolean; onRemove: (index: number) => void }) {
+    return (
+        <ActionIcon
+            variant="subtle"
+            color="red"
+            aria-label={`Remove row ${index + 1}`}
+            disabled={disabled}
+            onClick={() => {
+                onRemove(index);
+            }}
+        >
+            <IconTrash size={16} />
+        </ActionIcon>
     );
 }

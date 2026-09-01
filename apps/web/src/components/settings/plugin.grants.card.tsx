@@ -4,7 +4,9 @@ import type { PluginGrant } from '@deadair/sdk';
 import { usePluginGrants } from '../../api/plugins.queries';
 import { GRANT_TONES, GRANT_WORDS, GrantAnswer, GrantDescription } from '../plugins/plugin.grants';
 import { ErrorAlert } from '../shared/error.alert';
+import { PhoneCard } from '../shared/phone.card';
 import { StatusLamp } from '../shared/status.lamp';
+import { usePhone } from '../shared/use.phone';
 
 /**
  * What each plugin has asked the station for, and what the station said.
@@ -29,6 +31,7 @@ import { StatusLamp } from '../shared/status.lamp';
  */
 export function PluginGrantsCard() {
     const grants = usePluginGrants();
+    const phone = usePhone();
 
     // Nothing has asked for anything, which is the ordinary state of a station: almost every plugin
     // does its whole job inside what it declares. A heading over an empty table would invite the
@@ -56,7 +59,18 @@ export function PluginGrantsCard() {
                     />
                 ) : undefined}
 
-                {grants.data ? (
+                {/* A phone gets cards, because this row is a QUESTION and its answer is a control:
+                    a table that scrolls sideways puts the thing to decide off the right edge of the
+                    one surface an operator is most likely to be reading away from the desk. */}
+                {phone && grants.data ? (
+                    <Stack gap="xxs">
+                        {grants.data.grants.map(grant => (
+                            <GrantCard key={`${grant.pluginId}:${grant.capability}`} grant={grant} />
+                        ))}
+                    </Stack>
+                ) : undefined}
+
+                {!phone && grants.data ? (
                     <Table.ScrollContainer minWidth={550}>
                         <Table verticalSpacing="sm" horizontalSpacing="sm" layout="fixed">
                             <Table.Thead>
@@ -99,5 +113,33 @@ function GrantRow({ grant }: { grant: PluginGrant }) {
                 <GrantAnswer grant={grant} />
             </Table.Td>
         </Table.Tr>
+    );
+}
+
+/**
+ * One request, on a phone.
+ *
+ * Nothing is dropped, because there is nothing here that could be: the plugin, what it asked for,
+ * why it says it wants it, what allowing it does, and the answer are five things an operator needs
+ * all of before they can decide. What changes is the arrangement — the plugin and its current
+ * answer are the line you scan, and what it asked for and the answer to give sit under that, where
+ * a full-width card gives both room and the two-position control can be sized for a thumb.
+ */
+function GrantCard({ grant }: { grant: PluginGrant }) {
+    return (
+        <PhoneCard
+            title={
+                <Text size="sm" fw={500} truncate>
+                    {grant.pluginName}
+                </Text>
+            }
+            figure={<StatusLamp tone={GRANT_TONES[grant.decision]} label={GRANT_WORDS[grant.decision]} />}
+            below={
+                <Stack gap="sm" mt="xs">
+                    <GrantDescription grant={grant} />
+                    <GrantAnswer grant={grant} size="md" />
+                </Stack>
+            }
+        />
     );
 }

@@ -5,6 +5,8 @@ import { useStorage } from '../../api/storage.queries';
 import { ErrorAlert } from '../shared/error.alert';
 import { formatTimeOfDay } from '../shared/feed.moment';
 import { formatBytes } from '../shared/format.bytes';
+import { PhoneCard } from '../shared/phone.card';
+import { usePhone } from '../shared/use.phone';
 
 /**
  * What the station is using the disk for.
@@ -27,6 +29,7 @@ import { formatBytes } from '../shared/format.bytes';
  */
 export function StorageCard() {
     const storage = useStorage();
+    const phone = usePhone();
 
     return (
         <Card padding="lg">
@@ -45,56 +48,85 @@ export function StorageCard() {
                     <ErrorAlert title="Disk figures unavailable" error={storage.error} fallback="The station could not read what is on disk." />
                 ) : undefined}
 
-                {storage.data ? (
-                    <>
-                        <Table.ScrollContainer minWidth={550}>
-                            <Table verticalSpacing="xs" horizontalSpacing="sm">
-                                <Table.Thead>
-                                    <Table.Tr>
-                                        <Table.Th>Store</Table.Th>
-                                        <Table.Th ta="right">On disk</Table.Th>
-                                        <Table.Th ta="right">Files</Table.Th>
-                                        <Table.Th ta="right">Unclaimed</Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    {storage.data.stores.map(store => (
-                                        <StoreRow key={store.id} store={store} />
-                                    ))}
-                                </Table.Tbody>
-                                <Table.Tfoot>
-                                    <Table.Tr>
-                                        <Table.Th>Everything</Table.Th>
-                                        <Table.Th ta="right" className="da-num">
-                                            {formatBytes(storage.data.totalBytes)}
-                                        </Table.Th>
-                                        <Table.Th ta="right" className="da-num">
-                                            {storage.data.totalFiles}
-                                        </Table.Th>
-                                        <Table.Th />
-                                    </Table.Tr>
-                                </Table.Tfoot>
-                            </Table>
-                        </Table.ScrollContainer>
+                {phone && storage.data ? (
+                    <Stack gap="xxs">
+                        {storage.data.stores.map(store => (
+                            <StoreCard key={store.id} store={store} />
+                        ))}
 
-                        <Text size="xs" c="dimmed">
-                            Read {formatTimeOfDay(storage.data.readAt)}. Walking the directories is real work, so this is a reading rather than a live
-                            figure. Nothing here is deleted automatically: a file no row claims and a record whose file has gone are both reported and
-                            left alone.
-                        </Text>
-                    </>
+                        {/* The foot row, which is not a store and is not drawn as one. Two figures
+                            on one line because that is all the table's foot ever carried. */}
+                        <Group justify="space-between" wrap="nowrap" px="xs" pt="xxs">
+                            <Text size="sm" fw={500}>
+                                Everything
+                            </Text>
+                            <Text size="sm" className="da-num">
+                                {formatBytes(storage.data.totalBytes)} · {storage.data.totalFiles} files
+                            </Text>
+                        </Group>
+                    </Stack>
+                ) : undefined}
+
+                {!phone && storage.data ? (
+                    <Table.ScrollContainer minWidth={550}>
+                        <Table verticalSpacing="xs" horizontalSpacing="sm">
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>Store</Table.Th>
+                                    <Table.Th ta="right">On disk</Table.Th>
+                                    <Table.Th ta="right">Files</Table.Th>
+                                    <Table.Th ta="right">Unclaimed</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {storage.data.stores.map(store => (
+                                    <StoreRow key={store.id} store={store} />
+                                ))}
+                            </Table.Tbody>
+                            <Table.Tfoot>
+                                <Table.Tr>
+                                    <Table.Th>Everything</Table.Th>
+                                    <Table.Th ta="right" className="da-num">
+                                        {formatBytes(storage.data.totalBytes)}
+                                    </Table.Th>
+                                    <Table.Th ta="right" className="da-num">
+                                        {storage.data.totalFiles}
+                                    </Table.Th>
+                                    <Table.Th />
+                                </Table.Tr>
+                            </Table.Tfoot>
+                        </Table>
+                    </Table.ScrollContainer>
+                ) : undefined}
+
+                {storage.data ? (
+                    <Text size="xs" c="dimmed">
+                        Read {formatTimeOfDay(storage.data.readAt)}. Walking the directories is real work, so this is a reading rather than a live
+                        figure. Nothing here is deleted automatically: a file no row claims and a record whose file has gone are both reported and
+                        left alone.
+                    </Text>
                 ) : undefined}
             </Stack>
         </Card>
     );
 }
 
-function StoreRow({ store }: { store: StorageStore }) {
-    // Only the record cache has a limit today, and only while an operator has set one. Bound to a
-    // local so the guard narrows it, rather than asserting past a check that already answered.
+/**
+ * How much of a store's limit is gone, or nothing when it has no limit.
+ *
+ * Only the record cache has one today, and only while an operator has set it. Answered here rather
+ * than in each shape, so the desk row and the phone card cannot end up rounding a percentage two
+ * ways. Bound to a local so the guard narrows `capBytes`, rather than asserting past a check that
+ * already answered.
+ */
+function capShare(store: StorageStore): { used: number; cap: number } | undefined {
     const cap = store.capBytes;
-    const capped = cap !== undefined && cap > 0;
-    const used = capped ? Math.min(100, Math.round((store.bytes / cap) * 100)) : 0;
+    if (cap === undefined || cap <= 0) return undefined;
+    return { used: Math.min(100, Math.round((store.bytes / cap) * 100)), cap };
+}
+
+function StoreRow({ store }: { store: StorageStore }) {
+    const share = capShare(store);
 
     return (
         <Table.Tr>
@@ -104,11 +136,17 @@ function StoreRow({ store }: { store: StorageStore }) {
                     <Text size="xs" c="dimmed">
                         {store.path}
                     </Text>
-                    {capped ? (
+                    {share ? (
                         <Group gap="xs" wrap="nowrap" mt="xxs">
-                            <Progress value={used} w={120} size="sm" color={used >= 100 ? 'yellow' : 'teal'} aria-label="Share of the limit in use" />
+                            <Progress
+                                value={share.used}
+                                w={120}
+                                size="sm"
+                                color={share.used >= 100 ? 'yellow' : 'teal'}
+                                aria-label="Share of the limit in use"
+                            />
                             <Text size="xs" c="dimmed" className="da-num">
-                                {used}% of {formatBytes(store.capBytes)}
+                                {share.used}% of {formatBytes(share.cap)}
                             </Text>
                         </Group>
                     ) : undefined}
@@ -141,5 +179,71 @@ function StoreRow({ store }: { store: StorageStore }) {
                 )}
             </Table.Td>
         </Table.Tr>
+    );
+}
+
+/**
+ * One store, on a phone.
+ *
+ * The label, where it is and what it weighs stay on the main line; the two columns that were
+ * reconciliation rather than size — the file count and what nothing claims — fold into a fact line
+ * under it. They fold into WORDS rather than figures under a heading, because the desk explains
+ * both through a tooltip and a phone has no hover: "missing" and "unclaimed" have to carry their own
+ * meaning here, and the card's footnote carries the rest.
+ */
+function StoreCard({ store }: { store: StorageStore }) {
+    const share = capShare(store);
+
+    return (
+        <PhoneCard
+            title={
+                <Text size="sm" truncate>
+                    {store.label}
+                </Text>
+            }
+            subtitle={
+                <Text size="xs" c="dimmed" truncate>
+                    {store.path}
+                </Text>
+            }
+            figure={
+                <Text size="sm" className="da-num">
+                    {formatBytes(store.bytes)}
+                </Text>
+            }
+            below={
+                <Stack gap="xxs" mt="xxs">
+                    <Group gap="xs" wrap="wrap">
+                        <Text size="xs" c="dimmed" className="da-num">
+                            {store.files} files
+                        </Text>
+                        {store.rowsWithNoFile > 0 ? (
+                            <Text size="xs" c="yellow" className="da-num">
+                                {store.rowsWithNoFile} missing
+                            </Text>
+                        ) : undefined}
+                        {store.orphanFiles > 0 ? (
+                            <Text size="xs" c="dimmed" className="da-num">
+                                {formatBytes(store.orphanBytes)} unclaimed
+                            </Text>
+                        ) : undefined}
+                    </Group>
+                    {share ? (
+                        <Group gap="xs" wrap="nowrap">
+                            <Progress
+                                value={share.used}
+                                flex={1}
+                                size="sm"
+                                color={share.used >= 100 ? 'yellow' : 'teal'}
+                                aria-label="Share of the limit in use"
+                            />
+                            <Text size="xs" c="dimmed" className="da-num">
+                                {share.used}% of {formatBytes(share.cap)}
+                            </Text>
+                        </Group>
+                    ) : undefined}
+                </Stack>
+            }
+        />
     );
 }

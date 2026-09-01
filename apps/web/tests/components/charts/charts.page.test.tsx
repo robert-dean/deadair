@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import type { ChartPage, StationChart } from '@deadair/sdk';
 
 import { ChartsPage } from '../../../src/components/charts/charts.page';
+import { stubPhoneMedia } from '../../utils/phone';
 import { render, screen, setupUser } from '../../utils/render';
 
 const listCharts = vi.fn();
@@ -91,6 +92,28 @@ describe('ChartsPage', () => {
         await user.click(await screen.findByRole('option', { name: 'UK (GB)' }));
 
         expect(readChart).toHaveBeenCalledWith('deadair.lastfm:uk', {});
+    });
+
+    // On a phone the table becomes cards, and the row's one offer — the catalog search — survives
+    // the change of shape. Peak and weeks fold into a single fact line rather than holding columns.
+    it('gives a phone cards, keeping the rank, the fact line and the search', async () => {
+        const restore = stubPhoneMedia();
+        try {
+            listCharts.mockResolvedValue({ charts: [chart()] });
+            readChart.mockResolvedValue(page({ records: [{ rank: 1, title: 'Vaka', artist: 'Sigur Rós', album: '()', peak: 1, weeksOn: 12 }] }));
+
+            render(<ChartsPage />);
+
+            expect(await screen.findByText('Vaka')).toBeInTheDocument();
+            expect(screen.getByText('1')).toBeInTheDocument();
+            expect(screen.getByText('Sigur Rós')).toBeInTheDocument();
+            expect(screen.getByText('peak 1 · 12 wks')).toBeInTheDocument();
+            expect(screen.getByRole('link', { name: 'Find in catalog' })).toBeInTheDocument();
+            expect(screen.queryByRole('table')).not.toBeInTheDocument();
+            expect(screen.queryByText('()')).not.toBeInTheDocument();
+        } finally {
+            restore();
+        }
     });
 
     /** An empty chart is a 200 on the contract's own rule, so it must not be drawn as a fault. */

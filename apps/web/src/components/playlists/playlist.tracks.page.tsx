@@ -12,6 +12,8 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { PhoneCard } from '../shared/phone.card';
+import { usePhone } from '../shared/use.phone';
 
 export interface PlaylistTracksPageProps {
     pluginId: string;
@@ -26,6 +28,7 @@ function formatArtists(artists: string[]): string {
 export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageProps) {
     const tracks = useQuery(playlistTracksOptions(pluginId, playlistId));
     const queryClient = useQueryClient();
+    const phone = usePhone();
 
     // The tracks endpoint returns no playlist name. Rather than a second request, look the
     // playlist up in the already-cached list from the playlists page; fall back to the raw id
@@ -70,7 +73,36 @@ export function PlaylistTracksPage({ pluginId, playlistId }: PlaylistTracksPageP
 
             {tracks.data?.tracks.length === 0 ? <EmptyState>This playlist has no tracks.</EmptyState> : undefined}
 
-            {tracks.data && tracks.data.tracks.length > 0 ? (
+            {/* The phone gets cards rather than a table that scrolls sideways. What survives 375px
+                is a different selection: title, credit and duration, with the album as the dropped
+                column — it is the one a listener recognises the record without. Chosen with the
+                media query rather than `hiddenFrom`, so a long playlist is not rendered twice. */}
+            {phone && tracks.data && tracks.data.tracks.length > 0 ? (
+                <Stack gap="xxs">
+                    {tracks.data.tracks.map((track: CatalogTrack) => (
+                        <PhoneCard
+                            key={track.id}
+                            title={
+                                <TrackLink id={track.trackId} size="sm" truncate>
+                                    {track.title}
+                                </TrackLink>
+                            }
+                            subtitle={
+                                <ArtistLink id={track.artistId} size="xs" c="dimmed" truncate>
+                                    {formatArtists(track.artists)}
+                                </ArtistLink>
+                            }
+                            figure={
+                                <Text size="xs" c="dimmed" className="da-num">
+                                    {formatDuration(track.durationMs)}
+                                </Text>
+                            }
+                        />
+                    ))}
+                </Stack>
+            ) : undefined}
+
+            {!phone && tracks.data && tracks.data.tracks.length > 0 ? (
                 <Table.ScrollContainer minWidth={600}>
                     <Table>
                         <Table.Thead>

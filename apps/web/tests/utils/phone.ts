@@ -1,0 +1,32 @@
+import { vi } from 'vitest';
+
+/**
+ * Puts the window below the `sm` breakpoint for the duration of a test, and hands back the desk.
+ *
+ * `tests/setup.ts` stubs `matchMedia` to answer `matches: false` globally, which is why every page
+ * test exercises the desktop branch without saying so. A case that wants the card branch calls this
+ * and restores in `afterEach` — restoring matters, because the stub is a window property shared by
+ * every case in the file, not a render-scoped fact.
+ *
+ * Only a `max-width` query answers true: `usePhone` asks one, and answering yes to everything would
+ * also flip `prefers-reduced-motion` and every `visibleFrom`, which is not what a phone is.
+ */
+export function stubPhoneMedia(): () => void {
+    const desk = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        value: vi.fn().mockImplementation((query: string) => ({
+            matches: query.includes('max-width'),
+            media: query,
+            onchange: null,
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            dispatchEvent: vi.fn(),
+        })),
+    });
+    return () => {
+        Object.defineProperty(window, 'matchMedia', { writable: true, value: desk });
+    };
+}

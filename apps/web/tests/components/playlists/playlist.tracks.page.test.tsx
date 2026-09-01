@@ -4,6 +4,7 @@ import { SdkError } from '@deadair/sdk';
 
 import { PlaylistTracksPage } from '../../../src/components/playlists/playlist.tracks.page';
 import { queryKeys } from '../../../src/api/query.keys';
+import { stubPhoneMedia } from '../../utils/phone';
 import { catalogPlaylistPage, catalogTrack } from '../../utils/playlist.fixture';
 import { createTestQueryClient, render, screen } from '../../utils/render';
 
@@ -99,6 +100,30 @@ describe('PlaylistTracksPage', () => {
         render(<PlaylistTracksPage pluginId="deadair.spotify" playlistId="playlist-1" />);
 
         expect(await screen.findByText('This playlist has no tracks.')).toBeInTheDocument();
+    });
+
+    // The selection, not the shape, is what these two cases pin: a phone reader still gets the
+    // title, the credit and the duration, and the album is the deliberately dropped column rather
+    // than one that happened to fall off the right edge.
+    it('gives a phone cards rather than a sideways-scrolling table', async () => {
+        const restore = stubPhoneMedia();
+        try {
+            getPlaylistTracks.mockResolvedValue({
+                pluginId: 'deadair.spotify',
+                playlistId: 'playlist-1',
+                tracks: [catalogTrack({ trackId: 'trk_1' })],
+            });
+
+            render(<PlaylistTracksPage pluginId="deadair.spotify" playlistId="playlist-1" />);
+
+            expect(await screen.findByRole('link', { name: 'Good Times' })).toBeInTheDocument();
+            expect(screen.getByText('Chic')).toBeInTheDocument();
+            expect(screen.getByText('3:38')).toBeInTheDocument();
+            expect(screen.queryByRole('table')).not.toBeInTheDocument();
+            expect(screen.queryByText("C'est Chic")).not.toBeInTheDocument();
+        } finally {
+            restore();
+        }
     });
 
     it('shows an error alert when the tracks fail to load', async () => {

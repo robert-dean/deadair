@@ -8,6 +8,8 @@ import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { PhoneCard } from '../shared/phone.card';
+import { usePhone } from '../shared/use.phone';
 import { CATALOG_TRACK_DEFAULTS } from '../catalog/catalog.page.params';
 
 /**
@@ -26,6 +28,7 @@ import { CATALOG_TRACK_DEFAULTS } from '../catalog/catalog.page.params';
  */
 export function ChartsPage() {
     const charts = useCharts();
+    const phone = usePhone();
     const [chosen, setChosen] = useState<string | undefined>(undefined);
 
     const offered = charts.data?.charts ?? [];
@@ -100,7 +103,66 @@ export function ChartsPage() {
                         </EmptyState>
                     ) : undefined}
 
-                    {chart.data && chart.data.records.length > 0 ? (
+                    {/* The phone gets cards rather than a table that scrolls sideways. The rank
+                        leads because it is what a chart IS; peak and weeks ride the second line as
+                        a fact rather than holding two columns; the album is the dropped one. Chosen
+                        with the media query rather than `hiddenFrom`, so a hundred entries are not
+                        rendered twice. */}
+                    {phone && chart.data && chart.data.records.length > 0 ? (
+                        <Stack gap="xxs">
+                            {chart.data.records.map(record => (
+                                <PhoneCard
+                                    key={`${record.rank}-${record.title}-${record.artist}`}
+                                    leading={
+                                        <Text size="sm" className="da-num" w={28} ta="right">
+                                            {record.rank}
+                                        </Text>
+                                    }
+                                    title={
+                                        <>
+                                            <Text size="sm" truncate>
+                                                {record.title}
+                                            </Text>
+                                            {record.featuring === undefined || record.featuring.length === 0 ? undefined : (
+                                                <Text size="xs" c="dimmed" truncate>
+                                                    feat. {record.featuring.join(', ')}
+                                                </Text>
+                                            )}
+                                        </>
+                                    }
+                                    subtitle={
+                                        <>
+                                            <Text size="xs" c="dimmed" truncate>
+                                                {record.artist}
+                                            </Text>
+                                            {record.peak !== undefined || record.weeksOn !== undefined ? (
+                                                <Text size="xs" c="dimmed" className="da-num" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+                                                    {[
+                                                        record.peak !== undefined ? `peak ${record.peak}` : undefined,
+                                                        record.weeksOn !== undefined ? `${record.weeksOn} wks` : undefined,
+                                                    ]
+                                                        .filter(part => part !== undefined)
+                                                        .join(' · ')}
+                                                </Text>
+                                            ) : undefined}
+                                        </>
+                                    }
+                                    action={
+                                        <Anchor
+                                            renderRoot={(props: object) => (
+                                                <Link to="/catalog/tracks" search={{ ...CATALOG_TRACK_DEFAULTS, search: record.title }} {...props} />
+                                            )}
+                                            size="xs"
+                                        >
+                                            Find in catalog
+                                        </Anchor>
+                                    }
+                                />
+                            ))}
+                        </Stack>
+                    ) : undefined}
+
+                    {!phone && chart.data && chart.data.records.length > 0 ? (
                         <Table.ScrollContainer minWidth={700}>
                             <Table highlightOnHover>
                                 <Table.Thead>

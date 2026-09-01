@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState, type Ref, type RefObject } from 'react';
-import { ActionIcon, Badge, Box, Button, Card, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Badge, Box, Button, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconX } from '@tabler/icons-react';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type { Rating, StationItemState, StationOrderItem } from '@deadair/sdk';
@@ -8,6 +8,7 @@ import { RatingControl } from '../catalog/rating.control';
 import { Artwork } from '../shared/artwork';
 import { AlbumLink, ArtistLink, ScriptLink, TrackLink } from '../shared/catalog.links';
 import { formatDuration } from '../shared/format.duration';
+import { PhoneCard } from '../shared/phone.card';
 import { usePhone } from '../shared/use.phone';
 import classes from './station.order.table.module.css';
 
@@ -816,6 +817,9 @@ const OrderRow = memo(function OrderRow({
  * than the credit, and the artwork earns its place because it is how somebody recognises a record
  * at a glance. A row that dropped columns until it fit would keep the ones that happened to be
  * leftmost.
+ *
+ * The skeleton lives in {@link PhoneCard} — this component owns only the running order's selection
+ * and its two accents: the airing card's bar, and history at half weight.
  */
 const PhoneRow = memo(function PhoneRow({
     item,
@@ -830,53 +834,48 @@ const PhoneRow = memo(function PhoneRow({
     const airing = item.state === 'airing';
 
     return (
-        <Card
-            withBorder={false}
-            padding="xs"
-            radius="sm"
-            opacity={opacityFor(item)}
-            style={{
-                background: airing ? 'var(--da-raised)' : 'transparent',
-                boxShadow: airing ? 'inset 3px 0 0 var(--mantine-color-red-6)' : undefined,
-            }}
-        >
-            <Group gap="sm" wrap="nowrap">
-                <Artwork src={item.artworkUrl} alt={item.title} size={36} radius="xs" />
-                <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
-                    <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                        <Text size="sm" fw={airing ? 600 : 400} truncate>
-                            {item.title}
+        <PhoneCard
+            leading={<Artwork src={item.artworkUrl} alt={item.title} size={36} radius="xs" />}
+            title={
+                <>
+                    <Text size="sm" fw={airing ? 600 : 400} truncate>
+                        {item.title}
+                    </Text>
+                    {item.kind === 'segment' ? (
+                        <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
+                            segment
+                        </Badge>
+                    ) : undefined}
+                </>
+            }
+            subtitle={
+                <>
+                    <Text size="xs" c="dimmed" truncate>
+                        {formatArtists(item.artists)}
+                    </Text>
+                    {state ? (
+                        <Text
+                            size="xs"
+                            c={state.colour}
+                            ff="monospace"
+                            tt="uppercase"
+                            style={{ letterSpacing: 'var(--da-tracking-eyebrow)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                        >
+                            {state.label}
                         </Text>
-                        {item.kind === 'segment' ? (
-                            <Badge size="xs" variant="light" color="grape" style={{ flexShrink: 0 }}>
-                                segment
-                            </Badge>
-                        ) : undefined}
-                    </Group>
-                    <Group gap="xs" wrap="nowrap" style={{ minWidth: 0 }}>
-                        <Text size="xs" c="dimmed" truncate>
-                            {formatArtists(item.artists)}
-                        </Text>
-                        {state ? (
-                            <Text
-                                size="xs"
-                                c={state.colour}
-                                ff="monospace"
-                                tt="uppercase"
-                                style={{ letterSpacing: 'var(--da-tracking-eyebrow)', whiteSpace: 'nowrap', flexShrink: 0 }}
-                            >
-                                {state.label}
-                            </Text>
-                        ) : undefined}
-                    </Group>
-                </Stack>
-                <Text size="xs" c="dimmed" className="da-num" style={{ flexShrink: 0 }}>
+                    ) : undefined}
+                </>
+            }
+            figure={
+                <Text size="xs" c="dimmed" className="da-num">
                     {formatDuration(item.durationMs)}
                 </Text>
-                {/* 44px, because this is the one destructive control on a surface being used with a
-                    thumb. Nothing at all on a spent item, rather than a disabled affordance that
-                    could only ever answer 422. */}
-                {onRemove ? (
+            }
+            // 44px, because this is the one destructive control on a surface being used with a
+            // thumb. Nothing at all on a spent item, rather than a disabled affordance that could
+            // only ever answer 422.
+            action={
+                onRemove ? (
                     <ActionIcon
                         variant="subtle"
                         color="red"
@@ -888,8 +887,10 @@ const PhoneRow = memo(function PhoneRow({
                     >
                         <IconX size={16} stroke={1.8} />
                     </ActionIcon>
-                ) : undefined}
-            </Group>
-        </Card>
+                ) : undefined
+            }
+            accent={airing ? 'var(--mantine-color-red-6)' : undefined}
+            opacity={opacityFor(item)}
+        />
     );
 });

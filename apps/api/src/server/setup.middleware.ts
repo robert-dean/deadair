@@ -8,6 +8,7 @@ import { authorizationContextMiddleware } from './middleware/authorization.conte
 import { refreshCookieMiddleware } from './middleware/refresh.cookie.middleware.js';
 import { conditionalGetMiddleware } from './middleware/conditional.get.middleware.js';
 import { bridgeSecretMiddleware } from './middleware/bridge.secret.middleware.js';
+import { hlsCorsMiddleware } from './middleware/hls.cors.middleware.js';
 import { hlsHeartbeatMiddleware } from './middleware/hls.heartbeat.middleware.js';
 import { rateLimitMiddleware } from './middleware/rate.limit.middleware.js';
 
@@ -44,6 +45,12 @@ export const setupMiddleware = (container: Container) => {
     // forbids the `*` wildcard origin, so we allow explicit origins: the SPA and API base URLs.
     // An unset (or blank) base URL falls back to the empty default and drops out of the list.
     const allowedOrigins = [config.get<string, string>('SPA_BASE_URL', ''), config.get<string, string>('APP_BASE_URL', '')].filter(Boolean);
+    // OUTSIDE the CORS middleware below, so its post-`next` write is the last one and overrides
+    // that answer for the HLS prefix. The stream is a broadcast and any page may fetch it, which
+    // is a different policy from the console's and cannot be a further entry in the list above:
+    // that one is credentialed, and credentialed CORS forbids the `*` this needs. See the
+    // middleware for why native playback hid this until a JavaScript player tried it.
+    middlewares.push(hlsCorsMiddleware());
     middlewares.push(corsMiddleware({ origin: allowedOrigins, credentials: true, exposeHeaders: ['WWW-Authenticate'] }));
     // The gate on everything under /playout/bridge/. Both sides of this position are
     // load-bearing: AFTER the credential middleware, which is the only thing that puts

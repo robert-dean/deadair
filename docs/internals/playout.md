@@ -70,6 +70,20 @@ that costs is the segments, which nginx serves and the app never sees — a refu
 last playlist gave it and stalls within one window, because a live playlist is the only way to learn the next
 ones. `hls.refusal.ts` carries the whole argument.
 
+**Any page may read the stream, and it took a JavaScript player to notice that one could not.** Native
+playback is not a CORS request: an `<audio src>` fetches the playlist in no-cors mode and the browser applies
+no origin check, so Safari, hardware players and the console's own preview all worked while every embedded
+player was refused. hls.js and everything built on it read the playlist over XHR instead, because they parse
+it and drive Media Source Extensions themselves, and an XHR IS origin-checked. Measured from a third-party
+player page: 200, `Vary: Origin`, and no `Access-Control-Allow-Origin`, which fails on the FIRST request and
+reports nothing more useful than a broken stream. It could not be another entry in the credentialed allowlist
+the console needs — credentialed CORS forbids `*` — so `hls.cors.middleware` overrides the global answer for
+this prefix on the way out and strips `Access-Control-Allow-Credentials`, which is not tidying: `*` beside
+credentials is refused outright, so leaving it would have broken the one origin that used to work. It is set
+in THREE places because three things answer for this output: the app for the playlists, the segments location
+for the files nginx serves itself, and the root `.m3u8` REDIRECT, since a cross-origin fetch applies the check
+to every response in a redirect chain and `/live.m3u8` is the URL the station hands out.
+
 **That register is keyed on address plus user agent, so it is only ever as good as the address the edge
 reports.** nginx sets `X-Real-IP` to `$remote_addr` and `clientKey` reads it through `clientAddress`, which
 means that behind a tunnel or a reverse proxy every listener arrives as the SAME address and the key collapses

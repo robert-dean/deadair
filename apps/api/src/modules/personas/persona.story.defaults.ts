@@ -37,11 +37,12 @@ import type { PersonaStoryDraft } from './persona.story.js';
  * character with no stories declines a `story` slot and works none into its links, which is a station
  * passing over a break rather than inventing a life for itself.
  *
- * ## Two each, and no details
+ * ## Two each, with one exception, and no details
  *
  * Two is enough for the rotation to be visible — a second story means the first does not come round
  * every time — and few enough that an operator reading the page can tell these were written for them
- * rather than generated at them. Details are deliberately absent: a detail is what a story PICKS UP,
+ * rather than generated at them. `conspiracy` carries three, for the reason written beside the third:
+ * it is the only slot on that sheet where its hardest quirk can be shown rather than asserted. Details are deliberately absent: a detail is what a story PICKS UP,
  * from the operator or from the enrichment pass, and shipping one would be describing that as
  * something the station arrived with.
  */
@@ -104,6 +105,32 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
         {
             title: 'The grey car',
             story: 'There has been a car outside my house since the spring. Same spot, same man, and he does not read anything and he does not eat. I took him a cup of coffee in March. He took it, my friends. He said thank you. Now you tell me what department sends a man to sit outside a radio presenter for eight months and thank him for a coffee.',
+        },
+        // The third one on the roster, and the exception to the two-each rule above rather than a
+        // drift away from it. It earns the slot because it is the only place the sheet's hardest
+        // quirk can actually be DEMONSTRATED: 'you have never once found any of this funny and you
+        // never wink. They laugh; you carry on' is an instruction with nothing behind it anywhere
+        // else, and the probe is the one detail an audience laughs at before he has finished the
+        // sentence. A character who reports it and does not flinch is the quirk working; the same
+        // character reaching for it as a gag is the quirk gone. So it is a story rather than a
+        // quirk, a preoccupation or a sample, and the placement is the whole safety argument — a
+        // quirk goes out on every break, a sample sets the rhythm the model copies, and either
+        // would have him on about it constantly, which is the one way this detail stops being funny
+        // and starts being the character.
+        //
+        // It is the stock abduction detail on purpose. Everything else on this sheet is one absurd
+        // step past a note he was given; this is the note everybody already has, and the only thing
+        // he brings to it is that he will not laugh. 'I will use the word' is the line the whole
+        // story is built to arrive at.
+        //
+        // Inside the fence on both halves, and worth checking against `persona.defaults.ts` before
+        // editing: it happened to HIM, and the people who did it are the greys rather than anybody
+        // nameable. No department, no country, no official, and nothing done to a real person. The
+        // cushion is the `quirks` evidence rule read straight, which is why the story ends on it
+        // rather than on the table.
+        {
+            title: 'The minute I have back',
+            story: 'I am going to say this plainly, because I have never lied to you. Those four hours are not entirely gone. I have a minute of them back. I was face down on a table that was not cold, there was a light on the small of my back, and they put a probe in me. I will use the word. A probe. I have not sat properly in a hard chair since, and this one is on its third cushion in nineteen years. People laugh at the cushion. I have never once laughed, and I will tell you why: whatever they were looking for, they did not find it, and they have not been back.',
         },
     ],
     videoage: [

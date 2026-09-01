@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PluginError, isPluginError } from '@deadair/plugin-sdk';
 
 import { invocationRemainingMs } from '../../../src/modules/plugins/plugin.invocation.deadline.js';
-import { PLUGIN_FAILURE_THRESHOLD, PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
+import { DISPOSE_OP, PLUGIN_FAILURE_THRESHOLD, PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
@@ -100,6 +100,30 @@ describe('PluginInvoker.invoke', () => {
         const calls = throwing.mock.calls.length;
         await expect(invoker.invoke('p', 'op', throwing)).rejects.toThrow(/is failed/);
         expect(throwing.mock.calls.length).toBe(calls);
+    });
+
+    it('still lets a quarantined plugin be disposed, so a reinit cannot leak the instance the breaker tripped on', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(record());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+
+        for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD; i++) {
+            await expect(
+                invoker.invoke('p', 'op', () => {
+                    throw new Error('down');
+                }),
+            ).rejects.toThrow();
+        }
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+
+        // The lifecycle manager disposes BEFORE it resets, so this is the state every reinit of a
+        // quarantined plugin runs `dispose` in. Refusing it here was the leak.
+        const dispose = vi.fn(async () => {});
+        await invoker.invoke('p', DISPOSE_OP, dispose);
+
+        expect(dispose).toHaveBeenCalledTimes(1);
+        // Letting go is not a recovery: the breaker stays open until something resets it.
+        expect(invoker.isBreakerOpen('p')).toBe(true);
     });
 
     it('resets the failure count on a success before the threshold is reached', async () => {

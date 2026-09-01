@@ -6,7 +6,7 @@ import type { DeadairPlugin, PluginFactory, PluginInstance, PluginManifest } fro
 import { PluginConfigRepository, type PluginConfigRecord } from './plugin.config.repository.js';
 import { PluginConfigService } from './plugin.config.service.js';
 import { PLUGIN_OAUTH_SECRET_KEY, PluginHostFactory } from './plugin.host.factory.js';
-import { PluginInvoker } from './plugin.invoker.js';
+import { DISPOSE_OP, PluginInvoker } from './plugin.invoker.js';
 import { PluginLoader } from './plugin.loader.js';
 import { PluginLog } from './plugin.log.js';
 import { PluginRegistry, firstWinsById } from './plugin.registry.js';
@@ -259,7 +259,7 @@ export class PluginLifecycleManager {
 
         try {
             if (typeof instance.dispose === 'function') {
-                await this.pluginInvoker.invoke(pluginId, 'dispose', async () => instance.dispose?.());
+                await this.pluginInvoker.invoke(pluginId, DISPOSE_OP, async () => instance.dispose?.());
             }
         } catch (error) {
             // A plugin that cannot clean up still has to be let go of, or a

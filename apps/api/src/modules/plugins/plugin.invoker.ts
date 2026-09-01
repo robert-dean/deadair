@@ -27,6 +27,12 @@ export const PLUGIN_INVOKE_TIMEOUT_MS = 8_000;
 /** Consecutive failures that trip the breaker and quarantine the plugin. */
 export const PLUGIN_FAILURE_THRESHOLD = 3;
 
+/**
+ * The one op the breaker never refuses. Named here rather than at the lifecycle manager's call
+ * site so the two cannot drift: the manager passes this constant, and `invoke` compares against it.
+ */
+export const DISPOSE_OP = 'dispose';
+
 export interface PluginInvokeOptions {
     /** Overrides {@link PLUGIN_INVOKE_TIMEOUT_MS} for one call. */
     timeoutMs?: number;
@@ -118,7 +124,14 @@ export class PluginInvoker {
      */
     async invoke<T>(pluginId: string, op: string, fn: (signal: AbortSignal) => Promise<T>, opts?: PluginInvokeOptions): Promise<T> {
         const openReason = this.openBreakers.get(pluginId);
-        if (openReason !== undefined) {
+        // `dispose` goes through whatever the breaker says. The breaker exists to stop spending
+        // calls on a plugin that cannot answer; letting go of one is not a call that can be spent,
+        // and refusing it is how a quarantined plugin's timers and open bodies outlived every reinit:
+        // the lifecycle manager disposes BEFORE it resets, so the plugin the breaker had tripped was
+        // exactly the one whose `dispose()` never ran, and the leak was in the API process until a
+        // restart. Everything else about a failing dispose is unchanged — it is timed, caught and
+        // recorded like any other op.
+        if (openReason !== undefined && op !== DISPOSE_OP) {
             throw new PluginError(`plugin ${pluginId} is failed: ${openReason}`).withCode('unavailable');
         }
 

@@ -68,8 +68,17 @@ In rough order, and none of it is worth doing before there is a second tenant:
    comments assumed.
 4. **A third bar on `transaction.exemptions.ts`.** An exempt route has no transaction, so an
    `is_local` GUC does not survive its first statement — an exempt route would have to touch no
-   protected table or open its own transaction. Today's exemptions (infra, streaming, now-playing)
-   already touch nothing, so they would pass unchanged.
+   protected table or open its own transaction. That list is no longer all one answer. Infra,
+   streaming, art and now-playing touch nothing, and so does drafting a persona, which is why it
+   could be exempted without thinking about this at all. The other three exempted for holding a
+   model or an engine do READ station-owned tables with no transaction around the read: rehearsing a
+   persona reads the persona, its notebook and its stories, and all three voice routes read the
+   pronunciation lexicon. Not one of them writes a row, so they are not an isolation hole in the
+   direction that matters most, but a policy that RAISES on a read with no GUC would break every one
+   of them. That is an argument for `missing_ok` in step 3, or for those routes opening a short
+   transaction of their own around the reads they make before the model call, which is where those
+   reads already sit: they are deliberately made before the gate so the query is not held behind the
+   one model or speech slot.
 5. **Something that reads the audit GUCs**, if they are to be more than a seam: a trigger writing an
    audit row is the obvious one, and is a separate decision from isolation.
 

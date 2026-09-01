@@ -49,19 +49,19 @@ export const DataModule: ServerKitModule = {
         // pool. That is the shape the art-thumbnail burst took in `transaction.exemptions.ts`,
         // except that one at least ended.
         //
-        // Ten minutes rather than the thirty seconds that would make it a tight backstop, because
-        // the console has routes that legitimately sit idle in their transaction for minutes: they
-        // ask the model for something and hold the connection until it answers. `POST
-        // /personas/:id/rehearse` runs the break writers that way, and the model this station is
-        // pointed at is a slow remote one, so anything tight enough to catch a wedge is tight enough
-        // to kill those, intermittently. The figure is set well clear of the worst legitimate hold
-        // instead, which is still the difference between a pool slot lost until a restart and one
-        // that comes back on its own.
+        // Ten minutes, which is a recovery rather than a tight backstop, and deliberately still that
+        // loose after the four routes that made it necessary stopped needing it. Drafting a persona,
+        // rehearsing one, and the voice samples and speech preview all held a connection across a
+        // language model or a speech engine, up to five minutes for the longest; all four are now
+        // exempt from the request transaction entirely (`transaction.exemptions.ts`), because not
+        // one of them had anything for a transaction to make atomic.
         //
-        // `POST /personas/generate` used to be the longest of them, at `BUDGET_MS` (4 minutes) plus
-        // `MAX_WAIT_MS` (1 minute) waiting for the model slot. It no longer holds a transaction at
-        // all: it writes nothing, so it is exempt (`transaction.exemptions.ts`). Tightening this is
-        // worth doing the day the rest of them are exempt too or have moved off the request path.
+        // What is left is an audit rather than a known offender: every route-reachable service was
+        // checked for model and engine work when those exemptions were written and none of the rest
+        // hold either, but "nothing found" is a weaker claim than "nothing can", and a figure that
+        // kills a request wrongly is worse than one that recovers a connection slowly. So tightening
+        // this wants a measurement of what the request path actually holds, not another reading of
+        // the routers.
         //
         // Deliberately NOT joined by a `statement_timeout` or a `lock_timeout`. Background jobs run
         // on this same pool, so both of those trade a hang nobody has measured for a new way to kill

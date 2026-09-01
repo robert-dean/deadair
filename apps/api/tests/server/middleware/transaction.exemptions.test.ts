@@ -13,6 +13,9 @@ import {
     isTransactionExempt,
     nowPlayingExemption,
     personaDraftExemption,
+    personaRehearsalExemption,
+    speechPreviewExemption,
+    voiceSampleExemption,
 } from '../../../src/server/middleware/transaction.exemptions.js';
 
 const exempt = (method: string, path: string) => isTransactionExempt({ method, path }, DEFAULT_TRANSACTION_EXEMPTIONS);
@@ -94,11 +97,60 @@ describe('personaDraftExemption', () => {
         expect(exempt('POST', '/personas')).toBe(false);
         expect(exempt('POST', '/personas/import')).toBe(false);
         expect(exempt('PUT', '/personas/some-persona')).toBe(false);
-        expect(exempt('POST', '/personas/some-persona/rehearse')).toBe(false);
     });
 
     it('exempts nothing else that merely starts with the same path', () => {
         expect(exempt('GET', '/personas/generate')).toBe(false);
         expect(exempt('POST', '/personas/generate/again')).toBe(false);
+    });
+});
+
+describe('personaRehearsalExemption', () => {
+    it('exempts hearing a persona, whichever one it is', () => {
+        // It writes nothing, and the service is built so that it cannot: it holds the
+        // reading halves of the notebook and the stories and never the writing ones.
+        expect(personaRehearsalExemption({ method: 'POST', path: '/personas/some-persona/rehearse' })).toBe(true);
+        expect(exempt('POST', '/personas/2071d88a-998f-4c12-8515-b2ea9c54f245/rehearse')).toBe(true);
+    });
+
+    it('leaves the notes and stories routes under the same prefix alone', () => {
+        // Both write, and neither holds the model while it does.
+        expect(exempt('POST', '/personas/some-persona/notes')).toBe(false);
+        expect(exempt('POST', '/personas/some-persona/stories')).toBe(false);
+    });
+
+    it('exempts nothing else that merely ends the same way', () => {
+        expect(exempt('GET', '/personas/some-persona/rehearse')).toBe(false);
+        expect(exempt('POST', '/rehearse')).toBe(false);
+    });
+});
+
+describe('voiceSampleExemption', () => {
+    it('exempts both spellings of a voice sample', () => {
+        // The default voice and a named one are one method serving two routes, and
+        // `/voices/sample` ends with `/sample` as surely as `/voices/{id}/sample` does.
+        expect(voiceSampleExemption({ method: 'GET', path: '/voices/sample' })).toBe(true);
+        expect(voiceSampleExemption({ method: 'GET', path: '/voices/af_heart/sample' })).toBe(true);
+        expect(exempt('GET', '/voices/sample')).toBe(true);
+        expect(exempt('GET', '/voices/af_heart/sample')).toBe(true);
+    });
+
+    it('leaves the voice list itself alone', () => {
+        // One plugin call and no engine time, so it is an ordinary transactional route.
+        expect(exempt('GET', '/voices')).toBe(false);
+    });
+});
+
+describe('speechPreviewExemption', () => {
+    it('exempts speaking the operator’s own words', () => {
+        // Same store, same engine, same argument as the samples above: the bytes land on
+        // disk, which no transaction was ever going to roll back.
+        expect(speechPreviewExemption({ method: 'POST', path: '/voices/preview' })).toBe(true);
+        expect(exempt('POST', '/voices/preview')).toBe(true);
+    });
+
+    it('exempts nothing else that merely starts with the same path', () => {
+        expect(exempt('GET', '/voices/preview')).toBe(false);
+        expect(exempt('POST', '/voices/preview/again')).toBe(false);
     });
 });

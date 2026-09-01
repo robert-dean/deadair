@@ -193,10 +193,14 @@ Three of those carry most of the weight:
   roles into a permission set.
 
 [transaction.exemptions.ts](src/server/middleware/transaction.exemptions.ts) makes the opt-out set
-declarative (OPTIONS preflight, `/`, `/healthcheck`, streaming responses, now-playing). Its header
-documents the bar a new exemption has to clear: an exempt request has no transaction, so it must not
-enqueue a job describing work that could still fail, and must not rely on `AfterCommit` for anything
-a caller reads back in the same request.
+declarative: OPTIONS preflight, `/`, `/healthcheck`, streaming responses, cached cover art,
+now-playing, and the four routes whose holding time is set by a language model or a speech engine
+rather than by the station (drafting a persona, rehearsing one, a voice sample, a speech preview).
+Its header documents the bar a new exemption has to clear: an exempt request has no transaction, so
+it must not enqueue a job describing work that could still fail, and must not rely on `AfterCommit`
+for anything a caller reads back in the same request. The last four clear a second bar as well,
+which is why they are exempt rather than merely slow: not one of them writes anything a transaction
+could have rolled back.
 
 ---
 

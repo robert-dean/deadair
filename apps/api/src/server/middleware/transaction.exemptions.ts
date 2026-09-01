@@ -22,8 +22,9 @@
 // handler returns rather than when a commit lands. An exempt route must
 // therefore not send a job describing work that could still fail, and must not
 // rely on `AfterCommit` for anything a caller will read back in the same
-// request. Today's exemptions (streaming, infra, art, now-playing, persona
-// drafting) do neither.
+// request. Today's exemptions do neither: the infra and streaming pair, art,
+// now-playing, and the four below where a language model or a speech engine
+// sets how long the connection is held.
 //
 // This used to say the bar was about the `app.actor_org_id` GUC and the
 // org-isolation RLS policies. Neither exists — see
@@ -92,11 +93,58 @@ export const nowPlayingExemption: TransactionExemption = ({ method, path }) => m
 // which is what keeps a tool round trip from reaching the database behind this exemption's back.
 // Anything that gives this route a write, or gives that call its tools, has to come out of this list.
 //
-// The sibling routes are deliberately NOT here. `POST /personas/import` and the notes and stories
-// routes write, so their transaction is doing the job it exists for, and `POST /personas/:id/rehearse`
-// runs the break writers and holds a connection the same way this did. Rehearsal is the next
-// candidate rather than a fifth entry today: it is worth checking what it writes first.
+// The sibling routes that WRITE are deliberately not here: `POST /personas/import` and the notes and
+// stories routes are what a drafted persona is saved through, so their transaction is doing the job
+// it exists for.
 export const personaDraftExemption: TransactionExemption = ({ method, path }) => method === 'POST' && path === '/personas/generate';
+
+// Hearing a persona before putting it on air, which is the same case as drafting one: the model
+// holds the connection and there is nothing for the transaction to make atomic.
+//
+// `PersonaRehearsalService` writes nothing, and unlike most claims of that kind it is enforced by
+// what the service can REACH rather than by a rule somebody has to keep. Its own note says so: no
+// segment row, no `script_history`, no request. The two repositories it holds are read through their
+// reading halves only (`forPrompt` on both, which are plain selects), and the writing halves
+// (`markUsed`, and the stories' own stamp) are separate methods it never calls. That split is
+// deliberate: resting the notebook here would hand the next real break this character's second-best
+// lines, and stamping a story would report a telling nobody heard. The
+// writer path underneath holds nothing that could write either: the registry has writers and a
+// logger, the model writer has `LlmService`, config and a logger, the floor has config and a logger,
+// `LlmService` has no repository, and spans are in memory. `tools: false` on the call, so no tool
+// round trip can reach the database behind this.
+//
+// What it cost was a connection held for `BUDGET_MS` (2 minutes) of model time plus the wait for the
+// model slot, on a click an operator makes repeatedly while tuning a character sheet.
+export const personaRehearsalExemption: TransactionExemption = ({ method, path }) =>
+    method === 'POST' && path.startsWith('/personas/') && path.endsWith('/rehearse');
+
+// Hearing a voice, which is the strongest case on this list rather than the weakest: the request
+// transaction cannot protect what these routes do at ALL.
+//
+// They write, and they write to DISK. `RenderService.renderSample` serves both of them from
+// `VoiceSampleStore` (a `ContentStore` over a directory, on `node:fs`) and on a miss streams the
+// engine's output into it. A file does not roll back, so the transaction is not weakening atomicity
+// here the way an ordinary exemption does, it is providing none. The only database work in the path
+// is reads: the pronunciation lexicon, which `speakAs` deliberately makes BEFORE taking the speech
+// gate so the query is not held behind the one speech slot. No segment row is written, which is what
+// keeps a sample from being plantable or nameable by a lineup, and the job broker `RenderService`
+// holds is not touched by this path.
+//
+// The bill is `SAMPLE_QUEUE_MS` (10s) waiting for the gate plus `SPEAK_TIMEOUT_MS` (2 minutes) of
+// engine time, per sample, and the console mints one per voice as an operator clicks down the list.
+// That is the art-thumbnail shape again with a text-to-speech engine in place of a file read.
+//
+// One predicate covers both spellings: `/voices/sample` ends with `/sample` as surely as
+// `/voices/{id}/sample` does.
+export const voiceSampleExemption: TransactionExemption = ({ method, path }) =>
+    method === 'GET' && path.startsWith('/voices/') && path.endsWith('/sample');
+
+// The same store, the same engine and the same argument, split out for the two things that differ:
+// it is a POST carrying the operator's own words, and it sits on `platform.manage` where the samples
+// sit on `platform.view`. Neither difference changes the reason it is here, since this list is about
+// what a route HOLDS rather than about who may call it, and keeping them apart is what stops one
+// predicate quietly covering a third route later.
+export const speechPreviewExemption: TransactionExemption = ({ method, path }) => method === 'POST' && path === '/voices/preview';
 
 // The exemptions applied by default. Compose additional ones onto this list where the middleware is
 // wired (setup.middleware) when a new opt-out route is introduced.
@@ -106,6 +154,9 @@ export const DEFAULT_TRANSACTION_EXEMPTIONS: readonly TransactionExemption[] = [
     artExemption,
     nowPlayingExemption,
     personaDraftExemption,
+    personaRehearsalExemption,
+    voiceSampleExemption,
+    speechPreviewExemption,
 ];
 
 export const isTransactionExempt = (request: ExemptionRequest, exemptions: readonly TransactionExemption[]): boolean =>

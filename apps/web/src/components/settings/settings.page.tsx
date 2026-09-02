@@ -1,6 +1,5 @@
-import { Fragment } from 'react';
 import { Box, Card, Stack, Text, Title } from '@mantine/core';
-import type { StationSettingDescriptor, StationSettings } from '@deadair/sdk';
+import type { StationSettings } from '@deadair/sdk';
 
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { ErrorAlert } from '../shared/error.alert';
@@ -8,44 +7,8 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { AppearanceCard } from './appearance.card';
 import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
+import { SETTINGS_SECTIONS, type SettingsSection } from './settings.shell';
 import { StorageCard } from './storage.card';
-
-/**
- * The sections, in the order an operator should meet them, and what each one is for.
- *
- * Not every declared group is here, and the omission is the mechanism rather than a gap: a group
- * this list does not name is drawn by whichever page claimed it. `schedule` is the one — what the
- * station plays between blocks is edited beside the timetable that makes sense of it, by
- * `SustainingPanel`, so adding it back here would draw those five settings twice.
- */
-const GROUPS: { key: StationSettingDescriptor['group']; title: string; blurb: string }[] = [
-    {
-        key: 'station',
-        title: 'Station',
-        blurb: 'What the station is called and where it publishes. Icecast and Liquidsoap read these from files rendered on save, so a change reaches them on their next restart.',
-    },
-    {
-        key: 'rotation',
-        title: 'Rotation',
-        blurb: 'How the station programmes itself when nothing more specific is asked for. A lineup can override any of these for itself, and a setlist or a feature ignores all of them.',
-    },
-    {
-        key: 'playout',
-        title: 'Playout',
-        blurb: 'What puts the station on air, and the secret the playout bridge is gated on.',
-    },
-    { key: 'render', title: 'Voice and audio', blurb: 'How the station speaks, and how a programme written in parts is put together.' },
-    {
-        key: 'llm',
-        title: 'Words',
-        blurb: 'Which plugin the station asks for words. With none set up it still writes its own breaks, from what is either side of them in the running order.',
-    },
-    {
-        key: 'analysis',
-        title: 'Measurement',
-        blurb: 'Which plugin measures records, so the station can trim the dead air off each one and know how long it may talk over an intro. With none set up every track still plays, unmeasured.',
-    },
-];
 
 /**
  * Everything an operator can change about the station that is not a plugin's own business.
@@ -79,42 +42,69 @@ export function SettingsPage() {
 
     return (
         <Stack gap="lg">
-            {GROUPS.map(group => (
-                <Fragment key={group.key}>
-                    <SettingsGroupCard group={group} settings={data} />
-                    {/* Second, straight after Station, which is where the section list puts it.
-                        It is the one card here that writes nothing to the station — see
-                        `appearance.card.tsx` for why it belongs among the ones that do. */}
-                    {group.key === 'station' ? <AppearanceCard /> : undefined}
-                </Fragment>
+            {SETTINGS_SECTIONS.map(section => (
+                <SettingsSectionCard key={section.id} section={section} settings={data} />
             ))}
-
-            {/* Last, and read-only: everything above is something to change, and this is the number
-                the one limit up there is set against. */}
-            <Box id="storage" style={{ scrollMarginTop: 76 }}>
-                <StorageCard />
-            </Box>
-
-            {/* Below the station's own settings, because these are questions somebody else asked:
-                every card above is a decision the operator went looking for, and this is one waiting
-                for them. Draws nothing when no plugin has asked for anything. */}
-            <Box id="grants" style={{ scrollMarginTop: 76 }}>
-                <PluginGrantsCard />
-            </Box>
         </Stack>
     );
 }
 
-interface SettingsGroupCardProps {
-    group: { key: StationSettingDescriptor['group']; title: string; blurb: string };
+interface SettingsSectionCardProps {
+    section: SettingsSection;
     settings: StationSettings;
 }
 
-function SettingsGroupCard({ group, settings }: SettingsGroupCardProps) {
+/**
+ * One section of the page, whichever of the three kinds it is.
+ *
+ * The three used to be laid out by hand — six from a list, Appearance wedged in after Station by a
+ * key comparison, Storage and Grants tacked on at the end — which is why the order of the page and
+ * the order of the section list beside it were two facts that had to be kept the same by reading
+ * them both. Now there is one order and this switches on what the section says it is.
+ */
+function SettingsSectionCard({ section, settings }: SettingsSectionCardProps) {
+    // A section that is a whole route is not drawn here at all. It is in the list because the list
+    // is navigation; the page is only the part of it that is cards.
+    if (section.route !== undefined) return undefined;
+
+    // The cards that answer to nothing in the registry, each with its own reason for being on this
+    // page. See `SettingsSection`.
+    if (section.id === 'appearance') return <AppearanceCard />;
+
+    // Read-only: everything else is something to change, and this is the number the one limit up
+    // there is set against.
+    if (section.id === 'storage')
+        return (
+            <Box id={section.id} style={{ scrollMarginTop: 76 }}>
+                <StorageCard />
+            </Box>
+        );
+
+    // Questions somebody else asked, where every card above is a decision the operator went looking
+    // for. Draws nothing when no plugin has asked for anything.
+    if (section.id === 'grants')
+        return (
+            <Box id={section.id} style={{ scrollMarginTop: 76 }}>
+                <PluginGrantsCard />
+            </Box>
+        );
+
+    if (section.group === undefined) return undefined;
+
+    return <SettingsGroupCard section={section} group={section.group} settings={settings} />;
+}
+
+interface SettingsGroupCardProps {
+    section: SettingsSection;
+    group: NonNullable<SettingsSection['group']>;
+    settings: StationSettings;
+}
+
+function SettingsGroupCard({ section, group, settings }: SettingsGroupCardProps) {
     // A mutation per section, so a save in one does not put another section's button into a
     // pending state or show it somebody else's error.
     const save = useUpdateSettings();
-    const fields = settings.descriptors.filter(descriptor => descriptor.group === group.key);
+    const fields = settings.descriptors.filter(descriptor => descriptor.group === group);
 
     // A group with nothing in it is not an empty card: it is a group whose settings have not been
     // built yet, and drawing a heading over nothing invites the operator to look for them.
@@ -123,14 +113,14 @@ function SettingsGroupCard({ group, settings }: SettingsGroupCardProps) {
     return (
         // The anchor the section list jumps to. `scrollMarginTop` clears the sticky header, which
         // would otherwise land on top of the heading it just scrolled to.
-        <Card padding="lg" id={group.key} style={{ scrollMarginTop: 76 }}>
+        <Card padding="lg" id={section.id} style={{ scrollMarginTop: 76 }}>
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
-                        {group.title}
+                        {section.label}
                     </Title>
                     <Text size="sm" c="dimmed">
-                        {group.blurb}
+                        {section.blurb}
                     </Text>
                 </Stack>
 
@@ -142,7 +132,7 @@ function SettingsGroupCard({ group, settings }: SettingsGroupCardProps) {
                     pending={save.isPending}
                     succeeded={save.isSuccess}
                     error={save.error}
-                    submitLabel={`Save ${group.title.toLowerCase()}`}
+                    submitLabel={`Save ${section.label.toLowerCase()}`}
                     failureTitle="Save failed"
                     failureMessage="The settings could not be saved."
                 />

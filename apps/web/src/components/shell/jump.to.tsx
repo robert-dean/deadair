@@ -92,21 +92,18 @@ export function JumpTo() {
         {
             group: 'Settings',
             actions: [
+                // Plugins is one of these rather than an entry appended after them: it is a
+                // section of Settings that happens to be a whole route, and the list says so.
                 ...SETTINGS_SECTIONS.map(section => ({
                     id: `settings:${section.id}`,
                     label: section.label,
                     description: 'Settings',
-                    // A hash rather than a route: these are cards on one page, and the section list
-                    // beside them jumps the same way. `scrollMarginTop` on each card is what keeps
-                    // the sticky header off the heading it just landed on.
-                    onClick: () => void navigate({ to: '/settings', hash: section.id }),
+                    // A hash for a section that is a card on one page, and a route for the one that
+                    // is not. `scrollMarginTop` on each card is what keeps the sticky header off the
+                    // heading it just landed on.
+                    onClick: () =>
+                        void (section.route === undefined ? navigate({ to: '/settings', hash: section.id }) : navigate({ to: section.route })),
                 })),
-                {
-                    id: 'settings:plugins',
-                    label: 'Plugins',
-                    description: 'Settings',
-                    onClick: () => void navigate({ to: '/plugins' }),
-                },
             ],
         },
     ];

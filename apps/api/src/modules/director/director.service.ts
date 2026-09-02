@@ -2580,7 +2580,7 @@ export class DirectorService {
      * adding anything, every one of which used to stop the station for good.
      */
     private async topUpIfShort(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
-        if (lineup.onEnd !== 'extend' || !rules.autoExtend || lineup.remaining() >= EXTEND_BELOW) {
+        if (lineup.onEnd !== 'extend' || !rules.mayGenerate || lineup.remaining() >= EXTEND_BELOW) {
             this.extendSentAt = undefined;
             return;
         }

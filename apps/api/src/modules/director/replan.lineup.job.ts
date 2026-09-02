@@ -74,7 +74,7 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         }
 
         const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
-        if (!rules.autoExtend) {
+        if (!rules.mayGenerate) {
             // A setlist or a feature. Nothing generates into those, so replacing their tail would
             // leave an order this cannot refill — which is worse here than for a refill, because
             // this one takes something away first.

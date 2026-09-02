@@ -188,8 +188,6 @@ export interface StationLineupRules {
     artistCooldownMinutes?: number;
     /** Most tracks by one artist in a generated batch. `0` disables the cap. */
     maxPerArtist?: number;
-    /** Whether the director may generate more when this runs short. */
-    autoExtend?: boolean;
     /** Whether the station may put its own segments into this order. */
     breaks?: boolean;
     /** Whether the station greets somebody who tunes in to an empty room during this broadcast. */

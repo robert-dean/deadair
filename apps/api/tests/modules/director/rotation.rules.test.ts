@@ -10,8 +10,10 @@ import { describe, expect, it } from 'vitest';
 import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
 import {
     capPerArtist,
+    DEFAULT_AUTO_EXTEND,
     DEFAULT_RULES,
     filterByHistory,
+    stationAutoExtends,
     rejectDisliked,
     resolveRules,
     stationRules,
@@ -74,7 +76,7 @@ describe('resolveRules', () => {
             repeatWindowDays: 0,
             artistCooldownMinutes: 0,
             maxPerArtist: 0,
-            autoExtend: false,
+            mayGenerate: false,
             // Somebody sequenced this list. Dropping an ident into the middle of their sequence is
             // undoing the work, which is the same argument the 0007 migration makes about a
             // feature's segues, one step weaker.
@@ -96,7 +98,7 @@ describe('resolveRules', () => {
 
     it('turns everything off for a feature, which is one artist by definition', () => {
         expect(resolveRules('feature').artistCooldownMinutes).toBe(0);
-        expect(resolveRules('feature').autoExtend).toBe(false);
+        expect(resolveRules('feature').mayGenerate).toBe(false);
     });
 
     it('leaves an album cold, which is the case crossfade exists to except', () => {
@@ -132,8 +134,13 @@ describe('resolveRules', () => {
         expect(resolveRules('rotation', { repeatWindowDays: 0 }).repeatWindowDays).toBe(0);
     });
 
-    it('lets a rotation turn auto-extend off', () => {
-        expect(resolveRules('rotation', { autoExtend: false }).autoExtend).toBe(false);
+    it('lets no broadcast override whether it may be generated into, because that is its mode', () => {
+        // The one rule with no override, and it used to have one under the name `autoExtend`. A
+        // setlist is given rather than programmed, so "generate into this setlist" is not a
+        // preference to honour — and a rotation that wants to stop rather than top itself up says
+        // so with `onEnd`, which is a property of the broadcast rather than of the rules.
+        expect(resolveRules('rotation').mayGenerate).toBe(true);
+        expect(resolveRules('setlist').mayGenerate).toBe(false);
     });
 
     it('takes the station settings as a rotation baseline, under the lineup', () => {
@@ -207,7 +214,26 @@ describe('stationRules', () => {
 
     it('shares one vocabulary with every other switch', () => {
         expect(stationRules(settingsConfig({ [ROTATION_KEYS.welcome]: 'off' }).config).welcome).toBe(false);
-        expect(stationRules(settingsConfig({ [ROTATION_KEYS.autoExtend]: '0' }).config).autoExtend).toBe(false);
+    });
+
+    it('does not read auto-extend, because that decides a default rather than a rule', () => {
+        // `rotation.autoExtend` used to resolve into these rules, and both refill jobs read it as
+        // permission to run — so turning it off silently took the console's Replan button with it.
+        // It answers one question now, in one place: what a NEW broadcast's `onEnd` starts as.
+        expect(stationRules(settingsConfig({ [ROTATION_KEYS.autoExtend]: '0' }).config).mayGenerate).toBe(true);
+    });
+});
+
+describe('stationAutoExtends', () => {
+    it('shares the vocabulary every other switch uses', () => {
+        expect(stationAutoExtends(settingsConfig({ [ROTATION_KEYS.autoExtend]: '0' }).config)).toBe(false);
+        expect(stationAutoExtends(settingsConfig({ [ROTATION_KEYS.autoExtend]: 'off' }).config)).toBe(false);
+        expect(stationAutoExtends(settingsConfig({ [ROTATION_KEYS.autoExtend]: 'on' }).config)).toBe(true);
+    });
+
+    it('takes the default for a value it cannot read, and for one nobody set', () => {
+        expect(stationAutoExtends(settingsConfig({ [ROTATION_KEYS.autoExtend]: 'banana' }).config)).toBe(DEFAULT_AUTO_EXTEND);
+        expect(stationAutoExtends(settingsConfig({}).config)).toBe(DEFAULT_AUTO_EXTEND);
     });
 });
 

@@ -24,8 +24,21 @@ export interface ResolvedRules {
     artistCooldownMinutes: number;
     /** Most tracks by one artist in a generated batch. `0` disables the cap. */
     maxPerArtist: number;
-    /** Whether the director may generate more when the lineup runs short. */
-    autoExtend: boolean;
+    /**
+     * Whether the director may generate into this order at all.
+     *
+     * A fact about the MODE and nothing else: a rotation is programmed, a setlist and a feature are
+     * given. It is not the operator's "keep the running order topped up" switch, and the two were
+     * one field called `autoExtend` until the collision was traced. What the station-wide setting
+     * decides now is what a new broadcast's `onEnd` DEFAULTS to, read once in
+     * `DirectorConsoleService.putOnAir`; after that the order's own `onEnd` is the only thing that
+     * says whether it tops itself up.
+     *
+     * The bug that split them: both refill jobs read the merged field as "am I allowed to run", so
+     * an operator who turned the setting off lost the console's Replan button as well, silently. A
+     * replan is somebody asking, and a station default must not veto it.
+     */
+    mayGenerate: boolean;
     /** Whether the station may put its own segments into this lineup. */
     breaks: boolean;
     /**
@@ -105,7 +118,9 @@ export const DEFAULT_RULES: ResolvedRules = {
     repeatWindowDays: 3,
     artistCooldownMinutes: 40,
     maxPerArtist: 2,
-    autoExtend: true,
+    // A rotation is the mode the director programmes into. See {@link ResolvedRules.mayGenerate}
+    // for why this is not the operator's auto-extend switch.
+    mayGenerate: true,
     breaks: true,
     // ON. A station that never says hello to somebody who has just arrived is one they have to wait
     // a quarter of an hour to learn the name of.
@@ -152,6 +167,24 @@ export const ROTATION_KEYS = {
     crossfade: 'rotation.crossfade',
 } as const;
 
+/** What `rotation.autoExtend` is when the operator has never touched it. */
+export const DEFAULT_AUTO_EXTEND = true;
+
+/**
+ * Whether a new broadcast should keep itself topped up, unless it says otherwise.
+ *
+ * A DEFAULT rather than a permission, and that distinction is the whole of why this is a function
+ * of its own rather than a field on {@link ResolvedRules}. It is read once, by
+ * `DirectorConsoleService.putOnAir`, to decide what an absent `onEnd` becomes. From that moment the
+ * running order's own `onEnd` is the only authority on the question, which is what lets the console
+ * say "it tops itself up before then" and be right — there is no second switch that can quietly
+ * make it wrong.
+ *
+ * It says nothing about a setlist or a feature. Those cannot be generated into whatever anybody
+ * sets; see {@link ResolvedRules.mayGenerate}.
+ */
+export const stationAutoExtends = (config: AppConfig): boolean => settingIsOn(config, ROTATION_KEYS.autoExtend, DEFAULT_AUTO_EXTEND);
+
 /**
  * The station's rules as the operator has them set, falling back per field.
  *
@@ -179,7 +212,10 @@ export function stationRules(config: AppConfig): ResolvedRules {
         repeatWindowDays: number(ROTATION_KEYS.repeatWindowDays, DEFAULT_RULES.repeatWindowDays),
         artistCooldownMinutes: number(ROTATION_KEYS.artistCooldownMinutes, DEFAULT_RULES.artistCooldownMinutes),
         maxPerArtist: number(ROTATION_KEYS.maxPerArtist, DEFAULT_RULES.maxPerArtist),
-        autoExtend: boolean(ROTATION_KEYS.autoExtend, DEFAULT_RULES.autoExtend),
+        // Not read from a setting, because it is not one: the mode decides it, and `resolveRules`
+        // is where that happens. `rotation.autoExtend` is a different question with a similar name
+        // — see {@link stationAutoExtends}.
+        mayGenerate: DEFAULT_RULES.mayGenerate,
         breaks: boolean(ROTATION_KEYS.breaks, DEFAULT_RULES.breaks),
         welcome: boolean(ROTATION_KEYS.welcome, DEFAULT_RULES.welcome),
         callins: boolean(ROTATION_KEYS.callins, DEFAULT_RULES.callins),
@@ -194,7 +230,7 @@ const NO_RULES: ResolvedRules = {
     repeatWindowDays: 0,
     artistCooldownMinutes: 0,
     maxPerArtist: 0,
-    autoExtend: false,
+    mayGenerate: false,
     breaks: false,
     welcome: false,
     breakEveryMinutes: 0,
@@ -243,7 +279,10 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         repeatWindowDays: overrides?.repeatWindowDays ?? base.repeatWindowDays,
         artistCooldownMinutes: overrides?.artistCooldownMinutes ?? base.artistCooldownMinutes,
         maxPerArtist: overrides?.maxPerArtist ?? base.maxPerArtist,
-        autoExtend: overrides?.autoExtend ?? base.autoExtend,
+        // The one rule a broadcast cannot override, because it is not a preference: nothing can
+        // programme into a setlist, and a rotation is the mode that is programmed into. A broadcast
+        // that wants to stop rather than top itself up says so with `onEnd`.
+        mayGenerate: base.mayGenerate,
         breaks: overrides?.breaks ?? base.breaks,
         welcome: overrides?.welcome ?? base.welcome,
         callins: overrides?.callins ?? base.callins,

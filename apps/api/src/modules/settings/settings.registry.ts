@@ -9,7 +9,7 @@ import {
     TARGET_LUFS_KEY,
 } from '#modules/playout/gain.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY } from '#modules/playout/audio/track.cache.limit.js';
-import { DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
+import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
 import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.js';
@@ -455,8 +455,8 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         key: ROTATION_KEYS.autoExtend,
         label: 'Keep the running order topped up',
         type: 'boolean',
-        default: DEFAULT_RULES.autoExtend,
-        help: 'Generate more when a rotation runs short. Turning this off means the station plays what is planned and then stops.',
+        default: DEFAULT_AUTO_EXTEND,
+        help: 'What a new broadcast does when it runs short, unless you say otherwise when you start one. Turning this off means a broadcast plays what is planned and then stops. It never overrules a broadcast that is already on air.',
     },
     {
         group: 'rotation',

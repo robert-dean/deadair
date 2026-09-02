@@ -19,6 +19,8 @@ import type { Segment, SegmentRepository } from '../../../src/modules/render/seg
 import type { SettingsService } from '../../../src/modules/settings/settings.service.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
+import { ROTATION_KEYS } from '../../../src/modules/director/rotation.rules.js';
+import { settingsConfig } from '../../utils/settings.config.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -41,6 +43,8 @@ interface Options {
     slot?: { id: string };
     /** The veto's own answer, when a case wants it to actually drop something rather than pass everything through. */
     vet?: (tracks: RundownTrack[]) => RundownTrack[];
+    /** Stored `deadair.settings` rows, as the TEXT they are stored as. Empty is a station nobody has configured. */
+    settings?: Record<string, string>;
 }
 
 function build(options: Options = {}) {
@@ -114,6 +118,12 @@ function build(options: Options = {}) {
     const settings = { set: vi.fn(async () => {}) } as unknown as SettingsService;
     const jobs = { send: vi.fn(async () => 'job-1') } as unknown as JobBroker;
 
+    // A real `AppConfig` over stored STRINGS rather than a double answering booleans, because a
+    // double that coerces on the way out is worse than none: `rotation.autoExtend` is read through
+    // `settingIsOn`, and a test handing over `false` would pass whether or not that reader existed.
+    // Empty is the ordinary station, where nobody has touched the setting.
+    const { config } = settingsConfig(options.settings ?? {});
+
     // A signed-in operator by default, because every route on this service is behind
     // `platform.manage` and the actor stamp is most of what its events are for.
     const context = { actor: { kind: 'user', sessionToken: '', actorId: 'actor-1' } } as never;
@@ -142,6 +152,7 @@ function build(options: Options = {}) {
             personas as never,
             schedule,
             settings,
+            config,
             jobs,
             context,
             activity as never,
@@ -291,6 +302,55 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         await service.putOnAir({ brief: '   ' });
 
         expect(posted()[0]?.kind === 'putOnAir' ? posted()[0] : undefined).not.toHaveProperty('binding.brief');
+    });
+
+    it('takes what a rotation does when it runs out from the station setting, when nobody said', async () => {
+        const { service, posted } = build();
+
+        await service.putOnAir({ brief: 'heavy metal hits' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { onEnd: 'extend' } });
+    });
+
+    it('starts a rotation that stops when the station is set not to top itself up', async () => {
+        // The string rather than a boolean, because that is what the settings table holds and
+        // `config.get(key, false)` answers `'false'`, which is truthy.
+        const { service, posted } = build({ settings: { [ROTATION_KEYS.autoExtend]: 'off' } });
+
+        await service.putOnAir({ brief: 'heavy metal hits' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { onEnd: 'stop' } });
+    });
+
+    it('lets the operator overrule that setting for one broadcast, because it is a default', async () => {
+        // The whole point of the split. The setting decides where a new broadcast STARTS, and it
+        // must never be able to reach a broadcast somebody has already described.
+        const { service, posted } = build({ settings: { [ROTATION_KEYS.autoExtend]: 'off' } });
+
+        await service.putOnAir({ brief: 'heavy metal hits', onEnd: 'extend' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { onEnd: 'extend' } });
+    });
+
+    it('stores a setlist as stopping, because nothing may generate into one', async () => {
+        // `extend` on a setlist is not a preference the station declines to honour, it is a state
+        // with no behaviour: `mayGenerate` is false, so the order would end and sit exhausted,
+        // which is what `stop` says. Storing the word that matches is what keeps the console's
+        // "it tops itself up before then" true of every row that can hold it.
+        const { service, posted } = build();
+
+        await service.putOnAir({ brief: 'the whole album', mode: 'setlist', onEnd: 'extend' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { mode: 'setlist', onEnd: 'stop' } });
+    });
+
+    it('leaves a setlist that was asked to start again alone', async () => {
+        // Only `extend` is the impossible one. Repeating needs nothing generated.
+        const { service, posted } = build();
+
+        await service.putOnAir({ brief: 'the whole album', mode: 'setlist', onEnd: 'repeat' });
+
+        expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { onEnd: 'repeat' } });
     });
 
     it('reports the brief on the running order, so a console can show what is still steering it', async () => {

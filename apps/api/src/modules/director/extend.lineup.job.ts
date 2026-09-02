@@ -77,7 +77,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         }
 
         const rules = resolveRules(lineup.mode, lineup.rules, stationRules(this.config));
-        if (!rules.autoExtend) {
+        if (!rules.mayGenerate) {
             // A setlist or a feature. Nothing generates into those, and a caller that
             // asked is telling us something is wrong upstream rather than asking politely.
             this.logger.warn('director: refusing to extend a running order that is not a rotation', {

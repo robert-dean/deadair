@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
@@ -18,6 +19,7 @@ import type { OrderEdit } from './director.mailbox.js';
 import { DirectorService } from './director.service.js';
 import { PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
+import { stationAutoExtends } from './rotation.rules.js';
 import { StationAirRepository } from './station.air.repository.js';
 import type { EditResult, StationLineupBinding, StationLineupSegmentItem, StationLineupSnapshot } from './station.lineup.js';
 import type {
@@ -29,6 +31,8 @@ import type {
     SetStationAirInput,
     SetStationHostInput,
     StationAir,
+    StationMode,
+    StationOnEnd,
     StationOrder,
     StationOrderItem,
 } from './types/director.types.js';
@@ -67,6 +71,10 @@ export class DirectorConsoleService {
         // resolution one.
         private readonly schedule: ScheduleService,
         private readonly settings: SettingsService,
+        // For one question only: what a new broadcast's `onEnd` should be when the operator did not
+        // say. See {@link stationAutoExtends}, and note the settings table is a layer of this, so
+        // this reads what the operator has stored rather than only what the process booted with.
+        private readonly config: AppConfig,
         // Scoped, so a send commits with the request's own transaction rather than
         // ahead of it. See JobsModule for why the request path takes this one.
         private readonly jobs: JobBroker,
@@ -233,6 +241,7 @@ export class DirectorConsoleService {
      */
     async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot): Promise<StationAir> {
         const tracks = await this.sourceTracks(input);
+        const mode = input.mode ?? 'rotation';
 
         // Which slot of the day this lands in, stamped even though the operator chose the source
         // themselves. That is what makes a manual takeover hold until the NEXT slot begins: the
@@ -277,8 +286,8 @@ export class DirectorConsoleService {
             // `NO_RULES` is what those modes resolve from.
             ...(input.callins === undefined ? {} : { rules: { callins: input.callins } }),
             ...(slot === undefined ? {} : { slotId: slot.id }),
-            mode: input.mode ?? 'rotation',
-            onEnd: input.onEnd ?? 'extend',
+            mode,
+            onEnd: runsOut(mode, input.onEnd, stationAutoExtends(this.config)),
             source: input.pluginId === undefined ? 'director' : 'import',
             ...(input.pluginId === undefined ? {} : { sourcePluginId: input.pluginId }),
             ...(input.playlistId === undefined ? {} : { sourcePlaylistId: input.playlistId }),
@@ -692,4 +701,25 @@ function describeEdit(edit: OrderEdit): string {
         case 'insertSegment':
             return 'An operator put a break into the running order.';
     }
+}
+
+/**
+ * What a broadcast does when it reaches the end of its running order.
+ *
+ * The operator's answer wins whenever they gave one, with a single exception: a `setlist` and a
+ * `feature` cannot be extended, because {@link ResolvedRules.mayGenerate} is false for both and
+ * nothing may programme into them. `extend` there is not a preference the station declines to
+ * honour, it is a state with no behaviour — the order simply ends and sits exhausted, which is what
+ * `stop` already says out loud. Storing the word that matches keeps the console honest: `onEnd` is
+ * what `whatHappensThen` reads to promise "it tops itself up before then", and that promise has to
+ * be true of every row that can hold it.
+ *
+ * An absent answer is the station's own default, which is what `rotation.autoExtend` decides. Read
+ * ONCE, here, rather than consulted again later — see {@link stationAutoExtends} for why a station
+ * default must not be able to overrule a broadcast that is already running.
+ */
+function runsOut(mode: StationMode, asked: StationOnEnd | undefined, autoExtends: boolean): StationOnEnd {
+    if (mode !== 'rotation') return asked === undefined || asked === 'extend' ? 'stop' : asked;
+
+    return asked ?? (autoExtends ? 'extend' : 'stop');
 }

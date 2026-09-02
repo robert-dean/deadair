@@ -15,14 +15,28 @@ import {
     type ConfigFieldOption,
 } from '@deadair/plugin-sdk';
 import { createOpenAICompatible, type OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
-import { streamText } from 'ai';
+import { APICallError, streamText } from 'ai';
 import { hostFetch } from './llm.fetch.js';
 import { abortWith, withCancel } from './llm.abort.js';
 import { splitSystemPrompt, toModelMessages, toToolSet } from './llm.messages.js';
 import { describeModels, toolCapableModels } from './llm.models.js';
-import { llmManifest, MODEL_CACHE_MS, PROBE_TIMEOUT_MS, PROVIDER_NAME } from './llm.manifest.js';
+import {
+    DEFAULT_REASONING_EFFORT,
+    isReasoningEffortSetting,
+    llmManifest,
+    MODEL_CACHE_MS,
+    PROBE_TIMEOUT_MS,
+    PROVIDER_NAME,
+    type ReasoningEffortSetting,
+} from './llm.manifest.js';
 
 export { llmManifest };
+
+/** One `streamText` call in flight, and the controller that stops it. */
+interface Attempt {
+    stream: ReturnType<typeof streamText>;
+    controller: AbortController;
+}
 
 /**
  * Words out of any OpenAI-compatible endpoint.
@@ -54,6 +68,15 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     private temperature?: number;
     private models = '';
     private provider?: OpenAICompatibleProvider;
+    private reasoningEffort: ReasoningEffortSetting = DEFAULT_REASONING_EFFORT;
+
+    /**
+     * Set for the rest of this load once a server has answered 400 naming
+     * `reasoning_effort`. Not config, and not carried across a reload: a
+     * reconfigure may point this at a different server entirely, and a strict
+     * server today says nothing about tomorrow's.
+     */
+    private reasoningRefused = false;
 
     /** What `/models` last said, and when. See {@link fetchModels}. */
     private discovered?: { at: number; ids: string[] };
@@ -64,6 +87,9 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         this.model = configString(config.model) ?? '';
         this.temperature = typeof config.temperature === 'number' ? config.temperature : undefined;
         this.models = typeof config.models === 'string' ? config.models : '';
+        const configuredEffort = configString(config.reasoningEffort);
+        this.reasoningEffort = isReasoningEffortSetting(configuredEffort) ? configuredEffort : DEFAULT_REASONING_EFFORT;
+        this.reasoningRefused = false;
         this.apiKey = await this.host.secrets.get('apiKey');
 
         // Built once per load rather than per call: it is a closure over the base
@@ -236,47 +262,181 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         // turn more easily than it can imitate a separate field.
         const { system, rest } = splitSystemPrompt(request.messages);
 
-        // Aborted when the host cancels the text stream, and linked to the invocation signal so
-        // that being abandoned before the first chunk still stops the request.
-        const controller = new AbortController();
-        abortWith(this.host.signal, controller);
+        // One attempt, with or without the effort field. Building it is cheap and side-effect-free
+        // until something reads the stream, which is what lets the fallback below build a second one
+        // only if the first is refused.
+        const buildAttempt = (effortField: string | undefined): Attempt => {
+            // Aborted when the host cancels the text stream, and linked to the invocation signal so
+            // that being abandoned before the first chunk still stops the request.
+            const controller = new AbortController();
+            abortWith(this.host.signal, controller);
 
-        const stream = streamText({
-            model: provider.chatModel(model),
-            ...(system === undefined ? {} : { system }),
-            messages: toModelMessages(rest),
-            ...(temperature === undefined ? {} : { temperature }),
-            ...(request.maxOutputTokens === undefined ? {} : { maxOutputTokens: request.maxOutputTokens }),
-            ...(tools === undefined ? {} : { tools }),
-            // Unset unless asked for. The field means nothing to a model that does
-            // not reason and a strict server answers 400 rather than ignoring it,
-            // so "send nothing" has to be the default rather than a value.
-            ...(request.reasoningEffort === undefined ? {} : { providerOptions: { [PROVIDER_NAME]: { reasoningEffort: request.reasoningEffort } } }),
-            // This plugin's OWN abort, deliberately not `host.signal`.
-            //
-            // The invocation signal is the right bound on STARTING a generation and the wrong one
-            // for running it: `PluginInvoker` disposes that controller the moment `generate`
-            // resolves, and `generate` resolves as soon as the request is away. So a generation —
-            // which legitimately outlives the call that started it — had no live signal on it at
-            // all, and nothing the host did could stop it. A refill holding the one model slot
-            // therefore ran to completion however long it took, while a break with a ten-second
-            // patience gave up and went to the floor: the exact failure the gate's preemption was
-            // built to prevent, still happening because the abort had nowhere to land.
-            abortSignal: controller.signal,
+            const stream = streamText({
+                model: provider.chatModel(model),
+                ...(system === undefined ? {} : { system }),
+                messages: toModelMessages(rest),
+                ...(temperature === undefined ? {} : { temperature }),
+                ...(request.maxOutputTokens === undefined ? {} : { maxOutputTokens: request.maxOutputTokens }),
+                ...(tools === undefined ? {} : { tools }),
+                // Unset unless the setting or the caller's own hint asks for it. See `effortToSend`.
+                ...(effortField === undefined ? {} : { providerOptions: { [PROVIDER_NAME]: { reasoningEffort: effortField } } }),
+                // The host already runs the one server-sanctioned retry, on a 429 or 503 carrying
+                // `Retry-After` (`plugin.host.factory.ts`). A second layer underneath it multiplied a
+                // throttled or failing provider's load by however many times the SDK retried on its
+                // own, silently: nothing was logged, only the terminal error surfaced. It is also
+                // what makes a refusal arrive below as `APICallError` rather than the SDK's own
+                // `RetryError` wrapping it: unwrapped, the status code and the body are still on it.
+                maxRetries: 0,
+                // This plugin's OWN abort, deliberately not `host.signal`.
+                //
+                // The invocation signal is the right bound on STARTING a generation and the wrong one
+                // for running it: `PluginInvoker` disposes that controller the moment `generate`
+                // resolves, and `generate` resolves as soon as the request is away. So a generation —
+                // which legitimately outlives the call that started it — had no live signal on it at
+                // all, and nothing the host did could stop it. A refill holding the one model slot
+                // therefore ran to completion however long it took, while a break with a ten-second
+                // patience gave up and went to the floor: the exact failure the gate's preemption was
+                // built to prevent, still happening because the abort had nowhere to land.
+                abortSignal: controller.signal,
+            });
+
+            return { stream, controller };
+        };
+
+        const firstEffort = this.effortToSend(request.reasoningEffort);
+        const first = buildAttempt(firstEffort);
+
+        // What `withCancel`'s own abort reaches: the currently active attempt, which the fallback
+        // below swaps out from under it the moment a refusal is caught. Cancelling the handle before
+        // that happens must still stop the right request.
+        const active = { controller: first.controller };
+
+        let resolveResult!: (result: Promise<LlmResult> | LlmResult) => void;
+        const result = new Promise<LlmResult>(resolve => {
+            resolveResult = resolve;
         });
 
         this.host.logger.debug('llm generating', { model, messages: request.messages.length, tools: request.tools?.length ?? 0 });
 
         return {
-            // Cancelling this is what stops the generation, per `LlmHandle.text`. Forwarding
-            // `stream.textStream` alone did not: it is one branch of a tee, so closing it left the
-            // other branch — which `resultOf` below is reading — pulling the provider regardless.
-            text: withCancel(stream.textStream, () => controller.abort()),
-            // Built here rather than awaited, so `generate` returns as soon as the
-            // request is away. Every promise underneath settles when the stream
-            // does, which is why the contract is drain-then-read.
-            result: this.resultOf(stream, controller),
+            // Cancelling this is what stops the generation, per `LlmHandle.text`. Forwarding a
+            // `textStream` alone would not: it is one branch of a tee, so closing it leaves the
+            // other branch — which `resultOf` reads — pulling the provider regardless. `driveText`
+            // reads through this same reader, so cancelling it here reaches the real one too.
+            text: withCancel(streamFromGenerator(this.driveText(first, firstEffort, buildAttempt, active, resolveResult)), () =>
+                active.controller.abort(),
+            ),
+            // Built here rather than awaited, so `generate` returns as soon as the request is away.
+            // Resolved by `driveText` with whichever attempt's own result won: the first, unless a
+            // refusal sent it chasing a second one before any words arrived.
+            result,
         };
+    }
+
+    /**
+     * The text half of {@link generate}, and the one place the effort fallback lives.
+     *
+     * Reads `first.stream.fullStream` rather than `textStream`, and that is not a style choice: with
+     * `maxRetries: 0`, a `doStream` fault never reaches a consumer as a rejection at all.
+     * `textStream`'s own transform forwards only `text-delta` parts and silently drops everything
+     * else, an `error` part included, so a refusal closes it as an ordinary empty stream — and by
+     * then the SDK's own step recorder has already flushed with nothing recorded, which is what
+     * `resultOf` sees: a generic `NoOutputGeneratedError` with no trace of the 400 or its body.
+     * `fullStream` is the one place the original fault is still attached to an `error` part, so this
+     * reads it directly and filters `text-delta` out by hand — the same thing `textStream` does
+     * internally.
+     *
+     * `retriable` is true only for the very first part read off `first`, and only when an effort
+     * field actually went out on it; it is spent the moment a retry fires, so a second refusal on the
+     * fallback attempt is surfaced rather than chased. `commit` fixes which attempt `resolveResult`
+     * answers from — the first, unless a refusal sends it chasing a second one before any words or
+     * any other fault arrived — and runs at most once.
+     */
+    private async *driveText(
+        first: Attempt,
+        firstEffortSent: string | undefined,
+        buildAttempt: (effortField: string | undefined) => Attempt,
+        active: { controller: AbortController },
+        resolveResult: (result: Promise<LlmResult> | LlmResult) => void,
+    ): AsyncGenerator<string, void, unknown> {
+        let current = first;
+        let reader = current.stream.fullStream.getReader();
+        let retriable = firstEffortSent !== undefined;
+        let committed = false;
+
+        const commit = (): void => {
+            if (committed) return;
+            committed = true;
+            resolveResult(this.resultOf(current.stream, current.controller));
+        };
+
+        try {
+            for (;;) {
+                let next;
+                try {
+                    next = await reader.read();
+                } catch (error) {
+                    commit();
+                    throw error;
+                }
+                if (next.done) break;
+
+                const part = next.value;
+
+                if (part.type === 'text-delta') {
+                    commit();
+                    yield part.text;
+                    continue;
+                }
+
+                if (part.type === 'error' && retriable && isReasoningEffortRefusal(part.error)) {
+                    retriable = false;
+                    this.reasoningRefused = true;
+                    this.host.logger.warn('llm: the server refused reasoning_effort; retrying once without it', {
+                        error: errorText(part.error),
+                    });
+
+                    current = buildAttempt(undefined);
+                    active.controller = current.controller;
+                    reader = current.stream.fullStream.getReader();
+                    continue;
+                }
+
+                if (part.type === 'error') commit();
+            }
+
+            // Reached with nothing committed when a turn produced no text and no error at all —
+            // tool calls with nothing said, which `resultOf`'s own empty-answer handling covers.
+            commit();
+        } finally {
+            // Releases whichever branch is currently held, whether that is because the reader ran to
+            // completion or because the handle was cancelled early. Safe either way: cancelling an
+            // already-closed reader is a no-op, and this is not what stops the request — `active`
+            // aborting the right controller is.
+            await reader.cancel().catch(() => {});
+        }
+    }
+
+    /**
+     * What `reasoning_effort` should actually carry, given the setting and the caller's own hint.
+     *
+     * `undefined` once {@link reasoningRefused} has latched: a strict server that rejected the field
+     * once gets it dropped for the rest of this plugin's life, regardless of what a later caller asks
+     * for or how this is configured.
+     */
+    private effortToSend(hint: LlmRequest['reasoningEffort']): string | undefined {
+        if (this.reasoningRefused) return undefined;
+
+        switch (this.reasoningEffort) {
+            case 'off':
+                // The value a reasoning model reads as "answer without reasoning". Omitting the
+                // field instead would leave the provider's own default in charge.
+                return 'none';
+            case 'auto':
+                return hint;
+            default:
+                return this.reasoningEffort;
+        }
     }
 
     /**
@@ -476,3 +636,43 @@ function toFinishReason(reason: string): LlmFinishReason {
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * An async generator, as a `ReadableStream`.
+ *
+ * Not `ReadableStream.from`: the DOM lib this repo builds against does not declare it, though the
+ * runtime has it. Written by hand instead, in the same shape `withCancel` already uses in
+ * `llm.abort.ts`: `pull` drives the generator one step at a time and errors the stream on a
+ * rejection rather than leaving that to the platform, and `cancel` calls the generator's own
+ * `return`, which runs whatever `finally` block it has exactly as a `for await` loop breaking early
+ * would.
+ */
+function streamFromGenerator<T>(generator: AsyncGenerator<T, void, unknown>): ReadableStream<T> {
+    return new ReadableStream<T>({
+        async pull(controller) {
+            try {
+                const { done, value } = await generator.next();
+                if (done) {
+                    controller.close();
+                    return;
+                }
+                controller.enqueue(value);
+            } catch (error) {
+                controller.error(error);
+            }
+        },
+        async cancel() {
+            await generator.return(undefined).catch(() => undefined);
+        },
+    });
+}
+
+/**
+ * Whether a fault is a strict server saying it does not know `reasoning_effort`, rather than any
+ * other way a generation can fail. `maxRetries: 0` is why this arrives as `APICallError` rather than
+ * the SDK's own `RetryError` wrapping it: unwrapped, the status code and the response body it
+ * quotes are still on it.
+ */
+function isReasoningEffortRefusal(error: unknown): boolean {
+    return APICallError.isInstance(error) && error.statusCode === 400 && /reasoning_effort/.test(error.responseBody ?? '');
+}

@@ -54,10 +54,14 @@ import { PluginError } from '../plugin.error.js';
 /**
  * How hard a reasoning model should think before answering.
  *
- * Sent as `reasoning_effort`, and **only when the caller asked for it**. Leave it
- * unset for anything that is not a reasoning model: the field means nothing to a
- * plain model and a strict OpenAI-compatible server answers 400 rather than
- * ignoring it.
+ * Sent as `reasoning_effort`, and **only when the caller asked for it** — which is
+ * a hint, not a guarantee it reaches the server. A plugin may hold its own
+ * setting that overrides this, forwards it unchanged, or refuses to send it at
+ * all, and a plugin that has seen a 400 naming the field drops it for its own
+ * lifetime regardless of what a caller asks for afterward. Leave it unset for
+ * anything that is not a reasoning model: the field means nothing to a plain
+ * model and a strict OpenAI-compatible server answers 400 rather than ignoring
+ * it.
  */
 export type LlmReasoningEffort = 'low' | 'medium' | 'high';
 

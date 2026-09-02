@@ -30,6 +30,37 @@ export type ProviderKind = keyof typeof PROVIDER_KINDS;
 export const DEFAULT_PROVIDER_KIND: ProviderKind = 'openai-compat';
 
 /**
+ * How hard a reasoning model should think, as an operator can set it rather than
+ * as every one of the sixteen call sites hard-codes it.
+ *
+ * `auto` is the default and the reason the setting exists at all without
+ * breaking anything that already works: it forwards whatever the caller asked
+ * for, which is what keeps an outline pass unpinned and lets one operator's
+ * Ollama stay at `low`. `off` sends the field as `none` rather than omitting it
+ * outright, because that is the value a reasoning model reads as "answer without
+ * reasoning"; omitting it instead risks the provider's own default kicking in.
+ * A server that does not know the field at all, reasoning or not, is what the
+ * live 400-then-retry in `llm.plugin.ts` is for, and it does not need this
+ * setting's help. The fixed levels override the caller's own hint outright.
+ */
+export const REASONING_EFFORTS = {
+    auto: "Auto (forward the caller's own hint)",
+    off: 'Off',
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+} as const;
+
+export type ReasoningEffortSetting = keyof typeof REASONING_EFFORTS;
+
+export const DEFAULT_REASONING_EFFORT: ReasoningEffortSetting = 'auto';
+
+/** Whether a config value is one of {@link REASONING_EFFORTS}'s own keys, rather than something a hand-edited config row left behind. */
+export function isReasoningEffortSetting(value: string | undefined): value is ReasoningEffortSetting {
+    return value !== undefined && Object.hasOwn(REASONING_EFFORTS, value);
+}
+
+/**
  * The provider name handed to the AI SDK, which is also the key its provider
  * options are read under. Fixed rather than derived from the plugin id, because
  * changing it would silently stop `reasoningEffort` reaching the server.
@@ -65,6 +96,7 @@ export const MODEL_CACHE_MS = 60_000;
  */
 export const configSchema = z.object({
     providerKind: z.enum(Object.keys(PROVIDER_KINDS) as [ProviderKind, ...ProviderKind[]]).optional(),
+    reasoningEffort: z.enum(Object.keys(REASONING_EFFORTS) as [ReasoningEffortSetting, ...ReasoningEffortSetting[]]).optional(),
     baseUrl: z.string().min(1),
     apiKey: z.string().optional(),
     // Optional, and the reason is a loop the operator would otherwise be stuck in:
@@ -107,6 +139,14 @@ export const llmManifest: PluginManifest = {
             default: DEFAULT_PROVIDER_KIND,
             options: (Object.keys(PROVIDER_KINDS) as ProviderKind[]).map(value => ({ value, label: PROVIDER_KINDS[value] })),
             help: 'How the endpoint is spoken to. OpenAI-compatible covers a local server, OpenAI, and most hosted providers.',
+        },
+        {
+            key: 'reasoningEffort',
+            label: 'Reasoning effort',
+            type: 'select',
+            default: DEFAULT_REASONING_EFFORT,
+            options: (Object.keys(REASONING_EFFORTS) as ReasoningEffortSetting[]).map(value => ({ value, label: REASONING_EFFORTS[value] })),
+            help: 'How hard a reasoning model should think. Auto forwards whatever the station asked for; the fixed levels override it. A server that answers 400 to the field itself is what Off is for; a live refusal is already handled without asking.',
         },
         {
             key: 'baseUrl',

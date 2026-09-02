@@ -198,3 +198,21 @@ share one transaction and these two repositories cannot, so the only question is
 marked-first loses a proposal for good where written-first re-reads and `holds` recognises it. The same
 pattern is why `fact.lead.ts` strips a keyword-less parenthetical now: thirteen claims in this station's store
 read `Lynyrd Skynyrd ( LEH-nerd SKIN-nerd) is an American rock band` and were being spoken that way.
+
+**What a symbol stands for goes after the whole of what it names, and for `$` that was measured wrong twice.**
+`saySymbols` marks the currency where the digits stop, which is right for `$5.99` and wrong for every amount
+whose size is a separate word: `$17.1 Billion` went to the engine as `17.1#DOLLARS# Billion` and **aired as
+"seventeen point one dollars billion"**, four times across two stories. The pass reaches as far as the scale
+word now (`MONEY`), and it treats the two ways of writing one differently on purpose — a spelled `billion` is
+consumed and kept exactly as the writer capitalised it, an abbreviated `$100K` is REPLACED by the word, because
+consuming that one alone leaves `100K dollars` for an engine to guess at, which is the same bug one step
+quieter. What holds bare letters like `m` and `b` to meaning million and billion is position: they are read
+only in the two characters after a `$`, and the `\b` behind them is what stops `$5 million` being eaten by the
+letter branch and `$99.99 Plaud` being read as a scale at all.
+
+**A comma inside a figure is either a separator or the sentence's, and the digits may only take the first.**
+The same regex ended on a comma as happily as on a digit, so a price closing a clause swallowed the clause's
+punctuation and the currency landed behind it: `$750, save almost $500` **aired as "750, dollars save"**.
+Grouping the separator with the three digits it separates tells them apart at no cost, since a comma followed
+by anything but three digits was never a thousands separator. Both readings are pinned by
+`speech.transpose.test.ts` against the sentences the live station actually wrote.

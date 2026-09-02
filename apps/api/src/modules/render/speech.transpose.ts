@@ -147,7 +147,8 @@ function joinLines(text: string): string {
  *
  * `$` is the one that is guessed rather than known — a bare `$5` cannot be dropped, because the
  * number without it is a different fact — so it is read as dollars and an operator whose station
- * talks in another currency has a list to fix it in.
+ * talks in another currency has a list to fix it in. What the amount IS goes with it; see
+ * {@link MONEY_SCALES}.
  */
 function saySymbols(text: string): string {
     return (
@@ -168,15 +169,75 @@ function saySymbols(text: string): string {
             .replace(/\bi\.e\.(?=\s)/gi, 'that is')
             // `#1` and `#hashtag` are different things and only the first is a number.
             .replace(/#(?=\d)/g, 'number ')
-            // The whole figure, not its first digit: `$5.99` is one amount and the word goes after
-            // all of it. The marker survives {@link settle}'s drop-list and becomes the word there.
-            .replace(/\$(\d[\d,]*(?:\.\d+)?)/g, '$1#DOLLARS#')
+            // The whole AMOUNT, not its first digit and not its digits alone: `$5.99` is one figure
+            // and `$17.1 billion` is one amount, and the word goes after all of what it names. The
+            // marker survives {@link settle}'s drop-list and becomes the word there. See
+            // {@link MONEY_SCALES}.
+            .replace(MONEY, (_all: string, figure: string, scale: string | undefined) => {
+                if (scale === undefined) return `${figure}#DOLLARS#`;
+
+                // An abbreviation is said as the word it stands for; a word the writer already spelled
+                // out is kept exactly as written, so `Billion` at the head of a headline stays capital.
+                const spelled = MONEY_SCALES[scale.trim().toLowerCase()];
+                return spelled === undefined ? `${figure}${scale}#DOLLARS#` : `${figure} ${spelled}#DOLLARS#`;
+            })
             .replace(/&/g, ' and ')
             .replace(/\s@\s/g, ' at ')
             .replace(/%/g, ' percent')
             .replace(/(\d)\s*\+/g, '$1 plus')
     );
 }
+
+/**
+ * What an abbreviated amount stands for, so `$100K` is a hundred thousand dollars out loud.
+ *
+ * Only the abbreviations are here. A scale word the writer already spelled out needs no lookup — it
+ * is carried through as written — and keeping it out of this table is what stops `million` being
+ * rewritten by the `m` entry.
+ *
+ * Bare letters are safe here and nowhere else in this file, because they are read only in the two
+ * characters after a `$`. `m` alone is metres, minutes or a middle initial; `$5m` is five million
+ * dollars and nothing else. {@link MONEY} is what holds them to that position.
+ */
+const MONEY_SCALES: Record<string, string> = { k: 'thousand', m: 'million', bn: 'billion', b: 'billion', t: 'trillion' };
+
+/**
+ * An amount of money, as far as its scale word.
+ *
+ * ## The failure
+ *
+ * This used to end at the digits, which put the marker between a figure and the word saying how big
+ * it is: `$17.1 Billion` was transposed to `17.1#DOLLARS# Billion` and **aired as "seventeen point
+ * one dollars billion"**. It happened four times on this station — Meta's settlement twice at $17.1
+ * and $18 billion, and a $100 billion spaceport twice — and it is the reading a listener notices
+ * fastest, because it is the one they can hear is nonsense without knowing the story.
+ *
+ * The measured distribution behind the two branches, from every script this station has written that
+ * contains a `$`: twenty amounts carry a spelled scale word (`billion` and `Billion` both, after both
+ * whole and decimal figures) and one carries an abbreviation, `$100K`, which was airing as "100
+ * dollars K".
+ *
+ * ## Why the two branches differ
+ *
+ * A spelled word takes optional space and is CONSUMED, since it already reads correctly and only
+ * needs to end up on the right side of the marker. An abbreviation takes NO space and is REPLACED,
+ * because consuming it alone would leave "100K dollars" for an engine to guess at, which is the same
+ * bug one step quieter.
+ *
+ * `\b` after the abbreviation is what keeps it to its own two characters: it fails on the `i` of
+ * `$5 million`, so a spelled word can never be eaten by the letter branch, and it fails on `$99.99
+ * Plaud`, which is a price followed by a product rather than a scale.
+ *
+ * ## A comma is a separator or it is punctuation, and the figure may only have the first
+ *
+ * The digits were `\d[\d,]*`, which ends on a comma as happily as on a digit, so a price at the end
+ * of a clause took the clause's comma into the amount and the marker went in behind it: `$750, save
+ * almost $500` **aired as "750, dollars save"**. Grouping the separator with the three digits it
+ * separates is what tells the two apart — `103,000` is one figure and `8,` is a figure and then a
+ * pause — and it costs nothing, because a thousands separator with anything but three digits after
+ * it was never a thousands separator.
+ */
+const MONEY = /\$(\d+(?:,\d{3})*(?:\.\d+)?)(\s*(?:bn|k|m|b|t)\b|\s+(?:hundred|thousand|million|billion|trillion)\b)?/gi;
 
 /** Small integers as words. Enough for a year's halves, an ordinal and a clock face. */
 const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'] as const;

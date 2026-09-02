@@ -66,6 +66,42 @@ describe('transposeForSpeech: symbols that stand in for words', () => {
     it('says a figure of money after the figure', () => {
         expect(say('Tickets were $5.99 back then.')).toBe('Tickets were 5.99 dollars back then.');
     });
+
+    // Aired four times as "seventeen point one dollars billion", because the marker went in after the
+    // digits rather than after the amount. See `MONEY`.
+    describe('an amount with a scale word', () => {
+        it('says the currency after the whole amount, not between the figure and its scale', () => {
+            expect(say('Meta will pay up to $17.1 Billion in the settlement.')).toBe('Meta will pay up to 17.1 Billion dollars in the settlement.');
+            expect(say('A $100 billion spaceport.')).toBe('A 100 billion dollars spaceport.');
+            expect(say('Settling for $2.8 million.')).toBe('Settling for 2.8 million dollars.');
+        });
+
+        it('spells an abbreviated scale out rather than leaving the engine a letter', () => {
+            expect(say('It raised $100K last month.')).toBe('It raised 100 thousand dollars last month.');
+            expect(say('A $5m deal.')).toBe('A 5 million dollars deal.');
+            expect(say('Worth $2bn today.')).toBe('Worth 2 billion dollars today.');
+        });
+
+        // The `\b` after the abbreviation, from both sides: a spelled scale must not be eaten by the
+        // letter branch, and a product name after a price is not a scale at all.
+        it('leaves a word that merely starts with a scale letter alone', () => {
+            expect(say('The $249.99 Plaud recorder.')).toBe('The 249.99 dollars Plaud recorder.');
+            expect(say('It costs $30 more.')).toBe('It costs 30 dollars more.');
+            expect(say('About $5 million.')).toBe('About 5 million dollars.');
+        });
+
+        it('still says a bare price with nothing after it', () => {
+            expect(say('Down from $349.99.')).toBe('Down from 349.99 dollars.');
+        });
+
+        // Aired as "750, dollars save": the digits ended on a comma as happily as on a digit, so a
+        // price at the end of a clause took the clause's punctuation into the amount.
+        it('takes a thousands separator into the figure and a clause comma out of it', () => {
+            expect(say('A $103,000 fee.')).toBe('A 103,000 dollars fee.');
+            expect(say('It was $8, you know.')).toBe('It was 8 dollars, you know.');
+            expect(say('A deal at $750, save almost $500 on it.')).toBe('A deal at 750 dollars, save almost 500 dollars on it.');
+        });
+    });
 });
 
 describe('transposeForSpeech: numbers', () => {

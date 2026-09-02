@@ -86,6 +86,23 @@ export class ScheduleTickJob extends PlainJob {
         // window across a boundary in which the order is built from one slot's source and stamped
         // with the next slot's id, which nothing afterwards could tell from a station that is
         // already airing the right thing.
+        // A HOLD: the operator said leave this alone. Checked before the schedule is even asked,
+        // because the answer cannot change what happens and asking would be a query per minute for
+        // nothing — the same shape as the stood-down guard above.
+        //
+        // This is the one thing that stops a takeover expiring silently. A manual `putOnAir` is
+        // stamped with whichever slot is in force so it survives to the end of that block, which is
+        // right and is also invisible: an operator who briefs the station at half past two has no
+        // way to know three o'clock will take it back. A hold is them saying how long they meant.
+        const held = this.director.holdUntil();
+        if (held !== undefined && held > Date.now()) {
+            this.say('held', {
+                kind: 'schedule.held',
+                detail: 'The schedule is on hold, so the station kept what an operator put on.',
+            });
+            return;
+        }
+
         const slot = await this.schedule.inForce();
         const airing = this.director.order()?.slotId;
 
@@ -129,17 +146,25 @@ export class ScheduleTickJob extends PlainJob {
         }
 
         try {
-            await this.console.putOnAir({
-                name: 'Sustaining',
-                ...(source.pluginId === undefined || source.playlistId === undefined
-                    ? {}
-                    : { pluginId: source.pluginId, playlistId: source.playlistId }),
-                ...(source.brief === undefined ? {} : { brief: source.brief }),
-                ...(source.era?.from === undefined ? {} : { eraFrom: source.era.from }),
-                ...(source.era?.to === undefined ? {} : { eraTo: source.era.to }),
-                mode: 'rotation',
-                onEnd: 'extend',
-            });
+            await this.console.putOnAir(
+                {
+                    name: 'Sustaining',
+                    ...(source.pluginId === undefined || source.playlistId === undefined
+                        ? {}
+                        : { pluginId: source.pluginId, playlistId: source.playlistId }),
+                    ...(source.brief === undefined ? {} : { brief: source.brief }),
+                    ...(source.era?.from === undefined ? {} : { eraFrom: source.era.from }),
+                    ...(source.era?.to === undefined ? {} : { eraTo: source.era.to }),
+                    mode: 'rotation',
+                    onEnd: 'extend',
+                },
+                // No slot to hand back — that is what a gap IS — so the clock says so directly.
+                // Without it a sustaining broadcast and one an operator started during the same gap
+                // are the same row, and the desk would tell them the schedule is driving when it is
+                // not.
+                undefined,
+                true,
+            );
         } catch (error) {
             this.logger.warn(`schedule: could not hand the station to its sustaining source, so it keeps what it is airing (${errorText(error)})`);
             this.say('gap:failed', {

@@ -2,6 +2,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient }
 import type {
     AddStationSegmentInput,
     ExtendStationInput,
+    HoldStationInput,
     MoveStationItemInput,
     PutOnAirInput,
     ReplanStationInput,
@@ -197,6 +198,28 @@ export function useReplanOrder() {
  * The answer carries the mode that was just written, so the console renders the operator's own
  * choice rather than the one the config still reports for the length of this request.
  */
+/**
+ * Hold the station against the schedule, or release it.
+ *
+ * One hook for both, because they are one decision with two answers and a console drawing them as
+ * separate mutations would need two pending states for one control. `undefined` releases.
+ *
+ * The running order is invalidated as well as the air reading, which is not belt and braces: the
+ * hold rides the running order, so a console reading the order after this without refetching would
+ * be holding a document the API has already moved past.
+ */
+export function useHoldAgainstSchedule() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (input: HoldStationInput | undefined) =>
+            input === undefined ? sdk.director.releaseTheStationToTheSchedule() : sdk.director.holdTheStationAgainstTheSchedule(input),
+        onSuccess: air => {
+            queryClient.setQueryData(queryKeys.director.air(), air);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.director.order() });
+        },
+    });
+}
+
 export function useSetAirMode() {
     const queryClient = useQueryClient();
     return useMutation({

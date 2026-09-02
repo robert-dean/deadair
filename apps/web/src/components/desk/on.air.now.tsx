@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Badge, Box, Button, Card, Collapse, Group, Progress, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
+import { Anchor, Badge, Box, Button, Card, Collapse, Group, Progress, SegmentedControl, Stack, Text, Tooltip } from '@mantine/core';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import type { PlayoutStatus, StationOrder } from '@deadair/sdk';
 
-import { useSetAirMode } from '../../api/director.queries';
+import { useHoldAgainstSchedule, useSetAirMode } from '../../api/director.queries';
 import { useStartPlayout, useStopPlayout, useSkipCurrent } from '../../api/playout.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { usePlayhead } from '../playout/playhead';
@@ -29,6 +29,24 @@ export interface OnAirNowProps {
      * not the same as `audience` — the control draws nothing rather than a value nobody chose.
      */
     airMode?: 'audience' | 'always';
+    /**
+     * Who is driving the station: the clock, or a person.
+     *
+     * Absent while the air reading has not arrived. It is derived by the API rather than compared
+     * here, because a broadcast sustaining a GAP and one an operator started during that same gap
+     * both belong to no slot, so the console cannot tell them apart from the schedule alone.
+     */
+    airSource?: 'off' | 'schedule' | 'sustaining' | 'operator';
+    /** Whether the schedule has been told to leave this broadcast alone. */
+    held?: boolean;
+    /**
+     * When that hold lapses, as an ISO-8601 instant.
+     *
+     * Absent WHILE {@link held} is true is the hold that never lapses, which is a real state rather
+     * than a missing value: `Infinity` is not something JSON carries, so the two facts are two
+     * fields. Absent with `held` false is simply no hold.
+     */
+    holdUntil?: string;
 }
 
 /** How long an armed Stop stays armed before it forgets, in ms. */
@@ -98,7 +116,8 @@ function useArmedStop(fire: () => void) {
  * Of the three controls only Stop asks twice — see {@link useArmedStop}. Skip ends one record and
  * Start puts a station back on air, and neither is a press worth a second thought.
  */
-export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps) {
+export function OnAirNow({ status, order, standingDown, airMode, airSource, held = false, holdUntil }: OnAirNowProps) {
+    const hold = useHoldAgainstSchedule();
     const [why, setWhy] = useState(false);
     const skip = useSkipCurrent();
     const stop = useStopPlayout();
@@ -174,6 +193,70 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
                             looking at the answer. It had a badge on the old On-air page and this
                             panel replaced that page without it, which made a live instruction
                             invisible. */}
+                        {/* Who chose this. The console has always been able to say WHAT is on and
+                            never who put it there, and with a schedule running those are different
+                            questions: an operator's own choice holds until the next block begins,
+                            so "the clock is driving" and "you are" can each be true for an hour at
+                            a time with nothing on the screen distinguishing them. */}
+                        {airSource && airSource !== 'off' ? (
+                            <Tooltip multiline maw={360} label={drivingLabel(airSource)}>
+                                <Badge
+                                    size="sm"
+                                    variant="light"
+                                    color={airSource === 'operator' ? 'orange' : 'gray'}
+                                    tt="none"
+                                    style={{ alignSelf: 'flex-start' }}
+                                >
+                                    {drivingWord(airSource)}
+                                </Badge>
+                            </Tooltip>
+                        ) : undefined}
+
+                        {/* Offered only while a person is driving, because holding the schedule off
+                            a broadcast the schedule itself put on is not a thing to want. A hold
+                            that cannot be SEEN is worse than no hold, so the state and the way out
+                            of it are the same control. */}
+                        {airSource === 'operator' ? (
+                            <Group gap="xs" align="baseline" wrap="wrap">
+                                {!held ? (
+                                    <>
+                                        <Text size="xs" c="dimmed">
+                                            The schedule takes this back at the next block.
+                                        </Text>
+                                        <Anchor component="button" type="button" size="xs" disabled={hold.isPending} onClick={() => hold.mutate({})}>
+                                            Hold it
+                                        </Anchor>
+                                        <Anchor
+                                            component="button"
+                                            type="button"
+                                            size="xs"
+                                            disabled={hold.isPending}
+                                            onClick={() => hold.mutate({ minutes: 120 })}
+                                        >
+                                            Hold two hours
+                                        </Anchor>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Text size="xs" c="dimmed">
+                                            {holdUntil === undefined
+                                                ? 'Held until you release it. The schedule will not take this back.'
+                                                : `Held until about ${new Date(holdUntil).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}.`}
+                                        </Text>
+                                        <Anchor
+                                            component="button"
+                                            type="button"
+                                            size="xs"
+                                            disabled={hold.isPending}
+                                            onClick={() => hold.mutate(undefined)}
+                                        >
+                                            Release
+                                        </Anchor>
+                                    </>
+                                )}
+                            </Group>
+                        ) : undefined}
+
                         {order?.brief ? (
                             <Tooltip
                                 multiline
@@ -368,4 +451,24 @@ export function OnAirNow({ status, order, standingDown, airMode }: OnAirNowProps
             </Collapse>
         </Stack>
     );
+}
+
+/** The badge's own word for who is driving. */
+function drivingWord(source: 'schedule' | 'sustaining' | 'operator'): string {
+    if (source === 'operator') return 'you are driving';
+    return source === 'sustaining' ? 'sustaining' : 'on the schedule';
+}
+
+/**
+ * What that word means, including the part an operator cannot see coming.
+ *
+ * The takeover sentence is the one worth the tooltip: a broadcast put on by hand is stamped with
+ * whichever slot is in force, so it holds until the NEXT block begins and is then replaced. That is
+ * correct and it is invisible, which is the combination worth saying out loud.
+ */
+function drivingLabel(source: 'schedule' | 'sustaining' | 'operator'): string {
+    if (source === 'operator') return 'You put this on. It holds until the next scheduled block begins, and the schedule takes over then.';
+    if (source === 'sustaining') return 'Nothing is scheduled right now, so the station is playing what it fills the gaps with.';
+
+    return 'The clock changed the station over to this block. It runs until the block ends.';
 }

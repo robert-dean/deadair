@@ -665,11 +665,13 @@ export interface DeadairStationLineup {
   createdAt: Generated<DateTime>;
   eraFrom: number | null;
   eraTo: number | null;
+  holdUntil: DateTime | null;
   items: Generated<Json>;
   mode: Generated<"rotation" | "setlist" | "feature">;
   name: Generated<string>;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
+  placedBy: Generated<string>;
   rules: Json | null;
   slotId: string | null;
   source: Generated<string>;

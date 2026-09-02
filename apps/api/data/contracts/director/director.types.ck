@@ -17,6 +17,15 @@ contract StationAir: { # What the station is airing, and whether it is driving a
     source?: string(max=50) # Who built what is on: `import` or `director`
     remaining: int(min=0) # Items left before the running order runs out and `onEnd` decides what happens
     slotId?: string(max=100) # Which slot of the schedule this broadcast belongs to. Absent means nothing scheduled it, which is every station with no schedule
+    airSource: AirSource # Who is driving the station right now
+    held: boolean # Whether the schedule has been told to leave this broadcast alone. A takeover is otherwise replaced when the block it started inside ends
+    holdUntil?: string(min=24, max=24) # When that hold lapses, as an ISO-8601 instant. ABSENT WHILE `held` IS TRUE means until it is released by hand, which is a real state rather than a missing value — `Infinity` is not a thing JSON can carry, so the two facts are two fields
+}
+
+contract AirSource: enum(off, schedule, sustaining, operator) # Who chose what is on air. `schedule` is a block the clock changed over to and `sustaining` is what it plays in the hours no block claims — both are the schedule driving. `operator` is a person, including one who took over inside a scheduled block, and it holds until the next block begins. `off` is a station stood down
+
+contract HoldStationInput: { # How long to keep the schedule off the running order
+    minutes?: int(min=1, max=1440) # How long the hold lasts, from now. ABSENT means until it is released by hand, which is the answer for an operator who does not know yet — a day is the ceiling because a hold nobody remembers setting is worse than one that lapses
 }
 
 contract SetStationAirInput: { # Change how the station decides to be on air

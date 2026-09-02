@@ -45,6 +45,8 @@ interface Options {
     vet?: (tracks: RundownTrack[]) => RundownTrack[];
     /** Stored `deadair.settings` rows, as the TEXT they are stored as. Empty is a station nobody has configured. */
     settings?: Record<string, string>;
+    /** A hold already on the running order, as epoch millis. `Infinity` never lapses. */
+    holdUntil?: number;
 }
 
 function build(options: Options = {}) {
@@ -54,9 +56,34 @@ function build(options: Options = {}) {
     // was asked for, so the assertions below are about what the order became.
     const order = options.order;
     const posted: DirectorCommand[] = [];
+    // Whatever the last hold left behind, so `getAir` reads back what `holdAgainstSchedule` wrote.
+    let held: number | undefined = options.holdUntil;
+    // The last binding the console posted, so `status()` answers what the director WOULD be holding
+    // rather than a fixed object. `getAir` derives `airSource` from `placedBy` and `slotId`, and a
+    // status that never changed would report the same driver whatever was put on.
+    const onAirBinding = () => {
+        const last = [...posted].reverse().find(command => command.kind === 'putOnAir');
+        return last?.kind === 'putOnAir' ? last.binding : undefined;
+    };
+
     const director = {
-        status: vi.fn(() => ({ active: true, airMode: 'audience', remaining: order?.remaining() ?? 0, ...options.onAir })),
+        status: vi.fn(() => ({
+            active: true,
+            airMode: 'audience',
+            remaining: order?.remaining() ?? 0,
+            ...(onAirBinding() === undefined
+                ? {}
+                : { placedBy: onAirBinding()!.placedBy, ...(onAirBinding()!.slotId === undefined ? {} : { slotId: onAirBinding()!.slotId }) }),
+            ...options.onAir,
+        })),
         invalidate: vi.fn(),
+        // The hold rides the running order, so the fake keeps it the way the real one does: set by
+        // `holdAgainstSchedule` and read back by `getAir`, rather than a fixed answer that would
+        // make every hold assertion below pass whatever the service did.
+        holdUntil: vi.fn(() => held),
+        holdAgainstSchedule: vi.fn(async (until?: number) => {
+            held = until;
+        }),
         post: vi.fn(async (command: DirectorCommand) => {
             posted.push(command);
             return undefined;
@@ -351,6 +378,77 @@ describe('DirectorConsoleService building a running order from a playlist', () =
         await service.putOnAir({ brief: 'the whole album', mode: 'setlist', onEnd: 'repeat' });
 
         expect(posted()[0]).toMatchObject({ kind: 'putOnAir', binding: { onEnd: 'repeat' } });
+    });
+
+    it('names the operator as the driver when a person put the station on, even inside a slot', async () => {
+        // The point of storing this rather than comparing ids. A takeover is stamped with whatever
+        // slot is in force so it HOLDS until the next boundary, which means the stamp cannot also
+        // say who chose it — and telling an operator the schedule is driving while they are is the
+        // one thing the desk has to get right.
+        const { service } = build({ slot: { id: 'slot-morning' } });
+
+        await service.putOnAir({ brief: 'heavy metal hits' });
+
+        expect((await service.getAir()).airSource).toBe('operator');
+    });
+
+    it('names the schedule when the clock handed it a slot', async () => {
+        const { service } = build();
+
+        await service.putOnAir({ brief: 'the usual' }, { id: 'slot-morning' } as never);
+
+        expect((await service.getAir()).airSource).toBe('schedule');
+    });
+
+    it('tells a gap apart from a block, because they are different answers to "why is this on"', async () => {
+        // A sustaining broadcast carries no slot, which is exactly the shape a hand-driven broadcast
+        // started during the same gap has. The third argument is what separates them.
+        const { service } = build();
+
+        await service.putOnAir({ name: 'Sustaining', brief: 'warm and unhurried' }, undefined, true);
+
+        expect((await service.getAir()).airSource).toBe('sustaining');
+    });
+
+    it('says off for a station that is stood down, whoever put it on', async () => {
+        const { service } = build({ onAir: { active: false } });
+
+        expect((await service.getAir()).airSource).toBe('off');
+    });
+
+    it('holds until released when no duration was named, because Infinity is not JSON', async () => {
+        // The wire carries two fields rather than one for exactly this: `held` is the fact a console
+        // acts on and `holdUntil` is when it lapses, so the hold that never lapses is `held` with no
+        // instant beside it rather than a number JSON cannot express.
+        const { service } = build();
+
+        const air = await service.holdAgainstSchedule({});
+
+        expect(air.held).toBe(true);
+        expect(air).not.toHaveProperty('holdUntil');
+    });
+
+    it('names the instant a timed hold lapses', async () => {
+        const { service } = build();
+
+        const air = await service.holdAgainstSchedule({ minutes: 120 });
+
+        expect(air.held).toBe(true);
+        expect(Date.parse(air.holdUntil!)).toBeGreaterThan(Date.now());
+    });
+
+    it('reports a lapsed hold as no hold, so the badge clears itself', async () => {
+        const { service } = build({ holdUntil: Date.now() - 1 });
+
+        expect((await service.getAir()).held).toBe(false);
+    });
+
+    it('releases a station that was never held, rather than arguing about it', async () => {
+        // A 404 here would be the console refusing an operator the outcome they wanted on the
+        // grounds that it had already happened.
+        const { service } = build();
+
+        expect((await service.releaseToSchedule()).held).toBe(false);
     });
 
     it('reports the brief on the running order, so a console can show what is still steering it', async () => {

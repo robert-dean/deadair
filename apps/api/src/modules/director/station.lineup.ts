@@ -282,6 +282,27 @@ export interface StationLineupBinding {
      * that has never opened the schedule page has.
      */
     slotId?: string;
+    /**
+     * WHO put this broadcast on: the clock, or a person.
+     *
+     * Not derivable from {@link slotId}, which is the whole reason it is stored. A broadcast
+     * sustaining a GAP carries no slot and neither does one an operator started by hand during that
+     * same gap, so against a clock that names no slot the two read identically — and the difference
+     * is exactly what the desk has to say out loud. Absent is `operator`, because a running order
+     * written before this existed was one somebody chose.
+     */
+    placedBy?: 'operator' | 'schedule';
+    /**
+     * Until when the schedule must leave this broadcast alone, as epoch milliseconds.
+     *
+     * `Infinity` is "until I release it". Absent is the ordinary state: no hold, and the next block
+     * boundary changes the station over as it always did.
+     *
+     * Milliseconds rather than a `Date` because this rides a binding that is stored and sent, and
+     * the JSON-safe rule covers both. The column is a `timestamptz`; the repository is where the two
+     * meet.
+     */
+    holdUntil?: number;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
     /** Who built it: `import`, or `director` for anything generated. */
@@ -387,6 +408,33 @@ export class StationLineup implements LiveOrder {
     /** Which slot of the day this broadcast belongs to, or `undefined` for one nothing scheduled. */
     get slotId(): string | undefined {
         return this.binding.slotId;
+    }
+
+    /** Whether the clock put this on or a person did. Absent reads as a person, per the binding. */
+    get placedBy(): 'operator' | 'schedule' {
+        return this.binding.placedBy ?? 'operator';
+    }
+
+    /** Until when the schedule must leave this alone, or `undefined` for no hold. `Infinity` never expires. */
+    get holdUntil(): number | undefined {
+        return this.binding.holdUntil;
+    }
+
+    /**
+     * Whether a hold is in force at this instant.
+     *
+     * Takes `now` rather than reading the clock, on the rule `resolveSlot` follows: the tick asks
+     * once per minute and a pure answer is one a test can pin.
+     */
+    heldAt(now: number): boolean {
+        return this.binding.holdUntil !== undefined && this.binding.holdUntil > now;
+    }
+
+    /** Hold this broadcast against the schedule, or release it. `Infinity` holds until released. */
+    hold(until?: number): void {
+        const { holdUntil: _current, ...rest } = this.binding;
+
+        this.binding = until === undefined ? rest : { ...rest, holdUntil: until };
     }
 
     /** Which plugin's playlist to pull more from, when it came from one. */

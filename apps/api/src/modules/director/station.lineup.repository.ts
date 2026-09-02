@@ -52,6 +52,8 @@ export class StationLineupRepository extends DataRepository {
                 'eraTo',
                 'personaId',
                 'slotId',
+                'placedBy',
+                'holdUntil',
                 'mode',
                 'onEnd',
                 'source',
@@ -85,6 +87,14 @@ export class StationLineupRepository extends DataRepository {
                 // whether it is still airing what the schedule wants, rather than changing over
                 // once on every boot.
                 ...(row.slotId == null ? {} : { slotId: row.slotId }),
+                // Who put it on. The column is `not null default 'operator'`, so this is only ever
+                // narrowing text to the union; anything unexpected reads as the operator, which is
+                // the safer of the two to be wrong about — it says a takeover is in force rather
+                // than telling somebody the clock is driving when it is not.
+                placedBy: row.placedBy === 'schedule' ? 'schedule' : 'operator',
+                // Epoch millis on the way out, because the binding is stored and sent and the
+                // JSON-safe rule allows no `Date` across either boundary.
+                ...(holdMillis(row.holdUntil) === undefined ? {} : { holdUntil: holdMillis(row.holdUntil)! }),
                 mode: row.mode as StationLineupMode,
                 onEnd: row.onEnd as StationLineupOnEnd,
                 source: row.source,
@@ -117,6 +127,13 @@ export class StationLineupRepository extends DataRepository {
             eraTo: snapshot.eraTo ?? null,
             personaId: snapshot.personaId ?? null,
             slotId: snapshot.slotId ?? null,
+            placedBy: snapshot.placedBy ?? 'operator',
+            // Through SQL rather than as a value, exactly as `break.request.repository.ts` does it:
+            // Postgres is handed a number and converts it itself, so the `DateTime`-versus-`Date`
+            // mismatch in the generated types never has to be resolved here. `Infinity` is the one
+            // value `to_timestamp` cannot take, and it is the whole point of the column — it is the
+            // "until I release it" hold — so it goes as the literal Postgres understands.
+            holdUntil: snapshot.holdUntil === undefined ? null : snapshot.holdUntil === Infinity ? sql<never>`'infinity'::timestamptz` : instant(snapshot.holdUntil),
             mode: snapshot.mode,
             onEnd: snapshot.onEnd,
             source: snapshot.source,
@@ -272,3 +289,29 @@ const toItems = (value: unknown): StationLineupItem[] => {
 };
 
 export type { StationLineupBinding, StationLineupSnapshot };
+
+/**
+ * A hold as epoch millis, or `undefined` for a row with none.
+ *
+ * Three shapes, and the third is why this is a function. An ordinary timestamptz comes back from the
+ * driver as a `Date`; the generated types call it a luxon `DateTime`, which is the mismatch
+ * `break.request.repository.ts` already handles the same way; and `infinity` comes back as the NUMBER
+ * `Infinity`, which is neither. That last one is verified against the driver rather than assumed, and
+ * it is exactly the hold that never expires.
+ */
+function holdMillis(value: unknown): number | undefined {
+    if (value == null) return undefined;
+    if (typeof value === 'number') return value;
+    if (value instanceof Date) return value.getTime();
+
+    return typeof (value as { toMillis?: () => number }).toMillis === 'function' ? (value as { toMillis: () => number }).toMillis() : undefined;
+}
+
+/**
+ * Epoch millis as something the column will take.
+ *
+ * Through SQL rather than as a value, exactly as `break.request.repository.ts` does it and for the
+ * same reason: Postgres is handed a number and does the conversion itself, so the
+ * `DateTime`-versus-`Date` mismatch in the generated types never has to be resolved here.
+ */
+const instant = (millis: number) => sql<never>`to_timestamp(${millis} / 1000.0)`;

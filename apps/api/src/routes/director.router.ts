@@ -4,6 +4,7 @@ import { DirectorConsoleService } from '#src/modules/director/director.console.s
 import {
     AddStationSegmentInput,
     ExtendStationInput,
+    HoldStationInput,
     MoveStationItemInput,
     PutOnAirInput,
     ReplanStationInput,
@@ -117,8 +118,36 @@ DirectorRouter.post('/director/air/replan', requirePolicy({ policy: 'platform.ma
 });
 
 /**
- * Shuffles the records not yet handed to the player, and plants the breaks again around the new sequence. The head is already in the player's hands and is left alone
+ * Holds the running order against the schedule, so a block boundary does not take back what an operator put on. A takeover is otherwise stamped with whichever slot was in force and is replaced when that block ends, which is correct and gives nobody any warning
  * from [director.ck](file://./../../data/contracts/director/director.ck#L138)
+ */
+DirectorRouter.patch('/director/air/hold', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, HoldStationInput);
+
+    const service = ctx.container.get(DirectorConsoleService);
+    const result: StationAir = await service.holdAgainstSchedule(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Releases a hold, so the next block boundary changes the station over as it ordinarily would. A station with no hold is unchanged rather than refused
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L153)
+ */
+DirectorRouter.delete('/director/air/hold', requirePolicy({ policy: 'platform.manage' }), async ctx => {
+    const service = ctx.container.get(DirectorConsoleService);
+    const result: StationAir = await service.releaseToSchedule();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
+ * Shuffles the records not yet handed to the player, and plants the breaks again around the new sequence. The head is already in the player's hands and is left alone
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L168)
  */
 DirectorRouter.post('/director/air/shuffle', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(DirectorConsoleService);
@@ -131,7 +160,7 @@ DirectorRouter.post('/director/air/shuffle', requirePolicy({ policy: 'platform.m
 
 /**
  * Puts something the station says into the running order. A segment with no audio yet is refused here rather than accepted and skipped when it comes round, so an operator is told why it cannot play
- * from [director.ck](file://./../../data/contracts/director/director.ck#L153)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L183)
  */
 DirectorRouter.post('/director/air/segments', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, AddStationSegmentInput);
@@ -146,7 +175,7 @@ DirectorRouter.post('/director/air/segments', requirePolicy({ policy: 'platform.
 
 /**
  * Moves an item. A position already handed to the player is refused rather than clamped
- * from [director.ck](file://./../../data/contracts/director/director.ck#L174)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L204)
  */
 DirectorRouter.patch('/director/air/items/:itemId', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { itemId } = await parseAndValidate(
@@ -168,7 +197,7 @@ DirectorRouter.patch('/director/air/items/:itemId', requirePolicy({ policy: 'pla
 
 /**
  * Drops an item that has not been handed to the player yet
- * from [director.ck](file://./../../data/contracts/director/director.ck#L189)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L219)
  */
 DirectorRouter.delete('/director/air/items/:itemId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { itemId } = await parseAndValidate(

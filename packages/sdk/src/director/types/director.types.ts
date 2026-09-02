@@ -13,20 +13,35 @@ export type StationMode = 'rotation' | 'setlist' | 'feature';
 export type AirMode = 'audience' | 'always';
 
 /**
+ * Who chose what is on air. `schedule` is a block the clock changed over to and `sustaining` is what it plays in the hours no block claims — both are the schedule driving. `operator` is a person, including one who took over inside a scheduled block, and it holds until the next block begins. `off` is a station stood down
+ * generated from [AirSource](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L25)
+ */
+export type AirSource = 'off' | 'schedule' | 'sustaining' | 'operator';
+
+/**
+ * How long to keep the schedule off the running order
+ * generated from [HoldStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L27)
+ */
+export interface HoldStationInput {
+    /** How long the hold lasts, from now. ABSENT means until it is released by hand, which is the answer for an operator who does not know yet — a day is the ceiling because a hold nobody remembers setting is worse than one that lapses */
+    minutes?: number;
+}
+
+/**
  * What the station does when the running order runs out
- * generated from [StationOnEnd](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L27)
+ * generated from [StationOnEnd](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L36)
  */
 export type StationOnEnd = 'extend' | 'repeat' | 'stop';
 
 /**
  * Where an item of the running order has got to. `handed` is a promise and `airing` is a fact, which is the distinction everything here is built around. The three terminal states that are not `played` are three different facts on a page that has to say why the station is silent: `skipped` is the station passing over an item it reached, `removed` is an operator taking one out before its turn, and `unavailable` is a record the station could not obtain the audio for — the only one of the three an operator can act on, since it names a copy rather than a decision
- * generated from [StationItemState](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L30)
+ * generated from [StationItemState](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L39)
  */
 export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'skipped' | 'unavailable' | 'removed';
 
 /**
  * Change who is presenting the broadcast that is on air
- * generated from [SetStationHostInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L82)
+ * generated from [SetStationHostInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L91)
  */
 export interface SetStationHostInput {
     /** Who hosts it from here on. Absent hands it back to whichever persona the station has on air, which is what a broadcast that never named one already does */
@@ -35,7 +50,7 @@ export interface SetStationHostInput {
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L86)
+ * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L95)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -47,7 +62,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L92)
+ * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L101)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -55,7 +70,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L96)
+ * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L105)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -63,13 +78,21 @@ export interface ExtendStationInput {
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L100)
+ * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L109)
  */
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */
     count?: number;
     /** What the station should play from here on, in your own words. Absent keeps whatever this broadcast was already asked for; an empty string CLEARS it, which hands the programming back to the station's ordinary rotation. It steers every later refill too, not just this one batch */
     brief?: string;
+}
+
+/**
+ * Change how the station decides to be on air
+ * generated from [SetStationAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L31)
+ */
+export interface SetStationAirInput {
+    airMode: AirMode;
 }
 
 /**
@@ -89,19 +112,17 @@ export interface StationAir {
     remaining: number;
     /** Which slot of the schedule this broadcast belongs to. Absent means nothing scheduled it, which is every station with no schedule */
     slotId?: string;
-}
-
-/**
- * Change how the station decides to be on air
- * generated from [SetStationAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L22)
- */
-export interface SetStationAirInput {
-    airMode: AirMode;
+    /** Who is driving the station right now */
+    airSource: AirSource;
+    /** Whether the schedule has been told to leave this broadcast alone. A takeover is otherwise replaced when the block it started inside ends */
+    held: boolean;
+    /** When that hold lapses, as an ISO-8601 instant. ABSENT WHILE `held` IS TRUE means until it is released by hand, which is a real state rather than a missing value — `Infinity` is not a thing JSON can carry, so the two facts are two fields */
+    holdUntil?: string;
 }
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L69)
+ * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L78)
  */
 export interface PutOnAirInput {
     /** The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming */
@@ -126,7 +147,7 @@ export interface PutOnAirInput {
 
 /**
  * One item of the live running order, and where it has got to
- * generated from [StationOrderItem](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L32)
+ * generated from [StationOrderItem](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L41)
  */
 export interface StationOrderItem {
     /** What an edit names, what rides through the player, and what comes back on its readings */
@@ -169,7 +190,7 @@ export interface StationOrderItem {
 
 /**
  * The station's live running order: what is airing, item by item
- * generated from [StationOrder](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L56)
+ * generated from [StationOrder](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L65)
  */
 export interface StationOrder {
     /** What is on, for a console to draw. A label for this broadcast rather than the name of a stored object */

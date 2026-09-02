@@ -444,11 +444,19 @@ export class DirectorService {
     }
 
     /** What the director is doing, for a console that has to draw it. */
-    status(): { active: boolean; airMode: AirMode; name?: string; source?: string; slotId?: string; remaining: number } {
+    status(): {
+        active: boolean;
+        airMode: AirMode;
+        name?: string;
+        source?: string;
+        slotId?: string;
+        placedBy?: 'operator' | 'schedule';
+        remaining: number;
+    } {
         return {
             active: this.active,
             airMode: this.airMode,
-            ...(this.lineup === undefined ? {} : { name: this.lineup.name, source: this.lineup.source }),
+            ...(this.lineup === undefined ? {} : { name: this.lineup.name, source: this.lineup.source, placedBy: this.lineup.placedBy }),
             // Which slot of the day this broadcast belongs to, which only the running order knows.
             // The schedule holds the slots and the clock decides which one is in force; what is
             // actually AIRING is the director's answer alone, and a console comparing the two is
@@ -456,6 +464,32 @@ export class DirectorService {
             ...(this.lineup?.slotId === undefined ? {} : { slotId: this.lineup.slotId }),
             remaining: this.lineup?.remaining() ?? 0,
         };
+    }
+
+    /**
+     * Until when the schedule must leave the running order alone, or `undefined` for no hold.
+     *
+     * A passthrough, and it earns its line here for the reason {@link status} does: the running
+     * order is the sole authority on what is airing, and the tick is a timer that READS. Putting the
+     * hold anywhere else would make the schedule a second stateful owner of programming, which is
+     * the thing `docs/decisions/on-air-ownership.md` exists to prevent.
+     */
+    holdUntil(): number | undefined {
+        return this.lineup?.holdUntil;
+    }
+
+    /**
+     * Hold the running order against the schedule, or release it.
+     *
+     * `Infinity` holds until somebody releases it; `undefined` releases. Persisted immediately
+     * rather than on the throttle, because the whole value of a hold is that it survives the restart
+     * an operator is not thinking about when they set it.
+     */
+    async holdAgainstSchedule(until?: number): Promise<void> {
+        if (this.lineup === undefined) return;
+
+        this.lineup.hold(until);
+        await this.persist();
     }
 
     /**

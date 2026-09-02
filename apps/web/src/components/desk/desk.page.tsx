@@ -112,6 +112,9 @@ export function DeskPage() {
                     order={loaded}
                     standingDown={standingDown}
                     {...(air.data?.airMode === undefined ? {} : { airMode: air.data.airMode })}
+                    {...(air.data?.airSource === undefined ? {} : { airSource: air.data.airSource })}
+                    {...(air.data?.held === undefined ? {} : { held: air.data.held })}
+                    {...(air.data?.holdUntil === undefined ? {} : { holdUntil: air.data.holdUntil })}
                 />
             ) : (
                 <PageSkeleton variant="card" />

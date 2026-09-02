@@ -135,6 +135,36 @@ select deadair.add_updated_at_trigger('deadair.schedule_slots');
 -- show carries on and the next boundary decides.
 alter table deadair.station_lineup add column slot_id uuid references deadair.schedule_slots (id) on delete set null;
 
+-- WHO put this running order on: the clock, or a person.
+--
+-- Not derivable from `slot_id`, which is why it is a column rather than a comparison. A broadcast
+-- sustaining a GAP carries no slot, and so does one an operator started by hand during that same
+-- gap; against a clock that names no slot either, the two are indistinguishable — and telling an
+-- operator the schedule is driving when they are is the whole thing the desk needs to get right.
+--
+-- `putOnAir` writes 'operator' unless the tick handed it a slot or asked for the sustaining source,
+-- so a manual takeover during a scheduled block reads as a takeover from the moment it starts,
+-- rather than from the next boundary.
+alter table deadair.station_lineup
+    add column placed_by text not null default 'operator'
+    constraint station_lineup_placed_by_check check (placed_by in ('operator', 'schedule'));
+
+-- How long a takeover holds before the schedule may change the station over again.
+--
+-- A manual `putOnAir` is stamped with whichever slot is in force, so it survives exactly until that
+-- block ends and is then replaced — correct, and invisible. An operator who briefs the station at
+-- half past two has no way to say "leave this alone until I say otherwise", and no way to find out
+-- that three o'clock will take it away from them.
+--
+-- `infinity` is that "until I say otherwise", which Postgres supports natively and which saves a
+-- second column for the indefinite case. Null is the ordinary state: no hold, and the next boundary
+-- decides. Cleared by `putOnAir`, because a new broadcast is a new decision.
+--
+-- It lives HERE, on the running order, for the reason everything else about a broadcast does: the
+-- director is the sole writer of what airs and the tick stays a timer that READS. A hold held next
+-- to the schedule would be the second stateful owner `on-air-ownership.md` exists to prevent.
+alter table deadair.station_lineup add column hold_until timestamptz;
+
 -- The station's FORMAT CLOCK: a bulletin at half past, an ident at the top of the hour, a second
 -- sort of break on its own interval.
 --

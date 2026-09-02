@@ -16,22 +16,46 @@ export const AirMode = z.enum(['audience', 'always']);
 export type AirMode = z.infer<typeof AirMode>;
 
 /**
+ * Who chose what is on air. `schedule` is a block the clock changed over to and `sustaining` is what it plays in the hours no block claims — both are the schedule driving. `operator` is a person, including one who took over inside a scheduled block, and it holds until the next block begins. `off` is a station stood down
+ * generated from [AirSource](file://./../../../../data/contracts/director/director.types.ck#L25)
+ */
+export const AirSource = z.enum(['off', 'schedule', 'sustaining', 'operator']);
+export type AirSource = z.infer<typeof AirSource>;
+
+/**
+ * How long to keep the schedule off the running order
+ * generated from [HoldStationInput](file://./../../../../data/contracts/director/director.types.ck#L27)
+ */
+export const HoldStationInput = z.strictObject({
+    minutes: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(1440)
+        .optional()
+        .describe(
+            'How long the hold lasts, from now. ABSENT means until it is released by hand, which is the answer for an operator who does not know yet — a day is the ceiling because a hold nobody remembers setting is worse than one that lapses',
+        ),
+});
+export type HoldStationInput = z.infer<typeof HoldStationInput>;
+
+/**
  * What the station does when the running order runs out
- * generated from [StationOnEnd](file://./../../../../data/contracts/director/director.types.ck#L27)
+ * generated from [StationOnEnd](file://./../../../../data/contracts/director/director.types.ck#L36)
  */
 export const StationOnEnd = z.enum(['extend', 'repeat', 'stop']);
 export type StationOnEnd = z.infer<typeof StationOnEnd>;
 
 /**
  * Where an item of the running order has got to. `handed` is a promise and `airing` is a fact, which is the distinction everything here is built around. The three terminal states that are not `played` are three different facts on a page that has to say why the station is silent: `skipped` is the station passing over an item it reached, `removed` is an operator taking one out before its turn, and `unavailable` is a record the station could not obtain the audio for — the only one of the three an operator can act on, since it names a copy rather than a decision
- * generated from [StationItemState](file://./../../../../data/contracts/director/director.types.ck#L30)
+ * generated from [StationItemState](file://./../../../../data/contracts/director/director.types.ck#L39)
  */
 export const StationItemState = z.enum(['planned', 'handed', 'airing', 'played', 'skipped', 'unavailable', 'removed']);
 export type StationItemState = z.infer<typeof StationItemState>;
 
 /**
  * Change who is presenting the broadcast that is on air
- * generated from [SetStationHostInput](file://./../../../../data/contracts/director/director.types.ck#L82)
+ * generated from [SetStationHostInput](file://./../../../../data/contracts/director/director.types.ck#L91)
  */
 export const SetStationHostInput = z.strictObject({
     personaId: z
@@ -47,7 +71,7 @@ export type SetStationHostInput = z.infer<typeof SetStationHostInput>;
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L86)
+ * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L95)
  */
 export const AddStationSegmentInput = z.strictObject({
     segmentId: z.string().min(1).max(100),
@@ -71,7 +95,7 @@ export type AddStationSegmentInput = z.infer<typeof AddStationSegmentInput>;
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L92)
+ * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L101)
  */
 export const MoveStationItemInput = z.strictObject({
     toIndex: z.coerce.number().int().min(0),
@@ -80,7 +104,7 @@ export type MoveStationItemInput = z.infer<typeof MoveStationItemInput>;
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L96)
+ * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L105)
  */
 export const ExtendStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional(),
@@ -89,7 +113,7 @@ export type ExtendStationInput = z.infer<typeof ExtendStationInput>;
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L100)
+ * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L109)
  */
 export const ReplanStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional().describe('How many records to programme. Absent is roughly an hour'),
@@ -102,6 +126,15 @@ export const ReplanStationInput = z.strictObject({
         ),
 });
 export type ReplanStationInput = z.infer<typeof ReplanStationInput>;
+
+/**
+ * Change how the station decides to be on air
+ * generated from [SetStationAirInput](file://./../../../../data/contracts/director/director.types.ck#L31)
+ */
+export const SetStationAirInput = z.strictObject({
+    airMode: AirMode,
+});
+export type SetStationAirInput = z.infer<typeof SetStationAirInput>;
 
 /**
  * What the station is airing, and whether it is driving at all
@@ -122,21 +155,26 @@ export const StationAir = z.strictObject({
         .max(100)
         .optional()
         .describe('Which slot of the schedule this broadcast belongs to. Absent means nothing scheduled it, which is every station with no schedule'),
+    airSource: AirSource.describe('Who is driving the station right now'),
+    held: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .describe(
+            'Whether the schedule has been told to leave this broadcast alone. A takeover is otherwise replaced when the block it started inside ends',
+        ),
+    holdUntil: z
+        .string()
+        .min(24)
+        .max(24)
+        .optional()
+        .describe(
+            'When that hold lapses, as an ISO-8601 instant. ABSENT WHILE `held` IS TRUE means until it is released by hand, which is a real state rather than a missing value — `Infinity` is not a thing JSON can carry, so the two facts are two fields',
+        ),
 });
 export type StationAir = z.infer<typeof StationAir>;
 
 /**
- * Change how the station decides to be on air
- * generated from [SetStationAirInput](file://./../../../../data/contracts/director/director.types.ck#L22)
- */
-export const SetStationAirInput = z.strictObject({
-    airMode: AirMode,
-});
-export type SetStationAirInput = z.infer<typeof SetStationAirInput>;
-
-/**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L69)
+ * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L78)
  */
 export const PutOnAirInput = z.strictObject({
     pluginId: z
@@ -205,7 +243,7 @@ export type PutOnAirInput = z.infer<typeof PutOnAirInput>;
 
 /**
  * One item of the live running order, and where it has got to
- * generated from [StationOrderItem](file://./../../../../data/contracts/director/director.types.ck#L32)
+ * generated from [StationOrderItem](file://./../../../../data/contracts/director/director.types.ck#L41)
  */
 export const StationOrderItem = z.strictObject({
     id: z.string().min(1).max(100).describe('What an edit names, what rides through the player, and what comes back on its readings'),
@@ -262,7 +300,7 @@ export type StationOrderItem = z.infer<typeof StationOrderItem>;
 
 /**
  * The station's live running order: what is airing, item by item
- * generated from [StationOrder](file://./../../../../data/contracts/director/director.types.ck#L56)
+ * generated from [StationOrder](file://./../../../../data/contracts/director/director.types.ck#L65)
  */
 export const StationOrder = z.strictObject({
     name: z.string().max(200).describe('What is on, for a console to draw. A label for this broadcast rather than the name of a stored object'),

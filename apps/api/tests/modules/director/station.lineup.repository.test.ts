@@ -84,6 +84,9 @@ const lineup = () =>
             eraTo: 1989,
             personaId: 'persona-1',
             slotId: 'slot-1',
+            // Who put it on, which the slot stamp above cannot answer: a broadcast sustaining a gap
+            // and one an operator started during that gap both carry no slot.
+            placedBy: 'schedule',
             mode: 'rotation',
             onEnd: 'repeat',
             source: 'playlist',

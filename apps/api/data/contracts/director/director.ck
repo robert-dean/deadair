@@ -134,6 +134,36 @@ operation /director/air/replan: {
     }
 }
 
+operation /director/air/hold: {
+    patch: { # Holds the running order against the schedule, so a block boundary does not take back what an operator put on. A takeover is otherwise stamped with whichever slot was in force and is replaced when that block ends, which is correct and gives nobody any warning
+        name: Hold the station against the schedule
+        service: DirectorConsoleService.holdAgainstSchedule
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: HoldStationInput
+        }
+        response: {
+            200: {
+                application/json: StationAir
+            }
+        }
+    }
+    delete: { # Releases a hold, so the next block boundary changes the station over as it ordinarily would. A station with no hold is unchanged rather than refused
+        name: Release the station to the schedule
+        service: DirectorConsoleService.releaseToSchedule
+        security: {
+            policy: platform.manage
+        }
+        response: {
+            200: {
+                application/json: StationAir
+            }
+        }
+    }
+}
+
 operation /director/air/shuffle: {
     post: { # Shuffles the records not yet handed to the player, and plants the breaks again around the new sequence. The head is already in the player's hands and is left alone
         name: Shuffle the running order

@@ -42,6 +42,8 @@ interface Options {
     putOnAir?: () => Promise<unknown>;
     /** What the station plays between blocks. Absent is a station that has named nothing. */
     sustaining?: { pluginId?: string; playlistId?: string; brief?: string; era?: { from?: number; to?: number } };
+    /** A hold on the running order, as epoch millis. `Infinity` never lapses; absent is no hold. */
+    holdUntil?: number;
 }
 
 function build(options: Options = {}) {
@@ -53,6 +55,7 @@ function build(options: Options = {}) {
     const director = {
         status: vi.fn(() => ({ active: options.active ?? true, airMode: 'audience' as const, remaining: 0 })),
         order: vi.fn(() => (options.airing === undefined ? { items: [] } : { items: [], slotId: options.airing })),
+        holdUntil: vi.fn(() => options.holdUntil),
     } as unknown as DirectorService;
 
     const console = {
@@ -102,6 +105,48 @@ describe('ScheduleTickJob', () => {
         expect(schedule.inForce).not.toHaveBeenCalled();
     });
 
+    it('leaves a held station alone, because a takeover expiring silently is what the hold is for', async () => {
+        // A manual `putOnAir` is stamped with whichever slot is in force, so it survives to the end
+        // of that block and is then replaced — correct, and with no warning. A hold is the operator
+        // saying how long they actually meant.
+        const { tick, console, schedule } = build({ inForce: slot('morning'), airing: 'breakfast', holdUntil: Date.now() + 60_000 });
+
+        await tick();
+
+        expect(console.putOnAir).not.toHaveBeenCalled();
+        // It does not even ask, on the stood-down guard's argument: the answer cannot change what
+        // this does, so asking is a query a minute for nothing.
+        expect(schedule.inForce).not.toHaveBeenCalled();
+    });
+
+    it('changes over once a hold has lapsed, so a timed hold ends by itself', async () => {
+        const { tick, console } = build({ inForce: slot('morning'), airing: 'breakfast', holdUntil: Date.now() - 1 });
+
+        await tick();
+
+        expect(console.putOnAir).toHaveBeenCalled();
+    });
+
+    it('never lets go of a hold that was set to last until it is released', async () => {
+        const { tick, console } = build({ inForce: slot('morning'), airing: 'breakfast', holdUntil: Infinity });
+
+        await tick();
+
+        expect(console.putOnAir).not.toHaveBeenCalled();
+    });
+
+    it('says a hold is why once, rather than every minute it is in force', async () => {
+        // The mismatch causing this is still there next minute, exactly as with a declined slot, so
+        // without the mark it would write a row sixty times an hour for as long as the hold lasts.
+        const { tick, activity } = build({ inForce: slot('morning'), airing: 'breakfast', holdUntil: Infinity });
+
+        await tick();
+        await tick();
+
+        const held = activity.record.mock.calls.filter(call => (call[0] as { kind?: string } | undefined)?.kind === 'schedule.held');
+        expect(held).toHaveLength(1);
+    });
+
     it('hands a station in a GAP to its sustaining source', async () => {
         // The whole of what ending a block means. Without this the station would carry on with what
         // the last block left it, which is indistinguishable from that block never having ended.
@@ -109,7 +154,14 @@ describe('ScheduleTickJob', () => {
 
         await tick();
 
-        expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sustaining', pluginId: 'p', playlistId: 'l' }));
+        // The third argument is the clock saying it did this. A gap has no slot to hand back, so
+        // without it a sustaining broadcast and one an operator started during the same gap are
+        // indistinguishable rows and the desk names the wrong driver.
+        expect(console.putOnAir).toHaveBeenCalledWith(
+            expect.objectContaining({ name: 'Sustaining', pluginId: 'p', playlistId: 'l' }),
+            undefined,
+            true,
+        );
     });
 
     it('carries a slot’s period onto the running order beside its brief', async () => {
@@ -140,7 +192,7 @@ describe('ScheduleTickJob', () => {
 
         await tick();
 
-        expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sustaining', eraFrom: 1990 }));
+        expect(console.putOnAir).toHaveBeenCalledWith(expect.objectContaining({ name: 'Sustaining', eraFrom: 1990 }), undefined, true);
         expect(vi.mocked(console.putOnAir).mock.calls[0]?.[0]).not.toHaveProperty('eraTo');
     });
 

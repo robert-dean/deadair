@@ -23,7 +23,9 @@ import { stationAutoExtends } from './rotation.rules.js';
 import { StationAirRepository } from './station.air.repository.js';
 import type { EditResult, StationLineupBinding, StationLineupSegmentItem, StationLineupSnapshot } from './station.lineup.js';
 import type {
+    AirSource,
     AddStationSegmentInput,
+    HoldStationInput,
     ExtendStationInput,
     MoveStationItemInput,
     PutOnAirInput,
@@ -108,12 +110,18 @@ export class DirectorConsoleService {
      */
     async getAir(): Promise<StationAir> {
         const status = this.director.status();
+        const hold = this.director.holdUntil();
         return {
             active: status.active,
             airMode: status.airMode,
             ...(status.name === undefined ? {} : { name: status.name }),
             ...(status.source === undefined ? {} : { source: status.source }),
             ...(status.slotId === undefined ? {} : { slotId: status.slotId }),
+            airSource: airSourceOf(status),
+            // Two fields because `Infinity` is not JSON. `held` is the fact a console acts on and
+            // `holdUntil` is when it lapses; absent while held is the hold that never does.
+            held: hold !== undefined && hold > Date.now(),
+            ...(hold === undefined || hold === Infinity ? {} : { holdUntil: new Date(hold).toISOString() }),
             remaining: status.remaining,
         };
     }
@@ -221,6 +229,66 @@ export class DirectorConsoleService {
     }
 
     /**
+     * Keep the schedule off the running order for a while, or until somebody says otherwise.
+     *
+     * ## What this fixes, which is a silence rather than a bug
+     *
+     * A manual `putOnAir` is stamped with whichever slot is in force, so a takeover HOLDS until that
+     * block ends and is then replaced. That is the right behaviour and it is invisible: an operator
+     * who briefs the station at half past two gets no warning that three o'clock will take it back.
+     * The stamp cannot also carry a duration, because its whole job is to expire at the boundary.
+     *
+     * So the duration is a thing the operator says. Absent `minutes` is `Infinity` — until released —
+     * which is the honest answer for somebody who does not know yet, and the contract caps a stated
+     * one at a day because a hold nobody remembers setting is worse than one that lapses.
+     *
+     * ## It lives on the running order, and that is not an implementation detail
+     *
+     * The tick READS this and declines; it does not own it. A hold held beside the schedule would be
+     * a second stateful owner of what airs, which is the thing `docs/decisions/on-air-ownership.md`
+     * exists to prevent. `putOnAir` clears it by construction, because a new broadcast is a new
+     * decision and its binding is built fresh.
+     */
+    async holdAgainstSchedule(input: HoldStationInput): Promise<StationAir> {
+        const until = input.minutes === undefined ? Infinity : Date.now() + input.minutes * 60_000;
+        await this.director.holdAgainstSchedule(until);
+
+        this.logger.info('director: the station is held against the schedule', { minutes: input.minutes });
+        void this.activity.record({
+            module: 'director',
+            kind: 'air.held',
+            detail:
+                input.minutes === undefined
+                    ? 'An operator held the station against the schedule until they release it.'
+                    : `An operator held the station against the schedule for ${input.minutes} minutes.`,
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() }),
+        });
+
+        return await this.getAir();
+    }
+
+    /**
+     * Hand the station back to the schedule.
+     *
+     * A station with no hold is answered rather than refused: releasing something that is already
+     * released is what the operator wanted either way, and a 404 here would be the console arguing
+     * about state it can see.
+     */
+    async releaseToSchedule(): Promise<StationAir> {
+        await this.director.holdAgainstSchedule(undefined);
+
+        this.logger.info('director: the station was released to the schedule');
+        void this.activity.record({
+            module: 'director',
+            kind: 'air.released',
+            detail: 'An operator handed the station back to the schedule.',
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() }),
+        });
+
+        return await this.getAir();
+    }
+
+    /**
      * Put the station on air, building the running order from a playlist.
      *
      * What is playing finishes: changing the programming is not a reason to cut a
@@ -237,9 +305,14 @@ export class DirectorConsoleService {
      * lets the generator fill it, which is what a rotation with no playlist behind it
      * is.
      *
+     * `onSlot` is the tick handing back the slot it already resolved, and `bySchedule` is the tick
+     * filling a GAP, which has no slot to hand back. Both mean the clock chose this; the route
+     * passes neither, so a person reaching here is recorded as one even inside a scheduled block.
+     * That is a third thing the slot stamp cannot say on its own — see `placedBy` on the binding.
+     *
      * @throws 422 when the playlist has nothing to play.
      */
-    async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot): Promise<StationAir> {
+    async putOnAir(input: PutOnAirInput, onSlot?: ScheduleSlot, bySchedule = false): Promise<StationAir> {
         const tracks = await this.sourceTracks(input);
         const mode = input.mode ?? 'rotation';
 
@@ -286,6 +359,12 @@ export class DirectorConsoleService {
             // `NO_RULES` is what those modes resolve from.
             ...(input.callins === undefined ? {} : { rules: { callins: input.callins } }),
             ...(slot === undefined ? {} : { slotId: slot.id }),
+            // Who chose this, which the slot stamp above cannot answer. `onSlot` is the tick handing
+            // back what it resolved, and `sustaining` is the tick filling a gap; everything else
+            // reaching here is a person, including a person who happens to be inside a scheduled
+            // block. That is what makes a takeover read as a takeover from the moment it starts
+            // rather than from the next boundary.
+            placedBy: onSlot !== undefined || bySchedule ? 'schedule' : 'operator',
             mode,
             onEnd: runsOut(mode, input.onEnd, stationAutoExtends(this.config)),
             source: input.pluginId === undefined ? 'director' : 'import',
@@ -722,4 +801,24 @@ function runsOut(mode: StationMode, asked: StationOnEnd | undefined, autoExtends
     if (mode !== 'rotation') return asked === undefined || asked === 'extend' ? 'stop' : asked;
 
     return asked ?? (autoExtends ? 'extend' : 'stop');
+}
+
+/**
+ * Who is driving the station, in the one word a console can put above the record.
+ *
+ * Derived rather than stored, because three of the four states are already facts the director
+ * holds — and a second stored opinion about programming is the bug `on-air-ownership.md` exists to
+ * close. The one thing that could NOT be derived is `placedBy`, and that is on the running order
+ * itself for the same reason everything else about a broadcast is.
+ *
+ * The split between `schedule` and `sustaining` is the slot stamp: a block the clock changed over
+ * to carries one, and the thing it plays in the hours no block claims carries none. Both are the
+ * clock driving, and they are told apart because "Afternoon Drive" and "whatever fills the gap" are
+ * different answers to an operator wondering why this is on.
+ */
+function airSourceOf(status: { active: boolean; slotId?: string; placedBy?: 'operator' | 'schedule' }): AirSource {
+    if (!status.active) return 'off';
+    if (status.placedBy !== 'schedule') return 'operator';
+
+    return status.slotId === undefined ? 'sustaining' : 'schedule';
 }

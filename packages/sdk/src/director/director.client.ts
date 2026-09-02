@@ -4,6 +4,7 @@ import type { ClockBand, ClockBandInput, ClockBandList } from './types/clock.typ
 import type {
     AddStationSegmentInput,
     ExtendStationInput,
+    HoldStationInput,
     MoveStationItemInput,
     PutOnAirInput,
     ReplanStationInput,
@@ -95,6 +96,28 @@ export class DirectorClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
+    }
+
+    /**
+     * @name Hold the station against the schedule
+     * @description Holds the running order against the schedule, so a block boundary does not take back what an operator put on. A takeover is otherwise stamped with whichever slot was in force and is replaced when that block ends, which is correct and gives nobody any warning
+     */
+    async holdTheStationAgainstTheSchedule(body: HoldStationInput): Promise<StationAir> {
+        const result = await this.fetch(`/director/air/hold`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<StationAir>(result);
+    }
+
+    /**
+     * @name Release the station to the schedule
+     * @description Releases a hold, so the next block boundary changes the station over as it ordinarily would. A station with no hold is unchanged rather than refused
+     */
+    async releaseTheStationToTheSchedule(): Promise<StationAir> {
+        const result = await this.fetch(`/director/air/hold`, { method: 'DELETE' });
+        return await parseJson<StationAir>(result);
     }
 
     /**

@@ -307,6 +307,81 @@ describe('what a writer is handed', () => {
         expect(story?.body).toBeUndefined();
         expect(story?.summary).toBe('A teaser.');
     });
+
+    // Measured on this station: 21 of the 34 stories in its captured prompts had a body that opened
+    // with its own headline word for word, so the writer was shown one sentence under two labels and
+    // reported it twice. See `withoutEchoedHeadline`.
+    describe('a story that opens by repeating its own headline', () => {
+        it('takes the headline off the front of the body', async () => {
+            const { source } = build({
+                items: [item('Bridge reopens after four years', { content: 'Bridge reopens after four years The council voted at dawn.' })],
+            });
+
+            const [story] = (await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories ?? [];
+            expect(story?.body).toBe('The council voted at dawn.');
+        });
+
+        it('takes it off the teaser too, which is the same failure one label along', async () => {
+            const { source } = build({ items: [item('Bridge reopens', { summary: 'Bridge reopens — a teaser.' })] });
+
+            expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories[0]?.summary).toBe('a teaser.');
+        });
+
+        // The raw title is what a body echoes; `speakable`'s is what the writer is shown. They are
+        // different strings whenever a publisher signed its own headline.
+        it('matches the raw title, tail and all, not only the headline as read', async () => {
+            const { source } = build({
+                items: [item('Bridge reopens - BBC News', { content: 'Bridge reopens - BBC News The council voted at dawn.' })],
+            });
+
+            const [story] = (await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories ?? [];
+            expect(story).toMatchObject({ headline: 'Bridge reopens.', body: 'The council voted at dawn.' });
+        });
+
+        it('matches across whitespace the feed laid out differently', async () => {
+            const { source } = build({
+                items: [item('Bridge reopens after four years', { content: 'Bridge   reopens\n after  four years\n\nThe council voted at dawn.' })],
+            });
+
+            expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories[0]?.body).toBe('The council voted at dawn.');
+        });
+
+        // Only a prefix and only the whole headline, because anything looser starts cutting the lead
+        // sentence off real reporting.
+        it('leaves a headline quoted mid-article alone, which is prose rather than an echo', async () => {
+            const body = 'The council met at dawn. Bridge reopens after four years, the notice said.';
+            const { source } = build({ items: [item('Bridge reopens after four years', { content: body })] });
+
+            expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories[0]?.body).toBe(body);
+        });
+
+        it('leaves a body that merely starts with the same few words alone', async () => {
+            const body = 'Bridge reopening plans were approved by the council at dawn.';
+            const { source } = build({ items: [item('Bridge reopens after four years', { content: body })] });
+
+            expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories[0]?.body).toBe(body);
+        });
+
+        // What is left is nothing, which is the "page carried none" branch rather than an empty
+        // string the writer would be shown as a story.
+        it('leaves no story at all where the body was the headline and nothing else', async () => {
+            const { source } = build({ items: [item('Bridge reopens', { content: 'Bridge reopens' })] });
+
+            expect((await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories[0]?.body).toBeUndefined();
+        });
+
+        // The cut is what the writer's ceiling is spent on, so the echo has to go first or a story
+        // loses its last sentence to a headline it was already shown.
+        it('strips before the story is cut, so the ceiling is spent on the story', async () => {
+            const headline = 'Inquiry continues into the collapse of the eastern span';
+            const sentence = 'The inquiry heard from a further eleven witnesses during the afternoon session. ';
+            const { source } = build({ items: [item(headline, { content: `${headline} ${sentence.repeat(20)}` })] });
+
+            const [story] = (await source.storiesFor(NEWS_KIND, undefined, NOW))?.stories ?? [];
+            expect(story?.body?.startsWith('The inquiry heard')).toBe(true);
+            expect(story?.body?.endsWith('session.')).toBe(true);
+        });
+    });
 });
 
 // The failure measured on air: twenty-seven consecutive bulletins across seven hours read the same

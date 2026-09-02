@@ -234,6 +234,26 @@ refused, but the only thing a refusal can do is drop to `NewsBreakWriter`, and w
 and nothing else — so declining a bulletin for sounding like a list of headlines hands the listener a list of
 headlines. The prompt is the fix and the capture in `script_history` is how it is checked.
 
+**And the prompt was only ever half of it, which the capture is what showed.** Reading the `prompt` column back
+rather than the scripts: **21 of the 34 stories in this station's captured prompts had a body that began with
+its own headline, word for word**. So the two labels `describeStory` is built on — the published sentence, and
+what happened — were carrying one sentence twice, and a writer told to report what the text says was doing
+exactly that. Blaming the model for the restatement was wrong by about two thirds. `withoutEchoedHeadline` takes
+the echo off both the body and the teaser in `toStory`, before either is cut, so the writer's ceiling is spent
+on the story rather than on a line it has already been shown.
+
+It is a PREFIX and the WHOLE headline, and it detects nothing about where the text came from. A headline quoted
+mid-article is the article referring to itself and is left alone; a body sharing its opening few words with its
+title is the ordinary case and is left alone. The looser versions of this all cut the lead sentence off real
+reporting, which is a worse bulletin than a repeated one.
+
+**Where the echo comes from is a feed setting, and no code here can fix it.** A feed whose links point at an
+aggregator rather than at a publisher hands `fetchArticle` the aggregator's own page, and what comes back is the
+headline followed by other outlets' headlines and their names — which is also where the publisher names in the
+middle of aired sentences came from, and the fragments cut mid-word. Stripping the echo makes that substrate
+survivable; it does not make it good. An operator seeing publisher names read out in bulletins should point the
+feed at publishers.
+
 ## The weather
 
 **A weather break is the bulletin's shape with the safety property read from the other end.** A

@@ -514,8 +514,11 @@ function toStory(
     const headline = speakable(item.title);
     if (headline === undefined) return undefined;
 
-    const summary = item.summary?.trim();
-    const body = item.content?.trim();
+    // Both stripped of the headline where they open with it, and stripped before either is cut, so
+    // the cut spends its characters on the story rather than on a sentence the writer is shown
+    // twice. See {@link withoutEchoedHeadline}.
+    const summary = withoutEchoedHeadline(item.summary?.trim(), item.title, headline);
+    const body = withoutEchoedHeadline(item.content?.trim(), item.title, headline);
 
     return {
         headline,
@@ -528,6 +531,73 @@ function toStory(
         // cut below read one answer.
         categories: categoriesOf({ ...item, ...(feedCategory === undefined ? {} : { feedCategory }) }, rules).map(match => match.key),
     };
+}
+
+/**
+ * A story's text with the headline taken off the front, where it opened with it.
+ *
+ * ## Why this is here
+ *
+ * The writer is shown a headline and, underneath it, the story — two labels which the prompt leans
+ * on hard, because one is the published sentence and the other is what happened. **21 of the 34
+ * stories in this station's captured prompts had a body that BEGAN with its own headline, word for
+ * word**, so what the writer actually saw under two labels was one sentence twice. Asked to report
+ * what the text says, a model reports it: that is most of the headline-then-restatement the aired
+ * bulletins are full of, and no amount of prompt is going to talk a writer out of reading something
+ * it was shown.
+ *
+ * It comes from an aggregator. A feed whose links point at the aggregator rather than at the
+ * publisher gives the article fetcher the aggregator's own page, whose prose is the headline
+ * followed by other outlets' headlines. But nothing here detects that, deliberately — the echo is
+ * worth removing wherever it comes from, and a publisher who opens an article with its own title is
+ * just as well served.
+ *
+ * ## What it will not do
+ *
+ * Only a PREFIX, and only the whole headline. A headline quoted in the middle of an article is the
+ * article referring to itself and is prose; a body that merely shares its first few words with the
+ * headline is the ordinary case of a story that starts where its title does. Both are left alone,
+ * because the failure this removes is exact duplication and anything looser starts cutting the lead
+ * sentence off real reporting.
+ *
+ * Both forms of the title are tried, since they differ: the RAW one is what a body echoes, and
+ * {@link speakable}'s is what the writer is shown after the publisher's tail comes off.
+ */
+function withoutEchoedHeadline(text: string | undefined, title: string, headline: string): string | undefined {
+    if (text === undefined || text.length === 0) return text;
+
+    const flat = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
+    const subject = flat(text);
+
+    for (const candidate of [title, headline.replace(/[.!?]$/, '')]) {
+        const prefix = flat(candidate);
+        if (prefix.length === 0 || !subject.startsWith(prefix)) continue;
+
+        // Counted on the FLATTENED text and then cut from the original, so the characters the
+        // flattening collapsed are not left behind: a body indented under its own headline has
+        // several spaces where the comparison saw one. Walking the original until it has spent the
+        // prefix's worth of non-space characters is what keeps the two in step.
+        return spendPrefix(text, prefix.length).replace(/^[\s\p{Pd}:;,.·|—–]+/u, '');
+    }
+
+    return text;
+}
+
+/** The original text past a prefix measured on its whitespace-collapsed form. See {@link withoutEchoedHeadline}. */
+function spendPrefix(text: string, length: number): string {
+    let spent = 0;
+    let index = 0;
+    let wasSpace = false;
+
+    while (index < text.length && spent < length) {
+        const isSpace = /\s/.test(text[index] as string);
+        // A run of whitespace is one character to the comparison, so only the first of it is spent.
+        if (!isSpace || !wasSpace) spent += 1;
+        wasSpace = isSpace;
+        index += 1;
+    }
+
+    return text.slice(index);
 }
 
 /**

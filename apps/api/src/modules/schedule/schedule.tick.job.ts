@@ -4,7 +4,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { DirectorService } from '#modules/director/director.service.js';
-import type { ScheduleSlot } from '#modules/director/schedule.js';
+import { isChartSource, type ScheduleSlot, type ScheduleSlotSource } from '#modules/director/schedule.js';
+import type { PutOnAirInput } from '#modules/director/types/director.types.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { ScheduleNotices } from './schedule.notices.js';
@@ -149,9 +150,11 @@ export class ScheduleTickJob extends PlainJob {
             await this.console.putOnAir(
                 {
                     name: 'Sustaining',
-                    ...(source.pluginId === undefined || source.playlistId === undefined
-                        ? {}
-                        : { pluginId: source.pluginId, playlistId: source.playlistId }),
+                    ...(source.chartId !== undefined
+                        ? { chartId: source.chartId, ...(source.chartOrder === undefined ? {} : { chartOrder: source.chartOrder }) }
+                        : source.pluginId === undefined || source.playlistId === undefined
+                          ? {}
+                          : { pluginId: source.pluginId, playlistId: source.playlistId }),
                     ...(source.brief === undefined ? {} : { brief: source.brief }),
                     ...(source.era?.from === undefined ? {} : { eraFrom: source.era.from }),
                     ...(source.era?.to === undefined ? {} : { eraTo: source.era.to }),
@@ -198,7 +201,7 @@ export class ScheduleTickJob extends PlainJob {
             await this.console.putOnAir(
                 {
                     name: slot.label,
-                    ...(slot.source === undefined ? {} : { pluginId: slot.source.pluginId, playlistId: slot.source.playlistId }),
+                    ...sourceInput(slot.source),
                     ...(slot.brief === undefined ? {} : { brief: slot.brief }),
                     // Copied onto the running order beside the brief, for the brief's own reason:
                     // `onEnd: 'extend'` keeps asking for more, and a period held anywhere but the
@@ -264,3 +267,17 @@ export class ScheduleTickJob extends PlainJob {
 
 /** What to call a slot in a sentence, for one the operator never labelled. */
 const named = (slot: ScheduleSlot): string => (slot.label.trim().length > 0 ? `"${slot.label.trim()}"` : 'its next slot');
+
+/**
+ * A slot's source as the half of `PutOnAirInput` that names one.
+ *
+ * One function rather than two ternaries at the call site, because the two arms are alternatives
+ * and spelling them inline is how a changeover ends up sending both. A slot with no source spreads
+ * nothing, which is what a stretch of the day the station fills itself already meant.
+ */
+function sourceInput(source: ScheduleSlotSource | undefined): Partial<PutOnAirInput> {
+    if (source === undefined) return {};
+    if (isChartSource(source)) return { chartId: source.chartId, ...(source.chartOrder === undefined ? {} : { chartOrder: source.chartOrder }) };
+
+    return { pluginId: source.pluginId, playlistId: source.playlistId };
+}

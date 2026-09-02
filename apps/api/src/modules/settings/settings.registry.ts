@@ -1148,6 +1148,23 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'schedule',
+        key: SUSTAINING_KEYS.chartId,
+        label: 'Playing from: which chart',
+        type: 'string',
+        help:
+            'A published chart to play between blocks instead, as `plugin:chart`. An alternative to the playlist above rather than a companion, ' +
+            'and it wins if both are set. A chart is a few dozen records, so a longer gap plays it and then carries on with the station\u2019s own ' +
+            'rotation.',
+    },
+    {
+        group: 'schedule',
+        key: SUSTAINING_KEYS.chartOrder,
+        label: 'Playing from: which way round',
+        type: 'string',
+        help: 'countdown, ranked or unordered. A countdown ends on number one, which is the shape a chart show has, and is what an empty box means.',
+    },
+    {
+        group: 'schedule',
         key: SUSTAINING_KEYS.brief,
         label: 'Asked to play',
         type: 'text',

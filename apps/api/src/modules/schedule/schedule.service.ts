@@ -5,7 +5,8 @@ import { Logger } from '@maroonedsoftware/logger';
 import { readClock } from '#modules/director/clock.bands.js';
 import { stationZone } from '#modules/director/clock.words.js';
 import { DirectorService } from '#modules/director/director.service.js';
-import { overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
+import type { ChartOrder } from '#modules/director/chart.picks.js';
+import { isChartSource, overlap, resolveSlot, type ScheduleSlot } from '#modules/director/schedule.js';
 import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
 import { project, stamp, type StationDate } from './schedule.occurrences.js';
 import { ScheduleRepository, type ScheduleSlotDraft } from './schedule.repository.js';
@@ -46,6 +47,8 @@ const UPCOMING_DAYS = 8;
 export const SUSTAINING_KEYS = {
     pluginId: 'schedule.sustainingPluginId',
     playlistId: 'schedule.sustainingPlaylistId',
+    chartId: 'schedule.sustainingChartId',
+    chartOrder: 'schedule.sustainingChartOrder',
     brief: 'schedule.sustainingBrief',
     eraFrom: 'schedule.sustainingEraFrom',
     eraTo: 'schedule.sustainingEraTo',
@@ -55,6 +58,18 @@ export const SUSTAINING_KEYS = {
 export interface SustainingSource {
     pluginId?: string;
     playlistId?: string;
+    /**
+     * A published chart to sustain from instead, qualified as `plugin:chart`.
+     *
+     * An alternative to the pair above and it wins over one, as it does on a slot. Worth naming what
+     * it means here rather than leaving it to be heard: a chart is a fixed document of a few dozen
+     * records, so a gap longer than that plays the chart and then extends into the station's own
+     * rotation. That is what `onEnd: 'extend'` already does for every other short source, so it is
+     * allowed rather than special-cased — but an operator choosing one for the hours nothing claims
+     * is choosing a chart followed by a rotation, not a chart on a loop.
+     */
+    chartId?: string;
+    chartOrder?: ChartOrder;
     brief?: string;
     /** The period it plays, on the same terms as a slot's. Either end may stand alone. */
     era?: { from?: number; to?: number };
@@ -70,6 +85,11 @@ export interface SustainingSource {
  */
 const SUSTAINING_YEAR_MIN = 1900;
 const SUSTAINING_YEAR_MAX = 2100;
+
+/** A stored order, or `undefined` for anything that is not one. */
+function chartOrderIn(value: string | undefined): ChartOrder | undefined {
+    return value === 'countdown' || value === 'ranked' || value === 'unordered' ? value : undefined;
+}
 
 /** A settings pair as a period, or `undefined` when neither end is a year. */
 function sustainingEra(from: string | undefined, to: string | undefined): { from?: number; to?: number } | undefined {
@@ -170,6 +190,11 @@ export class ScheduleService {
         const source: SustainingSource = {
             ...(read(SUSTAINING_KEYS.pluginId) === undefined ? {} : { pluginId: read(SUSTAINING_KEYS.pluginId) }),
             ...(read(SUSTAINING_KEYS.playlistId) === undefined ? {} : { playlistId: read(SUSTAINING_KEYS.playlistId) }),
+            ...(read(SUSTAINING_KEYS.chartId) === undefined ? {} : { chartId: read(SUSTAINING_KEYS.chartId) }),
+            // Read through the same guard a year is: a setting is text an operator's console wrote,
+            // and an order nothing recognises is an order nobody set. Falling back to absent leaves
+            // `putOnAir` to mean by it what it means for anyone pressing the button by hand.
+            ...(chartOrderIn(read(SUSTAINING_KEYS.chartOrder)) === undefined ? {} : { chartOrder: chartOrderIn(read(SUSTAINING_KEYS.chartOrder)) }),
             ...(read(SUSTAINING_KEYS.brief) === undefined ? {} : { brief: read(SUSTAINING_KEYS.brief) }),
             ...(era === undefined ? {} : { era }),
         };
@@ -353,9 +378,14 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         startsAtMinutes: body.startsAtMinutes,
         endsAtMinutes: body.endsAtMinutes,
         days: body.days ?? [],
-        ...(body.sourcePluginId === undefined || body.sourcePlaylistId === undefined
-            ? {}
-            : { source: { pluginId: body.sourcePluginId, playlistId: body.sourcePlaylistId } }),
+        // A chart wins over the pair, which is the same precedence `ScheduleRepository` reads a row
+        // back with. A body naming both is a caller sending a contradiction, and answering it the
+        // same way in both directions is what stops a write and its read-back disagreeing.
+        ...(body.sourceChartId !== undefined
+            ? { source: { chartId: body.sourceChartId, ...(body.sourceChartOrder === undefined ? {} : { chartOrder: body.sourceChartOrder }) } }
+            : body.sourcePluginId === undefined || body.sourcePlaylistId === undefined
+              ? {}
+              : { source: { pluginId: body.sourcePluginId, playlistId: body.sourcePlaylistId } }),
         ...(body.personaId?.trim() ? { personaId: body.personaId.trim() } : {}),
         ...(body.brief?.trim() ? { brief: body.brief.trim() } : {}),
         ...(body.eraFrom === undefined && body.eraTo === undefined
@@ -377,7 +407,11 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         startsAtMinutes: slot.startsAtMinutes,
         endsAtMinutes: slot.endsAtMinutes,
         days: [...slot.days],
-        ...(slot.source === undefined ? {} : { sourcePluginId: slot.source.pluginId, sourcePlaylistId: slot.source.playlistId }),
+        ...(slot.source === undefined
+            ? {}
+            : isChartSource(slot.source)
+              ? { sourceChartId: slot.source.chartId, ...(slot.source.chartOrder === undefined ? {} : { sourceChartOrder: slot.source.chartOrder }) }
+              : { sourcePluginId: slot.source.pluginId, sourcePlaylistId: slot.source.playlistId }),
         ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
         ...(slot.brief === undefined ? {} : { brief: slot.brief }),
         ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),

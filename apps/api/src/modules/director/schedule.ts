@@ -35,6 +35,7 @@
  * fact about the schedule that only the code knew.
  */
 
+import type { ChartOrder } from './chart.picks.js';
 import { readClock } from './clock.bands.js';
 import type { StationLineupMode, StationLineupOnEnd } from './station.lineup.js';
 
@@ -44,11 +45,20 @@ export const MINUTES_IN_DAY = 24 * 60;
 /** Days in a week, walked back over when nothing has started today. */
 const DAYS_IN_WEEK = 7;
 
-/** Where a slot's records come from, or absent for a slot the station fills itself. */
-export interface ScheduleSlotSource {
-    pluginId: string;
-    playlistId: string;
-}
+/**
+ * Where a slot's records come from, or absent for a slot the station fills itself.
+ *
+ * A union rather than four optional fields, because the two arms are alternatives all the way down:
+ * `PutOnAirInput` takes a playlist pair or a chart id and can make no sense of both, and the
+ * difference between them is not cosmetic. A playlist names COPIES the station can already fetch; a
+ * chart names RECORDS, so a changeover onto one has the station look each entry up and ingest it,
+ * and a station with `rotation.discover` off can air almost none of one.
+ */
+export type ScheduleSlotSource = { pluginId: string; playlistId: string } | { chartId: string; chartOrder?: ChartOrder };
+
+/** Whether a slot's source is a chart, which is the only thing `chartOrder` means anything for. */
+export const isChartSource = (source: ScheduleSlotSource | undefined): source is { chartId: string; chartOrder?: ChartOrder } =>
+    source !== undefined && 'chartId' in source;
 
 /**
  * One entry in the schedule: from this time on this day, the station plays this.

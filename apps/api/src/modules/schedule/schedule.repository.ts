@@ -2,7 +2,7 @@ import { Injectable } from 'injectkit';
 import { Kysely, sql } from 'kysely';
 import { DataRepository, type DB } from '#modules/data/data.repository.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
-import type { ScheduleSlot } from '#modules/director/schedule.js';
+import { isChartSource, type ScheduleSlot } from '#modules/director/schedule.js';
 
 /**
  * The slots an operator has written.
@@ -95,8 +95,12 @@ function columnsOf(draft: ScheduleSlotDraft) {
         startsAtMinutes: draft.startsAtMinutes,
         endsAtMinutes: draft.endsAtMinutes,
         days: sql<string>`${JSON.stringify([...draft.days])}::jsonb`,
-        sourcePluginId: draft.source?.pluginId ?? null,
-        sourcePlaylistId: draft.source?.playlistId ?? null,
+        // One arm or the other, never both: a source that named a playlist AND a chart would be a
+        // row `toSlot` has to pick a winner from, which is a decision nobody made.
+        sourcePluginId: isChartSource(draft.source) ? null : (draft.source?.pluginId ?? null),
+        sourcePlaylistId: isChartSource(draft.source) ? null : (draft.source?.playlistId ?? null),
+        sourceChartId: isChartSource(draft.source) ? draft.source.chartId : null,
+        sourceChartOrder: isChartSource(draft.source) ? (draft.source.chartOrder ?? null) : null,
         personaId: draft.personaId ?? null,
         brief: draft.brief ?? '',
         eraFrom: draft.era?.from ?? null,
@@ -123,6 +127,8 @@ function toSlot(row: {
     days: unknown;
     sourcePluginId: string | null;
     sourcePlaylistId: string | null;
+    sourceChartId: string | null;
+    sourceChartOrder: 'countdown' | 'ranked' | 'unordered' | null;
     personaId: string | null;
     brief: string;
     eraFrom: number | null;
@@ -137,11 +143,18 @@ function toSlot(row: {
         startsAtMinutes: row.startsAtMinutes,
         endsAtMinutes: row.endsAtMinutes,
         days: weekdaysIn(row.days),
-        // Both halves or neither. One without the other is not a source anything could read, and the
-        // resolver's caller treats a slot with no source as one the station fills itself.
-        ...(row.sourcePluginId == null || row.sourcePlaylistId == null
-            ? {}
-            : { source: { pluginId: row.sourcePluginId, playlistId: row.sourcePlaylistId } }),
+        // A chart FIRST, because it is one column and the pair is two: a row holding both is not
+        // something the writer above can produce, and reading it as the chart is the answer that
+        // needs no second rule about which half of a contradiction to believe.
+        //
+        // Otherwise both halves or neither. One without the other is not a source anything could
+        // read, and the resolver's caller treats a slot with no source as one the station fills
+        // itself.
+        ...(row.sourceChartId != null
+            ? { source: { chartId: row.sourceChartId, ...(row.sourceChartOrder == null ? {} : { chartOrder: row.sourceChartOrder }) } }
+            : row.sourcePluginId == null || row.sourcePlaylistId == null
+              ? {}
+              : { source: { pluginId: row.sourcePluginId, playlistId: row.sourcePlaylistId } }),
         ...(row.personaId == null ? {} : { personaId: row.personaId }),
         ...(row.brief.trim().length === 0 ? {} : { brief: row.brief }),
         // Absent entirely when neither end is set, so a slot with no period and one that was never

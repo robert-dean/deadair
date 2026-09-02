@@ -66,6 +66,15 @@ create table deadair.schedule_slots (
     -- playlist behind it is.
     source_plugin_id text,
     source_playlist_id text,
+    -- Or a published chart, which is the other thing `putOnAir` takes and is an ALTERNATIVE to the
+    -- pair above rather than a companion: a playlist names copies the station can already fetch and
+    -- a chart names records it has to look up, so a slot is one or the other and never both.
+    -- Qualified as `plugin:chart`, which is how the charts routes list them.
+    source_chart_id text,
+    -- Which way round that chart is played. Null is a countdown, which is the shape a chart show has
+    -- and what `putOnAir` means by an absent order, so a slot that never chose one gets the same
+    -- broadcast an operator pressing the button by hand gets.
+    source_chart_order text constraint schedule_slots_chart_order_check check (source_chart_order in ('countdown', 'ranked', 'unordered')),
     -- Who hosts this stretch of the day. Null means the station's own active persona, exactly as on
     -- `station_lineup`, and `set null` for the same reason 0013 gives: deleting a persona should drop
     -- the slot back to the station's host, never take the schedule with it.

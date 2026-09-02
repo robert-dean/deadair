@@ -302,4 +302,47 @@ describe('ScheduleTickJob', () => {
 
         await expect(tick()).resolves.toBeUndefined();
     });
+
+    it('changes over onto a chart when that is what the slot names', async () => {
+        const { tick, console } = build({ inForce: slot('countdown', { source: { chartId: 'deadair.lastfm:top-100', chartOrder: 'countdown' } }) });
+
+        await tick();
+
+        expect(console.putOnAir).toHaveBeenCalledWith(
+            expect.objectContaining({ chartId: 'deadair.lastfm:top-100', chartOrder: 'countdown' }),
+            expect.anything(),
+        );
+    });
+
+    it('sends a chart slot no playlist at all, since the two are alternatives', async () => {
+        // `putOnAir` can make no sense of both, and a changeover that sent a leftover pair beside a
+        // chart would air whichever branch happened to be tested first.
+        const { tick, console } = build({ inForce: slot('countdown', { source: { chartId: 'deadair.lastfm:top-100' } }) });
+
+        await tick();
+
+        const [input] = (console.putOnAir as unknown as { mock: { calls: Record<string, unknown>[][] } }).mock.calls[0]!;
+
+        expect(input).not.toHaveProperty('pluginId');
+        expect(input).not.toHaveProperty('playlistId');
+        // Absent rather than defaulted here: `putOnAir` owns what an unset order means, so a slot
+        // that never chose one gets the same broadcast a hand-pressed button does.
+        expect(input).not.toHaveProperty('chartOrder');
+    });
+
+    it('sustains a gap from a chart when the operator named one', async () => {
+        const { tick, console } = build({
+            inForce: undefined,
+            airing: 'breakfast',
+            sustaining: { chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked' },
+        });
+
+        await tick();
+
+        expect(console.putOnAir).toHaveBeenCalledWith(
+            expect.objectContaining({ name: 'Sustaining', chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked' }),
+            undefined,
+            true,
+        );
+    });
 });

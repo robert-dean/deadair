@@ -535,6 +535,8 @@ export interface DeadairScheduleSlots {
   mode: Generated<"rotation" | "setlist" | "feature">;
   onEnd: Generated<"extend" | "repeat" | "stop">;
   personaId: string | null;
+  sourceChartId: string | null;
+  sourceChartOrder: "countdown" | "ranked" | "unordered" | null;
   sourcePlaylistId: string | null;
   sourcePluginId: string | null;
   startsAtMinutes: number;

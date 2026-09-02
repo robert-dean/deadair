@@ -209,4 +209,23 @@ describe('the sustaining source', () => {
             expect(build({ settings: { [KEYS.from]: value } }).sustaining()?.era, `"${value}" should not be a year`).toBeUndefined();
         }
     });
+
+    it('reads a chart and the way round it is played', () => {
+        const service = build({ settings: { 'schedule.sustainingChartId': 'deadair.lastfm:top-100', 'schedule.sustainingChartOrder': 'ranked' } });
+
+        expect(service.sustaining()).toMatchObject({ chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked' });
+    });
+
+    it('reads an order nothing recognises as no order rather than passing it on', () => {
+        // The same guard a year gets, for the same reason: a setting is text, and `putOnAir` owns
+        // what an absent order means. Passing `'backwards'` through would reach a contract that
+        // refuses it, turning a typo into a changeover that fails every minute.
+        for (const value of ['backwards', 'COUNTDOWN', '', '  ']) {
+            const service = build({ settings: { 'schedule.sustainingChartId': 'deadair.lastfm:top-100', 'schedule.sustainingChartOrder': value } });
+
+            expect(service.sustaining()?.chartOrder, `"${value}" should not be an order`).toBeUndefined();
+            // The chart still stands: an unreadable order is not a reason to lose the source.
+            expect(service.sustaining()?.chartId).toBe('deadair.lastfm:top-100');
+        }
+    });
 });

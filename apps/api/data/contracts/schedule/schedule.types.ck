@@ -13,6 +13,8 @@ contract ScheduleSlot: {
     days?: array(int(min=0, max=6)) # The weekdays it runs on, Sunday 0. Absent or empty means every day
     sourcePluginId?: string(max=200) # The plugin the records come from. Absent, with no playlist, is a slot the station fills itself
     sourcePlaylistId?: string(max=500)
+    sourceChartId?: string(max=400) # A published chart to play instead, as `pluginId:chartId`. An ALTERNATIVE to the playlist pair rather than a companion, and it wins if both are sent: a playlist names copies the station can already fetch and a chart names records it has to look up
+    sourceChartOrder?: enum(countdown, ranked, unordered) # Which way round that chart is played. Absent is `countdown`, which ends on number one. Ignored without `sourceChartId`
     personaId?: string(max=100) # Who hosts this stretch of the day. Absent means the station's own active persona
     brief?: string(max=500) # What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console
     eraFrom?: int(min=1900, max=2100) # The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period

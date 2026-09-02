@@ -1,0 +1,34 @@
+/*
+ * A destination's tabs, on a viewport with no room for all of them.
+ *
+ * A CSS module rather than inline styles because two of these three rules cannot be written as a
+ * `style` prop at all: hiding a scrollbar is a vendor pseudo-element, and Firefox wants its own
+ * property for the same thing.
+ *
+ * The rule the tabs sit on is on the RAIL rather than on the strip, which is the whole reason there
+ * are two elements here. `overflow-x` on the strip forces `overflow-y` to compute to `auto`, and the
+ * selected tab's underline is pulled down onto the rule by a negative margin — a pixel outside the
+ * strip's content box, which is enough to earn a vertical scrollbar on a horizontal strip. Moving
+ * the rule out means the strip can clip its own vertical overflow and the underline still lands on
+ * a line that is drawn underneath it.
+ */
+.rail {
+    border-bottom: 1px solid var(--da-border);
+}
+
+.strip {
+    overflow-x: auto;
+    /* Its computed value is `auto` whatever is written here once `overflow-x` is set, so it is said
+       explicitly: the strip is one row and has nothing to scroll vertically. */
+    overflow-y: hidden;
+    /* Room for a focus ring, which `overflow-y: hidden` would otherwise cut the top off. The bottom
+       stays flush so the underline still meets the rail. */
+    padding-top: 2px;
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.strip::-webkit-scrollbar {
+    display: none;
+}

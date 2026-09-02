@@ -3,8 +3,8 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import { ChartsService } from '#modules/charts/charts.service.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY } from './pick.resolver.js';
-import { bindsAnything, withinPeriod } from './candidates.repository.js';
-import { songKey } from './rotation.keys.js';
+import { bindsAnything } from './candidates.repository.js';
+import { chartPicks } from './chart.picks.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
@@ -148,36 +148,19 @@ export class ChartSetGenerator extends SetGenerator {
             return [];
         }
 
-        const picks: TrackPick[] = [];
-        const taken = new Set<string>();
         const era = bindsAnything(inputs.era) ? inputs.era : undefined;
-
-        for (const entry of entries) {
-            if (picks.length >= want) break;
-
-            // The PERIOD, for `SimilarSetGenerator`'s reason: `PickResolver` drops an out-of-period
-            // pick whatever named it, so naming one turns this binding's share of the batch into
-            // nothing, where declining lets the chain top up from a floor that can actually fill it.
-            //
-            // It bites harder here than anywhere else, and that is worth knowing rather than
-            // discovering: a chart is a snapshot of what is popular NOW, so a station asked for a
-            // decade and taking a share from a current chart will find almost none of it eligible.
-            // That is the setting doing what it says rather than a fault — an operator who wants
-            // both wants a chart FROM that period, which is `rotation.chart` rather than this.
-            if (era !== undefined && !withinPeriod(entry.year, era)) continue;
-
-            const key = songKey(entry.title, [entry.artist]);
+        const picks = chartPicks(entries, {
+            want,
+            ...(era === undefined ? {} : { era }),
             // The chain checks this too, and doing it here as well is what makes the oversample
             // work: a chart's top ten against a running order that already holds half of it should
             // contribute the other half rather than stopping at `want` rows of duplicates.
-            if (inputs.avoidSongKeys?.has(key) || taken.has(key)) continue;
-
-            taken.add(key);
-            // No `trackId`, deliberately, even where the library happens to hold the record. This
-            // binding has not read the catalog and does not know which row it would be; the
-            // resolver matches by name and is the one place that decision belongs.
-            picks.push({ title: entry.title, artist: entry.artist });
-        }
+            ...(inputs.avoidSongKeys === undefined ? {} : { avoidSongKeys: inputs.avoidSongKeys }),
+            // The published order. A countdown is a thing an operator asks for when they put a
+            // chart on themselves; a share of a refill is not a chart show and has no shape to end
+            // on, so this binding takes the document as it comes.
+            order: 'ranked',
+        });
 
         this.logger.debug('director: took records from a chart', {
             chartId,

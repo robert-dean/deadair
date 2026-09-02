@@ -225,8 +225,18 @@ export function stationRules(config: AppConfig): ResolvedRules {
     };
 }
 
-/** Every rule off. What a lineup that is not a rotation resolves to. */
-const NO_RULES: ResolvedRules = {
+/**
+ * Every rule off. What a lineup that is not a rotation resolves to.
+ *
+ * Exported because a second caller wants exactly this and for a reason worth naming: a source the
+ * OPERATOR chose by hand is not a generator's suggestion. `PickResolver.vet` already makes that
+ * argument for a playlist — the repeat window, the artist cooldown and the per-artist cap have
+ * nothing to apply to a document somebody picked — and seeding a running order from a published
+ * chart is the same argument about the same kind of thing. What stays on either way is the veto:
+ * a dislike, the period and the advisory policy are instructions rather than preferences, and
+ * `resolve` applies all three regardless of what is passed here.
+ */
+export const NO_RULES: ResolvedRules = {
     repeatWindowDays: 0,
     artistCooldownMinutes: 0,
     maxPerArtist: 0,

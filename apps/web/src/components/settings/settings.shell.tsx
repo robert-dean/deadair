@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import { Anchor, Badge, Box, Group, ScrollArea, Stack, Text, Title } from '@mantine/core';
-import { Link } from '@tanstack/react-router';
+import { Stack, Text, Title } from '@mantine/core';
+import { useNavigate } from '@tanstack/react-router';
 import type { StationSettingDescriptor } from '@deadair/sdk';
 
+import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmbeddedPage } from '../shared/page.header';
-import classes from './settings.shell.module.css';
 
 /**
  * Every section there is.
@@ -30,8 +30,6 @@ export type SettingsSectionId = 'station' | 'appearance' | 'rotation' | 'playout
 export interface SettingsSection {
     id: SettingsSectionId;
     label: string;
-    /** What the section holds, which is the half a bare label leaves out. */
-    hint: string;
     /** The declared group this section draws, for the six that draw one. */
     group?: StationSettingDescriptor['group'];
     /** The sentence under the heading. Only a section with a `group` has one. */
@@ -43,7 +41,7 @@ export interface SettingsSection {
 /**
  * The sections an operator can jump to, in the order they should meet them.
  *
- * **This is the only list.** It was two — the labels and hints here, and a parallel `GROUPS` in
+ * **This is the only list.** It was two — the labels here, and a parallel `GROUPS` in
  * `settings.page.tsx` holding the group key and the blurb — so a new section had to be added to
  * both, and a group named in neither was invisible with nothing to catch it. The registry says so
  * in as many words at `settings.registry.ts:145`, and it is right that no test could see it: the
@@ -62,53 +60,55 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     {
         id: 'station',
         label: 'Station',
-        hint: 'Name, mount and where it publishes',
         group: 'station',
         blurb: 'What the station is called and where it publishes. Icecast and Liquidsoap read these from files rendered on save, so a change reaches them on their next restart.',
     },
     // Second, and the only one on this page that changes nothing about the station. It is here
     // because "how do I make this readable in daylight" is a question an operator brings to
     // Settings, and the card itself says plainly that it is remembered on this browser alone.
-    { id: 'appearance', label: 'Appearance', hint: 'How the console looks, on this browser' },
+    { id: 'appearance', label: 'Appearance' },
     {
         id: 'rotation',
         label: 'Rotation',
-        hint: 'How it programmes itself',
         group: 'rotation',
         blurb: 'How the station programmes itself when nothing more specific is asked for. A lineup can override any of these for itself, and a setlist or a feature ignores all of them.',
     },
     {
         id: 'playout',
         label: 'Playout',
-        hint: 'What puts it on air',
         group: 'playout',
         blurb: 'What puts the station on air, and the secret the playout bridge is gated on.',
     },
     {
         id: 'render',
         label: 'Voice and audio',
-        hint: 'How it speaks, and how a programme is assembled',
         group: 'render',
         blurb: 'How the station speaks, and how a programme written in parts is put together.',
     },
     {
         id: 'llm',
         label: 'Words',
-        hint: 'Which plugin it asks for words',
         group: 'llm',
         blurb: 'Which plugin the station asks for words. With none set up it still writes its own breaks, from what is either side of them in the running order.',
     },
     {
         id: 'analysis',
         label: 'Measurement',
-        hint: 'Which plugin measures records',
         group: 'analysis',
         blurb: 'Which plugin measures records, so the station can trim the dead air off each one and know how long it may talk over an intro. With none set up every track still plays, unmeasured.',
     },
-    { id: 'storage', label: 'Storage', hint: 'What the caches are holding' },
-    { id: 'grants', label: 'Waiting on you', hint: 'What plugins have asked for' },
-    { id: 'plugins', label: 'Plugins', hint: 'What the station runs, and what they have asked for', route: '/plugins' },
+    { id: 'storage', label: 'Storage' },
+    { id: 'grants', label: 'Waiting on you' },
+    { id: 'plugins', label: 'Plugins', route: '/plugins' },
 ];
+
+/**
+ * The strip, in list order.
+ *
+ * Derived rather than declared beside the list, which is the whole reason the list carries labels:
+ * a tab and a section are the same thing said once.
+ */
+const SETTINGS_TABS: readonly DestinationTab<SettingsSectionId>[] = SETTINGS_SECTIONS.map(section => ({ key: section.id, label: section.label }));
 
 /**
  * Where each section goes. Separate from the list above so the labels stay free of route strings.
@@ -152,121 +152,47 @@ export interface SettingsShellProps {
 }
 
 /**
- * The station itself, with a way to jump straight to the part you came for.
+ * The station itself, as a destination with a tab per section.
  *
- * Six cards in one 720px column meant six scrolls, and an operator who came to change the mount
- * read four sections they did not want on the way. The list stays put beside them.
+ * It was nine cards in one 720px column with a sticky list of anchors beside them, and an operator
+ * who came to change the mount read four sections they did not want on the way. Each section is its
+ * own route now, so the strip is navigation between pages rather than a scroll position.
  *
- * **The sections still save one at a time.** Nothing about this changes that, and it is worth being
- * explicit: a settings page whose single button writes forty keys makes every change feel
- * consequential. The list is navigation, not a form.
+ * **The sections still save one at a time**, which is worth being explicit about because the tabs
+ * make it look more like one form than the cards ever did: a settings page whose single button
+ * writes forty keys makes every change feel consequential. The API write is partial, so a section
+ * cannot clear another, and the line under the title says so where the section list used to.
  */
 export function SettingsShell({ active, children }: SettingsShellProps) {
+    const navigate = useNavigate();
+
     return (
         <Stack gap="lg">
             <Stack gap="xxs">
                 <Title order={1}>Settings</Title>
                 <Text size="sm" c="dimmed" maw={760}>
-                    The station itself, and the plugins it runs. What plays between blocks is on Programme instead, beside the timetable that makes
-                    sense of it.
+                    The station itself, and the plugins it runs. Every section saves on its own, and nothing here can clear another. What plays
+                    between blocks is on Programme instead, beside the timetable that makes sense of it.
                 </Text>
             </Stack>
 
-            {/* The same list, for a viewport with no room for a column beside the cards. Without it
-                everything below `md` is nine cards and one long scroll with no way to skip — which
-                is the complaint the sidebar was added to answer, left unanswered on a phone. */}
-            <ScrollArea type="never" hiddenFrom="md">
-                <Group gap="xs" wrap="nowrap" pb={4}>
-                    {SETTINGS_SECTIONS.map(section => {
-                        // Held rather than read inline: `to` will not take a widened `string`, and
-                        // the narrowing does not survive into the `renderRoot` closure.
-                        const route = SETTINGS_ROUTES[section.id];
-                        const here = active === section.id;
+            {/* One strip for both widths, where this was a sticky column beside the cards and a
+                scrolling row of chips below `md`. Two navigations for one list was two things to
+                keep in step, and the phone's copy never offered Plugins at all. */}
+            <DestinationTabs
+                tabs={SETTINGS_TABS}
+                active={active}
+                label="Settings"
+                onSelect={key => {
+                    // Each section is its own route, so this is a real navigation rather than a
+                    // state change: the back button steps between them, and an unsaved edit is
+                    // caught by the guard on the section being left.
+                    void navigate({ to: SETTINGS_ROUTES[key] });
+                }}
+            />
 
-                        return (
-                            <Anchor
-                                key={section.id}
-                                size="sm"
-                                underline="never"
-                                style={{ whiteSpace: 'nowrap' }}
-                                renderRoot={(props: object) => <Link to={route} {...props} />}
-                            >
-                                {/* Mantine caps a `Badge` at the width of its container and clips
-                                    the label with an ellipsis, which turned this strip into "A…",
-                                    "Voi…", "Wa…" — chips that cannot be told apart are worse than
-                                    no strip. The row already scrolls, so there is nothing for a
-                                    chip to overflow and the cap has nothing to protect. */}
-                                <Badge
-                                    variant={here ? 'light' : 'default'}
-                                    size="lg"
-                                    radius="sm"
-                                    fw={400}
-                                    tt="none"
-                                    styles={{ root: { maxWidth: 'none' }, label: { overflow: 'visible' } }}
-                                >
-                                    {section.label}
-                                </Badge>
-                            </Anchor>
-                        );
-                    })}
-                </Group>
-            </ScrollArea>
-
-            <Box className={classes.grid}>
-                <Box
-                    component="nav"
-                    aria-label="Settings sections"
-                    // Sticky under the header rather than scrolling away with the first card: the
-                    // whole point of the list is to be there when you are three sections down.
-                    style={{ position: 'sticky', top: 76, alignSelf: 'start' }}
-                    visibleFrom="md"
-                >
-                    <Stack gap={2}>
-                        {SETTINGS_SECTIONS.map(section => {
-                            // See the strip above: held so the closure keeps the narrowed type.
-                            const route = SETTINGS_ROUTES[section.id];
-                            const here = active === section.id;
-
-                            return (
-                                <Anchor
-                                    key={section.id}
-                                    size="sm"
-                                    underline="never"
-                                    py={6}
-                                    px={10}
-                                    // The bar was drawn transparent on every section and filled on
-                                    // none of them, so the list said where you could go and never
-                                    // where you were. It is the route now rather than a scroll
-                                    // position, so it cannot disagree with the address bar.
-                                    style={{ borderLeft: `2px solid ${here ? 'var(--da-phosphor)' : 'transparent'}` }}
-                                    renderRoot={(props: object) => <Link to={route} {...props} />}
-                                >
-                                    <Stack gap={0}>
-                                        <Text size="sm" fw={here ? 600 : undefined} inherit>
-                                            {section.label}
-                                        </Text>
-                                        {/* What the section holds, which is the half a bare label
-                                            leaves out: "Words" and "Measurement" name subjects
-                                            rather than settings, and an operator looking for the
-                                            model has no way to tell which one to open. */}
-                                        <Text size="xs" c="dimmed" lh={1.3}>
-                                            {section.hint}
-                                        </Text>
-                                    </Stack>
-                                </Anchor>
-                            );
-                        })}
-
-                        <Text size="xs" c="dimmed" mt="xs" px={10}>
-                            Every section saves on its own. Nothing here can clear another.
-                        </Text>
-                    </Stack>
-                </Box>
-
-                <Box style={{ minWidth: 0 }}>
-                    <EmbeddedPage>{children}</EmbeddedPage>
-                </Box>
-            </Box>
+            {/* Stops each section drawing a second `<h1>` under the destination's own. */}
+            <EmbeddedPage>{children}</EmbeddedPage>
         </Stack>
     );
 }

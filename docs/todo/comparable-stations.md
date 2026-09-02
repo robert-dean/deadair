@@ -603,6 +603,67 @@ not wanted, on-demand jingles are `deadair.pads` reached from another direction,
 cap is the only one that is both absent and arguably wanted here, now that the mount is public. It is a
 small one and is noted with the others.
 
+## The sixth pass, which asked one question and got a whole design back
+
+**2026-09-02**, and the method is narrower than the previous five: rather than reading the other
+implementation end to end again, take ONE deferred file this tree is about to build and ask whether
+the other station has already built it. The file was [track-lyrics.md](track-lyrics.md). It had.
+
+**The finding is that the phase that file is worth building for asks the wrong question.** This tree's
+design wanted one number from a synced lyric, the first timestamp, as a vocal onset for the talk-up
+limit. The working implementation derives vocal RANGES across the whole track instead: a line runs
+until the next one, capped so a long gap reads as an instrumental break rather than sustained singing;
+lines closer together than a merge gap join; the last line takes a nominal tail. The first range's
+start is the onset this tree wanted. **The end of the last range is the point the singing stops, and
+nothing else in this tree can answer it.** That second marker is free, it is the other half of a
+talk-up, and this tree's design had it as a footnote.
+
+Three smaller things came with it, each of which would have been paid for here in a bug:
+
+- **A tri-state, not a number.** Instrumental, or ranges, or "cannot say". The third case is a track
+  with unsynced plain text, which has lyrics and no timings and is neither an answer nor an
+  instrumental. Folded into a `min()` it reads as zero.
+- **An instrumental sometimes arrives as a lyric line.** LRC carries a metadata tag some tooling
+  surfaces as a line, and a lone "Instrumental" placeholder body is common. The test has to be
+  anchored to the whole line or a song that sings the word gets classified as having none.
+- **The library call this tree's design named is the one that destroys the data.** The plain lyrics
+  call flattens structured lyrics to text and drops the per-line timings. There is a by-song-id call
+  that preserves them; a track can carry several structured entries so the synced one has to be
+  chosen rather than the first; and each entry's global offset has a counter-intuitive sign, where
+  positive means the lyrics appear sooner.
+
+**One thing was deliberately NOT taken, and the disagreement is the useful part.** The other
+implementation uses the lyric to REPLACE its vocal detector rather than to narrow it, on a measured
+argument: source separation never separates cleanly, an instrumental's vocal stem carries enough bleed
+that a self-relative energy gate reads it as singing, and that produced a false positive across a
+library. A typed timestamp beats that. But this tree measured its own inputs on the same day and got a
+different answer: across 52 synced lyrics for records this station actually holds, 12 first lines land
+under three seconds and 6 under one. Their conclusion is right about their inputs and ours is right
+about ours. **Both passes were measurements against a real catalogue and they disagree, which is the
+argument for measuring rather than for either answer.**
+
+### The convergence that names both markers
+
+Neither station invented this. Broadcast automation has stored the vocal-start cue as an editable
+per-track marker for decades, beside outro, fade-out and start-next markers, and at least one system
+places its talk markers in PAIRS and will not accept one alone. That is the same conclusion the sixth
+pass reached from the other direction, and it carries a third consequence neither station's code shows:
+**the pair is expected to be operator-editable.** The other station has already paid for the guard
+that needs, on a different column entirely: every walk revisits every track, so an override an
+automatic writer can clobber is one the next pass silently undoes, and the refusal belongs in the
+writer's own WHERE clause. This tree has the same lesson one subsystem over, in the schedule's manual
+takeover, and nowhere in the catalog.
+
+### One use of a lyric this tree had not listed at all
+
+The other implementation puts a capped lyric excerpt into the text it embeds for similarity, beside
+tags, measured acoustics and an era word. Its stated reason is better than the feature: with every
+optional line empty the vector IS the label, so similarity ranks by artist and album wording, a
+prolific artist self-clusters, and two unrelated artists whose names share a word land beside each
+other while the caller believes it is reading mood. That is a sharper statement of the embedding-axis
+trap the fourth pass recorded, and it names a cheap input that breaks the degeneracy. Recorded in
+[track-lyrics.md](track-lyrics.md)'s uses table, unscoped, for whoever builds that axis.
+
 ## What is deliberately not wanted
 
 Recording these stops the survey being re-run to reach the same answer.
@@ -642,6 +703,11 @@ Revised after the second pass, with the original reasons kept, and marked after 
    third pass, which arrive with it whether or not anybody plans for them. **It needs no file of its
    own** — `track-analysis.md` is the design, down to the field table — and as of 2026-08-28 that
    file also carries this survey's two guards and the sidecar memory note. Read it, not this line.
+   **Re-ranked by the sixth pass**: the lyric half is no longer waiting on the beat layer at all. It
+   is cheaper than was thought (98% of a sampled 60 records answered, 87% of them with timings), it
+   answers a marker the beat layer does not attempt (where the singing STOPS), and its design is now
+   written against working code rather than against reasoning. It can land first and narrow the beat
+   layer later, which is the reverse of the dependency this entry assumed.
 3. ~~**The station check-up**~~, because everything it reads already exists and it is the answer to a
    question the operator asks at three in the morning. **Already built** when this was written and
    the survey did not know it; see the third pass.

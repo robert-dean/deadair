@@ -115,15 +115,23 @@ points at that file. Checked against the tree on 2026-08-11.
 - [ ] like/dislike artist/song/album maybe genre — the dislike half is BUILT (a `-1` rating at all
       three levels, collapsed by `effectiveRating`); the genre half is `never-play-rules.md`, and the
       accountless listener version is `station-intelligence.md` §7
-- [ ] integrate with genuis for enrichment — note that the Genius API returns no lyric TEXT, only
-      metadata and annotation anchors, so this is an annotations integration and belongs to
-      `fact-enrichment.md` (third-party prose the host can extract sourced claims from) rather than
-      to lyrics. `track-lyrics.md` says so under "Where lyrics come from"
-- [ ] track lyrics as enrichment — scoped in `track-lyrics.md`. The rule everything follows from is
-      that a lyric may be read by the host and never said on air, which is why it must not arrive as
-      a `SourceDocument`: the deterministic fact floor would take the song's first line as a sourced
-      claim and the DJ would recite it with a citation. The phase worth building first needs no model
-      at all, a synced lyric's first timestamp as the talk-up limit
+- [ ] integrate with genuis for enrichment — an ANNOTATIONS integration, not a lyrics one, and it
+      belongs to `fact-enrichment.md` rather than to lyrics. Two things checked live on 2026-09-02
+      change what it would cost. An annotation arrives welded to the lyric line it annotates (the
+      referent carries the highlighted fragment plus up to 200 characters of surrounding lyric on
+      each side), so the annotation path inherits `track-lyrics.md`'s hazard rather than escaping
+      it: the floor extractor would take that span as a sourced claim. And commercial use of the API
+      is refused without a licence, with the documentation's own terms link resolving to site terms
+      that prohibit reproduction for AI use without signed consent. `track-lyrics.md` has the detail
+      under "Genius, corrected"
+- [ ] track lyrics as enrichment — scoped in `track-lyrics.md`, and its provider table was verified
+      live on 2026-09-02. The rule everything follows from is that a lyric may be read by the host
+      and never said on air, which is why it must not arrive as a `SourceDocument`: the deterministic
+      fact floor would take the song's first line as a sourced claim and the DJ would recite it with
+      a citation. The phase worth building first needs no model at all: a pair of
+      markers derived from a synced lyric, where the vocal starts AND where it stops. Measured on 60 of this station's own records: 59 matched, 52
+      with synced timings, on the strictest match with no fallback ever reached. The first plugin is
+      LRCLIB rather than the operator's library, because this install has no library
 - [x] an explicit-content policy — done; `rotation.advisory` in three states over
       `track_sources.advisory`, per COPY because a clean edit and the explicit original are one
       track with two bindings. `clean-only` demands a positive `clean` rather than reading an

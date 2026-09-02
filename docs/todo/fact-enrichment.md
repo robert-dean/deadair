@@ -59,6 +59,22 @@ its quote and a link to the article.
   prose source is one plugin and no host change. Songfacts stays excluded — right content, no API,
   unfriendly terms.
 
+  **Genius is not the free one of those three, checked live 2026-09-02.** Its annotation prose does
+  not arrive on its own: an annotation is attached to a referent, and the referent carries the
+  highlighted lyric `fragment` plus up to 200 characters of the surrounding lyric on each side, which
+  their own documentation recommends populating. So a Genius document handed to this path arrives
+  with copyrighted lyric text welded to it, and `fact.lead.ts` takes an opening span verbatim as a
+  claim with `source_quote` set to the same span. **That is `track-lyrics.md`'s hazard, on this
+  file's path**, and the whole reason that file refuses to let a lyric arrive as a `SourceDocument`
+  applies here unchanged: the floor extractor cannot decline. A Genius plugin would therefore need
+  the referent's lyric spans stripped before anything became a document, which is a plugin-side
+  obligation nothing in the host would enforce, and that is a poor place to put a rule of this kind.
+  Two commercial facts sit on top of it: commercial use of their API is refused without a licence,
+  stated above authentication in their own getting-started page, and the terms link in their API
+  documentation resolves to the site terms, which prohibit scraping, data mining and reproduction for
+  AI or machine-learning purposes without signed written consent. Discogs and SecondHandSongs are
+  unaffected by any of this; the bullet keeps its shape, Genius just is not the cheap member of it.
+
   **Confirmed 2026-08-28**, by the second source arriving: `plugins/websearch` declares `enrichment`
   beside `search`, hands back `documents` from pages it read, and **no host file changed for it** —
   not the merge, not the walk, not the extractor. What it adds that this list did not anticipate is

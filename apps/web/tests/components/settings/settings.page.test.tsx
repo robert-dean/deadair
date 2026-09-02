@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SdkError } from '@deadair/sdk';
 import type { StationSettings } from '@deadair/sdk';
 
-import { SettingsPage } from '../../../src/components/settings/settings.page';
+import { SettingsSectionPage } from '../../../src/components/settings/settings.page';
+import { SETTINGS_SECTIONS } from '../../../src/components/settings/settings.shell';
 import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const getSettings = vi.fn();
@@ -20,7 +21,7 @@ const readStorage = vi.fn(async () => ({ readAt: '2026-08-16T13:43:48.367Z', tot
 // Only the blocker is stubbed; the rest of the router stays real, because the page imports `Link`
 // through the section list without rendering it. `useBlocker` is the one hook that reaches for a
 // router instance, and there is none under this render.
-const useBlocker = vi.fn(() => ({ status: 'idle' as const }));
+const useBlocker = vi.fn((_options: unknown) => ({ status: 'idle' as const }));
 
 vi.mock('@tanstack/react-router', async importOriginal => ({
     ...(await importOriginal<typeof import('@tanstack/react-router')>()),
@@ -74,16 +75,26 @@ const SETTINGS: StationSettings = {
 
 const settingsOf = (overrides: Partial<StationSettings> = {}): StationSettings => ({ ...SETTINGS, ...overrides });
 
-describe('SettingsPage', () => {
-    it('draws a section per group, with the stored values in them', async () => {
+describe('SettingsSectionPage', () => {
+    it('draws the section it was asked for, with the stored values in it', async () => {
         getSettings.mockResolvedValue(settingsOf());
 
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="station" />);
 
         expect(await screen.findByRole('heading', { name: 'Station' })).toBeInTheDocument();
-        expect(screen.getByRole('heading', { name: 'Rotation' })).toBeInTheDocument();
         expect(screen.getByLabelText('Station name')).toHaveValue('Old FM');
-        expect(screen.getByLabelText('Minutes between breaks')).toHaveValue('15');
+    });
+
+    it('draws only that section, where it used to draw every one of them', async () => {
+        // The whole of the split, asserted once: one `GET /settings` still answers for all of them,
+        // so a page that filtered nothing would look identical until an operator scrolled.
+        getSettings.mockResolvedValue(settingsOf());
+
+        render(<SettingsSectionPage section="station" />);
+
+        await screen.findByLabelText('Station name');
+        expect(screen.queryByLabelText('Minutes between breaks')).not.toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: 'Rotation' })).not.toBeInTheDocument();
     });
 
     it('never puts a stored secret on the screen', async () => {
@@ -91,7 +102,7 @@ describe('SettingsPage', () => {
         // that would print an Icecast password into somebody's browser.
         getSettings.mockResolvedValue(settingsOf());
 
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="station" />);
 
         const secret = await screen.findByLabelText('Icecast source password');
         expect(secret).toHaveValue('');
@@ -103,7 +114,7 @@ describe('SettingsPage', () => {
         // page, saving the station's name would also rewrite every rotation rule.
         getSettings.mockResolvedValue(settingsOf());
         updateSettings.mockResolvedValue(settingsOf());
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="rotation" />);
         await screen.findByLabelText('Minutes between breaks');
 
         await setupUser().click(screen.getByRole('button', { name: 'Save rotation' }));
@@ -119,7 +130,7 @@ describe('SettingsPage', () => {
     // one being clean says nothing about the others and a single flag would answer for all of them.
     it('does not guard a page where nothing has been typed', async () => {
         getSettings.mockResolvedValue(settingsOf());
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="station" />);
         await screen.findByLabelText('Station name');
 
         expect(guarding()).toBe(false);
@@ -128,7 +139,7 @@ describe('SettingsPage', () => {
     it('guards the page as soon as one section holds an unsaved edit, and stops once it is saved', async () => {
         getSettings.mockResolvedValue(settingsOf());
         updateSettings.mockResolvedValue(settingsOf());
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="station" />);
         const user = setupUser();
         await user.type(await screen.findByLabelText('Station name'), '!');
 
@@ -149,7 +160,7 @@ describe('SettingsPage', () => {
         // So an operator can rename the station without retyping the Icecast password.
         getSettings.mockResolvedValue(settingsOf());
         updateSettings.mockResolvedValue(settingsOf());
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="station" />);
         const user = setupUser();
         await user.clear(await screen.findByLabelText('Station name'));
         await user.type(screen.getByLabelText('Station name'), 'New FM');
@@ -164,31 +175,25 @@ describe('SettingsPage', () => {
         expect('stream.sourcePassword' in sent).toBe(false);
     });
 
-    it('draws no section for a group nothing declares', async () => {
+    it('says a section is empty rather than drawing a heading over nothing', async () => {
         // An empty card is not an empty group, it is a group whose settings do not exist yet, and a
-        // heading over nothing invites the operator to hunt for them.
+        // heading over nothing invites the operator to hunt for them. It was drawn as no card at
+        // all when the sections shared a page; a section that IS the page has to say something, and
+        // the section list leaves it out so this is only reachable by typing the URL.
         getSettings.mockResolvedValue(settingsOf({ descriptors: SETTINGS.descriptors.filter(d => d.group !== 'render') }));
 
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="render" />);
 
-        await screen.findByRole('heading', { name: 'Station' });
-        expect(screen.queryByRole('heading', { name: 'Voice' })).not.toBeInTheDocument();
+        expect(await screen.findByText('No voice and audio settings yet')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /^Save/ })).not.toBeInTheDocument();
     });
 
-    it('draws nothing for a group another page owns', async () => {
+    it('claims no section for a group another page owns', () => {
         // `schedule` is the sustaining source, edited beside the timetable by `SustainingPanel`.
-        // Drawing it here as well would be two forms writing one key, and only one of them next to
-        // the thing that explains it.
-        getSettings.mockResolvedValue(
-            settingsOf({
-                descriptors: [...SETTINGS.descriptors, { group: 'schedule', key: 'schedule.sustainingBrief', label: 'Asked to play', type: 'text' }],
-            }),
-        );
-
-        render(<SettingsPage />);
-
-        await screen.findByRole('heading', { name: 'Station' });
-        expect(screen.queryByLabelText('Asked to play')).not.toBeInTheDocument();
+        // Claiming it here as well would be two forms writing one key, and only one of them next to
+        // the thing that explains it. Asserted against the list rather than a render, because the
+        // list is now what decides: there is no route that could draw it.
+        expect(SETTINGS_SECTIONS.some(section => section.group === 'schedule')).toBe(false);
     });
 
     it('round-trips a dot-keyed setting, which the form library reads as a nested path', async () => {
@@ -197,7 +202,7 @@ describe('SettingsPage', () => {
         // empty and submit nothing — quietly, with no error anywhere. This is that regression.
         getSettings.mockResolvedValue(settingsOf());
         updateSettings.mockResolvedValue(settingsOf());
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="station" />);
         const user = setupUser();
 
         const input = await screen.findByLabelText('Station name');
@@ -225,7 +230,7 @@ describe('SettingsPage', () => {
                 new Headers(),
             ),
         );
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="station" />);
         await screen.findByLabelText('Station name');
 
         await setupUser().click(screen.getByRole('button', { name: 'Save station' }));
@@ -245,7 +250,7 @@ describe('SettingsPage', () => {
             }),
         );
 
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="rotation" />);
 
         const box = await screen.findByLabelText('What the station says');
         expect(box.tagName).toBe('TEXTAREA');
@@ -264,7 +269,7 @@ describe('SettingsPage', () => {
         // partial one crashes an unrelated card and shows up as an unhandled error attributed to
         // this test.
         updateSettings.mockResolvedValue(templates);
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="rotation" />);
         await screen.findByLabelText('What the station says');
 
         await setupUser().click(screen.getByRole('button', { name: 'Save rotation' }));
@@ -275,7 +280,7 @@ describe('SettingsPage', () => {
     it('says so when the settings cannot be read', async () => {
         getSettings.mockRejectedValue(new Error('nope'));
 
-        render(<SettingsPage />);
+        render(<SettingsSectionPage section="station" />);
 
         expect(await screen.findByText('Settings unavailable')).toBeInTheDocument();
     });

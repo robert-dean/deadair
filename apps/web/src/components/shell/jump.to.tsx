@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 
 import { LIBRARY_ROUTES, LIBRARY_TABS } from '../library/library.shell';
 import { PROGRAMME_TABS } from '../schedule/schedule.page';
-import { SETTINGS_SECTIONS } from '../settings/settings.shell';
+import { SETTINGS_ROUTES, SETTINGS_SECTIONS } from '../settings/settings.shell';
 import { CHECKUP_ROUTES, CHECKUP_TABS } from '../station/checkup.shell';
 import { VOICE_TABS } from '../voice/voice.page';
 
@@ -93,16 +93,14 @@ export function JumpTo() {
             group: 'Settings',
             actions: [
                 // Plugins is one of these rather than an entry appended after them: it is a
-                // section of Settings that happens to be a whole route, and the list says so.
+                // section of Settings that happens to have been a route first, and the list says so.
                 ...SETTINGS_SECTIONS.map(section => ({
                     id: `settings:${section.id}`,
                     label: section.label,
                     description: 'Settings',
-                    // A hash for a section that is a card on one page, and a route for the one that
-                    // is not. `scrollMarginTop` on each card is what keeps the sticky header off the
-                    // heading it just landed on.
-                    onClick: () =>
-                        void (section.route === undefined ? navigate({ to: '/settings', hash: section.id }) : navigate({ to: section.route })),
+                    // A route rather than a hash: these are pages now, so the palette lands on the
+                    // section itself instead of scrolling one long page to an anchor on it.
+                    onClick: () => void navigate({ to: SETTINGS_ROUTES[section.id] }),
                 })),
             ],
         },

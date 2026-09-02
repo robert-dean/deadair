@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { SETTINGS_SECTIONS, SettingsShell } from '../../../src/components/settings/settings.shell';
+import { SETTINGS_ROUTES, SETTINGS_SECTIONS, SettingsShell } from '../../../src/components/settings/settings.shell';
 import { render, screen, within } from '../../utils/render';
 
 // The suite's convention for a component that links: the real router needs a route tree this test
@@ -10,7 +10,7 @@ import { render, screen, within } from '../../utils/render';
 // every assertion below with "no section is lit".
 vi.mock('@tanstack/react-router', () => ({
     Link: ({ children, to, hash, params, search, ...rest }: { children?: ReactNode; [key: string]: unknown }) => (
-        <a href="#" {...rest}>
+        <a href={String(to)} {...rest}>
             {children}
         </a>
     ),
@@ -29,7 +29,7 @@ function isLit(link: HTMLElement): boolean {
 describe('SettingsShell', () => {
     it('says what each section holds, not just what it is called', () => {
         render(
-            <SettingsShell active="settings">
+            <SettingsShell active="station">
                 <div />
             </SettingsShell>,
         );
@@ -44,7 +44,7 @@ describe('SettingsShell', () => {
 
     it('offers every section twice, so a phone is not left with one long scroll', () => {
         render(
-            <SettingsShell active="settings">
+            <SettingsShell active="station">
                 <div />
             </SettingsShell>,
         );
@@ -56,31 +56,47 @@ describe('SettingsShell', () => {
         }
     });
 
-    it('lights the first section before anything has been scrolled', () => {
+    // The lit section used to come from a scroll spy, which could disagree with the address bar and
+    // had to be told to light nothing at all on the plugins route. It is the route now, so these
+    // two cases are one question asked twice: whatever the shell was told it is showing, and only
+    // that.
+    it('lights the section it is showing, and only that one', () => {
         render(
-            <SettingsShell active="settings">
+            <SettingsShell active="rotation">
                 <div />
             </SettingsShell>,
         );
 
-        // An unlit list at the top of a page reads as broken rather than as "you are above the
-        // first section". Nothing has passed the header yet, so the first one wins.
-        const links = within(sectionNav()).getAllByRole('link');
-        expect(isLit(links[0]!)).toBe(true);
-        expect(isLit(links[1]!)).toBe(false);
+        const lit = within(sectionNav()).getAllByRole('link').filter(isLit);
+        expect(lit).toHaveLength(1);
+        expect(lit[0]).toHaveTextContent('Rotation');
     });
 
-    it('lights nothing on the plugins route, where the sections are not in the document', () => {
+    it('lights Plugins on the plugins route, which is a section like any other now', () => {
         render(
             <SettingsShell active="plugins">
                 <div />
             </SettingsShell>,
         );
 
-        // From here the section links point at another route, so there is no section being read.
-        // Plugins is what is lit instead, and it is the only thing that should be.
         const lit = within(sectionNav()).getAllByRole('link').filter(isLit);
         expect(lit).toHaveLength(1);
         expect(lit[0]).toHaveTextContent('Plugins');
+    });
+
+    it('points every section at its own route rather than at an anchor', () => {
+        render(
+            <SettingsShell active="station">
+                <div />
+            </SettingsShell>,
+        );
+
+        // The mock below renders `to` as the href, so this reads what the shell actually asked for.
+        // A section that still linked to a hash would scroll a page that no longer exists.
+        const hrefs = within(sectionNav())
+            .getAllByRole('link')
+            .map(link => link.getAttribute('href'));
+
+        expect(hrefs).toEqual(SETTINGS_SECTIONS.map(section => SETTINGS_ROUTES[section.id]));
     });
 });

@@ -4,8 +4,17 @@ import { Link } from '@tanstack/react-router';
 import type { StationSettingDescriptor } from '@deadair/sdk';
 
 import { EmbeddedPage } from '../shared/page.header';
-import { useActiveSection } from './use.active.section';
 import classes from './settings.shell.module.css';
+
+/**
+ * Every section there is.
+ *
+ * Written as a union rather than derived from the list below, which is the one bit of duplication
+ * here and it buys two things worth more than it costs: `SETTINGS_ROUTES` is a `Record` over it, so
+ * a section added without a route fails to compile, and `SettingsSection['id']` is narrow enough to
+ * index that record — which a list-derived type cannot be while the list is typed by the interface.
+ */
+export type SettingsSectionId = 'station' | 'appearance' | 'rotation' | 'playout' | 'render' | 'llm' | 'analysis' | 'storage' | 'grants' | 'plugins';
 
 /**
  * One section of Settings: what it is called, and where its contents come from.
@@ -19,7 +28,7 @@ import classes from './settings.shell.module.css';
  * - A section with a `route` is not a card at all. Plugins is its own page.
  */
 export interface SettingsSection {
-    id: string;
+    id: SettingsSectionId;
     label: string;
     /** What the section holds, which is the half a bare label leaves out. */
     hint: string;
@@ -49,7 +58,7 @@ export interface SettingsSection {
  * subject — a plugin is a thing you configure — and it is why this list lives beside the shell
  * rather than inside the page: it is the one section that is a whole route.
  */
-const SECTIONS = [
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     {
         id: 'station',
         label: 'Station',
@@ -99,34 +108,46 @@ const SECTIONS = [
     { id: 'storage', label: 'Storage', hint: 'What the caches are holding' },
     { id: 'grants', label: 'Waiting on you', hint: 'What plugins have asked for' },
     { id: 'plugins', label: 'Plugins', hint: 'What the station runs, and what they have asked for', route: '/plugins' },
-] as const satisfies readonly SettingsSection[];
-
-/** Every section's id, as a union, so a caller naming one that does not exist fails to compile. */
-export type SettingsSectionId = (typeof SECTIONS)[number]['id'];
+];
 
 /**
- * The list as the interface rather than as the literal tuple.
+ * Where each section goes. Separate from the list above so the labels stay free of route strings.
  *
- * `as const satisfies` above buys both halves, wanted in different places: the tuple keeps
- * {@link SettingsSectionId} exact, and this view lets a caller read `group` or `route` off a section
- * without TypeScript objecting that some members do not have one.
- */
-export const SETTINGS_SECTIONS: readonly SettingsSection[] = SECTIONS;
-
-/**
- * Just the anchors, in page order, for the scroll spy. Stable so the effect does not re-subscribe.
+ * Exported because the command palette navigates to these too, and a second copy of this table is a
+ * second place for a section and its route to come apart. The same division `LIBRARY_ROUTES` makes.
  *
- * A section that is a route of its own has no anchor in this document, so it is not something the
- * spy could find and asking it to look would light nothing.
+ * Heterogeneous on purpose: nine of these are pages under `/settings` and Plugins is not, because it
+ * was a route of its own long before the others were. A section is a place; where the place happens
+ * to live in the URL is this table's business and nobody else's.
  */
-const SECTION_IDS: readonly string[] = SETTINGS_SECTIONS.filter(section => section.route === undefined).map(section => section.id);
-
-/** Module-level, for the same reason: a fresh `[]` per render would re-run the spy's effect. */
-const EMPTY_SECTIONS: readonly string[] = [];
+export const SETTINGS_ROUTES: Record<
+    SettingsSectionId,
+    | '/settings/station'
+    | '/settings/appearance'
+    | '/settings/rotation'
+    | '/settings/playout'
+    | '/settings/render'
+    | '/settings/llm'
+    | '/settings/analysis'
+    | '/settings/storage'
+    | '/settings/grants'
+    | '/plugins'
+> = {
+    station: '/settings/station',
+    appearance: '/settings/appearance',
+    rotation: '/settings/rotation',
+    playout: '/settings/playout',
+    render: '/settings/render',
+    llm: '/settings/llm',
+    analysis: '/settings/analysis',
+    storage: '/settings/storage',
+    grants: '/settings/grants',
+    plugins: '/plugins',
+};
 
 export interface SettingsShellProps {
-    /** `settings` for the station's own sections, `plugins` for the plugin list. */
-    active: 'settings' | 'plugins';
+    /** Which section is being read. Every settings route names its own. */
+    active: SettingsSectionId;
     children: ReactNode;
 }
 
@@ -141,10 +162,6 @@ export interface SettingsShellProps {
  * consequential. The list is navigation, not a form.
  */
 export function SettingsShell({ active, children }: SettingsShellProps) {
-    // Only meaningful on this page: from Plugins the anchors are on another route, so there is no
-    // section being read and nothing to light up.
-    const reading = useActiveSection(active === 'settings' ? SECTION_IDS : EMPTY_SECTIONS);
-
     return (
         <Stack gap="lg">
             <Stack gap="xxs">
@@ -161,25 +178,18 @@ export function SettingsShell({ active, children }: SettingsShellProps) {
             <ScrollArea type="never" hiddenFrom="md">
                 <Group gap="xs" wrap="nowrap" pb={4}>
                     {SETTINGS_SECTIONS.map(section => {
-                        // Held rather than read twice: narrowing `section.route` does not survive
-                        // into the `renderRoot` closure below, and `to` will not take a `string`.
-                        const route = section.route;
-                        const here = route === undefined ? active === 'settings' && reading === section.id : active === 'plugins';
+                        // Held rather than read inline: `to` will not take a widened `string`, and
+                        // the narrowing does not survive into the `renderRoot` closure.
+                        const route = SETTINGS_ROUTES[section.id];
+                        const here = active === section.id;
 
                         return (
                             <Anchor
                                 key={section.id}
-                                href={route === undefined && active === 'settings' ? `#${section.id}` : undefined}
                                 size="sm"
                                 underline="never"
                                 style={{ whiteSpace: 'nowrap' }}
-                                renderRoot={
-                                    route !== undefined
-                                        ? (props: object) => <Link to={route} {...props} />
-                                        : active === 'settings'
-                                          ? undefined
-                                          : (props: object) => <Link to="/settings" hash={section.id} {...props} />
-                                }
+                                renderRoot={(props: object) => <Link to={route} {...props} />}
                             >
                                 {/* Mantine caps a `Badge` at the width of its container and clips
                                     the label with an ellipsis, which turned this strip into "A…",
@@ -214,32 +224,22 @@ export function SettingsShell({ active, children }: SettingsShellProps) {
                     <Stack gap={2}>
                         {SETTINGS_SECTIONS.map(section => {
                             // See the strip above: held so the closure keeps the narrowed type.
-                            const route = section.route;
-                            const here = route === undefined ? active === 'settings' && reading === section.id : active === 'plugins';
+                            const route = SETTINGS_ROUTES[section.id];
+                            const here = active === section.id;
 
                             return (
                                 <Anchor
                                     key={section.id}
-                                    href={route === undefined && active === 'settings' ? `#${section.id}` : undefined}
                                     size="sm"
-                                    c={route === undefined && active !== 'settings' ? 'dimmed' : undefined}
                                     underline="never"
                                     py={6}
                                     px={10}
                                     // The bar was drawn transparent on every section and filled on
                                     // none of them, so the list said where you could go and never
-                                    // where you were.
+                                    // where you were. It is the route now rather than a scroll
+                                    // position, so it cannot disagree with the address bar.
                                     style={{ borderLeft: `2px solid ${here ? 'var(--da-phosphor)' : 'transparent'}` }}
-                                    // From the plugins page these are on another route, so they
-                                    // carry the operator back rather than pointing at anchors that
-                                    // are not in this document.
-                                    renderRoot={
-                                        route !== undefined
-                                            ? (props: object) => <Link to={route} {...props} />
-                                            : active === 'settings'
-                                              ? undefined
-                                              : (props: object) => <Link to="/settings" hash={section.id} {...props} />
-                                    }
+                                    renderRoot={(props: object) => <Link to={route} {...props} />}
                                 >
                                     <Stack gap={0}>
                                         <Text size="sm" fw={here ? 600 : undefined} inherit>

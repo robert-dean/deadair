@@ -1,51 +1,78 @@
-import { useCallback, useState } from 'react';
-import { Box, Card, Stack, Text, Title } from '@mantine/core';
-import type { StationSettings } from '@deadair/sdk';
+import { useState } from 'react';
+import { Card, Stack, Text, Title } from '@mantine/core';
+import type { ConfigFieldDescriptor, StationSettings } from '@deadair/sdk';
 
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
+import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { AppearanceCard } from './appearance.card';
 import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
-import { SETTINGS_SECTIONS, type SettingsSection } from './settings.shell';
+import { SETTINGS_SECTIONS, type SettingsSection, type SettingsSectionId } from './settings.shell';
 import { UnsavedGuard } from './unsaved.guard';
 import { StorageCard } from './storage.card';
 
 /**
- * Everything an operator can change about the station that is not a plugin's own business.
+ * One section of Settings, as its own page.
  *
- * One form per section rather than one for the page, and one save per section with it. A settings
- * page whose single button writes forty keys makes every change feel consequential; this way the
- * operator saves the thing they came to change. The API is partial either way, so a section knows
- * nothing about the others and cannot clear them.
+ * It was the whole page: nine cards in one scroll with a list of anchors beside them. What that
+ * cost was not layout — an operator who came to change the mount read four sections they did not
+ * want on the way, and the lit entry in the list came from a scroll spy that could disagree with
+ * the address bar. A section is a place, so it is a route, and the URL is the only state.
  *
- * The rendering is `ConfigFieldsForm`, shared with the plugin settings form: same descriptors, same
- * partial-update contract, same write-only rules for secrets.
+ * Still one form per section and one save with it, which is what it always was: the API write is
+ * partial, so a section knows nothing about the others and cannot clear them. That was already true
+ * when they shared a page; now nothing about the page suggests otherwise.
  */
-export function SettingsPage() {
+export function SettingsSectionPage({ section: id }: SettingsSectionPageProps) {
+    const section = SETTINGS_SECTIONS.find(candidate => candidate.id === id);
+
+    // Unreachable from a route file, which names its section as a literal the union checks. Here
+    // for the hand-edited URL and for the reader: `find` answers `undefined` and this says what
+    // that would mean rather than letting it fall through as an empty page.
+    if (section === undefined) return <ErrorAlert title="No such section" fallback={`Settings has no section called ${id}.`} />;
+
+    // The three that answer to nothing in the registry do not need the settings read at all, so
+    // they do not wait on it. Split into its own component rather than branched inside one, because
+    // the difference between them IS whether a hook runs.
+    if (section.group === undefined) return <StandaloneSection section={section} />;
+
+    return <GroupSection section={section} group={section.group} />;
+}
+
+export interface SettingsSectionPageProps {
+    /** Which section this page is. Every settings route names its own. */
+    section: SettingsSectionId;
+}
+
+/**
+ * A section whose contents are a card of its own rather than declared settings.
+ *
+ * Appearance writes to this browser, Storage is read-only, and Grants is somebody else's question.
+ * None of them reads `GET /settings`, so none of them shows a skeleton waiting for it.
+ */
+function StandaloneSection({ section }: { section: SettingsSection }) {
+    if (section.id === 'appearance') return <AppearanceCard />;
+    if (section.id === 'storage') return <StorageCard />;
+    if (section.id === 'grants') return <PluginGrantsCard />;
+
+    // A section with no group and no card of its own is a list entry nobody finished. Said out
+    // loud rather than rendered as a blank page.
+    return <EmptyState title="Nothing here yet">This section is in the list but has nothing to draw yet.</EmptyState>;
+}
+
+/** A section that draws its declared settings, which is six of them. */
+function GroupSection({ section, group }: { section: SettingsSection; group: NonNullable<SettingsSection['group']> }) {
     const settings = useSettings();
 
-    // Which sections are holding something unsaved, rather than a single flag. Each section is its
-    // own form with its own save, so one of them being clean says nothing about the others.
-    const [unsaved, setUnsaved] = useState<ReadonlySet<string>>(new Set());
-
-    // Stable, because it is an effect dependency inside every form on the page. The updater returns
-    // the SAME set when membership has not moved: a section reports its bit on every render, and a
-    // new set each time would be a state change each time, which is a render loop.
-    const reportUnsaved = useCallback((id: string, dirty: boolean) => {
-        setUnsaved(current => {
-            if (current.has(id) === dirty) return current;
-            const next = new Set(current);
-            if (dirty) next.add(id);
-            else next.delete(id);
-            return next;
-        });
-    }, []);
+    // One flag rather than the set this held while every section shared a page: there is one form
+    // here now, so there is nothing to aggregate.
+    const [unsaved, setUnsaved] = useState(false);
 
     if (settings.isPending) {
-        // The width matters as much as the shape: this page is a column of cards inside `maw={720}`,
-        // and a full-width placeholder is a different page than the one that replaces it.
+        // The width matters as much as the shape: this is a card inside `maw={720}`, and a
+        // full-width placeholder is a different page than the one that replaces it.
         return (
             <Stack gap="lg">
                 <PageSkeleton variant="rows" count={4} />
@@ -57,92 +84,41 @@ export function SettingsPage() {
         return <ErrorAlert title="Settings unavailable" error={settings.error} fallback="The station settings could not be read." />;
     }
 
-    const data = settings.data;
+    const fields = settings.data.descriptors.filter(descriptor => descriptor.group === group);
+
+    // A group with nothing in it is not an empty card: it is a group whose settings have not been
+    // built yet, and drawing a heading over nothing invites the operator to look for them. The
+    // section list leaves it out for the same reason, so this is only reachable by typing the URL.
+    if (fields.length === 0) {
+        return <EmptyState title={`No ${section.label.toLowerCase()} settings yet`}>Nothing declares a setting in this section yet.</EmptyState>;
+    }
 
     return (
         <Stack gap="lg">
-            <UnsavedGuard dirty={unsaved.size > 0} />
-
-            {SETTINGS_SECTIONS.map(section => (
-                <SettingsSectionCard key={section.id} section={section} settings={data} onDirtyChange={reportUnsaved} />
-            ))}
+            <UnsavedGuard dirty={unsaved} />
+            <SettingsGroupCard section={section} fields={fields} settings={settings.data} onDirtyChange={setUnsaved} />
         </Stack>
     );
 }
 
-interface SettingsSectionCardProps {
-    section: SettingsSection;
-    settings: StationSettings;
-    /** Told when this section starts or stops holding an unsaved edit. Stable, see `SettingsPage`. */
-    onDirtyChange: (id: string, dirty: boolean) => void;
-}
-
-/**
- * One section of the page, whichever of the three kinds it is.
- *
- * The three used to be laid out by hand — six from a list, Appearance wedged in after Station by a
- * key comparison, Storage and Grants tacked on at the end — which is why the order of the page and
- * the order of the section list beside it were two facts that had to be kept the same by reading
- * them both. Now there is one order and this switches on what the section says it is.
- */
-function SettingsSectionCard({ section, settings, onDirtyChange }: SettingsSectionCardProps) {
-    // A section that is a whole route is not drawn here at all. It is in the list because the list
-    // is navigation; the page is only the part of it that is cards.
-    if (section.route !== undefined) return undefined;
-
-    // The cards that answer to nothing in the registry, each with its own reason for being on this
-    // page. See `SettingsSection`.
-    if (section.id === 'appearance') return <AppearanceCard />;
-
-    // Read-only: everything else is something to change, and this is the number the one limit up
-    // there is set against.
-    if (section.id === 'storage')
-        return (
-            <Box id={section.id} style={{ scrollMarginTop: 76 }}>
-                <StorageCard />
-            </Box>
-        );
-
-    // Questions somebody else asked, where every card above is a decision the operator went looking
-    // for. Draws nothing when no plugin has asked for anything.
-    if (section.id === 'grants')
-        return (
-            <Box id={section.id} style={{ scrollMarginTop: 76 }}>
-                <PluginGrantsCard />
-            </Box>
-        );
-
-    if (section.group === undefined) return undefined;
-
-    return <SettingsGroupCard section={section} group={section.group} settings={settings} onDirtyChange={onDirtyChange} />;
-}
-
 interface SettingsGroupCardProps {
     section: SettingsSection;
-    group: NonNullable<SettingsSection['group']>;
+    /** This section's declared fields, already filtered by the caller that checked there are any. */
+    fields: readonly ConfigFieldDescriptor[];
     settings: StationSettings;
-    onDirtyChange: (id: string, dirty: boolean) => void;
+    onDirtyChange: (dirty: boolean) => void;
 }
 
-function SettingsGroupCard({ section, group, settings, onDirtyChange }: SettingsGroupCardProps) {
+function SettingsGroupCard({ section, fields, settings, onDirtyChange }: SettingsGroupCardProps) {
     // A mutation per section, so a save in one does not put another section's button into a
-    // pending state or show it somebody else's error.
+    // pending state or show it somebody else's error. It reads oddly now that a section is a page
+    // on its own, and it is still the right shape: the write is partial, and this is what says so.
     const save = useUpdateSettings();
 
-    // Bound to this section's id here, because the form knows nothing about sections. Memoized
-    // because it is an effect dependency inside the form: a fresh arrow every render would run that
-    // effect every render, which is the one thing its own note asks a caller not to do.
-    const report = useCallback((dirty: boolean) => onDirtyChange(section.id, dirty), [onDirtyChange, section.id]);
-    const fields = settings.descriptors.filter(descriptor => descriptor.group === group);
-
-    // A group with nothing in it is not an empty card: it is a group whose settings have not been
-    // built yet, and drawing a heading over nothing invites the operator to look for them.
-    if (fields.length === 0) return undefined;
-
     return (
-        // The anchor the section list jumps to. `scrollMarginTop` clears the sticky header, which
-        // would otherwise land on top of the heading it just scrolled to.
-        <Card padding="lg" id={section.id} style={{ scrollMarginTop: 76 }}>
+        // No anchor and no `scrollMarginTop`: the section list used to jump to this card, and it
+        // navigates to this page instead.
+        <Card padding="lg">
             <Stack gap="md">
                 <Stack gap="xxs">
                     <Title order={2} size="h4">
@@ -164,7 +140,7 @@ function SettingsGroupCard({ section, group, settings, onDirtyChange }: Settings
                     submitLabel={`Save ${section.label.toLowerCase()}`}
                     failureTitle="Save failed"
                     failureMessage="The settings could not be saved."
-                    onDirtyChange={report}
+                    onDirtyChange={onDirtyChange}
                 />
             </Stack>
         </Card>

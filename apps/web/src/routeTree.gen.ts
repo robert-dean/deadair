@@ -18,12 +18,21 @@ import { Route as LogsRouteImport } from './routes/logs'
 import { Route as NewsRouteImport } from './routes/news'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ScheduleRouteImport } from './routes/schedule'
-import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TracesRouteImport } from './routes/traces'
 import { Route as VoiceRouteImport } from './routes/voice'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsAnalysisRouteImport } from './routes/settings/analysis'
+import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
+import { Route as SettingsGrantsRouteImport } from './routes/settings/grants'
+import { Route as SettingsLlmRouteImport } from './routes/settings/llm'
+import { Route as SettingsPlayoutRouteImport } from './routes/settings/playout'
+import { Route as SettingsRenderRouteImport } from './routes/settings/render'
+import { Route as SettingsRotationRouteImport } from './routes/settings/rotation'
+import { Route as SettingsStationRouteImport } from './routes/settings/station'
+import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
 import { Route as CatalogAlbumsAlbumIdRouteImport } from './routes/catalog/albums/$albumId'
 import { Route as CatalogArtistsArtistIdRouteImport } from './routes/catalog/artists/$artistId'
 import { Route as CatalogTracksIndexRouteImport } from './routes/catalog/tracks/index'
@@ -77,11 +86,6 @@ const ScheduleRoute = ScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TracesRoute = TracesRouteImport.update({
   id: '/traces',
   path: '/traces',
@@ -105,6 +109,56 @@ const PlaylistsIndexRoute = PlaylistsIndexRouteImport.update({
 const PluginsIndexRoute = PluginsIndexRouteImport.update({
   id: '/plugins/',
   path: '/plugins/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsAnalysisRoute = SettingsAnalysisRouteImport.update({
+  id: '/settings/analysis',
+  path: '/settings/analysis',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
+  id: '/settings/appearance',
+  path: '/settings/appearance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsGrantsRoute = SettingsGrantsRouteImport.update({
+  id: '/settings/grants',
+  path: '/settings/grants',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsLlmRoute = SettingsLlmRouteImport.update({
+  id: '/settings/llm',
+  path: '/settings/llm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsPlayoutRoute = SettingsPlayoutRouteImport.update({
+  id: '/settings/playout',
+  path: '/settings/playout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRenderRoute = SettingsRenderRouteImport.update({
+  id: '/settings/render',
+  path: '/settings/render',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRotationRoute = SettingsRotationRouteImport.update({
+  id: '/settings/rotation',
+  path: '/settings/rotation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsStationRoute = SettingsStationRouteImport.update({
+  id: '/settings/station',
+  path: '/settings/station',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsStorageRoute = SettingsStorageRouteImport.update({
+  id: '/settings/storage',
+  path: '/settings/storage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CatalogAlbumsAlbumIdRoute = CatalogAlbumsAlbumIdRouteImport.update({
@@ -154,12 +208,21 @@ export interface FileRoutesByFullPath {
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/schedule': typeof ScheduleRoute
-  '/settings': typeof SettingsRoute
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
+  '/settings/analysis': typeof SettingsAnalysisRoute
+  '/settings/appearance': typeof SettingsAppearanceRoute
+  '/settings/grants': typeof SettingsGrantsRoute
+  '/settings/llm': typeof SettingsLlmRoute
+  '/settings/playout': typeof SettingsPlayoutRoute
+  '/settings/render': typeof SettingsRenderRoute
+  '/settings/rotation': typeof SettingsRotationRoute
+  '/settings/station': typeof SettingsStationRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
+  '/settings/': typeof SettingsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
   '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
   '/catalog/tracks/$trackId': typeof CatalogTracksTrackIdRoute
@@ -178,12 +241,21 @@ export interface FileRoutesByTo {
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/schedule': typeof ScheduleRoute
-  '/settings': typeof SettingsRoute
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
+  '/settings/analysis': typeof SettingsAnalysisRoute
+  '/settings/appearance': typeof SettingsAppearanceRoute
+  '/settings/grants': typeof SettingsGrantsRoute
+  '/settings/llm': typeof SettingsLlmRoute
+  '/settings/playout': typeof SettingsPlayoutRoute
+  '/settings/render': typeof SettingsRenderRoute
+  '/settings/rotation': typeof SettingsRotationRoute
+  '/settings/station': typeof SettingsStationRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/catalog': typeof CatalogIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
   '/plugins': typeof PluginsIndexRoute
+  '/settings': typeof SettingsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
   '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
   '/catalog/tracks/$trackId': typeof CatalogTracksTrackIdRoute
@@ -203,12 +275,21 @@ export interface FileRoutesById {
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/schedule': typeof ScheduleRoute
-  '/settings': typeof SettingsRoute
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
+  '/settings/analysis': typeof SettingsAnalysisRoute
+  '/settings/appearance': typeof SettingsAppearanceRoute
+  '/settings/grants': typeof SettingsGrantsRoute
+  '/settings/llm': typeof SettingsLlmRoute
+  '/settings/playout': typeof SettingsPlayoutRoute
+  '/settings/render': typeof SettingsRenderRoute
+  '/settings/rotation': typeof SettingsRotationRoute
+  '/settings/station': typeof SettingsStationRoute
+  '/settings/storage': typeof SettingsStorageRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
+  '/settings/': typeof SettingsIndexRoute
   '/catalog/albums/$albumId': typeof CatalogAlbumsAlbumIdRoute
   '/catalog/artists/$artistId': typeof CatalogArtistsArtistIdRoute
   '/catalog/tracks/$trackId': typeof CatalogTracksTrackIdRoute
@@ -229,12 +310,21 @@ export interface FileRouteTypes {
     | '/news'
     | '/onboarding'
     | '/schedule'
-    | '/settings'
     | '/traces'
     | '/voice'
+    | '/settings/analysis'
+    | '/settings/appearance'
+    | '/settings/grants'
+    | '/settings/llm'
+    | '/settings/playout'
+    | '/settings/render'
+    | '/settings/rotation'
+    | '/settings/station'
+    | '/settings/storage'
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
+    | '/settings/'
     | '/catalog/albums/$albumId'
     | '/catalog/artists/$artistId'
     | '/catalog/tracks/$trackId'
@@ -253,12 +343,21 @@ export interface FileRouteTypes {
     | '/news'
     | '/onboarding'
     | '/schedule'
-    | '/settings'
     | '/traces'
     | '/voice'
+    | '/settings/analysis'
+    | '/settings/appearance'
+    | '/settings/grants'
+    | '/settings/llm'
+    | '/settings/playout'
+    | '/settings/render'
+    | '/settings/rotation'
+    | '/settings/station'
+    | '/settings/storage'
     | '/catalog'
     | '/playlists'
     | '/plugins'
+    | '/settings'
     | '/catalog/albums/$albumId'
     | '/catalog/artists/$artistId'
     | '/catalog/tracks/$trackId'
@@ -277,12 +376,21 @@ export interface FileRouteTypes {
     | '/news'
     | '/onboarding'
     | '/schedule'
-    | '/settings'
     | '/traces'
     | '/voice'
+    | '/settings/analysis'
+    | '/settings/appearance'
+    | '/settings/grants'
+    | '/settings/llm'
+    | '/settings/playout'
+    | '/settings/render'
+    | '/settings/rotation'
+    | '/settings/station'
+    | '/settings/storage'
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
+    | '/settings/'
     | '/catalog/albums/$albumId'
     | '/catalog/artists/$artistId'
     | '/catalog/tracks/$trackId'
@@ -302,12 +410,21 @@ export interface RootRouteChildren {
   NewsRoute: typeof NewsRoute
   OnboardingRoute: typeof OnboardingRoute
   ScheduleRoute: typeof ScheduleRoute
-  SettingsRoute: typeof SettingsRoute
   TracesRoute: typeof TracesRoute
   VoiceRoute: typeof VoiceRoute
+  SettingsAnalysisRoute: typeof SettingsAnalysisRoute
+  SettingsAppearanceRoute: typeof SettingsAppearanceRoute
+  SettingsGrantsRoute: typeof SettingsGrantsRoute
+  SettingsLlmRoute: typeof SettingsLlmRoute
+  SettingsPlayoutRoute: typeof SettingsPlayoutRoute
+  SettingsRenderRoute: typeof SettingsRenderRoute
+  SettingsRotationRoute: typeof SettingsRotationRoute
+  SettingsStationRoute: typeof SettingsStationRoute
+  SettingsStorageRoute: typeof SettingsStorageRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
   PluginsIndexRoute: typeof PluginsIndexRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
   CatalogAlbumsAlbumIdRoute: typeof CatalogAlbumsAlbumIdRoute
   CatalogArtistsArtistIdRoute: typeof CatalogArtistsArtistIdRoute
   CatalogTracksTrackIdRoute: typeof CatalogTracksTrackIdRoute
@@ -382,13 +499,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScheduleRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/traces': {
       id: '/traces'
       path: '/traces'
@@ -422,6 +532,76 @@ declare module '@tanstack/react-router' {
       path: '/plugins'
       fullPath: '/plugins/'
       preLoaderRoute: typeof PluginsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/': {
+      id: '/settings/'
+      path: '/settings'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/analysis': {
+      id: '/settings/analysis'
+      path: '/settings/analysis'
+      fullPath: '/settings/analysis'
+      preLoaderRoute: typeof SettingsAnalysisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/appearance': {
+      id: '/settings/appearance'
+      path: '/settings/appearance'
+      fullPath: '/settings/appearance'
+      preLoaderRoute: typeof SettingsAppearanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/grants': {
+      id: '/settings/grants'
+      path: '/settings/grants'
+      fullPath: '/settings/grants'
+      preLoaderRoute: typeof SettingsGrantsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/llm': {
+      id: '/settings/llm'
+      path: '/settings/llm'
+      fullPath: '/settings/llm'
+      preLoaderRoute: typeof SettingsLlmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/playout': {
+      id: '/settings/playout'
+      path: '/settings/playout'
+      fullPath: '/settings/playout'
+      preLoaderRoute: typeof SettingsPlayoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/render': {
+      id: '/settings/render'
+      path: '/settings/render'
+      fullPath: '/settings/render'
+      preLoaderRoute: typeof SettingsRenderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/rotation': {
+      id: '/settings/rotation'
+      path: '/settings/rotation'
+      fullPath: '/settings/rotation'
+      preLoaderRoute: typeof SettingsRotationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/station': {
+      id: '/settings/station'
+      path: '/settings/station'
+      fullPath: '/settings/station'
+      preLoaderRoute: typeof SettingsStationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/storage': {
+      id: '/settings/storage'
+      path: '/settings/storage'
+      fullPath: '/settings/storage'
+      preLoaderRoute: typeof SettingsStorageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/catalog/albums/$albumId': {
@@ -486,12 +666,21 @@ const rootRouteChildren: RootRouteChildren = {
   NewsRoute: NewsRoute,
   OnboardingRoute: OnboardingRoute,
   ScheduleRoute: ScheduleRoute,
-  SettingsRoute: SettingsRoute,
   TracesRoute: TracesRoute,
   VoiceRoute: VoiceRoute,
+  SettingsAnalysisRoute: SettingsAnalysisRoute,
+  SettingsAppearanceRoute: SettingsAppearanceRoute,
+  SettingsGrantsRoute: SettingsGrantsRoute,
+  SettingsLlmRoute: SettingsLlmRoute,
+  SettingsPlayoutRoute: SettingsPlayoutRoute,
+  SettingsRenderRoute: SettingsRenderRoute,
+  SettingsRotationRoute: SettingsRotationRoute,
+  SettingsStationRoute: SettingsStationRoute,
+  SettingsStorageRoute: SettingsStorageRoute,
   CatalogIndexRoute: CatalogIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,
   PluginsIndexRoute: PluginsIndexRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
   CatalogAlbumsAlbumIdRoute: CatalogAlbumsAlbumIdRoute,
   CatalogArtistsArtistIdRoute: CatalogArtistsArtistIdRoute,
   CatalogTracksTrackIdRoute: CatalogTracksTrackIdRoute,

@@ -93,10 +93,19 @@ describe('JumpTo', () => {
         expect(navigate).toHaveBeenCalledWith({ to: '/schedule', search: { tab: 'sustaining' } });
     });
 
-    it('reaches a settings section by its anchor, because they are cards on one page', async () => {
+    it('reaches a settings section by its own route, because they are pages now', async () => {
         open();
         await setupUser().click(screen.getByRole('button', { name: /Measurement/ }));
 
-        expect(navigate).toHaveBeenCalledWith({ to: '/settings', hash: 'analysis' });
+        expect(navigate).toHaveBeenCalledWith({ to: '/settings/analysis' });
+    });
+
+    it('reaches Plugins the same way, though its route is not under /settings', async () => {
+        // The one section whose route was never `/settings/…`, and the palette does not special-case
+        // it: `SETTINGS_ROUTES` is what knows, and it is the only thing that does.
+        open();
+        await setupUser().click(screen.getByRole('button', { name: /Plugins/ }));
+
+        expect(navigate).toHaveBeenCalledWith({ to: '/plugins' });
     });
 });

@@ -13,7 +13,7 @@ const reset = vi.fn();
 
 let blocked = false;
 
-const useBlocker = vi.fn(() => (blocked ? { status: 'blocked' as const, proceed, reset } : { status: 'idle' as const }));
+const useBlocker = vi.fn((_options: unknown) => (blocked ? { status: 'blocked' as const, proceed, reset } : { status: 'idle' as const }));
 
 vi.mock('@tanstack/react-router', async importOriginal => ({
     ...(await importOriginal<typeof import('@tanstack/react-router')>()),
@@ -21,7 +21,8 @@ vi.mock('@tanstack/react-router', async importOriginal => ({
 }));
 
 /** The options the guard asked for on its last render. */
-const asked = () => useBlocker.mock.calls.at(-1)?.[0] as { disabled: boolean; shouldBlockFn: () => boolean; enableBeforeUnload: () => boolean };
+const asked = () =>
+    useBlocker.mock.calls.at(-1)?.[0] as unknown as { disabled: boolean; shouldBlockFn: () => boolean; enableBeforeUnload: () => boolean };
 
 describe('UnsavedGuard', () => {
     it('installs no blocker at all while nothing is unsaved', () => {

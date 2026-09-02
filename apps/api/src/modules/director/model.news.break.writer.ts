@@ -93,9 +93,10 @@ export const NEWS_SHAPE: BreakPromptShape = {
         // model that ignored this sentence would still be reading the right ones.
         (request.subject === undefined ? 'This is the news.' : `This is the ${request.subject.label} news, so say so as you introduce it.`) +
         ' Introduce it in a sentence, report the stories below in the order they are given, and then hand back to the music. ' +
-        'Each story gets its headline and a sentence of what happened, from the text you are given and nowhere else. ' +
+        'You are an anchor reading a bulletin, not a page of headlines being read out: tell each story in your own spoken sentences, ' +
+        'from the text you are given and nowhere else. ' +
         'You are reporting, not commenting: no jokes about the stories, no opinions, and nothing about how they make anyone feel.',
-    // Two rules a bulletin owes and a talk break does not, both of them measured failures rather
+    // Three rules a bulletin owes and a talk break does not, all of them measured failures rather
     // than tidiness.
     //
     // The first is padding, and it comes from a story whose text is thin: told to give each story a
@@ -109,9 +110,20 @@ export const NEWS_SHAPE: BreakPromptShape = {
     // correctly and then wrote twelve more sentences of atmosphere — "the needle slides into
     // rhythm", "feel the echo of a pattern within the hiss" — at 214 words against a ceiling of 300.
     // The ceiling is a backstop and was never going to catch it. Nothing had said the bulletin ends.
+    //
+    // The third is the one this shape used to ASK for. Told that each story gets "its headline and a
+    // sentence of what happened", a model does exactly that, and 42 of the 104 bulletins this
+    // station has aired read a headline and then said it again: "Man convicted in murder-for-hire
+    // killing of Microsoft manager on Florida road. A man was convicted in the murder-for-hire
+    // killing of a Microsoft manager on a Florida road." A listener hears the story twice and learns
+    // it once. The fix is in the opening above — an anchor rather than a page being read out — and
+    // this is the half of it that has to be said as a prohibition, because the restatement is what
+    // the model reaches for whenever the headline is already a whole sentence.
     rules: [
         'Never explain a word from a story. If a story mentions gravity, a court or a currency, your listener knows what those are — ' +
             'reaching for a definition is filling a gap the story left, and a gap in the news is better left open.',
+        'Never read a headline out and then say the same thing again in your own words. A headline is written to be seen, not heard: ' +
+            'it drops the words a person would say and packs the story into a line. Find out what happened from it, say that once, and move on.',
         'Stop when the stories stop. The last thing you say is the handover to the record coming up, in one line, and then you are done. ' +
             'No sign-off about the night, no scene-setting, nothing about the sound of the station.',
     ],

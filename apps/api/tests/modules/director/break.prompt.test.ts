@@ -736,10 +736,30 @@ describe('breakPrompt', () => {
 
         // The whole point of the article half: a bulletin written from headlines alone is a list of
         // titles, which is what it was.
-        it('asks for a sentence of what happened rather than only the headline', () => {
+        it('asks for what happened rather than only the headline', () => {
             const said = user(prompt({ kind: 'news', stories }));
 
-            expect(said).toMatch(/a sentence of what actually happened/i);
+            expect(said).toMatch(/what happened, to whom,\s+and where/i);
+            expect(said).toMatch(/reads out headlines and nothing else has told the listener nothing/i);
+        });
+
+        // The other half, and the one that cost 42 of 104 aired bulletins: told to give each story a
+        // sentence of what happened UNDER a headline it could read as it stood, a model reads the
+        // headline and then says it again. The licence to reword is what stops that, and it has to
+        // be stated as exactly the size of the rewording or it reads as a licence to invent.
+        it('asks for the anchor’s own spoken words and says the facts are not theirs to choose', () => {
+            const said = user(prompt({ kind: 'news', stories }));
+
+            expect(said).toMatch(/in the words an anchor would use/i);
+            expect(said).toMatch(/ordinary spoken English/i);
+            expect(said).toMatch(/The wording is yours; the facts are not/i);
+        });
+
+        it('forbids reading a headline out and then restating it', () => {
+            const said = user(prompt({ kind: 'news', stories }));
+
+            expect(said).toMatch(/written to be seen/i);
+            expect(said).toMatch(/rather than reading it out and then repeating yourself/i);
         });
 
         // They overlap almost entirely — a teaser is usually the article's own first sentence — and

@@ -206,11 +206,33 @@ The other half is `BreakPromptShape.showsFacts`, off for `NEWS_SHAPE` alone: the
 the bulletin can hand back in a line, and its NOTES are withheld, because both false discography claims this
 station has aired ("released in May three thousand nine hundred thirty-three") were a model finishing a note
 it half-understood in the voice it had just established as the one that reports facts. `NEWS_SHAPE.rules` then
-closes the two ways a bulletin runs on, neither of which the 300-word ceiling was ever going to catch: it may
+closes the three ways a bulletin runs on, none of which the 300-word ceiling was ever going to catch: it may
 not explain a word out of a story (thin copy is a hole to leave open, not to fill — "Gravity is an inescapable
-force. It's why Earth has its atmosphere and orbits the sun" aired as news, twice), and it STOPS when the
-stories stop, because one bulletin reported three stories correctly and then wrote twelve more sentences about
-the needle sliding into rhythm.
+force. It's why Earth has its atmosphere and orbits the sun" aired as news, twice), it may not read a headline
+and then restate it, and it STOPS when the stories stop, because one bulletin reported three stories correctly
+and then wrote twelve more sentences about the needle sliding into rhythm.
+
+**The facts are fixed and the wording is the anchor's, and for a while the prompt asked for the opposite.**
+`describeStory` called the headline the part that "may be read more or less as it stands", `NEWS_SHAPE.opening`
+asked for "its headline and a sentence of what happened", and the stories rule asked for "a sentence of what
+actually happened" underneath it. Between them those specify a bulletin in two halves, and the station aired
+one: **42 of its first 104 bulletins read a headline and then said it again**, most plainly as "Man convicted in
+murder-for-hire killing of Microsoft manager on Florida road. A man was convicted in the murder-for-hire killing
+of a Microsoft manager on a Florida road." A listener hears the story twice and learns it once, and no ceiling
+or guard was ever going to catch it, because it was the format being asked for.
+
+What replaced it is a licence exactly the size of the rewording and no larger. The model is told to report in
+the words an anchor would use — what happened, to whom, where, in spoken English — and told in the same breath
+that the wording is its and the facts are not, with every anti-invention rule beside it unchanged and in the
+same sentence as the licence. **That the headline is now source rather than copy is the whole change**, and it
+is stated in three places because it was previously contradicted in three: the opening, the stories rule, and
+`describeStory`'s own doc. The floor underneath is unaffected and still reads headlines verbatim, which is what
+a writer that cannot rephrase is for; a bulletin that falls through is a plainer bulletin, not a wrong one.
+
+**A guard would have made this worse, which is why there is not one.** Every other measured failure here is
+refused, but the only thing a refusal can do is drop to `NewsBreakWriter`, and what the floor reads is headlines
+and nothing else — so declining a bulletin for sounding like a list of headlines hands the listener a list of
+headlines. The prompt is the fix and the capture in `script_history` is how it is checked.
 
 ## The weather
 

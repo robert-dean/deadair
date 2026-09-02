@@ -865,18 +865,31 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     // recent scripts are: what the prompt says is a function of what the moment holds.
     if (request.stories && request.stories.length > 0) {
         parts.push(['The stories to report, in this order:', ...request.stories.map(describeStory)].join('\n'));
-        // The one place a model is told it may not paraphrase. Every other rule here is about a
+        // The one place a model is told it may not paraphrase — and the line dividing what it may
+        // reword from what it may not is what this block is FOR. Every other rule here is about a
         // record, where the worst case is an awkward sentence about music; here the worst case is
         // the station stating something false as news in a confident voice, which no listener can
-        // check and no later break can take back. So: no detail that is not written down, no
-        // consequences, no opinion, and nothing joined into one story that arrived as two.
+        // check and no later break can take back.
+        //
+        // So the division is: the FACTS are fixed and the WORDING is the model's. That is a
+        // reversal of what this used to ask for and it is deliberate. Asking for "a sentence of what
+        // actually happened" under a headline the model had also been told it could read as it
+        // stands specified a bulletin in two halves, and it got one — 42 of 104 aired bulletins read
+        // a headline and then restated it, which tells a listener the story twice and teaches them
+        // it once. Every safety rule underneath is unchanged and stated in the same breath as the
+        // licence, because the licence is exactly the size of the rewording and no larger: no detail
+        // that is not written down, no consequences, no opinion, and nothing joined into one story
+        // that arrived as two.
         parts.push(
-            'Read these as news. Give each story a sentence of what actually happened, taken only from the text under its headline — ' +
-                'a bulletin that reads out headlines and nothing else has told the listener nothing. ' +
-                'Say only what each story actually says: do not add detail, do not explain what it means, ' +
-                'do not say what will happen next, and do not merge two stories into one. ' +
+            'Read these as news, in the words an anchor would use. Tell each story as you would say it out loud: what happened, to whom, ' +
+                'and where, in a sentence or two of ordinary spoken English. ' +
+                'A headline is not one of those sentences — it is written to be seen, and read aloud it sounds like a headline — ' +
+                'so take what happened from it and say that, rather than reading it out and then repeating yourself. ' +
+                'A bulletin that reads out headlines and nothing else has told the listener nothing. ' +
+                'The wording is yours; the facts are not. Say only what each story actually says: do not add detail, ' +
+                'do not explain what it means, do not say what will happen next, and do not merge two stories into one. ' +
                 "The text is the publisher's own wording — use it to know what happened, not as lines to read out. " +
-                'Where a story has no text under it, read its headline and move on rather than filling the gap. ' +
+                'Where a story has no text under it, say what its headline says in one spoken sentence and move on rather than filling the gap. ' +
                 'If a story is unclear, leave it out rather than guessing at it. Do not say how you feel about any of it.',
         );
     }
@@ -1058,9 +1071,13 @@ function describe(track: BreakTrack, withFacts: boolean): string {
 /**
  * One story, as the model is shown it.
  *
- * The headline first and on its own line, because it is the part that may be read more or less as
- * it stands — it is a published sentence somebody else already stands behind. What follows is
- * labelled as the story rather than as copy, which is what the rule beside it then leans on.
+ * The headline first and on its own line, because it is the most reliable statement of what
+ * happened: a published sentence somebody else already stands behind. That is what makes it good
+ * SOURCE and it is also what used to make it bad copy — this doc said it "may be read more or less
+ * as it stands", the rules beside it asked for a sentence of explanation underneath, and between
+ * them they specified the headline-then-restatement that 42 of 104 aired bulletins came back as.
+ * Both labels are the model's material now, and neither is a line to read out; the rule beside this
+ * is what says so.
  *
  * The article where there is one and the teaser otherwise, never both: they overlap almost entirely
  * (a teaser is usually the article's own first sentence), and showing a model the same fact twice

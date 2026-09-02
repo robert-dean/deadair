@@ -13,6 +13,7 @@ import { StationLineup } from '../../../src/modules/director/station.lineup.js';
 import type { DirectorCommand, OrderEdit } from '../../../src/modules/director/director.mailbox.js';
 import type { StationAirRepository } from '../../../src/modules/director/station.air.repository.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
+import type { ChartsService } from '../../../src/modules/charts/charts.service.js';
 import type { PlaylistsService } from '../../../src/modules/playlists/playlists.service.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
@@ -47,6 +48,12 @@ interface Options {
     settings?: Record<string, string>;
     /** A hold already on the running order, as epoch millis. `Infinity` never lapses. */
     holdUntil?: number;
+    /** What the chart named by `chartId` answers with. Absent is a chart that could not be read. */
+    chart?: { rank: number; title: string; artist: string; year?: number }[];
+    /** What the chart MENU offers, for the broadcast that takes its name from it. */
+    chartMenu?: { id: string; name: string }[];
+    /** What the resolver makes of a chart's picks. Absent turns every pick into a playable record. */
+    resolve?: (picks: { title: string; artist: string }[]) => RundownTrack[];
 }
 
 function build(options: Options = {}) {
@@ -167,13 +174,35 @@ function build(options: Options = {}) {
     // as it did before the veto existed; a case that cares hands over its own answer.
     const resolver = {
         vet: vi.fn(async (playlistTracks: RundownTrack[]) => (options.vet ? options.vet(playlistTracks) : playlistTracks)),
+        // A chart names records rather than copies, so its path goes through `resolve` instead. The
+        // default turns every pick into something playable, IN ORDER, because the order is what the
+        // chart cases are about — a double that reordered would make a countdown untestable here.
+        resolve: vi.fn(async (picks: { title: string; artist: string }[]) =>
+            options.resolve
+                ? options.resolve(picks)
+                : picks.map((pick, at) => ({
+                      pluginId: 'deadair.lastfm',
+                      externalId: `ext_${at}`,
+                      title: pick.title,
+                      artists: [pick.artist],
+                      artist: pick.artist,
+                  })),
+        ),
     } as unknown as PickResolver;
+
+    // Read-only, like the playlists beside it. `fetchChart` answers nothing by default, which is the
+    // state `ChartsService` flattens every upstream failure to and the one the console has to refuse.
+    const charts = {
+        fetchChart: vi.fn(async () => options.chart ?? []),
+        listCharts: vi.fn(async () => options.chartMenu ?? []),
+    } as unknown as ChartsService;
 
     return {
         service: new DirectorConsoleService(
             air,
             director,
             playlists,
+            charts,
             tracks,
             segments,
             personas as never,
@@ -188,6 +217,8 @@ function build(options: Options = {}) {
         ),
         activity,
         personas,
+        charts,
+        resolver,
         segments,
         settings,
         air,
@@ -208,6 +239,16 @@ const statusOf = async (call: Promise<unknown>): Promise<number> => {
         return 200;
     } catch (error) {
         return (error as { status?: number; statusCode?: number }).status ?? (error as { statusCode?: number }).statusCode ?? 0;
+    }
+};
+
+/** What a refusal actually SAID, for the two cases where the wording is the behaviour under test. */
+const refusalOf = async (call: Promise<unknown>): Promise<string> => {
+    try {
+        await call;
+        return '';
+    } catch (error) {
+        return (error as { details?: { message?: string } }).details?.message ?? '';
     }
 };
 
@@ -885,5 +926,148 @@ describe('DirectorConsoleService editing the running order', () => {
         const { service } = build();
 
         expect(await service.getOrder()).toMatchObject({ items: [] });
+    });
+});
+
+describe('DirectorConsoleService building a running order from a chart', () => {
+    const posted0 = (posted: DirectorCommand[]) => (posted[0]?.kind === 'putOnAir' ? posted[0] : undefined);
+    const titles = (posted: DirectorCommand[]) => (posted0(posted)?.tracks ?? []).map(track => track.title);
+
+    const TOP_THREE = [
+        { rank: 1, title: 'Glory Box', artist: 'Portishead' },
+        { rank: 2, title: 'Windowlicker', artist: 'Aphex Twin' },
+        { rank: 3, title: 'Teardrop', artist: 'Massive Attack' },
+    ];
+
+    it('ends the broadcast on number one, because a countdown is what a chart show is', async () => {
+        const { service, posted } = build({ chart: TOP_THREE });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+        expect(titles(posted())).toEqual(['Teardrop', 'Windowlicker', 'Glory Box']);
+    });
+
+    it('walks the published document from the top when the operator asks for that instead', async () => {
+        const { service, posted } = build({ chart: TOP_THREE });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked' });
+
+        expect(titles(posted())).toEqual(['Glory Box', 'Windowlicker', 'Teardrop']);
+    });
+
+    it('resolves the names rather than binding them, since a chart carries no copy to play', async () => {
+        // The whole reason this is not the playlist branch with a different fetch: an entry is a
+        // title and an artist, so it has to be matched, looked up and ingested before it can air.
+        const { service, resolver } = build({ chart: TOP_THREE });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked' });
+
+        expect(resolver.resolve).toHaveBeenCalledWith(
+            [
+                { title: 'Glory Box', artist: 'Portishead' },
+                { title: 'Windowlicker', artist: 'Aphex Twin' },
+                { title: 'Teardrop', artist: 'Massive Attack' },
+            ],
+            expect.anything(),
+            expect.objectContaining({ preference: ['deadair.lastfm'] }),
+        );
+    });
+
+    it('seeds under NO_RULES, so a chart played twice in a week is not emptied by the repeat window', async () => {
+        const { service, resolver } = build({ chart: TOP_THREE, settings: { 'rotation.repeatWindowDays': '30', 'rotation.maxPerArtist': '1' } });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+        expect(resolver.resolve).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ repeatWindowDays: 0, artistCooldownMinutes: 0, maxPerArtist: 0 }),
+            expect.anything(),
+        );
+    });
+
+    it('records the chart as provenance, and says a chart is what built this', async () => {
+        const { service, posted } = build({ chart: TOP_THREE });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+        expect(posted0(posted())?.binding).toMatchObject({
+            source: 'chart',
+            sourceChartId: 'deadair.lastfm:top-100',
+            // Split back out of the qualified id, so the desk gets the badge it draws for a playlist.
+            sourcePluginId: 'deadair.lastfm',
+        });
+        // Nothing to pull more from: a chart is read once, so it never becomes a playlist binding.
+        expect(posted0(posted())?.binding.sourcePlaylistId).toBeUndefined();
+    });
+
+    it('takes the broadcast’s name from the chart, not from the plugin that served it', async () => {
+        const { service, posted } = build({ chart: TOP_THREE, chartMenu: [{ id: 'deadair.lastfm:top-100', name: 'Global Top 100' }] });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+        expect(posted0(posted())?.binding.name).toBe('Global Top 100');
+    });
+
+    it('falls back to the plugin when the menu no longer lists that chart', async () => {
+        const { service, posted } = build({ chart: TOP_THREE, chartMenu: [] });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+        expect(posted0(posted())?.binding.name).toBe('From deadair.lastfm');
+    });
+
+    it('refuses a chart that could not be read rather than airing an empty order', async () => {
+        // `ChartsService` flattens every upstream failure to an empty list, because a chart is
+        // something to LOOK at. Airing one is the other thing.
+        const { service, posted } = build({ chart: [] });
+
+        expect(await statusOf(service.putOnAir({ chartId: 'deadair.lastfm:top-100' }))).toBe(422);
+        expect(posted()).toHaveLength(0);
+    });
+
+    it('refuses an id that does not name a plugin and one of its charts', async () => {
+        const { service } = build({ chart: TOP_THREE });
+
+        expect(await statusOf(service.putOnAir({ chartId: 'top-100' }))).toBe(422);
+    });
+
+    it('names "rotation.discover" when that is what emptied the chart', async () => {
+        // The state that reads as a broken plugin: the operator asked for a chart, a chart came
+        // back, and every record on it was dropped for want of a lookup the station may not make.
+        const { service } = build({ chart: TOP_THREE, resolve: () => [], settings: { 'rotation.discover': 'false' } });
+
+        expect(await refusalOf(service.putOnAir({ chartId: 'deadair.lastfm:top-100' }))).toContain('rotation.discover');
+    });
+
+    it('blames the providers and the vetoes when discovery is on and nothing resolved anyway', async () => {
+        const { service } = build({ chart: TOP_THREE, resolve: () => [] });
+
+        const refusal = await refusalOf(service.putOnAir({ chartId: 'deadair.lastfm:top-100' }));
+
+        // Asserted non-empty as well, because `refusalOf` answers with nothing for a call that did
+        // NOT refuse, and "does not mention discovery" would then pass for a station that aired it.
+        expect(refusal).not.toBe('');
+        expect(refusal).not.toContain('rotation.discover');
+    });
+
+    it('drops what the period excludes before the picks are even resolved', async () => {
+        const { service, resolver } = build({
+            chart: [
+                { rank: 1, title: 'Newer', artist: 'A', year: 2024 },
+                { rank: 2, title: 'Anthem', artist: 'B', year: 1994 },
+            ],
+        });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100', eraFrom: 1990, eraTo: 1999 });
+
+        expect(resolver.resolve).toHaveBeenCalledWith([{ title: 'Anthem', artist: 'B' }], expect.anything(), expect.anything());
+    });
+
+    it('is an ordinary rotation afterwards, so the hour past the chart is programmed as any other', async () => {
+        const { service, posted } = build({ chart: TOP_THREE });
+
+        await service.putOnAir({ chartId: 'deadair.lastfm:top-100' });
+
+        expect(posted0(posted())?.binding).toMatchObject({ mode: 'rotation', onEnd: 'extend' });
     });
 });

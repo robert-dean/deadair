@@ -5,6 +5,8 @@ import { JobBroker } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { TracksRepository } from '#modules/catalog/tracks.repository.js';
+import { ChartsService, MAX_CHART_ENTRIES } from '#modules/charts/charts.service.js';
+import { splitChartId } from '#modules/charts/chart.ids.js';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { PlaylistsService } from '#modules/playlists/playlists.service.js';
 import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
@@ -17,9 +19,11 @@ import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
 import type { OrderEdit } from './director.mailbox.js';
 import { DirectorService } from './director.service.js';
-import { PickResolver } from './pick.resolver.js';
+import { bindsAnything, type EraWindow } from './candidates.repository.js';
+import { chartPicks, DEFAULT_CHART_ORDER } from './chart.picks.js';
+import { DISCOVER_DEFAULT, DISCOVER_KEY, PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
-import { stationAutoExtends } from './rotation.rules.js';
+import { NO_RULES, stationAutoExtends } from './rotation.rules.js';
 import { StationAirRepository } from './station.air.repository.js';
 import type { EditResult, StationLineupBinding, StationLineupSegmentItem, StationLineupSnapshot } from './station.lineup.js';
 import type {
@@ -39,6 +43,7 @@ import type {
     StationOrderItem,
 } from './types/director.types.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { settingIsOn } from '#modules/shared/setting.flags.js';
 
 /**
  * The operator's side of the director: everything a request does to the
@@ -60,6 +65,10 @@ export class DirectorConsoleService {
         private readonly air: StationAirRepository,
         private readonly director: DirectorService,
         private readonly playlists: PlaylistsService,
+        // Read-only, and beside the playlists for the same reason: a chart is the other thing a
+        // broadcast can be built from, and it is read through the service rather than the plugin so
+        // the same narrowing applies as when the console lists one.
+        private readonly charts: ChartsService,
         private readonly tracks: TracksRepository,
         // Read-only from here. A lineup names a segment and the library owns it, so the console's
         // programming surface never writes one; that is the render module's business.
@@ -339,7 +348,7 @@ export class DirectorConsoleService {
             }));
 
         const binding: StationLineupBinding = {
-            name: input.name ?? (input.pluginId === undefined ? 'The station' : `From ${input.pluginId}`),
+            name: input.name ?? (await this.nameFor(input)),
             // Kept as the operator wrote it, whitespace aside. It is read by a model rather than
             // matched against anything, so there is nothing here to normalize and a station briefed
             // with only spaces asked for nothing.
@@ -367,9 +376,13 @@ export class DirectorConsoleService {
             placedBy: onSlot !== undefined || bySchedule ? 'schedule' : 'operator',
             mode,
             onEnd: runsOut(mode, input.onEnd, stationAutoExtends(this.config)),
-            source: input.pluginId === undefined ? 'director' : 'import',
-            ...(input.pluginId === undefined ? {} : { sourcePluginId: input.pluginId }),
+            source: sourceOf(input),
+            // The plugin behind a chart is split back out of its qualified id rather than asked for
+            // separately, so the console passes one string and the desk still gets the badge it
+            // draws for a playlist.
+            ...(pluginOf(input) === undefined ? {} : { sourcePluginId: pluginOf(input) }),
             ...(input.playlistId === undefined ? {} : { sourcePlaylistId: input.playlistId }),
+            ...(input.chartId === undefined ? {} : { sourceChartId: input.chartId }),
         };
 
         // Synchronously, then the command: a commit pass may already be gathering against the
@@ -378,8 +391,9 @@ export class DirectorConsoleService {
         await this.director.post({ kind: 'putOnAir', binding, tracks });
 
         this.logger.info('director: put the station on air', {
-            plugin: input.pluginId,
-            playlist: input.playlistId,
+            plugin: pluginOf(input),
+            ...(input.playlistId === undefined ? {} : { playlist: input.playlistId }),
+            ...(input.chartId === undefined ? {} : { chart: input.chartId }),
             tracks: tracks.length,
         });
         return await this.getAir();
@@ -398,6 +412,7 @@ export class DirectorConsoleService {
      * policy are instructions rather than preferences a source gets to route around.
      */
     private async sourceTracks(input: PutOnAirInput): Promise<RundownTrack[]> {
+        if (input.chartId !== undefined) return await this.chartTracks(input.chartId, input.chartOrder, this.era(input));
         if (input.pluginId === undefined || input.playlistId === undefined) return [];
 
         const { tracks } = await this.playlists.getPlaylistTracks(input.pluginId, input.playlistId);
@@ -407,7 +422,7 @@ export class DirectorConsoleService {
         }
 
         const vetted = await this.resolver.vet(await this.toRundownTracks(input.pluginId, tracks), {
-            era: { from: input.eraFrom, to: input.eraTo },
+            era: this.era(input),
             preference: [input.pluginId],
         });
         if (vetted.length === 0) {
@@ -423,6 +438,102 @@ export class DirectorConsoleService {
             });
         }
         return vetted;
+    }
+
+    /**
+     * What to call a broadcast nobody named.
+     *
+     * A chart gets the chart's OWN name, which costs one call to a menu that is built without a
+     * request on every plugin that offers one, because "Top 100 Songs" is what the operator clicked
+     * and `From deadair.lastfm` is the name of the software they clicked it in. Falling back to the
+     * plugin keeps a chart whose descriptor has since gone from being nameless.
+     */
+    private async nameFor(input: PutOnAirInput): Promise<string> {
+        const plugin = pluginOf(input);
+        if (plugin === undefined) return 'The station';
+
+        if (input.chartId !== undefined) {
+            // Never fatal: this is a label. A menu that could not be read is a broadcast named after
+            // its plugin, which is what every imported one is already called.
+            const named = await this.charts
+                .listCharts()
+                .then(charts => charts.find(chart => chart.id === input.chartId)?.name)
+                .catch(error => {
+                    this.logger.warn(`director: could not read the chart menu while naming a broadcast (${errorText(error)})`);
+                    return undefined;
+                });
+            if (named !== undefined) return named;
+        }
+
+        return `From ${plugin}`;
+    }
+
+    /** The period a broadcast was asked for, in the shape everything downstream of here reads it. */
+    private era(input: PutOnAirInput): EraWindow {
+        return { from: input.eraFrom, to: input.eraTo };
+    }
+
+    /**
+     * The records a broadcast built from a published chart starts from.
+     *
+     * ## A chart names records where a playlist names copies
+     *
+     * That one difference is the whole of why this is not the branch above with a different fetch.
+     * A `CatalogTrack` carries the provider id the player is eventually handed, so a playlist only
+     * has to be VETTED. A `ChartEntry` carries a title and an artist and nothing else, on purpose
+     * — a chart is an opinion about records rather than a source of them — so every entry has to be
+     * matched against the catalog, looked up at a provider and ingested before it can air. That is
+     * {@link PickResolver.resolve}, which is the one step every pick from every source passes
+     * through, and going round it would be a second idea of what may play.
+     *
+     * ## Seeded under {@link NO_RULES}, which is not a relaxation invented here
+     *
+     * A chart is a document the operator chose, so the repeat window, the artist cooldown and the
+     * per-artist cap have nothing to apply to it — running today's top forty under a three-day
+     * window would suppress the very records it exists to play, which is the argument `resolveRules`
+     * already makes for a setlist and {@link PickResolver.vet} already makes for a playlist. What
+     * stays on is the veto: `resolve` applies the dislike, the period and the advisory policy
+     * whatever rules it is handed, and those are instructions rather than preferences.
+     *
+     * Everything AFTER the seeding is an ordinary rotation. A chart is forty records and an evening
+     * is more than forty, so the broadcast is topped up by the generators like any other — the
+     * chart is read once and never again, which is why `sourceChartId` is provenance rather than a
+     * binding.
+     *
+     * @throws 422 when the chart could not be read, or when nothing on it can air.
+     */
+    private async chartTracks(chartId: string, order: PutOnAirInput['chartOrder'], era: EraWindow): Promise<RundownTrack[]> {
+        const address = splitChartId(chartId);
+        if (address === undefined) {
+            throw httpError(422).withDetails({ message: 'that is not a chart id; it names a plugin and one of its charts, as `plugin:chart`' });
+        }
+
+        const entries = await this.charts.fetchChart(chartId, MAX_CHART_ENTRIES);
+        if (entries.length === 0) {
+            // `ChartsService` flattens every way this can go wrong — an unqualified id, a plugin
+            // that is gone, one that is not charts-capable, one whose upstream refused — to an empty
+            // list and a log line, because a chart is something to LOOK at and a page of nothing is
+            // not an error. Airing one is the other thing, and reporting success here would put the
+            // station on an empty running order.
+            throw httpError(422).withDetails({ message: 'that chart could not be read, so there is nothing to play' });
+        }
+
+        const picks = chartPicks(entries, { order: order ?? DEFAULT_CHART_ORDER, ...(bindsAnything(era) ? { era } : {}) });
+        const tracks = await this.resolver.resolve(picks, NO_RULES, { era, preference: [address.pluginId] });
+        if (tracks.length === 0) {
+            // Said in the operator's terms rather than the resolver's, and the two cases are named
+            // apart because they want opposite fixes. With discovery off this is not a fault at all
+            // — it is a setting doing exactly what it says — but a chart pick is almost never
+            // already in the library, so it empties the whole document and reads from the console
+            // as a broken plugin. That is the "decline loudly" rule `chart-discovery.md` asks for,
+            // and this is the surface where somebody is standing at the desk to read it.
+            throw httpError(422).withDetails({
+                message: settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT)
+                    ? 'nothing on that chart can be played: no provider serves these records, or the period and the station\'s own vetoes rule them all out'
+                    : 'nothing on that chart is in the library, and "rotation.discover" is off, so the station may not look these records up',
+            });
+        }
+        return tracks;
     }
 
     // ── the live running order ─────────────────────────────────────────────────
@@ -705,6 +816,7 @@ export class DirectorConsoleService {
             source: order.source,
             ...(order.sourcePluginId === undefined ? {} : { sourcePluginId: order.sourcePluginId }),
             ...(order.sourcePlaylistId === undefined ? {} : { sourcePlaylistId: order.sourcePlaylistId }),
+            ...(order.sourceChartId === undefined ? {} : { sourceChartId: order.sourceChartId }),
             items: order.items.map(item => {
                 if (item.kind === 'segment') return toOrderSegment(item, segments.get(item.segmentId));
 
@@ -797,6 +909,25 @@ function describeEdit(edit: OrderEdit): string {
  * ONCE, here, rather than consulted again later — see {@link stationAutoExtends} for why a station
  * default must not be able to overrule a broadcast that is already running.
  */
+/**
+ * Who built a running order, for the one column that records it.
+ *
+ * A chart is its own value rather than a second kind of `import`, because the two answer a
+ * different question when something goes wrong later: an import is a list somebody synced and a
+ * chart is a document somebody else publishes, and only one of them can be re-read to find out what
+ * the station was told.
+ */
+function sourceOf(input: PutOnAirInput): string {
+    if (input.chartId !== undefined) return 'chart';
+    return input.pluginId === undefined ? 'director' : 'import';
+}
+
+/** The plugin behind whichever source was named, or `undefined` for a broadcast the station fills itself. */
+function pluginOf(input: PutOnAirInput): string | undefined {
+    if (input.chartId !== undefined) return splitChartId(input.chartId)?.pluginId;
+    return input.pluginId;
+}
+
 function runsOut(mode: StationMode, asked: StationOnEnd | undefined, autoExtends: boolean): StationOnEnd {
     if (mode !== 'rotation') return asked === undefined || asked === 'extend' ? 'stop' : asked;
 

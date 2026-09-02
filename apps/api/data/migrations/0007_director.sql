@@ -108,6 +108,12 @@ create table deadair.station_lineup (
     source text not null default 'director',
     source_plugin_id text,
     source_playlist_id text,
+    -- The published chart a broadcast was built from, qualified with the plugin that offered it.
+    -- PROVENANCE rather than a binding, unlike the two above: a chart is a fixed document that is
+    -- read once, so there is nothing here to pull more from and a broadcast that outlives its chart
+    -- is topped up by the generators like any other. It is stored so the desk can say what this is
+    -- rather than only that somebody imported something.
+    source_chart_id text,
     -- What this broadcast IS, and what happens when it runs out. `on_end` had two more arms
     -- while there was a library: `resume` and `rotation` each named another STORED lineup to
     -- hand the station back to, and there is no longer one to name. `repeat` survives because

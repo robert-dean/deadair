@@ -69,16 +69,19 @@ contract StationOrder: { # The station's live running order: what is airing, ite
     personaLabel?: string(max=200) # What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name
     mode: StationMode
     onEnd: StationOnEnd
-    source: string(min=1, max=50) # Who built it: `import` or `director`
+    source: string(min=1, max=50) # Who built it: `import`, `chart` or `director`
     sourcePluginId?: string(max=200) # Where more material is pulled from, when it came from a playlist
     sourcePlaylistId?: string(max=400)
+    sourceChartId?: string(max=400) # The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from
     items: array(StationOrderItem)
 }
 
 contract PutOnAirInput: { # Put the station on air, building its running order from the top
     pluginId?: string(min=1, max=200) # The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming
     playlistId?: string(min=1, max=400) # Required alongside `pluginId`. The playlist is READ at this moment rather than copied, so it is never edited by having been aired
-    name?: string(min=1, max=200) # What to call this broadcast. Absent names it after the plugin, since only the surface that listed the playlist knows its own name for it
+    chartId?: string(min=1, max=400) # A published chart to build from instead, as `pluginId:chartId`. An ALTERNATIVE to `pluginId` and `playlistId` rather than a companion: a chart names records where a playlist names copies, so its entries are looked up and ingested before they can air, and a station with `rotation.discover` off can play almost none of one
+    chartOrder?: enum(countdown, ranked, unordered) # Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`
+    name?: string(min=1, max=200) # What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it
     brief?: string(max=500) # What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do
     personaId?: string(min=1, max=100) # Who is hosting this broadcast. It rides the running order for as long as the broadcast does, so the presenter cannot drift back mid-show. Absent uses whichever persona the station has on air
     eraFrom?: int(min=1900, max=2100) # The earliest release year this broadcast plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period

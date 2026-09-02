@@ -55,7 +55,7 @@ export type StationItemState = z.infer<typeof StationItemState>;
 
 /**
  * Change who is presenting the broadcast that is on air
- * generated from [SetStationHostInput](file://./../../../../data/contracts/director/director.types.ck#L91)
+ * generated from [SetStationHostInput](file://./../../../../data/contracts/director/director.types.ck#L94)
  */
 export const SetStationHostInput = z.strictObject({
     personaId: z
@@ -71,7 +71,7 @@ export type SetStationHostInput = z.infer<typeof SetStationHostInput>;
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L95)
+ * generated from [AddStationSegmentInput](file://./../../../../data/contracts/director/director.types.ck#L98)
  */
 export const AddStationSegmentInput = z.strictObject({
     segmentId: z.string().min(1).max(100),
@@ -95,7 +95,7 @@ export type AddStationSegmentInput = z.infer<typeof AddStationSegmentInput>;
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L101)
+ * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L104)
  */
 export const MoveStationItemInput = z.strictObject({
     toIndex: z.coerce.number().int().min(0),
@@ -104,7 +104,7 @@ export type MoveStationItemInput = z.infer<typeof MoveStationItemInput>;
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L105)
+ * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L108)
  */
 export const ExtendStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional(),
@@ -113,7 +113,7 @@ export type ExtendStationInput = z.infer<typeof ExtendStationInput>;
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L109)
+ * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L112)
  */
 export const ReplanStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional().describe('How many records to programme. Absent is roughly an hour'),
@@ -174,7 +174,7 @@ export type StationAir = z.infer<typeof StationAir>;
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L78)
+ * generated from [PutOnAirInput](file://./../../../../data/contracts/director/director.types.ck#L79)
  */
 export const PutOnAirInput = z.strictObject({
     pluginId: z
@@ -191,13 +191,27 @@ export const PutOnAirInput = z.strictObject({
         .describe(
             'Required alongside `pluginId`. The playlist is READ at this moment rather than copied, so it is never edited by having been aired',
         ),
+    chartId: z
+        .string()
+        .min(1)
+        .max(400)
+        .optional()
+        .describe(
+            'A published chart to build from instead, as `pluginId:chartId`. An ALTERNATIVE to `pluginId` and `playlistId` rather than a companion: a chart names records where a playlist names copies, so its entries are looked up and ingested before they can air, and a station with `rotation.discover` off can play almost none of one',
+        ),
+    chartOrder: z
+        .enum(['countdown', 'ranked', 'unordered'])
+        .optional()
+        .describe(
+            "Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`",
+        ),
     name: z
         .string()
         .min(1)
         .max(200)
         .optional()
         .describe(
-            'What to call this broadcast. Absent names it after the plugin, since only the surface that listed the playlist knows its own name for it',
+            'What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it',
         ),
     brief: z
         .string()
@@ -323,9 +337,16 @@ export const StationOrder = z.strictObject({
         .describe('What that host is called, resolved as the order is read so a console need not fetch the persona list to draw a name'),
     mode: StationMode,
     onEnd: StationOnEnd,
-    source: z.string().min(1).max(50).describe('Who built it: `import` or `director`'),
+    source: z.string().min(1).max(50).describe('Who built it: `import`, `chart` or `director`'),
     sourcePluginId: z.string().max(200).optional().describe('Where more material is pulled from, when it came from a playlist'),
     sourcePlaylistId: z.string().max(400).optional(),
+    sourceChartId: z
+        .string()
+        .max(400)
+        .optional()
+        .describe(
+            'The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from',
+        ),
     items: z.array(StationOrderItem),
 });
 export type StationOrder = z.infer<typeof StationOrder>;

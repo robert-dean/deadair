@@ -675,6 +675,7 @@ export interface DeadairStationLineup {
   rules: Json | null;
   slotId: string | null;
   source: Generated<string>;
+  sourceChartId: string | null;
   sourcePlaylistId: string | null;
   sourcePluginId: string | null;
   stationKey: Generated<string>;

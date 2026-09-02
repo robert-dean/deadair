@@ -41,7 +41,7 @@ export type StationItemState = 'planned' | 'handed' | 'airing' | 'played' | 'ski
 
 /**
  * Change who is presenting the broadcast that is on air
- * generated from [SetStationHostInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L91)
+ * generated from [SetStationHostInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L94)
  */
 export interface SetStationHostInput {
     /** Who hosts it from here on. Absent hands it back to whichever persona the station has on air, which is what a broadcast that never named one already does */
@@ -50,7 +50,7 @@ export interface SetStationHostInput {
 
 /**
  * Put something the station says into the running order
- * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L95)
+ * generated from [AddStationSegmentInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L98)
  */
 export interface AddStationSegmentInput {
     segmentId: string;
@@ -62,7 +62,7 @@ export interface AddStationSegmentInput {
 
 /**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L101)
+ * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L104)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -70,7 +70,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L105)
+ * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L108)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -78,7 +78,7 @@ export interface ExtendStationInput {
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L109)
+ * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L112)
  */
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */
@@ -122,14 +122,18 @@ export interface StationAir {
 
 /**
  * Put the station on air, building its running order from the top
- * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L78)
+ * generated from [PutOnAirInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L79)
  */
 export interface PutOnAirInput {
     /** The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming */
     pluginId?: string;
     /** Required alongside `pluginId`. The playlist is READ at this moment rather than copied, so it is never edited by having been aired */
     playlistId?: string;
-    /** What to call this broadcast. Absent names it after the plugin, since only the surface that listed the playlist knows its own name for it */
+    /** A published chart to build from instead, as `pluginId:chartId`. An ALTERNATIVE to `pluginId` and `playlistId` rather than a companion: a chart names records where a playlist names copies, so its entries are looked up and ingested before they can air, and a station with `rotation.discover` off can play almost none of one */
+    chartId?: string;
+    /** Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId` */
+    chartOrder?: 'countdown' | 'ranked' | 'unordered';
+    /** What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it */
     name?: string;
     /** What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do */
     brief?: string;
@@ -203,10 +207,12 @@ export interface StationOrder {
     personaLabel?: string;
     mode: StationMode;
     onEnd: StationOnEnd;
-    /** Who built it: `import` or `director` */
+    /** Who built it: `import`, `chart` or `director` */
     source: string;
     /** Where more material is pulled from, when it came from a playlist */
     sourcePluginId?: string;
     sourcePlaylistId?: string;
+    /** The published chart this broadcast was built from, qualified with the plugin that offered it. Provenance rather than a binding: a chart is a fixed document, so it is read once and never topped up from */
+    sourceChartId?: string;
     items: StationOrderItem[];
 }

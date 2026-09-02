@@ -59,6 +59,7 @@ export class StationLineupRepository extends DataRepository {
                 'source',
                 'sourcePluginId',
                 'sourcePlaylistId',
+                'sourceChartId',
                 'items',
                 'rules',
             ])
@@ -100,6 +101,7 @@ export class StationLineupRepository extends DataRepository {
                 source: row.source,
                 ...(row.sourcePluginId == null ? {} : { sourcePluginId: row.sourcePluginId }),
                 ...(row.sourcePlaylistId == null ? {} : { sourcePlaylistId: row.sourcePlaylistId }),
+                ...(row.sourceChartId == null ? {} : { sourceChartId: row.sourceChartId }),
                 ...(row.rules == null ? {} : { rules: row.rules as StationLineupRules }),
             },
             toItems(row.items),
@@ -139,6 +141,7 @@ export class StationLineupRepository extends DataRepository {
             source: snapshot.source,
             sourcePluginId: snapshot.sourcePluginId ?? null,
             sourcePlaylistId: snapshot.sourcePlaylistId ?? null,
+            sourceChartId: snapshot.sourceChartId ?? null,
             rules: toJsonb(snapshot.rules),
             items: toJsonb(snapshot.items),
         };

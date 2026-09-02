@@ -305,11 +305,20 @@ export interface StationLineupBinding {
     holdUntil?: number;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
-    /** Who built it: `import`, or `director` for anything generated. */
+    /** Who built it: `import`, `chart`, or `director` for anything generated. */
     source: string;
     /** Where to pull MORE from. A binding rather than an identity: it can change mid-life. */
     sourcePluginId?: string;
     sourcePlaylistId?: string;
+    /**
+     * The published chart it was built from, qualified with the plugin that offered it.
+     *
+     * PROVENANCE rather than a binding, which is what makes it the odd one out among the three.
+     * A chart is a fixed document read once at the top of the broadcast; there is nothing here to
+     * pull more from, and a broadcast that outlives its chart is topped up by the generators like
+     * any other. It is carried so the desk can say what this IS.
+     */
+    sourceChartId?: string;
     rules?: StationLineupRules;
 }
 
@@ -444,6 +453,11 @@ export class StationLineup implements LiveOrder {
 
     get sourcePlaylistId(): string | undefined {
         return this.binding.sourcePlaylistId;
+    }
+
+    /** Which published chart this was built from, when it came from one. */
+    get sourceChartId(): string | undefined {
+        return this.binding.sourceChartId;
     }
 
     get rules(): StationLineupRules {

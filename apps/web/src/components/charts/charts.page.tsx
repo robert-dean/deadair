@@ -7,6 +7,7 @@ import { useChart, useCharts } from '../../api/charts.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageHeader } from '../shared/page.header';
+import { PlayChartButton } from '../playout/play.chart.button';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { PhoneCard } from '../shared/phone.card';
 import { usePhone } from '../shared/use.phone';
@@ -16,15 +17,21 @@ import { CATALOG_TRACK_DEFAULTS } from '../catalog/catalog.page.params';
  * What the rest of the world is playing.
  *
  * A menu rather than a merge, exactly as the contract behind it is: these routes enumerate and never
- * combine, and this page schedules nothing. A chart entry is not a record the station owns — it is
- * strings, deliberately, because everything that would turn one into a record it can air (the
- * ingest, the dislike veto, the repeat window, the artist spacing, the fetch-and-bench) already sits
- * downstream of a name. So the one thing each row offers is a way to go and LOOK, which is the
- * catalog search this console already has.
+ * combine. A chart entry is not a record the station owns — it is strings, deliberately, because
+ * everything that would turn one into a record it can air (the ingest, the dislike veto, the artist
+ * spacing, the fetch-and-bench) already sits downstream of a name.
  *
- * The page is inert on purpose and that is a stage rather than an omission: `chart-discovery.md`
- * puts the generator that plays from a chart last, on the argument that a surface which changes what
- * airs should come after one that proves the fetch, the rate budget and the config field work.
+ * ## The chart can go on air; a ROW still cannot
+ *
+ * The page is no longer inert, which was always a stage rather than a design — `chart-discovery.md`
+ * put the surface that changes what airs after the ones that prove the fetch, the rate budget and
+ * the config field. What it gained is one action over the WHOLE document, because that is the thing
+ * a chart is: a ranked list somebody published, and airing it means playing that list.
+ *
+ * A row still offers nothing but a way to go and LOOK. The contract carries no catalog id and should
+ * not, so a per-record action here would have to guess which row it meant, and "air this one record"
+ * is a request rather than a broadcast. Both are why the only per-row control is the catalog search
+ * this console already has.
  */
 export function ChartsPage() {
     const charts = useCharts();
@@ -43,9 +50,17 @@ export function ChartsPage() {
                 title="Charts"
                 description={
                     <Text size="sm" c="dimmed">
-                        What the rest of the world is playing, as the installed plugins report it. Nothing here is scheduled: a chart is something to
-                        look at, and the station plays what its own programming chooses.
+                        What the rest of the world is playing, as the installed plugins report it. Airing one puts the station on those records for a
+                        broadcast; when they run out it programmes itself again as usual.
                     </Text>
+                }
+                actions={
+                    showing === undefined ? undefined : (
+                        // Only once the chart has actually answered. Airing an empty one is a 422,
+                        // and offering the button for a chart that has not published yet today is
+                        // offering a refusal.
+                        <PlayChartButton chartId={showing.id} playable={(chart.data?.records.length ?? 0) > 0} />
+                    )
                 }
             />
 

@@ -9,6 +9,11 @@ contract PlayoutPlaylistInput: { # The plugin playlist to load into the running 
     playlistId: string(min=1, max=400)
 }
 
+contract PlayoutChartInput: { # The published chart to build the running order from
+    chartId: string(min=1, max=400) # As `pluginId:chartId`, which is how `GET /charts` lists them
+    chartOrder?: enum(countdown, ranked, unordered) # Which way round to play it. Absent is `countdown`, which opens on the lowest rank and ends on number one
+}
+
 contract PlayoutItem: { # One item in the running order, as the console sees it
     id: string(min=1, max=100) # deadair's own id for this item, not the provider's: a playlist may hold the same track twice
     pluginId: string(min=1, max=200)

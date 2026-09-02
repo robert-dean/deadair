@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import type { PlayoutStatus } from '@deadair/sdk';
+import type { PlayoutChartInput, PlayoutStatus } from '@deadair/sdk';
 
 import { sdk } from './client';
 import { queryKeys } from './query.keys';
@@ -92,6 +92,23 @@ export function usePlayPlaylist() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: ({ pluginId, playlistId }: { pluginId: string; playlistId: string }) => sdk.playout.playAPlaylist({ pluginId, playlistId }),
+        onSuccess: status => {
+            followTransport(queryClient, status);
+        },
+    });
+}
+
+/**
+ * Builds the running order from a published chart and starts airing it.
+ *
+ * Beside {@link usePlayPlaylist} and through the same `followTransport`, because what these two do
+ * to the station is identical however differently the records were chosen.
+ */
+export function usePlayChart() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ chartId, chartOrder }: { chartId: string; chartOrder?: PlayoutChartInput['chartOrder'] }) =>
+            sdk.playout.playAChart({ chartId, ...(chartOrder === undefined ? {} : { chartOrder }) }),
         onSuccess: status => {
             followTransport(queryClient, status);
         },

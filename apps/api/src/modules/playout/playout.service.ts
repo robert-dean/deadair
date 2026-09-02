@@ -17,6 +17,7 @@ import { diagnose } from './silence.diagnosis.js';
 import type {
     PlayoutAiredQuery,
     PlayoutItem,
+    PlayoutChartInput,
     PlayoutPlaylistInput,
     PlayoutStarveQuery,
     PlayoutStatus,
@@ -302,6 +303,26 @@ export class PlayoutService {
 
         // Hand the first item over now rather than waiting out the reconcile tick,
         // so the console's own response already reflects a station that is starting.
+        await this.pusher.reconcile();
+        return this.getStatus();
+    }
+
+    /**
+     * Play a published chart: build the running order from it and go on air.
+     *
+     * The same delegate {@link playPlaylist} is, for the same reason, and it
+     * takes one id rather than two because a chart's is already qualified with
+     * the plugin that offered it.
+     *
+     * What differs is downstream and worth knowing from here: a chart names
+     * records where a playlist names copies, so `putOnAir` looks each entry up
+     * and ingests it, and a station with `rotation.discover` off can play almost
+     * none of one. That arrives as the same 422 an empty playlist gives, worded
+     * to name the setting.
+     */
+    async playChart(input: PlayoutChartInput): Promise<PlayoutStatus> {
+        await this.director.putOnAir({ chartId: input.chartId, ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }) });
+
         await this.pusher.reconcile();
         return this.getStatus();
     }

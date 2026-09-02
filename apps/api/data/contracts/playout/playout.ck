@@ -46,6 +46,24 @@ operation /playout/playlist: {
     }
 }
 
+operation /playout/chart: {
+    post: { # Builds the running order from a published chart and starts handing it to the player. The same replacement a playlist makes, from a document somebody else ranked
+        name: Play a chart
+        service: PlayoutService.playChart
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: PlayoutChartInput
+        }
+        response: {
+            200: {
+                application/json: PlayoutStatus
+            }
+        }
+    }
+}
+
 operation /playout/skip: {
     post: { # Ends the item on air so the next one starts immediately. The station owns the decoder, so this lands at once rather than waiting out audio already committed to a player
         name: Skip the current item

@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { PlayoutPlaylistInput, PlayoutStatus } from './types/playout.types.js';
+import type { PlayoutChartInput, PlayoutPlaylistInput, PlayoutStatus } from './types/playout.types.js';
 
 export class PlayoutClient {
     constructor(private fetch: SdkFetch) {}
@@ -20,6 +20,19 @@ export class PlayoutClient {
      */
     async playAPlaylist(body: PlayoutPlaylistInput): Promise<PlayoutStatus> {
         const result = await this.fetch(`/playout/playlist`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PlayoutStatus>(result);
+    }
+
+    /**
+     * @name Play a chart
+     * @description Builds the running order from a published chart and starts handing it to the player. The same replacement a playlist makes, from a document somebody else ranked
+     */
+    async playAChart(body: PlayoutChartInput): Promise<PlayoutStatus> {
+        const result = await this.fetch(`/playout/chart`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),

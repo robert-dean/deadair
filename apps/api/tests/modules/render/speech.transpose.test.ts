@@ -72,20 +72,20 @@ describe('transposeForSpeech: symbols that stand in for words', () => {
     describe('an amount with a scale word', () => {
         it('says the currency after the whole amount, not between the figure and its scale', () => {
             expect(say('Meta will pay up to $17.1 Billion in the settlement.')).toBe('Meta will pay up to 17.1 Billion dollars in the settlement.');
-            expect(say('A $100 billion spaceport.')).toBe('A 100 billion dollars spaceport.');
+            expect(say('SpaceX will spend $100 billion on it.')).toBe('SpaceX will spend 100 billion dollars on it.');
             expect(say('Settling for $2.8 million.')).toBe('Settling for 2.8 million dollars.');
         });
 
         it('spells an abbreviated scale out rather than leaving the engine a letter', () => {
             expect(say('It raised $100K last month.')).toBe('It raised 100 thousand dollars last month.');
-            expect(say('A $5m deal.')).toBe('A 5 million dollars deal.');
+            expect(say('Sold for $5m today.')).toBe('Sold for 5 million dollars today.');
             expect(say('Worth $2bn today.')).toBe('Worth 2 billion dollars today.');
         });
 
         // The `\b` after the abbreviation, from both sides: a spelled scale must not be eaten by the
         // letter branch, and a product name after a price is not a scale at all.
         it('leaves a word that merely starts with a scale letter alone', () => {
-            expect(say('The $249.99 Plaud recorder.')).toBe('The 249.99 dollars Plaud recorder.');
+            expect(say('The $249.99 Plaud recorder.')).toBe('The 249.99 dollar Plaud recorder.');
             expect(say('It costs $30 more.')).toBe('It costs 30 dollars more.');
             expect(say('About $5 million.')).toBe('About 5 million dollars.');
         });
@@ -97,9 +97,38 @@ describe('transposeForSpeech: symbols that stand in for words', () => {
         // Aired as "750, dollars save": the digits ended on a comma as happily as on a digit, so a
         // price at the end of a clause took the clause's punctuation into the amount.
         it('takes a thousands separator into the figure and a clause comma out of it', () => {
-            expect(say('A $103,000 fee.')).toBe('A 103,000 dollars fee.');
+            expect(say('A $103,000 fee.')).toBe('A 103,000 dollar fee.');
             expect(say('It was $8, you know.')).toBe('It was 8 dollars, you know.');
             expect(say('A deal at $750, save almost $500 on it.')).toBe('A deal at 750 dollars, save almost 500 dollars on it.');
+        });
+    });
+
+    // English says the currency differently in the two positions money sits in, and the station was
+    // reading both as the standing one: "a 100 billion dollars spaceport".
+    describe('an amount describing the thing it buys', () => {
+        it('says the currency singular in front of what it describes', () => {
+            expect(say('SpaceX plans a $100 billion spaceport.')).toBe('SpaceX plans a 100 billion dollar spaceport.');
+            expect(say('Trump proposes a $103,000 fee for visas.')).toBe('Trump proposes a 103,000 dollar fee for visas.');
+            expect(say('The $249.99 Plaud recorder ships today.')).toBe('The 249.99 dollar Plaud recorder ships today.');
+            expect(say('A $150 discount on the monitor.')).toBe('A 150 dollar discount on the monitor.');
+        });
+
+        it('leaves a standing amount plural', () => {
+            expect(say('SpaceX will spend $100 billion on a spaceport.')).toBe('SpaceX will spend 100 billion dollars on a spaceport.');
+            expect(say('Meta will pay up to $17.1 billion in the settlement.')).toBe('Meta will pay up to 17.1 billion dollars in the settlement.');
+            expect(say('It costs $30 more.')).toBe('It costs 30 dollars more.');
+            expect(say('Roughly $21,000 spent on ads.')).toBe('Roughly 21,000 dollars spent on ads.');
+            expect(say('That is $39,800 monthly.')).toBe('That is 39,800 dollars monthly.');
+            expect(say('It is $88 a month.')).toBe('It is 88 dollars a month.');
+            expect(say('That $500 will go quickly.')).toBe('That 500 dollars will go quickly.');
+        });
+
+        // The most audible place to get it wrong, so punctuation and the end of the script are both
+        // read as an amount standing on its own rather than as a missing noun.
+        it('says a plural where the amount ends the clause', () => {
+            expect(say('Down from $349.99.')).toBe('Down from 349.99 dollars.');
+            expect(say('It was $129, up from before.')).toBe('It was 129 dollars, up from before.');
+            expect(say('The price is $20')).toBe('The price is 20 dollars');
         });
     });
 });

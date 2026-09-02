@@ -171,15 +171,16 @@ function saySymbols(text: string): string {
             .replace(/#(?=\d)/g, 'number ')
             // The whole AMOUNT, not its first digit and not its digits alone: `$5.99` is one figure
             // and `$17.1 billion` is one amount, and the word goes after all of what it names. The
-            // marker survives {@link settle}'s drop-list and becomes the word there. See
-            // {@link MONEY_SCALES}.
-            .replace(MONEY, (_all: string, figure: string, scale: string | undefined) => {
-                if (scale === undefined) return `${figure}#DOLLARS#`;
+            // marker survives {@link settle}'s drop-list and becomes the word there, singular or
+            // plural as {@link modifiesWhatFollows} read the sentence. See {@link MONEY_SCALES}.
+            .replace(MONEY, (all: string, figure: string, scale: string | undefined, offset: number, whole: string) => {
+                const marker = modifiesWhatFollows(whole.slice(offset + all.length)) ? '#DOLLAR#' : '#DOLLARS#';
+                if (scale === undefined) return `${figure}${marker}`;
 
                 // An abbreviation is said as the word it stands for; a word the writer already spelled
                 // out is kept exactly as written, so `Billion` at the head of a headline stays capital.
                 const spelled = MONEY_SCALES[scale.trim().toLowerCase()];
-                return spelled === undefined ? `${figure}${scale}#DOLLARS#` : `${figure} ${spelled}#DOLLARS#`;
+                return spelled === undefined ? `${figure}${scale}${marker}` : `${figure} ${spelled}${marker}`;
             })
             .replace(/&/g, ' and ')
             .replace(/\s@\s/g, ' at ')
@@ -238,6 +239,69 @@ const MONEY_SCALES: Record<string, string> = { k: 'thousand', m: 'million', bn: 
  * it was never a thousands separator.
  */
 const MONEY = /\$(\d+(?:,\d{3})*(?:\.\d+)?)(\s*(?:bn|k|m|b|t)\b|\s+(?:hundred|thousand|million|billion|trillion)\b)?/gi;
+
+/**
+ * The words that cannot be a thing an amount of money is describing.
+ *
+ * English puts money in two positions and says the currency differently in each: standing on its own
+ * it is plural ("Meta will pay 17.1 billion DOLLARS"), and in front of the thing it describes it is
+ * singular ("a 100 billion DOLLAR spaceport"). Nothing here knows what a word is, so the question has
+ * to be decided from the word after the amount, and **the only tractable direction is this one**:
+ * what an amount describes is a NOUN, which is an open class nothing can enumerate, while what
+ * follows a standing amount is a preposition, a conjunction, an auxiliary or a pronoun — closed
+ * classes, finite, and listable. So this names what CANNOT follow attributively and everything else
+ * is taken to be the noun. It is the argument {@link settle} makes about its own drop-list, one pass
+ * along: matching what to keep has no gap, and matching what to drop always does.
+ *
+ * ## What it can get wrong, and which way
+ *
+ * A verb or an adverb missing from here reads as a noun, and the amount in front of it goes singular:
+ * "500 dollar will be spent". That is the failure to watch for and this list is where it is fixed —
+ * the participles and the frequency adverbs at the end are here because the station wrote them
+ * ("$21,000 spent", "$39,800 monthly") rather than because the class is complete.
+ *
+ * The other direction is safe by construction: every function word here is a word no amount has ever
+ * described, so nothing in this list can wrongly turn an attributive amount plural.
+ */
+const NOT_A_THING_MONEY_BUYS = new Set([
+    // Determiners, possessives and pronouns.
+    ...'a an the this that these those each every another any some no its his her their our my your it he she they we you i them him us me'.split(
+        ' ',
+    ),
+    // Prepositions, including the ones an amount most often lands in front of: `in`, `on`, `off`, `per`.
+    ...'in on at for to from of with by off per under over into onto after before during since until about across through than toward towards upon within without against between among around up down out near via versus'.split(
+        ' ',
+    ),
+    // Conjunctions and the subordinators that open a clause after an amount.
+    ...'and or but so yet nor if because while when where as though although unless whether'.split(' '),
+    // Auxiliaries and the verbs a bare amount is most often the subject of.
+    ...'is was are were be been being will would can could shall should may might must has have had do does did went goes come comes came get gets got said says makes made'.split(
+        ' ',
+    ),
+    // Comparatives and the adverbs that follow an amount rather than being bought by one.
+    ...'more less higher lower apiece total altogether overall alone already still now then today yesterday instead again respectively'.split(' '),
+    // Where and when, which is the group a first pass of this list forgot: `$5.99 back then` and
+    // `$100K last month` both read as an amount buying a thing until `back` and `last` were here.
+    ...'back ahead away aside apart along last next past ago early earlier late later soon once twice here there elsewhere'.split(' '),
+    // Participles the station has actually written after an amount. Not a complete class; see above.
+    ...'spent raised paid invested saved pledged committed awarded secured allocated borrowed earned lost worth'.split(' '),
+    // Frequencies, which read as adverbs here rather than as something an amount describes.
+    ...'monthly weekly yearly annually daily quarterly'.split(' '),
+]);
+
+/**
+ * Whether an amount is describing whatever comes next, rather than standing on its own.
+ *
+ * Punctuation and the end of the script both answer no, which is the ordinary case and the one that
+ * has to be right: "Down from $349.99." is an amount and then a full stop, and a reading of "349.99
+ * dollar." would be wrong in the most audible place there is. See {@link NOT_A_THING_MONEY_BUYS}.
+ */
+function modifiesWhatFollows(rest: string): boolean {
+    const next = /^\s+(\p{L}[\p{L}'’-]*)/u.exec(rest);
+    if (next === null) return false;
+
+    return !NOT_A_THING_MONEY_BUYS.has((next[1] as string).toLowerCase());
+}
 
 /** Small integers as words. Enough for a year's halves, an ordinal and a clock face. */
 const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'] as const;
@@ -390,7 +454,10 @@ function sayInitialisms(text: string): string {
 function settle(text: string): string {
     return (
         text
-            .replace(/#DOLLARS#/g, ' dollars')
+            // One pattern rather than two replaces, so the plural can never be matched as the singular
+            // followed by a stray `S#`. Which one was written is `saySymbols`' reading of the sentence;
+            // see `modifiesWhatFollows`.
+            .replace(/#DOLLARS?#/g, marker => (marker === '#DOLLARS#' ? ' dollars' : ' dollar'))
             // Separators.
             .replace(/[/\\|~]+/g, ' ')
             // Decoration, including the symbols the passes above have already had their say about,

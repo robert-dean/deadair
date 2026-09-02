@@ -216,3 +216,21 @@ punctuation and the currency landed behind it: `$750, save almost $500` **aired 
 Grouping the separator with the three digits it separates tells them apart at no cost, since a comma followed
 by anything but three digits was never a thousands separator. Both readings are pinned by
 `speech.transpose.test.ts` against the sentences the live station actually wrote.
+
+**And money sits in two positions, which English says differently.** Standing on its own it is plural
+("Meta will pay 17.1 billion DOLLARS"); in front of the thing it describes it is singular ("a 100 billion
+DOLLAR spaceport"). The pass read everything as the standing one, so every price attached to a noun came out
+as "a 100 billion dollars spaceport" and "a 103,000 dollars fee" — grammatical nonsense in the position a
+listener is most likely to be paying attention. `modifiesWhatFollows` decides it from the word after the
+amount, and **the direction it reads from is the whole design**: what an amount describes is a NOUN, an open
+class nothing can enumerate, while what follows a standing amount is a preposition, an auxiliary, a pronoun or
+an adverb — closed classes, finite, listable. So `NOT_A_THING_MONEY_BUYS` names what cannot follow
+attributively and everything else is taken to be the noun, which is `settle`'s own argument about its
+drop-list one pass along: matching what to keep has no gap, matching what to drop always does.
+
+What that can get wrong is one direction only. A verb or adverb missing from the list reads as a noun and the
+amount before it goes singular — "500 dollar will be spent" — and the list is where that is fixed; a first
+pass of it forgot `back` and `last`, which the tests caught as "$5.99 back then" and "$100K last month".
+Nothing in the list can fail the other way, because every word in it is one no amount has ever described.
+Punctuation and the end of the script both read as standing, since "349.99 dollar." would be wrong in the most
+audible place there is.

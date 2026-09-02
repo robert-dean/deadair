@@ -94,6 +94,20 @@ different on every single build — consumed at the top of the final stage it wo
 supervisor and the install for a string none of them read. So it is declared with the others and spent at the
 bottom, on two lines that are metadata over the layer beneath them and rebuild nothing.
 
+## The sidecar's own CI
+
+**The sidecar is Python, and CI proves it two ways that TypeScript's checks cannot reach.** A
+`sidecar` job in `build.yml` installs the four pins `analysis/requirements.txt` carries (numpy,
+scipy, fastapi, pydantic) plus pytest, and runs `python3 -m pytest analysis/` directly — no
+`pnpm install`, no `dist`, the same command a laptop runs. It stands alone rather than joining the
+turbo test path or the root `vitest.config.ts`, which both assume a Node workspace this job never
+touches. And `images.yml` proves the built image itself rather than only the source: after the
+build step loads the image into the runner's daemon, `docker run … -c "import app"` against the
+sidecar's own venv is what would have caught the two Dockerfile definitions diverging on the beat
+tracker before a release shipped it — one installed it, the other silently didn't, and both built
+clean. The smoke step runs only when the build also loaded the image, which is only a run that is
+not publishing; a push still builds and pushes without either.
+
 ## Publishing
 
 **The variants publish under the COMMIT SHA and the mutable tags are moved onto them afterwards** (`promote`,

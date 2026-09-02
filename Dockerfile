@@ -335,9 +335,20 @@ COPY --from=shim /out/deadair-shim /usr/local/bin/deadair-shim
 # **This list is the SECOND copy of it and is the one that gets forgotten.** `analysis/Dockerfile`
 # carries the same names, and a module added there and not here builds clean and crash-loops in
 # production while the dev container is perfectly happy. Adding one means editing both.
+#
+# The beat tracker used to be exactly that miss, and worse: this file installed
+# `requirements.txt` and nothing else, so `beat_this` was never installed here at all — a track
+# that reached `beats.py` would crash-loop the production sidecar the console shows as "engine
+# off". `analysis/requirements.nodeps.txt` is the fix: one pin file both Dockerfiles read, so
+# there is nothing left to forget for that package, only the module list above.
 COPY analysis/requirements.txt /opt/analysis/requirements.txt
 RUN python3 -m venv /opt/analysis/venv \
  && /opt/analysis/venv/bin/pip install --no-cache-dir -r /opt/analysis/requirements.txt
+
+# The beat tracker: `--no-deps`, for the reason `requirements.nodeps.txt` carries inline rather
+# than repeating here.
+COPY analysis/requirements.nodeps.txt /opt/analysis/requirements.nodeps.txt
+RUN /opt/analysis/venv/bin/pip install --no-cache-dir --no-deps -r /opt/analysis/requirements.nodeps.txt
 COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/app.py /opt/analysis/
 
 # The station's own soundboard, copied into the pad library once on a station that has never held a

@@ -18,7 +18,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from loudness import REFERENCE_RATE, integrated_lufs, sample_peak_db, to_mono, true_peak_db
+from loudness import REFERENCE_RATE, integrated_lufs, k_weight, sample_peak_db, to_mono, true_peak_db
 
 # EBU Tech 3341 states its compliance tolerance as ±0.1 LU.
 TOLERANCE_LU = 0.1
@@ -190,6 +190,144 @@ class TestGating:
 
     def test_empty_input_does_not_raise(self):
         assert integrated_lufs(np.zeros(0, dtype=np.float32)) is None
+
+
+_BLOCK = int(REFERENCE_RATE * 400 / 1000)
+_STEP = int(REFERENCE_RATE * 100 / 1000)
+_OFFSET_DB = -0.691
+
+
+def _reference_mean_square(weighted: np.ndarray, block: int, step: int, count: int) -> np.ndarray:
+    """The OLD strided block-mean, kept so the cumsum path is checked against the
+    thing it replaced rather than against itself."""
+    blocks = np.lib.stride_tricks.as_strided(
+        weighted,
+        shape=(count, block),
+        strides=(weighted.strides[0] * step, weighted.strides[0]),
+        writeable=False,
+    )
+    return np.mean(np.square(blocks), axis=1)
+
+
+def _cumsum_mean_square(weighted: np.ndarray, block: int, step: int, count: int) -> np.ndarray:
+    """The NEW running-sum form, copied inline rather than imported so the test
+    still catches a regression to the strided form inside `integrated_lufs`."""
+    squared = weighted.copy()
+    np.square(squared, out=squared)
+    csum = np.empty(squared.size + 1, dtype=np.float64)
+    csum[0] = 0.0
+    np.cumsum(squared, out=csum[1:])
+    starts = np.arange(count) * step
+    return (csum[starts + block] - csum[starts]) / block
+
+
+class TestCumsumMatchesTheStridedReference:
+    """`integrated_lufs` now sums with a running total instead of a strided
+    block-mean. Pairwise (cumsum) and sequential summation are not
+    bit-identical, so this compares to a tolerance rather than by equality."""
+
+    @pytest.mark.parametrize(
+        "n",
+        [
+            _BLOCK,
+            _BLOCK + _STEP - 1,
+            _BLOCK + _STEP * 5 + 1,  # (n - block) % step != 0
+        ],
+    )
+    def test_cumsum_matches_the_strided_reference(self, n: int):
+        rng = np.random.default_rng(n)
+        weighted = rng.standard_normal(n)
+        count = 1 + (n - _BLOCK) // _STEP
+
+        expected = _reference_mean_square(weighted, _BLOCK, _STEP, count)
+        actual = _cumsum_mean_square(weighted, _BLOCK, _STEP, count)
+
+        assert actual == pytest.approx(expected, abs=1e-9)
+
+        expected_lufs = _OFFSET_DB + 10.0 * np.log10(np.mean(expected))
+        actual_lufs = _OFFSET_DB + 10.0 * np.log10(np.mean(actual))
+        assert actual_lufs == pytest.approx(expected_lufs, abs=1e-6)
+
+    def test_cumsum_matches_the_strided_reference_20s_stereo(self):
+        """The same comparison, but over real stereo input and through the
+        public `integrated_lufs`, summing each channel's mean square the way
+        the function itself does."""
+        length = int(20.0 * REFERENCE_RATE)
+        rng = np.random.default_rng(20)
+        left = (0.2 * rng.standard_normal(length)).astype(np.float32)
+        right = (0.2 * rng.standard_normal(length)).astype(np.float32)
+        stereo = np.stack([left, right], axis=1)
+
+        count = 1 + (length - _BLOCK) // _STEP
+        expected_mean_square = np.zeros(count, dtype=np.float64)
+        actual_mean_square = np.zeros(count, dtype=np.float64)
+        for channel in (left, right):
+            weighted = k_weight(channel.astype(np.float64), REFERENCE_RATE)
+            expected_mean_square += _reference_mean_square(weighted.copy(), _BLOCK, _STEP, count)
+            actual_mean_square += _cumsum_mean_square(weighted.copy(), _BLOCK, _STEP, count)
+
+        assert actual_mean_square == pytest.approx(expected_mean_square, abs=1e-9)
+
+        expected_lufs = _OFFSET_DB + 10.0 * np.log10(np.mean(expected_mean_square))
+        measured_lufs = integrated_lufs(stereo)
+        assert measured_lufs is not None
+        assert measured_lufs == pytest.approx(expected_lufs, abs=1e-6)
+
+
+class TestAllocatesOnlyWhatIsNeeded:
+    """`integrated_lufs`, `to_mono` and `true_peak_db` used to eagerly copy a
+    whole column (or the whole track) to a contiguous float64 buffer before
+    doing anything with it. They now cast only the slice actually being
+    worked on -- a running block, a chunk, a scratch row -- so these check
+    that the answer does not depend on the caller handing over a contiguous
+    array, since that assumption is exactly what a lazier cast could break.
+    """
+
+    def test_to_mono_folds_three_channels_by_energy(self):
+        """The per-channel scratch-buffer loop must still sum power across
+        every channel, not just the two the earlier stereo-only tests exercised."""
+        one = sine(2.0, CALIBRATION_HZ, 0.3)
+        two = sine(2.0, CALIBRATION_HZ, 0.4)
+        three = sine(2.0, CALIBRATION_HZ, 0.5)
+
+        folded = to_mono(np.stack([one, two, three], axis=1))
+
+        expected = np.sqrt((one.astype(np.float64) ** 2 + two.astype(np.float64) ** 2 + three.astype(np.float64) ** 2) / 3).astype(
+            np.float32
+        )
+        assert np.allclose(folded, expected, atol=1e-6)
+
+    def test_to_mono_handles_empty_multichannel_input(self):
+        empty_stereo = np.zeros((0, 2), dtype=np.float32)
+        folded = to_mono(empty_stereo)
+        assert folded.shape == (0,)
+
+    def test_true_peak_matches_on_a_non_contiguous_channel_view(self):
+        """The chunk cast now happens on whatever slice `column` is, instead of
+        on a pre-copied contiguous column. Feed it a channel that is a strided
+        view (taken from the middle of a larger interleaved buffer) and check
+        it still finds the same peak as the equivalent plain array."""
+        awkward = sine(3.0, 11_999.0, 0.95)
+        interleaved = np.stack([awkward, np.zeros_like(awkward)], axis=1)
+        # channels[:, 0] below is a strided, non-contiguous view.
+        view_peak = true_peak_db(interleaved[:, :1])
+        plain_peak = true_peak_db(np.ascontiguousarray(awkward))
+
+        assert view_peak is not None and plain_peak is not None
+        assert view_peak == pytest.approx(plain_peak, abs=1e-6)
+
+    def test_integrated_lufs_matches_on_a_non_contiguous_channel_view(self):
+        """Same concern as above, for the cumsum block-loudness path: a channel
+        sliced out of an interleaved array must measure the same as one handed
+        over as its own plain array."""
+        tone = at_lufs(-23.0, seconds=20.0)
+        interleaved = np.stack([tone, np.zeros_like(tone)], axis=1)
+
+        via_view = integrated_lufs(interleaved[:, :1])
+        via_plain = integrated_lufs(np.ascontiguousarray(tone))
+
+        assert via_view is not None and via_plain is not None
+        assert via_view == pytest.approx(via_plain, abs=1e-9)
 
 
 class TestTruePeak:

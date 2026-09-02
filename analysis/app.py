@@ -11,6 +11,7 @@ nor a subprocess so it can be exercised against a synthetic signal.
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import json
 import os
 import re
@@ -44,6 +45,31 @@ from tags import gain_tags
 
 ANALYZER = "deadair-analysis/0.1.0"
 
+# glibc keeps per-thread arenas and does not hand their freed pages back to the
+# OS on its own -- `_resident_mb` above is what first showed this process
+# climbing across long uptime with nothing in the code holding on to anything.
+# MALLOC_ARENA_MAX (set in the image) bounds how many arenas exist; this is the
+# other half, asking glibc to actually return what a decode freed. Resolved
+# ONCE, at import time, rather than inside the hot path: `ctypes.CDLL` is not
+# free, and a symbol that is missing now is missing on every later call too.
+#
+# `try/except (OSError, AttributeError)` rather than importing `ctypes`
+# lazily: macOS and musl have no `libc.so.6`, and CDLL's failure mode there is
+# an OSError finding the library or an AttributeError finding the symbol on
+# whatever it did find. Either way this becomes a silent no-op, which is the
+# point -- a sidecar that only trims on Linux is fine, one that fails to start
+# off it is not.
+try:
+    _malloc_trim = ctypes.CDLL("libc.so.6").malloc_trim
+except (OSError, AttributeError):
+    _malloc_trim = None
+
+
+def _trim() -> None:
+    """Ask glibc to return freed pages to the OS. A no-op off glibc Linux."""
+    if _malloc_trim is not None:
+        _malloc_trim(0)
+
 # The MOST this machine will ever decode at once, which is not the same thing as
 # how many it decodes at once. The station's `analysis.concurrency` is the live
 # number and it is the only knob an operator turns; this is the ceiling under
@@ -57,11 +83,12 @@ ANALYZER = "deadair-analysis/0.1.0"
 # exactly like a setting that does not work.
 #
 # Four rather than the core count, and the reason is memory rather than CPU: a
-# decode holds the whole record as float32 at the reference rate, so a
-# five-minute track is ~115 MB resident before `to_mono` copies it, plus the
-# downloaded file and ffmpeg's own buffer. On a sixteen-core box that would be
-# several gigabytes of a machine that is usually also running Postgres, the app
-# and the station.
+# decode holds the whole record as float32 at the reference rate -- ~115 MB on
+# its own for a five-minute track -- but loudness and the cue points work on top
+# of that buffer, so one worker peaks around ~800 MB resident measuring a
+# five-minute track, plus the downloaded file and ffmpeg's own buffer. On a
+# sixteen-core box that would be several gigabytes of a machine that is usually
+# also running Postgres, the app and the station.
 WORKERS = max(1, int(os.environ.get("ANALYSIS_WORKERS", str(min(4, os.cpu_count() or 1)))))
 
 PORT = int(os.environ.get("ANALYSIS_PORT", "9321"))
@@ -383,6 +410,7 @@ def _analyze(url: str, claimed_ms: int | None) -> dict:
             os.unlink(path)
         except OSError:
             pass
+        _trim()
 
     # The cue points want one signal and the loudness wants the channels. Folded
     # here rather than at the decode, because folding for BOTH is the mistake
@@ -486,6 +514,7 @@ def _join(urls: list[str], gap_ms: int, trim: bool, overlays: list[JoinOverlay])
                 os.unlink(path)
             except OSError:
                 pass
+        _trim()
 
     if trim:
         parts = [trim_to_cues(part) for part in parts]

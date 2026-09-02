@@ -320,10 +320,11 @@ which is what this was, it silently discarded every increase the console made an
 a setting that does not work.
 
 The default is `min(4, cores)`, and the bound is memory rather than CPU: a decode holds the whole
-record as float32 at 48 kHz, so a five-minute track is ~115 MB resident before `to_mono` copies it,
-plus the downloaded file and ffmpeg's own buffer. Set it lower to lend the walk less of a machine that
-is also running the station. Requests above it wait here, and they spend their own timeout waiting, so
-a ceiling well below `analysis.concurrency` costs measurements rather than merely slowing them.
+record as float32 at 48 kHz, which is ~115 MB for a five-minute track on its own, but loudness and the
+cue points work on top of that buffer rather than instead of it, so one worker peaks around ~800 MB
+resident measuring a five-minute track. Set it lower to lend the walk less of a machine that is also
+running the station. Requests above it wait here, and they spend their own timeout waiting, so a
+ceiling well below `analysis.concurrency` costs measurements rather than merely slowing them.
 
 ## Running it
 

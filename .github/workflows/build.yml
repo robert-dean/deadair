@@ -165,6 +165,38 @@ jobs:
             - name: Test
               run: pnpm exec vitest run --shard=${{ matrix.shard }}/4
 
+    # The measurement sidecar is Python, not TypeScript, and stands alone here rather than
+    # riding the turbo test path or the root `vitest.config.ts` — a Python job has nothing to
+    # share with either.
+    #
+    # No `pnpm install`, no `dist`: this installs the sidecar's own pins with pip and runs
+    # pytest directly against `analysis/`, the same way it runs on a laptop.
+    sidecar:
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            # 3.13, to match `analysis/Dockerfile`'s base image.
+            - name: Setup Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: '3.13'
+
+            # These four are read from `analysis/requirements.txt` and must move with it — the
+            # beat tracker's own pin is deliberately not here, since importing it needs the
+            # `--no-deps` torch stack `analysis/requirements.nodeps.txt` installs, which pytest's
+            # collected modules never import.
+            - name: Install the sidecar's test dependencies
+              run: pip install numpy==2.4.1 scipy==1.16.2 fastapi==0.120.4 pydantic==2.13.1 pytest
+
+            - name: Test
+              run: python3 -m pytest analysis/
+
     # Whether what is COMMITTED is what the inputs actually produce.
     #
     # The contracts, the permission types and the Kysely types are generated and checked in, and the

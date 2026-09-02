@@ -130,6 +130,10 @@ jobs:
               with:
                   context: .
                   push: ${{ inputs.push }}
+                  # buildx refuses `load` and `push` together, so `load` is on only for a run
+                  # that does not push — the smoke step below is conditional on the same
+                  # expression for the same reason.
+                  load: ${{ !inputs.push }}
                   platforms: linux/amd64
                   # The variant's own two arguments, plus the commit, which every variant gets and
                   # so is not in the matrix. It is the same sha the tag above is built from — the
@@ -149,3 +153,13 @@ jobs:
                   # last release left and publishes nothing, which is the whole shape of this
                   # workflow one level down.
                   cache-to: ${{ inputs.push && format('type=registry,ref={0}:buildcache-{1},mode=max', env.IMAGE, matrix.variant) || '' }}
+
+            # Proves the sidecar's own venv can actually import its app inside the built image —
+            # the two Dockerfile definitions diverging on the beat tracker (one installed it, the
+            # other silently didn't) built clean and only died at container start, which is
+            # exactly the failure a smoke test at build time is for. Only runs when the image was
+            # loaded above, i.e. the same `!inputs.push` runs this workflow builds for a pull
+            # request rather than publishes.
+            - name: Smoke-test the sidecar's imports
+              if: ${{ !inputs.push }}
+              run: docker run --rm -w /opt/analysis --entrypoint /opt/analysis/venv/bin/python ${{ steps.tags.outputs.value }} -c "import app"

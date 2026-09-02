@@ -120,18 +120,20 @@ def integrated_lufs(samples: np.ndarray, sample_rate: int = REFERENCE_RATE) -> f
     # Σ G_i · z_i, per block. G is 1.0 for left, right and centre; a surround
     # channel would be 1.41, which nothing here produces because anything wider
     # than stereo is folded down before it arrives. See `app.py`.
+    starts = np.arange(count) * step
     mean_square = np.zeros(count, dtype=np.float64)
     for index in range(channels.shape[1]):
+        # k_weight allocates its own output (two lfilter passes), so this is a
+        # private copy and squaring it in place is safe.
         weighted = k_weight(np.ascontiguousarray(channels[:, index], dtype=np.float64), sample_rate)
 
-        # A strided view so a five-minute track does not become a copy per block.
-        blocks = np.lib.stride_tricks.as_strided(
-            weighted,
-            shape=(count, block),
-            strides=(weighted.strides[0] * step, weighted.strides[0]),
-            writeable=False,
-        )
-        mean_square += np.mean(np.square(blocks), axis=1)
+        # A running sum turns each block's mean square into two lookups and a
+        # subtraction instead of a strided copy over the whole signal.
+        np.square(weighted, out=weighted)
+        csum = np.empty(weighted.size + 1, dtype=np.float64)
+        csum[0] = 0.0
+        np.cumsum(weighted, out=csum[1:])
+        mean_square += (csum[starts + block] - csum[starts]) / block
 
     # log10(0) for a wholly silent block; floored so it gates out rather than
     # poisoning the comparison.
@@ -172,7 +174,7 @@ def true_peak_db(samples: np.ndarray, oversample: int = TRUE_PEAK_OVERSAMPLE) ->
     # Per channel, because a peak is a property of what one converter has to
     # reproduce. A downmix would hide a channel that clips on its own.
     for index in range(channels.shape[1]):
-        column = np.ascontiguousarray(channels[:, index], dtype=np.float64)
+        column = channels[:, index]
 
         # A second of audio at a time, with context either side so the
         # resampler's own filter has settled before the part being measured.
@@ -181,7 +183,9 @@ def true_peak_db(samples: np.ndarray, oversample: int = TRUE_PEAK_OVERSAMPLE) ->
 
         for start in range(0, column.size, chunk):
             lead = min(start, overlap)
-            piece = column[start - lead : start + chunk + overlap]
+            # Cast only the chunk being measured, not the whole column, so peak
+            # memory is one chunk's worth of float64 rather than the track's.
+            piece = np.ascontiguousarray(column[start - lead : start + chunk + overlap], dtype=np.float64)
             if piece.size == 0:
                 continue
 
@@ -253,4 +257,15 @@ def to_mono(samples: np.ndarray) -> np.ndarray:
     if channels.shape[1] == 1:
         return np.ascontiguousarray(channels[:, 0])
 
-    return np.sqrt(np.mean(np.square(channels.astype(np.float64)), axis=1)).astype(np.float32)
+    frames, channel_count = channels.shape
+    # One scratch buffer, reused per channel, instead of astype/square/mean each
+    # allocating a full (frames, channels) copy of their own.
+    accum = np.zeros(frames, dtype=np.float64)
+    scratch = np.empty(frames, dtype=np.float64)
+    for index in range(channel_count):
+        scratch[:] = channels[:, index]
+        np.square(scratch, out=scratch)
+        accum += scratch
+    accum /= channel_count
+    np.sqrt(accum, out=accum)
+    return accum.astype(np.float32)

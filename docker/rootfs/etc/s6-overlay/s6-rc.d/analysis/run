@@ -3,6 +3,11 @@
 exec 2>&1
 cd /opt/analysis || exit 1
 
+# Capped the same way the standalone image caps it: glibc keeps a per-thread
+# arena and never returns the decode's pages on its own. See analysis/app.py's
+# `_trim`, which handles the other half.
+export MALLOC_ARENA_MAX=2
+
 # One worker, always. The decode ceiling is a semaphore INSIDE this process, so a second worker
 # would quietly double the number of decodes the machine is asked to do at once. How many actually
 # run is the station's own `analysis.concurrency`, under that ceiling.

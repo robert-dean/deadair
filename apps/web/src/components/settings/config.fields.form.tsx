@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ActionIcon,
     Box,
@@ -398,6 +398,20 @@ export interface ConfigFieldsFormProps {
     onRefreshSuggestions?: () => void;
 
     suggestionsPending?: boolean;
+
+    /**
+     * Told whenever this form starts or stops holding an edit nobody has saved.
+     *
+     * Optional, and the plugin config form passes nothing: this exists for the settings page, where
+     * a section is a route and navigating away discards whatever is typed with no sign it happened.
+     * Reporting the bit rather than exposing the form is what keeps this component generic — it
+     * still knows nothing about what it is configuring, or about who is asking.
+     *
+     * **Pass a stable function.** It is an effect dependency, so a fresh closure every render costs
+     * a run every render. `false` is reported on unmount, so a caller cannot be left blocking on a
+     * form that is gone.
+     */
+    onDirtyChange?: (dirty: boolean) => void;
 }
 
 /**
@@ -426,6 +440,7 @@ export function ConfigFieldsForm({
     suggestionsSupported = false,
     onRefreshSuggestions,
     suggestionsPending = false,
+    onDirtyChange,
 }: ConfigFieldsFormProps) {
     const [cleared, setCleared] = useState<ReadonlySet<string>>(new Set());
 
@@ -491,6 +506,23 @@ export function ConfigFieldsForm({
             return errors;
         },
     });
+
+    /**
+     * Whether anything here is unsaved, which is NOT the same question as `form.isDirty()`.
+     *
+     * Clearing a stored secret is an unsaved change that the form itself cannot see: `toggleCleared`
+     * writes `''` into an input whose initial value was already `''`, so nothing about the values
+     * moved. The set is the other half of what a save would send, and a guard reading only the form
+     * would wave through the one change that erases a credential.
+     */
+    const dirty = form.isDirty() || cleared.size > 0;
+
+    useEffect(() => {
+        onDirtyChange?.(dirty);
+        // Reported on the way out as well, so a caller cannot be left blocking on a form that has
+        // been unmounted — which on the settings page is every navigation between sections.
+        return () => onDirtyChange?.(false);
+    }, [dirty, onDirtyChange]);
 
     function toggleCleared(key: string, name: string): void {
         setCleared(current => {
@@ -768,7 +800,7 @@ export function ConfigFieldsForm({
                     )}
 
                     <Group justify="flex-end" gap="md">
-                        {succeeded && !form.isDirty() ? (
+                        {succeeded && !dirty ? (
                             <Text size="sm" c="dimmed">
                                 Saved.
                             </Text>

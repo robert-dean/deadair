@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { Box, Card, Stack, Text, Title } from '@mantine/core';
 import type { StationSettings } from '@deadair/sdk';
 
@@ -8,6 +9,7 @@ import { AppearanceCard } from './appearance.card';
 import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
 import { SETTINGS_SECTIONS, type SettingsSection } from './settings.shell';
+import { UnsavedGuard } from './unsaved.guard';
 import { StorageCard } from './storage.card';
 
 /**
@@ -23,6 +25,23 @@ import { StorageCard } from './storage.card';
  */
 export function SettingsPage() {
     const settings = useSettings();
+
+    // Which sections are holding something unsaved, rather than a single flag. Each section is its
+    // own form with its own save, so one of them being clean says nothing about the others.
+    const [unsaved, setUnsaved] = useState<ReadonlySet<string>>(new Set());
+
+    // Stable, because it is an effect dependency inside every form on the page. The updater returns
+    // the SAME set when membership has not moved: a section reports its bit on every render, and a
+    // new set each time would be a state change each time, which is a render loop.
+    const reportUnsaved = useCallback((id: string, dirty: boolean) => {
+        setUnsaved(current => {
+            if (current.has(id) === dirty) return current;
+            const next = new Set(current);
+            if (dirty) next.add(id);
+            else next.delete(id);
+            return next;
+        });
+    }, []);
 
     if (settings.isPending) {
         // The width matters as much as the shape: this page is a column of cards inside `maw={720}`,
@@ -42,8 +61,10 @@ export function SettingsPage() {
 
     return (
         <Stack gap="lg">
+            <UnsavedGuard dirty={unsaved.size > 0} />
+
             {SETTINGS_SECTIONS.map(section => (
-                <SettingsSectionCard key={section.id} section={section} settings={data} />
+                <SettingsSectionCard key={section.id} section={section} settings={data} onDirtyChange={reportUnsaved} />
             ))}
         </Stack>
     );
@@ -52,6 +73,8 @@ export function SettingsPage() {
 interface SettingsSectionCardProps {
     section: SettingsSection;
     settings: StationSettings;
+    /** Told when this section starts or stops holding an unsaved edit. Stable, see `SettingsPage`. */
+    onDirtyChange: (id: string, dirty: boolean) => void;
 }
 
 /**
@@ -62,7 +85,7 @@ interface SettingsSectionCardProps {
  * the order of the section list beside it were two facts that had to be kept the same by reading
  * them both. Now there is one order and this switches on what the section says it is.
  */
-function SettingsSectionCard({ section, settings }: SettingsSectionCardProps) {
+function SettingsSectionCard({ section, settings, onDirtyChange }: SettingsSectionCardProps) {
     // A section that is a whole route is not drawn here at all. It is in the list because the list
     // is navigation; the page is only the part of it that is cards.
     if (section.route !== undefined) return undefined;
@@ -91,19 +114,25 @@ function SettingsSectionCard({ section, settings }: SettingsSectionCardProps) {
 
     if (section.group === undefined) return undefined;
 
-    return <SettingsGroupCard section={section} group={section.group} settings={settings} />;
+    return <SettingsGroupCard section={section} group={section.group} settings={settings} onDirtyChange={onDirtyChange} />;
 }
 
 interface SettingsGroupCardProps {
     section: SettingsSection;
     group: NonNullable<SettingsSection['group']>;
     settings: StationSettings;
+    onDirtyChange: (id: string, dirty: boolean) => void;
 }
 
-function SettingsGroupCard({ section, group, settings }: SettingsGroupCardProps) {
+function SettingsGroupCard({ section, group, settings, onDirtyChange }: SettingsGroupCardProps) {
     // A mutation per section, so a save in one does not put another section's button into a
     // pending state or show it somebody else's error.
     const save = useUpdateSettings();
+
+    // Bound to this section's id here, because the form knows nothing about sections. Memoized
+    // because it is an effect dependency inside the form: a fresh arrow every render would run that
+    // effect every render, which is the one thing its own note asks a caller not to do.
+    const report = useCallback((dirty: boolean) => onDirtyChange(section.id, dirty), [onDirtyChange, section.id]);
     const fields = settings.descriptors.filter(descriptor => descriptor.group === group);
 
     // A group with nothing in it is not an empty card: it is a group whose settings have not been
@@ -135,6 +164,7 @@ function SettingsGroupCard({ section, group, settings }: SettingsGroupCardProps)
                     submitLabel={`Save ${section.label.toLowerCase()}`}
                     failureTitle="Save failed"
                     failureMessage="The settings could not be saved."
+                    onDirtyChange={report}
                 />
             </Stack>
         </Card>

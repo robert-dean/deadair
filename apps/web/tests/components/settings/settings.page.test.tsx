@@ -17,6 +17,22 @@ const updateSettings = vi.fn();
 // to contain — `storage.card.test.tsx` is where that one is pinned.
 const readStorage = vi.fn(async () => ({ readAt: '2026-08-16T13:43:48.367Z', totalFiles: 0, totalBytes: 0, stores: [] }));
 
+// Only the blocker is stubbed; the rest of the router stays real, because the page imports `Link`
+// through the section list without rendering it. `useBlocker` is the one hook that reaches for a
+// router instance, and there is none under this render.
+const useBlocker = vi.fn(() => ({ status: 'idle' as const }));
+
+vi.mock('@tanstack/react-router', async importOriginal => ({
+    ...(await importOriginal<typeof import('@tanstack/react-router')>()),
+    useBlocker: (options: unknown) => useBlocker(options),
+}));
+
+/** What the guard was last told, which is the page's answer to "is anything unsaved here". */
+const guarding = (): boolean => {
+    const options = useBlocker.mock.calls.at(-1)?.[0] as { disabled?: boolean } | undefined;
+    return options?.disabled === false;
+};
+
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         settings: {
@@ -32,6 +48,7 @@ vi.mock('../../../src/api/client', () => ({
 afterEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();
+    useBlocker.mockClear();
 });
 
 const SETTINGS: StationSettings = {
@@ -96,6 +113,36 @@ describe('SettingsPage', () => {
         });
         const sent = (updateSettings.mock.calls[0]?.[0] as { values: Record<string, unknown> }).values;
         expect(Object.keys(sent)).toEqual(['rotation.breakEveryMinutes']);
+    });
+
+    // The guard is the page's, not a section's: every section is its own form with its own save, so
+    // one being clean says nothing about the others and a single flag would answer for all of them.
+    it('does not guard a page where nothing has been typed', async () => {
+        getSettings.mockResolvedValue(settingsOf());
+        render(<SettingsPage />);
+        await screen.findByLabelText('Station name');
+
+        expect(guarding()).toBe(false);
+    });
+
+    it('guards the page as soon as one section holds an unsaved edit, and stops once it is saved', async () => {
+        getSettings.mockResolvedValue(settingsOf());
+        updateSettings.mockResolvedValue(settingsOf());
+        render(<SettingsPage />);
+        const user = setupUser();
+        await user.type(await screen.findByLabelText('Station name'), '!');
+
+        await waitFor(() => {
+            expect(guarding()).toBe(true);
+        });
+
+        await user.click(screen.getByRole('button', { name: 'Save station' }));
+
+        // `resetDirty` after a successful save is what puts it back, so an operator who saved and
+        // then navigated would otherwise be asked about an edit that is already stored.
+        await waitFor(() => {
+            expect(guarding()).toBe(false);
+        });
     });
 
     it('leaves an untouched secret out of the submission entirely', async () => {

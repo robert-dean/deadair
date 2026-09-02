@@ -692,7 +692,9 @@ planted tail). The other fifteen are new.
 These come first because they are the class the fourth pass argued is worth most, and because both
 are small.
 
-**A record on a playlist put on air passes no gate at all.** [programming.md](../internals/programming.md)
+~~**A record on a playlist put on air passes no gate at all.**~~ **BUILT 2026-09-02**, as described
+below but for one change of mechanism, noted where it happens.
+[programming.md](../internals/programming.md)
 says a dislike is an instruction no lineup may turn off. The console's put-on-air path goes
 `putOnAir` → `sourceTracks` → `toRundownTracks` → `replaceFrom` (`director.service.ts:1181`) and
 `PickResolver` is nowhere on it: no `rejectDisliked`, no era, no advisory policy, no cooldown. A
@@ -700,28 +702,42 @@ record the operator disliked last week airs the moment it sits on a playlist the
 `clean-only` station plays an explicit copy if the playlist holds one. The setlist argument, that
 somebody sequenced it, covers the rotation RULES and was never meant to cover the veto. Beside it,
 `toRundownTracks` (`director.console.service.ts:507-529`) does not fold by `songKey`, so two rips
-of one song on a playlist both air, possibly adjacent. The fix keeps the sequence: run
-`sourceTracks` through `resolver.resolve` with `NO_RULES`-shaped rules so the veto, the advisory
-and the period apply and nothing else does, and fold by `songKey` keeping the first.
+of one song on a playlist both air, possibly adjacent. **Built as a new `PickResolver.vet(tracks, {
+era, preference })` instead of the fix sketched here** (`resolver.resolve` with `NO_RULES`-shaped
+rules): `resolve` respaces its batch and overwrites title and artist from the catalog row, both
+wrong for a playlist whose order and strings are the operator's own, so the veto needed a
+narrower, order-preserving method rather than a rules argument that turns the rest of `resolve`
+off. It reuses `rejectDisliked`, `withinPeriod` and `bindingsFor` under the advisory policy, sits
+between `toRundownTracks` and `director.post`, and `toRundownTracks` folds by `songKey` keeping
+the first, exactly as sketched.
 
-**The station guesses its voice, and the console says it refuses to.** The "Speak with" descriptor
-(`settings.registry.ts:790-796`) is free text whose help says the station "declines to guess rather
-than airing the wrong voice", and [dj-voice.md](dj-voice.md)'s "What shipped" says the same.
-`selectPlugin` (`plugin.selection.ts:93-98`) returns the first candidate when the key is unset, and
-`speech.service.ts:107-109` sorts candidates by plugin id, so with both engines installed the remote
-one wins on the letter c. **Measured on this station: 56 renders between 2026-08-23 and 2026-09-01
-bounced `rendering → written`** on the remote engine's restart or its HTTP 500, while the local
-engine sat enabled, reachable and never asked. `render.segment.job.ts:147` releases the segment
-correctly on `unavailable`, and nothing asks anyone else, so each was a break skipped at air.
-Installing a second plugin silently moved the station's voice onto a remote GPU box and turned every
-one of its outages into silence. There is deliberately no fallback engine (`speech.settings.ts:3-7`),
-and that design holds; what is wrong is that an unset key PICKS rather than refuses, against its own
-copy. The fix is a `select` fed from `speakers()`, which the voices page already reads, and an unset
-key with two candidates refusing as promised.
+~~**The station guesses its voice, and the console says it refuses to.**~~ **BUILT 2026-09-02**, as
+described below but for one change of stance: the fix kept the first-by-id default rather than
+replacing it with a refusal, on the recorded cross-capability decision
+(`apps/api/CLAUDE.md`'s "Plugins, from the host side") that this file's own reasoning did not have
+in view. The "Speak with" descriptor (`settings.registry.ts:790-796`) is free text whose help says
+the station "declines to guess rather than airing the wrong voice", and [dj-voice.md](dj-voice.md)'s
+"What shipped" says the same. `selectPlugin` (`plugin.selection.ts:93-98`) returns the first
+candidate when the key is unset, and `speech.service.ts:107-109` sorts candidates by plugin id, so
+with both engines installed the remote one wins on the letter c. **Measured on this station: 56
+renders between 2026-08-23 and 2026-09-01 bounced `rendering → written`** on the remote engine's
+restart or its HTTP 500, while the local engine sat enabled, reachable and never asked.
+`render.segment.job.ts:147` releases the segment correctly on `unavailable`, and nothing asks anyone
+else, so each was a break skipped at air. Installing a second plugin silently moved the station's
+voice onto a remote GPU box and turned every one of its outages into silence. There is deliberately
+no fallback engine (`speech.settings.ts:3-7`), and that design holds; what was wrong was that an
+unset key picked without saying so, against its own copy — not that it picked at all. **Built**:
+the descriptor keeps `type: 'string'` (`selectPlugin` still accepts an id that is not currently a
+candidate without falling back, which a closed `select` cannot express) and gains
+`optionsFrom: 'plugins.speech'`, so the console lists the enabled speech plugins by id and name
+instead of asking the operator to already know one to type; its help now reads "Leave it empty and
+the station uses the first by id, and the log says which," which `plugin.selection.ts`'s
+`explainDefaultPick` already made true — the log line existed before this pass, only the copy
+denying it did not.
 
 ### The other seventeen, by where they sit
 
-**Programming.** Artist spacing stops at the batch seam. `spaceArtists` reorders one batch
+**Programming.** ~~Artist spacing stops at the batch seam. `spaceArtists` reorders one batch
 (`rotation.rules.ts:379`, called at `pick.resolver.ts:255`), `append` (`station.lineup.ts:804`)
 pushes it onto the tail without looking at what the tail ends with, the cooldown reads `play_history`
 only (`play.history.repository.ts:133`), and `extend.lineup.job.ts:112` deliberately threads
@@ -733,42 +749,73 @@ exists and nothing uses it: `SetInputs.avoidArtistKeys` is read by the catalog g
 nobody, and `judge` does not read it. Pass the last `maxPerArtist + 1` planned artists as
 `avoidArtistKeys`, union them into `judge`'s history read, and seed `spaceArtists` with the order's
 current last item. That is a short list, so the starvation argument in `programming.md` does not
-reach it.
+reach it.~~ **BUILT 2026-09-02**: `PlanRequest` gains `avoidArtistKeys` and `seedArtistKey`, threaded
+through `planRecords` into both `SetGenerator.generate` and `PickResolver.resolve`. `judge` unions
+`avoidArtistKeys` into the artist-cooldown set before `applyRules` runs, and `spaceArtists` takes a
+seed so its first placement is compared against something rather than nothing. Both lineup jobs
+compute the tail as the last `maxPerArtist + 1` upcoming items: `avoidArtistKeys` is passed from it
+only when the cap is on, `seedArtistKey` always, since seeding is about adjacency rather than the cap.
 
-Also: a playlist-anchored block plays through once and drifts into ordinary rotation without saying
+~~Also: a playlist-anchored block plays through once and drifts into ordinary rotation without saying
 so. `mode` and `onEnd` are on the slot, copied at changeover, and honoured by `finish`; the console
 still cannot set either, which [repeat-overrules.md](repeat-overrules.md) recorded on 2026-08-19 and
 is still true; and `topUpIfShort` refills at eight remaining on every pass, so `'repeat'` can never
-fire on a rotation even if it were set. Phase 3 of that file, plus one guard in the refill.
+fire on a rotation even if it were set. Phase 3 of that file, plus one guard in the refill.~~ **BUILT
+2026-09-02**, and **half of it was never broken**: `topUpIfShort` returns early unless
+`lineup.onEnd === 'extend'` and `trimPast` spares the past for `mode === 'setlist'` or
+`onEnd === 'repeat'` too, which was the real fault. The console half was a FALSE finding, repeated
+here from `repeat-overrules.md` without being checked: `SlotEditor` has carried both selects all
+along. It reads as absent to a search because `slot.editor.tsx` uses NUL bytes as a value delimiter,
+so git and grep classify it as binary and skip it silently — a file that answers "no matches" to
+every question asked of it. The on-air panel genuinely did lack the pair and now sends it, and the
+editor gained the copy saying what starting again does not reach. **A grep that finds nothing in a
+tree this size is a result worth doubting once**, which is the transferable half.
 
-**Breaks and productions.** A production with no source material is told the content "is yours to
+**Breaks and productions.** ~~A production with no source material is told the content "is yours to
 invent. Keep it to what you actually know" (`production.prompt.ts:278`), the beat rules forbid an
 invented place, date, price or quote, and nothing forbids a real-sounding discography credit for a
 record the station was never given. No fact substrate reaches a production, and the break prompt's
 "no connection to any other record" line (`break.prompt.ts:848`) has no counterpart in the beat
 prompt. This is the other station's fabricated-feature bug in the one writer here that still has the
-soft instruction. Second, the broadcast-clean rule is passed as `cleanLanguage` by all five break
-writers and by no beat, so a crude persona sheet is reined in on breaks and not on a phone-in it
-presents. Third, `brokenClaim` knows `item`, `time` and `reading` and has no PREVIOUS-side claim,
-so an operator moving a record to sit between the just-finished record and an already-written break
-leaves "that was X" airing after Z. All three are a field and a sentence each.
+soft instruction.~~ **BUILT 2026-09-02**: the outline prompt's invent line now carries the break
+prompt's own "no connection to any other record" sentence, word for word, whenever a production has
+no items at all — the only branch of it that runs. ~~Second, the broadcast-clean rule is passed as
+`cleanLanguage` by all five break writers and by no beat, so a crude persona sheet is reined in on
+breaks and not on a phone-in it presents.~~ **BUILT 2026-09-02**: `BeatRequest` and `OutlineRequest`
+both carry `cleanLanguage?: boolean`, rendering the break prompt's own clean sentence when it is set,
+and every call site in `produce.production.job.ts` that builds either request now passes
+`speaksClean(advisoryPolicy(this.config))`. ~~Third, `brokenClaim` knows `item`, `time` and `reading`
+and has no PREVIOUS-side claim, so an operator moving a record to sit between the just-finished
+record and an already-written break leaves "that was X" airing after Z.~~ **BUILT 2026-09-02**:
+`segments.claims_previous_item_id` is the fourth field, `StationLineup.previousTrackBefore` its
+lineup-walk mirror of `nextTrackAfter`, and `brokenClaim`'s fourth arm the sentence — checked at
+hand-over and in the write-ahead rewrite exactly as the forward claim is. All three are a field and a
+sentence each.
 
-**The model.** `reasoningEffort` is sent on every station call and nothing can turn it off. The
+**The model.** ~~`reasoningEffort` is sent on every station call and nothing can turn it off. The
 capability's contract (`packages/plugin-sdk/src/capabilities/llm.ts:57-62`) says the field is sent
 only when the caller asked, on the stated grounds that a strict server answers 400 to it; the plugin
 forwards it whenever present; every one of sixteen call sites hard-codes `'low'`, and the manifest
 has no field to suppress it. Point the plugin at a strict server or at a non-reasoning cloud model
 and every writer, the set generator, fact extraction and productions fail on the first request; the
 floor covers all of it, so the station keeps talking deterministically and the only trace is one
-plugin-log line. A plugin config field defaulting to off, which strips the key. Second, `streamText`
+plugin-log line. A plugin config field defaulting to off, which strips the key.~~ **BUILT
+2026-09-02**: `reasoningEffort` is a plugin config field, `auto | off | low | medium | high`, default
+`auto` rather than the off-default sketched here (an operator who touches nothing keeps today's
+behaviour of forwarding whatever the caller asked for). `off` sends the field as `none`; a fixed
+level overrides the caller's own hint; a 400 naming `reasoning_effort` is caught on `fullStream` (not
+`textStream`, which drops the fault silently and left `resultOf` seeing a generic
+`NoOutputGeneratedError` with no trace of it) and retried once with the field removed, and the plugin
+sends it on no further call for the rest of its life. Second, ~~`streamText`
 (`llm.plugin.ts:238`) passes no `maxRetries` and the installed SDK defaults to two, on top of the
 host's own server-sanctioned retry on a 429 or 503 carrying `Retry-After`. A throttling or failing
 provider sees up to six POSTs per generation, per tool step, inside one gate admission and one
 120-second budget, and a local model that fails after chewing on a prompt runs it three times on the
 one GPU slot. None of it is logged; only the terminal error surfaces. `maxRetries: 0`; the registry's
-floor is the fallback.
+floor is the fallback.~~ **BUILT 2026-09-02**: `streamText` is called with `maxRetries: 0`; the
+host's server-sanctioned retry at `plugin.host.factory.ts` is the only one left.
 
-**Playout.** A talk-over is stamped at hand-over and never observed at air. The mixer knows whether a
+~~**Playout.** A talk-over is stamped at hand-over and never observed at air. The mixer knows whether a
 cue fired or missed (`radio.liq:1117-1137`) and reports it on every reading; `liquidsoap.control.ts:532`
 parses it into `QueueStatus.voice` and nothing reads it. Worse than an early timestamp:
 `toPlayerItems` holds a talk-over as `handed` before its own record, `markAiring` turns every earlier
@@ -777,46 +824,75 @@ parses it into `QueueStatus.voice` and nothing reads it. Worse than an early tim
 that fired perfectly is recorded as skipped with a warning, and a genuinely missed cue is
 indistinguishable from it. Four `order.caughtUp` events since 2026-08-21 on this station, none
 attributed; no test asserts a talk-over's state after its record airs. Consume `reading.voice` in
-`Rundown.reconcile`, and have `markAiring` pass over items with `over` set.
+`Rundown.reconcile`, and have `markAiring` pass over items with `over` set.~~ **BUILT 2026-09-02**:
+`RundownItem.voice` carries the cue's own lineup item id, `Rundown` arms it as `armedVoice` the moment
+the record it rides goes on air, and `Rundown.reconcile` settles it from the mixer's own reading
+through the new `LiveOrder.markSpokenOver` — `handed → played` for `fired`, `handed → skipped` for
+`missed`, with a `warn` line on the second. `StationLineup.markAiring` now leaves a `handed` segment
+with `over` set alone when it sits after the outgoing item, since it is riding the record that is
+just starting rather than something the station passed over; one sitting before it is still swept,
+which is what catches a reading that never arrives.
 
-**The sidecar.** Three, and the first corrects a number in its own README. `analysis/README.md` and
+**The sidecar.** ~~Three, and the first corrects a number in its own README. `analysis/README.md` and
 `app.py:59-65` size the worker ceiling on a five-minute track being about 115 MB resident. Measured
 here with the tree's own functions on a five-minute stereo signal, the 106 MB decoded buffer held:
 `to_mono` peaks 191 MB above it, the cue points 359 MB, integrated loudness 253 MB, true peak 116 MB.
 **One decode peaks between 500 and 750 MB**, the default ceiling of four is a few GB, and a file at
 the accepted 1800-second maximum is several GB on its own. The cost is `loudness.py:133`, where
 `np.square` over a 75%-overlapping strided view materialises it dense in float64, four copies of
-every frame. A cumulative sum of squares is exact and linear. Second, the memory-growth shape the
+every frame. A cumulative sum of squares is exact and linear.~~ **BUILT 2026-09-02**, as described:
+`integrated_lufs` sums with a running total instead of materialising the strided view, `to_mono` folds
+into one preallocated buffer instead of three full-size copies, `true_peak_db` casts per chunk instead
+of per column, and the re-measured figure (~800 MB peak resident, not 115 MB) is now what
+`analysis/README.md` and `app.py` quote. ~~Second, the memory-growth shape the
 fourth pass named is present and unmitigated: a thread pool in a glibc image, one arena per thread,
 no `MALLOC_ARENA_MAX`, no trim, no recycling, and the `rssMb` reading the sidecar already computes is
-read only by the connection test. Two lines. Third, and the one that crash-loops: the two image
+read only by the connection test. Two lines.~~ **BUILT 2026-09-02**. ~~Third, and the one that crash-loops: the two image
 definitions have diverged on the beat layer. `analysis/Dockerfile:38` installs the beat tracker with
 `--no-deps`; the production `Dockerfile:338-341` installs `requirements.txt` and never installs it.
 The root Dockerfile's own comment says the analysis block is the one that gets forgotten, and the log
 shows it forgotten twice already. The day `beats.py` lands, the dev container imports and the
 production sidecar dies at start, which the console shows as "engine off". Beside it, no CI job runs
 the sidecar's five test files or starts the built image before pushing it; the `generated` job was
-added for exactly this class of drift on the TypeScript side and the Python side got nothing.
+added for exactly this class of drift on the TypeScript side and the Python side got nothing.~~
+**BUILT 2026-09-02**: `analysis/requirements.nodeps.txt` is the one pin file both Dockerfiles read
+for the beat tracker now, so there is nothing left for either to forget. A `sidecar` job in
+`build.yml` runs `python3 -m pytest analysis/`, and `images.yml` loads the built image and runs
+`import app` against its own venv before anything is pushed.
 
-**Enrichment.** A provider's config change never reaches what is already stored. Last.fm's tag
+**Enrichment.** ~~A provider's config change never reaches what is already stored. Last.fm's tag
 switches are applied at map time, the stripped payload is saved under a 90-day TTL
 (`enrichment.service.ts:41`), the walk asks only a provider with no unexpired row, and saving the
 plugin config re-initialises the plugin and nothing else. Turn tags on and the library stays tagless
 for up to three months; the only escape is one record at a time. A bulk clear by provider, or a
-config fingerprint beside the payload. Second, a Subsonic server's `[Unknown Artist]` placeholder
+config fingerprint beside the payload.~~ **BUILT 2026-09-02**: saving a plugin's settings publishes
+`plugin.configured` on `StationBus` (`plugins.service.ts:274-289`); `EnrichmentRefresh`
+(`enrichment.refresh.ts`), the subscriber on the other side, checks the id against
+`EnrichmentService.providerIds()`, back-dates `expires_at` to now on all three enrichment tables for
+that provider via `EnrichmentRepository.expireProvider`, and sends `catalog.enrich`. `attempts`,
+`last_error` and the payload are left alone; only the expiry moves, so the walk asks again rather
+than the row being deleted. ~~Second, a Subsonic server's `[Unknown Artist]` placeholder
 passes `navidrome.mapping.ts:62-67` and the resolver refuses only an EMPTY credit, so every untagged
 file becomes a record by an act literally named that, handed to the writer and to MusicBrainz.
-Measured 0 here; the first operator with a ripped-but-untagged folder gets it on air.
+Measured 0 here; the first operator with a ripped-but-untagged folder gets it on air.~~ **BUILT
+2026-09-02**: `navidrome.mapping.ts` matches the placeholder (bracketed or not, unknown/various/no
+artist(s)/album(s)) against the whole credit and treats a match as no artist and no album; the
+resolver's existing no-artist refusal fires with no second reason needed.
 
-**Operations.** `/nowplaying` reads the station name once at boot (`nowplaying.module.ts:26-36`,
+**Operations.** ~~`/nowplaying` reads the station name once at boot (`nowplaying.module.ts:26-36`,
 whose comment admits it) while the writers and the ICY title read it live, so a hardware display
-says the old name until a restart. No `unhandledRejection` handler exists anywhere, Node 26
-terminates on one, there are 61 fire-and-forget sites, and s6 restarts the process anonymously: the
-lease lapses, the mount goes quiet, and nothing in the log says why. Crash-and-restart may be the
-right policy; the missing half is the line naming the cause. `POST /personas/import` inherits the
-kit's 1 MB body default against nginx's 64 MB. And the schedule board's block drag is the component
-library's HTML5 drag, so it is mouse-only on a tablet; the keyboard path through the slot editor is
-fine, and the fix is the library's.
+says the old name until a restart.~~ **BUILT 2026-09-02**: `NowPlayingService` takes `AppConfig` and
+reads `STREAM_KEYS.title` on every call; the module registers it and has no `ready`. ~~No
+`unhandledRejection` handler exists anywhere, Node 26 terminates on one, there are 61 fire-and-forget
+sites, and s6 restarts the process anonymously: the lease lapses, the mount goes quiet, and nothing
+in the log says why. Crash-and-restart may be the right policy; the missing half is the line naming
+the cause.~~ **BUILT 2026-09-02**: `installCrashHandlers` (`apps/api/src/server/crash.handlers.ts`)
+registers both `unhandledRejection` and `uncaughtException`, logs the cause, then keeps the same
+policy — `process.exitCode = 1` and a self-sent `SIGTERM`. ~~`POST /personas/import` inherits the
+kit's 1 MB body default against nginx's 64 MB.~~ **BUILT 2026-09-02**: the JSON parser mapping in
+`setup.server.ts` raises the limit to 16 MB globally, a quarter of nginx's 64 MB. And the schedule
+board's block drag is the component library's HTML5 drag, so it is mouse-only on a tablet; the
+keyboard path through the slot editor is fine, and the fix is the library's.
 
 ### Measured and NOT live, which is worth as much
 

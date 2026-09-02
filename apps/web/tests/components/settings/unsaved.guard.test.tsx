@@ -32,7 +32,7 @@ describe('UnsavedGuard', () => {
         // `disabled` rather than a `shouldBlockFn` returning false, so a clean page pays nothing.
         expect(asked().disabled).toBe(true);
         expect(asked().shouldBlockFn()).toBe(false);
-        expect(screen.queryByText('You have unsaved changes')).not.toBeInTheDocument();
+        expect(screen.queryByText('Discard unsaved changes?')).not.toBeInTheDocument();
     });
 
     it('blocks the router and the browser off the same bit', () => {
@@ -48,24 +48,24 @@ describe('UnsavedGuard', () => {
     it('asks only once a navigation is actually held', () => {
         blocked = false;
         const { rerender } = render(<UnsavedGuard dirty />);
-        expect(screen.queryByText('You have unsaved changes')).not.toBeInTheDocument();
+        expect(screen.queryByText('Discard unsaved changes?')).not.toBeInTheDocument();
 
         blocked = true;
         rerender(<UnsavedGuard dirty />);
 
-        expect(screen.getByText('You have unsaved changes')).toBeInTheDocument();
+        expect(screen.getByText('Discard unsaved changes?')).toBeInTheDocument();
     });
 
-    it('stays put on Stay here, and lets the navigation go on Discard', async () => {
+    it('stays put on Cancel, and lets the navigation go on Discard changes', async () => {
         blocked = true;
         render(<UnsavedGuard dirty />);
         const user = setupUser();
 
-        await user.click(screen.getByRole('button', { name: 'Stay here' }));
+        await user.click(screen.getByRole('button', { name: 'Cancel' }));
         expect(reset).toHaveBeenCalledTimes(1);
         expect(proceed).not.toHaveBeenCalled();
 
-        await user.click(screen.getByRole('button', { name: 'Discard and leave' }));
+        await user.click(screen.getByRole('button', { name: 'Discard changes' }));
         expect(proceed).toHaveBeenCalledTimes(1);
     });
 

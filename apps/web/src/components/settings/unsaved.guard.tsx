@@ -1,5 +1,6 @@
-import { Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { useBlocker } from '@tanstack/react-router';
+
+import { ConfirmModal } from '../shared/confirm.modal';
 
 export interface UnsavedGuardProps {
     /** Whether anything on the page is holding an edit nobody has saved. */
@@ -17,9 +18,20 @@ export interface UnsavedGuardProps {
  * that moves you anywhere else. Typing a new mount into Station and clicking Rotation used to be
  * scrolling and is now a navigation, so what was impossible to lose is one click from gone.
  *
- * It is deliberately not a general facility. It takes a bit and draws a dialog; what counts as an
+ * It is deliberately not a general facility. It takes a bit and asks a question; what counts as an
  * unsaved edit is `ConfigFieldsForm`'s question, answered there, because clearing a secret is an
  * unsaved change the form's own `isDirty()` cannot see.
+ *
+ * ## The dialog is the console's own, and the destructive half is the one that leaves
+ *
+ * `ConfirmModal` rather than a `Modal` written here, on its own argument: there were three idioms
+ * for asking this before it existed, and a fourth would be the same drift again. Its shape fits
+ * without bending — Cancel is `reset` and stays put, and the red verb is `proceed`.
+ *
+ * That puts the emphasis on discarding, which is worth being deliberate about: the operator did not
+ * ask to discard anything, they asked to go somewhere. The red is what says the second thing is
+ * about to happen because of the first, and Cancel is the way out that every other dialog here
+ * already spells the same way.
  *
  * ## What it covers, and what it cannot
  *
@@ -39,25 +51,19 @@ export function UnsavedGuard({ dirty }: UnsavedGuardProps) {
         withResolver: true,
     });
 
-    const blocked = blocker.status === 'blocked';
-
     return (
-        <Modal opened={blocked} onClose={() => blocker.reset?.()} title="You have unsaved changes" centered size="md">
-            <Stack gap="md">
-                <Text size="sm">
-                    Something on this page has been changed and not saved. Leaving now throws it away. Every section saves on its own, so saving here
-                    will not touch anything else.
-                </Text>
-
-                <Group justify="flex-end" gap="sm">
-                    {/* The safe half is the default and sits where a primary action sits, because
-                        the destructive half is the one that reads like carrying on. */}
-                    <Button variant="default" onClick={() => blocker.proceed?.()}>
-                        Discard and leave
-                    </Button>
-                    <Button onClick={() => blocker.reset?.()}>Stay here</Button>
-                </Group>
-            </Stack>
-        </Modal>
+        <ConfirmModal
+            opened={blocker.status === 'blocked'}
+            // Dismissing is staying put, never discarding. Escape and the close button are reflexes,
+            // and resolving them the other way would throw the work away on the most casual gesture
+            // there is. `ConfirmModal` wires both to `onClose`, which is the half that keeps it.
+            onClose={() => blocker.reset?.()}
+            onConfirm={() => blocker.proceed?.()}
+            title="Discard unsaved changes?"
+            confirmLabel="Discard changes"
+        >
+            Something on this page has been changed and not saved. Leaving now throws it away. Every section saves on its own, so saving here will not
+            touch anything else.
+        </ConfirmModal>
     );
 }

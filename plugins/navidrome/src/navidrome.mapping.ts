@@ -48,6 +48,19 @@ export const genreNames = (item: { genre?: string; genres?: { name?: string }[] 
 };
 
 /**
+ * A server's sentinel for a tag it never got, sent as if it were the tag itself:
+ * "Unknown Artist", "[Unknown Album]", "Various Artists", "No Album", and so on.
+ *
+ * Anchored against the whole credit, not a token filter: a real artist whose
+ * name happens to contain one of these words is not a placeholder, and a
+ * one-artist-string field like Subsonic's has no tokens to filter in the first
+ * place. Downstream this is worth exactly what an absent credit is worth — the
+ * resolver already refuses a track with no artist, and a placeholder deserves
+ * that same refusal rather than a fabricated identity to read out on air.
+ */
+const PLACEHOLDER = /^\[?(unknown|various|no) (artist|album)s?\]?$/i;
+
+/**
  * One song.
  *
  * `artworkUrl` is left to the caller, because minting it needs credentials and
@@ -59,14 +72,15 @@ export function mapTrack(song: SubsonicChild, artworkUrl?: string): ProviderTrac
     if (!id) return undefined;
 
     const artist = text(song.artist);
+    const album = text(song.album);
 
     return {
         id,
         title: text(song.title) ?? 'Untitled',
         // An array because a provider may know several. Subsonic knows one string,
         // and splitting it on commas would invent a duo out of "Tyler, The Creator".
-        artists: artist ? [artist] : [],
-        ...(text(song.album) ? { album: text(song.album) } : {}),
+        artists: artist && !PLACEHOLDER.test(artist) ? [artist] : [],
+        ...(album && !PLACEHOLDER.test(album) ? { album } : {}),
         ...(durationMs(song.duration) !== undefined ? { durationMs: durationMs(song.duration) } : {}),
         ...(artworkUrl ? { artworkUrl } : {}),
         // Straight off the file's own tags, which is the best year any provider gives: a library

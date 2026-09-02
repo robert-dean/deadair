@@ -48,6 +48,36 @@ describe('mapTrack', () => {
         expect(mapTrack(song)).not.toHaveProperty('isrc');
     });
 
+    it('refuses a placeholder credit as no artist', () => {
+        expect(mapTrack({ id: 's', artist: 'Unknown Artist' })?.artists).toEqual([]);
+        expect(mapTrack({ id: 's', artist: '[Unknown Artist]' })?.artists).toEqual([]);
+        expect(mapTrack({ id: 's', artist: 'Various Artists' })?.artists).toEqual([]);
+        expect(mapTrack({ id: 's', artist: 'No Artist' })?.artists).toEqual([]);
+    });
+
+    it('matches a placeholder credit regardless of case', () => {
+        // A server is free to send whatever casing it likes for its own sentinel.
+        expect(mapTrack({ id: 's', artist: 'UNKNOWN ARTIST' })?.artists).toEqual([]);
+        expect(mapTrack({ id: 's', artist: 'unknown artist' })?.artists).toEqual([]);
+    });
+
+    it('keeps a real artist whose name merely contains a placeholder word', () => {
+        // Anchored against the whole credit: a token filter would wrongly strip a
+        // real act out of the running order.
+        expect(mapTrack({ id: 's', artist: 'The Unknown Artist' })?.artists).toEqual(['The Unknown Artist']);
+        expect(mapTrack({ id: 's', artist: 'Various Artists Collective' })?.artists).toEqual(['Various Artists Collective']);
+    });
+
+    it('drops a placeholder album', () => {
+        expect(mapTrack({ id: 's', album: 'Unknown Album' })).not.toHaveProperty('album');
+        expect(mapTrack({ id: 's', album: '[No Album]' })).not.toHaveProperty('album');
+        expect(mapTrack({ id: 's', album: 'Unknown Albums' })).not.toHaveProperty('album');
+    });
+
+    it('keeps a real album whose title merely contains a placeholder word', () => {
+        expect(mapTrack({ id: 's', album: 'The Unknown Album' })?.album).toBe('The Unknown Album');
+    });
+
     it('carries the tagged release year', () => {
         expect(mapTrack({ ...song, year: 1994 })?.year).toBe(1994);
     });

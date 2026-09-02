@@ -489,7 +489,7 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         expect(screen.queryByRole('button', { name: 'Start' })).not.toBeInTheDocument();
     });
 
-    it('still offers Shuffle and Extend while stood down, because an order can be prepared off air', async () => {
+    it('still offers Shuffle and Plan while stood down, because an order can be prepared off air', async () => {
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ id: 'item-1' }), orderItem({ id: 'item-2', title: 'Xtal' })] }));
         getStationAir.mockResolvedValue(stationAir({ active: false }));
 
@@ -497,7 +497,7 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         await screen.findByText('Late shift');
 
         expect(screen.getByRole('button', { name: 'Shuffle' })).toBeEnabled();
-        expect(screen.getByRole('button', { name: 'Extend' })).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'Plan' })).toBeEnabled();
     });
 
     it('offers to take a call while there is a broadcast to put one inside', async () => {
@@ -521,7 +521,7 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         expect(await screen.findByRole('button', { name: 'Shuffle' })).toBeDisabled();
     });
 
-    it('offers to replan a tail that is too short to shuffle, because a dry order is worth replanning', async () => {
+    it('offers to plan a tail that is too short to shuffle, because a dry order is worth replanning', async () => {
         // The one place the two buttons deliberately disagree. Shuffling one item cannot change
         // anything; replanning is exactly what an operator wants when the hour has run out.
         getTheRunningOrder.mockResolvedValue(order({ items: [orderItem({ state: 'airing' })] }));
@@ -530,7 +530,7 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         render(<DeskPage />);
 
         expect(await screen.findByRole('button', { name: 'Shuffle' })).toBeDisabled();
-        expect(screen.getByRole('button', { name: 'Replan' })).toBeEnabled();
+        expect(screen.getByRole('button', { name: 'Plan' })).toBeEnabled();
     });
 
     it('replans against a new brief, and seeds the box with what the broadcast is already carrying', async () => {
@@ -538,16 +538,15 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         getStationAir.mockResolvedValue(stationAir());
 
         render(<DeskPage />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Replan' }));
+        await userEvent.click(await screen.findByRole('button', { name: 'Plan' }));
 
-        const box = await screen.findByLabelText('What it should play');
+        // Keeping the show is the default side, so this is what opens without choosing anything.
+        const box = await screen.findByRole('textbox', { name: /Asked to play/ });
         expect(box).toHaveValue('ambient only');
 
         await userEvent.clear(box);
         await userEvent.type(box, 'heavy metal hits');
-        // The trigger and the one inside the popover share a name, which is the point: the second
-        // is the confirmation of the first.
-        await userEvent.click(screen.getAllByRole('button', { name: 'Replan' })[1]!);
+        await userEvent.click(screen.getByRole('button', { name: 'Replan' }));
 
         await waitFor(() => expect(replanTheRunningOrder).toHaveBeenCalledWith({ brief: 'heavy metal hits' }));
     });
@@ -559,47 +558,57 @@ describe('DeskPage: the running order and the broadcast controls', () => {
         getStationAir.mockResolvedValue(stationAir());
 
         render(<DeskPage />);
-        await userEvent.click(await screen.findByRole('button', { name: 'Replan' }));
-        await screen.findByLabelText('What it should play');
+        await userEvent.click(await screen.findByRole('button', { name: 'Plan' }));
+        await screen.findByRole('textbox', { name: /Asked to play/ });
 
-        await userEvent.click(screen.getAllByRole('button', { name: 'Replan' })[1]!);
+        await userEvent.click(screen.getByRole('button', { name: 'Replan' }));
 
         await waitFor(() => expect(replanTheRunningOrder).toHaveBeenCalledWith({}));
     });
 
-    it('offers an empty station both ways on air, the brief first', async () => {
+    it('offers an empty station both ways on air, and Plan is one of them', async () => {
         // Neither needs anything prepared: a brief is programmed against from nothing, and a
-        // playlist is READ at the moment the station goes on. The brief is first because it is the
-        // one that needs no material at all.
+        // playlist is READ at the moment the station goes on.
+        //
+        // Plan being drawn at all is the half worth pinning. The whole button row used to be gated
+        // on the order having ITEMS, and the briefing box that is now inside Plan was drawn outside
+        // that gate for exactly this reason: Stop leaves the running order alone rather than
+        // emptying it, so an operator who had ever been on air needed a way back that was not the
+        // playlists page.
         getTheRunningOrder.mockResolvedValue(order({ items: [], name: '' }));
         getStationAir.mockResolvedValue(stationAir({ active: false }));
 
         render(<DeskPage />);
 
-        expect(await screen.findByText('Tell the station what to play')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Go on air' })).toBeDisabled();
+        expect(await screen.findByRole('button', { name: 'Plan' })).toBeEnabled();
         expect(screen.getByText('Browse playlists')).toBeInTheDocument();
     });
 
-    it('still offers a brief with a running order up, behind its own heading, and says it replaces one', async () => {
-        // The box used to live inside the empty state, and Stop does not empty the running order:
-        // it stands the station down and leaves the order for a resume. So an operator who had ever
-        // been on air could not reach this again without dropping every item by hand.
-        //
-        // Shut rather than gone, which is the second half: the form is five controls and four
-        // paragraphs, and open on this page it pushed the running order off the screen. What has to
-        // survive is that it is REACHABLE, so the heading is asserted as a control and the sentence
-        // about what it costs is read after opening it.
+    it('will not start a broadcast with nothing asked for', async () => {
+        getTheRunningOrder.mockResolvedValue(order({ items: [], name: '' }));
+        getStationAir.mockResolvedValue(stationAir({ active: false }));
+
+        render(<DeskPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Plan' }));
+
+        expect(await screen.findByRole('button', { name: 'Go on air' })).toBeDisabled();
+    });
+
+    it('says what starting a new show costs, on the side that costs it', async () => {
+        // The two sides of the choice are not the same size of decision: one replaces what is
+        // coming and the other is heard by everybody listening within a record. A segmented control
+        // draws them as peers, so the sentence is what stops them reading as peers.
         getTheRunningOrder.mockResolvedValue(order());
         getStationAir.mockResolvedValue(stationAir({ active: false }));
 
         render(<DeskPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Plan' }));
 
-        const open = await screen.findByRole('button', { name: /Tell the station what to play instead/ });
-        await userEvent.click(open);
+        expect(screen.queryByText(/starts a new broadcast/)).not.toBeInTheDocument();
+
+        await userEvent.click(await screen.findByRole('radio', { name: 'Start a new show' }));
+
         expect(screen.getByText(/starts a new broadcast/)).toBeInTheDocument();
-        // The playlist card stays behind: it answers having nothing on, and the nav already has it.
-        expect(screen.queryByText('Browse playlists')).not.toBeInTheDocument();
     });
 
     it('shows the brief that is still steering a broadcast', async () => {

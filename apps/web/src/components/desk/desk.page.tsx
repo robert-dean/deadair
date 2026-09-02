@@ -9,9 +9,8 @@ import { useExtendOrder, useMoveOrderItem, useRemoveOrderItem, useShuffleOrder, 
 import { usePlayoutStatus } from '../../api/playout.queries';
 import { useStationAttention } from '../../api/station.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
-import { BriefTheStation } from '../onair/brief.the.station';
 import { runsDryAt, whatHappensThen } from '../onair/order.runs.dry';
-import { ReplanTheRest } from '../onair/replan.the.rest';
+import { PlanTheStation } from '../onair/plan.the.station';
 import { TakeACall } from '../onair/take.a.call';
 import { StationOrderTable } from '../onair/station.order.table';
 import { AttentionList } from '../station/attention.list';
@@ -152,7 +151,12 @@ export function DeskPage() {
                             What the station will play, and what it will say over it.
                         </Text>
                     </Group>
-                    {items.length > 0 ? (
+                    {/* Drawn whenever the order has LOADED rather than whenever it has items, which
+                        the whole row used to be gated on. Plan is how the station goes on air from
+                        this page, and hiding it on an empty order left an operator who had pressed
+                        Stop with no way back other than the playlists page. Shuffle and Take a call
+                        disable themselves instead, because neither means anything with nothing on. */}
+                    {loaded ? (
                         <Group gap="xs" wrap="wrap">
                             <Tooltip label="Shuffles everything the player is not already holding." multiline maw={320}>
                                 <Button
@@ -165,24 +169,10 @@ export function DeskPage() {
                                     Shuffle
                                 </Button>
                             </Tooltip>
-                            <Tooltip label="Queues a refill. The tracks land a few seconds later." multiline maw={320}>
-                                <Button
-                                    variant="default"
-                                    size="compact-md"
-                                    loading={extend.isPending}
-                                    // The records land seconds later and the order is polled every five,
-                                    // so without this the button is pressed and nothing whatever happens
-                                    // for long enough to press it again.
-                                    onClick={() =>
-                                        extend.mutate({}, { onSuccess: () => notifyQueued('Refill asked for. The records land in a few seconds.') })
-                                    }
-                                >
-                                    Extend
-                                </Button>
-                            </Tooltip>
                             {/* Beside Shuffle because they answer the same complaint differently: a
-                                shuffle reorders the hour and this one replaces it. */}
-                            <ReplanTheRest brief={loaded?.brief ?? ''} disabled={nothingOn} />
+                                shuffle reorders the hour, and this one changes what is in it —
+                                either from here on, or as a new show. */}
+                            <PlanTheStation {...(loaded === undefined ? {} : { order: loaded })} />
                             {/* The one that changes what the station SAYS rather than what it plays.
                                 It inherits this broadcast's host and brief, which is why it is here
                                 rather than on Voice. */}
@@ -204,11 +194,6 @@ export function DeskPage() {
                 ))}
 
                 {order.isPending ? <PageSkeleton variant="table" /> : undefined}
-
-                {/* Outside the empty state on purpose: Stop leaves the running order alone so Start
-                    can resume it, so an operator who had been on air once could never get back to
-                    this box. Briefing is a command like Shuffle, available whenever it is wanted. */}
-                {loaded ? <BriefTheStation replacing={items.length > 0} /> : undefined}
 
                 {nothingOn ? (
                     <EmptyState
@@ -244,7 +229,24 @@ export function DeskPage() {
                     Hedged with "about" because it is: a skip, a drop or a refill moves it. */}
                 {dryAt && loaded ? (
                     <Text size="sm" c="dimmed">
-                        The order runs dry at about <span className="da-num">{dryAt}</span>. {whatHappensThen(loaded.onEnd)}
+                        The order runs dry at about <span className="da-num">{dryAt}</span>. {whatHappensThen(loaded.onEnd)}{' '}
+                        {/* Extend lives HERE rather than in the row of buttons above, because this
+                            sentence is what makes anybody want it. On a default station it is also
+                            mostly redundant — the order tops itself up once it drops below eight —
+                            so as a peer of Shuffle and Plan it read as a routine step rather than
+                            as the occasional nudge it is: more records now, without waiting for
+                            the threshold, after dropping a stretch of the hour. */}
+                        <Anchor
+                            component="button"
+                            type="button"
+                            size="sm"
+                            disabled={extend.isPending}
+                            onClick={() =>
+                                extend.mutate({}, { onSuccess: () => notifyQueued('Refill asked for. The records land in a few seconds.') })
+                            }
+                        >
+                            Extend now
+                        </Anchor>
                     </Text>
                 ) : undefined}
             </Stack>

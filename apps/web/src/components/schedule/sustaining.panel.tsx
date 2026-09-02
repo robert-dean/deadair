@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Card, Collapse, Group, NumberInput, Select, Stack, Text, Textarea } from '@mantine/core';
+import { Button, Card, Collapse, Group, Stack, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
 import type { CatalogPlaylist } from '@deadair/sdk';
@@ -7,6 +7,7 @@ import type { CatalogPlaylist } from '@deadair/sdk';
 import { playlistsListOptions } from '../../api/playlists.queries';
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { BriefField, EraFields, SourceField, sourceValue, splitSource } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 
@@ -75,18 +76,18 @@ export function SustainingPanel() {
     const catalog = playlists.data?.playlists ?? [];
 
     const submit = (next: FormValues) => {
-        // `?? ''` because clearing a Mantine `Select` sets the field to null rather than to the
-        // empty string it started as, and that is the gesture for "no playlist".
-        const [pluginId, playlistId] = (next.source ?? '').split(' ');
-        const named = Boolean(pluginId && playlistId);
+        // `splitSource` takes the null clearing a Mantine `Select` leaves behind, which is the
+        // gesture for "no playlist" and is not the empty string the field started as.
+        const source = splitSource(next.source);
+        const named = source !== undefined;
 
         // `null` rather than `''` for anything emptied: an explicit null deletes the row, which is
         // how a setting goes back to unset rather than being pinned to an empty string. The two
         // halves of the source go together, since one without the other names nothing a playlist
         // reader could be asked for.
         save.mutate({
-            [KEYS.pluginId]: named ? pluginId : null,
-            [KEYS.playlistId]: named ? playlistId : null,
+            [KEYS.pluginId]: named ? source.pluginId : null,
+            [KEYS.playlistId]: named ? source.playlistId : null,
             [KEYS.brief]: next.brief.trim() === '' ? null : next.brief.trim(),
             [KEYS.eraFrom]: typeof next.eraFrom === 'number' ? next.eraFrom : null,
             [KEYS.eraTo]: typeof next.eraTo === 'number' ? next.eraTo : null,
@@ -128,8 +129,6 @@ export function SustainingPanel() {
                     <SustainingForm
                         key={JSON.stringify(stored)}
                         initial={stored}
-                        playlists={catalog}
-                        playlistsPending={playlists.isPending}
                         onSubmit={submit}
                         saving={save.isPending}
                         succeeded={save.isSuccess}
@@ -143,79 +142,40 @@ export function SustainingPanel() {
 
 interface SustainingFormProps {
     initial: FormValues;
-    playlists: readonly CatalogPlaylist[];
-    playlistsPending: boolean;
     onSubmit: (values: FormValues) => void;
     saving: boolean;
     succeeded: boolean;
     failure?: string;
 }
 
-/** The form itself, so the `key` above rebuilds its values rather than the whole card. */
-function SustainingForm({ initial, playlists, playlistsPending, onSubmit, saving, succeeded, failure }: SustainingFormProps) {
+/**
+ * The form itself, so the `key` above rebuilds its values rather than the whole card.
+ *
+ * The playlists are no longer passed down: `SourceField` reads them itself, off the same query key
+ * the card above is already reading for its summary line, so it is one request either way.
+ */
+function SustainingForm({ initial, onSubmit, saving, succeeded, failure }: SustainingFormProps) {
     const form = useForm<FormValues>({ initialValues: initial });
-
-    const options = playlists.map(entry => ({
-        value: sourceValue(entry.pluginId, entry.id),
-        label: `${entry.name} — ${entry.pluginName}`,
-    }));
 
     return (
         <form onSubmit={form.onSubmit(onSubmit)}>
             <Stack gap="md" pt="sm">
                 {failure ? <ErrorAlert title="That could not be saved">{failure}</ErrorAlert> : undefined}
 
-                <Select
-                    label="Playing from"
+                <SourceField
                     description="Leave it empty and the station programmes the gap itself, from the words below."
-                    data={options}
-                    searchable
-                    clearable
-                    // Named for whatever reads the DOM rather than for a screen reader: Mantine
-                    // marks its own clear button `aria-hidden`, on the grounds that the combobox
-                    // beside it is the control. Clearing this is the gesture for "programme the gap
-                    // yourself", which is worth a name wherever it is legible.
-                    clearButtonProps={{ 'aria-label': 'Play from no playlist' }}
-                    nothingFoundMessage={playlistsPending ? 'Reading the plugins…' : 'No playlists on offer'}
                     {...form.getInputProps('source')}
                 />
 
-                <Textarea
-                    label="Asked to play"
+                <BriefField
                     description="In your own words, for the model that chooses records, exactly as a block's own brief works."
-                    autosize
-                    minRows={2}
-                    placeholder="warm and unhurried"
                     {...form.getInputProps('brief')}
                 />
 
                 {/* Beside the words rather than inside them, as on a block: a period is the one part
                     of an instruction that can be a number, and a number reaches the record DRAW as
                     well as the model, so it holds on a station with nothing configured to read prose. */}
-                <Group grow>
-                    <NumberInput
-                        label="From year"
-                        description="Empty means no lower bound."
-                        placeholder="1970"
-                        min={1900}
-                        max={2100}
-                        allowDecimal={false}
-                        hideControls
-                        className="da-num"
-                        {...form.getInputProps('eraFrom')}
-                    />
-                    <NumberInput
-                        label="To year"
-                        description="Empty means no upper bound."
-                        placeholder="1979"
-                        min={1900}
-                        max={2100}
-                        allowDecimal={false}
-                        hideControls
-                        className="da-num"
-                        {...form.getInputProps('eraTo')}
-                    />
-                </Group>
+                <EraFields from={form.getInputProps('eraFrom')} to={form.getInputProps('eraTo')} />
 
                 <Text size="xs" c="dimmed">
                     A gap never falls silent: it plays this, or the station keeps whatever the last block left on. Saving changes nothing that is on
@@ -237,9 +197,6 @@ function SustainingForm({ initial, playlists, playlistsPending, onSubmit, saving
         </form>
     );
 }
-
-/** Plugin and playlist packed into the one string a picker holds. The slot editor's own encoding. */
-const sourceValue = (pluginId: string, playlistId: string): string => `${pluginId} ${playlistId}`;
 
 /** A stored setting as the string a form field holds, where absent and empty are the same thing. */
 function text(values: Record<string, unknown>, key: string): string {
@@ -289,10 +246,10 @@ function storedValues(values: Record<string, unknown>): FormValues {
 function summaryOf(stored: FormValues, catalog: readonly CatalogPlaylist[]): string {
     const parts: string[] = [];
 
-    if (stored.source) {
-        const [pluginId, playlistId] = stored.source.split(' ');
-        const known = catalog.find(entry => entry.pluginId === pluginId && entry.id === playlistId);
-        parts.push(known ? `${known.name} — ${known.pluginName}` : (playlistId ?? stored.source));
+    const source = splitSource(stored.source);
+    if (source !== undefined) {
+        const known = catalog.find(entry => entry.pluginId === source.pluginId && entry.id === source.playlistId);
+        parts.push(known ? `${known.name} — ${known.pluginName}` : source.playlistId);
     }
     if (stored.brief.trim() !== '') parts.push(`“${stored.brief.trim()}”`);
 

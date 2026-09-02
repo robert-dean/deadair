@@ -14,9 +14,10 @@ contract ScheduleSlot: {
     sourcePluginId?: string(max=200) # The plugin the records come from. Absent, with no playlist, is a slot the station fills itself
     sourcePlaylistId?: string(max=500)
     personaId?: string(max=100) # Who hosts this stretch of the day. Absent means the station's own active persona
-    brief?: string(max=2000) # What this stretch of the day is asked to play, in the operator's own words
+    brief?: string(max=500) # What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console
     eraFrom?: int(min=1900, max=2100) # The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period
     eraTo?: int(min=1900, max=2100) # The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone
+    callins?: boolean # Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says
     mode: enum(rotation, setlist, feature)
     onEnd: enum(extend, repeat, stop)
 }

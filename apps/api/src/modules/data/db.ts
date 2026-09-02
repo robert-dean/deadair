@@ -524,6 +524,7 @@ export interface DeadairPronunciations {
 
 export interface DeadairScheduleSlots {
   brief: Generated<string>;
+  callins: boolean | null;
   createdAt: Generated<DateTime>;
   days: Generated<Json>;
   endsAtMinutes: number;

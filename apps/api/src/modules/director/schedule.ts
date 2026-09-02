@@ -100,6 +100,16 @@ export interface ScheduleSlot {
      * does not know is eligible for any period.
      */
     era?: { from?: number; to?: number };
+    /**
+     * Whether somebody phones in during this stretch of the day.
+     *
+     * Three-way on purpose, exactly as `PutOnAirInput.callins` is: absent leaves the station's own
+     * `rotation.callins` standing, which is what an operator who never thought about the phone
+     * means, where `false` is this slot overruling a station that takes calls every hour. A
+     * `setlist` or a `feature` takes none whatever this says, because `NO_RULES` is what those
+     * modes resolve from.
+     */
+    callins?: boolean;
     mode: StationLineupMode;
     onEnd: StationLineupOnEnd;
 }

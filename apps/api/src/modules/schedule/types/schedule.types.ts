@@ -24,7 +24,13 @@ export const ScheduleSlot = z.strictObject({
         .describe('The plugin the records come from. Absent, with no playlist, is a slot the station fills itself'),
     sourcePlaylistId: z.string().max(500).optional(),
     personaId: z.string().max(100).optional().describe("Who hosts this stretch of the day. Absent means the station's own active persona"),
-    brief: z.string().max(2000).optional().describe("What this stretch of the day is asked to play, in the operator's own words"),
+    brief: z
+        .string()
+        .max(500)
+        .optional()
+        .describe(
+            "What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console",
+        ),
     eraFrom: z.coerce
         .number()
         .int()
@@ -41,6 +47,12 @@ export const ScheduleSlot = z.strictObject({
         .max(2100)
         .optional()
         .describe('The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'),
+    callins: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says",
+        ),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -65,7 +77,13 @@ export const ScheduleSlotInput = z.strictObject({
         .describe('The plugin the records come from. Absent, with no playlist, is a slot the station fills itself'),
     sourcePlaylistId: z.string().max(500).optional(),
     personaId: z.string().max(100).optional().describe("Who hosts this stretch of the day. Absent means the station's own active persona"),
-    brief: z.string().max(2000).optional().describe("What this stretch of the day is asked to play, in the operator's own words"),
+    brief: z
+        .string()
+        .max(500)
+        .optional()
+        .describe(
+            "What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console",
+        ),
     eraFrom: z.coerce
         .number()
         .int()
@@ -82,6 +100,12 @@ export const ScheduleSlotInput = z.strictObject({
         .max(2100)
         .optional()
         .describe('The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone'),
+    callins: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says",
+        ),
     mode: z.enum(['rotation', 'setlist', 'feature']),
     onEnd: z.enum(['extend', 'repeat', 'stop']),
 });
@@ -89,7 +113,7 @@ export type ScheduleSlotInput = z.infer<typeof ScheduleSlotInput>;
 
 /**
  * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](file://./../../../../data/contracts/schedule/schedule.types.ck#L29)
+ * generated from [ScheduleTimetableQuery](file://./../../../../data/contracts/schedule/schedule.types.ck#L30)
  */
 export const ScheduleTimetableQuery = z.strictObject({
     from: z
@@ -106,7 +130,7 @@ export type ScheduleTimetableQuery = z.infer<typeof ScheduleTimetableQuery>;
 
 /**
  * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](file://./../../../../data/contracts/schedule/schedule.types.ck#L42)
+ * generated from [ScheduleOccurrence](file://./../../../../data/contracts/schedule/schedule.types.ck#L43)
  */
 export const ScheduleOccurrence = z.strictObject({
     slotId: z.string().min(1).max(100),
@@ -123,7 +147,7 @@ export const ScheduleOccurrence = z.strictObject({
 export type ScheduleOccurrence = z.infer<typeof ScheduleOccurrence>;
 
 /**
- * generated from [ScheduleSlotList](file://./../../../../data/contracts/schedule/schedule.types.ck#L24)
+ * generated from [ScheduleSlotList](file://./../../../../data/contracts/schedule/schedule.types.ck#L25)
  */
 export const ScheduleSlotList = z.strictObject({
     slots: z.array(ScheduleSlot),
@@ -137,7 +161,7 @@ export type ScheduleSlotListInput = z.infer<typeof ScheduleSlotListInput>;
 
 /**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](file://./../../../../data/contracts/schedule/schedule.types.ck#L35)
+ * generated from [ScheduleTimetable](file://./../../../../data/contracts/schedule/schedule.types.ck#L36)
  */
 export const ScheduleTimetable = z.strictObject({
     from: z
@@ -154,7 +178,7 @@ export type ScheduleTimetable = z.infer<typeof ScheduleTimetable>;
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](file://./../../../../data/contracts/schedule/schedule.types.ck#L50)
+ * generated from [ScheduleNow](file://./../../../../data/contracts/schedule/schedule.types.ck#L51)
  */
 export const ScheduleNow = z.strictObject({
     now: z

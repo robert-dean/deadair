@@ -361,6 +361,9 @@ function draftOf(body: ScheduleSlotInput): ScheduleSlotDraft {
         ...(body.eraFrom === undefined && body.eraTo === undefined
             ? {}
             : { era: { ...(body.eraFrom === undefined ? {} : { from: body.eraFrom }), ...(body.eraTo === undefined ? {} : { to: body.eraTo }) } }),
+        // `=== undefined` rather than a falsy test: `false` is a real answer meaning this slot takes
+        // no calls, which is not the same as never having been asked.
+        ...(body.callins === undefined ? {} : { callins: body.callins }),
         mode: body.mode,
         onEnd: body.onEnd,
     };
@@ -379,6 +382,7 @@ function forTheWire(slot: ScheduleSlot): ScheduleSlotList['slots'][number] {
         ...(slot.brief === undefined ? {} : { brief: slot.brief }),
         ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),
         ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
+        ...(slot.callins === undefined ? {} : { callins: slot.callins }),
         mode: slot.mode,
         onEnd: slot.onEnd,
     };

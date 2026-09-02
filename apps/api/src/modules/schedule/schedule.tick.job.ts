@@ -181,6 +181,10 @@ export class ScheduleTickJob extends PlainJob {
                     ...(slot.era?.from === undefined ? {} : { eraFrom: slot.era.from }),
                     ...(slot.era?.to === undefined ? {} : { eraTo: slot.era.to }),
                     ...(slot.personaId === undefined ? {} : { personaId: slot.personaId }),
+                    // Absent leaves the station's own setting standing, which is the same three-way
+                    // `putOnAir` gives an operator briefing by hand. Passing `false` for an unset
+                    // slot would have every scheduled show overrule a station that takes calls.
+                    ...(slot.callins === undefined ? {} : { callins: slot.callins }),
                     mode: slot.mode,
                     onEnd: slot.onEnd,
                 },

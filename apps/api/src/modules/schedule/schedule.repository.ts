@@ -101,6 +101,7 @@ function columnsOf(draft: ScheduleSlotDraft) {
         brief: draft.brief ?? '',
         eraFrom: draft.era?.from ?? null,
         eraTo: draft.era?.to ?? null,
+        callins: draft.callins ?? null,
         mode: draft.mode,
         onEnd: draft.onEnd,
     };
@@ -126,6 +127,7 @@ function toSlot(row: {
     brief: string;
     eraFrom: number | null;
     eraTo: number | null;
+    callins: boolean | null;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }): ScheduleSlot {
@@ -147,6 +149,9 @@ function toSlot(row: {
         ...(row.eraFrom == null && row.eraTo == null
             ? {}
             : { era: { ...(row.eraFrom == null ? {} : { from: row.eraFrom }), ...(row.eraTo == null ? {} : { to: row.eraTo }) } }),
+        // `== null` rather than a falsy test, because `false` is a real answer here and means the
+        // opposite of absent: this slot takes no calls, on a station that otherwise would.
+        ...(row.callins == null ? {} : { callins: row.callins }),
         mode: row.mode,
         onEnd: row.onEnd,
     };

@@ -17,12 +17,14 @@ export interface ScheduleSlot {
     sourcePlaylistId?: string;
     /** Who hosts this stretch of the day. Absent means the station's own active persona */
     personaId?: string;
-    /** What this stretch of the day is asked to play, in the operator's own words */
+    /** What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console */
     brief?: string;
     /** The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period */
     eraFrom?: number;
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
     eraTo?: number;
+    /** Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says */
+    callins?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }
@@ -41,19 +43,21 @@ export interface ScheduleSlotInput {
     sourcePlaylistId?: string;
     /** Who hosts this stretch of the day. Absent means the station's own active persona */
     personaId?: string;
-    /** What this stretch of the day is asked to play, in the operator's own words */
+    /** What this stretch of the day is asked to play, in the operator's own words. The same ceiling `PutOnAirInput.brief` has, because a changeover builds one of those from this and the two boxes are one field set on the console */
     brief?: string;
     /** The earliest release year this stretch of the day plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period */
     eraFrom?: number;
     /** The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone */
     eraTo?: number;
+    /** Whether somebody phones in during this stretch of the day. Absent leaves the station's own setting standing, exactly as it does when an operator briefs a broadcast by hand; a `setlist` or a `feature` takes no calls whatever this says */
+    callins?: boolean;
     mode: 'rotation' | 'setlist' | 'feature';
     onEnd: 'extend' | 'repeat' | 'stop';
 }
 
 /**
  * A window of the station's day to draw
- * generated from [ScheduleTimetableQuery](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L29)
+ * generated from [ScheduleTimetableQuery](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L30)
  */
 export interface ScheduleTimetableQuery {
     /** The first day to draw, as `YYYY-MM-DD` on the station's own calendar. Absent means the station's today, which is the only way a caller that does not know the station's timezone can anchor */
@@ -64,7 +68,7 @@ export interface ScheduleTimetableQuery {
 
 /**
  * One block: this slot, on this day, between these two times
- * generated from [ScheduleOccurrence](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L42)
+ * generated from [ScheduleOccurrence](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L43)
  */
 export interface ScheduleOccurrence {
     slotId: string;
@@ -76,7 +80,7 @@ export interface ScheduleOccurrence {
 }
 
 /**
- * generated from [ScheduleSlotList](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L24)
+ * generated from [ScheduleSlotList](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L25)
  */
 export interface ScheduleSlotList {
     slots: ScheduleSlot[];
@@ -88,7 +92,7 @@ export interface ScheduleSlotListInput {
 
 /**
  * The station's day as blocks, ready to draw
- * generated from [ScheduleTimetable](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L35)
+ * generated from [ScheduleTimetable](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L36)
  */
 export interface ScheduleTimetable {
     /** The range actually drawn, echoed so a caller steps forward and back by adding days to a string rather than by knowing the station's timezone */
@@ -99,7 +103,7 @@ export interface ScheduleTimetable {
 
 /**
  * Which slot the clock says should be on right now, and what follows it
- * generated from [ScheduleNow](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L50)
+ * generated from [ScheduleNow](file://./../../../../../apps/api/data/contracts/schedule/schedule.types.ck#L51)
  */
 export interface ScheduleNow {
     /** What time it is on the station's own clock, in the same zone-naive `YYYY-MM-DD HH:mm:ss` shape as a block's ends. It is here so a caller can say how much of the block is left without knowing the station's timezone: subtracting two readings taken in one frame is arithmetic, deriving one is not */

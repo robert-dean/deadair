@@ -99,6 +99,15 @@ create table deadair.schedule_slots (
     -- and same defaults as `station_lineup`, because a changeover builds one of those from this.
     mode text not null default 'rotation' constraint schedule_slots_mode_check check (mode in ('rotation', 'setlist', 'feature')),
     on_end text not null default 'extend' constraint schedule_slots_on_end_check check (on_end in ('extend', 'repeat', 'stop')),
+    -- Whether somebody phones in during this stretch of the day, carried onto the running order at a
+    -- changeover the way the brief and the period are.
+    --
+    -- NULLABLE, and that third state is the point rather than an oversight: null leaves the station's
+    -- own `rotation.callins` standing, which is what an operator who never thought about the phone
+    -- means, where `false` would be this slot overruling a station that takes calls every hour. It is
+    -- the same three-way `PutOnAirInput.callins` already has, and a scheduled breakfast show is
+    -- exactly the thing that should be able to take calls when a hand-driven broadcast can.
+    callins boolean,
 
     -- Two slots starting at the same minute on the same days is an operator mistake with no coherent
     -- answer, so it is refused rather than resolved by an ordering nobody chose. Blocks that OVERLAP

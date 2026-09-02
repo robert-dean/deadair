@@ -113,4 +113,51 @@ describe('SlotEditor', () => {
         expect(draft.mode).toBe('setlist');
         expect(draft.onEnd).toBe('repeat');
     });
+
+    it('sends call-ins only when they are asked for, so an untouched box changes nothing', async () => {
+        // The three-way the column is nullable for: absent leaves `rotation.callins` standing, where
+        // a `false` on every slot would be the schedule overruling a station that takes calls.
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        await screen.findByRole('checkbox', { name: /Take calls/ });
+
+        await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Breakfast');
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[0]?.[0]).not.toHaveProperty('callins');
+
+        await user.click(screen.getByRole('checkbox', { name: /Take calls/ }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit.mock.calls[1]?.[0].callins).toBe(true);
+    });
+
+    it('sends both halves of a chosen playlist, which is what the pair encoding is for', async () => {
+        // The source travels as one string because a picker holds one, so an encode that does not
+        // match its decode loses the playlist silently and the slot reads as one the station fills
+        // itself. That is a failure with no error and no visible symptom until a changeover.
+        const offered = { pluginId: 'deadair.spotify', id: '37i9dQ EvergreenRock', name: 'Evergreen Rock', pluginName: 'Spotify' };
+        listImportablePlaylists.mockResolvedValue({ playlists: [offered], errors: [] });
+        listPersonas.mockResolvedValue(PERSONAS);
+        const onSubmit = vi.fn();
+        const user = setupUser();
+
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={onSubmit} onDelete={noop} saving={false} deleting={false} />);
+        await screen.findByRole('combobox', { name: 'Playing from' });
+
+        await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Breakfast');
+        await user.click(screen.getByRole('combobox', { name: 'Playing from' }));
+        await user.click(await screen.findByRole('option', { name: `${offered.name} — ${offered.pluginName}` }));
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        const draft = onSubmit.mock.calls[0]?.[0];
+        expect(draft.sourcePluginId).toBe(offered.pluginId);
+        // A space in the id is the case a naive `split(' ')` loses the tail of. Nothing promises a
+        // provider's ids have none, and losing it names a different playlist rather than erroring.
+        expect(draft.sourcePlaylistId).toBe(offered.id);
+    });
 });

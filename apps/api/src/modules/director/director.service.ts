@@ -2299,6 +2299,7 @@ export class DirectorService {
                               voice: {
                                   segmentId: pending.segmentId,
                                   atMs: pending.atMs,
+                                  itemId: pending.itemId,
                                   ...(pending.loudnessLufs === undefined ? {} : { loudnessLufs: pending.loudnessLufs }),
                               },
                           }),
@@ -2371,7 +2372,11 @@ export class DirectorService {
                 });
             }
 
-            const broken = brokenClaim(segment, this.lineup?.nextTrackAfter(item.id)?.id, airedAt);
+            const broken = brokenClaim(
+                segment,
+                { previous: this.lineup?.previousTrackBefore(item.id)?.id, next: this.lineup?.nextTrackAfter(item.id)?.id },
+                airedAt,
+            );
             if (broken?.kind === 'item') {
                 this.logger.info('director: dropping a break whose running order has moved under it', {
                     segment: item.segmentId,
@@ -2387,6 +2392,24 @@ export class DirectorService {
                     kind: 'break.claimStale',
                     detail: 'A break was dropped because the record it named is no longer what plays next.',
                     data: { segmentId: item.segmentId, claimed: broken.claimed, next: broken.next ?? 'nothing' },
+                });
+                skipped.push(item.id);
+                continue;
+            }
+
+            if (broken?.kind === 'previous') {
+                this.logger.info('director: dropping a break whose back-announce is not what played', {
+                    segment: item.segmentId,
+                    claimed: broken.claimed,
+                    previous: broken.previous ?? 'nothing',
+                });
+                // The backward twin of `break.claimStale` above: the record is still going out, and
+                // what moved is which one the running order actually played in that slot.
+                void this.activity.record({
+                    module: 'director',
+                    kind: 'break.claimStale',
+                    detail: 'A break was dropped because the record it back-announced is not the one that played.',
+                    data: { segmentId: item.segmentId, claimed: broken.claimed, previous: broken.previous ?? 'nothing' },
                 });
                 skipped.push(item.id);
                 continue;
@@ -2557,7 +2580,7 @@ export class DirectorService {
      * adding anything, every one of which used to stop the station for good.
      */
     private async topUpIfShort(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
-        if (!rules.autoExtend || lineup.remaining() >= EXTEND_BELOW) {
+        if (lineup.onEnd !== 'extend' || !rules.autoExtend || lineup.remaining() >= EXTEND_BELOW) {
             this.extendSentAt = undefined;
             return;
         }

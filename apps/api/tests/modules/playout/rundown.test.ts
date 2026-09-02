@@ -857,3 +857,77 @@ describe('Rundown resolving a talk-over cue', () => {
         expect(pulled?.voice).toBeUndefined();
     });
 });
+
+// Once the record it rides is on air, a talk-over cue is settled by the mixer's OWN
+// reading of whether it spoke, rather than left for the boundary sweep to guess from
+// position. The boundary sweep is still what catches a reading that never arrives.
+describe('Rundown settling a talk-over from the mixer', () => {
+    it('settles the cue from a reading naming its carrier', async () => {
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom(['a', 'b'].map(track));
+        order.insertSegment('spoke', 0, { atMs: 500 });
+        order.insertSegment('quiet', 2, { atMs: 500 });
+        rundown.attach(order);
+
+        const [spoke, a, quiet, b] = order.all();
+        // Marked handed here, exactly as `DirectorService.toPlayerItems` does it: a cue is
+        // never given to the player in its own right, so this class hands itself over.
+        order.markHanded(spoke!.id);
+        order.markHanded(quiet!.id);
+        rundown.prepare([
+            { ...track('a'), id: a!.id, voice: { segmentId: 'spoke', atMs: 500, itemId: spoke!.id } },
+            { ...track('b'), id: b!.id, voice: { segmentId: 'quiet', atMs: 500, itemId: quiet!.id } },
+        ]);
+
+        const first = await rundown.next();
+        rundown.markAired(first!.item.id);
+
+        // `queued` set well above what is actually handed throughout, so this test is
+        // about the voice reading and not about `reconcileServed`'s own lost-push logic.
+        rundown.reconcile({ queued: 5, ready: true, onAir: a!.id, voice: 'armed' });
+        expect(spoke!.state).toBe('handed');
+
+        rundown.reconcile({ queued: 5, ready: true, onAir: a!.id, voice: 'fired' });
+        expect(spoke!.state).toBe('played');
+
+        const second = await rundown.next();
+        rundown.markAired(second!.item.id);
+
+        rundown.reconcile({ queued: 5, ready: true, onAir: b!.id, voice: 'missed' });
+
+        expect(quiet!.state).toBe('skipped');
+        expect(logger.warn).toHaveBeenCalledWith('rundown: a talk-over cue missed its record', expect.objectContaining({ item: quiet!.id }));
+    });
+
+    it('matches the reading against the carrier that armed it, not whatever the rundown currently calls on-air', async () => {
+        // `settleVoice` checks the reading's `onAir` against the carrier recorded at
+        // arm time rather than against `this.airing`, precisely so a reading that
+        // still names that carrier is honoured on its own terms.
+        const rundown = new Rundown(new StubResolver(), logger);
+        const order = new StationLineup({ name: 'Test', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.replaceFrom(['a', 'b'].map(track));
+        order.insertSegment('spoke', 0, { atMs: 500 });
+        rundown.attach(order);
+
+        const [spoke, a, b] = order.all();
+        order.markHanded(spoke!.id);
+        rundown.prepare([
+            { ...track('a'), id: a!.id, voice: { segmentId: 'spoke', atMs: 500, itemId: spoke!.id } },
+            { ...track('b'), id: b!.id },
+        ]);
+
+        const first = await rundown.next();
+        rundown.markAired(first!.item.id);
+
+        // A reading naming anything other than the armed carrier is not about this
+        // cue and is left alone — a foreign id the station never handed out, so it
+        // cannot be mistaken for a real boundary either.
+        rundown.reconcile({ queued: 5, ready: true, onAir: 'not-anything-this-order-holds', voice: 'fired' });
+        expect(spoke!.state).toBe('handed');
+
+        // The one naming the carrier that was actually armed still settles it.
+        rundown.reconcile({ queued: 5, ready: true, onAir: a!.id, voice: 'fired' });
+        expect(spoke!.state).toBe('played');
+    });
+});

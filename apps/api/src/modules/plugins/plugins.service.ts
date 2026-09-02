@@ -4,6 +4,7 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type ConfigFieldOption, type PluginManifest } from '@deadair/plugin-sdk';
 import { AfterCommit } from '#modules/data/after.commit.js';
+import { StationBus } from '#modules/shared/station.bus.js';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
@@ -154,6 +155,19 @@ export class PluginsService {
         private readonly context: AuthorizationContext,
         private readonly activity: ActivityRecorder,
         private readonly logger: Logger,
+        // The station's moments, so a settings save can say one happened without importing anything
+        // that might react to it. Enrichment is the first subscriber and does not exist from here.
+        //
+        // LAST and OPTIONAL, unlike every other dependency above: every other constructor here is
+        // built by DI, but half a dozen test files construct one directly with a positional argument
+        // list that predates this one, and a required parameter inserted anywhere earlier would shift
+        // every stub after it one slot out of place — silently, since most of those slots are `as
+        // never`. Appending it after `logger` means an old 13-argument call still binds every
+        // existing parameter exactly where it always did; only the new subscriber goes unset, and it
+        // is used through `this.bus?.publish` for exactly that reason. DI itself still resolves the
+        // real singleton here regardless of the `?`, since `design:paramtypes` metadata does not drop
+        // a type for being optional.
+        private readonly bus?: StationBus,
     ) {}
 
     /**
@@ -232,6 +246,26 @@ export class PluginsService {
     }
 
     /**
+     * Tells anything downstream that this plugin's settings changed, once the write is durable.
+     *
+     * Registered beside {@link syncCatalogAfterCommit} and for the same reason: a subscriber reading
+     * "what does this plugin's config say now" before the commit lands would read the row as it stood
+     * before the save. `StationBus.publish` never itself throws — every subscriber's own throw is
+     * caught and logged inside it — but the try/catch here matches this file's other `afterCommit`
+     * hooks rather than leaning on that: a settings save must never fail on account of anything a
+     * subscriber does with the news.
+     */
+    private publishConfiguredAfterCommit(id: string): void {
+        this.afterCommit.add(async () => {
+            try {
+                this.bus?.publish('plugin.configured', { pluginId: id });
+            } catch (error) {
+                this.pluginLog.for(id).warn('could not publish plugin.configured', { error: serverkitErrorText(error) });
+            }
+        });
+    }
+
+    /**
      * Narrows on top of the route policy's authentication floor: a caller who
      * is signed in but does not hold `permission` on this specific plugin is
      * denied here, per-object, before any lookup runs.
@@ -281,6 +315,9 @@ export class PluginsService {
         // On the config WRITE and not on `reloadPlugin`, which writes nothing: hanging a library
         // walk off an operation that changed no settings would sync on every reload.
         this.syncCatalogAfterCommit(id);
+        // What it already stored is now stale, which is a fact for enrichment and not a decision
+        // this module gets to make about it — see `StationBus`'s `plugin.configured` doc.
+        this.publishConfiguredAfterCommit(id);
         // Which plugin was reconfigured, never WHAT was set: half of a plugin's config is
         // credentials, and unlike the log store this table has no redaction pass.
         this.note(id, 'plugin.configured', `An operator changed the ${id} plugin's settings.`);

@@ -10,7 +10,7 @@
 
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import type { PickResolver } from './pick.resolver.js';
-import { songKey } from './rotation.keys.js';
+import { artistKey, songKey } from './rotation.keys.js';
 import type { ResolvedRules } from './rotation.rules.js';
 import type { SetGenerator, TrackPick } from './set.generator.js';
 import { isTrackItem, type StationLineupItem } from './station.lineup.js';
@@ -40,6 +40,21 @@ export interface PlanRequest {
     era?: { from?: number; to?: number };
     /** Songs not to choose again: what the order already holds, or what it is about to stop holding. */
     avoidSongKeys: ReadonlySet<string>;
+    /**
+     * Artists not to choose, over a narrow window: who is at the tail of the order right now.
+     *
+     * Deliberately not the whole-order exclusion {@link avoidSongKeys}'s own doc argues against —
+     * this is scoped by the caller to a `maxPerArtist + 1` window rather than to everything the
+     * lineup holds, which is what keeps it out of the same starvation trap.
+     */
+    avoidArtistKeys?: ReadonlySet<string>;
+    /**
+     * The artist already at the tail of the order, so a refill's batch does not reopen with them.
+     *
+     * Not a candidate to avoid choosing — {@link avoidArtistKeys} is that — but the one thing
+     * {@link spaceArtists} compares its first placement against.
+     */
+    seedArtistKey?: string;
 }
 
 /** The records, and enough of the arithmetic for a caller's log line to be worth reading. */
@@ -106,6 +121,7 @@ export const planRecords = async (
             ...(request.brief ? { brief: request.brief } : {}),
             ...(request.era === undefined ? {} : { era: request.era }),
             avoidSongKeys: request.avoidSongKeys,
+            ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
         });
 
         // Asked AFTER every attempt and not only the retried one, because it clears as it answers:
@@ -116,7 +132,11 @@ export const planRecords = async (
         preemption?.onRetry?.(attempt);
     }
 
-    const resolved = await resolver.resolve(picks, request.rules, [], request.era);
+    const resolved = await resolver.resolve(picks, request.rules, {
+        ...(request.era === undefined ? {} : { era: request.era }),
+        ...(request.avoidArtistKeys === undefined ? {} : { avoidArtistKeys: request.avoidArtistKeys }),
+        ...(request.seedArtistKey === undefined ? {} : { seedArtistKey: request.seedArtistKey }),
+    });
 
     return {
         // Back down to what was asked for. The oversample is headroom against what the rules and
@@ -144,3 +164,14 @@ export const songKeysOf = (items: readonly StationLineupItem[]): Set<string> =>
     // `PickResolver` judges a pick by. These three have to agree byte for byte or the avoid list
     // silently stops matching anything credited to more than one act.
     new Set(items.filter(isTrackItem).map(item => songKey(item.track.title, [item.track.artist])));
+
+/**
+ * The artists a window of the running order holds, as keys a refill can be told not to open with.
+ *
+ * `artist`, the lead credit, for the same reason {@link songKeysOf} reads it rather than `artists`:
+ * it is the key a cooldown, a cap and `play_history` all agree on. Callers pass a WINDOW here rather
+ * than the whole order — see {@link PlanRequest.avoidArtistKeys} for why the whole order is the
+ * wrong scope for an artist exclusion.
+ */
+export const artistKeysOf = (items: readonly StationLineupItem[]): Set<string> =>
+    new Set(items.filter(isTrackItem).map(item => artistKey([item.track.artist])));

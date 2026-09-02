@@ -73,6 +73,14 @@ export interface OutlineRequest {
      * shape it answers with any more.
      */
     speakers?: readonly { ordinal: number; who: CastMember }[];
+    /**
+     * Whether this station is broadcast-clean.
+     *
+     * Read off `speaksClean(advisoryPolicy(...))` at every call site, exactly as every break writer
+     * already does. Absent from a production before this existed, which is how a crude persona sheet
+     * ended up reined in on breaks and free on a phone-in it presented.
+     */
+    cleanLanguage?: boolean;
 }
 
 /** What one beat is written from. */
@@ -218,6 +226,8 @@ export interface BeatRequest {
      * told only what it may not say reaches for the nearest other thing the sheet gave it.
      */
     spent?: readonly string[];
+    /** Whether this station is broadcast-clean. See {@link OutlineRequest.cleanLanguage}. */
+    cleanLanguage?: boolean;
 }
 
 /**
@@ -258,6 +268,11 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
         '- Runners are threads of SUBJECT that come back through the programme: an idea, a question, a running argument. Two or three at most. They are never a phrase to repeat, a catchphrase, or a way of speaking.',
         '- Do not write any of the script. This is a plan.',
         ...(dialogueRules(request.speakers) ?? []),
+        // The break prompt's own sentence, word for word: two prompts stating the same station
+        // policy in different words is how the two drift.
+        ...(request.cleanLanguage
+            ? ['- This station is broadcast-clean. No profanity or crude language, and do not quote an explicit lyric or title word for word.']
+            : []),
         '',
         'Answer with JSON only, in this shape:',
         '{"throughline": "...", "runners": ["..."], "beats": [{"title": "...", "angle": "...", "itemIndexes": [0], "setup": "...", "payoff": "..."}]}',
@@ -275,7 +290,17 @@ export function outlinePrompt(request: OutlineRequest): LlmMessage[] {
         ...(request.dayPart === undefined ? [] : ['', `It goes out ${request.dayPart}, so do not plan it around any other part of the day.`]),
         ...speakerLines(request.speakers),
         ...(request.items === undefined || request.items.length === 0
-            ? ['', 'You have been given no source material, so the content is yours to invent. Keep it to what you actually know.']
+            ? [
+                  '',
+                  'You have been given no source material, so the content is yours to invent.',
+                  // The break prompt's own "unknown" sentence, word for word: a production with
+                  // nothing behind it is exactly the no-material case that block already covers, and
+                  // a second, differently-worded rule here is how the two drift apart.
+                  'The station knows nothing about any record, release, credit, session or chart placing you might mention. ' +
+                      'Say nothing else about it as fact — no dates, no labels, no pressings or catalogue numbers, no studios, no sessions, ' +
+                      'no chart placings, no connection to any other record. What you think of it is yours to say. What happened to it is not, ' +
+                      'unless you were told.',
+              ]
             : ['', 'Cover these, by index:', ...request.items.map((item, index) => `${index}. ${item}`)]),
     ].join('\n');
 
@@ -374,6 +399,11 @@ export function beatPrompt(request: BeatRequest): LlmMessage[] {
                   `- It is ${request.dayPart} where your listener is. Everything you say has to fit that: do not call it any other part of the day, ` +
                       'and do not reach for the hour, the light or the weather to set a scene you have not been told about.',
               ]),
+        // The break prompt's own sentence, word for word, and for its own reason: a station that has
+        // said it is broadcast-clean is not talked out of that by whoever is presenting.
+        ...(request.cleanLanguage
+            ? ['- This station is broadcast-clean. No profanity or crude language, and do not quote an explicit lyric or title word for word.']
+            : []),
         '- Do not end by summarising what you just said.',
     ].join('\n');
 

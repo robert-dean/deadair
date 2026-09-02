@@ -17,6 +17,7 @@ import type { PlaylistsService } from '../../../src/modules/playlists/playlists.
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { SettingsService } from '../../../src/modules/settings/settings.service.js';
+import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
@@ -38,6 +39,8 @@ interface Options {
     persona?: (id: string) => { id: string; label: string } | undefined;
     /** The slot of the day in force. Absent is the ordinary state: a station with no schedule. */
     slot?: { id: string };
+    /** The veto's own answer, when a case wants it to actually drop something rather than pass everything through. */
+    vet?: (tracks: RundownTrack[]) => RundownTrack[];
 }
 
 function build(options: Options = {}) {
@@ -123,6 +126,12 @@ function build(options: Options = {}) {
     // over its own.
     const schedule = { inForce: vi.fn(async () => options.slot) } as never;
 
+    // The put-on-air veto. A pass-through by default, so every case above this one behaves exactly
+    // as it did before the veto existed; a case that cares hands over its own answer.
+    const resolver = {
+        vet: vi.fn(async (playlistTracks: RundownTrack[]) => (options.vet ? options.vet(playlistTracks) : playlistTracks)),
+    } as unknown as PickResolver;
+
     return {
         service: new DirectorConsoleService(
             air,
@@ -137,6 +146,7 @@ function build(options: Options = {}) {
             context,
             activity as never,
             logger,
+            resolver,
         ),
         activity,
         personas,
@@ -150,6 +160,7 @@ function build(options: Options = {}) {
         jobs,
         tracks,
         schedule,
+        resolver,
     };
 }
 
@@ -390,11 +401,62 @@ describe('DirectorConsoleService.putOnAir', () => {
         expect(director.post).not.toHaveBeenCalled();
     });
 
+    it('refuses a playlist the veto empties rather than airing silence in its place', async () => {
+        // The same refusal an empty playlist gets, and it has to be asked AFTER the veto as well as
+        // before it. A playlist whose every record the station may not play is empty for this
+        // purpose too, and letting it through reports success and then airs either nothing or the
+        // station's own rotation in place of the playlist the operator actually chose — with
+        // nothing anywhere saying the choice had been overruled.
+        const { service, director } = build({
+            tracks: [{ id: 'trk_1', title: 'Disliked', artists: ['One'] }],
+            vet: () => [],
+        });
+
+        expect(await statusOf(service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(422);
+        expect(director.post).not.toHaveBeenCalled();
+    });
+
     it('lets the playlists read own the plugin narrowing', async () => {
         const forbidden = Object.assign(new Error('Forbidden'), { status: 403 });
         const { service } = build({ playlistError: forbidden });
 
         expect(await statusOf(service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' }))).toBe(403);
+    });
+
+    it('runs the playlist through the veto', async () => {
+        // No lineup may turn off a dislike, and a playlist is a lineup like any other: the veto
+        // has to see every track this source names before one reaches the running order.
+        const { service, posted, resolver } = build({
+            tracks: [
+                { id: 'trk_1', title: 'Keep', artists: ['One'] },
+                { id: 'trk_2', title: 'Drop', artists: ['Two'] },
+            ],
+            vet: playlistTracks => playlistTracks.filter(track => track.externalId !== 'trk_2'),
+        });
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1', eraFrom: 1980, eraTo: 1989 });
+
+        expect(resolver.vet).toHaveBeenCalledWith(
+            expect.arrayContaining([expect.objectContaining({ externalId: 'trk_1' }), expect.objectContaining({ externalId: 'trk_2' })]),
+            { era: { from: 1980, to: 1989 }, preference: ['deadair.spotify'] },
+        );
+
+        const [command] = posted();
+        expect(command?.kind === 'putOnAir' && command.tracks.map(track => track.externalId)).toEqual(['trk_1']);
+    });
+
+    it('folds two rips of one song', async () => {
+        const { service, posted } = build({
+            tracks: [
+                { id: 'trk_1', title: 'Same Song', artists: ['An Artist'] },
+                { id: 'trk_2', title: 'Same Song', artists: ['An Artist'] },
+            ],
+        });
+
+        await service.putOnAir({ pluginId: 'deadair.spotify', playlistId: 'pl_1' });
+
+        const [command] = posted();
+        expect(command?.kind === 'putOnAir' && command.tracks.map(track => track.externalId)).toEqual(['trk_1']);
     });
 });
 

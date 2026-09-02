@@ -8,9 +8,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { NowPlayingService } from '../../../src/modules/nowplaying/nowplaying.service.js';
 import type { Rundown, NowPlaying as RundownNowPlaying } from '../../../src/modules/playout/rundown.js';
 import type { AudienceWatch } from '../../../src/modules/playout/audience.watch.js';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 /** The station's audience, as this route reports it. Zero unless a test says otherwise. */
 const audienceOf = (listeners = 0) => ({ listenerCount: () => listeners }) as unknown as AudienceWatch;
+
+/** A config double that answers a fixed station name, because settings are strings. */
+const configOf = (name: string) => ({ get: vi.fn(() => name) }) as unknown as AppConfig;
 
 const item = {
     id: 'item-1',
@@ -28,9 +32,9 @@ const item = {
 
 const build = (nowPlaying?: RundownNowPlaying, stationName = 'Static Between Stations', listeners = 0) => {
     const rundown = { nowPlaying: vi.fn(() => nowPlaying) } as unknown as Rundown;
-    const service = new NowPlayingService(rundown, audienceOf(listeners));
-    service.useStationName(stationName);
-    return { service, rundown };
+    const config = configOf(stationName);
+    const service = new NowPlayingService(rundown, audienceOf(listeners), config);
+    return { service, rundown, config };
 };
 
 describe('NowPlayingService', () => {
@@ -88,11 +92,15 @@ describe('NowPlayingService', () => {
         expect(service.getNowPlaying().track).toEqual({ title: 'Untitled', artist: '', startedAt: 42 });
     });
 
-    it('is answerable before the station has been named', () => {
-        // `ready` pushes the name in after the socket is up, so a poll that arrives
-        // in between must still answer rather than throwing on an unset field.
-        const rundown = { nowPlaying: vi.fn(() => undefined) } as unknown as Rundown;
+    it('answers the name as it stands now, not as it stood at boot', () => {
+        // The name is read off `AppConfig` on every call rather than cached, so a
+        // rename between two polls has to reach the very next one.
+        const { service, config } = build(undefined, 'Static Between Stations');
 
-        expect(new NowPlayingService(rundown, audienceOf()).getNowPlaying()).toEqual({ station: '', onAir: false, listeners: 0 });
+        expect(service.getNowPlaying().station).toBe('Static Between Stations');
+
+        (config.get as ReturnType<typeof vi.fn>).mockReturnValue('New Call Letters');
+
+        expect(service.getNowPlaying().station).toBe('New Call Letters');
     });
 });

@@ -19,6 +19,7 @@ import {
 import { DEFAULT_SWEEP_MAX_PERCENT, resolveSweepMaxPercent, SWEEP_MAX_PERCENT_KEY } from '../../../src/modules/catalog/ingest/catalog.sweep.guard.js';
 import { CHART_GENERATOR_KEYS } from '../../../src/modules/director/chart.set.generator.js';
 import { SIMILAR_GENERATOR_KEYS } from '../../../src/modules/director/similar.set.generator.js';
+import { ConfigFieldOptionSource } from '../../../src/modules/plugins/types/plugins.types.js';
 
 describe('the settings registry', () => {
     it('declares every key exactly once', () => {
@@ -48,6 +49,15 @@ describe('the settings registry', () => {
         // reads to an operator as a setting that was never built rather than as a typo.
         for (const descriptor of SETTING_DESCRIPTORS.filter(candidate => candidate.dependsOn !== undefined)) {
             expect(findDescriptor(descriptor.dependsOn!), `${descriptor.key} depends on ${descriptor.dependsOn}`).toBeDefined();
+        }
+    });
+
+    it('only names a real option source in `optionsFrom`', () => {
+        // A descriptor's `optionsFrom` is resolved by the console against a closed vocabulary
+        // (`ConfigFieldOptionSource`). A typo here is a field that silently offers no suggestions,
+        // because the console has nothing keyed under the name it actually declared.
+        for (const descriptor of SETTING_DESCRIPTORS.filter(candidate => candidate.optionsFrom !== undefined)) {
+            expect(ConfigFieldOptionSource.options, descriptor.key).toContain(descriptor.optionsFrom);
         }
     });
 

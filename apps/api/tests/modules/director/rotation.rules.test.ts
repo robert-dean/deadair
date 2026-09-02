@@ -308,4 +308,21 @@ describe('spaceArtists', () => {
     it('handles an empty batch', () => {
         expect(spaceArtists([])).toEqual([]);
     });
+
+    it('will not open with the seed’s artist', () => {
+        // The batch seam this closes: without a seed, the first placement is compared against
+        // nothing, so a refill can open with the artist that just closed the running order.
+        const spaced = spaceArtists([candidate('A', ['One']), candidate('B', ['Two'])], artistKey(['One']));
+
+        expect(spaced[0]?.artistKey).not.toBe(artistKey(['One']));
+        expect(spaced.map(c => c.artistKey)).toEqual([artistKey(['Two']), artistKey(['One'])]);
+    });
+
+    it('ignores a seed that is not among the candidates', () => {
+        // The seed is a comparison, not a member of the batch, so a seed that matches nothing here
+        // changes nothing about the ordering.
+        const spaced = spaceArtists([candidate('A', ['One']), candidate('B', ['Two'])], artistKey(['Three']));
+
+        expect(spaced.map(c => c.artistKey)).toEqual([artistKey(['One']), artistKey(['Two'])]);
+    });
 });

@@ -378,6 +378,11 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
         // promised is the one at that position. See `segments.claims_item_id`.
         const claimsItemId = result.written.claimsNext === true ? neighbours.next?.itemId : undefined;
 
+        // The mirror, for a break that back-announced instead: stamped only when the words actually
+        // named the record behind it, and naming the LINE for the same reason `claimsItemId` does.
+        // See `segments.claims_previous_item_id`.
+        const claimsPreviousItemId = result.written.claimsPrevious === true ? neighbours.previous?.itemId : undefined;
+
         // The voice is offered only when the ROW has none. A segment planned by hand through
         // `POST /segments` may name one, and that is an operator's explicit instruction rather than
         // a default to recompute — while a break the station planted for itself should be spoken by
@@ -402,6 +407,7 @@ export class WriteBreakJob extends PlainJob<WriteBreakPayload> {
                 script,
                 writer: result.writer,
                 ...(claimsItemId === undefined ? {} : { claimsItemId }),
+                ...(claimsPreviousItemId === undefined ? {} : { claimsPreviousItemId }),
                 ...(persona === undefined ? {} : { personaId: persona.id }),
                 ...(voice === undefined ? {} : { voice }),
                 pads,

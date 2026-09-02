@@ -8,9 +8,11 @@ import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
-import { DEFAULT_COUNT, planRecords, songKeysOf } from './plan.records.js';
+import { DEFAULT_COUNT, artistKeysOf, planRecords, songKeysOf } from './plan.records.js';
+import { artistKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
 import { SetGenerator } from './set.generator.js';
+import { isTrackItem } from './station.lineup.js';
 
 export interface ExtendLineupPayload {
     /** How many tracks to add. Absent means {@link DEFAULT_COUNT}. */
@@ -86,6 +88,18 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         }
 
         const count = Math.max(1, payload?.count ?? DEFAULT_COUNT);
+
+        // Every artist within `maxPerArtist + 1` of the end, which is the window a NEW batch has
+        // to be spaced against: opening with any of them risks either an adjacency `spaceArtists`
+        // was never told to avoid, or another instance of an artist the cap already let through its
+        // limit for the tail. `0` still reads as a window of one, which is exactly the seed's window.
+        const tail = lineup.upcoming().slice(-(rules.maxPerArtist + 1));
+        const tailTracks = tail.filter(isTrackItem);
+        // The last track in that window, if there is one — a window that ends on a scheduled break
+        // has nothing to seed with, and an unseeded batch is simply not compared against anything,
+        // same as before this existed.
+        const seed = tailTracks.at(-1);
+
         const planned = await planRecords(
             this.generator,
             this.resolver,
@@ -104,12 +118,20 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
                 // track queued ten minutes ago has not aired, so nothing else would stop the
                 // generator choosing it again and putting it in twice.
                 //
-                // Songs only, deliberately. Excluding every artist already in the list would
-                // starve a long rotation of its own library — a hundred tracks is sixty
-                // artists, and after two refills there would be nobody left to choose. An
-                // artist is spaced within a batch and cooled down once they actually air,
-                // which are the two places it can be judged against something real.
+                // Songs only, deliberately, for the whole order. Excluding every artist already in
+                // the list would starve a long rotation of its own library — a hundred tracks is
+                // sixty artists, and after two refills there would be nobody left to choose. That
+                // argument is about the WHOLE order and does not reach `avoidArtistKeys` below: its
+                // window is `maxPerArtist + 1` items, a handful of artists rather than the library,
+                // and it exists only so this batch does not reopen with whoever the tail just closed
+                // on or push a capped artist over their limit the moment they air.
                 avoidSongKeys: songKeysOf(lineup.all()),
+                // Off entirely when the cap is off: an operator who has said "no limit on one
+                // artist" has said nothing about spacing, which `seedArtistKey` below still handles.
+                ...(rules.maxPerArtist > 0 ? { avoidArtistKeys: artistKeysOf(tail) } : {}),
+                // Always, whatever the cap says: seeding is about adjacency, not about the per-artist
+                // limit, so it applies even when that limit is switched off.
+                ...(seed ? { seedArtistKey: artistKey([seed.track.artist]) } : {}),
             },
             {
                 took: () => this.preemption.took(),

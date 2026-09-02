@@ -36,7 +36,7 @@ import { errorText } from './error.text.js';
 /**
  * Every kind of moment, and what it carries.
  *
- * One entry today, deliberately. The station's other moments — a departure, an air toggle, a silence
+ * Two entries today, deliberately. The station's other moments — a departure, an air toggle, a silence
  * cause changing — are one line each on the day something wants to react to one, which is the same
  * rule `Heartbeat` states for the loops that have not adopted it. A map full of events nobody
  * subscribes to would be a description of an intention rather than of this program.
@@ -50,6 +50,18 @@ export interface StationEvents {
      * holding the mount rather than about anybody being there.
      */
     'audience.arrived': { count: number };
+
+    /**
+     * An operator saved a plugin's settings.
+     *
+     * Not "the plugin was reinitialized" and not "the catalog sync was asked for" — those already run
+     * off `PluginsService.updatePluginConfig` directly, in the same `afterCommit` hooks this rides
+     * beside. This is for the subscriber on the other side of the module list that cannot be one of
+     * those hooks without `plugins` importing it: enrichment, whose stored rows for this provider are
+     * stale the moment its settings change, and which has no reason to know that `PluginsService`
+     * exists.
+     */
+    'plugin.configured': { pluginId: string };
 }
 
 export type StationEventKind = keyof StationEvents;

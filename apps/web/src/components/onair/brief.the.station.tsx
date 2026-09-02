@@ -1,6 +1,7 @@
 import { Button, Card, Checkbox, Collapse, Group, NumberInput, Select, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { useState } from 'react';
+import type { StationMode, StationOnEnd } from '@deadair/sdk';
 
 import { usePutStationOnAir } from '../../api/director.queries';
 import { usePersonas } from '../../api/personas.queries';
@@ -61,6 +62,11 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
     // Off unless this operator asks, whatever the station's own setting says, because this box is
     // where a show is described and a show that takes calls is a format decision somebody makes.
     const [callins, setCallins] = useState(false);
+    // Same two fields `SlotEditor` sets on a schedule slot, sent here so a spontaneous brief can ask
+    // for the same shape of block: a setlist that does not shuffle, or a run that starts over rather
+    // than drifting into the station's own rotation once it plays through.
+    const [mode, setMode] = useState<StationMode>('rotation');
+    const [onEnd, setOnEnd] = useState<StationOnEnd>('extend');
     const onAir = usePutStationOnAir();
     const personas = usePersonas();
     // Shut while there is a broadcast to interrupt, open while there is not.
@@ -91,6 +97,8 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
             // what an operator who did not think about the phone means — where `false` would be
             // this box overruling a station that takes calls every hour.
             ...(callins ? { callins: true } : {}),
+            mode,
+            onEnd,
         });
     };
 
@@ -204,6 +212,36 @@ export function BriefTheStation({ replacing = false }: BriefTheStationProps) {
                             A period, if you want one. Unlike the words, it holds without a model.
                         </Text>
                     </Group>
+                    <Group gap="sm" align="flex-start">
+                        <Select
+                            w={{ base: '100%', sm: 160 }}
+                            label="Mode"
+                            data={[
+                                { value: 'rotation', label: 'Rotation' },
+                                { value: 'setlist', label: 'Setlist' },
+                                { value: 'feature', label: 'Feature' },
+                            ]}
+                            allowDeselect={false}
+                            value={mode}
+                            onChange={value => setMode((value as StationMode | null) ?? 'rotation')}
+                        />
+                        <Select
+                            w={{ base: '100%', sm: 160 }}
+                            label="When it runs out"
+                            data={[
+                                { value: 'extend', label: 'Keep going' },
+                                { value: 'repeat', label: 'Start again' },
+                                { value: 'stop', label: 'Stop' },
+                            ]}
+                            allowDeselect={false}
+                            value={onEnd}
+                            onChange={value => setOnEnd((value as StationOnEnd | null) ?? 'extend')}
+                        />
+                    </Group>
+                    <Text size="xs" c="dimmed">
+                        Starting again replays what this broadcast already aired. It never reaches further than that: a record you disliked stays off
+                        the air whether this block is running for the first time or the fifth.
+                    </Text>
                     {/* Beside the period rather than in the row above, because it is a decision
                         about the SHOW rather than about the records: what the station plays, when it
                         plays it, and then who is on it. */}

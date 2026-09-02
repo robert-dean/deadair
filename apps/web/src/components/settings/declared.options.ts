@@ -1,10 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ConfigFieldDescriptor, ConfigFieldOption, ConfigFieldOptionSource } from '@deadair/sdk';
 
+import { pluginsListOptions } from '../../api/plugins.queries';
 import { topicsOptions } from '../../api/topics.queries';
 
 /** The `news` kind, as `segments.kind` spells it. The one kind whose subjects are offered as choices today. */
 const NEWS_KIND = 'news';
+
+/**
+ * Which manifest capability each `plugins.*` source answers with the enabled plugins that declare
+ * it. The literal strings are `plugin.manifest.ts`'s `PLUGIN_CAPABILITY_*` constants: this console
+ * has no dependency on `@deadair/plugin-sdk` to import them from, and a capability name is part of
+ * the plugin contract, not something that moves without a contract change of its own.
+ */
+const PLUGIN_SOURCE_CAPABILITY: Record<'plugins.speech' | 'plugins.llm' | 'plugins.mixer' | 'plugins.analysis', string> = {
+    'plugins.speech': 'speech',
+    'plugins.llm': 'llm',
+    'plugins.mixer': 'mixer',
+    'plugins.analysis': 'analysis',
+};
+
+/** Whether a source is one of the four that resolve against the installed plugins rather than a station table. */
+function isPluginSource(source: ConfigFieldOptionSource): source is keyof typeof PLUGIN_SOURCE_CAPABILITY {
+    return source in PLUGIN_SOURCE_CAPABILITY;
+}
 
 /**
  * The suggestion key a column's choices are published under: the field's key and the column's.
@@ -39,8 +58,15 @@ export const columnSuggestionKey = (fieldKey: string, columnKey: string): string
 export function useDeclaredOptions(fields: readonly ConfigFieldDescriptor[]): Record<string, readonly ConfigFieldOption[]> {
     const wanted = declaredSources(fields);
     const topics = useQuery({ ...topicsOptions, enabled: wanted.has('station.newsCategories') });
+    const wantsAPlugin = [...wanted].some(isPluginSource);
+    const plugins = useQuery({ ...pluginsListOptions, enabled: wantsAPlugin });
 
     if (wanted.size === 0) return {};
+
+    const pluginOptions = (capability: string): ConfigFieldOption[] =>
+        (plugins.data ?? [])
+            .filter(plugin => plugin.enabled && plugin.capabilities.includes(capability))
+            .map(plugin => ({ value: plugin.id, label: plugin.name }));
 
     const answers: Record<ConfigFieldOptionSource, readonly ConfigFieldOption[]> = {
         'station.newsCategories': (topics.data?.topics ?? [])
@@ -52,6 +78,14 @@ export function useDeclaredOptions(fields: readonly ConfigFieldDescriptor[]): Re
         // console runs on for years, but it is guarded anyway, since the answer for a browser
         // without it is a field with no suggestions rather than a settings page that will not draw.
         'intl.timeZones': zoneOptions(),
+        // Each of these settings picks the one plugin a capability uses out of however many are
+        // enabled and can do the job — `plugin.selection.ts`'s `selectPlugin`, host-side. Offering
+        // the candidates here is what makes that choice visible rather than a free-text field the
+        // operator has to already know the id to fill in.
+        'plugins.speech': pluginOptions(PLUGIN_SOURCE_CAPABILITY['plugins.speech']),
+        'plugins.llm': pluginOptions(PLUGIN_SOURCE_CAPABILITY['plugins.llm']),
+        'plugins.mixer': pluginOptions(PLUGIN_SOURCE_CAPABILITY['plugins.mixer']),
+        'plugins.analysis': pluginOptions(PLUGIN_SOURCE_CAPABILITY['plugins.analysis']),
     };
 
     const resolved: Record<string, readonly ConfigFieldOption[]> = {};

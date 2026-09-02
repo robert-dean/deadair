@@ -63,6 +63,21 @@ describe('parseReading', () => {
         expect(parseReading({ queued: 0, ready: true })!.driving).toBeUndefined();
     });
 
+    it('reads what an armed talk-over cue is doing', () => {
+        expect(parseReading({ queued: 0, ready: true, voice: 'idle' })!.voice).toBe('idle');
+        expect(parseReading({ queued: 0, ready: true, voice: 'armed' })!.voice).toBe('armed');
+        expect(parseReading({ queued: 0, ready: true, voice: 'fired' })!.voice).toBe('fired');
+        expect(parseReading({ queued: 0, ready: true, voice: 'missed' })!.voice).toBe('missed');
+    });
+
+    it('leaves `voice` unreported by a script too old to arm a cue at all', () => {
+        expect(parseReading({ queued: 0, ready: true })!.voice).toBeUndefined();
+    });
+
+    it('drops a voice state radio.liq never sends, rather than inventing one', () => {
+        expect(parseReading({ queued: 0, ready: true, voice: 'singing' })!.voice).toBeUndefined();
+    });
+
     it('ignores a malformed field instead of failing the whole reading', () => {
         const reading = parseReading({ queued: 2, ready: 'yes', onAir: 42, remainingMs: 'soon' });
 

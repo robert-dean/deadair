@@ -100,11 +100,19 @@ export interface ConfigFieldOption {
  * console is again the only side that can — a zone name has to be one the browser and the server
  * both know, and a server that enumerated its own would be answering for a different machine.
  *
+ * The four `plugins.*` members answer the enabled plugins that declare a given capability — speech,
+ * llm, mixer, analysis — by id and name, for the settings that pick which plugin a capability with
+ * several installed candidates uses. Those settings stay free text (`selectPlugin` in
+ * `plugin.selection.ts` accepts an id that is not currently a candidate without falling back), so
+ * this is a suggestion list rather than a closed `select` — the console resolves it the same way as
+ * the other sources here, against the plugin list rather than a static enum.
+ *
  * An enum rather than a boolean for {@link ConfigFieldUnit}'s reason: the next one (voices,
  * personas) is obvious, and a closed set is what the contract mirroring this can express. Whatever
  * it names is resolved by the CONSOLE; nothing here reaches a plugin.
  */
-export type ConfigFieldOptionSource = 'station.newsCategories' | 'intl.timeZones';
+export type ConfigFieldOptionSource =
+    'station.newsCategories' | 'intl.timeZones' | 'plugins.speech' | 'plugins.llm' | 'plugins.mixer' | 'plugins.analysis';
 
 /**
  * One column of a `list` field.
@@ -342,7 +350,14 @@ export const configFieldUnitSchema = z.enum(['bytes', 'fraction']);
 
 export const configFieldControlSchema = z.enum(['slider', 'tags']);
 
-export const configFieldOptionSourceSchema = z.enum(['station.newsCategories', 'intl.timeZones']);
+export const configFieldOptionSourceSchema = z.enum([
+    'station.newsCategories',
+    'intl.timeZones',
+    'plugins.speech',
+    'plugins.llm',
+    'plugins.mixer',
+    'plugins.analysis',
+]);
 
 export const configFieldColumnSchema = z.object({
     key: z.string().min(1),

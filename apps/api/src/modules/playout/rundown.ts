@@ -112,7 +112,24 @@ export interface RundownItem {
      * commit would have two cues overwrite each other. The pusher hands items over
      * one at a time.
      */
-    voice?: { segmentId: string; atMs: number; loudnessLufs?: number };
+    voice?: {
+        segmentId: string;
+        atMs: number;
+        loudnessLufs?: number;
+        /**
+         * The running order's own id for the cue's OWN item — the talk-over segment
+         * itself, not the record it rides. `pending.itemId` in `DirectorService.toPlayerItems`,
+         * carried through so that once the record is on air, {@link Rundown.reconcile} can name
+         * which lineup item the mixer's reading is reporting on and settle it with
+         * `LiveOrder.markSpokenOver` rather than leaving it to the boundary sweep.
+         *
+         * Absent only ever means a fixture built without it: every voice the director
+         * itself attaches carries one, since `pending.itemId` is set the same moment the
+         * voice is. A voice with no `itemId` simply cannot be settled from a reading and
+         * falls back to the boundary sweep, exactly as before this existed.
+         */
+        itemId?: string;
+    };
 
     /**
      * Where the audio actually starts and stops in the file, in milliseconds.
@@ -328,6 +345,19 @@ export class Rundown {
     private handOvers = new Map<string, number>();
     /** Confirmed on air by the player, with the playhead as last measured. */
     private airing?: AiringItem;
+    /**
+     * The talk-over cue armed on whatever is currently on air, waiting for the mixer to
+     * say what became of it.
+     *
+     * Recorded by {@link setAiring} whenever the item going on air carries a
+     * {@link RundownItem.voice}: `carrierId` is the record the cue rides (what a
+     * reading's `onAir` will name) and `itemId` is the cue's own lineup item, the one
+     * {@link LiveOrder.markSpokenOver} settles. Left alone rather than cleared when the
+     * NEXT item goes on air with no voice of its own, which is deliberate — a reading
+     * naming this carrier can still arrive a tick after the boundary, and it must still
+     * match. Only {@link reconcile}, once it has actually settled the cue, clears it.
+     */
+    private armedVoice?: { carrierId: string; itemId: string };
     /** What the director last said about blending this broadcast's boundaries. See {@link crossfade}. */
     private crossfadeEnabled = false;
     /** The last unexplainable id the player named, so it is reported once rather than every tick. */
@@ -371,6 +401,7 @@ export class Rundown {
         this.servedAt.clear();
         this.handOvers.clear();
         this.airing = undefined;
+        this.armedVoice = undefined;
         // Back to the safe answer rather than left holding the last broadcast's. The next
         // order to arrive may be an album, and inheriting a rotation's setting would blend
         // its first boundary before anything got round to saying otherwise.
@@ -475,6 +506,7 @@ export class Rundown {
         // doing, so a track that had run out of attempts deserves fresh ones.
         this.handOvers.clear();
         this.airing = undefined;
+        this.armedVoice = undefined;
         this.unknownOnAir = undefined;
         this.announceReset(true);
         this.emit();
@@ -701,6 +733,8 @@ export class Rundown {
     reconcile(reading: QueueStatus): void {
         if (reading.ready === undefined) return;
 
+        this.settleVoice(reading);
+
         // Whether the reading names an item this process can speak for. False is the
         // one thing the reading is certain about: whatever we still hold is NOT on air.
         const named = reading.onAir === undefined || this.observeOnAir(reading.onAir);
@@ -874,7 +908,12 @@ export class Rundown {
         this.servedAt.delete(id);
 
         const item = this.prepared.get(id);
-        if (item) this.announceAired(item, passedOver);
+        if (item) {
+            this.announceAired(item, passedOver);
+            // Arms the settling path for this item's own cue. Nothing here CLEARS
+            // `armedVoice` for an item with no voice of its own — see the field's note.
+            if (item.voice?.itemId !== undefined) this.armedVoice = { carrierId: id, itemId: item.voice.itemId };
+        }
     }
 
     /**
@@ -893,6 +932,28 @@ export class Rundown {
                 this.logger.warn(`rundown: an aired listener threw (${errorText(error)})`);
             }
         }
+    }
+
+    /**
+     * Settle an armed talk-over cue from the mixer's own reading, rather than leaving it
+     * to the boundary sweep in `StationLineup.markAiring`.
+     *
+     * Checked against `onAir` naming the CARRIER — the record the cue rides — rather
+     * than against whatever this process currently believes is airing: a reading naming
+     * it can land a tick after the next boundary has already moved {@link airing} on,
+     * and it is still reporting on the same cue. A reading naming anything else is not
+     * about this cue at all and is left for the next one.
+     */
+    private settleVoice(reading: QueueStatus): void {
+        if (!this.armedVoice || (reading.voice !== 'fired' && reading.voice !== 'missed')) return;
+        if (reading.onAir !== this.armedVoice.carrierId) return;
+
+        const { itemId } = this.armedVoice;
+        if (!this.order?.markSpokenOver(itemId, reading.voice)) return;
+
+        if (reading.voice === 'missed') this.logger.warn('rundown: a talk-over cue missed its record', { item: itemId });
+        this.armedVoice = undefined;
+        this.emit();
     }
 
     /** Take the airing item off air: the player says it is not producing it. */

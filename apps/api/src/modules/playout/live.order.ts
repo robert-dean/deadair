@@ -64,6 +64,18 @@ export interface LiveOrder {
     /** The station will not be airing it: a segment with no audio, or a push the player never took. */
     markSkipped(itemId: string): boolean;
     /**
+     * The mixer's own reading of an armed talk-over cue, settling it directly rather than
+     * leaving it to the next boundary sweep.
+     *
+     * `fired` is `handed -> played`: the cue spoke, exactly as heard. `missed` is
+     * `handed -> skipped`: the record it was riding ended, or was skipped, before the
+     * cue's moment arrived, so nothing was said. Either way this is the truth arriving
+     * from the one place that can honestly report it — the boundary sweep in
+     * {@link markAiring} only ever guesses from position, and now only has to when this
+     * reading never comes.
+     */
+    markSpokenOver(itemId: string, outcome: 'fired' | 'missed'): boolean;
+    /**
      * The station could not get hold of this record's audio at all.
      *
      * Split from {@link markSkipped} because it is the one an operator can act on: it names a copy

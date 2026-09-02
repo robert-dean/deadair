@@ -78,10 +78,12 @@ import type { Segment } from '#modules/render/segment.repository.js';
  * phrasing from the same unchanged `airs_at`, and it fetches a genuinely new observation.
  */
 
-/** Why a break's words are no longer true. The three dimensions a claim can be made in. */
+/** Why a break's words are no longer true. The four dimensions a claim can be made in. */
 export type BrokenClaim =
     /** It named the record that plays next, and something else does. */
     | { kind: 'item'; claimed: string; next?: string }
+    /** It named the record that just played, and something else did. */
+    | { kind: 'previous'; claimed: string; previous?: string }
     /** It named a time, and the clock is outside the window that phrasing is true in. */
     | { kind: 'time'; from: number; until: number; when: TimeFault }
     /** It reported a measurement, and the observation behind it has aged out. */
@@ -96,7 +98,7 @@ export type BrokenClaim =
 export type TimeFault = 'early' | 'late';
 
 /** Everything about a segment this question needs. Narrow, so a test needs no whole row. */
-type Claiming = Pick<Segment, 'claimsItemId' | 'claimsTime' | 'claimsReadingUntil'>;
+type Claiming = Pick<Segment, 'claimsItemId' | 'claimsPreviousItemId' | 'claimsTime' | 'claimsReadingUntil'>;
 
 /**
  * Why a break is being written again, in the words an operator reads on the row.
@@ -120,6 +122,8 @@ export function reasonFor(broken: BrokenClaim): string {
         // where it sits relative to the break that named it.
         case 'item':
             return 'the record it named is no longer what plays next';
+        case 'previous':
+            return 'the record it back-announced is not the one that played';
         case 'time':
             return 'the clock has moved past the time it named';
         case 'reading':
@@ -130,26 +134,39 @@ export function reasonFor(broken: BrokenClaim): string {
 /**
  * What is wrong with this break's claims, or `undefined` while they hold.
  *
- * `nextTrackId` is the id of the running-order LINE that will actually play next, passed in rather
- * than derived here so this module stays free of the order: both callers read it from
- * `StationLineup.nextTrackAfter`, which passes over lines that are skipped or unavailable.
+ * `neighbours.next` and `neighbours.previous` are the ids of the running-order LINES that actually
+ * sit either side right now, passed in rather than derived here so this module stays free of the
+ * order: both callers read them from `StationLineup.nextTrackAfter` and `previousTrackBefore`,
+ * which pass over lines that are skipped, unavailable, or (behind, only) removed.
  *
  * A break claiming nothing — most of them — holds by definition, and answers so without either
  * caller having to check first.
  */
-export function brokenClaim(segment: Claiming, nextTrackId: string | undefined, now: number): BrokenClaim | undefined {
+export function brokenClaim(segment: Claiming, neighbours: { previous?: string; next?: string }, now: number): BrokenClaim | undefined {
     // The forward claim. Everything that can happen to a running order between the writing and the
     // slot makes it false: an operator moves the item, a request goes in, the resolver drops the
     // pick, the record is benched for having no audio. The station would then name a record that is
     // not the one playing, in a confident voice, which is the kind of error a listener remembers.
     const claimedItem = segment.claimsItemId;
-    if (claimedItem !== undefined && nextTrackId !== claimedItem) {
+    if (claimedItem !== undefined && neighbours.next !== claimedItem) {
         // `next` absent for a break at the end of an order that has since lost its tail: the promise
         // is equally unkeepable, and equally not worth airing.
-        return { kind: 'item', claimed: claimedItem, ...(nextTrackId === undefined ? {} : { next: nextTrackId }) };
+        return { kind: 'item', claimed: claimedItem, ...(neighbours.next === undefined ? {} : { next: neighbours.next }) };
     }
 
-    // The same argument in the other dimension. A break that named a time is overtaken by the clock
+    // The other side of the same statement. A break that back-announced a record is claiming
+    // something about the PAST rather than the future, but it is exactly as checkable: the station
+    // said a specific record just played, and if the line it named did not survive to air — pulled,
+    // skipped, or replaced after the words were written — the claim is just as false as a forward
+    // one, and airing it is the same mistake read backwards. `StationLineup.previousTrackBefore` is
+    // deliberately not the same predicate as `nextTrackAfter`'s: nearest-surviving, not adjacent, is
+    // what a back-announce is actually about.
+    const claimedPrevious = segment.claimsPreviousItemId;
+    if (claimedPrevious !== undefined && neighbours.previous !== claimedPrevious) {
+        return { kind: 'previous', claimed: claimedPrevious, ...(neighbours.previous === undefined ? {} : { previous: neighbours.previous }) };
+    }
+
+    // The same argument in a third dimension. A break that named a time is overtaken by the clock
     // exactly as one naming the next record is overtaken by an edit. An operator shuffling the
     // order, a run of skipped items, a record that took longer to fetch than the projection assumed:
     // any of them can push a break past the window its phrasing is true in.
@@ -168,7 +185,7 @@ export function brokenClaim(segment: Claiming, nextTrackId: string | undefined, 
         return { kind: 'time', from: claimedTime.from, until: claimedTime.until, when: 'late' };
     }
 
-    // The third dimension, and the one the station does not move. A break that REPORTED something —
+    // The fourth dimension, and the one the station does not move. A break that REPORTED something —
     // what it is like outside — was true of a moment that has since passed, and nothing here or in
     // the running order did anything wrong: the world moved. See `segments.claims_reading_until`.
     //

@@ -16,6 +16,8 @@ import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
 import type { OrderEdit } from './director.mailbox.js';
 import { DirectorService } from './director.service.js';
+import { PickResolver } from './pick.resolver.js';
+import { songKey } from './rotation.keys.js';
 import { StationAirRepository } from './station.air.repository.js';
 import type { EditResult, StationLineupBinding, StationLineupSegmentItem, StationLineupSnapshot } from './station.lineup.js';
 import type {
@@ -73,6 +75,9 @@ export class DirectorConsoleService {
         private readonly context: AuthorizationContext,
         private readonly activity: ActivityRecorder,
         private readonly logger: Logger,
+        // The put-on-air veto: the one instruction no lineup may switch off, applied to a playlist
+        // the same way `resolve` applies it to a generated set. See `sourceTracks`.
+        private readonly resolver: PickResolver,
     ) {}
 
     /**
@@ -299,6 +304,10 @@ export class DirectorConsoleService {
      * so the same narrowing applies as when the console lists them: an actor who cannot
      * see the plugin gets the same 403 whether or not it is installed, and a plugin that
      * is not catalog-capable answers 501 rather than failing halfway through.
+     *
+     * Run through {@link PickResolver.vet} before it reaches the running order: a playlist is a
+     * generator this station never asked its rules about, and a dislike, a period, and the advisory
+     * policy are instructions rather than preferences a source gets to route around.
      */
     private async sourceTracks(input: PutOnAirInput): Promise<RundownTrack[]> {
         if (input.pluginId === undefined || input.playlistId === undefined) return [];
@@ -308,7 +317,24 @@ export class DirectorConsoleService {
             // A running order that plays nothing would report success and then air silence.
             throw httpError(422).withDetails({ message: 'that playlist has no tracks to play' });
         }
-        return await this.toRundownTracks(input.pluginId, tracks);
+
+        const vetted = await this.resolver.vet(await this.toRundownTracks(input.pluginId, tracks), {
+            era: { from: input.eraFrom, to: input.eraTo },
+            preference: [input.pluginId],
+        });
+        if (vetted.length === 0) {
+            // The same refusal as an empty playlist, and it has to be checked AFTER the veto rather
+            // than only before it: a playlist with records on it that the station may not play is
+            // empty for this purpose too, and letting it through reports success and then airs
+            // either silence (a setlist) or the station's own rotation in place of the playlist the
+            // operator chose (a rotation, refilled) — with nothing anywhere saying the choice was
+            // overruled. The wording names the veto rather than the playlist, because the playlist
+            // is fine and the station's own rules are what emptied it.
+            throw httpError(422).withDetails({
+                message: 'every record on that playlist is one this station will not play: a dislike, the period, or the advisory policy',
+            });
+        }
+        return vetted;
     }
 
     // ── the live running order ─────────────────────────────────────────────────
@@ -503,11 +529,23 @@ export class DirectorConsoleService {
      *
      * Never fails the import. Metadata is decoration and airing is the job, so a
      * catalog read that throws costs the covers and nothing else.
+     *
+     * Folds two rips of one song into the first occurrence, by the same {@link songKey} the rotation
+     * itself matches by. A playlist an operator built by hand is exactly where a compilation and the
+     * album it draws from both turn up, and the second copy is a repeat rather than a second record.
      */
     private async toRundownTracks(pluginId: string, tracks: readonly CatalogTrack[]): Promise<RundownTrack[]> {
-        const known = await this.catalogMetadata(pluginId, tracks);
+        const seen = new Set<string>();
+        const deduped = tracks.filter(track => {
+            const key = songKey(track.title, [track.artists[0] ?? '']);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
 
-        return tracks.map(track => {
+        const known = await this.catalogMetadata(pluginId, deduped);
+
+        return deduped.map(track => {
             const row = known.get(track.id);
             const album = track.album ?? row?.albumName ?? undefined;
             const artworkUrl = row?.albumImageUrl ?? track.artworkUrl;

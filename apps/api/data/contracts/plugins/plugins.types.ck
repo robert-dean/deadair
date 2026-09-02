@@ -26,8 +26,9 @@ contract ConfigFieldOption: {
 }
 
 # Where a field's or a column's choices come from when only the console can enumerate them: the
-# station's own tables, or the platform's zone list. Resolved by the console either way
-contract ConfigFieldOptionSource: enum(station.newsCategories, intl.timeZones)
+# station's own tables, the platform's zone list, or the enabled plugins that can do one of four
+# jobs. Resolved by the console either way
+contract ConfigFieldOptionSource: enum(station.newsCategories, intl.timeZones, plugins.speech, plugins.llm, plugins.mixer, plugins.analysis)
 
 # One column of a `list` field. Every cell is stored as a string, so this describes the control rather than the value
 contract ConfigFieldColumn: {

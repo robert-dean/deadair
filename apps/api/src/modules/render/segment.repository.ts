@@ -97,6 +97,13 @@ export interface Segment {
      */
     claimsItemId?: string;
     /**
+     * Which running-order line these words claim already played, for a break that back-announces.
+     *
+     * The other half of {@link claimsItemId}: absent for a break that named nothing behind it, which
+     * is most of them. See `segments.claims_previous_item_id`.
+     */
+    claimsPreviousItemId?: string;
+    /**
      * The soundboard pads this break's script hits, resolved when the words were written.
      *
      * Empty for the ordinary break, which is nearly all of them. Resolved at WRITE time rather than
@@ -313,6 +320,7 @@ interface SegmentRow {
     voice: string | null;
     writer: string | null;
     claimsItemId: string | null;
+    claimsPreviousItemId: string | null;
     airsAt: DateTime | null;
     claimsTimeFrom: DateTime | null;
     claimsTimeUntil: DateTime | null;
@@ -342,6 +350,7 @@ const SEGMENT_COLUMNS = [
     'voice',
     'writer',
     'claimsItemId',
+    'claimsPreviousItemId',
     'airsAt',
     'claimsTimeFrom',
     'claimsTimeUntil',
@@ -404,6 +413,7 @@ function toSegment(row: SegmentRow): Segment {
         ...(row.voice == null ? {} : { voice: row.voice }),
         ...(row.writer == null ? {} : { writer: row.writer }),
         ...(row.claimsItemId == null ? {} : { claimsItemId: row.claimsItemId }),
+        ...(row.claimsPreviousItemId == null ? {} : { claimsPreviousItemId: row.claimsPreviousItemId }),
         pads: padHitsIn(row.pads),
         ...(row.requestId == null ? {} : { requestId: row.requestId }),
         // Read back defensively, like every other jsonb column here: a value that is not an object
@@ -811,6 +821,7 @@ export class SegmentRepository extends DataRepository {
             label: string;
             writer: string;
             claimsItemId?: string;
+            claimsPreviousItemId?: string;
             claimsTime?: { from: number; until: number };
             claimsReadingUntil?: number;
             personaId?: string;
@@ -845,6 +856,9 @@ export class SegmentRepository extends DataRepository {
                 // the two claims below do.
                 pads: JSON.stringify(written.pads ?? []),
                 claimsItemId: written.claimsItemId ?? null,
+                // The back-announce's sibling, written and cleared with the words for the same
+                // reason: it describes THESE words, and a rewrite states another claim entirely.
+                claimsPreviousItemId: written.claimsPreviousItemId ?? null,
                 // The same argument in the other dimension: a break naming a TIME is overtaken by
                 // the clock the way one naming the next record is overtaken by an edit. Written
                 // with the words because the window comes from the phrasing, and cleared with them
@@ -960,7 +974,7 @@ export class SegmentRepository extends DataRepository {
     async reopenClaims(itemIds: readonly string[]): Promise<string[]> {
         if (itemIds.length === 0) return [];
 
-        return await this.reopen('claimsItemId', itemIds, 'the record it promised is no longer going to air');
+        return await this.reopen(['claimsItemId', 'claimsPreviousItemId'], itemIds, 'the record it promised is no longer going to air');
     }
 
     /**
@@ -987,7 +1001,7 @@ export class SegmentRepository extends DataRepository {
     async reopenSegments(ids: readonly string[], reason: string): Promise<string[]> {
         if (ids.length === 0) return [];
 
-        return await this.reopen('id', ids, reason);
+        return await this.reopen(['id'], ids, reason);
     }
 
     /**
@@ -1024,7 +1038,7 @@ export class SegmentRepository extends DataRepository {
     async recast(ids: readonly string[], personaId?: string): Promise<string[]> {
         if (ids.length === 0) return [];
 
-        return await this.reopen('id', ids, 'the station changed presenter', { personaId, recast: true });
+        return await this.reopen(['id'], ids, 'the station changed presenter', { personaId, recast: true });
     }
 
     /**
@@ -1060,7 +1074,7 @@ export class SegmentRepository extends DataRepository {
      * update passed over. Neither is a state a test would notice, so they share one builder.
      */
     private async reopen(
-        by: 'id' | 'claimsItemId',
+        by: readonly ('id' | 'claimsItemId' | 'claimsPreviousItemId')[],
         values: readonly string[],
         reason: string,
         host?: { personaId?: string; recast: true },
@@ -1075,6 +1089,7 @@ export class SegmentRepository extends DataRepository {
                 script: null,
                 writer: null,
                 claimsItemId: null,
+                claimsPreviousItemId: null,
                 claimsTimeFrom: null,
                 claimsTimeUntil: null,
                 // Cleared with the other two, and this one has a bite the others do not: a reopened
@@ -1142,10 +1157,20 @@ export class SegmentRepository extends DataRepository {
      * statement fails. The CTE does not need the prefix and takes it anyway, because one expression
      * used in two places has to be written for the stricter of them.
      */
-    private reopening(by: 'id' | 'claimsItemId', values: readonly string[], host?: { personaId?: string }): Expression<SqlBool> {
+    private reopening(
+        by: readonly ('id' | 'claimsItemId' | 'claimsPreviousItemId')[],
+        values: readonly string[],
+        host?: { personaId?: string },
+    ): Expression<SqlBool> {
         const eb = expressionBuilder<DB, 'deadair.segments'>();
 
-        const clauses = [eb(`deadair.segments.${by}`, 'in', [...values]), eb('deadair.segments.state', 'in', ['planned', 'written', 'ready'])];
+        // `by` is more than one column only for `reopenClaims`, where a break's promise can be
+        // broken in either direction and either is reason enough: `eb.or` rather than a second call,
+        // so a row naming both a forward and a backward claim is still touched once.
+        const clauses = [
+            eb.or(by.map(column => eb(`deadair.segments.${column}`, 'in', [...values]))),
+            eb('deadair.segments.state', 'in', ['planned', 'written', 'ready']),
+        ];
 
         if (host !== undefined) {
             clauses.push(eb('deadair.segments.personaId', 'is not', null));

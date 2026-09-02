@@ -146,7 +146,8 @@ Read this rather than the design above it, which is kept for its reasoning.
   PLUGIN's config (server URL, model, format, default voice, voice map), not `deadair.settings`
   keys following `stream.settings.ts`. The one station-level setting is `render.speechPluginId`,
   which picks the speaker when more than one plugin can talk; with several installed and none
-  chosen it declines to guess rather than picking.
+  chosen it takes the first by id and the console offers the candidates and says so, in the log
+  and beside the field.
 - **The audio streams.** `speak()` returns a `ReadableStream<Uint8Array>`, not bytes, and it is
   usually the engine's own `host.fetch` body forwarded straight through. `ContentStore.writeStream`
   hashes as it writes, so a long break never exists whole in the process. This first shipped as
@@ -187,7 +188,7 @@ finished, each new setting is one descriptor entry.
 **2. Decide the LLM seam before `BreakWriter` binds to anything. BUILT**, and shipped as the shape
 predicted at the end of this item: an `llm` capability in the plugin SDK, `modules/llm/` holding
 `LlmGate`, the tool loop and `ToolRegistry` host-side, and an `llm.pluginId` setting mirroring
-`render.speechPluginId` including its refusal to guess. `LlmService.canGenerate()` answers "no model
+`render.speechPluginId`, first-by-id default and all. `LlmService.canGenerate()` answers "no model
 installed" without throwing, which is what lets a writer pick its deterministic binding rather than
 fail. See `docs/internals/llm.md` for what stayed host-side and why. What follows is the
 reasoning that produced it.

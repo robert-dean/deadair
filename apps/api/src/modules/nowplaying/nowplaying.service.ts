@@ -1,6 +1,8 @@
 import { Injectable } from 'injectkit';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { Rundown } from '#modules/playout/rundown.js';
+import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import type { NowPlaying } from './types/nowplaying.types.js';
 
 /**
@@ -19,26 +21,24 @@ import type { NowPlaying } from './types/nowplaying.types.js';
  * to anyone listening.
  *
  * **Answers out of memory, with no database work at all.** The rundown holds
- * what is airing, and the station's name is pushed in once at boot rather than
- * read per request. That is what lets this route be transaction-exempt and lets
- * a device poll it every few seconds without spending a pooled connection on
- * each ask. The cost is that renaming the station reaches this on the next
- * restart — the same terms Icecast itself is on, since it too reads its config
- * once at startup.
+ * what is airing, and `AppConfig` is a live view over `deadair.settings`
+ * needing no scope, so the station's name is read straight off it on every
+ * call rather than fetched through a repository. That is what lets this route
+ * be transaction-exempt and lets a device poll it every few seconds without
+ * spending a pooled connection on each ask, while a rename still reaches the
+ * very next poll.
  */
 @Injectable()
 export class NowPlayingService {
-    /** Empty until the module's `ready` has read the stream settings. */
-    private stationName = '';
-
     constructor(
         private readonly rundown: Rundown,
         private readonly audience: AudienceWatch,
+        private readonly config: AppConfig,
     ) {}
 
-    /** Publish the station's on-air name. Called once, from the module's `ready`. */
-    useStationName(name: string): void {
-        this.stationName = name;
+    /** What the station calls itself, as the setting currently stands. Read per call, like `getNowPlaying`'s other facts. */
+    private stationName(): string {
+        return this.config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title);
     }
 
     /**
@@ -56,11 +56,11 @@ export class NowPlayingService {
         // listening" while it is quiet is the honest pair, and in an audience-gated
         // station the two facts explain each other.
         const listeners = this.audience.listenerCount();
-        if (!nowPlaying) return { station: this.stationName, onAir: false, listeners };
+        if (!nowPlaying) return { station: this.stationName(), onAir: false, listeners };
 
         const { item, startedAt, remainingMs } = nowPlaying;
         return {
-            station: this.stationName,
+            station: this.stationName(),
             onAir: true,
             listeners,
             track: {

@@ -6,13 +6,14 @@ import { setupMiddleware } from './setup.middleware.js';
 import { routers } from '#routes/routes.setup.js';
 import { Settings } from 'luxon';
 import { modules } from '#src/modules/modules.js';
-import { ServerKitRouterType, ServerKitServerBuilder } from '@maroonedsoftware/koa';
+import { ServerKitRouterType, ServerKitServerBuilder, defaultParserMappings, JsonParser, JsonParserOptions } from '@maroonedsoftware/koa';
 import { scrubProcessEnv } from './scrub.process.env.js';
 import { DeadairLogger } from '#src/logging/deadair.logger.js';
 import { RotatingLogStore } from '#src/logging/rotating.log.store.js';
 import { setLogStore } from '#src/logging/log.store.js';
 import { setTraceRoot } from '#modules/shared/trace.spans.js';
 import { requiredNumber } from '#modules/shared/setting.numbers.js';
+import { installCrashHandlers } from './crash.handlers.js';
 
 export const setupServer = async () => {
     const serverBuilder = new ServerKitServerBuilder();
@@ -63,6 +64,7 @@ export const setupServer = async () => {
     setTraceRoot(String(boot.get('LOGS_DIR', './logs')));
 
     const logger = new DeadairLogger(new ConsoleLogger(), logStore);
+    installCrashHandlers(logger);
 
     // The real config: the same environment layer, plus `deadair.settings` on top of it, held in a
     // store that rebuilds itself whenever that table changes. The settings source is added second
@@ -92,7 +94,22 @@ export const setupServer = async () => {
     // everything the container hands an `AppConfig` to sees a settings change without re-resolving
     // anything. That is what makes a setting readable from a singleton with no DI scope, which the
     // playout transport ticking every couple of seconds does not have.
-    await serverBuilder.setup(configStore.toLiveConfig(), logger, modules);
+    // Global rather than a `+json` subtype for the one route that needs it (persona import): a
+    // subtype needs the `.ck`, the codegen and the SDK client to agree on a content type
+    // ContractKit may not emit, which is a lot of machinery for one route's body size. 16 MB is a
+    // quarter of nginx's 64 MB (docker/nginx.conf) and far above any persona file, so raising the
+    // default costs nothing for the routes that stay small.
+    //
+    // Built on the kit's own default JSON options rather than a bare `new JsonParserOptions()`, so
+    // the bigint reviver `defaultParserMappings.json` already carries stays in force: only `limit`
+    // changes.
+    const jsonParserOptions = Object.assign(new JsonParserOptions(), defaultParserMappings.json!.options!.instance as JsonParserOptions, {
+        limit: '16mb',
+    });
+    await serverBuilder.setup(configStore.toLiveConfig(), logger, modules, {
+        ...defaultParserMappings,
+        json: { parser: JsonParser, options: { id: JsonParserOptions, instance: jsonParserOptions } },
+    });
     serverBuilder.setupMiddleware(setupMiddleware).setupRoutes(routers as ServerKitRouterType[]);
 
     // From `boot` rather than the store: the port is bound once and a settings row could not move

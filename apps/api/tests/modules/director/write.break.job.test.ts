@@ -1102,6 +1102,38 @@ describe('WriteBreakJob', () => {
         });
     });
 
+    describe('the backward claim', () => {
+        it('stamps the line the words actually named', async () => {
+            const lineup = await lineupWithBreak();
+            const previousItem = lineup.all()[0]!;
+            const { job, segments } = harness({
+                lineup,
+                written: {
+                    written: { script: 'That was Solid Air.', label: 'Talk break', claimsPrevious: true },
+                    writer: 'deterministic',
+                    attempts: [
+                        { writer: 'deterministic', outcome: 'written', written: { script: 'That was Solid Air.', label: 'x' }, durationMs: 1 },
+                    ],
+                },
+            });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.objectContaining({ claimsPreviousItemId: previousItem.id }));
+        });
+
+        it('stamps nothing when the words promised nothing', async () => {
+            // The mirror of the forward claim's own case: an outro chunk that got dropped named
+            // nothing behind the break, and a break that promised nothing must not be thrown away
+            // later for one it never made.
+            const { job, segments } = harness({ lineup: await lineupWithBreak() });
+
+            await job.run({ segmentId: 'seg-1' });
+
+            expect(segments.writeScript).toHaveBeenCalledWith('seg-1', expect.not.objectContaining({ claimsPreviousItemId: expect.anything() }));
+        });
+    });
+
     it('waits rather than writing a break the order does not hold yet', async () => {
         // Measured on the running station: the director writes the order through a throttle, so a
         // break can be planted, offered and picked up here before the row anybody can read holds

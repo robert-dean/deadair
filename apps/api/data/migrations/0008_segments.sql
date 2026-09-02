@@ -163,6 +163,23 @@ create table deadair.segments (
     -- one jsonb document rather than rows — the check is a comparison in the director, and a stale
     -- id simply fails it, which is the safe direction.
     claims_item_id text,
+    -- Which running-order line this break's words claim already played, for a break that BACK-
+    -- announces rather than looks ahead.
+    --
+    -- The other half of `claims_item_id`, and broken by the same kind of edit read the opposite way:
+    -- "that was X" is a statement about a record that has already gone out, and it is wrong the
+    -- moment the running order says a DIFFERENT record aired in that slot — the item was pulled after
+    -- the break was written, an operator reordered the tail, or the item the break meant turned out
+    -- unavailable and was skipped in favour of whatever came after it.
+    --
+    -- The nearest SURVIVING record behind the break, not the adjacent line, which is what tells this
+    -- column apart from a mirror of `claims_item_id`: what already played is a fact about the record
+    -- that actually aired there, and a segment or a skipped line between the two does not change
+    -- which record that was. See `StationLineup.previousTrackBefore`.
+    --
+    -- A lineup ITEM id for the same reason `claims_item_id` is one: the same record can sit in an
+    -- order twice, and what the words named is the one at that position.
+    claims_previous_item_id text,
     -- When this break is expected to AIR, when a rule on the station clock placed it.
     --
     -- Written by the planner and read by the writer, which is the whole of why it is a column

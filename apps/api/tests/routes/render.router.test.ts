@@ -14,7 +14,15 @@ import { request, Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Koa from 'koa';
-import { errorMiddleware } from '@maroonedsoftware/koa';
+import {
+    errorMiddleware,
+    bodyParserMiddleware,
+    ServerKitBodyParser,
+    ServerKitParserMappings,
+    JsonParser,
+    JsonParserOptions,
+    defaultParserMappings,
+} from '@maroonedsoftware/koa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { RenderRouter } from '../../src/routes/render.router.js';
@@ -67,6 +75,22 @@ const send = (
             response.on('end', () => resolve({ status: response.statusCode ?? 0, body: Buffer.concat(chunks), headers: response.headers }));
         });
         req.on('error', reject);
+        req.end();
+    });
+
+/** Like {@link send}, but writes a body — needed only by the JSON body limit test below. */
+const postJson = (url: string, body: string): Promise<{ status: number }> =>
+    new Promise((resolve, reject) => {
+        const req = request(
+            url,
+            { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(body)) } },
+            response => {
+                response.on('data', () => undefined);
+                response.on('end', () => resolve({ status: response.statusCode ?? 0 }));
+            },
+        );
+        req.on('error', reject);
+        req.write(body);
         req.end();
     });
 
@@ -220,5 +244,80 @@ describe('GET /audio/:checksum/:ext', () => {
         const base = await serve(undefined);
 
         expect((await send(`${base}/audio/${'0'.repeat(64)}/mp3`)).status).toBe(404);
+    });
+});
+
+// setup.server.ts raises the JSON parser's limit to 16mb globally (see the comment there for why
+// global rather than a per-route subtype), so a body well above the kit's 1mb default — a persona
+// import, in particular — must not be refused for its size. This exercises the same
+// ServerKitBodyParser/bodyParserMiddleware chain every route runs, with a JsonParser built the same
+// way setup.server.ts builds it, rather than the route business logic, which is not what a body
+// size limit is about.
+const serveWithJsonParser = async (jsonParser: JsonParser, onBody?: (ctx: Koa.Context) => void): Promise<string> => {
+    const mappings = new ServerKitParserMappings();
+    mappings.set('json', jsonParser);
+    const bodyParser = new ServerKitBodyParser(mappings);
+
+    const app = new Koa();
+    app.use(errorMiddleware() as unknown as Koa.Middleware);
+    app.use(async (ctx, next) => {
+        (ctx as unknown as { container: { get: (token: unknown) => unknown } }).container = { get: () => bodyParser };
+        await next();
+    });
+    app.use(bodyParserMiddleware(['json']) as unknown as Koa.Middleware);
+    app.use(async ctx => {
+        onBody?.(ctx);
+        ctx.status = 200;
+    });
+
+    server = app.listen(0, LOOPBACK);
+    await new Promise<void>(resolve => server!.once('listening', () => resolve()));
+    return `http://${LOOPBACK}:${(server!.address() as AddressInfo).port}`;
+};
+
+describe('the JSON body limit', () => {
+    it('accepts a 2 MB body rather than answering 413', async () => {
+        const jsonParser = new JsonParser(Object.assign(new JsonParserOptions(), { limit: '16mb' }));
+        const base = await serveWithJsonParser(jsonParser);
+
+        const body = JSON.stringify({ data: 'x'.repeat(2 * 1024 * 1024) });
+        const response = await postJson(`${base}/`, body);
+
+        expect(response.status).toBe(200);
+    });
+
+    // The boundary the raised limit still has: something above it is refused rather than the limit
+    // having been removed altogether. `raw-body`'s 413 is a plain error rather than an
+    // `@maroonedsoftware/errors` HttpError, so `bodyParserMiddleware`'s catch (not something this
+    // change touches) reports it as 422 — the boundary still bites, just under that status.
+    it('still refuses a body over 16 MB rather than accepting it', async () => {
+        const jsonParser = new JsonParser(Object.assign(new JsonParserOptions(), { limit: '16mb' }));
+        const base = await serveWithJsonParser(jsonParser);
+
+        const body = JSON.stringify({ data: 'x'.repeat(17 * 1024 * 1024) });
+        const response = await postJson(`${base}/`, body);
+
+        expect(response.status).toBe(422);
+    });
+
+    // The reason setup.server.ts builds its options on top of `defaultParserMappings.json`'s own
+    // instance rather than a bare `new JsonParserOptions()`: a bare one has no reviver, so the
+    // obvious way to raise the limit silently drops the bigint round-trip every other JSON route
+    // gets for free. Built the same way setup.server.ts builds it, so a regression there fails here.
+    it('keeps the bigint reviver in force at the raised limit', async () => {
+        const jsonParserOptions = Object.assign(new JsonParserOptions(), defaultParserMappings.json!.options!.instance as JsonParserOptions, {
+            limit: '16mb',
+        });
+        const jsonParser = new JsonParser(jsonParserOptions);
+
+        let parsedValue: unknown;
+        const base = await serveWithJsonParser(jsonParser, ctx => {
+            parsedValue = (ctx as unknown as { parsedBody: { count: unknown } }).parsedBody.count;
+        });
+
+        const response = await postJson(`${base}/`, JSON.stringify({ count: '123n' }));
+
+        expect(response.status).toBe(200);
+        expect(parsedValue).toBe(123n);
     });
 });

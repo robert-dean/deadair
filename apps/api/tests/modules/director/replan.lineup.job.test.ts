@@ -16,7 +16,7 @@ import { StationLineup, type StationLineupMode } from '../../../src/modules/dire
 import type { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
 import type { DirectorCommand } from '../../../src/modules/director/director.mailbox.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
-import { songKey } from '../../../src/modules/director/rotation.keys.js';
+import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
 import type { SetGenerator, SetInputs, TrackPick } from '../../../src/modules/director/set.generator.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 
@@ -102,6 +102,7 @@ function build(options: Options = {}) {
         lineup,
         seed: async () => (options.existing ? lineup.append(options.existing) : undefined),
         generate,
+        resolve,
     };
 }
 
@@ -125,6 +126,25 @@ describe('ReplanLineupJob', () => {
         await job.run({ count: 2 });
 
         expect(generate.mock.calls[0]![0]!.avoidSongKeys).toContain(songKey('Tired Of This', ['One']));
+    });
+
+    it('spaces the new tail against the record that survives the replan, not the one it discards', async () => {
+        // The seam a replan leaves is NOT the seam a refill leaves, and reading it the same way was
+        // wrong in the one direction that matters. `replacePlanned` keeps what is not `planned` and
+        // appends after it, so the new batch lands beside the last HANDED record — while
+        // `upcoming()`'s tail is the planned records about to be thrown away. Seeding off those
+        // spaces the batch against records nobody will ever hear and leaves the actual join
+        // uncompared, which is how the same artist ends up on both sides of it.
+        const { job, seed, lineup, resolve } = build({ existing: [track('Stays', 'Survivor'), track('Goes', 'Discarded')] });
+        await seed();
+        lineup.markHanded(lineup.all()[0]!.id);
+
+        await job.run({ count: 2 });
+
+        const options = resolve.mock.calls[0]![2] as { seedArtistKey?: string; avoidArtistKeys?: ReadonlySet<string> };
+        expect(options.seedArtistKey).toBe(artistKey(['Survivor']));
+        expect(options.avoidArtistKeys).toContain(artistKey(['Survivor']));
+        expect(options.avoidArtistKeys).not.toContain(artistKey(['Discarded']));
     });
 
     it('programmes against the brief the broadcast is already carrying', async () => {

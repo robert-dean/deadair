@@ -830,6 +830,30 @@ export class EnrichmentRepository extends DataRepository {
         return Number(result.numDeletedRows ?? 0n);
     }
 
+    /**
+     * Back-dates every row this provider has ever written, across all three tables, so the next
+     * enrichment pass treats every one of them as expired and asks the provider again.
+     *
+     * Called when the provider's own settings just changed — a source that just had its scope
+     * widened (tags turned on, say) never asks about what it already answered, because its stored
+     * rows are not due yet. Back-dating rather than deleting is `clearTrackEnrichment`'s rule read the
+     * other way: `attempts`, `last_error` and the payload are left exactly as they were, and a
+     * console reading them has something to show until the walk replaces it.
+     *
+     * @returns the number of rows touched, summed across all three tables.
+     */
+    async expireProvider(provider: string): Promise<number> {
+        const expiresAt = sql<never>`now()`;
+
+        const [tracks, artists, albums] = await Promise.all([
+            this.db.updateTable('deadair.trackEnrichment').set({ expiresAt }).where('provider', '=', provider).executeTakeFirst(),
+            this.db.updateTable('deadair.artistEnrichment').set({ expiresAt }).where('provider', '=', provider).executeTakeFirst(),
+            this.db.updateTable('deadair.albumEnrichment').set({ expiresAt }).where('provider', '=', provider).executeTakeFirst(),
+        ]);
+
+        return Number((tracks.numUpdatedRows ?? 0n) + (artists.numUpdatedRows ?? 0n) + (albums.numUpdatedRows ?? 0n));
+    }
+
     /** {@link findTrackEnrichment} for an artist. */
     async findArtistEnrichment(artistId: string): Promise<StoredProviderPayload[] | undefined> {
         const rows = await this.db

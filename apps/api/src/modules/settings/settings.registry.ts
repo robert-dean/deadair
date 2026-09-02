@@ -791,7 +791,8 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Speak with',
         type: 'string',
         default: '',
-        help: 'The plugin id the station talks with. Leave empty when only one plugin can speak; set it when several can, because the station declines to guess rather than airing the wrong voice.',
+        optionsFrom: 'plugins.speech',
+        help: 'Leave it empty and the station uses the first by id, and the log says which.',
     },
     {
         group: 'render',
@@ -799,6 +800,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Join audio with',
         type: 'string',
         default: '',
+        optionsFrom: 'plugins.mixer',
         help: 'The plugin id that makes one piece of audio out of several, which is what lets a programme written turn by turn air as a single item with a pause you chose between the turns. Its own key rather than the measurement one, so a station can measure with one engine and join with another. Leave empty when only one plugin can. With none available a programme simply airs as its separate parts.',
     },
     {
@@ -955,6 +957,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Think with',
         type: 'string',
         default: '',
+        optionsFrom: 'plugins.llm',
         help: 'The plugin id the station asks for words. Leave empty when only one plugin can, and set it when several can. With none available the station still writes its own breaks, deterministically.',
     },
     {
@@ -1084,6 +1087,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Measure with',
         type: 'string',
         default: '',
+        optionsFrom: 'plugins.analysis',
         help: 'The plugin id that measures records, so the station can trim dead air and time what it says over an intro. Leave empty when only one plugin can. With none available every track still plays, unmeasured.',
     },
     {

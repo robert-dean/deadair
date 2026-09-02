@@ -375,14 +375,19 @@ export const applyRules = <T extends RotationCandidate>(candidates: readonly T[]
  * wandering between runs of the same input. When everything remaining is by the
  * artist just placed — a batch that is entirely one act — it takes the head:
  * nothing can be done about it, and stalling would be worse.
+ *
+ * @param seed - The artist already at the tail of whatever this batch is joining, if any. Seeding
+ *   `previous` with it rather than leaving the first placement uncompared is what stops a refill
+ *   opening with the artist that just closed the running order — the same adjacency this function
+ *   already refuses everywhere else in the batch.
  */
-export const spaceArtists = <T extends RotationCandidate>(candidates: readonly T[]): T[] => {
+export const spaceArtists = <T extends RotationCandidate>(candidates: readonly T[], seed?: string): T[] => {
     const pending = [...candidates];
     const remaining = new Map<string, number>();
     for (const candidate of pending) remaining.set(candidate.artistKey, (remaining.get(candidate.artistKey) ?? 0) + 1);
 
     const spaced: T[] = [];
-    let previous: string | undefined;
+    let previous: string | undefined = seed;
 
     while (pending.length > 0) {
         let index = -1;

@@ -603,6 +603,7 @@ export interface DeadairSegments {
   audioChecksum: string | null;
   audioExt: string | null;
   claimsItemId: string | null;
+  claimsPreviousItemId: string | null;
   claimsReadingUntil: DateTime | null;
   claimsTimeFrom: DateTime | null;
   claimsTimeUntil: DateTime | null;

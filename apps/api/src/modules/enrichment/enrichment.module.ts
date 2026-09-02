@@ -1,7 +1,8 @@
-import { Registry } from 'injectkit';
+import { Container, Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { EnrichmentReadService } from './enrichment.read.service.js';
+import { EnrichmentRefresh } from './enrichment.refresh.js';
 import { EnrichmentRepository } from './enrichment.repository.js';
 import { EnrichmentService } from './enrichment.service.js';
 import { LineupPriorityReader } from './lineup.priority.js';
@@ -42,5 +43,20 @@ export const EnrichmentModule: ServerKitModule = {
         // it needs to be near is the document walk — the entries it writes go out through a
         // repository the render module already owns.
         registry.register(PronunciationMiningService).useClass(PronunciationMiningService).asScoped();
+
+        // The other side of `plugin.configured`: a provider's settings changing makes what it
+        // already stored stale. A singleton because it holds the bus subscription, exactly as
+        // `WelcomeAnnouncer` does for `audience.arrived`.
+        registry.register(EnrichmentRefresh).useClass(EnrichmentRefresh).asSingleton();
+    },
+
+    ready: async (container: Container, signal: AbortSignal) => {
+        if (signal.aborted) return;
+
+        container.get(EnrichmentRefresh).start();
+    },
+
+    shutdown: async (container: Container) => {
+        container.get(EnrichmentRefresh).stop();
     },
 };

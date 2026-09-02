@@ -15,11 +15,13 @@ import type { ProviderTrackLookup } from '../../../src/modules/director/provider
 import type { CatalogResolverService } from '../../../src/modules/catalog/ingest/catalog.resolver.service.js';
 import type { CandidatesRepository, TrackBinding } from '../../../src/modules/director/candidates.repository.js';
 import type { PlayHistoryRepository } from '../../../src/modules/director/play.history.repository.js';
+import { artistKey } from '../../../src/modules/director/rotation.keys.js';
 import { DEFAULT_RULES, type ResolvedRules } from '../../../src/modules/director/rotation.rules.js';
 import type { TrackPick } from '../../../src/modules/director/set.generator.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { AnalysisRepository, StoredAnalysis } from '../../../src/modules/analysis/analysis.repository.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
+import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -36,7 +38,7 @@ const OPEN_RULES: ResolvedRules = { ...DEFAULT_RULES, repeatWindowDays: 0, artis
 
 /** `resolve` with the rules filled in, so the resolution tests read as they did before it took them. */
 const resolve = (resolver: PickResolver, picks: readonly TrackPick[], preference?: readonly string[]) =>
-    resolver.resolve(picks, OPEN_RULES, preference);
+    resolver.resolve(picks, OPEN_RULES, { preference });
 
 interface Options {
     bindings?: Record<string, TrackBinding>;
@@ -656,6 +658,24 @@ describe('PickResolver rules', () => {
         expect(resolved.map(track => track.artists[0])).toEqual(['One', 'Three', 'One']);
     });
 
+    it('drops an artist the caller says is at the tail, even with every other rule open', async () => {
+        // The batch seam: a caller scopes this to a narrow window, but `judge` itself just unions
+        // it into the cooldown set. A dislike-free, cooldown-free artist still has to go if the
+        // caller flags it, or a refill could still open with whoever the tail just closed on.
+        const { resolver } = build({ ...twoTracks });
+
+        const resolved = await resolver.resolve(
+            [
+                { title: 'A', artist: 'One', trackId: 'track-1' },
+                { title: 'B', artist: 'Two', trackId: 'track-2' },
+            ],
+            rules(),
+            { avoidArtistKeys: new Set([artistKey(['One'])]) },
+        );
+
+        expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
+    });
+
     it('leaves no rotation bookkeeping on the item it hands over', async () => {
         // The keys are a rotation concern; a rundown item has no business carrying them.
         const { resolver } = build({ bindings: { 'track-1': binding('track-1') }, metadata: {} });
@@ -910,6 +930,98 @@ describe('PickResolver loudness', () => {
     });
 });
 
+// The put-on-air path: a playlist read straight off a provider, never through a `SetGenerator`.
+// `vet` is the narrower method that applies for it -- the instruction, not the rules, and never a
+// rewrite of the operator's own order or strings.
+describe('PickResolver.vet', () => {
+    const track = (overrides: Partial<RundownTrack> = {}): RundownTrack => ({
+        pluginId: 'deadair.spotify',
+        externalId: 'ext-1',
+        title: 'A Track',
+        artists: ['An Artist'],
+        artist: 'An Artist',
+        trackId: 'track-1',
+        ...overrides,
+    });
+
+    it("keeps the playlist's order and strings", async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+        });
+
+        const tracks = [
+            track({ externalId: 'ext-2', title: 'Second', artists: ['Two'], artist: 'Two', trackId: 'track-2' }),
+            track({ externalId: 'ext-1', title: 'First', artists: ['One'], artist: 'One', trackId: 'track-1' }),
+        ];
+
+        const vetted = await resolver.vet(tracks, {});
+
+        expect(vetted).toEqual(tracks);
+    });
+
+    it('drops a disliked record', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+            ratings: { 'track-1': -1 },
+        });
+
+        const tracks = [track({ trackId: 'track-1' }), track({ externalId: 'ext-2', trackId: 'track-2' })];
+
+        const vetted = await resolver.vet(tracks, {});
+
+        expect(vetted.map(t => t.trackId)).toEqual(['track-2']);
+    });
+
+    it('drops a record outside the period', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+            years: { 'track-1': 1975, 'track-2': 1994 },
+        });
+
+        const tracks = [track({ trackId: 'track-1' }), track({ externalId: 'ext-2', trackId: 'track-2' })];
+
+        const vetted = await resolver.vet(tracks, { era: { from: 1990 } });
+
+        expect(vetted.map(t => t.trackId)).toEqual(['track-2']);
+    });
+
+    it('drops a record with no clean copy under clean-only', async () => {
+        const { resolver } = build({
+            bindings: {},
+            settings: { [ADVISORY_KEY]: 'clean-only' },
+        });
+
+        const vetted = await resolver.vet([track({ trackId: 'track-1' })], {});
+
+        expect(vetted).toEqual([]);
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('no clean copy'), expect.anything());
+    });
+
+    it('drops an uncatalogued track under clean-only, since silence is not consent', async () => {
+        const { resolver } = build({ settings: { [ADVISORY_KEY]: 'clean-only' } });
+
+        const vetted = await resolver.vet([track({ trackId: undefined })], {});
+
+        expect(vetted).toEqual([]);
+    });
+
+    it('passes an uncatalogued track through under any other policy', async () => {
+        const { resolver } = build();
+
+        const uncatalogued = track({ trackId: undefined });
+        const vetted = await resolver.vet([uncatalogued], {});
+
+        expect(vetted).toEqual([uncatalogued]);
+    });
+
+    it('answers an empty batch without touching the database', async () => {
+        const { resolver, candidates } = build();
+
+        expect(await resolver.vet([], {})).toEqual([]);
+        expect(candidates.bindingsFor).not.toHaveBeenCalled();
+    });
+});
+
 describe('the period a broadcast plays', () => {
     // Judged HERE for the reason everything else is: a pick is a NAME, so a generator that never
     // read the catalog can hand over a record from the wrong decade and mean no harm by it. A model
@@ -929,7 +1041,7 @@ describe('the period a broadcast plays', () => {
     it('drops a pick from outside it, whatever named the record', async () => {
         const { resolver } = period({ 'track-1': 1975, 'track-2': 1994 });
 
-        const resolved = await resolver.resolve(picks, OPEN_RULES, [], { from: 1970, to: 1979 });
+        const resolved = await resolver.resolve(picks, OPEN_RULES, { era: { from: 1970, to: 1979 } });
 
         expect(resolved.map(track => track.title)).toEqual(['A']);
     });
@@ -940,17 +1052,17 @@ describe('the period a broadcast plays', () => {
         // programming, where dropping a record the station owns for want of a tag costs the hour.
         const { resolver } = period({ 'track-2': 1994 });
 
-        const resolved = await resolver.resolve(picks, OPEN_RULES, [], { from: 1970, to: 1979 });
+        const resolved = await resolver.resolve(picks, OPEN_RULES, { era: { from: 1970, to: 1979 } });
 
         expect(resolved.map(track => track.title)).toEqual(['A']);
     });
 
     it('takes either end of the period alone', async () => {
         const { resolver: onwards } = period({ 'track-1': 1975, 'track-2': 1994 });
-        expect((await onwards.resolve(picks, OPEN_RULES, [], { from: 1990 })).map(track => track.title)).toEqual(['B']);
+        expect((await onwards.resolve(picks, OPEN_RULES, { era: { from: 1990 } })).map(track => track.title)).toEqual(['B']);
 
         const { resolver: earlier } = period({ 'track-1': 1975, 'track-2': 1994 });
-        expect((await earlier.resolve(picks, OPEN_RULES, [], { to: 1979 })).map(track => track.title)).toEqual(['A']);
+        expect((await earlier.resolve(picks, OPEN_RULES, { era: { to: 1979 } })).map(track => track.title)).toEqual(['A']);
     });
 
     it('asks the catalog for no years at all when the broadcast named no period', async () => {
@@ -966,7 +1078,7 @@ describe('the period a broadcast plays', () => {
     it('reads an empty window as no period, rather than as bounds nothing can satisfy', async () => {
         const { resolver, candidates } = period({ 'track-1': 1975, 'track-2': 1994 });
 
-        const resolved = await resolver.resolve(picks, OPEN_RULES, [], {});
+        const resolved = await resolver.resolve(picks, OPEN_RULES, { era: {} });
 
         expect(resolved.map(track => track.title)).toEqual(['A', 'B']);
         expect(candidates.yearsFor).not.toHaveBeenCalled();

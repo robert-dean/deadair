@@ -339,3 +339,26 @@ describe('what a character remembers', () => {
         expect(withNothing).toEqual(withNone);
     });
 });
+
+// A production with no source material was told the content was "yours to invent. Keep it to what
+// you actually know" and nothing more — no counterpart to the break prompt's own rule against a
+// real-sounding discography credit for a record the station was never handed. The other station's
+// fabricated-feature bug, arriving through the one writer here that still had the soft instruction.
+describe('grounding a production with nothing to go on', () => {
+    it('forbids a discography credit when there is no material', () => {
+        const messages = outlinePrompt({ kind: 'callin', title: 'Phone-in', beats: 3, wordsPerBeat: 70 });
+        const user = String(messages[1]?.content);
+
+        expect(user).toContain('no source material');
+        expect(user).toContain('no dates, no labels, no pressings or catalogue numbers, no studios, no sessions');
+        expect(user).toContain('no chart placings, no connection to any other record');
+    });
+
+    it('carries the clean rule', () => {
+        const clean = systemOf(turn({ ...base, cleanLanguage: true }));
+        const notClean = systemOf(turn({ ...base }));
+
+        expect(clean).toContain('This station is broadcast-clean');
+        expect(notClean).not.toContain('broadcast-clean');
+    });
+});

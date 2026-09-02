@@ -312,6 +312,9 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // costs a break the order drifted under, which is the safe direction; under-stamping
             // airs a promise nobody checked, which is the direction the claim exists to close.
             claimsNext: request.next !== undefined,
+            // The same posture, mirrored: told what the previous record was means allowed to
+            // back-announce it, so assume it did for the same reason `claimsNext` does.
+            claimsPrevious: request.previous !== undefined,
             // Stamped only when the answer really carries the words it was given, which is the
             // opposite posture to `claimsNext` above and deliberately so. There, over-stamping
             // costs at most a break the order drifted under. Here the words either appear or they

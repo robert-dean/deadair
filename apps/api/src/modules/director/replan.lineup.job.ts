@@ -7,9 +7,11 @@ import { DirectorService } from './director.service.js';
 import { StationLineupRepository } from './station.lineup.repository.js';
 import { RefillPreemption } from './refill.preemption.js';
 import { PickResolver } from './pick.resolver.js';
-import { DEFAULT_COUNT, planRecords, songKeysOf } from './plan.records.js';
+import { DEFAULT_COUNT, artistKeysOf, planRecords, songKeysOf } from './plan.records.js';
+import { artistKey } from './rotation.keys.js';
 import { resolveRules, stationRules } from './rotation.rules.js';
 import { SetGenerator } from './set.generator.js';
+import { isTrackItem } from './station.lineup.js';
 
 export interface ReplanLineupPayload {
     /** How many tracks to programme. Absent means {@link DEFAULT_COUNT}. */
@@ -84,6 +86,27 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         }
 
         const count = Math.max(1, payload?.count ?? DEFAULT_COUNT);
+
+        // Every artist within `maxPerArtist + 1` of the end of what SURVIVES this replan — the same
+        // window a refill uses, and for the same reason: it is the handful of artists the new tail
+        // must not reopen with or push over the cap, not the whole rotation the starvation argument
+        // below is about.
+        //
+        // Not `upcoming()`, which is what a refill reads and is the wrong list here. `replacePlanned`
+        // keeps exactly the items that are not `planned` and appends the new batch after them, so
+        // `upcoming()`'s tail is the planned records this job is about to THROW AWAY: seeding off
+        // them spaces the new batch against records that will never air, while the item it really
+        // lands beside — the last handed or airing record — is not compared against at all. That put
+        // the same artist on both sides of the join, which is the adjacency this window exists to
+        // prevent.
+        const surviving = lineup.all().filter(item => item.state !== 'planned');
+        const tail = surviving.slice(-(rules.maxPerArtist + 1));
+        const tailTracks = tail.filter(isTrackItem);
+        // The last track in that window, if there is one — a window that ends on a scheduled break
+        // has nothing to seed with, and an unseeded batch is simply not compared against anything,
+        // same as before this existed.
+        const seed = tailTracks.at(-1);
+
         const planned = await planRecords(
             this.generator,
             this.resolver,
@@ -100,7 +123,19 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
                 // **The whole difference between this and a shuffle.** The keys cover the tail that is
                 // about to be discarded, so the generator cannot hand most of it straight back:
                 // `play_history` only knows what actually aired, and none of these records has.
+                //
+                // Songs only, deliberately, for the whole order. Excluding every artist already in
+                // the list would starve a long rotation of its own library — a hundred tracks is
+                // sixty artists, and after two refills there would be nobody left to choose. That
+                // argument is about the WHOLE order and does not reach `avoidArtistKeys` below: its
+                // window is `maxPerArtist + 1` items, a handful of artists rather than the library.
                 avoidSongKeys: songKeysOf(lineup.all()),
+                // Off entirely when the cap is off: an operator who has said "no limit on one
+                // artist" has said nothing about spacing, which `seedArtistKey` below still handles.
+                ...(rules.maxPerArtist > 0 ? { avoidArtistKeys: artistKeysOf(tail) } : {}),
+                // Always, whatever the cap says: seeding is about adjacency, not about the per-artist
+                // limit, so it applies even when that limit is switched off.
+                ...(seed ? { seedArtistKey: artistKey([seed.track.artist]) } : {}),
             },
             {
                 took: () => this.preemption.took(),

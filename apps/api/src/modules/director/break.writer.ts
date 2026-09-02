@@ -495,6 +495,19 @@ export interface WrittenBreak {
      */
     claimsNext?: boolean;
     /**
+     * Whether these words NAME the record that just played.
+     *
+     * {@link claimsNext}'s mirror, for a break that back-announces rather than looks ahead. The
+     * caller stamps the line it named onto the row so the director can check at hand-over that the
+     * record it back-announced is still the one that actually aired there; see
+     * `segments.claims_previous_item_id`.
+     *
+     * Answered by the writer for the same reason `claimsNext` is: only the writer knows what it
+     * actually said, and a break that promised nothing must not be dropped later for a promise it
+     * never made.
+     */
+    claimsPrevious?: boolean;
+    /**
      * The window these words stay true in, for a writer that said what time it was.
      *
      * The sibling of {@link claimsNext} and answered for the same reason: only the writer knows

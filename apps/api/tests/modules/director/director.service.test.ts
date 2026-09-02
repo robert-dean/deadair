@@ -1366,6 +1366,23 @@ describe('DirectorService refilling', () => {
 
         expect(jobs.send).not.toHaveBeenCalled();
     });
+
+    it('does not refill an order that repeats', async () => {
+        // A lineup told `on_end: 'repeat'` is not short when its tail thins out — it is finished,
+        // and finishing it is `finish`'s job, not a refill's. A refill here would defeat the point:
+        // the order would never shrink enough to actually wrap.
+        const { director, rundown, jobs, seed } = build({ items: ['a', 'b', 'c', 'd'], onEnd: 'repeat' });
+        await seed();
+        await director.start();
+
+        for (let index = 0; index < 3; index++) {
+            const pulled = await rundown.next();
+            if (pulled) rundown.markAired(pulled.item.id);
+            await new Promise(resolve => setImmediate(resolve));
+        }
+
+        expect(jobs.send).not.toHaveBeenCalled();
+    });
 });
 
 describe('DirectorService at the end of a lineup', () => {
@@ -1778,6 +1795,57 @@ describe('DirectorService committing segments', () => {
             await settle();
 
             expect(rundown.upcoming().some(item => item.externalId === 'seg-1')).toBe(true);
+        });
+    });
+
+    // The mirror of the forward claim, for a break that back-announces instead. A break saying
+    // "that was X" made a statement about the record that just aired, and it is checked the same
+    // way: against what the running order says actually played there by the time it comes round.
+    describe('and the previous-side claim one made', () => {
+        /** A ready break whose words named a particular line as what just played. */
+        const backAnnouncing = (claimsPreviousItemId: string) => ({
+            id: 'seg-1',
+            kind: 'talkbreak' as const,
+            state: 'ready' as const,
+            label: 'Back-announce',
+            source: 'render',
+            claimsPreviousItemId,
+        });
+
+        /** The break, its place in the order, and the line its words named. */
+        const withClaim = async (claimed: (previousLineId: string) => string) => {
+            const harness = build({ items: ['a', 'b'], segments: [] });
+            await harness.seed();
+            // Behind the head, so there is a record for the back-announce to have named.
+            harness.lineup.insertSegment('seg-1', 1);
+
+            const previousLine = harness.lineup.all()[0]!;
+            const segment = backAnnouncing(claimed(previousLine.id));
+            harness.segmentStub.findByIds = vi.fn(async (ids: readonly string[]) =>
+                ids.includes('seg-1') ? new Map([['seg-1', segment as never]]) : new Map(),
+            );
+
+            return harness;
+        };
+
+        it('airs a break whose back-announce the order still keeps', async () => {
+            const { director, rundown } = await withClaim(previousLineId => previousLineId);
+
+            await director.start();
+            await settle();
+
+            expect(rundown.upcoming().some(item => item.externalId === 'seg-1')).toBe(true);
+        });
+
+        it('drops a break whose back-announce is not what played', async () => {
+            // The line it named never survived to air there — pulled, skipped, or replaced after the
+            // words were written. Silence on one boundary beats a wrong fact about the past.
+            const { director, rundown } = await withClaim(() => 'a-line-that-never-played-there');
+
+            await director.start();
+            await settle();
+
+            expect(rundown.upcoming().every(item => item.externalId !== 'seg-1')).toBe(true);
         });
     });
 
@@ -2209,6 +2277,7 @@ describe('DirectorService committing a talk-over', () => {
         const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c'], segments: [READY] });
         await seed();
         lineup.insertSegment('seg-1', 0, { atMs: 8000 });
+        const cueItemId = lineup.all()[0]!.id;
 
         await director.start();
         await settle();
@@ -2217,7 +2286,7 @@ describe('DirectorService committing a talk-over', () => {
         // The record only, with no extra item for the segment: it is heard OVER 'a' rather than
         // between anything.
         expect(committed.map(item => item.externalId)).toEqual(['a']);
-        expect(committed[0]?.voice).toEqual({ segmentId: 'seg-1', atMs: 8000 });
+        expect(committed[0]?.voice).toEqual({ segmentId: 'seg-1', atMs: 8000, itemId: cueItemId });
     });
 
     // A batch is one item now, so a talk-over planted at the END of a batch has nothing in that
@@ -2227,6 +2296,7 @@ describe('DirectorService committing a talk-over', () => {
         await seed();
         // After 'a', so it belongs to 'b' and there is nothing in this batch for it to ride on.
         lineup.insertSegment('seg-1', 1, { atMs: 5000 });
+        const cueItemId = lineup.all()[1]!.id;
 
         await director.start();
         await settle();
@@ -2235,7 +2305,7 @@ describe('DirectorService committing a talk-over', () => {
         // The player takes one, which is what makes room for the next commit.
         await airNext(rundown);
 
-        expect(rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 5000 });
+        expect(rundown.upcoming().find(item => item.externalId === 'b')?.voice).toEqual({ segmentId: 'seg-1', atMs: 5000, itemId: cueItemId });
     });
 
     // Two voices at once is the one outcome nobody wants; queueing them would produce exactly that.
@@ -2248,11 +2318,12 @@ describe('DirectorService committing a talk-over', () => {
         // Both in front of the SAME record, which is what makes them a pair rather than one each.
         lineup.insertSegment('seg-1', 0, { atMs: 1000 });
         lineup.insertSegment('seg-2', 1, { atMs: 2000 });
+        const laterCueItemId = lineup.all()[1]!.id;
 
         await director.start();
         await settle();
 
-        expect(rundown.upcoming().find(item => item.externalId === 'a')?.voice).toEqual({ segmentId: 'seg-2', atMs: 2000 });
+        expect(rundown.upcoming().find(item => item.externalId === 'a')?.voice).toEqual({ segmentId: 'seg-2', atMs: 2000, itemId: laterCueItemId });
     });
 
     // A cue is about a particular record in a particular running order. One held across a
@@ -2290,6 +2361,28 @@ describe('DirectorService committing a talk-over', () => {
 
         expect(rundown.upcoming()[1]).toMatchObject({ externalId: 'seg-1' });
         expect(rundown.upcoming().every(item => item.voice === undefined)).toBe(true);
+    });
+
+    // Before this, the boundary sweep had no way to tell a cue riding the record now starting from
+    // one genuinely left behind, so it swept this one too: `skipped`, and a caughtUp row for a cue
+    // that actually aired. The mixer's own reading is what settles it correctly now.
+    it('a fired talk-over ends played, not skipped, and writes no caughtUp', async () => {
+        const { director, lineup, rundown, activity, seed } = build({ items: ['a', 'b'], segments: [READY] });
+        await seed();
+        lineup.insertSegment('seg-1', 0, { atMs: 8000 });
+        const cueItemId = lineup.all()[0]!.id;
+
+        await director.start();
+        await settle();
+
+        const pulled = await airNext(rundown);
+
+        rundown.reconcile({ queued: 5, ready: true, onAir: pulled!.item.id, voice: 'fired' });
+
+        expect(lineup.find(cueItemId)?.state).toBe('played');
+
+        const record = activity.record as unknown as ReturnType<typeof vi.fn>;
+        expect(record.mock.calls.filter(call => call[0]?.kind === 'order.caughtUp')).toHaveLength(0);
     });
 });
 

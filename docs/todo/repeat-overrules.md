@@ -52,9 +52,13 @@ brief is on the row rather than in a job payload: `on_end = 'extend'` keeps aski
 anything held only by the batch that started the block is gone within the hour with nothing saying
 so.
 
-**`mode` is unreachable from the console.** `bodyOf` in `schedule.page.tsx` round-trips it and
+~~**`mode` is unreachable from the console.** `bodyOf` in `schedule.page.tsx` round-trips it and
 `SlotEditor` has no field for it, and the on-air panel has none either, so every broadcast this
-station has ever run is a `rotation`. Worth knowing before anyone proposes the shortcut below.
+station has ever run is a `rotation`.~~ **Wrong, corrected 2026-09-02.** `SlotEditor` has offered
+both `mode` and `onEnd` all along. The claim came from a search that found nothing, and the reason
+it found nothing is that `slot.editor.tsx` carries NUL bytes as a value delimiter (`pluginId\0id`),
+which makes git and grep treat the file as binary and skip it without saying so. The on-air panel
+half was true and is fixed; both are now pinned by `apps/web/tests/components/schedule/slot.editor.test.tsx`.
 
 ## Decisions
 
@@ -137,10 +141,12 @@ which is the entire point and is what the bias then shapes.
 2. **`schedule_slots.rules`**, the migration, the repository, the contract and `changeOver` copying
    it into `putOnAir` beside `brief`. Nothing sets it from the console yet, so the schedule behaves
    exactly as it does today. *Commit: a slot carries its own rules.*
-3. **The two operator surfaces.** A "Rules for this block" section in `SlotEditor` with the three
-   fields that matter as tri-state (station default / off / a number), the same on the on-air panel,
-   and `mode` alongside them since nothing in the console can set it today. The copy has to say that
-   a lift does not reach a dislike. *Commit: an operator can lift the repeat rules for one block.*
+3. ~~**The two operator surfaces.**~~ **BUILT 2026-09-02**, in the narrower form phase 8 of the
+   [comparable-stations plan](comparable-stations.md) actually needed: `mode` and `onEnd` are now
+   settable from both `SlotEditor` and the on-air panel, each with copy saying the lift does not
+   reach a dislike. The "Rules for this block" tri-state section — the `artistCooldownMinutes`,
+   `maxPerArtist` and `repeatWindowDays` overrides phases 1 and 2 wire up — is still unbuilt, and
+   still blocked on those phases landing a `rules` bag on `PutOnAirInput` and `schedule_slots`.
 4. **`CandidateTrack.plays`**, the left-joined aggregate in `sample`, and
    `scripts/leastplayed.smoke.ts` following `rating.smoke.ts` and `advisory.smoke.ts`, because the
    interesting half is SQL. Carried and unread. *Commit: a candidate knows how often it has aired.*

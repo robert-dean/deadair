@@ -18,7 +18,8 @@ import { StationLineup, type StationLineupMode } from '../../../src/modules/dire
 import type { StationLineupRepository } from '../../../src/modules/director/station.lineup.repository.js';
 import type { DirectorCommand } from '../../../src/modules/director/director.mailbox.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
-import { songKey } from '../../../src/modules/director/rotation.keys.js';
+import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
+import { ROTATION_KEYS } from '../../../src/modules/director/rotation.rules.js';
 import type { SetGenerator, SetInputs, TrackPick } from '../../../src/modules/director/set.generator.js';
 import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
@@ -208,10 +209,29 @@ describe('ExtendLineupJob', () => {
         expect(generate.mock.calls[0]![0]!.avoidSongKeys).toContain(songKey('One Dance', ['Drake']));
     });
 
-    it('does not exclude artists already in the lineup', async () => {
-        // Excluding them would starve a long rotation of its own library: a hundred
-        // tracks is sixty artists, and after two refills there is nobody left.
-        const { job, seed, generate } = build({ existing: [track('A', 'One')] });
+    it('excludes only the artists at the tail', async () => {
+        // Excluding every artist in the lineup would starve a long rotation of its own library: a
+        // hundred tracks is sixty artists, and after two refills there is nobody left. So the
+        // window is narrow — `maxPerArtist + 1` items — and this is what tells the two apart: the
+        // earliest artist in a longer lineup must be left out of the exclusion entirely.
+        const { job, seed, generate } = build({
+            stationRules: { [ROTATION_KEYS.maxPerArtist]: '1' },
+            existing: [track('A', 'One'), track('B', 'Two'), track('C', 'Three')],
+        });
+        await seed();
+
+        await job.run({ count: 1 });
+
+        expect(generate.mock.calls[0]![0]!.avoidArtistKeys).toEqual(new Set([artistKey(['Two']), artistKey(['Three'])]));
+    });
+
+    it('does not exclude any artist when the per-artist cap is off', async () => {
+        // The cap and the exclusion are the same knob: a station that has said "no limit on one
+        // artist" has said nothing about spacing, which the seed (below) still handles on its own.
+        const { job, seed, generate } = build({
+            stationRules: { [ROTATION_KEYS.maxPerArtist]: '0' },
+            existing: [track('A', 'One'), track('B', 'Two')],
+        });
         await seed();
 
         await job.run({ count: 1 });

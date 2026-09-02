@@ -133,6 +133,76 @@ describe('StationLineup and what the player has done', () => {
         expect(lineup.markAiring(first!.id)).toEqual({ passedOver: 0 });
         expect(statesOf(lineup)).toEqual(['airing', 'handed']);
     });
+
+    it('does not pass over a talk-over riding the record now starting', () => {
+        // A talk-over cue is `handed` — armed — before the record it rides ever starts,
+        // and it sits right in front of that record in the order. It has not missed
+        // anything the moment that record goes on air: it is doing exactly what it was
+        // armed to do, and the mixer's own reading is what settles it now.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 1, { atMs: 500 });
+        const [a, talk, b, c] = lineup.all();
+
+        lineup.markHanded(a!.id);
+        lineup.markAiring(a!.id);
+        lineup.markHanded(talk!.id);
+        lineup.markHanded(b!.id);
+
+        expect(lineup.markAiring(b!.id)).toEqual({ passedOver: 0 });
+        expect(statesOf(lineup)).toEqual(['played', 'handed', 'airing', 'planned']);
+
+        // One more boundary on, with the cue still unsettled, is a different story: it now
+        // sits BEFORE the item that was just outgoing, so whatever reading could have
+        // reported it has already passed and it is swept exactly as any other handed item.
+        lineup.markHanded(c!.id);
+        expect(lineup.markAiring(c!.id)).toEqual({ passedOver: 1 });
+        expect(talk!.state).toBe('skipped');
+    });
+
+    it('sweeps a stale talk-over even when nothing is on air', () => {
+        // The exemption above asks whether a cue rides the record now STARTING, which is a
+        // question about what sits between the two. Asking it as "is this after whatever is
+        // airing" gave the same answer wherever a record was airing and the wrong one wherever
+        // none was: with nothing `airing` there is no index to be after, every position counts
+        // as after it, and so every stale cue in the order was exempted and left `handed` for
+        // good — with the reading that could have settled it long gone.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('stale', 1, { atMs: 500 });
+        const [, stale, b, c] = lineup.all();
+
+        // Armed for `b`, which never starts: the station jumps to `c` with nothing on air.
+        lineup.markHanded(stale!.id);
+        lineup.markHanded(b!.id);
+        lineup.markHanded(c!.id);
+
+        // `b` is between the cue and the record now starting, so the cue is not `c`'s and is
+        // counted as passed over rather than held — along with `a`, never handed, and `b` itself.
+        expect(lineup.markAiring(c!.id)).toEqual({ passedOver: 3 });
+        expect(stale!.state).toBe('skipped');
+    });
+});
+
+describe('StationLineup and the mixer settling a talk-over', () => {
+    it('settles a talk-over the mixer says fired / missed', () => {
+        // The mixer's own reading is now what turns an armed cue into a fact, rather than
+        // the boundary sweep: `handed -> played` for one that spoke, `handed -> skipped`
+        // for one that did not.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('spoke', 1, { atMs: 500 });
+        lineup.insertSegment('quiet', 3, { atMs: 500 });
+        const [, spoke, , quiet] = lineup.all();
+        lineup.markHanded(spoke!.id);
+        lineup.markHanded(quiet!.id);
+
+        expect(lineup.markSpokenOver(spoke!.id, 'fired')).toBe(true);
+        expect(spoke!.state).toBe('played');
+
+        expect(lineup.markSpokenOver(quiet!.id, 'missed')).toBe(true);
+        expect(quiet!.state).toBe('skipped');
+
+        // Nothing truthful to settle for an id this order never held.
+        expect(lineup.markSpokenOver('an-id-from-somewhere-else', 'fired')).toBe(false);
+    });
 });
 
 describe('StationLineup reclaiming', () => {
@@ -305,6 +375,46 @@ describe('StationLineup editing', () => {
         lineup.markUnavailable(promised.id);
 
         expect(lineup.nextTrackAfter(breakLine.id)?.id).toBe(lineup.all()[3]!.id);
+    });
+
+    it('finds the nearest surviving record before a break, past a segment in between', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 2);
+        const breakLine = lineup.all()[2]!;
+        const played = lineup.all()[1]!;
+
+        expect(lineup.previousTrackBefore(breakLine.id)?.id).toBe(played.id);
+    });
+
+    it('passes over an unavailable record when it says what already played', () => {
+        // The backward mirror of the forward claim above: "that was X" is a statement about the
+        // record that actually went out, and one the station could not obtain never did.
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 2);
+        const breakLine = lineup.all()[2]!;
+        const played = lineup.all()[1]!;
+
+        lineup.markUnavailable(played.id);
+
+        expect(lineup.previousTrackBefore(breakLine.id)?.id).toBe(lineup.all()[0]!.id);
+    });
+
+    it('passes over a skipped record when it says what already played', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        lineup.insertSegment('talk', 2);
+        const breakLine = lineup.all()[2]!;
+        const played = lineup.all()[1]!;
+
+        lineup.markSkipped(played.id);
+
+        expect(lineup.previousTrackBefore(breakLine.id)?.id).toBe(lineup.all()[0]!.id);
+    });
+
+    it('is undefined for a line the order does not hold, and for one with no record before it', () => {
+        const lineup = lineupWith(['a', 'b']);
+
+        expect(lineup.previousTrackBefore('no-such-item')).toBeUndefined();
+        expect(lineup.previousTrackBefore(lineup.all()[0]!.id)).toBeUndefined();
     });
 
     it('ages an unavailable record out of the order like any other spent line', () => {
@@ -573,6 +683,15 @@ describe('StationLineup at the end of the order', () => {
             Array.from({ length: MAX_PLAYED_KEPT + 5 }, (_, index) => `t${index}`),
             'setlist',
         );
+        for (const item of hand(lineup, MAX_PLAYED_KEPT + 3)) lineup.markAiring(item.id);
+
+        expect(lineup.trimPast()).toBe(0);
+        expect(lineup.size()).toBe(MAX_PLAYED_KEPT + 5);
+    });
+
+    it('keeps the past of a repeating rotation, which resetPlayed needs to replay it', () => {
+        const lineup = new StationLineup({ ...binding('rotation'), onEnd: 'repeat' });
+        lineup.replaceFrom(Array.from({ length: MAX_PLAYED_KEPT + 5 }, (_, index) => track(`t${index}`)));
         for (const item of hand(lineup, MAX_PLAYED_KEPT + 3)) lineup.markAiring(item.id);
 
         expect(lineup.trimPast()).toBe(0);

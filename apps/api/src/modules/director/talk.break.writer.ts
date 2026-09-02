@@ -127,6 +127,9 @@ export class TalkBreakWriter extends BreakWriter {
             script: chosen.script,
             label: labelFor(inputs),
             claimsNext: chosen.saysNext,
+            // `saysPrevious`, for the mirror reason: an outro chunk that got dropped named nothing
+            // behind the break, and this is the only thing that knows whether it survived.
+            claimsPrevious: chosen.saysPrevious,
             // Only when the words actually carry the time, for the reason `claimsNext` is answered
             // rather than assumed: the writer is the only thing that knows what it said, and a
             // break dropped later for a claim it never made is a break lost for nothing.

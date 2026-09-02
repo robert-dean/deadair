@@ -12,7 +12,7 @@ import { CandidatesRepository, bindsAnything, withinPeriod, type EraWindow } fro
 import { PlayHistoryRepository } from './play.history.repository.js';
 import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { artistKey, songKey } from './rotation.keys.js';
-import { applyRules, spaceArtists, type ResolvedRules, type RotationCandidate } from './rotation.rules.js';
+import { applyRules, rejectDisliked, spaceArtists, type ResolvedRules, type RotationCandidate } from './rotation.rules.js';
 import type { TrackPick } from './set.generator.js';
 import { measurementOf } from './track.measurement.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -169,21 +169,30 @@ export class PickResolver {
      *
      * @param rules - The rules in force for the lineup these picks are for, which
      *   every pick is judged against here whatever chose it.
-     * @param preference - Plugin ids in the operator's order, for a work several
+     * @param options.preference - Plugin ids in the operator's order, for a work several
      *   providers can serve.
-     * @param era - The period this broadcast plays, when it was asked for one. Judged HERE for the
-     *   reason everything else is: a pick is a NAME, so a generator that never read the catalog can
-     *   hand over a record from the wrong decade and mean no harm by it.
+     * @param options.era - The period this broadcast plays, when it was asked for one. Judged HERE
+     *   for the reason everything else is: a pick is a NAME, so a generator that never read the
+     *   catalog can hand over a record from the wrong decade and mean no harm by it.
+     * @param options.avoidArtistKeys - Artists to drop outright, over whatever window the caller
+     *   scoped it to — see `PlanRequest.avoidArtistKeys` for why that window is narrow.
+     * @param options.seedArtistKey - The artist already at the tail of the order, so
+     *   {@link spaceArtists} does not open this batch with them.
      */
-    async resolve(picks: readonly TrackPick[], rules: ResolvedRules, preference: readonly string[] = [], era?: EraWindow): Promise<RundownTrack[]> {
+    async resolve(
+        picks: readonly TrackPick[],
+        rules: ResolvedRules,
+        options: { preference?: readonly string[]; era?: EraWindow; avoidArtistKeys?: ReadonlySet<string>; seedArtistKey?: string } = {},
+    ): Promise<RundownTrack[]> {
         if (picks.length === 0) return [];
 
+        const { preference = [], era, avoidArtistKeys, seedArtistKey } = options;
         const policy = advisoryPolicy(this.config);
 
         const identified = await this.identify(picks);
         if (identified.length === 0) return [];
 
-        const eligible = await this.judge(identified, rules, era);
+        const eligible = await this.judge(identified, rules, era, avoidArtistKeys);
         if (eligible.length === 0) return [];
 
         const trackIds = eligible.map(entry => entry.trackId);
@@ -251,8 +260,88 @@ export class PickResolver {
 
         // Last, and only now that every drop above has happened. Spacing a batch and then
         // removing two of its tracks closes the gap back up and puts one artist back on its
-        // own heels, which is the one thing this rule exists to prevent.
-        return spaceArtists(resolved).map(toRundownTrack);
+        // own heels, which is the one thing this rule exists to prevent. The seed extends that
+        // guarantee across the batch boundary: without it the first placement is compared against
+        // nothing, and a refill can open with whoever the tail just closed on.
+        return spaceArtists(resolved, seedArtistKey).map(toRundownTrack);
+    }
+
+    /**
+     * Run a batch already bound for the mount through the one instruction no lineup may switch off,
+     * without touching anything else about it.
+     *
+     * For a playlist put on air rather than a set the station generated. `resolve` cannot serve this
+     * caller: it ends by respacing the batch and it overwrites title and artist from the catalog row
+     * (`resolve`, above), and a playlist's order is the operator's order and its strings are the
+     * provider's — neither of which this may touch. So it reuses the same helpers `resolve` calls at
+     * the corresponding step — {@link rejectDisliked} over {@link CandidatesRepository.ratingsFor},
+     * {@link withinPeriod} over {@link CandidatesRepository.yearsFor}, {@link CandidatesRepository.bindingsFor}
+     * under {@link advisoryPolicy} — rather than a second copy of the rule that could drift from it.
+     *
+     * No rules argument: a playlist gets `NO_RULES` regardless, so the repeat window, the artist
+     * cooldown and the per-artist cap have nothing to apply here.
+     *
+     * A track with no `trackId` — not yet catalogued — passes through UNLESS the policy
+     * `demandsClean`, in which case it drops with everything else the advisory rejects: silence is
+     * not consent, and an uncatalogued copy has said nothing about its own advisory. See
+     * `advisory.policy.ts:80-88`.
+     */
+    async vet(tracks: readonly RundownTrack[], options: { era?: EraWindow; preference?: readonly string[] }): Promise<RundownTrack[]> {
+        if (tracks.length === 0) return [];
+
+        const { era, preference = [] } = options;
+        const policy = advisoryPolicy(this.config);
+        const trackIds = tracks.flatMap(track => (track.trackId === undefined ? [] : [track.trackId]));
+
+        const [ratings, years, bindings] = await Promise.all([
+            this.candidates.ratingsFor(trackIds),
+            bindsAnything(era) ? this.candidates.yearsFor(trackIds) : Promise.resolve(new Map<string, number>()),
+            this.candidates.bindingsFor(trackIds, preference, policy),
+        ]);
+
+        // Built only so `rejectDisliked` can be reused rather than reimplemented: it reads nothing
+        // but `.rating`, so the other two `RotationCandidate` fields are blanks nothing here uses.
+        const rated = tracks.map(track => ({
+            track,
+            songKey: '',
+            artistKey: '',
+            rating: track.trackId === undefined ? undefined : ratings.get(track.trackId),
+        }));
+        const notDisliked = new Set(rejectDisliked(rated));
+
+        const vetted: RundownTrack[] = [];
+        for (const entry of rated) {
+            if (!notDisliked.has(entry)) continue;
+
+            const { track } = entry;
+            const year = track.trackId === undefined ? undefined : years.get(track.trackId);
+            if (bindsAnything(era) && !withinPeriod(year, era)) continue;
+
+            if (track.trackId === undefined) {
+                if (demandsClean(policy)) {
+                    this.logger.warn('director: no clean copy of a chosen track, and the station is clean-only; skipping it', {
+                        track: `${track.artist} — ${track.title}`,
+                    });
+                    continue;
+                }
+                vetted.push(track);
+                continue;
+            }
+
+            if (!bindings.has(track.trackId)) {
+                this.logger.warn(
+                    demandsClean(policy)
+                        ? 'director: no clean copy of a chosen track, and the station is clean-only; skipping it'
+                        : 'director: no provider still serves a chosen track; skipping it',
+                    { track: `${track.artist} — ${track.title}` },
+                );
+                continue;
+            }
+
+            vetted.push(track);
+        }
+
+        return vetted;
     }
 
     /**
@@ -266,10 +355,19 @@ export class PickResolver {
      * A pick the catalog has no rating row for is KEPT. `identify` has already established the track
      * exists, so a missing rating is a join that found no album rather than a record nobody has an
      * opinion about, and dropping on it would silently refuse tracks for having no artwork.
+     *
+     * @param avoidArtistKeys - Unioned into the artist-cooldown set before {@link applyRules} runs,
+     *   so an artist the caller has flagged is dropped outright rather than merely capped. The
+     *   caller scopes this to a narrow window; `judge` itself has no opinion about how wide it is.
      */
-    private async judge(identified: readonly Identified[], rules: ResolvedRules, era?: EraWindow): Promise<Identified[]> {
+    private async judge(
+        identified: readonly Identified[],
+        rules: ResolvedRules,
+        era?: EraWindow,
+        avoidArtistKeys?: ReadonlySet<string>,
+    ): Promise<Identified[]> {
         const trackIds = identified.map(entry => entry.trackId);
-        const [ratings, songKeys, artistKeys, years] = await Promise.all([
+        const [ratings, songKeys, recentArtistKeys, years] = await Promise.all([
             this.candidates.ratingsFor(trackIds),
             this.history.songKeysSince(rules.repeatWindowDays, this.identity.stationKey),
             this.history.artistKeysSince(rules.artistCooldownMinutes, this.identity.stationKey),
@@ -278,6 +376,10 @@ export class PickResolver {
             // take when their rules are switched off.
             bindsAnything(era) ? this.candidates.yearsFor(trackIds) : Promise.resolve(new Map<string, number>()),
         ]);
+        // Unioned rather than queried for: the tail's artists are not aired yet, so no window read
+        // above could ever have found them. `Set` rather than array union because `applyRules` calls
+        // `.has()` on this per candidate.
+        const artistKeys = avoidArtistKeys === undefined ? recentArtistKeys : new Set([...recentArtistKeys, ...avoidArtistKeys]);
 
         const judged = identified.map(entry => {
             const rating = ratings.get(entry.trackId);

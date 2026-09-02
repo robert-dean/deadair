@@ -962,11 +962,14 @@ export class BreakPlanner {
             // them here keeps the ordinary pass free of any question at all.
             if (
                 segment === undefined ||
-                (segment.claimsItemId === undefined && segment.claimsTime === undefined && segment.claimsReadingUntil === undefined)
+                (segment.claimsItemId === undefined &&
+                    segment.claimsPreviousItemId === undefined &&
+                    segment.claimsTime === undefined &&
+                    segment.claimsReadingUntil === undefined)
             )
                 continue;
 
-            const fault = brokenClaim(segment, lineup.nextTrackAfter(item.id)?.id, now);
+            const fault = brokenClaim(segment, { previous: lineup.previousTrackBefore(item.id)?.id, next: lineup.nextTrackAfter(item.id)?.id }, now);
             const seen = verdicts.get(item.segmentId);
             // The first position's fault is the one kept, and a later position can only ever clear
             // the verdict rather than change what it is recorded as. A row that survives to be

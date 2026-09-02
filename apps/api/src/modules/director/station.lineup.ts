@@ -546,6 +546,33 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
+     * The nearest record before this line that actually aired, as the order stands right now.
+     *
+     * {@link nextTrackAfter}'s mirror, for a break's BACKWARD claim: it named a line when it was
+     * written, and this says which line actually played there by the time the claim is checked.
+     *
+     * Skips anything that is not a record, and — unlike the forward walk — a line already `removed`
+     * as well as one `skipped` or `unavailable`: a back-announce is a statement about what already
+     * went out, so a line pulled from the order after the break named it is exactly as unplayed as
+     * one that never got the chance to be. The nearest SURVIVING record is the one the claim is
+     * about, not the adjacent line — a segment or a dropped item in between does not change which
+     * record actually aired there.
+     *
+     * `undefined` for a line the order does not hold, and for one with no record before it at all.
+     * Both make a claim uncheckable, which the caller treats the same way it treats a broken one.
+     */
+    previousTrackBefore(itemId: string): StationLineupTrackItem | undefined {
+        const at = this.itemList.findIndex(item => item.id === itemId);
+        if (at < 0) return undefined;
+
+        for (let index = at - 1; index >= 0; index--) {
+            const item = this.itemList[index]!;
+            if (item.kind === 'track' && item.state !== 'skipped' && item.state !== 'unavailable' && item.state !== 'removed') return item;
+        }
+        return undefined;
+    }
+
+    /**
      * The index everything before which belongs to the player.
      *
      * One past the last item this broadcast has done something with, rather than the
@@ -613,14 +640,33 @@ export class StationLineup implements LiveOrder {
         const item = this.itemList[index]!;
         if (item.state === 'airing') return { passedOver: 0 };
 
+        // The one exception to "everything committed before it never aired": a talk-over cue rides
+        // the record that is ABOUT to start, so it sits right in front of it in the order. It has
+        // not missed anything — it is doing exactly what it was armed to do — and the mixer's own
+        // reading settles it moments later, through `markSpokenOver`.
+        //
+        // "Rides the record now starting" means no other RECORD sits between the two, which is the
+        // test rather than any comparison against whatever is airing: a cue with another record
+        // after it belongs to that one, and that boundary has already passed without reporting it,
+        // so it is stale and swept exactly as before. Comparing against the outgoing item's index
+        // was the same thing wherever a record was airing and wrong wherever none was — `findIndex`
+        // answers -1 there, every position is greater than -1, and so every stale cue in the order
+        // was exempted and left `handed` for good, with nothing afterwards to settle it.
+        const ridesTheRecordStarting = (at: number): boolean => !this.itemList.slice(at + 1, index).some(isTrackItem);
+
         let passedOver = 0;
-        for (const earlier of this.itemList.slice(0, index)) {
-            if (earlier.state === 'airing') earlier.state = 'played';
-            else if (earlier.state === 'handed' || earlier.state === 'planned') {
-                earlier.state = 'skipped';
-                passedOver += 1;
+        this.itemList.slice(0, index).forEach((earlier, earlierIndex) => {
+            if (earlier.state === 'airing') {
+                earlier.state = 'played';
+                return;
             }
-        }
+            if (earlier.state !== 'handed' && earlier.state !== 'planned') return;
+            if (earlier.kind === 'segment' && earlier.state === 'handed' && earlier.over !== undefined && ridesTheRecordStarting(earlierIndex))
+                return;
+
+            earlier.state = 'skipped';
+            passedOver += 1;
+        });
         item.state = 'airing';
         return { passedOver };
     }
@@ -655,6 +701,13 @@ export class StationLineup implements LiveOrder {
      */
     markUnavailable(itemId: string): boolean {
         return this.transition(itemId, 'planned', 'unavailable') || this.transition(itemId, 'handed', 'unavailable');
+    }
+
+    /**
+     * The mixer's own reading of an armed talk-over cue. See {@link LiveOrder.markSpokenOver}.
+     */
+    markSpokenOver(itemId: string, outcome: 'fired' | 'missed'): boolean {
+        return outcome === 'fired' ? this.transition(itemId, 'handed', 'played') : this.transition(itemId, 'handed', 'skipped');
     }
 
     /**
@@ -1069,12 +1122,13 @@ export class StationLineup implements LiveOrder {
      *
      * Called by whoever persists, not by an edit: it is housekeeping about how much
      * history the document carries rather than a change to the running order. Never
-     * for a `setlist`, whose past is what it is about to replay.
+     * for a `setlist`, whose past is what it is about to replay, nor for an order
+     * told `on_end: 'repeat'`, whose past is what `resetPlayed` needs to replay too.
      *
      * @returns how many were dropped, for a log line.
      */
     trimPast(keep = MAX_PLAYED_KEPT): number {
-        if (this.mode === 'setlist') return 0;
+        if (this.mode === 'setlist' || this.onEnd === 'repeat') return 0;
 
         const past = this.itemList.filter(item => isPast(item.state));
         if (past.length <= keep) return 0;

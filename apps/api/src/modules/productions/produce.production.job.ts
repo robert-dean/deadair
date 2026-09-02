@@ -5,6 +5,7 @@ import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
 import type { LlmMessage, SpeechCue } from '@deadair/plugin-sdk';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
+import { advisoryPolicy, speaksClean } from '#modules/director/advisory.policy.js';
 import { dayPart, stationZone, type RoughTime } from '#modules/director/clock.words.js';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { LlmService, type LlmConversation } from '#modules/llm/llm.service.js';
@@ -271,6 +272,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         // beat then obeys: a plan written around the end of a long day cannot be undone
                         // by a rule in the beat prompt saying it is the morning.
                         dayPart: this.whenItAirs(claimed).words,
+                        cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                     }),
                     maxOutputTokens: OUTLINE_OUTPUT_TOKENS,
                     // Planning IS the reasoning problem here, unlike a break. Left at the model's own
@@ -415,6 +417,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                 ...(await this.remembers(claimed, speaker, mine.length === 0)),
                 station,
                 dayPart: airs.words,
+                cleanLanguage: speaksClean(advisoryPolicy(this.config)),
             });
 
             const ask = async () =>
@@ -601,6 +604,7 @@ export class ProduceProductionJob extends PlainJob<ProducePayload> {
                         station,
                         dayPart: airs.words,
                         correction: correctionNote(problems),
+                        cleanLanguage: speaksClean(advisoryPolicy(this.config)),
                     }),
                     maxOutputTokens: BEAT_OUTPUT_TOKENS,
                     reasoningEffort: 'low',

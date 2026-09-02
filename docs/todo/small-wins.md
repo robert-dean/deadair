@@ -52,3 +52,13 @@ and an MCP surface is a second non-human caller with a much wider reach than Liq
 wrong.** It is here because that is where the ranked list left it, and because the correction is
 worth recording: the mechanism is small and the authorization is not, and an MCP surface built before
 the actor model would be a hole with a typed client in front of it.
+
+## A listener cap as a setting
+
+`stream/icecast.xml.tmpl` hardcodes `<clients>100</clients>`. `STREAM_KEYS` has no entry for it and
+`stream.config.ts` sizes the queue and the burst from the bitrate but not the client count. The
+fifth pass of [comparable-stations.md](comparable-stations.md) called this the only thing both absent
+and arguably wanted now that the mount is public behind a tunnel, and the seventh pass found it had
+never been written down anywhere it would be built from. One `STREAM_KEYS` entry and one template
+substitution; the config watch already restarts Icecast when the rendered file changes, so nothing
+else moves.

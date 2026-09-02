@@ -28,6 +28,12 @@ sharpens [personas.md](personas.md) §6 into choosing a tier rather than a rule,
 speech class it keeps taking bugs on is measured at 0 here for a reason that belongs to the library
 and not to the code.
 
+**Seventh pass:** 2026-09-02, the same day as the sixth, and the first to read the other station's
+public FAULT list rather than its tree: 325 entries over four months, 281 substantive. Every one was
+classified against this tree by reading the code path. Nineteen are live here today, and two of those
+are claims made in this directory that the code contradicts, which no amount of reading the other
+tree could have found because the docs were what got read.
+
 **Status: three of these are built now, and the rest is still a survey.** It was written down for the reason
 [stream-server-alternatives.md](stream-server-alternatives.md) is: the pass was done once and should
 not have to be done again. The findings are stated on their own terms rather than as a comparison,
@@ -664,6 +670,202 @@ other while the caller believes it is reading mood. That is a sharper statement 
 trap the fourth pass recorded, and it names a cheap input that breaks the degeneracy. Recorded in
 [track-lyrics.md](track-lyrics.md)'s uses table, unscoped, for whoever builds that axis.
 
+## The seventh pass, which read the fault list instead of the tree
+
+**2026-09-02**, the same day as the sixth. Six passes read what the other station BUILT: its source,
+its manual, its releases, one deferred file at a time. This one read what it BROKE: the public fault
+list, 325 entries over four months. Dropping dependency bumps, catalogue submissions, native-app
+availability and diagnostics dumps leaves 281, and each of those was put to this tree as a question
+and answered from the code rather than from the docs in this directory, because the fourth pass
+showed the docs can be wrong.
+
+The counts govern how to read it. **Nineteen faults are live here today.** About 150 are guarded,
+most of them by a decision this directory already records the reasoning for; about 50 are deferred
+design in this directory; the rest belong to a listener product and do not apply. Nineteen after six
+passes is the measure of the method: reading a tree finds what it has, and reading its fault list
+finds what breaks in a station of this SHAPE, which is a different set. The previous passes caught
+four of the nineteen in passing (the sidecar's memory, the artist seam, the talk-over stamp, the
+planted tail). The other fifteen are new.
+
+### Two claims in this directory that the code contradicts
+
+These come first because they are the class the fourth pass argued is worth most, and because both
+are small.
+
+**A record on a playlist put on air passes no gate at all.** [programming.md](../internals/programming.md)
+says a dislike is an instruction no lineup may turn off. The console's put-on-air path goes
+`putOnAir` → `sourceTracks` → `toRundownTracks` → `replaceFrom` (`director.service.ts:1181`) and
+`PickResolver` is nowhere on it: no `rejectDisliked`, no era, no advisory policy, no cooldown. A
+record the operator disliked last week airs the moment it sits on a playlist they put on air, and a
+`clean-only` station plays an explicit copy if the playlist holds one. The setlist argument, that
+somebody sequenced it, covers the rotation RULES and was never meant to cover the veto. Beside it,
+`toRundownTracks` (`director.console.service.ts:507-529`) does not fold by `songKey`, so two rips
+of one song on a playlist both air, possibly adjacent. The fix keeps the sequence: run
+`sourceTracks` through `resolver.resolve` with `NO_RULES`-shaped rules so the veto, the advisory
+and the period apply and nothing else does, and fold by `songKey` keeping the first.
+
+**The station guesses its voice, and the console says it refuses to.** The "Speak with" descriptor
+(`settings.registry.ts:790-796`) is free text whose help says the station "declines to guess rather
+than airing the wrong voice", and [dj-voice.md](dj-voice.md)'s "What shipped" says the same.
+`selectPlugin` (`plugin.selection.ts:93-98`) returns the first candidate when the key is unset, and
+`speech.service.ts:107-109` sorts candidates by plugin id, so with both engines installed the remote
+one wins on the letter c. **Measured on this station: 56 renders between 2026-08-23 and 2026-09-01
+bounced `rendering → written`** on the remote engine's restart or its HTTP 500, while the local
+engine sat enabled, reachable and never asked. `render.segment.job.ts:147` releases the segment
+correctly on `unavailable`, and nothing asks anyone else, so each was a break skipped at air.
+Installing a second plugin silently moved the station's voice onto a remote GPU box and turned every
+one of its outages into silence. There is deliberately no fallback engine (`speech.settings.ts:3-7`),
+and that design holds; what is wrong is that an unset key PICKS rather than refuses, against its own
+copy. The fix is a `select` fed from `speakers()`, which the voices page already reads, and an unset
+key with two candidates refusing as promised.
+
+### The other seventeen, by where they sit
+
+**Programming.** Artist spacing stops at the batch seam. `spaceArtists` reorders one batch
+(`rotation.rules.ts:379`, called at `pick.resolver.ts:255`), `append` (`station.lineup.ts:804`)
+pushes it onto the tail without looking at what the tail ends with, the cooldown reads `play_history`
+only (`play.history.repository.ts:133`), and `extend.lineup.job.ts:112` deliberately threads
+`avoidSongKeys` and not artists. With `EXTEND_BELOW` at 8 the order holds about eight unplayed records
+when a refill is planned, and an artist in that planned tail is invisible to the next batch. Batch N
+ending `[…, X, Y, X]` and batch N+1 opening `[X, Z, X]` is four by one act in six slots, every
+individual step legal, across a seam a planted break makes no less adjacent to a listener. The wiring
+exists and nothing uses it: `SetInputs.avoidArtistKeys` is read by the catalog generator and set by
+nobody, and `judge` does not read it. Pass the last `maxPerArtist + 1` planned artists as
+`avoidArtistKeys`, union them into `judge`'s history read, and seed `spaceArtists` with the order's
+current last item. That is a short list, so the starvation argument in `programming.md` does not
+reach it.
+
+Also: a playlist-anchored block plays through once and drifts into ordinary rotation without saying
+so. `mode` and `onEnd` are on the slot, copied at changeover, and honoured by `finish`; the console
+still cannot set either, which [repeat-overrules.md](repeat-overrules.md) recorded on 2026-08-19 and
+is still true; and `topUpIfShort` refills at eight remaining on every pass, so `'repeat'` can never
+fire on a rotation even if it were set. Phase 3 of that file, plus one guard in the refill.
+
+**Breaks and productions.** A production with no source material is told the content "is yours to
+invent. Keep it to what you actually know" (`production.prompt.ts:278`), the beat rules forbid an
+invented place, date, price or quote, and nothing forbids a real-sounding discography credit for a
+record the station was never given. No fact substrate reaches a production, and the break prompt's
+"no connection to any other record" line (`break.prompt.ts:848`) has no counterpart in the beat
+prompt. This is the other station's fabricated-feature bug in the one writer here that still has the
+soft instruction. Second, the broadcast-clean rule is passed as `cleanLanguage` by all five break
+writers and by no beat, so a crude persona sheet is reined in on breaks and not on a phone-in it
+presents. Third, `brokenClaim` knows `item`, `time` and `reading` and has no PREVIOUS-side claim,
+so an operator moving a record to sit between the just-finished record and an already-written break
+leaves "that was X" airing after Z. All three are a field and a sentence each.
+
+**The model.** `reasoningEffort` is sent on every station call and nothing can turn it off. The
+capability's contract (`packages/plugin-sdk/src/capabilities/llm.ts:57-62`) says the field is sent
+only when the caller asked, on the stated grounds that a strict server answers 400 to it; the plugin
+forwards it whenever present; every one of sixteen call sites hard-codes `'low'`, and the manifest
+has no field to suppress it. Point the plugin at a strict server or at a non-reasoning cloud model
+and every writer, the set generator, fact extraction and productions fail on the first request; the
+floor covers all of it, so the station keeps talking deterministically and the only trace is one
+plugin-log line. A plugin config field defaulting to off, which strips the key. Second, `streamText`
+(`llm.plugin.ts:238`) passes no `maxRetries` and the installed SDK defaults to two, on top of the
+host's own server-sanctioned retry on a 429 or 503 carrying `Retry-After`. A throttling or failing
+provider sees up to six POSTs per generation, per tool step, inside one gate admission and one
+120-second budget, and a local model that fails after chewing on a prompt runs it three times on the
+one GPU slot. None of it is logged; only the terminal error surfaces. `maxRetries: 0`; the registry's
+floor is the fallback.
+
+**Playout.** A talk-over is stamped at hand-over and never observed at air. The mixer knows whether a
+cue fired or missed (`radio.liq:1117-1137`) and reports it on every reading; `liquidsoap.control.ts:532`
+parses it into `QueueStatus.voice` and nothing reads it. Worse than an early timestamp:
+`toPlayerItems` holds a talk-over as `handed` before its own record, `markAiring` turns every earlier
+`handed` item into `skipped` and counts it (`station.lineup.ts:613-621`), and `remember` writes an
+`order.caughtUp` warning that one item never aired (`director.service.ts:2642-2650`). A talk-over
+that fired perfectly is recorded as skipped with a warning, and a genuinely missed cue is
+indistinguishable from it. Four `order.caughtUp` events since 2026-08-21 on this station, none
+attributed; no test asserts a talk-over's state after its record airs. Consume `reading.voice` in
+`Rundown.reconcile`, and have `markAiring` pass over items with `over` set.
+
+**The sidecar.** Three, and the first corrects a number in its own README. `analysis/README.md` and
+`app.py:59-65` size the worker ceiling on a five-minute track being about 115 MB resident. Measured
+here with the tree's own functions on a five-minute stereo signal, the 106 MB decoded buffer held:
+`to_mono` peaks 191 MB above it, the cue points 359 MB, integrated loudness 253 MB, true peak 116 MB.
+**One decode peaks between 500 and 750 MB**, the default ceiling of four is a few GB, and a file at
+the accepted 1800-second maximum is several GB on its own. The cost is `loudness.py:133`, where
+`np.square` over a 75%-overlapping strided view materialises it dense in float64, four copies of
+every frame. A cumulative sum of squares is exact and linear. Second, the memory-growth shape the
+fourth pass named is present and unmitigated: a thread pool in a glibc image, one arena per thread,
+no `MALLOC_ARENA_MAX`, no trim, no recycling, and the `rssMb` reading the sidecar already computes is
+read only by the connection test. Two lines. Third, and the one that crash-loops: the two image
+definitions have diverged on the beat layer. `analysis/Dockerfile:38` installs the beat tracker with
+`--no-deps`; the production `Dockerfile:338-341` installs `requirements.txt` and never installs it.
+The root Dockerfile's own comment says the analysis block is the one that gets forgotten, and the log
+shows it forgotten twice already. The day `beats.py` lands, the dev container imports and the
+production sidecar dies at start, which the console shows as "engine off". Beside it, no CI job runs
+the sidecar's five test files or starts the built image before pushing it; the `generated` job was
+added for exactly this class of drift on the TypeScript side and the Python side got nothing.
+
+**Enrichment.** A provider's config change never reaches what is already stored. Last.fm's tag
+switches are applied at map time, the stripped payload is saved under a 90-day TTL
+(`enrichment.service.ts:41`), the walk asks only a provider with no unexpired row, and saving the
+plugin config re-initialises the plugin and nothing else. Turn tags on and the library stays tagless
+for up to three months; the only escape is one record at a time. A bulk clear by provider, or a
+config fingerprint beside the payload. Second, a Subsonic server's `[Unknown Artist]` placeholder
+passes `navidrome.mapping.ts:62-67` and the resolver refuses only an EMPTY credit, so every untagged
+file becomes a record by an act literally named that, handed to the writer and to MusicBrainz.
+Measured 0 here; the first operator with a ripped-but-untagged folder gets it on air.
+
+**Operations.** `/nowplaying` reads the station name once at boot (`nowplaying.module.ts:26-36`,
+whose comment admits it) while the writers and the ICY title read it live, so a hardware display
+says the old name until a restart. No `unhandledRejection` handler exists anywhere, Node 26
+terminates on one, there are 61 fire-and-forget sites, and s6 restarts the process anonymously: the
+lease lapses, the mount goes quiet, and nothing in the log says why. Crash-and-restart may be the
+right policy; the missing half is the line naming the cause. `POST /personas/import` inherits the
+kit's 1 MB body default against nginx's 64 MB. And the schedule board's block drag is the component
+library's HTML5 drag, so it is mouse-only on a tablet; the keyboard path through the slot editor is
+fine, and the fix is the library's.
+
+### Measured and NOT live, which is worth as much
+
+- **Banter echoing its own "already said" block.** The prompt quotes the last six scripts and the
+  guard only reads them for spent signatures; nothing compares an answer against them. Measured: 76
+  written model talk breaks, 70 with a prior script in the same broadcast, longest common run against
+  any of the previous six is 31 characters, zero verbatim. The ban-plus-invitation design holds.
+- **Reasoning reaching the speech engine.** 0 of 330 scripts are instruction-shaped;
+  `speakable.script.ts:80` strips a think block and `spokenAnswer` refuses to promote the reasoning
+  channel on a length or tool-call stop. Residual: a `stop` turn with empty text still promotes it.
+- **The cron missing the repeated autumn hour.** pg-boss matches by previous occurrence within a
+  minute, timezone-aware; simulated every pattern in `job.mappings` across London and New York in both
+  directions, all fired. Moot besides: the broker passes no `tz`, so the clock is UTC.
+- **`rotation.breaks` off leaving the planted tail to air.** Found here as a fault from the playout
+  side; already recorded in [break-removal.md](break-removal.md) "Also worth settling" as phase 2 of
+  the quiet spell. Two readings reaching it independently is the argument that phase 2 is real.
+- **Non-Latin speech.** Nothing new beyond the fifth pass, except that the local engine is sent no
+  language code at all, so a CJK run reaches it intact and unrouted, as it did there.
+
+### Absent, and worth a line each
+
+- **A script language.** Nothing carries one: `stream.language` goes only to Icecast, the speech
+  capability has no language field, and a French host is a sheet workaround. The fifth pass covered
+  the non-Latin SPEECH half; this is the prompt half, and the first thing a non-English self-hoster
+  hits.
+- **A maximum record length.** Nothing bounds duration; the 64 MB fetch cap passes an hour-long mix
+  at 128 kbps. One setting applied in the draw's SQL and in `judge`, so both agree.
+- **Library selection.** The sync walks every readable playlist and the library server always
+  appends "Everything", so the whole server is ingested unconditionally; an audiobook shelf cannot be
+  excluded even by playlist choice. A multiselect over the server's folders.
+- **A listener cap as a setting.** The fifth pass said it was the only thing both absent and
+  arguably wanted and it never reached [small-wins.md](small-wins.md). It has now.
+- **A robot on the MOUNT holding an audience-gated station on air.** The agent refusal exists for
+  HLS only; the mount is out of the app's path by design. One nginx `map` on the user agent fed from
+  the same setting.
+- **Three documentation lines**: that the model host's context length must be set (a default local
+  server silently drops the front of a prompt carrying seven tools and a sheet, which is the system
+  prompt); that every image is also tagged by commit and that is the rollback; that `docker compose`
+  is the v2 plugin.
+- **Knobs that are constants**: the per-writer time budget (120 s, 180 s, 600 s in three files), the
+  break writers' output ceiling, the listener burst, a SearXNG engine list. Fine for this operator;
+  opaque to the next.
+- **A re-measure-many.** One record can be forgotten; a schema bump re-queues everything; nothing in
+  between, though `analyzer_plugin_id` is stored for exactly that.
+- **Pinning the second engine's sentence chunking.** Guarded today by a server default this tree
+  does not send; the longest segment here is fourteen times the chunk. One field.
+- **Units in `saySymbols`.** `°`, `km/h` and `mph` reach the engine as written, and the weather tool
+  hands the model exactly those. 0 aired scripts carry them; structural.
+
 ## What is deliberately not wanted
 
 Recording these stops the survey being re-run to reach the same answer.
@@ -851,3 +1053,16 @@ weather path is a column while the fix for the FINDING is `SUBSTRATE_FRESHNESS`.
 can only be run when somebody thinks to run it; a mapped type over the substrate runs on every build,
 against every field anybody adds, forever. **Where a question can be moved into the compiler, that is
 where the answer to it belongs.**
+
+**Seventh-pass additions to the order**, 2026-09-02, and where they sit relative to the numbers above:
+
+- **Before anything else, the two false claims**: the put-on-air gate and the voice selector. Both
+  are wrong TODAY on a running station, both are under a day, and the second is measured at 56 silent
+  breaks in nine days.
+- **Before rank 2 starts**: the sidecar's three, because the beat layer makes every decode dearer and
+  adds the very import that the diverged image forgets. The memory fix is one function, the arena cap
+  is two lines, and a `pytest` job plus a `/health` smoke on the built image is what `generated` is on
+  the other side.
+- **With the next director change**: the artist seam and the talk-over reading, which are the two
+  that a listener hears.
+- **Everything else in the seventh pass is a field or a sentence**, and none of it needs a file.

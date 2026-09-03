@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState, type Ref, type RefObject } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type Ref, type RefObject } from 'react';
 import { ActionIcon, Badge, Box, Button, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { IconArrowBarToUp, IconChevronDown, IconChevronsUp, IconX } from '@tabler/icons-react';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
@@ -526,7 +526,7 @@ export function StationOrderTable({
                 // what the region is before reading an hour of it.
                 tabIndex={0}
                 role="region"
-                aria-label="Running order"
+                aria-label="Running order. Use arrow keys to move within a row."
                 {...handlers}
             >
                 {/* `layout="fixed"` because only a window of rows is mounted: under the default
@@ -639,12 +639,60 @@ interface OrderRowProps {
 }
 
 /**
+ * The row's own interactive elements, in the order arrow keys move through them.
+ *
+ * One entry per STOP rather than per element: the rating control holds three radios, and the
+ * point of collapsing them into a single array position is that `ArrowRight`/`ArrowLeft` treat it
+ * as one thing to arrive at, the same as a link or a button. `ArrowUp`/`ArrowDown` are left alone
+ * for exactly this reason — they are what still cycles disliked/neutral/liked once focus is inside
+ * the control, since a handler that also claimed them would have nothing left to hand the operator
+ * for actually changing a rating from the keyboard.
+ *
+ * Read off refs to wrapper elements this component owns rather than off the rendered anchors and
+ * inputs directly: `TrackLink`/`ArtistLink`/`RatingControl` are not this file's to add `ref`
+ * forwarding to, and guessing their DOM shape from outside would be exactly the "guess at
+ * ordering" this was written against. A stop that renders nothing focusable — an artist with no
+ * `artistId`, an item nothing can be dropped from — simply contributes no element to the array.
+ */
+function useRowStops() {
+    const titleStopRef = useRef<HTMLSpanElement>(null);
+    const artistStopRef = useRef<HTMLSpanElement>(null);
+    const ratingStopRef = useRef<HTMLSpanElement>(null);
+    const playNextRef = useRef<HTMLButtonElement>(null);
+    const dropRef = useRef<HTMLButtonElement>(null);
+
+    const stops = useCallback((): HTMLElement[] => {
+        const found: (HTMLElement | null)[] = [
+            titleStopRef.current?.querySelector<HTMLElement>('a[href]') ?? null,
+            artistStopRef.current?.querySelector<HTMLElement>('a[href]') ?? null,
+            ratingStopRef.current
+                ? (ratingStopRef.current.querySelector<HTMLElement>('input[type="radio"]:checked') ??
+                  ratingStopRef.current.querySelector<HTMLElement>('input[type="radio"]'))
+                : null,
+            playNextRef.current,
+            dropRef.current,
+        ];
+        return found.filter((element): element is HTMLElement => element !== null);
+    }, []);
+
+    return { titleStopRef, artistStopRef, ratingStopRef, playNextRef, dropRef, stops };
+}
+
+/**
  * One desktop row of the running order.
  *
  * Memoised because the order is re-fetched every five seconds and almost nothing on it changes
  * between polls: the query's structural sharing keeps an unchanged item's identity, so an unchanged
  * row costs a comparison rather than a render of a title, three badges, two links and a rating
  * control. The busy flags are computed by the parent so that one flipping re-renders one row.
+ *
+ * **The row is one Tab stop, not five.** It used to be five — the title link, the artist link, the
+ * rating control, and the two action icons — and a running order of thirty items was roughly a
+ * hundred and fifty presses to reach the bottom. The `Tr` itself now takes the stop (when it has
+ * anything to act on: {@link OrderRowProps.editable}), the two icons drop out of the Tab order
+ * entirely (`tabIndex={-1}`), and `ArrowRight`/`ArrowLeft` on the row rove between everything it
+ * holds instead — see {@link useRowStops}. `Enter`/`Space` on the row itself, rather than on a
+ * child that already knows what those keys mean to it, opens whatever the row is.
  */
 const OrderRow = memo(function OrderRow({
     item,
@@ -665,10 +713,46 @@ const OrderRow = memo(function OrderRow({
     // A segment is the station's own words, and a record the catalog has never seen
     // has no row to hold an opinion — a station can air one it never ingested.
     const trackId = item.kind === 'track' ? item.trackId : undefined;
+
+    const rowRef = useRef<HTMLTableRowElement>(null);
+    const { titleStopRef, artistStopRef, ratingStopRef, playNextRef, dropRef, stops } = useRowStops();
+
+    // Two keys only. `ArrowUp`/`ArrowDown` are untouched — see {@link useRowStops} — and every
+    // other key on the row falls through to whatever it already does (a native click on a link,
+    // for instance).
+    const onKeyDown = useCallback(
+        (event: KeyboardEvent<HTMLTableRowElement>) => {
+            if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                const rowStops = stops();
+                if (rowStops.length === 0) return;
+                const currentIndex = rowStops.indexOf(document.activeElement as HTMLElement);
+                const wanted = currentIndex + (event.key === 'ArrowRight' ? 1 : -1);
+                // Clamped rather than wrapped: an operator holding the key down lands on this
+                // row's last stop and stays there, rather than the press that goes one too far
+                // sliding onto a different item's controls.
+                const next = rowStops[Math.max(0, Math.min(wanted, rowStops.length - 1))];
+                next?.focus();
+                event.preventDefault();
+            } else if ((event.key === 'Enter' || event.key === ' ') && event.target === rowRef.current) {
+                // Only when the ROW is what has focus. A child that is itself a link, a radio or a
+                // button already answers Enter/Space in its own right, and this must not race that.
+                event.preventDefault();
+                titleStopRef.current?.querySelector<HTMLElement>('a[href]')?.click();
+            }
+        },
+        [stops, titleStopRef],
+    );
+
     return (
         <Table.Tr
-            ref={ref}
+            ref={element => {
+                rowRef.current = element;
+                if (typeof ref === 'function') ref(element);
+                else if (ref) ref.current = element;
+            }}
             data-index={dataIndex}
+            tabIndex={editable ? 0 : undefined}
+            onKeyDown={editable ? onKeyDown : undefined}
             className={item.state === 'airing' ? classes.airing : undefined}
             // Dimmed rather than hidden: what is beyond editing is how an operator
             // reads where the station has got to. The item ON AIR is not dimmed,
@@ -707,7 +791,13 @@ const OrderRow = memo(function OrderRow({
                                             same plain text they always were when there is nothing
                                             to reach — an uningested record, a segment the library
                                             no longer holds. */}
-                    <Title item={item} id={item.kind === 'segment' ? item.segmentId : trackId} />
+                    {/* `display: contents`: a wrapper this component owns, purely so
+                                            {@link useRowStops} has a real ref to read the rendered
+                                            anchor off, without it taking a place of its own in the
+                                            Group's flex layout. */}
+                    <span ref={titleStopRef} style={{ display: 'contents' }}>
+                        <Title item={item} id={item.kind === 'segment' ? item.segmentId : trackId} />
+                    </span>
                     {/* A segment is not a record and should not have to be worked
                                             out from an empty artist column. */}
                     {item.kind === 'segment' ? (
@@ -773,9 +863,11 @@ const OrderRow = memo(function OrderRow({
                                     nobody can see is a page nobody finds, which is the reason the
                                     catalog's own table draws these two as links at all. */}
             <Table.Td>
-                <ArtistLink id={item.artistId} size="sm" c={item.artistId === undefined ? 'dimmed' : undefined} truncate>
-                    {formatArtists(item.artists)}
-                </ArtistLink>
+                <span ref={artistStopRef} style={{ display: 'contents' }}>
+                    <ArtistLink id={item.artistId} size="sm" c={item.artistId === undefined ? 'dimmed' : undefined} truncate>
+                        {formatArtists(item.artists)}
+                    </ArtistLink>
+                </span>
             </Table.Td>
             <Table.Td visibleFrom="xl">
                 <AlbumLink id={item.albumId} size="sm" c={item.albumId === undefined ? 'dimmed' : undefined} truncate>
@@ -791,15 +883,17 @@ const OrderRow = memo(function OrderRow({
             {onRate ? (
                 <Table.Td>
                     {trackId === undefined ? undefined : (
-                        <RatingControl
-                            size="xs"
-                            rating={item.rating}
-                            label={item.title}
-                            busy={writingRating}
-                            onChange={rating => {
-                                onRate(trackId, rating);
-                            }}
-                        />
+                        <span ref={ratingStopRef} style={{ display: 'contents' }}>
+                            <RatingControl
+                                size="xs"
+                                rating={item.rating}
+                                label={item.title}
+                                busy={writingRating}
+                                onChange={rating => {
+                                    onRate(trackId, rating);
+                                }}
+                            />
+                        </span>
                     )}
                 </Table.Td>
             ) : undefined}
@@ -818,9 +912,14 @@ const OrderRow = memo(function OrderRow({
                                 maw={340}
                             >
                                 <ActionIcon
+                                    ref={playNextRef}
                                     variant="subtle"
                                     color="gray"
                                     aria-label={`Play ${item.title} next`}
+                                    // Reachable through the row's own arrow-key roving rather than
+                                    // Tab: see the note on {@link OrderRow} for why the row itself
+                                    // is the stop.
+                                    tabIndex={-1}
                                     loading={moving}
                                     onClick={() => onMove(item, nextUp)}
                                 >
@@ -835,9 +934,11 @@ const OrderRow = memo(function OrderRow({
                         {onRemove && !isSpent(item.state) ? (
                             <Tooltip label="Drop this item">
                                 <ActionIcon
+                                    ref={dropRef}
                                     variant="subtle"
                                     color="red"
                                     aria-label={`Drop ${item.title}`}
+                                    tabIndex={-1}
                                     loading={removing}
                                     onClick={() => onRemove(item)}
                                 >

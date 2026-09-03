@@ -12,7 +12,7 @@ import type { StationOrderItem } from '@deadair/sdk';
 
 import { StationOrderTable, skipReading } from '../../../src/components/onair/station.order.table';
 import { measureTheOrderPort } from '../../utils/order.port';
-import { render, screen, waitFor } from '../../utils/render';
+import { render, screen, setupUser, waitFor, within } from '../../utils/render';
 
 // The table mounts a window of rows sized from the port's rect, and jsdom measures every rect at
 // zero — without this the tbody is empty. The port answers 600px tall, and every row answers zero
@@ -104,7 +104,7 @@ describe('StationOrderTable: the pin', () => {
 
     it('releases when the operator scrolls away, and offers the way back to the anchor offset', async () => {
         render(<StationOrderTable items={items} />);
-        const port = screen.getByRole('region', { name: 'Running order' });
+        const port = screen.getByRole('region', { name: /Running order/ });
 
         // The mount pin's own scroll settles: a scroll event AT the pinned offset re-arms whoever
         // caused it, which is what frees the release below from waiting out the settle timer.

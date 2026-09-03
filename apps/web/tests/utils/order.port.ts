@@ -20,7 +20,10 @@ import { afterAll, beforeAll } from 'vitest';
  * overscan — see the constants in `station.order.table.tsx`.
  */
 export function measureTheOrderPort(height = 600, width = 780): void {
-    const isPort = (element: Element): boolean => element.getAttribute('aria-label') === 'Running order';
+    // A prefix match rather than equality: the label grew a second sentence (arrow-key roving
+    // within a row) after this helper was written, and re-deriving the whole string here every
+    // time the label's wording changes is exactly the kind of coupling a prefix check avoids.
+    const isPort = (element: Element): boolean => (element.getAttribute('aria-label') ?? '').startsWith('Running order');
 
     // `scrollHeight` as well, because the virtualizer clamps every computed offset to
     // `scrollHeight - clientHeight` — the port's real scroll limit in a browser, and zero minus

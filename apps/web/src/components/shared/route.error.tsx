@@ -5,6 +5,7 @@ import { Link, useRouter, type ErrorComponentProps } from '@tanstack/react-route
 
 import { isConnectivityError } from '../../api/api.status';
 import { apiErrorMessage } from '../../api/sdk.error';
+import { useDisclosureIds } from './disclosure';
 
 /**
  * The router's default error boundary: what a page shows when its loader threw.
@@ -23,6 +24,7 @@ import { apiErrorMessage } from '../../api/sdk.error';
 export function RouteError({ error, reset }: ErrorComponentProps) {
     const router = useRouter();
     const [showDetail, setShowDetail] = useState(false);
+    const { trigger: detailTrigger, panelId: detailPanelId } = useDisclosureIds(showDetail);
     // The banner is already saying this, and saying it better, so the panel does not repeat the
     // countdown — it only stops blaming the page for something the whole origin is doing.
     const offline = isConnectivityError(error);
@@ -75,11 +77,11 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
                     stack trace, so there is nothing worth animating open and nothing worth keeping
                     in the tree while it is shut. */}
                 <Stack gap="xxs">
-                    <Anchor component="button" type="button" size="sm" onClick={() => setShowDetail(current => !current)}>
+                    <Anchor component="button" type="button" size="sm" onClick={() => setShowDetail(current => !current)} {...detailTrigger}>
                         {showDetail ? 'Hide technical detail' : 'Show technical detail'}
                     </Anchor>
                     {showDetail ? (
-                        <Code block style={{ whiteSpace: 'pre-wrap' }}>
+                        <Code id={detailPanelId} block style={{ whiteSpace: 'pre-wrap' }}>
                             {error.stack ?? error.message}
                         </Code>
                     ) : undefined}

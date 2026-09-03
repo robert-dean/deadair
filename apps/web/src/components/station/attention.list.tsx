@@ -4,6 +4,7 @@ import { Link, type LinkProps } from '@tanstack/react-router';
 import type { AttentionEvidence, AttentionItem } from '@deadair/sdk';
 
 import { attentionDestinationOf } from '../shell/attention.destination';
+import { useDisclosureIds } from '../shared/disclosure';
 import { EmptyState } from '../shared/empty.state';
 import { severityColor, type Severity } from '../shared/status';
 
@@ -135,6 +136,7 @@ function Row({ item, here }: { item: AttentionItem; here?: LinkProps['to'] }) {
  */
 function Evidence({ item }: { item: AttentionItem }) {
     const [open, setOpen] = useState(false);
+    const { trigger, panelId } = useDisclosureIds(open);
     const evidence = item.evidence ?? [];
 
     if (evidence.length === 0) return undefined;
@@ -145,13 +147,13 @@ function Evidence({ item }: { item: AttentionItem }) {
 
     return (
         <Box pt={4}>
-            <Anchor component="button" type="button" size="xs" onClick={() => setOpen(current => !current)}>
+            <Anchor component="button" type="button" size="xs" onClick={() => setOpen(current => !current)} {...trigger}>
                 {open ? 'Hide what failed' : 'Show what failed'}
             </Anchor>
             {/* Mounted only while open, the way `track.expansion.tsx` mounts its panel: a closed
                 row costs nothing, and a reason nobody has asked for is not in the document to be
                 read out or searched. */}
-            <Collapse expanded={open}>
+            <Collapse id={panelId} expanded={open}>
                 {open ? (
                     <Stack gap="xs" pt="xs">
                         {evidence.map((piece, index) => (

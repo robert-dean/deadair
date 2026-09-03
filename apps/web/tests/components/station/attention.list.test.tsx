@@ -60,8 +60,17 @@ describe('AttentionList', () => {
 
         expect(screen.queryByText('The provider will never serve this copy.')).not.toBeInTheDocument();
 
-        await user.click(screen.getByRole('button', { name: 'Show what failed' }));
+        const toggle = screen.getByRole('button', { name: 'Show what failed' });
+        expect(toggle).toHaveAttribute('aria-expanded', 'false');
+        const panelId = toggle.getAttribute('aria-controls');
+        expect(panelId).toBeTruthy();
 
+        await user.click(toggle);
+
+        expect(screen.getByRole('button', { name: 'Hide what failed' })).toHaveAttribute('aria-expanded', 'true');
+        // Same control, now announced as open — and the id it names is the panel that just showed.
+        expect(toggle).toHaveAttribute('aria-controls', panelId);
+        expect(document.getElementById(panelId as string)).toBeInTheDocument();
         expect(screen.getByText('Push It — Salt-N-Pepa')).toBeInTheDocument();
         expect(screen.getByText('The provider will never serve this copy.')).toBeInTheDocument();
         // Through `waitFor` because the panel animates open: until the collapse settles the link is

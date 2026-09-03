@@ -63,9 +63,16 @@ describe('RouteError', () => {
         render(<RouteError {...props(error)} />);
 
         const toggle = screen.getByRole('button', { name: /show technical detail/i });
+        expect(toggle).toHaveAttribute('aria-expanded', 'false');
+        const panelId = toggle.getAttribute('aria-controls');
+        expect(panelId).toBeTruthy();
+
         await user.click(toggle);
 
         expect(screen.getByText(/at somewhere\.ts:1:1/)).toBeVisible();
-        expect(screen.getByRole('button', { name: /hide technical detail/i })).toBeInTheDocument();
+        const hideToggle = screen.getByRole('button', { name: /hide technical detail/i });
+        expect(hideToggle).toHaveAttribute('aria-expanded', 'true');
+        expect(hideToggle).toHaveAttribute('aria-controls', panelId);
+        expect(document.getElementById(panelId as string)).toBeInTheDocument();
     });
 });

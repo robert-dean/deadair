@@ -3,6 +3,7 @@ import { bigIntReplacer, parseJson } from '../sdk-options.js';
 import type { ClockBand, ClockBandInput, ClockBandList } from './types/clock.types.js';
 import type {
     AddStationSegmentInput,
+    AddStationTrackInput,
     ExtendStationInput,
     HoldStationInput,
     MoveStationItemInput,
@@ -135,6 +136,19 @@ export class DirectorClient {
      */
     async addASegmentToTheRunningOrder(body: AddStationSegmentInput): Promise<StationOrder> {
         const result = await this.fetch(`/director/air/segments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<StationOrder>(result);
+    }
+
+    /**
+     * @name Add a record to the running order
+     * @description Puts a catalog record into the running order. A record whose audio is not local yet is refused here rather than accepted and held or skipped when its slot comes round, so an operator asking for a specific one is told why it cannot play. What makes this worth having on its own is undo: dropping an item only ever marks a segment, but a track is spliced out of the order entirely, so nothing could put one back until this existed
+     */
+    async addARecordToTheRunningOrder(body: AddStationTrackInput): Promise<StationOrder> {
+        const result = await this.fetch(`/director/air/tracks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),

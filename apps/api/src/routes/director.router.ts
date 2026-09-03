@@ -3,6 +3,7 @@ import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@marooneds
 import { DirectorConsoleService } from '#src/modules/director/director.console.service.js';
 import {
     AddStationSegmentInput,
+    AddStationTrackInput,
     ExtendStationInput,
     HoldStationInput,
     MoveStationItemInput,
@@ -174,8 +175,23 @@ DirectorRouter.post('/director/air/segments', requirePolicy({ policy: 'platform.
 });
 
 /**
+ * Puts a catalog record into the running order. A record whose audio is not local yet is refused here rather than accepted and held or skipped when its slot comes round, so an operator asking for a specific one is told why it cannot play. What makes this worth having on its own is undo: dropping an item only ever marks a segment, but a track is spliced out of the order entirely, so nothing could put one back until this existed
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L201)
+ */
+DirectorRouter.post('/director/air/tracks', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
+    const body = await parseAndValidate(ctx.parsedBody, AddStationTrackInput);
+
+    const service = ctx.container.get(DirectorConsoleService);
+    const result: StationOrder = await service.addTrackToOrder(body);
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
+});
+
+/**
  * Moves an item. A position already handed to the player is refused rather than clamped
- * from [director.ck](file://./../../data/contracts/director/director.ck#L204)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L222)
  */
 DirectorRouter.patch('/director/air/items/:itemId', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { itemId } = await parseAndValidate(
@@ -197,7 +213,7 @@ DirectorRouter.patch('/director/air/items/:itemId', requirePolicy({ policy: 'pla
 
 /**
  * Drops an item that has not been handed to the player yet
- * from [director.ck](file://./../../data/contracts/director/director.ck#L219)
+ * from [director.ck](file://./../../data/contracts/director/director.ck#L237)
  */
 DirectorRouter.delete('/director/air/items/:itemId', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { itemId } = await parseAndValidate(

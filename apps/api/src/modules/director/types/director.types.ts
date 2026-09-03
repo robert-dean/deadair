@@ -94,8 +94,23 @@ export const AddStationSegmentInput = z.strictObject({
 export type AddStationSegmentInput = z.infer<typeof AddStationSegmentInput>;
 
 /**
+ * Put a catalog record into the running order. Refused at the door — 404 for a record the catalog does not hold, 422 for one whose audio is not local yet — rather than accepted and left to fail when it comes round
+ * generated from [AddStationTrackInput](file://./../../../../data/contracts/director/director.types.ck#L104)
+ */
+export const AddStationTrackInput = z.strictObject({
+    trackId: z.uuid(),
+    atIndex: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe('Where to put it. Absent puts it at the end. A position already handed to the player is refused'),
+});
+export type AddStationTrackInput = z.infer<typeof AddStationTrackInput>;
+
+/**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L104)
+ * generated from [MoveStationItemInput](file://./../../../../data/contracts/director/director.types.ck#L109)
  */
 export const MoveStationItemInput = z.strictObject({
     toIndex: z.coerce.number().int().min(0),
@@ -104,7 +119,7 @@ export type MoveStationItemInput = z.infer<typeof MoveStationItemInput>;
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L108)
+ * generated from [ExtendStationInput](file://./../../../../data/contracts/director/director.types.ck#L113)
  */
 export const ExtendStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional(),
@@ -113,7 +128,7 @@ export type ExtendStationInput = z.infer<typeof ExtendStationInput>;
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L112)
+ * generated from [ReplanStationInput](file://./../../../../data/contracts/director/director.types.ck#L117)
  */
 export const ReplanStationInput = z.strictObject({
     count: z.coerce.number().int().min(1).max(100).optional().describe('How many records to programme. Absent is roughly an hour'),

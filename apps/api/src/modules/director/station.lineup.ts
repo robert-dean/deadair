@@ -1011,6 +1011,29 @@ export class StationLineup implements LiveOrder {
     }
 
     /**
+     * Put one record into the order at a position, already resolved to a playable binding.
+     *
+     * Undo's other half. Dropping a segment only ever marks it `removed` — {@link remove} says why
+     * — but a track is spliced out of the list entirely, so there is no marked slot for one of these
+     * to go back into. This is what makes an item put back rather than merely a thing this class
+     * happens to also support: it is the one way a caller can hand a record back to the order at
+     * all, once it has left.
+     *
+     * The refusal is the same one every other edit here makes: a position already handed to the
+     * player is not something an operator can put a record ahead of. `DirectorConsoleService`
+     * resolves the binding and checks its audio is local BEFORE calling this, on
+     * `bytes-before-air.md`'s rule — this method trusts that has already happened, the same way
+     * {@link insertSegments} trusts its caller already loaded the segment row.
+     */
+    insertTrack(track: RundownTrack, atIndex: number): EditResult {
+        if (atIndex < this.committedThrough()) return refuse('already-aired', 'that position has already been handed to the player');
+
+        const index = Math.min(atIndex, this.itemList.length);
+        this.itemList.splice(index, 0, toItem(track));
+        return OK;
+    }
+
+    /**
      * Move an item to a new position among the ones not yet committed.
      *
      * `toIndex` is absolute, so a console can send back the index it drew. A position

@@ -51,7 +51,11 @@ export type OrderEdit =
     // `segmentKind` rather than `kind`, which this command has already spent on saying what it is.
     // Carried from the caller because the caller has already loaded the row and the order would
     // otherwise have to read it back to know what the break spacing should count this against.
-    | { kind: 'insertSegment'; segmentId: string; atIndex?: number; overAtMs?: number; segmentKind?: string };
+    | { kind: 'insertSegment'; segmentId: string; atIndex?: number; overAtMs?: number; segmentKind?: string }
+    // The whole `RundownTrack`, not a trackId, for the reason `insertSegment` carries `segmentKind`:
+    // `DirectorConsoleService.addTrackToOrder` has already resolved which provider binding will
+    // play and confirmed its audio is local, and the order would otherwise have to do both again.
+    | { kind: 'insertTrack'; track: RundownTrack; atIndex?: number };
 
 /**
  * Something the director has been asked to do.

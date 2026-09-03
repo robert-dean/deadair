@@ -650,6 +650,44 @@ describe('StationLineup editing', () => {
     });
 });
 
+// `remove` only ever marks a segment `removed` — a track is spliced out of the list entirely,
+// which is what left nothing able to put one back until this existed. These are the undo case's
+// own tests: put one back at a position, and the same already-aired refusal every other edit here
+// makes.
+describe('StationLineup putting a track back at a position', () => {
+    it('puts a track in at the index asked for, leaving what was there shifted back', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+
+        expect(lineup.insertTrack(track('x'), 1)).toEqual({ ok: true });
+        expect(idsOf(lineup.all())).toEqual(['a', 'x', 'b', 'c']);
+    });
+
+    it('clamps an index past the end onto the end, the same as an out-of-range segment insert', () => {
+        const lineup = lineupWith(['a', 'b']);
+
+        expect(lineup.insertTrack(track('x'), 99)).toEqual({ ok: true });
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'x']);
+    });
+
+    it('refuses a position already handed to the player, on the same rule every other edit here follows', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        hand(lineup, 2);
+
+        expect(lineup.insertTrack(track('x'), 1)).toMatchObject({ ok: false, reason: 'already-aired' });
+        // Nothing changed: a refused edit leaves the order exactly as it found it.
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'c']);
+    });
+
+    it('does not disturb anything already committed when it lands after the head', () => {
+        const lineup = lineupWith(['a', 'b', 'c']);
+        hand(lineup, 1);
+
+        expect(lineup.insertTrack(track('x'), 2)).toEqual({ ok: true });
+        expect(idsOf(lineup.all())).toEqual(['a', 'b', 'x', 'c']);
+        expect(statesOf(lineup)).toEqual(['handed', 'planned', 'planned', 'planned']);
+    });
+});
+
 describe('StationLineup at the end of the order', () => {
     it('offers everything again when it is told to repeat', () => {
         // What `on_end: 'repeat'` is now: a state put back rather than an index moved

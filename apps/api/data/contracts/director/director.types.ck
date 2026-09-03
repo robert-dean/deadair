@@ -101,6 +101,11 @@ contract AddStationSegmentInput: { # Put something the station says into the run
     overAtMs?: int(min=0, max=600000) # Play it OVER the record that follows, this far into it, rather than in the gap before it. Absent plays it between two records, which is the simpler path
 }
 
+contract AddStationTrackInput: { # Put a catalog record into the running order. Refused at the door — 404 for a record the catalog does not hold, 422 for one whose audio is not local yet — rather than accepted and left to fail when it comes round
+    trackId: uuid
+    atIndex?: int(min=0) # Where to put it. Absent puts it at the end. A position already handed to the player is refused
+}
+
 contract MoveStationItemInput: { # Move an item within the running order
     toIndex: int(min=0)
 }

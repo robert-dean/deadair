@@ -1635,6 +1635,9 @@ export class DirectorService {
                     ),
                     dropped: [],
                 };
+
+            case 'insertTrack':
+                return { result: lineup.insertTrack(edit.track, edit.atIndex ?? lineup.size()), dropped: [] };
         }
     }
 

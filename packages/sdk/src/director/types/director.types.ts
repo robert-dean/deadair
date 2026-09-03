@@ -61,8 +61,18 @@ export interface AddStationSegmentInput {
 }
 
 /**
+ * Put a catalog record into the running order. Refused at the door — 404 for a record the catalog does not hold, 422 for one whose audio is not local yet — rather than accepted and left to fail when it comes round
+ * generated from [AddStationTrackInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L104)
+ */
+export interface AddStationTrackInput {
+    trackId: string;
+    /** Where to put it. Absent puts it at the end. A position already handed to the player is refused */
+    atIndex?: number;
+}
+
+/**
  * Move an item within the running order
- * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L104)
+ * generated from [MoveStationItemInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L109)
  */
 export interface MoveStationItemInput {
     toIndex: number;
@@ -70,7 +80,7 @@ export interface MoveStationItemInput {
 
 /**
  * Add tracks to the running order now, rather than waiting for it to run short
- * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L108)
+ * generated from [ExtendStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L113)
  */
 export interface ExtendStationInput {
     count?: number;
@@ -78,7 +88,7 @@ export interface ExtendStationInput {
 
 /**
  * Throw away everything the player is not already holding and programme it again. Unlike a shuffle, the records themselves change; unlike putting the station on air, the broadcast continues
- * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L112)
+ * generated from [ReplanStationInput](file://./../../../../../apps/api/data/contracts/director/director.types.ck#L117)
  */
 export interface ReplanStationInput {
     /** How many records to programme. Absent is roughly an hour */

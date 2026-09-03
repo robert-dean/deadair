@@ -197,6 +197,24 @@ operation /director/air/segments: {
     }
 }
 
+operation /director/air/tracks: {
+    post: { # Puts a catalog record into the running order. A record whose audio is not local yet is refused here rather than accepted and held or skipped when its slot comes round, so an operator asking for a specific one is told why it cannot play. What makes this worth having on its own is undo: dropping an item only ever marks a segment, but a track is spliced out of the order entirely, so nothing could put one back until this existed
+        name: Add a record to the running order
+        service: DirectorConsoleService.addTrackToOrder
+        security: {
+            policy: platform.manage
+        }
+        request: {
+            application/json: AddStationTrackInput
+        }
+        response: {
+            200: {
+                application/json: StationOrder
+            }
+        }
+    }
+}
+
 operation /director/air/items/{itemId}: {
     params: {
         itemId: string(min=1, max=100)

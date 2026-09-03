@@ -19,6 +19,8 @@ import type { RundownTrack } from '../../../src/modules/playout/rundown.js';
 import type { Segment, SegmentRepository } from '../../../src/modules/render/segment.repository.js';
 import type { SettingsService } from '../../../src/modules/settings/settings.service.js';
 import type { PickResolver } from '../../../src/modules/director/pick.resolver.js';
+import type { CandidatesRepository } from '../../../src/modules/director/candidates.repository.js';
+import type { TrackAudioService } from '../../../src/modules/playout/audio/track.audio.service.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
 import { ROTATION_KEYS } from '../../../src/modules/director/rotation.rules.js';
 import { settingsConfig } from '../../utils/settings.config.js';
@@ -54,6 +56,12 @@ interface Options {
     chartMenu?: { id: string; name: string }[];
     /** What the resolver makes of a chart's picks. Absent turns every pick into a playable record. */
     resolve?: (picks: { title: string; artist: string }[]) => RundownTrack[];
+    /** One catalog row, for `addTrackToOrder`'s own lookup by id. Absent is a record the catalog does not hold. */
+    catalogTrack?: { id: string; title: string; artists: string; artistName?: string; albumName?: string; albumImageUrl?: string; year?: number };
+    /** A playable binding for that same record. Absent is a record no provider currently lists. */
+    trackBinding?: { pluginId: string; externalId: string; durationMs?: number };
+    /** Whether that binding's audio is on this machine. Defaults to true, so a case that cares turns it off. */
+    audioReady?: boolean;
 }
 
 function build(options: Options = {}) {
@@ -101,6 +109,7 @@ function build(options: Options = {}) {
             if (edit.kind === 'shuffle') return order.shuffleRemaining().result;
             if (edit.kind === 'move') return order.move(edit.itemId, edit.toIndex);
             if (edit.kind === 'remove') return order.remove(edit.itemId);
+            if (edit.kind === 'insertTrack') return order.insertTrack(edit.track, edit.atIndex ?? order.size());
             return order.insertSegment(edit.segmentId, edit.atIndex ?? order.size());
         }),
     } as unknown as DirectorService;
@@ -121,6 +130,7 @@ function build(options: Options = {}) {
             if (options.catalogError) throw options.catalogError;
             return options.catalogRows ?? [];
         }),
+        findTrack: vi.fn(async (id: string) => (options.catalogTrack?.id === id ? options.catalogTrack : undefined)),
         catalogRowsByTrackId: vi.fn(
             async (ids: readonly string[]) =>
                 new Map(
@@ -197,6 +207,20 @@ function build(options: Options = {}) {
         listCharts: vi.fn(async () => options.chartMenu ?? []),
     } as unknown as ChartsService;
 
+    // The two halves `addTrackToOrder` resolves before it will hand a record to the order: which
+    // provider will serve it, and whether that provider's audio is already on this machine. Both
+    // default to "yes, and here it is", so cases about the rest of the service are not also cases
+    // about these — a case that wants the 404 or the 422 hands over its own `trackBinding`/`audioReady`.
+    const candidates = {
+        bindingsFor: vi.fn(async (ids: readonly string[]) => {
+            const binding = options.trackBinding;
+            return new Map(binding && ids.includes(options.catalogTrack?.id ?? '') ? [[ids[0]!, binding]] : []);
+        }),
+    } as unknown as CandidatesRepository;
+    const trackAudio = {
+        has: vi.fn(async () => options.audioReady ?? true),
+    } as unknown as TrackAudioService;
+
     return {
         service: new DirectorConsoleService(
             air,
@@ -214,6 +238,8 @@ function build(options: Options = {}) {
             activity as never,
             logger,
             resolver,
+            candidates,
+            trackAudio,
         ),
         activity,
         personas,
@@ -229,7 +255,8 @@ function build(options: Options = {}) {
         jobs,
         tracks,
         schedule,
-        resolver,
+        candidates,
+        trackAudio,
     };
 }
 
@@ -767,6 +794,57 @@ describe('DirectorConsoleService editing the running order', () => {
         const after = await service.addSegmentToOrder({ segmentId: 'seg-1', atIndex: 1 });
 
         expect(after.items.map(item => item.kind)).toEqual(['track', 'segment', 'track']);
+    });
+
+    // `addTrackToOrder` is undo's other half — a track drops out of the order entirely rather than
+    // being marked, so nothing could put one back until this existed — and it earns the same
+    // at-the-door refusals `addSegmentToOrder` does, for the same reason: an operator should be
+    // told a record cannot play yet, not watch it accepted and quietly held or skipped later.
+    describe('DirectorConsoleService.addTrackToOrder', () => {
+        const TRACK = { id: 'trk-1', title: 'A Record', artists: 'The Artist' };
+        const BINDING = { pluginId: 'deadair.spotify', externalId: 'ext-1' };
+
+        it('refuses a record the catalog does not hold', async () => {
+            const { service } = build({ order: onAirWith(2) });
+
+            expect(await statusOf(service.addTrackToOrder({ trackId: 'trk-1' }))).toBe(404);
+        });
+
+        it('refuses a record no provider currently lists a copy of', async () => {
+            const { service } = build({ order: onAirWith(2), catalogTrack: TRACK });
+
+            expect(await statusOf(service.addTrackToOrder({ trackId: 'trk-1' }))).toBe(404);
+        });
+
+        it('refuses a record whose audio is not on this machine yet, at the door rather than in the order', async () => {
+            const { service, director } = build({
+                order: onAirWith(2),
+                catalogTrack: TRACK,
+                trackBinding: BINDING,
+                audioReady: false,
+            });
+
+            expect(await statusOf(service.addTrackToOrder({ trackId: 'trk-1' }))).toBe(422);
+            expect(director.applyEdit).not.toHaveBeenCalled();
+        });
+
+        it('puts a ready record into the order at the position asked for', async () => {
+            const { service } = build({ order: onAirWith(2), catalogTrack: TRACK, trackBinding: BINDING });
+
+            const after = await service.addTrackToOrder({ trackId: 'trk-1', atIndex: 1 });
+
+            expect(after.items.map(item => item.externalId)).toEqual(['t0', 'ext-1', 't1']);
+        });
+
+        it('carries the catalog id through, so the item is still linked to its record', async () => {
+            const { service, director } = build({ order: onAirWith(1), catalogTrack: TRACK, trackBinding: BINDING });
+
+            await service.addTrackToOrder({ trackId: 'trk-1' });
+
+            expect(director.applyEdit).toHaveBeenCalledWith(
+                expect.objectContaining({ kind: 'insertTrack', track: expect.objectContaining({ trackId: 'trk-1' }) }),
+            );
+        });
     });
 
     it('queues an extend rather than making the operator wait for it', async () => {

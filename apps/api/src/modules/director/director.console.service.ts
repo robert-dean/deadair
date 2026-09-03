@@ -13,13 +13,14 @@ import type { CatalogTrack } from '#modules/playlists/types/playlists.types.js';
 import { AIR_MODE_KEY } from '#modules/playout/air.mode.js';
 import type { RundownTrack } from '#modules/playout/rundown.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
+import { TrackAudioService } from '#modules/playout/audio/track.audio.service.js';
 import { SegmentRepository, type Segment } from '#modules/render/segment.repository.js';
 import type { ScheduleSlot } from './schedule.js';
 import { ScheduleService } from '#modules/schedule/schedule.service.js';
 import { SettingsService } from '#modules/settings/settings.service.js';
 import type { OrderEdit } from './director.mailbox.js';
 import { DirectorService } from './director.service.js';
-import { bindsAnything, type EraWindow } from './candidates.repository.js';
+import { bindsAnything, CandidatesRepository, type EraWindow } from './candidates.repository.js';
 import { chartPicks, DEFAULT_CHART_ORDER } from './chart.picks.js';
 import { DISCOVER_DEFAULT, DISCOVER_KEY, PickResolver } from './pick.resolver.js';
 import { songKey } from './rotation.keys.js';
@@ -29,6 +30,7 @@ import type { EditResult, StationLineupBinding, StationLineupSegmentItem, Statio
 import type {
     AirSource,
     AddStationSegmentInput,
+    AddStationTrackInput,
     HoldStationInput,
     ExtendStationInput,
     MoveStationItemInput,
@@ -97,6 +99,10 @@ export class DirectorConsoleService {
         // The put-on-air veto: the one instruction no lineup may switch off, applied to a playlist
         // the same way `resolve` applies it to a generated set. See `sourceTracks`.
         private readonly resolver: PickResolver,
+        // The two halves of turning a bare catalog id into something the running order can hold: a
+        // playable binding (`addTrackToOrder`) and whether its audio is actually here yet.
+        private readonly candidates: CandidatesRepository,
+        private readonly trackAudio: TrackAudioService,
     ) {}
 
     /**
@@ -684,6 +690,61 @@ export class DirectorConsoleService {
     }
 
     /**
+     * Put a catalog record into the running order at a position.
+     *
+     * The other half of undo: dropping a SEGMENT only ever marks it `removed`
+     * (`StationLineup.remove`), because a break planted again into the same slot a minute later is
+     * the fault that mark exists to prevent. A TRACK is spliced out entirely — there is no slot for
+     * a record to be planted back into on its own — so nothing could put one back until this
+     * existed. It is also simply "add this record", useful anywhere the library names a track the
+     * running order does not currently hold.
+     *
+     * @throws 404 when the catalog has no such record, or no provider can currently serve it at
+     *   all. @throws 422 when a provider CAN serve it but the audio is not on this machine yet — the
+     *   same distinction {@link addSegmentToOrder} draws, and the same reason: an operator asking
+     *   for a specific record should be told why it cannot play yet, not watch the order accept it
+     *   and the commit gate quietly hold the slot open behind it. See `bytes-before-air.md`.
+     */
+    async addTrackToOrder(input: AddStationTrackInput): Promise<StationOrder> {
+        const row = await this.tracks.findTrack(input.trackId);
+        if (row === undefined) throw httpError(404).withDetails({ message: 'no such record' });
+
+        const bindings = await this.candidates.bindingsFor([input.trackId]);
+        const binding = bindings.get(input.trackId);
+        if (binding === undefined) throw httpError(404).withDetails({ message: 'no provider currently lists a copy of this record' });
+
+        if (!(await this.trackAudio.has(binding))) {
+            throw httpError(422).withDetails({ message: 'the station does not have this record’s audio locally yet' });
+        }
+
+        // The catalog's own `artists` column is the credit line as one string ("Tyler, The
+        // Creator, Kali Uchis"), not a parsed array — the same shape a generator-produced item
+        // has always carried it in, per `artistKey`'s own note on this. `artist` is the whole
+        // line too, on the same convention: it is what identity is taken from, and this record
+        // has no more specific lead to prefer over it.
+        const track: RundownTrack = {
+            pluginId: binding.pluginId,
+            externalId: binding.externalId,
+            title: row.title,
+            artists: [row.artists],
+            artist: row.artists,
+            trackId: row.id,
+            ...(binding.durationMs === undefined ? {} : { durationMs: binding.durationMs }),
+            // `== null` rather than `=== undefined`: a SQL NULL reads back as `undefined` at
+            // runtime, but Kysely's generated type still says `T | null`, on `db.ts`'s own rule.
+            ...(row.albumName == null ? {} : { album: row.albumName }),
+            ...(row.albumImageUrl == null ? {} : { artworkUrl: row.albumImageUrl }),
+            ...(row.year == null ? {} : { year: row.year }),
+        };
+
+        return await this.editOrder({
+            kind: 'insertTrack',
+            track,
+            ...(input.atIndex === undefined ? {} : { atIndex: input.atIndex }),
+        });
+    }
+
+    /**
      * Hand one edit to the director and answer with the order it produced.
      *
      * Cancel-then-post, like {@link putOnAir}, because an edit changes what the pass
@@ -891,6 +952,8 @@ function describeEdit(edit: OrderEdit): string {
             return 'An operator dropped an item before it could play.';
         case 'insertSegment':
             return 'An operator put a break into the running order.';
+        case 'insertTrack':
+            return 'An operator put a record into the running order.';
     }
 }
 

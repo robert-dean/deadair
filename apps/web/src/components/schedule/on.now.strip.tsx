@@ -152,7 +152,7 @@ function Ahead({
 function Sustaining({ next, now }: { next?: ScheduleOccurrence; now: string }) {
     return (
         <Stack gap="xxs">
-            <Eyebrow>Sustaining</Eyebrow>
+            <Eyebrow>Between blocks</Eyebrow>
             <Text fw={600}>Nothing scheduled</Text>
             <Text size="xs" c="dimmed">
                 {next === undefined

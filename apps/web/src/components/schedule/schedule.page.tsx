@@ -75,7 +75,10 @@ import { SustainingPanel } from './sustaining.panel';
 /** The three questions a programme page answers, in the order they are asked. */
 export const PROGRAMME_TABS = [
     { key: 'today', label: 'Today' },
-    { key: 'week', label: 'Week' },
+    // Labelled Timetable rather than Week: `WeekView` draws its own Day/Week switch inside the
+    // panel, so a tab called Week containing a control called Week read as two of the same switch.
+    // The key stays `week` — `?tab=week` links and `attention.destination.ts` depend on it.
+    { key: 'week', label: 'Timetable' },
     { key: 'sustaining', label: 'Sustaining' },
 ] as const satisfies readonly DestinationTab<string>[];
 
@@ -178,6 +181,11 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
         onTimeSlotClick: ({ slotStart }: { slotStart: string }) => setEditing(newSlotAt(slotStart)),
         withEventsDragAndDrop: true,
         withEventResize: true,
+        // Empty rather than omitted: a radio station has no weekend, Saturday and Sunday are not
+        // different from Tuesday, and an empty array is what stops the package setting
+        // `data-weekend` at all — which is why no CSS override is needed for the red it would
+        // otherwise draw (red is reserved for the on-air tally in this console).
+        weekendDays: [],
         // A block that is last night carrying over has a top edge belonging to the DAY rather than
         // to the slot, so it is not draggable at all. `moveEdit` refuses it too; this is what stops
         // somebody trying and watching it spring back.

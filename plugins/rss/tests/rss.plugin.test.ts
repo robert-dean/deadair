@@ -450,6 +450,24 @@ ${items
         expect(host.calls).toHaveLength(4);
     });
 
+    // The console draws headlines and teasers and never `content`, and it waited three seconds a
+    // page for article bodies it dropped. Distinct from `fetchArticles`, which is the operator
+    // saying the station never reads stories: this is one caller saying it will not use these.
+    it('reads no pages at all for a caller that asked for headlines only', async () => {
+        await initialize();
+        serving(
+            { 'https://one.example.com/a': articlePage('A story this particular caller is not going to read.') },
+            linkedFeed({ title: 'Bridge reopens', guid: 'g1', link: 'https://one.example.com/a' }),
+        );
+
+        const [item] = await plugin.fetchItems({ limit: 10, headlinesOnly: true });
+
+        // The headline and the publisher's own teaser still arrive; only the page behind them is skipped.
+        expect(item).toMatchObject({ title: 'Bridge reopens', summary: 'A teaser about Bridge reopens.' });
+        expect(item?.content).toBeUndefined();
+        expect(host.calls.map(call => call.url)).toEqual(['https://one.example.com/rss.xml']);
+    });
+
     it('reads no pages at all when the operator turned stories off', async () => {
         await initialize({ fetchArticles: false });
         serving(

@@ -50,8 +50,9 @@ export { rssManifest } from './rss.manifest.js';
  * publisher's words in the publisher's order — the plugin fetches and the host
  * thinks.
  *
- * Three bounds, because this is the expensive half. Only items actually being
- * RETURNED are read, so a `maxItems` of 25 never costs 25 pages; no more than
+ * Four bounds, because this is the expensive half. A caller that says
+ * `headlinesOnly` pays for none of it; only items actually being RETURNED are
+ * read, so a `maxItems` of 25 never costs 25 pages; no more than
  * {@link MAX_STORIES} per call; and the loop stops on
  * `host.remainingMs`, so a bulletin's long budget reads more of them than a DJ's
  * mid-break tool call does. A page that fails costs its own item and nothing
@@ -182,6 +183,9 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
         }
 
         const answering = newestFirst(sinceOnly(collected, query.since)).slice(0, Math.max(0, query.limit));
+        // A caller that will not read the stories is told the same headlines for the price of the
+        // feeds alone, which is most of the cost gone: the pages are the expensive half.
+        if (query.headlinesOnly === true) return answering;
         return this.withStories(answering);
     }
 

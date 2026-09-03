@@ -214,6 +214,46 @@ describe('reading the news', () => {
 
         expect(fetchItems).toHaveBeenCalledWith({ limit: 10, since: '2026-08-15T00:00:00.000Z' });
     });
+
+    // The expensive half of reading the news is a plugin following each entry's link and reading
+    // the publisher's page. Nothing here can decline that on a plugin's behalf, so the flag travels.
+    it('passes headlinesOnly through, because the work it saves belongs to the plugin', async () => {
+        const fetchItems = vi.fn(async (): Promise<NewsItem[]> => []);
+        const service = build([record(RSS, {}, { fetchItems })]);
+
+        await service.fetchItems({ limit: 10, headlinesOnly: true });
+
+        expect(fetchItems).toHaveBeenCalledWith({ limit: 10, headlinesOnly: true });
+    });
+
+    it('passes headlinesOnly through when one feed was named too', async () => {
+        const fetchItems = vi.fn(async (): Promise<NewsItem[]> => []);
+        const service = build([record(RSS, {}, { fetchItems })]);
+
+        await service.fetchItems({ feedId: `${RSS}:world`, limit: 10, headlinesOnly: true });
+
+        expect(fetchItems).toHaveBeenCalledWith({ feedId: 'world', limit: 10, headlinesOnly: true });
+    });
+
+    // Absent rather than `false`, so a plugin reads it as the SDK's "not set" and the operator's own
+    // fetchArticles setting stays the thing that decides.
+    it('says nothing about stories when the caller did not', async () => {
+        const fetchItems = vi.fn(async (): Promise<NewsItem[]> => []);
+        const service = build([record(RSS, {}, { fetchItems })]);
+
+        await service.fetchItems({ limit: 10 });
+
+        expect(fetchItems).toHaveBeenCalledWith({ limit: 10 });
+    });
+
+    it('carries it down the console route as well, which is the caller that needs it', async () => {
+        const fetchItems = vi.fn(async (): Promise<NewsItem[]> => []);
+        const service = build([record(RSS, {}, { fetchItems })]);
+
+        await service.readNews({ headlinesOnly: true });
+
+        expect(fetchItems).toHaveBeenCalledWith({ limit: MAX_NEWS_ITEMS, headlinesOnly: true });
+    });
 });
 
 describe('what the console reads', () => {

@@ -32,10 +32,22 @@ export function useNewsFeeds() {
     return useQuery(newsFeedsOptions);
 }
 
+/**
+ * Headlines only, always.
+ *
+ * This page draws a feed name, the categories, the moment and the publisher's own teaser, and links
+ * out for the rest. It has never drawn `content`, and `content` is the single most expensive thing
+ * the station can be asked for: a story is read from the publisher's own page, one page at a time.
+ * Measured before this flag existed, `/api/news` took 3.2s on the live station where every other
+ * call the page makes returns inside 30ms, and all of it bought article bodies that were parsed,
+ * sent, and dropped on the floor here.
+ *
+ * A bulletin and the model's news tool do NOT pass it, because for them the story is the point.
+ */
 export function newsStoriesOptions(feedId?: string) {
     return queryOptions({
         queryKey: queryKeys.news.stories(feedId),
-        queryFn: () => sdk.news.readNews(feedId === undefined ? {} : { feedId }),
+        queryFn: () => sdk.news.readNews({ headlinesOnly: true, ...(feedId === undefined ? {} : { feedId }) }),
         staleTime: STORIES_STALE_TIME,
     });
 }

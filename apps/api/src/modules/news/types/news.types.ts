@@ -54,6 +54,12 @@ export const NewsQuery = z.strictObject({
     feedId: z.string().max(400).optional().describe('One feed, or absent for every feed the station can see, merged newest first'),
     limit: z.coerce.number().int().min(1).max(100).optional(),
     since: z.string().max(40).optional().describe('Only entries published after this ISO-8601 instant'),
+    headlinesOnly: z
+        .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
+        .optional()
+        .describe(
+            "Answer with headlines and teasers alone, skipping the story behind each one. A story is read from the publisher's own page, which is by far the slowest thing this route does, so a caller that will not use `content` should say so",
+        ),
 });
 export type NewsQuery = z.infer<typeof NewsQuery>;
 
@@ -66,7 +72,7 @@ export const StationFeedList = z.strictObject({
 export type StationFeedList = z.infer<typeof StationFeedList>;
 
 /**
- * generated from [NewsPage](file://./../../../../data/contracts/news/news.types.ck#L38)
+ * generated from [NewsPage](file://./../../../../data/contracts/news/news.types.ck#L39)
  */
 export const NewsPage = z.strictObject({
     stories: z

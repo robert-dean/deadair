@@ -44,6 +44,8 @@ export interface NewsQuery {
     limit?: number;
     /** Only entries published after this ISO-8601 instant */
     since?: string;
+    /** Answer with headlines and teasers alone, skipping the story behind each one. A story is read from the publisher's own page, which is by far the slowest thing this route does, so a caller that will not use `content` should say so */
+    headlinesOnly?: boolean;
 }
 
 /**
@@ -54,7 +56,7 @@ export interface StationFeedList {
 }
 
 /**
- * generated from [NewsPage](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L38)
+ * generated from [NewsPage](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L39)
  */
 export interface NewsPage {
     /** Newest first. Empty when nothing could be read, which is deliberately not an error: the news is something the station may talk about, never something it needs to air */

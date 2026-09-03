@@ -47,7 +47,9 @@ describe('NewsPage', () => {
         render(<NewsPage />);
 
         expect(await screen.findByText('Something happened somewhere')).toBeInTheDocument();
-        expect(readNews).toHaveBeenCalledWith({});
+        // Headlines only: this page never draws `content`, and asking for it is what made the route
+        // take three seconds against the thirty milliseconds every other call on the page takes.
+        expect(readNews).toHaveBeenCalledWith({ headlinesOnly: true });
     });
 
     /**
@@ -80,7 +82,7 @@ describe('NewsPage', () => {
         await user.click(screen.getByRole('combobox', { name: 'Feed' }));
         await user.click(await screen.findByRole('option', { name: 'Sport' }));
 
-        expect(readNews).toHaveBeenLastCalledWith({ feedId: 'deadair.rss:sport' });
+        expect(readNews).toHaveBeenLastCalledWith({ headlinesOnly: true, feedId: 'deadair.rss:sport' });
     });
 
     /**

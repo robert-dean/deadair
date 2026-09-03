@@ -79,6 +79,23 @@ export interface NewsQuery {
      * caller cannot tell "there is nothing new" from "this was not applied".
      */
     since?: string;
+    /**
+     * `true` when the caller will not read {@link NewsItem.content}, so a plugin
+     * that would go and fetch one should not bother.
+     *
+     * A hint about COST rather than about shape: a plugin that has the story
+     * already, because the entry carried it, still sends it. What this asks it
+     * to skip is work it would otherwise do on the caller's behalf — for a feed
+     * reader that means following each entry's link and reading the publisher's
+     * page, which is an order of magnitude more expensive than the feed itself
+     * and is why this exists.
+     *
+     * Absent means the ordinary thing, so a plugin that ignores this is slow
+     * rather than wrong, and a caller that forgets it gets stories it does not
+     * need. That is the right way round: the console asked for a page of
+     * headlines and waited three seconds for article bodies it never drew.
+     */
+    headlinesOnly?: boolean;
 }
 
 /** One published entry. */

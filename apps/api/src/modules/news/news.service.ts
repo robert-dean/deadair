@@ -88,6 +88,7 @@ export class NewsService {
             ...(query.feedId === undefined ? {} : { feedId: query.feedId }),
             limit: query.limit ?? MAX_NEWS_ITEMS,
             ...(query.since === undefined ? {} : { since: query.since }),
+            ...(query.headlinesOnly === undefined ? {} : { headlinesOnly: query.headlinesOnly }),
         });
 
         return { stories };
@@ -185,7 +186,12 @@ export class NewsService {
                 return [];
             }
 
-            const answered = await this.ask(plugin, { feedId: address.feedId, limit, ...(query.since === undefined ? {} : { since: query.since }) });
+            const answered = await this.ask(plugin, {
+                feedId: address.feedId,
+                limit,
+                ...(query.since === undefined ? {} : { since: query.since }),
+                ...(query.headlinesOnly === undefined ? {} : { headlinesOnly: query.headlinesOnly }),
+            });
             return await this.airable(answered);
         }
 
@@ -194,7 +200,13 @@ export class NewsService {
             // Each plugin is asked for the whole limit rather than a share of it:
             // a station with two plugins where one is quiet should still get a
             // full list, and the merge below is what cuts it back to size.
-            collected.push(...(await this.ask(plugin, { limit, ...(query.since === undefined ? {} : { since: query.since }) })));
+            collected.push(
+                ...(await this.ask(plugin, {
+                    limit,
+                    ...(query.since === undefined ? {} : { since: query.since }),
+                    ...(query.headlinesOnly === undefined ? {} : { headlinesOnly: query.headlinesOnly }),
+                })),
+            );
         }
 
         // Withheld BEFORE the cut, or a page of shopping posts would push real stories past `limit`
@@ -268,7 +280,7 @@ export class NewsService {
      * will ask for next. Getting that wrong produces a story attributed to a
      * feed nobody can fetch, which is worse than no story.
      */
-    private async ask(plugin: NewsPlugin, query: { feedId?: string; limit: number; since?: string }): Promise<NewsItem[]> {
+    private async ask(plugin: NewsPlugin, query: { feedId?: string; limit: number; since?: string; headlinesOnly?: boolean }): Promise<NewsItem[]> {
         try {
             const items = await this.pluginInvoker.invoke(plugin.record.id, 'news.fetchItems', async () => plugin.instance.fetchItems(query));
 
@@ -294,6 +306,17 @@ export interface NewsItemQuery {
     limit: number;
     /** ISO-8601. Only entries published after it. */
     since?: string;
+    /**
+     * `true` when the caller will not read `NewsItem.content`.
+     *
+     * Passed straight through to the plugins rather than acted on here, because
+     * the work it saves is theirs: a feed reader follows every entry's link and
+     * reads the publisher's page, and nothing in this class can decline that on
+     * its behalf. The console sets it, since it draws headlines and teasers and
+     * never the story; a bulletin and the model's tool do not, since the story
+     * is the whole reason they asked.
+     */
+    headlinesOnly?: boolean;
 }
 
 /**

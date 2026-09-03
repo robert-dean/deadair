@@ -10,11 +10,11 @@ import type { NavItemProps } from './nav.item';
  * Check-up is what you open when something is wrong and you are sitting down, and Settings is not a
  * thing anybody configures on a phone. Both are still reachable, from the rows that link to them.
  */
-const PHONE_TABS: (Pick<NavItemProps, 'to' | 'label'> & { key: string })[] = [
-    { to: '/', label: 'Desk', key: 'D' },
-    { to: '/schedule', label: 'Programme', key: 'P' },
-    { to: '/catalog/tracks', label: 'Library', key: 'L' },
-    { to: '/voice', label: 'Voice', key: 'V' },
+const PHONE_TABS: Pick<NavItemProps, 'to' | 'label'>[] = [
+    { to: '/', label: 'Desk' },
+    { to: '/schedule', label: 'Programme' },
+    { to: '/catalog/tracks', label: 'Library' },
+    { to: '/voice', label: 'Voice' },
 ];
 
 /**
@@ -24,9 +24,11 @@ const PHONE_TABS: (Pick<NavItemProps, 'to' | 'label'> & { key: string })[] = [
  * open it, then choose — and it covers the thing you were looking at while you decide. The bar is
  * one tap and never hides the page.
  *
- * The mono key beside each label is the same letter the design puts on the desktop rail. It is
- * decorative here rather than a shortcut, which is why it is `aria-hidden`: a phone has no keyboard
- * to press it on, and announcing "D Desk" to a screen reader would be noise.
+ * No mono key here, and deliberately not: `side.nav.tsx` draws the same letter beside each
+ * destination because `SideNav` is where the shell binds it as a real keyboard shortcut. A phone
+ * has no keyboard, so the letter would be a character that means nothing, costing a line of height
+ * on the one viewport with the least of it to spare. No icon either — the desktop rail has none,
+ * and two navs disagreeing about whether a destination has an icon is worse than neither having one.
  */
 export function PhoneTabs() {
     return (
@@ -62,9 +64,6 @@ export function PhoneTabs() {
                     }}
                     activeOptions={{ exact: tab.to === '/' }}
                 >
-                    <Text component="span" ff="monospace" size="sm" aria-hidden>
-                        {tab.key}
-                    </Text>
                     <Text component="span" size="xs" truncate>
                         {tab.label}
                     </Text>

@@ -1,5 +1,3 @@
-import { vi } from 'vitest';
-
 /**
  * Puts the window below the `sm` breakpoint for the duration of a test, and hands back the desk.
  *
@@ -15,18 +13,22 @@ export function stubPhoneMedia(): () => void {
     const desk = window.matchMedia;
     Object.defineProperty(window, 'matchMedia', {
         writable: true,
-        value: vi.fn().mockImplementation((query: string) => ({
+        configurable: true,
+        // Plain, for `tests/setup.ts`'s reason: a `vi.fn()` here is stripped of its implementation
+        // by the `vi.resetAllMocks()` a dozen files in this suite run between cases, and answers
+        // `undefined` for the rest of the file.
+        value: (query: string) => ({
             matches: query.includes('max-width'),
             media: query,
             onchange: null,
-            addListener: vi.fn(),
-            removeListener: vi.fn(),
-            addEventListener: vi.fn(),
-            removeEventListener: vi.fn(),
-            dispatchEvent: vi.fn(),
-        })),
+            addListener: () => {},
+            removeListener: () => {},
+            addEventListener: () => {},
+            removeEventListener: () => {},
+            dispatchEvent: () => false,
+        }),
     });
     return () => {
-        Object.defineProperty(window, 'matchMedia', { writable: true, value: desk });
+        Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: desk });
     };
 }

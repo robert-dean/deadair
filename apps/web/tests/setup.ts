@@ -19,18 +19,34 @@ afterEach(cleanup);
 configure({ asyncUtilTimeout: 10_000 });
 
 // jsdom implements neither of these, and Mantine components use both.
+//
+// A PLAIN function rather than a `vi.fn()`, which it was until this bit. Nothing asserts on how
+// `matchMedia` was called, so it never needed to be a spy — and being one made it fragile in a way
+// nothing pointed at: a dozen files in this suite call `vi.resetAllMocks()` between cases, which
+// strips a mock's implementation and leaves it answering `undefined`. Every page that asks whether
+// it is on a phone was then reading `.matches` off nothing.
+//
+// It went unnoticed because Mantine's `useMediaQuery` asked in an effect, inside a `try`, so the
+// throw was swallowed and the answer stayed at the fallback — which happened to be the right one.
+// `usePhone` now asks during render, where a routing decision can read it, and there is no `try`
+// around that. A stub that a mock reset cannot break is the fix; a `try/catch` in app code to
+// survive the test environment would not be.
+//
+// `configurable` so a test can put its own answer here and take it away again. See
+// `tests/utils/phone.ts`.
 Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
+    configurable: true,
+    value: (query: string) => ({
         matches: false,
         media: query,
         onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-    })),
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+    }),
 });
 
 // `window.localStorage` is undefined here, not merely empty: Node's own experimental

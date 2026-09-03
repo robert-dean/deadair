@@ -9,12 +9,23 @@ import { useMediaQuery } from '@mantine/hooks';
  * hand-rolled twice (`__root.tsx` and `station.order.table.tsx`) and a third copy is where the two
  * halves of the shell start disagreeing about where a phone ends.
  *
- * The `false` fallback is load-bearing and is the desktop: while the browser has not answered yet
- * (first paint), a page laid out for a desk and corrected is cheaper than a phone layout flashing on
- * every desktop load — and on an actual phone the reverse costs one frame of the nav being
- * somewhere else, where the desktop cost would be 64px of empty bar on a desk.
+ * ## It answers on the FIRST render, and that is not the default
+ *
+ * Mantine's `getInitialValueInEffect` defaults to `true`: the hook returns the fallback on the first
+ * render and corrects itself in an effect. That is right for a page that is server-rendered, where
+ * there is no window to ask and a mismatch is a hydration error. This console is `createRoot` and
+ * has never been anything else, so the window is there to be asked and the deferral buys nothing.
+ *
+ * What it cost was a routing decision. `/settings` redirects to the first section on a desk and IS
+ * the list of sections on a phone, and it made that choice while this still said "desktop" — so a
+ * phone was redirected off the list before the effect could correct anything, and the settings
+ * sections were unreachable on a phone entirely. The way back was the same race, so it bounced
+ * straight off again.
+ *
+ * The fallback stays for the case it was written for: a window with no `matchMedia` at all answers
+ * `false`, which is a desk. What changed is that a window WITH one is asked before anything renders.
  */
 export function usePhone(): boolean {
     const theme = useMantineTheme();
-    return useMediaQuery(`(max-width: ${theme.breakpoints.sm})`, false) ?? false;
+    return useMediaQuery(`(max-width: ${theme.breakpoints.sm})`, false, { getInitialValueInEffect: false }) ?? false;
 }

@@ -529,7 +529,7 @@ export class DirectorConsoleService {
             // and this is the surface where somebody is standing at the desk to read it.
             throw httpError(422).withDetails({
                 message: settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT)
-                    ? 'nothing on that chart can be played: no provider serves these records, or the period and the station\'s own vetoes rule them all out'
+                    ? "nothing on that chart can be played: no provider serves these records, or the period and the station's own vetoes rule them all out"
                     : 'nothing on that chart is in the library, and "rotation.discover" is off, so the station may not look these records up',
             });
         }

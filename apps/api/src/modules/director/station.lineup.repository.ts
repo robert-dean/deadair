@@ -135,7 +135,12 @@ export class StationLineupRepository extends DataRepository {
             // mismatch in the generated types never has to be resolved here. `Infinity` is the one
             // value `to_timestamp` cannot take, and it is the whole point of the column — it is the
             // "until I release it" hold — so it goes as the literal Postgres understands.
-            holdUntil: snapshot.holdUntil === undefined ? null : snapshot.holdUntil === Infinity ? sql<never>`'infinity'::timestamptz` : instant(snapshot.holdUntil),
+            holdUntil:
+                snapshot.holdUntil === undefined
+                    ? null
+                    : snapshot.holdUntil === Infinity
+                      ? sql<never>`'infinity'::timestamptz`
+                      : instant(snapshot.holdUntil),
             mode: snapshot.mode,
             onEnd: snapshot.onEnd,
             source: snapshot.source,

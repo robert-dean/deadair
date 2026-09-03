@@ -28,23 +28,11 @@ const titles = (picks: readonly { title: string }[]): string[] => picks.map(pick
 
 describe('chartPicks', () => {
     it('walks the published document from the top for `ranked`', () => {
-        expect(titles(chartPicks(TOP_FIVE, { order: 'ranked' }))).toEqual([
-            'Glory Box',
-            'Windowlicker',
-            'Teardrop',
-            'Sour Times',
-            'Angel',
-        ]);
+        expect(titles(chartPicks(TOP_FIVE, { order: 'ranked' }))).toEqual(['Glory Box', 'Windowlicker', 'Teardrop', 'Sour Times', 'Angel']);
     });
 
     it('ends on number one for `countdown`', () => {
-        expect(titles(chartPicks(TOP_FIVE, { order: 'countdown' }))).toEqual([
-            'Angel',
-            'Sour Times',
-            'Teardrop',
-            'Windowlicker',
-            'Glory Box',
-        ]);
+        expect(titles(chartPicks(TOP_FIVE, { order: 'countdown' }))).toEqual(['Angel', 'Sour Times', 'Teardrop', 'Windowlicker', 'Glory Box']);
     });
 
     it('takes the TOP of the chart when capped, then reverses it', () => {
@@ -78,12 +66,7 @@ describe('chartPicks', () => {
     it('skips songs the running order already holds', () => {
         const avoid = new Set([songKey('Windowlicker', ['Aphex Twin'])]);
 
-        expect(titles(chartPicks(TOP_FIVE, { avoidSongKeys: avoid, order: 'ranked' }))).toEqual([
-            'Glory Box',
-            'Teardrop',
-            'Sour Times',
-            'Angel',
-        ]);
+        expect(titles(chartPicks(TOP_FIVE, { avoidSongKeys: avoid, order: 'ranked' }))).toEqual(['Glory Box', 'Teardrop', 'Sour Times', 'Angel']);
     });
 
     it('keeps one entry per song when a chart lists the same record twice', () => {

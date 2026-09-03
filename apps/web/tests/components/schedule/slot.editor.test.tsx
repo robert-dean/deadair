@@ -217,9 +217,7 @@ describe('SlotEditor', () => {
 
         await setupUser().click(screen.getByRole('button', { name: 'Save' }));
 
-        expect(onSubmit).toHaveBeenCalledWith(
-            expect.objectContaining({ sourceChartId: 'deadair.lastfm:top-100', sourceChartOrder: 'countdown' }),
-        );
+        expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ sourceChartId: 'deadair.lastfm:top-100', sourceChartOrder: 'countdown' }));
         expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourcePluginId');
         expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourcePlaylistId');
     });

@@ -1,22 +1,33 @@
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SideNav } from '../../../src/components/shell/side.nav';
 import { render, screen } from '../../utils/render';
 
-// The nav is exercised without a router: only `Link` is reached, and only to render an anchor.
+// Where the nav thinks the operator is. The rail draws a destination's sections only while they are
+// inside it, so almost every case here wants to be somewhere that expands nothing.
+let pathname = '/nowhere';
+
+// The nav is exercised without a router: `Link` is reached to render an anchor, and `useRouterState`
+// to answer where we are.
 vi.mock('@tanstack/react-router', () => ({
     Link: ({ to, children, ...props }: { to?: string; children?: ReactNode }) => (
         <a href={to} {...props}>
             {children}
         </a>
     ),
+    useRouterState: ({ select }: { select: (state: { location: { pathname: string } }) => unknown }) => select({ location: { pathname } }),
 }));
 
+beforeEach(() => {
+    pathname = '/nowhere';
+});
+
 describe('SideNav', () => {
-    it('is flat, because a heading over one destination is a heading arguing with itself', () => {
-        // The groups were the right answer to nineteen links. With the pages behind them folded
-        // into tabs, the work they did happens a level down on each destination's tab strip.
+    it('has no headings, because a heading over one destination is a heading arguing with itself', () => {
+        // The groups were the right answer to nineteen links, and stopped being one when the pages
+        // behind them folded into destinations. The sections below are LINKS under a link, which is
+        // the thing the old grouping was not.
         render(<SideNav />);
 
         for (const group of ['Air', 'Station', 'System']) {
@@ -24,7 +35,7 @@ describe('SideNav', () => {
         }
     });
 
-    it('offers the four destinations, and only those', () => {
+    it('offers the four destinations, and only those, from anywhere else', () => {
         render(<SideNav />);
 
         const labels = [
@@ -42,8 +53,47 @@ describe('SideNav', () => {
         // Check-up and Settings are in `nav.footer.tsx`, pinned under a rule at the bottom of the
         // rail. Nobody opens the console to look at either; they arrive from something that sent
         // them, and a list that mixes them with Library reads as though there were a choice.
+        //
+        // Four links and no more: a destination's sections are drawn only while the operator is
+        // inside it, so twenty-four rows of standing furniture is not a state this can reach.
         expect(screen.getAllByRole('link')).toHaveLength(labels.length);
         expect(screen.queryByRole('link', { name: 'Settings' })).not.toBeInTheDocument();
+    });
+
+    /**
+     * The sections are here because a tab strip stopped fitting.
+     *
+     * Voice's eight tabs are 1122px of intrinsic width inside a 964px strip at a 1200px window, and
+     * the strip hides its own scrollbar — so two of them were off the end with nothing saying so.
+     * They are rows under the destination now, and only while the operator is in it.
+     */
+    it('lists a destination’s sections while the operator is inside it, and not before', () => {
+        render(<SideNav />);
+        expect(screen.queryByRole('link', { name: /What it said/ })).not.toBeInTheDocument();
+
+        pathname = '/voice';
+        render(<SideNav />);
+
+        // The two that were off the end of the strip, and one from the middle of it.
+        for (const section of ['Productions', 'What it said', 'Pronunciations']) {
+            expect(screen.getByRole('link', { name: new RegExp(section) })).toBeInTheDocument();
+        }
+        // Library's are not drawn beside them: one destination is expanded at a time.
+        expect(screen.queryByRole('link', { name: /Playlists/ })).not.toBeInTheDocument();
+    });
+
+    /**
+     * The sentence is a tooltip, and a tooltip is not a thing a screen reader reaches.
+     *
+     * Settings' ten sections carried theirs as a second line of prose, which is 500px of rail; with
+     * every destination's sections drawn here that shape would not fit. The name is what carries it
+     * instead, so the reading is the same either way.
+     */
+    it('says what a section is in its name, since the sentence itself is only a tooltip', () => {
+        pathname = '/voice';
+        render(<SideNav />);
+
+        expect(screen.getByRole('link', { name: 'Pronunciations. Names it was getting wrong' })).toBeInTheDocument();
     });
 
     /**

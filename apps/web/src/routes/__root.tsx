@@ -23,7 +23,8 @@ import { JumpTo } from '../components/shell/jump.to';
 import { NavFooter } from '../components/shell/nav.footer';
 import { PhoneMenu } from '../components/shell/phone.menu';
 import { PhoneTabs } from '../components/shell/phone.tabs';
-import { DESTINATION_KEYS, SideNav } from '../components/shell/side.nav';
+import { DESTINATION_KEYS } from '../components/shell/destinations';
+import { SideNav } from '../components/shell/side.nav';
 import { StationMark } from '../components/shell/station.mark';
 import { StationClock } from '../components/shell/station.clock';
 import { StationTally } from '../components/shell/station.tally';
@@ -182,13 +183,23 @@ export function RootLayout() {
                         Here rather than in `SideNav` because `AppShell.Section` reads the shell's
                         context and throws without it, and the nav is rendered bare in its own
                         test. Layout that depends on the shell belongs to the shell. */}
-                    {/* `flexShrink: 0` so the four destinations keep their height whatever is below
-                        them. Settings opens out into ten sections with a line of prose under each,
-                        which is around 500px of footer, and with both sections shrinkable the flex
-                        column took it out of this one instead: on a 950px window the destinations
-                        were squeezed to 53px of scroller showing Desk and nothing else. The four
-                        places an operator actually goes are not the thing that gives way. */}
-                    <AppShell.Section grow component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0, flexShrink: 0 }}>
+                    {/* Both sections shrink, and this one no longer pins `flexShrink: 0`.
+
+                        It did, and the reason was measured: Settings opened out into ten sections
+                        with a LINE OF PROSE under each, about 500px of footer, and with both
+                        shrinkable the flex column took that height out of this section instead — on
+                        a 950px window the destinations were squeezed to 53px of scroller showing
+                        Desk and nothing else.
+
+                        Two things have changed and both matter. This is now the section that grows,
+                        because the rail draws every destination's sections: pinned, Voice's eight
+                        would take the whole column and leave Check-up, Settings and Logout in a
+                        footer scrolled to nothing with no sign they were there. And the 500px that
+                        caused the original squeeze is gone — a nested row carries its sentence as a
+                        tooltip rather than a second line, so Settings' ten are ten single rows.
+                        Only one destination is ever expanded, so the two sections cannot both be
+                        long at once, which is what makes shrinking either of them safe. */}
+                    <AppShell.Section grow component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0 }}>
                         <SideNav attention={attention.data?.items} />
                     </AppShell.Section>
                     {/* Its own section, below the growing one, which is what pins it to the bottom

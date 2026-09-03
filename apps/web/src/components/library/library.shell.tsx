@@ -16,11 +16,11 @@ import { EmbeddedPage } from '../shared/page.header';
  * underneath are still pages.
  */
 export const LIBRARY_TABS = [
-    { key: 'tracks', label: 'Tracks' },
-    { key: 'artists', label: 'Artists' },
-    { key: 'playlists', label: 'Playlists' },
-    { key: 'charts', label: 'Charts' },
-    { key: 'news', label: 'News' },
+    { key: 'tracks', label: 'Tracks', hint: 'Every record the station has ingested' },
+    { key: 'artists', label: 'Artists', hint: 'Who the records are by' },
+    { key: 'playlists', label: 'Playlists', hint: 'What a music plugin can offer it' },
+    { key: 'charts', label: 'Charts', hint: 'What is doing well elsewhere' },
+    { key: 'news', label: 'News', hint: 'The stories a bulletin is written from' },
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type LibraryTab = (typeof LIBRARY_TABS)[number]['key'];
@@ -48,13 +48,11 @@ export function LibraryShell({ active, children }: LibraryShellProps) {
 
     return (
         <Stack gap="lg">
-            <Stack gap="xxs">
-                <Title order={1}>Library</Title>
-                <Text size="sm" c="dimmed" maw={720}>
-                    Everything there is to play. Records, the artists behind them, the playlists a plugin can offer, the charts, and the stories a
-                    bulletin is written from.
-                </Text>
-            </Stack>
+            {/* The destination's name, and nothing under it. Every tab here carries its own
+                `PageHeader` description saying what THAT page is, so the two were drawn one above
+                the other and the reader's first two paragraphs were both preamble. The sentence
+                each section is worth is on its row in the rail now. */}
+            <Title order={1}>Library</Title>
 
             <DestinationTabs
                 tabs={LIBRARY_TABS}

@@ -65,9 +65,12 @@ describe('NavFooter', () => {
         pathname = '/settings/rotation';
         render(<NavFooter />);
 
-        // Every section, drawn from the one list rather than a second copy of it.
+        // Every section, drawn from the one list rather than a second copy of it. Matched by a
+        // prefix rather than the bare label: a nested row's hint has nowhere else to go now that
+        // Check-up's four sit beside Settings' ten, so it is folded into the accessible name — see
+        // the case below.
         for (const section of SETTINGS_SECTIONS) {
-            expect(screen.getByRole('link', { name: section.label })).toBeInTheDocument();
+            expect(screen.getByRole('link', { name: new RegExp(`^${section.label}\\.`) })).toBeInTheDocument();
         }
         expect(screen.getAllByRole('link')).toHaveLength(2 + SETTINGS_SECTIONS.length);
     });
@@ -78,31 +81,38 @@ describe('NavFooter', () => {
         pathname = '/plugins';
         render(<NavFooter />);
 
-        expect(screen.getByRole('link', { name: 'Station' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /^Station\./ })).toBeInTheDocument();
     });
 
-    it('says what each section holds, which a strip of tabs had no room for', () => {
+    /**
+     * "Words" and "Measurement" name subjects rather than settings, so the label alone does not tell
+     * an operator looking for the model which one to open — and the sentence saying so is now a
+     * TOOLTIP rather than a second line, because the rail draws every destination's sections and a
+     * line of prose under all of them the way Settings alone used to have it would not fit. The
+     * accessible name is where it still reads, for anybody who cannot rest a pointer on the row.
+     */
+    it('says what each section holds, in the name a screen reader gets even though the eye gets a tooltip', () => {
         pathname = '/settings/station';
         render(<NavFooter />);
 
-        // "Words" and "Measurement" name subjects rather than settings, so the label alone does not
-        // tell an operator looking for the model which one to open.
-        expect(screen.getByText('Which plugin it asks for words')).toBeInTheDocument();
-        expect(screen.getByText('Which plugin measures records')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Words. Which plugin it asks for words' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Measurement. Which plugin measures records' })).toBeInTheDocument();
     });
 
-    it('matches Settings exactly, so it does not light up beside whichever section is open', () => {
+    it('matches both destinations exactly, so neither lights up beside whichever section is open', () => {
         pathname = '/settings/rotation';
         render(<NavFooter />);
 
-        // Without this the router's default prefix match has `/settings` active on every one of its
-        // own children, and the rail says the operator is in two places at once. The parent is the
-        // only entry here that needs it, since it is the only one with children under it.
+        // Both carry sections now — Check-up's four joined Settings' ten — so both need the exact
+        // match, on the same argument `side.nav.tsx` makes for a destination with children: without
+        // it the router's default prefix match lights the parent up beside every child too, and the
+        // rail says the operator is in two places at once.
         expect(exactOf('/settings')).toBe(true);
-        // Everything else asks for nothing at all rather than for `{ exact: false }`. They read the
-        // same and are not: naming it replaces the router's whole default, `includeSearch` included.
+        expect(exactOf('/checkup')).toBe(true);
+        // The sections themselves ask for nothing at all rather than for `{ exact: false }`. They
+        // read the same and are not: naming it replaces the router's whole default, `includeSearch`
+        // included.
         expect(activeOptionsByRoute.get('/settings/rotation')).toBeUndefined();
-        expect(activeOptionsByRoute.get('/checkup')).toBeUndefined();
     });
 
     /**

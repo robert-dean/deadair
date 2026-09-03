@@ -3,10 +3,11 @@
 // PLACE — driven by the caller's URL rather than by state this component keeps to itself.
 
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isVoiceTab, VoicePage, VOICE_TABS } from '../../../src/components/voice/voice.page';
 import { render, screen, setupUser } from '../../utils/render';
+import { stubPhoneMedia } from '../../utils/phone';
 
 // Every hosted page opens its own queries on mount. They are covered by their own suites; here they
 // only have to not throw, so the whole SDK surface the eight of them touch answers empty.
@@ -36,34 +37,54 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 describe('VoicePage', () => {
-    it('offers every question about what the station says', () => {
+    // The strip is drawn only on a phone now — a desk lists these eight as rows in the rail instead,
+    // which is `side.nav.test.tsx`'s case, since the rail is what has room for eight without any of
+    // Voice's tabs running off the end of it. These three cases are the strip's own behaviour, so
+    // they are the ones that stub the phone.
+    describe('the phone strip', () => {
+        let restore: () => void;
+        beforeEach(() => {
+            restore = stubPhoneMedia();
+        });
+        afterEach(() => {
+            restore();
+        });
+
+        it('offers every question about what the station says', () => {
+            render(<VoicePage tab="characters" onSelect={() => undefined} />);
+
+            for (const tab of VOICE_TABS) {
+                expect(screen.getByRole('tab', { name: new RegExp(tab.label) })).toBeInTheDocument();
+            }
+        });
+
+        it('marks exactly one tab as the one you are on', () => {
+            render(<VoicePage tab="segments" onSelect={() => undefined} />);
+
+            const selected = screen.getAllByRole('tab').filter(tab => tab.getAttribute('aria-selected') === 'true');
+            expect(selected).toHaveLength(1);
+            expect(selected[0]).toHaveTextContent('Segments');
+        });
+
+        it('reports the chosen tab rather than selecting it itself', async () => {
+            // The tab is a place: it lives in the URL so a link into one is a link. This component
+            // must therefore ask to move rather than move, or the URL and the screen drift apart.
+            const onSelect = vi.fn();
+            const user = setupUser();
+            render(<VoicePage tab="characters" onSelect={onSelect} />);
+
+            await user.click(screen.getByRole('tab', { name: /Pronunciations/ }));
+
+            expect(onSelect).toHaveBeenCalledWith('pronunciations');
+            // Still showing what it was told to show. Nothing moved on its own.
+            expect(screen.getByRole('tab', { name: /Characters/ })).toHaveAttribute('aria-selected', 'true');
+        });
+    });
+
+    it('draws no strip at all on a desk, where the rail lists these instead', () => {
         render(<VoicePage tab="characters" onSelect={() => undefined} />);
 
-        for (const tab of VOICE_TABS) {
-            expect(screen.getByRole('tab', { name: new RegExp(tab.label) })).toBeInTheDocument();
-        }
-    });
-
-    it('marks exactly one tab as the one you are on', () => {
-        render(<VoicePage tab="segments" onSelect={() => undefined} />);
-
-        const selected = screen.getAllByRole('tab').filter(tab => tab.getAttribute('aria-selected') === 'true');
-        expect(selected).toHaveLength(1);
-        expect(selected[0]).toHaveTextContent('Segments');
-    });
-
-    it('reports the chosen tab rather than selecting it itself', async () => {
-        // The tab is a place: it lives in the URL so a link into one is a link. This component must
-        // therefore ask to move rather than move, or the URL and the screen drift apart.
-        const onSelect = vi.fn();
-        const user = setupUser();
-        render(<VoicePage tab="characters" onSelect={onSelect} />);
-
-        await user.click(screen.getByRole('tab', { name: /Pronunciations/ }));
-
-        expect(onSelect).toHaveBeenCalledWith('pronunciations');
-        // Still showing what it was told to show. Nothing moved on its own.
-        expect(screen.getByRole('tab', { name: /Characters/ })).toHaveAttribute('aria-selected', 'true');
+        expect(screen.queryByRole('tab')).not.toBeInTheDocument();
     });
 
     it('draws only the tab it is on', () => {
@@ -108,6 +129,16 @@ describe('VoicePage', () => {
 
         expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
         expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Voice');
+    });
+
+    it('draws one intro, not two', () => {
+        // The destination used to carry its own blurb above the tab it opened on, which also carries
+        // a description — so two paragraphs of preamble ran before anything a tab is actually about.
+        // The destination's own sentence is on its row in the rail now; the page keeps the one that
+        // is specific to what it opened on.
+        render(<VoicePage tab="voices" onSelect={() => undefined} />);
+
+        expect(screen.queryByText(/Who the station is when it talks/)).not.toBeInTheDocument();
     });
 });
 

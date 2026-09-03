@@ -1,38 +1,37 @@
+import { Fragment } from 'react';
 import { Stack } from '@mantine/core';
+import { useRouterState } from '@tanstack/react-router';
 import type { AttentionItem } from '@deadair/sdk';
 
 import { attentionCounts } from './attention.destination';
-import { NavItem, type NavItemProps } from './nav.item';
+import { isInsideDestination, NAV_DESTINATIONS } from './destinations';
+import { NavItem } from './nav.item';
 
 /**
  * The console's destinations, in the order an operator meets them.
  *
- * ## Why this is flat again
+ * ## Why the sections are here and not in a strip
  *
- * It was eleven links across a header, then nineteen in four groups. The groups were the right
- * answer to nineteen: flat is what had made the dead link invisible, and AIR / LIBRARY / STATION /
- * SYSTEM named the question each page answered.
+ * It was eleven links across a header, then nineteen in four groups, then four destinations with a
+ * tab strip each. The strip was the right answer for as long as it fitted, and it was the better
+ * place for the work the old headings did, because a tab is visible from inside the thing it
+ * belongs to.
  *
- * They stopped earning their keep the moment the pages behind them became tabs. A heading over one
- * item is not a grouping, and "LIBRARY › Library" is a heading arguing with its own contents. The
- * work the headings did is now done a level down, by the tab strip on each destination — which is
- * the better place for it, because a tab is visible from inside the thing it belongs to.
+ * A tab is only "visible from inside the thing it belongs to" while it is visible. Settings' ten
+ * sections were never going to fit and have been rows in `nav.footer.tsx` for as long as there have
+ * been ten, and then Voice grew to eight: 1122px of tabs inside a 964px strip at a 1200px window,
+ * with Productions and What it said off the end of it and no scrollbar to say so, because the strip
+ * hides its own. Picking one from the middle scrolled the first two off the other end instead.
  *
- * ## Settings is the one exception, and it is the rule's own argument that makes it one
+ * So the exception became the rule. Every destination's sections are rows here, and the strip is
+ * what the PHONE draws — where it is a swipe rather than a hidden overflow, and where a rail does
+ * not exist to hold them. Both read `destinations.ts`, so neither can list a section the other does
+ * not.
  *
- * `nav.footer.tsx` draws Settings' ten sections beneath it. That is nesting, in a nav this paragraph
- * says should be flat, so the exception has to earn itself rather than sit here as a contradiction.
- *
- * The argument above holds while a destination's tab strip fits: Library's five tabs and Check-up's
- * four do. Settings' ten are 1298px of intrinsic width against a phone's 358px, so the strip that
- * was supposed to do the headings' work scrolled, hid most of the sections from somebody trying to
- * find one, and had nowhere to put the sentence saying what each of them held. A tab is only
- * "visible from inside the thing it belongs to" while it is visible.
- *
- * Two things keep this from being the old grouped nav coming back. Settings is a LINK rather than a
- * heading, so nothing here is a heading arguing with its own contents. And the sections are drawn
- * only while the operator is inside Settings, so the rail an operator sees on every other page is
- * still the four destinations and two pinned links it was.
+ * Two things keep this from being the old grouped nav coming back. Each destination is a LINK rather
+ * than a heading, so nothing here is a heading arguing with its own contents. And a destination's
+ * sections are drawn only while the operator is inside it, so the rail on any given page is the four
+ * destinations, two pinned links, and one list.
  *
  * ## The order is the day, not the alphabet
  *
@@ -47,31 +46,6 @@ import { NavItem, type NavItemProps } from './nav.item';
  * has no keyboard to press them on. A desk does, so here they are bound: the shell registers
  * `d`, `p`, `l` and `v` against exactly this table, so the hint and the binding cannot drift.
  */
-const DESTINATIONS: Pick<NavItemProps, 'to' | 'label' | 'hint'>[] = [
-    // Home and On air were two links and one question. The landing page was a masthead and a list
-    // of faults, and the operator's next click was always the running order — so the first page was
-    // a toll gate on the second, and both drew the tally in different words.
-    { to: '/', label: 'Desk', hint: 'D' },
-    // Beside the desk: both answer "what is the station playing", one now and one later, and an
-    // operator changing tonight arrives with the same question as one changing this minute.
-    { to: '/schedule', label: 'Programme', hint: 'P' },
-    // Four links became one destination with tabs. They are all answers to "what can this station
-    // put on", and an operator arriving with that question had to already know whether the answer
-    // was a record, a playlist, a chart or a story. Each tab is still its own route, so nothing
-    // lost its URL state or its loader — see `library.shell.tsx`.
-    { to: '/catalog/tracks', label: 'Library', hint: 'L' },
-    // Eight links became one destination with tabs. They were eight because each is a real thing
-    // with its own table — but an operator does not arrive wanting "the pronunciations page", they
-    // arrive because the station said a name wrong, and every answer to THAT question is now on one
-    // page.
-    { to: '/voice', label: 'Voice', hint: 'V' },
-];
-
-/** The letters the shell binds, read off the table that draws them. */
-export const DESTINATION_KEYS: { hint: string; to: NavItemProps['to'] }[] = DESTINATIONS.flatMap(item =>
-    item.hint === undefined ? [] : [{ hint: item.hint, to: item.to }],
-);
-
 export interface SideNavProps {
     /**
      * What needs somebody, straight from `GET /station/attention`.
@@ -85,17 +59,44 @@ export interface SideNavProps {
 
 export function SideNav({ attention = [] }: SideNavProps) {
     const counts = attentionCounts(attention);
+    // Where the operator is, which is the only thing this asks the router. Read off it rather than
+    // computed from a prop, so it cannot give a different answer than the `data-status` the links
+    // themselves carry — the same rule `nav.footer.tsx` states for the sections it has always drawn.
+    const pathname = useRouterState({ select: state => state.location.pathname });
 
     return (
         <Stack gap={2} py="xs">
-            {DESTINATIONS.map(item => (
-                <NavItem
-                    key={item.label}
-                    to={item.to}
-                    label={item.label}
-                    hint={item.hint}
-                    attention={typeof item.to === 'string' ? counts.get(item.to) : undefined}
-                />
+            {NAV_DESTINATIONS.map(destination => (
+                <Fragment key={destination.label}>
+                    <NavItem
+                        to={destination.to}
+                        label={destination.label}
+                        hint={destination.hint}
+                        attention={typeof destination.to === 'string' ? counts.get(destination.to) : undefined}
+                        // A destination with children uses an exact match, or it lights up beside
+                        // whichever child is open and the rail says the operator is in two places.
+                        // The Desk has none and keeps the router's prefix default.
+                        {...(destination.sections.length > 0 ? { exact: true } : {})}
+                    />
+
+                    {/* Drawn only while the operator is inside this destination. Four destinations
+                        with every section permanently listed is 24 rows of standing furniture, and
+                        the rail's own argument for being flat was that a nav should be the places
+                        you are choosing between rather than everywhere the console has. */}
+                    {isInsideDestination(destination, pathname)
+                        ? destination.sections.map(section => (
+                              <NavItem
+                                  key={section.label}
+                                  to={section.to}
+                                  search={section.search}
+                                  label={section.label}
+                                  hintText={section.hintText}
+                                  nested
+                                  attention={typeof section.to === 'string' ? counts.get(section.to) : undefined}
+                              />
+                          ))
+                        : undefined}
+                </Fragment>
             ))}
         </Stack>
     );

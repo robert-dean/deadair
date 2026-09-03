@@ -1,11 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { Box, Button, Group } from '@mantine/core';
 
+import { usePhone } from './use.phone';
 import classes from './destination.tabs.module.css';
 
 export interface DestinationTab<TKey extends string> {
     key: TKey;
     label: string;
+    /**
+     * What is behind this tab, in a sentence.
+     *
+     * Not drawn by the strip, which has no room for it and does not need it: a strip is read left to
+     * right by somebody already inside the destination. It is drawn by the RAIL, where these are rows
+     * rather than tabs and several of them name a subject rather than a page — "Subjects", "Charts"
+     * and "Soundboard" all say nothing on their own. It lives here beside the label rather than in
+     * `shell/destinations.ts` for the reason the palette already imports these tables rather than
+     * restating them: two lists of the same tabs are two lists that drift.
+     */
+    hint?: string;
     /** How many things on this tab want somebody, if any. Zero draws nothing. */
     attention?: number;
 }
@@ -51,6 +63,7 @@ export interface DestinationTabsProps<TKey extends string> {
  * — every one of them on a desktop — is drawn exactly as it was before.
  */
 export function DestinationTabs<TKey extends string>({ tabs, active, onSelect, label }: DestinationTabsProps<TKey>) {
+    const phone = usePhone();
     const strip = useRef<HTMLDivElement>(null);
 
     // Which edges the row continues past, which is what decides whether it is faded. Both false is
@@ -99,6 +112,14 @@ export function DestinationTabs<TKey extends string>({ tabs, active, onSelect, l
     // Drawn as a mask rather than as a gradient laid over the row, because the row scrolls under it
     // and a solid overlay would have to know the page's background to fake the fade.
     const fade = maskFor(beyond);
+
+    // Nothing at all on a desk, where the rail lists these instead.
+    //
+    // Here rather than at the four call sites, because it is one rule about what a destination's
+    // sections ARE and not four pages each remembering it: a fifth destination gets the behaviour by
+    // rendering this, which is the only way a rule like that stays true. The hooks above still run —
+    // they must, since the strip is mounted again the moment the window narrows past `sm`.
+    if (!phone) return undefined;
 
     return (
         // The rule the tabs sit ON, so the selected one reads as connected to what is below it rather

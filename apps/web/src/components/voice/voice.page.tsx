@@ -13,14 +13,14 @@ import { EmbeddedPage } from '../shared/page.header';
 
 /** The tabs, in the order an operator meets them: who is talking, then everything they need to talk. */
 export const VOICE_TABS = [
-    { key: 'characters', label: 'Characters' },
-    { key: 'voices', label: 'Voices' },
-    { key: 'segments', label: 'Segments' },
-    { key: 'pronunciations', label: 'Pronunciations' },
-    { key: 'soundboard', label: 'Soundboard' },
-    { key: 'subjects', label: 'Subjects' },
-    { key: 'productions', label: 'Productions' },
-    { key: 'said', label: 'What it said' },
+    { key: 'characters', label: 'Characters', hint: 'Who the station is when it talks' },
+    { key: 'voices', label: 'Voices', hint: 'Which voice reads which character' },
+    { key: 'segments', label: 'Segments', hint: 'Recordings it plays rather than speaks' },
+    { key: 'pronunciations', label: 'Pronunciations', hint: 'Names it was getting wrong' },
+    { key: 'soundboard', label: 'Soundboard', hint: 'Beds, stings and what plays under a break' },
+    { key: 'subjects', label: 'Subjects', hint: 'What it is allowed to talk about' },
+    { key: 'productions', label: 'Productions', hint: 'Phone-ins and anything with more than one voice' },
+    { key: 'said', label: 'What it said', hint: 'Every break it has written, and every one it declined' },
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type VoiceTab = (typeof VOICE_TABS)[number]['key'];
@@ -65,13 +65,9 @@ export interface VoicePageProps {
 export function VoicePage({ tab, segment, persona, onSelect }: VoicePageProps) {
     return (
         <Stack gap="lg">
-            <Stack gap="xxs">
-                <Title order={1}>Voice</Title>
-                <Text size="sm" c="dimmed" maw={720}>
-                    Who the station is when it talks, and everything it needs to say it: characters, voices, recorded segments, pronunciations and
-                    what it has already said.
-                </Text>
-            </Stack>
+            {/* Name only: each tab opens with its own description, and the rail says what every
+                section is. See `library.shell.tsx`. */}
+            <Title order={1}>Voice</Title>
 
             <DestinationTabs tabs={VOICE_TABS} active={tab} onSelect={onSelect} label="Voice" />
 

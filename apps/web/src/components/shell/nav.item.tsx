@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { Badge, NavLink, Text } from '@mantine/core';
+import { Badge, NavLink, Text, Tooltip } from '@mantine/core';
 import { Link, type LinkProps } from '@tanstack/react-router';
 
 import { severityColor, type Severity } from '../shared/status';
@@ -15,6 +15,15 @@ export interface NavItemProps {
      * this narrow is a build error the moment a route is renamed or removed.
      */
     to: LinkProps['to'];
+    /**
+     * The search this row asks for, where the section it points at is a `?tab=` rather than a route.
+     *
+     * Voice and Programme keep their sections on one route each, so a rail row for What it said is
+     * `/voice` plus a search — and the router's own active check compares the search too, which is
+     * what lights exactly one of the eight. Typed off `LinkProps` for the reason `to` is: a
+     * `Record<string, string>` here would type-check a tab name against a destination that has none.
+     */
+    search?: LinkProps['search'];
     label: string;
     /**
      * The key that reaches this destination, drawn in the gutter as the design puts it there.
@@ -33,6 +42,11 @@ export interface NavItemProps {
      * neighbours in name. Settings' sections carry one because several of them name a subject rather
      * than a setting — "Words" and "Measurement" say nothing about what an operator would find
      * there — and the rail is the first navigator this console has had with room for it.
+     *
+     * Drawn as a TOOLTIP on a nested row rather than as a second line. Ten Settings rows with a
+     * sentence each already ran past the bottom of a 783px window; the rail now carries every
+     * destination's sections, so Voice's eight would have done it again. A row is one line high and
+     * says what it is when you rest on it.
      */
     hintText?: string;
     /**
@@ -72,12 +86,12 @@ export interface NavItemProps {
  * So the label is written out only when there IS attention, and a link with nothing waiting keeps
  * its plain name rather than announcing that nothing is wrong with it.
  */
-export function NavItem({ to, label, hint, hintText, attention, nested = false, exact = false }: NavItemProps) {
+export function NavItem({ to, search, label, hint, hintText, attention, nested = false, exact = false }: NavItemProps) {
     // For `aria-describedby`. Mantine gives its description element no id of its own, so the id goes
     // on a span inside it, which is what the attribute can then point at.
     const describedBy = useId();
 
-    return (
+    const row = (
         <NavLink
             classNames={{ root: nested ? `${classes.item} ${classes.nested}` : classes.item, label: classes.label, description: classes.description }}
             label={label}
@@ -85,8 +99,8 @@ export function NavItem({ to, label, hint, hintText, attention, nested = false, 
             // reason the two attributes below exist: Mantine folds this into the link's accessible
             // name exactly as it folds the badge, so left alone "Station" is announced as "Station
             // Name, mount and where it publishes" — the same fault this file already fixes twice.
-            description={hintText === undefined ? undefined : <span id={describedBy}>{hintText}</span>}
-            aria-describedby={hintText === undefined ? undefined : describedBy}
+            description={hintText === undefined || nested ? undefined : <span id={describedBy}>{hintText}</span>}
+            aria-describedby={hintText === undefined || nested ? undefined : describedBy}
             // `aria-hidden` for the same reason the badge is: a section left visible is folded into
             // the link's accessible name, and "D Desk" is a label with a keycap stuck on the front
             // of it rather than a destination. Sighted operators lose nothing — the letter IS the
@@ -101,12 +115,16 @@ export function NavItem({ to, label, hint, hintText, attention, nested = false, 
             aria-label={
                 attention !== undefined
                     ? `${label}, ${attention.count} ${attention.count === 1 ? 'thing needs' : 'things need'} attention`
-                    : // Named explicitly only where there is something to override. A link with
-                      // neither a description nor attention keeps the name Mantine gives it, which
-                      // is its label and is already right.
-                      hintText === undefined
-                      ? undefined
-                      : label
+                    : // A nested row's sentence has nowhere else to go: it is a tooltip, which a
+                      // screen reader does not reach, so the name carries it.
+                      nested && hintText !== undefined
+                      ? `${label}. ${hintText}`
+                      : // Named explicitly only where there is something to override. A link with
+                        // neither a description nor attention keeps the name Mantine gives it, which
+                        // is its label and is already right.
+                        hintText === undefined || nested
+                        ? undefined
+                        : label
             }
             rightSection={
                 attention === undefined ? undefined : (
@@ -121,7 +139,18 @@ export function NavItem({ to, label, hint, hintText, attention, nested = false, 
             // `activeOptions` only where it is actually wanted. Passing `{ exact: false }` on every
             // link would read as the same thing and is not: it replaces the router's whole default,
             // `includeSearch` and all, on links that were relying on it.
-            renderRoot={(props: object) => <Link to={to} activeOptions={exact ? { exact: true } : undefined} {...props} />}
+            renderRoot={(props: object) => <Link to={to} search={search} activeOptions={exact ? { exact: true } : undefined} {...props} />}
         />
+    );
+
+    // The sentence is a tooltip on a nested row and a second line on a parent, and the difference is
+    // height: the rail draws every destination's sections now, so a nested row has to be one line.
+    // `aria-label` carries it either way, which is why the tooltip needs no describedby of its own.
+    return hintText === undefined || !nested ? (
+        row
+    ) : (
+        <Tooltip label={hintText} position="right" openDelay={400} maw={280} multiline>
+            {row}
+        </Tooltip>
     );
 }

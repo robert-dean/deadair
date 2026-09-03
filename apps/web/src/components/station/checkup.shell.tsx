@@ -6,10 +6,10 @@ import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs
 import { EmbeddedPage } from '../shared/page.header';
 
 export const CHECKUP_TABS = [
-    { key: 'machinery', label: 'Machinery' },
-    { key: 'history', label: 'What it has been doing' },
-    { key: 'cost', label: 'What it cost' },
-    { key: 'logs', label: 'Logs' },
+    { key: 'machinery', label: 'Machinery', hint: 'What every part of it is doing now' },
+    { key: 'history', label: 'What it has been doing', hint: 'Everything that aired, wrote or failed' },
+    { key: 'cost', label: 'What it cost', hint: 'Every call it made, and what it spent' },
+    { key: 'logs', label: 'Logs', hint: 'The station’s own log, and the audio chain’s' },
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type CheckupTab = (typeof CHECKUP_TABS)[number]['key'];
@@ -49,15 +49,10 @@ export function CheckupShell({ active, children }: CheckupShellProps) {
 
     return (
         <Stack gap="lg">
-            <Stack gap="xxs">
-                <Title order={1}>Check-up</Title>
-                {/* What the four tabs are, and nothing else. The second sentence this used to carry
-                    — that nothing here probes the station — is the Machinery tab's own opening line,
-                    almost word for word, and the two were drawn one above the other. */}
-                <Text size="sm" c="dimmed" maw={720}>
-                    The machinery, what the station has been doing, what that cost, and the logs underneath.
-                </Text>
-            </Stack>
+            {/* Name only: each tab opens with its own description, and the rail says what every
+                section is. This one used to carry the Machinery tab's opening line almost word for
+                word, drawn directly above it. See `library.shell.tsx`. */}
+            <Title order={1}>Check-up</Title>
 
             <DestinationTabs
                 tabs={CHECKUP_TABS}

@@ -3,9 +3,9 @@ import { Box, NavLink, Stack } from '@mantine/core';
 import { useRouterState } from '@tanstack/react-router';
 import type { AttentionItem } from '@deadair/sdk';
 
-import { SETTINGS_ROUTES, SETTINGS_SECTIONS } from '../settings/settings.shell';
 import { attentionCounts } from './attention.destination';
-import { NavItem, type NavItemProps } from './nav.item';
+import { isInsideDestination, NAV_FOOTER_DESTINATIONS } from './destinations';
+import { NavItem } from './nav.item';
 import classes from './side.nav.module.css';
 
 /**
@@ -29,16 +29,6 @@ import classes from './side.nav.module.css';
  * rather than here: layout that depends on the shell belongs to the shell.
  */
 
-const ITEMS: Pick<NavItemProps, 'to' | 'label'>[] = [
-    // The activity feed is the second tab here now. Check-up says what the machinery is doing NOW
-    // and the feed says what it DID: an operator who finds a stalled loop on the first immediately
-    // wants the second, and had to go and find it in the nav.
-    { to: '/checkup', label: 'Check-up' },
-    // Plugins is a section of Settings now: a plugin is a thing you configure, and its own
-    // configuration was already the other half of that page.
-    { to: '/settings', label: 'Settings' },
-];
-
 /**
  * Where the operator is, which is the only thing this asks the router.
  *
@@ -46,15 +36,6 @@ const ITEMS: Pick<NavItemProps, 'to' | 'label'>[] = [
  * the `data-status` the links themselves carry.
  */
 const usePathname = (): string => useRouterState({ select: state => state.location.pathname });
-
-/**
- * Whether that path is inside Settings, which is what decides if the sections are drawn.
- *
- * `/plugins` counts. It is a section of Settings that happens to have been a route first, and an
- * operator on it is inside Settings by every measure except the shape of the URL.
- */
-const inSettingsAt = (path: string): boolean =>
-    path === '/settings' || path.startsWith('/settings/') || path === '/plugins' || path.startsWith('/plugins/');
 
 export interface NavFooterProps {
     /** What needs somebody. Same list the rail above reads, so the two halves cannot disagree. */
@@ -70,7 +51,6 @@ export interface NavFooterProps {
 export function NavFooter({ attention = [], onLogout, loggingOut }: NavFooterProps) {
     const counts = attentionCounts(attention);
     const pathname = usePathname();
-    const inSettings = inSettingsAt(pathname);
     const rows = useRef<HTMLDivElement>(null);
 
     // The sections are taller than the space the rail can give them — ten rows and a line of prose
@@ -87,38 +67,31 @@ export function NavFooter({ attention = [], onLogout, loggingOut }: NavFooterPro
     return (
         <Box ref={rows} py="xs" style={{ borderTop: '1px solid var(--da-border)' }}>
             <Stack gap={2}>
-                {ITEMS.map(item => (
-                    <Fragment key={item.label}>
+                {NAV_FOOTER_DESTINATIONS.map(destination => (
+                    <Fragment key={destination.label}>
                         <NavItem
-                            to={item.to}
-                            label={item.label}
-                            attention={typeof item.to === 'string' ? counts.get(item.to) : undefined}
-                            // Settings prefix-matches every one of its own sections, so without this
-                            // the parent lights up beside whichever child is open and the rail says
-                            // the operator is in two places. Only needed on an entry that has
-                            // children, which is why it is not on `NavItem` for everybody.
-                            {...(item.to === '/settings' ? { exact: true } : {})}
+                            to={destination.to}
+                            label={destination.label}
+                            attention={typeof destination.to === 'string' ? counts.get(destination.to) : undefined}
+                            // Both of these have children, so both prefix-match their own sections.
+                            // Without this the parent lights up beside whichever child is open and
+                            // the rail says the operator is in two places.
+                            exact
                         />
 
-                        {/* Ten rows and their hints, where a strip of ten tabs had room for neither.
-                            Drawn only while the operator is in Settings: the rail is otherwise four
-                            destinations and two links, and ten permanent extra rows would be a lot
-                            of standing furniture for somewhere nobody opens the console to look at.
-
-                            This is the one nested thing in the nav, and `side.nav.tsx` argues at
-                            length for the nav being flat. The argument there is that a destination's
-                            own tab strip does this job better because it is visible from inside the
-                            thing it belongs to — true while a strip fits, which is Library's five
-                            and Check-up's four, and not Settings' ten. */}
-                        {item.to === '/settings' && inSettings
-                            ? SETTINGS_SECTIONS.map(section => (
+                        {/* Drawn only while the operator is inside it, the same rule the rail above
+                            follows. Check-up's four are here for the first time: they were a tab
+                            strip, and the console navigates one way now. */}
+                        {isInsideDestination(destination, pathname)
+                            ? destination.sections.map(section => (
                                   <NavItem
-                                      key={section.id}
-                                      to={SETTINGS_ROUTES[section.id]}
+                                      key={section.label}
+                                      to={section.to}
+                                      search={section.search}
                                       label={section.label}
-                                      hintText={section.hint}
+                                      hintText={section.hintText}
                                       nested
-                                      attention={counts.get(SETTINGS_ROUTES[section.id])}
+                                      attention={typeof section.to === 'string' ? counts.get(section.to) : undefined}
                                   />
                               ))
                             : undefined}

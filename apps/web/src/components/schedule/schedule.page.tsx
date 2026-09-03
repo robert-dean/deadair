@@ -74,12 +74,12 @@ import { SustainingPanel } from './sustaining.panel';
  */
 /** The three questions a programme page answers, in the order they are asked. */
 export const PROGRAMME_TABS = [
-    { key: 'today', label: 'Today' },
+    { key: 'today', label: 'Today', hint: 'What is on now, and what the hour is shaped like' },
     // Labelled Timetable rather than Week: `WeekView` draws its own Day/Week switch inside the
     // panel, so a tab called Week containing a control called Week read as two of the same switch.
     // The key stays `week` — `?tab=week` links and `attention.destination.ts` depend on it.
-    { key: 'week', label: 'Timetable' },
-    { key: 'sustaining', label: 'Sustaining' },
+    { key: 'week', label: 'Timetable', hint: 'The blocks across a week, and what changes them' },
+    { key: 'sustaining', label: 'Sustaining', hint: 'What it plays when nothing is scheduled' },
 ] as const satisfies readonly DestinationTab<string>[];
 
 export type ProgrammeTab = (typeof PROGRAMME_TABS)[number]['key'];

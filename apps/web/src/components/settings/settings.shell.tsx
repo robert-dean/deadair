@@ -30,6 +30,14 @@ export type SettingsSectionId = 'station' | 'appearance' | 'rotation' | 'playout
 export interface SettingsSection {
     id: SettingsSectionId;
     label: string;
+    /**
+     * What the section holds, which is the half a bare label leaves out.
+     *
+     * "Words" and "Measurement" name subjects rather than settings, so an operator looking for the
+     * model has no way to tell which one to open. It was dropped when the sections became a strip of
+     * tabs, which had nowhere to put it; the rail and the phone's list both do.
+     */
+    hint: string;
     /** The declared group this section draws, for the six that draw one. */
     group?: StationSettingDescriptor['group'];
     /** The sentence under the heading. Only a section with a `group` has one. */
@@ -60,46 +68,52 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     {
         id: 'station',
         label: 'Station',
+        hint: 'Name, mount and where it publishes',
         group: 'station',
         blurb: 'What the station is called and where it publishes. Icecast and Liquidsoap read these from files rendered on save, so a change reaches them on their next restart.',
     },
     // Second, and the only one on this page that changes nothing about the station. It is here
     // because "how do I make this readable in daylight" is a question an operator brings to
     // Settings, and the card itself says plainly that it is remembered on this browser alone.
-    { id: 'appearance', label: 'Appearance' },
+    { id: 'appearance', label: 'Appearance', hint: 'How the console looks, on this browser' },
     {
         id: 'rotation',
         label: 'Rotation',
+        hint: 'How it programmes itself',
         group: 'rotation',
         blurb: 'How the station programmes itself when nothing more specific is asked for. A lineup can override any of these for itself, and a setlist or a feature ignores all of them.',
     },
     {
         id: 'playout',
         label: 'Playout',
+        hint: 'What puts it on air',
         group: 'playout',
         blurb: 'What puts the station on air, and the secret the playout bridge is gated on.',
     },
     {
         id: 'render',
         label: 'Voice and audio',
+        hint: 'How it speaks, and how a programme is assembled',
         group: 'render',
         blurb: 'How the station speaks, and how a programme written in parts is put together.',
     },
     {
         id: 'llm',
         label: 'Words',
+        hint: 'Which plugin it asks for words',
         group: 'llm',
         blurb: 'Which plugin the station asks for words. With none set up it still writes its own breaks, from what is either side of them in the running order.',
     },
     {
         id: 'analysis',
         label: 'Measurement',
+        hint: 'Which plugin measures records',
         group: 'analysis',
         blurb: 'Which plugin measures records, so the station can trim the dead air off each one and know how long it may talk over an intro. With none set up every track still plays, unmeasured.',
     },
-    { id: 'storage', label: 'Storage' },
-    { id: 'grants', label: 'Waiting on you' },
-    { id: 'plugins', label: 'Plugins', route: '/plugins' },
+    { id: 'storage', label: 'Storage', hint: 'What the caches are holding' },
+    { id: 'grants', label: 'Waiting on you', hint: 'What plugins have asked for' },
+    { id: 'plugins', label: 'Plugins', hint: 'What the station runs, and what they have asked for', route: '/plugins' },
 ];
 
 /**

@@ -182,12 +182,22 @@ export function RootLayout() {
                         Here rather than in `SideNav` because `AppShell.Section` reads the shell's
                         context and throws without it, and the nav is rendered bare in its own
                         test. Layout that depends on the shell belongs to the shell. */}
-                    <AppShell.Section grow component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0 }}>
+                    {/* `flexShrink: 0` so the four destinations keep their height whatever is below
+                        them. Settings opens out into ten sections with a line of prose under each,
+                        which is around 500px of footer, and with both sections shrinkable the flex
+                        column took it out of this one instead: on a 950px window the destinations
+                        were squeezed to 53px of scroller showing Desk and nothing else. The four
+                        places an operator actually goes are not the thing that gives way. */}
+                    <AppShell.Section grow component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0, flexShrink: 0 }}>
                         <SideNav attention={attention.data?.items} />
                     </AppShell.Section>
                     {/* Its own section, below the growing one, which is what pins it to the bottom
-                        of the rail — see `nav.footer.tsx` for why it cannot do that itself. */}
-                    <AppShell.Section>
+                        of the rail — see `nav.footer.tsx` for why it cannot do that itself.
+
+                        `minHeight: 0` is what lets it shrink rather than overflow the rail, and the
+                        scroll is its own: it is the section that grows by ten rows when the operator
+                        is in Settings, so it is the one that has to give. */}
+                    <AppShell.Section component={ScrollArea} scrollbarSize={8} style={{ minHeight: 0 }}>
                         <NavFooter
                             attention={attention.data?.items}
                             loggingOut={logout.isPending}

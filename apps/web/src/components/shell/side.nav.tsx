@@ -18,6 +18,22 @@ import { NavItem, type NavItemProps } from './nav.item';
  * work the headings did is now done a level down, by the tab strip on each destination — which is
  * the better place for it, because a tab is visible from inside the thing it belongs to.
  *
+ * ## Settings is the one exception, and it is the rule's own argument that makes it one
+ *
+ * `nav.footer.tsx` draws Settings' ten sections beneath it. That is nesting, in a nav this paragraph
+ * says should be flat, so the exception has to earn itself rather than sit here as a contradiction.
+ *
+ * The argument above holds while a destination's tab strip fits: Library's five tabs and Check-up's
+ * four do. Settings' ten are 1298px of intrinsic width against a phone's 358px, so the strip that
+ * was supposed to do the headings' work scrolled, hid most of the sections from somebody trying to
+ * find one, and had nowhere to put the sentence saying what each of them held. A tab is only
+ * "visible from inside the thing it belongs to" while it is visible.
+ *
+ * Two things keep this from being the old grouped nav coming back. Settings is a LINK rather than a
+ * heading, so nothing here is a heading arguing with its own contents. And the sections are drawn
+ * only while the operator is inside Settings, so the rail an operator sees on every other page is
+ * still the four destinations and two pinned links it was.
+ *
  * ## The order is the day, not the alphabet
  *
  * The desk is where every visit starts. The schedule is the same question later. Library and Voice

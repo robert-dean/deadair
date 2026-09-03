@@ -464,7 +464,7 @@ export interface TrackRow extends Track {
     enriched: boolean;
 }
 
-export type TrackRowInput = TrackInput;
+export interface TrackRowInput extends TrackInput {}
 
 /**
  * A track list, narrowed by what the station has of each record as well as by name.

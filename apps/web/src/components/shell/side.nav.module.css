@@ -43,6 +43,39 @@
     line-height: 1.3;
 }
 
+/*
+ * An entry drawn under another one, which is Settings' sections and nothing else.
+ *
+ * Inset and quieter, and deliberately NOT smaller: the console's type is Mantine's own scale, and
+ * stepping it down for density reads as the browser zoomed out. Depth is spacing's job. The active
+ * bar still lands in the same gutter as its parent's, so the column of bars stays a straight line.
+ */
+.nested {
+    padding-left: var(--mantine-spacing-lg);
+}
+
+.nested .label {
+    color: var(--da-text-secondary);
+}
+
+.nested[data-status='active'] .label {
+    color: var(--da-text);
+}
+
+/*
+ * The sentence under a label, which says what is behind it.
+ *
+ * Handed to Mantine through `classNames` rather than written as a descendant selector: `NavLink`
+ * draws its description in its own element with its own class, and a `.nested .description` here
+ * would be a rule matching nothing.
+ */
+.description {
+    font-size: var(--mantine-font-size-xs);
+    line-height: 1.3;
+    color: var(--da-text-dimmed);
+    white-space: normal;
+}
+
 .groupLabel {
     padding-inline: var(--mantine-spacing-md);
     padding-block: var(--mantine-spacing-xs) 4px;

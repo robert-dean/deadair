@@ -21,6 +21,10 @@ vi.mock('@tanstack/react-router', () => ({
     Outlet: () => <div data-testid="outlet" />,
     redirect: (options: unknown) => options,
     useNavigate: () => navigate,
+    // The pinned footer asks the router where the operator is, to decide whether to open Settings
+    // out into its sections. Answered as somewhere that is not Settings, which is what every case
+    // in this file is about.
+    useRouterState: ({ select }: { select: (state: { location: { pathname: string } }) => unknown }) => select({ location: { pathname: '/' } }),
 }));
 
 vi.mock('../../src/api/client', () => ({

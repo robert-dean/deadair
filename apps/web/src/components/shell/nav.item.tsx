@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { Badge, NavLink, Text } from '@mantine/core';
 import { Link, type LinkProps } from '@tanstack/react-router';
 
@@ -25,6 +26,32 @@ export interface NavItemProps {
     hint?: string;
     /** How many things on this page need somebody, and the worst of them. Absent means nothing does. */
     attention?: { count: number; severity: Severity };
+    /**
+     * What is behind this link, drawn under the label.
+     *
+     * Not {@link NavItemProps.hint}, which is a keycap: this is a sentence, and the two are only
+     * neighbours in name. Settings' sections carry one because several of them name a subject rather
+     * than a setting — "Words" and "Measurement" say nothing about what an operator would find
+     * there — and the rail is the first navigator this console has had with room for it.
+     */
+    hintText?: string;
+    /**
+     * Whether this sits under another entry rather than beside it.
+     *
+     * Inset and quieter, but the SAME type size. The console's type is Mantine's own scale and stays
+     * that way: it was stepped down once to buy density, which reads as the browser zoomed out and
+     * costs legibility rather than earning rows. Depth is spacing's job.
+     */
+    nested?: boolean;
+    /**
+     * Whether this link is active only on its own route, rather than on everything beneath it.
+     *
+     * The router's default is a prefix match, which is right for a destination whose sub-pages are
+     * tabs — `/voice` should stay lit on every tab of Voice. It is wrong for an entry whose children
+     * are drawn beneath it, where the parent would light up beside whichever child is open and the
+     * rail would say the operator is in two places at once.
+     */
+    exact?: boolean;
 }
 
 /**
@@ -45,11 +72,21 @@ export interface NavItemProps {
  * So the label is written out only when there IS attention, and a link with nothing waiting keeps
  * its plain name rather than announcing that nothing is wrong with it.
  */
-export function NavItem({ to, label, hint, attention }: NavItemProps) {
+export function NavItem({ to, label, hint, hintText, attention, nested = false, exact = false }: NavItemProps) {
+    // For `aria-describedby`. Mantine gives its description element no id of its own, so the id goes
+    // on a span inside it, which is what the attribute can then point at.
+    const describedBy = useId();
+
     return (
         <NavLink
-            classNames={{ root: classes.item, label: classes.label }}
+            classNames={{ root: nested ? `${classes.item} ${classes.nested}` : classes.item, label: classes.label, description: classes.description }}
             label={label}
+            // A DESCRIPTION rather than a second line of label, and the difference is the whole
+            // reason the two attributes below exist: Mantine folds this into the link's accessible
+            // name exactly as it folds the badge, so left alone "Station" is announced as "Station
+            // Name, mount and where it publishes" — the same fault this file already fixes twice.
+            description={hintText === undefined ? undefined : <span id={describedBy}>{hintText}</span>}
+            aria-describedby={hintText === undefined ? undefined : describedBy}
             // `aria-hidden` for the same reason the badge is: a section left visible is folded into
             // the link's accessible name, and "D Desk" is a label with a keycap stuck on the front
             // of it rather than a destination. Sighted operators lose nothing — the letter IS the
@@ -62,9 +99,14 @@ export function NavItem({ to, label, hint, attention }: NavItemProps) {
                 )
             }
             aria-label={
-                attention === undefined
-                    ? undefined
-                    : `${label}, ${attention.count} ${attention.count === 1 ? 'thing needs' : 'things need'} attention`
+                attention !== undefined
+                    ? `${label}, ${attention.count} ${attention.count === 1 ? 'thing needs' : 'things need'} attention`
+                    : // Named explicitly only where there is something to override. A link with
+                      // neither a description nor attention keeps the name Mantine gives it, which
+                      // is its label and is already right.
+                      hintText === undefined
+                      ? undefined
+                      : label
             }
             rightSection={
                 attention === undefined ? undefined : (
@@ -76,7 +118,10 @@ export function NavItem({ to, label, hint, attention }: NavItemProps) {
             // Annotated for the reason every `renderRoot` in this console is: Mantine hands back
             // `any`, and spreading an `any` into a `Link` switches off the check that `to` is a
             // route that exists. This is the nav, so that check is the one worth having most.
-            renderRoot={(props: object) => <Link to={to} {...props} />}
+            // `activeOptions` only where it is actually wanted. Passing `{ exact: false }` on every
+            // link would read as the same thing and is not: it replaces the router's whole default,
+            // `includeSearch` and all, on links that were relying on it.
+            renderRoot={(props: object) => <Link to={to} activeOptions={exact ? { exact: true } : undefined} {...props} />}
         />
     );
 }

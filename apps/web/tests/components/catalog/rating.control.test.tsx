@@ -24,7 +24,9 @@ describe('RatingControl', () => {
     it('reads as no opinion when the row carries none at all', () => {
         render(<RatingControl label="Vaka" onChange={vi.fn()} />);
 
-        expect(screen.getByRole('radio', { name: 'No opinion about Vaka' })).toBeChecked();
+        expect(screen.getByRole('radio', { name: 'Dislike Vaka' })).not.toBeChecked();
+        expect(screen.getByRole('radio', { name: 'No opinion about Vaka' })).not.toBeChecked();
+        expect(screen.getByRole('radio', { name: 'Like Vaka' })).not.toBeChecked();
     });
 
     it('withdraws an opinion rather than only offering the two poles', async () => {

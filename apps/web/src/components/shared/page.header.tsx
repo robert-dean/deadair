@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import { Group, Stack, Title, VisuallyHidden } from '@mantine/core';
+import { Box, Group, Stack, Title, VisuallyHidden } from '@mantine/core';
 
 import { Eyebrow } from './eyebrow';
 import { usePhone } from './use.phone';
@@ -57,10 +57,23 @@ export function PageHeader({ title, eyebrow, description, actions, children }: P
                 <VisuallyHidden>
                     <Title order={2}>{title}</Title>
                 </VisuallyHidden>
-                <Group justify="space-between" align="flex-start" wrap={phone ? 'wrap' : 'nowrap'} gap="md">
-                    {description ?? <span />}
+                {/*
+                    Wraps on every viewport, not only on a phone: a description long enough to matter
+                    (Voice > Characters, eight lines) was squeezed into a ~220px ribbon beside the
+                    actions on a 1200px desk rather than being given the row. The description gets a
+                    measure and a flex basis so it takes the full row once the actions do not fit
+                    beside it; a short description with a couple of buttons still fits on one line.
+                */}
+                <Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
+                    {description ? (
+                        <Box maw={720} style={{ flex: '1 1 320px' }}>
+                            {description}
+                        </Box>
+                    ) : (
+                        <span />
+                    )}
                     {actions ? (
-                        <Group gap="xs" wrap={phone ? 'wrap' : 'nowrap'} style={phone ? undefined : { flexShrink: 0 }}>
+                        <Group gap="xs" wrap={phone ? 'wrap' : 'nowrap'} style={{ flexShrink: 0 }}>
                             {actions}
                         </Group>
                     ) : undefined}

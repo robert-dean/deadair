@@ -4,7 +4,7 @@ import { SdkError } from '@deadair/sdk';
 import { EmptyState } from '../../../src/components/shared/empty.state';
 import { ErrorAlert } from '../../../src/components/shared/error.alert';
 import { Eyebrow } from '../../../src/components/shared/eyebrow';
-import { PageHeader } from '../../../src/components/shared/page.header';
+import { EmbeddedPage, PageHeader } from '../../../src/components/shared/page.header';
 import { PageSkeleton } from '../../../src/components/shared/page.skeleton';
 import { StatusLamp } from '../../../src/components/shared/status.lamp';
 import { render, screen } from '../../utils/render';
@@ -48,6 +48,35 @@ describe('PageHeader', () => {
         expect(screen.getByRole('heading', { level: 1, name: 'Plugins' })).toBeInTheDocument();
         expect(screen.getByText('Station')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Rescan' })).toBeInTheDocument();
+    });
+
+    /** Voice > Characters: an eight-line description and five buttons must not squeeze into a ribbon. */
+    it('gives a long description room to breathe beside actions when embedded', () => {
+        const description =
+            'This voice reads every character the station has cast, across every persona, ' +
+            'and this description runs long enough on its own that it needs the full row rather than a narrow column beside the buttons.';
+        render(
+            <EmbeddedPage>
+                <PageHeader
+                    title="Characters"
+                    description={description}
+                    actions={
+                        <>
+                            <button type="button">New</button>
+                            <button type="button">Import</button>
+                            <button type="button">Export</button>
+                            <button type="button">Reassign</button>
+                            <button type="button">Delete</button>
+                        </>
+                    }
+                />
+            </EmbeddedPage>,
+        );
+
+        expect(screen.getByText(description)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'New' })).toBeInTheDocument();
+        const heading = screen.getByRole('heading', { level: 2, name: 'Characters' });
+        expect(heading.closest('[class*="mantine-VisuallyHidden-root"]')).not.toBeNull();
     });
 });
 

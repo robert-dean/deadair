@@ -27,6 +27,14 @@ export interface RatingControlProps {
  * and not a second click on the active side — an operator should be able to see that the middle is
  * where they started.
  *
+ * An absent rating still defaults to `neutral` for the contract and for `onChange`'s callers — every
+ * row has an implicit position in the rotation whether or not anybody stated one — but the control
+ * itself draws that default as no segment selected rather than as `—` pressed and raised. A table of
+ * hundreds of never-rated records showing `—` selected on every row reads as hundreds of decisions
+ * somebody made; drawing no opinion as no opinion is what tells an unreviewed row apart from one an
+ * operator actually looked at and shrugged over. Picking `neutral` explicitly still lands on the same
+ * segment as picking nothing, which is how withdrawing an opinion stays reachable.
+ *
  * Deliberately NOT Mantine's `Rating`, which looks like the obvious component and is a star scale:
  * `count` items valued 1..count. Like and dislike are opposite poles rather than one and two stars,
  * and dressing them as a scale would put `disliked` below `neutral` on a widget that reads as
@@ -36,7 +44,10 @@ export function RatingControl({ rating = 'neutral', onChange, label, busy = fals
     return (
         <SegmentedControl
             size={size}
-            value={rating}
+            // An unrated row shows no segment pressed at all: `rating` still defaults to `neutral`
+            // above for everything that treats a missing opinion as the rotation's implicit middle,
+            // but the control does not draw that default as a decision nobody made.
+            value={rating === 'neutral' ? '' : rating}
             // `disabled` rather than unmounting or blanking: the answer on screen while the write is
             // in flight is still the one the operator can see they chose.
             disabled={busy}

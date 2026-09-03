@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
-import { CheckupPage, silenceTone } from '../../../src/components/station/checkup.page';
+import { CheckupPage } from '../../../src/components/station/checkup.page';
 import { stubPhoneMedia } from '../../utils/phone';
 import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
 import { render, screen, within } from '../../utils/render';
@@ -193,34 +193,16 @@ describe('CheckupPage', () => {
         expect(screen.queryByText('This could not be read. The rest of the page is unaffected.')).not.toBeInTheDocument();
     });
 
-    it('shows the station’s own verdict rather than wording a second one', async () => {
+    // The chip used to be handed `silence.cause` straight from the wire, so a station simply waiting
+    // for somebody to tune in announced itself as NOAUDIENCE — an enum member, uppercased by the
+    // badge. The header's tally had the English for it the whole time; this reads the same function.
+    it('shows the station’s own verdict in the same words the tally uses', async () => {
         allWell();
         getPlayoutStatus.mockResolvedValue(playoutStatus({ silence: stationSilence('noAudience') }));
 
         render(<CheckupPage />);
 
-        expect(await screen.findByText('noAudience')).toBeInTheDocument();
-    });
-});
-
-/**
- * The one judgement this page makes for itself, tested as the function it is.
- *
- * A station idling for want of a listener is the audience gate working and a station somebody stood
- * down is somebody's decision. Painting either red is the failure the `ready` badge exists to avoid,
- * and asserting it through a rendered colour is how a test passes while saying nothing.
- */
-describe('silenceTone', () => {
-    it('leaves the states that are the station doing as it was told unpainted', () => {
-        expect(silenceTone('noAudience')).toBe('standby');
-        expect(silenceTone('warmingUp')).toBe('standby');
-        expect(silenceTone('noProgramme')).toBe('standby');
-        expect(silenceTone('stoodDown')).toBe('off');
-    });
-
-    it('and paints the ones that actually want fixing', () => {
-        expect(silenceTone('streamUnreachable')).toBe('fault');
-        expect(silenceTone('transportStalled')).toBe('fault');
-        expect(silenceTone('controlDenied')).toBe('fault');
+        expect(await screen.findByText('ready')).toBeInTheDocument();
+        expect(screen.queryByText('noAudience')).not.toBeInTheDocument();
     });
 });

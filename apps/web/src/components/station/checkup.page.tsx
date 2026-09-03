@@ -13,9 +13,9 @@ import { formatBytes } from '../shared/format.bytes';
 import { formatTimeOfDay } from '../shared/feed.moment';
 import { PageHeader } from '../shared/page.header';
 import { PhoneCard } from '../shared/phone.card';
+import { readSilence } from '../playout/silence.reading';
 import { StatusLamp } from '../shared/status.lamp';
 import { usePhone } from '../shared/use.phone';
-import type { StatusTone } from '../shared/status';
 
 /**
  * Everything an operator would otherwise visit five pages to read.
@@ -39,6 +39,10 @@ export function CheckupPage() {
     const storage = useStorage();
     const checkup = useStationCheckup();
 
+    // The same reading the header's tally draws, so the two surfaces naming one state cannot word it
+    // differently — which they did for as long as this page handed the raw cause to a badge.
+    const reading = playout.data === undefined ? undefined : readSilence(playout.data.silence);
+
     // Read here rather than in `Loops`, which mounts only once the reading has arrived: by then
     // the answer must already be settled, or its first paint is a desk-shaped frame the phone
     // replaces a beat later. This page is mounted before any data, where that one corrected frame
@@ -58,17 +62,19 @@ export function CheckupPage() {
             />
 
             <Section title="On air" failed={playout.isError} pending={playout.isPending}>
-                {playout.data === undefined ? undefined : (
+                {playout.data === undefined || reading === undefined ? undefined : (
                     <Stack gap="xs">
                         <Group gap="sm" wrap="wrap">
                             {/* The station's own verdict rather than a second one worked out here.
                                 It composes ten gates in causal order and words the answer, and a
-                                sentence of our own would be a thing to disagree with it. */}
-                            <StatusLamp
-                                tone={playout.data.silence.audible ? 'live' : silenceTone(playout.data.silence.cause)}
-                                label={playout.data.silence.cause}
-                                emphasis="chip"
-                            />
+                                sentence of our own would be a thing to disagree with it.
+
+                                Read through `readSilence`, which is the same reading the tally in
+                                the header draws from. The chip used to be handed `silence.cause`
+                                raw — an enum member, which Mantine's Badge then uppercased into
+                                NOAUDIENCE. Two surfaces were naming one state, one of them in
+                                English and one in the wire format. */}
+                            <StatusLamp tone={reading.tone} label={reading.label} pulse={reading.live} emphasis="chip" />
                             <Text size="sm">{playout.data.silence.detail}</Text>
                         </Group>
                         {playout.data.silence.remedy === undefined ? undefined : (
@@ -420,15 +426,3 @@ function Fact({ label, value }: { label: string; value: string }) {
     );
 }
 
-/**
- * How a silence reads as a lamp.
- *
- * `waiting` rather than `fault` for the two causes that are the station doing as it was told: an
- * operator who pressed Stop knows why it is quiet, and a station idling for want of a listener is
- * the audience gate working. Painting either red is the failure the `ready` badge exists to avoid.
- */
-export function silenceTone(cause: string): StatusTone {
-    if (cause === 'stoodDown') return 'off';
-    if (cause === 'noAudience' || cause === 'warmingUp' || cause === 'noProgramme') return 'standby';
-    return 'fault';
-}

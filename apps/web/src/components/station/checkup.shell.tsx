@@ -51,9 +51,11 @@ export function CheckupShell({ active, children }: CheckupShellProps) {
         <Stack gap="lg">
             <Stack gap="xxs">
                 <Title order={1}>Check-up</Title>
+                {/* What the four tabs are, and nothing else. The second sentence this used to carry
+                    — that nothing here probes the station — is the Machinery tab's own opening line,
+                    almost word for word, and the two were drawn one above the other. */}
                 <Text size="sm" c="dimmed" maw={720}>
-                    The machinery, what the station has been doing, what that cost, and the logs underneath. Nothing here probes it: every figure is a
-                    reading it was already keeping.
+                    The machinery, what the station has been doing, what that cost, and the logs underneath.
                 </Text>
             </Stack>
 

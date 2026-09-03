@@ -4,6 +4,7 @@ import { IconArrowUpRight } from '@tabler/icons-react';
 import type { TraceDecision, TraceSpan } from '@deadair/sdk';
 
 import { useTrace, useTraces } from '../../api/station.queries';
+import { describeDecision } from './decision.words';
 import { FeedMoment } from '../shared/dated.feed';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
@@ -137,7 +138,7 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                         key={decision.id}
                         depth={depth}
                         onClick={() => onOpen(decision.id)}
-                        aria-label={`Open ${decision.kind}`}
+                        aria-label={`Open ${describeDecision(decision.kind).sentence}`}
                         leading={<FeedMoment at={decision.at} />}
                         title={
                             <>
@@ -150,7 +151,7 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                                     />
                                 ) : undefined}
                                 <Text size="sm" truncate>
-                                    {decision.kind}
+                                    {describeDecision(decision.kind).sentence}
                                 </Text>
                             </>
                         }
@@ -191,7 +192,9 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                    {rows.map(({ decision, depth }) => (
+                    {rows.map(({ decision, depth }) => {
+                        const reading = describeDecision(decision.kind);
+                        return (
                         <Table.Tr key={decision.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(decision.id)}>
                             <Table.Td>
                                 <FeedMoment at={decision.at} />
@@ -206,7 +209,17 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                                             <IconArrowUpRight size={13} stroke={1.8} style={{ transform: 'rotate(90deg)', opacity: 0.5 }} />
                                         </Tooltip>
                                     ) : undefined}
-                                    <Text size="sm">{decision.kind}</Text>
+                                    <Stack gap={0}>
+                                        <Text size="sm">{reading.sentence}</Text>
+                                        {/* The raw kind stays, dimmed, EXCEPT for a request — which
+                                            already reads as `GET /voices` in the sentence itself, so
+                                            repeating it underneath would be the same fact twice. */}
+                                        {reading.source === 'request' ? undefined : (
+                                            <Text size="xs" c="dimmed" ff="monospace">
+                                                {decision.kind}
+                                            </Text>
+                                        )}
+                                    </Stack>
                                 </Group>
                             </Table.Td>
                             <Table.Td>
@@ -235,7 +248,8 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                                 </Text>
                             </Table.Td>
                         </Table.Tr>
-                    ))}
+                        );
+                    })}
                 </Table.Tbody>
             </Table>
         </Table.ScrollContainer>
@@ -253,7 +267,25 @@ function TraceDrawer({ id, onClose }: { id: string | undefined; onClose: () => v
             onClose={onClose}
             position="right"
             size={phone ? '100%' : 'xl'}
-            title={trace.data?.decision.kind ?? 'Decision'}
+            title={
+                trace.data === undefined ? (
+                    'Decision'
+                ) : (
+                    (() => {
+                        const reading = describeDecision(trace.data.decision.kind);
+                        return (
+                            <Stack gap={0}>
+                                <Text fw={600}>{reading.sentence}</Text>
+                                {reading.source === 'request' ? undefined : (
+                                    <Text size="xs" c="dimmed" ff="monospace">
+                                        {trace.data.decision.kind}
+                                    </Text>
+                                )}
+                            </Stack>
+                        );
+                    })()
+                )
+            }
         >
             {trace.isPending ? <PageSkeleton variant="rows" count={6} /> : undefined}
             {trace.isError ? (

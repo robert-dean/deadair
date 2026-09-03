@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type {
     AddStationSegmentInput,
+    AddStationTrackInput,
     ExtendStationInput,
     HoldStationInput,
     MoveStationItemInput,
@@ -160,6 +161,18 @@ export function useRecastStation() {
 export function useAddOrderSegment() {
     const queryClient = useQueryClient();
     return useMutation(orderMutation<AddStationSegmentInput>(queryClient, body => sdk.director.addASegmentToTheRunningOrder(body)));
+}
+
+/**
+ * Puts a catalog record into the running order at a position.
+ *
+ * Undo's other half: {@link useRemoveOrderItem} takes a track out of the order entirely, and this
+ * is the only way one can be put back. An order mutation like the others, on the same reasoning —
+ * the director applied the edit before it replied, so the reply is what the table redraws from.
+ */
+export function useAddOrderTrack() {
+    const queryClient = useQueryClient();
+    return useMutation(orderMutation<AddStationTrackInput>(queryClient, body => sdk.director.addARecordToTheRunningOrder(body)));
 }
 
 /** Queues a refill of what is on air. Returns as soon as it is queued; the tracks land later. */

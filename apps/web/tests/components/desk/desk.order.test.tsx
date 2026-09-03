@@ -13,6 +13,7 @@ import type { StationOrder, StationOrderItem } from '@deadair/sdk';
 
 import { DeskPage } from '../../../src/components/desk/desk.page';
 import { measureTheOrderPort } from '../../utils/order.port';
+import { notifyUndoable } from '../../../src/components/shared/notify';
 import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
 import { stationAir } from '../../utils/station.fixture';
 import { render, screen, waitFor } from '../../utils/render';
@@ -24,6 +25,7 @@ measureTheOrderPort();
 const getStationAir = vi.fn();
 const getTheRunningOrder = vi.fn();
 const removeARunningOrderItem = vi.fn();
+const addARecordToTheRunningOrder = vi.fn();
 const moveARunningOrderItem = vi.fn();
 const shuffleTheRunningOrder = vi.fn();
 const extendTheRunningOrder = vi.fn();
@@ -39,6 +41,7 @@ vi.mock('../../../src/api/client', () => ({
             getStationAir: () => getStationAir(),
             getTheRunningOrder: () => getTheRunningOrder(),
             removeARunningOrderItem: (...args: unknown[]) => removeARunningOrderItem(...args),
+            addARecordToTheRunningOrder: (...args: unknown[]) => addARecordToTheRunningOrder(...args),
             moveARunningOrderItem: (...args: unknown[]) => moveARunningOrderItem(...args),
             shuffleTheRunningOrder: () => shuffleTheRunningOrder(),
             extendTheRunningOrder: (...args: unknown[]) => extendTheRunningOrder(...args),
@@ -57,6 +60,15 @@ vi.mock('../../../src/api/client', () => ({
 
 // The href is composed from `to` and `params` rather than stubbed as `#`, so the deep-link cases
 // below can assert where a row actually goes rather than only that it is clickable.
+// `notifyUndoable` renders through Mantine's `<Notifications />` portal, which nothing under
+// `render()` mounts — every other notify call in this suite is asserted the same way, by what it
+// was CALLED with rather than by clicking a toast that is not there. `actual` keeps `notifySaved`
+// and friends real, since nothing here is testing them.
+vi.mock('../../../src/components/shared/notify', async importOriginal => ({
+    ...(await importOriginal<typeof import('../../../src/components/shared/notify')>()),
+    notifyUndoable: vi.fn(),
+}));
+
 vi.mock('@tanstack/react-router', () => ({
     Link: ({
         to,
@@ -306,6 +318,54 @@ describe('DeskPage: the running order and the broadcast controls', () => {
 
         await waitFor(() => expect(removeARunningOrderItem).toHaveBeenCalledWith('item-4'));
         await waitFor(() => expect(screen.queryByText('Ageispolis')).not.toBeInTheDocument());
+    });
+
+    // Undo's whole reason for existing: a track is spliced out of the order entirely when it is
+    // dropped, so without a way back an operator who dropped the wrong row has no recourse but
+    // Shuffle or a replan — both of which change everything else too.
+    it('offers to put a dropped record back, at the position it held', async () => {
+        const withCatalogTrack = order({
+            items: [...order().items.slice(0, 3), orderItem({ id: 'item-4', state: 'planned', title: 'Ageispolis', trackId: 'track-ageispolis' })],
+        });
+        getTheRunningOrder.mockResolvedValue(withCatalogTrack);
+        removeARunningOrderItem.mockResolvedValue(order({ items: withCatalogTrack.items.slice(0, 3) }));
+        addARecordToTheRunningOrder.mockResolvedValue(withCatalogTrack);
+
+        render(<DeskPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Drop Ageispolis' }));
+        await waitFor(() => expect(removeARunningOrderItem).toHaveBeenCalled());
+
+        expect(notifyUndoable).toHaveBeenCalledWith(
+            expect.stringContaining('Ageispolis'),
+            expect.objectContaining({ label: 'Put it back', onUndo: expect.any(Function) }),
+        );
+
+        // The offer itself, exercised: calling what the toast's button would call reaches the API
+        // with the position item 4 held (index 3) in the order the page had drawn when it was
+        // dropped, not the position it would hold in whatever the order has become since.
+        const [, action] = vi.mocked(notifyUndoable).mock.calls[0]!;
+        action.onUndo();
+        await waitFor(() => expect(addARecordToTheRunningOrder).toHaveBeenCalledWith({ trackId: 'track-ageispolis', atIndex: 3 }));
+    });
+
+    it('offers no way back for a segment, which drop marks rather than removes', async () => {
+        // `orderItem`'s default `kind` is `track`, so a segment case has to say so — and a segment
+        // carries no `trackId`, which is the field the undo offer is actually keyed on.
+        getTheRunningOrder.mockResolvedValue(
+            order({
+                items: [
+                    ...order().items.slice(0, 3),
+                    orderItem({ id: 'item-4', state: 'planned', title: 'Talk break', kind: 'segment', artists: [], pluginId: undefined, externalId: undefined }),
+                ],
+            }),
+        );
+        removeARunningOrderItem.mockResolvedValue(order({ items: order().items.slice(0, 3) }));
+
+        render(<DeskPage />);
+        await userEvent.click(await screen.findByRole('button', { name: 'Drop Talk break' }));
+
+        await waitFor(() => expect(removeARunningOrderItem).toHaveBeenCalled());
+        expect(notifyUndoable).not.toHaveBeenCalled();
     });
 
     // The count never answered the question an operator actually has, which is whether they can go

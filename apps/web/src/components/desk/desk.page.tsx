@@ -5,7 +5,7 @@ import { Anchor } from '@mantine/core';
 import type { Rating, StationOrderItem } from '@deadair/sdk';
 
 import { useRateTrack } from '../../api/catalog.queries';
-import { useExtendOrder, useMoveOrderItem, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
+import { useAddOrderTrack, useExtendOrder, useMoveOrderItem, useRemoveOrderItem, useShuffleOrder, useStationAir, useStationOrder } from '../../api/director.queries';
 import { usePlayoutStatus } from '../../api/playout.queries';
 import { useStationAttention } from '../../api/station.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
@@ -16,7 +16,7 @@ import { StationOrderTable } from '../onair/station.order.table';
 import { AttentionList } from '../station/attention.list';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
-import { notifyQueued } from '../shared/notify';
+import { notifyQueued, notifyUndoable } from '../shared/notify';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { OnAirNow } from './on.air.now';
 
@@ -58,9 +58,16 @@ export function DeskPage() {
     const air = useStationAir();
     const order = useStationOrder();
 
+    // Read here, ahead of the mutations below, because `onRemove`'s undo needs the position a
+    // dropped row held AT THE MOMENT of the click — the table redraws under an operator's hand
+    // every five seconds, so a captured index from anywhere else risks naming a row that has moved.
+    const loaded = order.data;
+    const items = loaded?.items ?? [];
+
     const shuffle = useShuffleOrder();
     const extend = useExtendOrder();
     const removeItem = useRemoveOrderItem();
+    const addTrack = useAddOrderTrack();
     const moveItem = useMoveOrderItem();
     const rateTrack = useRateTrack();
 
@@ -69,9 +76,31 @@ export function DeskPage() {
     // the mutation object is new each render and its `mutate` is not, and the deps lint counts
     // identifiers rather than knowing that.
     const { mutate: removeOrderItem } = removeItem;
+    const { mutate: addOrderTrack } = addTrack;
     const { mutate: moveOrderItem } = moveItem;
     const { mutate: rateRecord } = rateTrack;
-    const onRemove = useCallback((item: StationOrderItem) => removeOrderItem(item.id), [removeOrderItem]);
+    // A record is spliced out of the order entirely when it is dropped — unlike a segment, which is
+    // only marked `removed`, on `docs/decisions/on-air-ownership.md`'s argument that a break planted
+    // again into the same slot a minute later is worse than one left marked — so a track is the one
+    // kind of drop that can be taken back. The position is read out of `items` at the moment of the
+    // click rather than trusted from a stale closure, because the table redraws under an operator's
+    // hand every five seconds.
+    const onRemove = useCallback(
+        (item: StationOrderItem) => {
+            const trackId = item.kind === 'track' ? item.trackId : undefined;
+            const atIndex = items.findIndex(candidate => candidate.id === item.id);
+            removeOrderItem(item.id, {
+                onSuccess: () => {
+                    if (trackId === undefined) return;
+                    notifyUndoable(`Dropped “${item.title}”.`, {
+                        label: 'Put it back',
+                        onUndo: () => addOrderTrack({ trackId, ...(atIndex < 0 ? {} : { atIndex }) }),
+                    });
+                },
+            });
+        },
+        [removeOrderItem, addOrderTrack, items],
+    );
     // The only way to reorder the hour that is not Shuffle, which reorders all of it. The table
     // decides the index, because what is legal is a fact about the rows it is holding rather than
     // something this page can work out.
@@ -81,8 +110,6 @@ export function DeskPage() {
     // because it carries each row's rating.
     const onRate = useCallback((trackId: string, rating: Rating) => rateRecord({ id: trackId, rating }), [rateRecord]);
 
-    const loaded = order.data;
-    const items = loaded?.items ?? [];
     const planned = items.filter(item => item.state === 'planned').length;
     const nothingOn = loaded !== undefined && items.length === 0;
     // Only while something is actually going out. Off air the order is not running down at all, so

@@ -9,6 +9,7 @@ import type { TrackDetail } from '@deadair/sdk';
 
 import { TrackDetailPage } from '../../../src/components/catalog/track.detail.page';
 import { render, screen } from '../../utils/render';
+import { stubPhoneMedia } from '../../utils/phone';
 
 const getTrack = vi.fn();
 const getTrackEnrichment = vi.fn();
@@ -163,5 +164,27 @@ describe('TrackDetailPage', () => {
         render(<TrackDetailPage trackId={TRACK_ID} />);
 
         expect(await screen.findByText('This record could not be loaded')).toBeInTheDocument();
+    });
+
+    // A `Table.ScrollContainer` at `minWidth={600}` inside a 500px-wide page left Held and Last
+    // played from permanently off-screen with nothing telling the reader they exist, so a phone
+    // gets one card per binding instead of a sideways-scrolling table.
+    it('gives the copies a card each on a phone, rather than a sideways-scrolling table', async () => {
+        const restore = stubPhoneMedia();
+        try {
+            getTrack.mockResolvedValue(
+                detail({
+                    bindings: [binding({ byteSize: 8_400_000, fetchedAt: '2026-08-14T10:00:00.000Z', format: 'ogg', bitrate: 320_000 })],
+                }),
+            );
+
+            render(<TrackDetailPage trackId={TRACK_ID} />);
+
+            expect(await screen.findByText('deadair.spotify')).toBeInTheDocument();
+            expect(screen.getByText('On this machine')).toBeInTheDocument();
+            expect(screen.queryByRole('table')).not.toBeInTheDocument();
+        } finally {
+            restore();
+        }
     });
 });

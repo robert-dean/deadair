@@ -12,9 +12,11 @@ import { formatBytes } from '../shared/format.bytes';
 import { formatDuration } from '../shared/format.duration';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
+import { PhoneCard } from '../shared/phone.card';
 import { StatusLamp } from '../shared/status.lamp';
 import type { StatusTone } from '../shared/status';
 import { Artwork } from '../shared/artwork';
+import { usePhone } from '../shared/use.phone';
 import { CATALOG_TRACK_DEFAULTS } from './catalog.page.params';
 import { EnrichmentPanel } from './enrichment.panel';
 import { RatingControl } from './rating.control';
@@ -86,6 +88,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
     const track = useQuery(catalogTrackOptions(trackId));
     const enrichment = useQuery(catalogTrackEnrichmentOptions(trackId));
     const rate = useRateTrack();
+    const phone = usePhone();
 
     if (track.isPending) return <PageSkeleton variant="table" />;
 
@@ -97,8 +100,11 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
 
     return (
         <Stack gap="lg">
-            <Group align="flex-start" gap="md" wrap="nowrap">
-                <Artwork src={detail.albumImageUrl} alt={detail.title} size={160} />
+            {/* Wraps on a phone rather than holding its intrinsic width: at 500px a 160px artwork
+                beside the title block left no room for the title, which is why the artwork also
+                shrinks. */}
+            <Group align="flex-start" gap="md" wrap={phone ? 'wrap' : 'nowrap'}>
+                <Artwork src={detail.albumImageUrl} alt={detail.title} size={phone ? 96 : 160} />
                 <Stack gap="xxs">
                     {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                         router's own types, and with them the check that `params` matches the path. */}
@@ -146,7 +152,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
                 </Stack>
             </Group>
 
-            <BindingsCard detail={detail} />
+            <BindingsCard detail={detail} phone={phone} />
             <MeasurementCard detail={detail} />
             <AiringsCard detail={detail} />
 
@@ -163,7 +169,7 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
 }
 
 /** Which providers hold a copy, and what the station has of each. The answer to "why will this not play". */
-function BindingsCard({ detail }: { detail: TrackDetail }) {
+function BindingsCard({ detail, phone }: { detail: TrackDetail; phone: boolean }) {
     return (
         <Card padding="lg">
             <Stack gap="md">
@@ -178,6 +184,64 @@ function BindingsCard({ detail }: { detail: TrackDetail }) {
                     <EmptyState>
                         No provider holds a copy of this record, so nothing can play it. That is usually an import whose lookup never resolved.
                     </EmptyState>
+                ) : phone ? (
+                    // A `Table.ScrollContainer` at `minWidth={600}` inside a 500px-wide page left
+                    // Held and Last played from permanently off-screen with nothing telling the
+                    // reader they exist, so a phone gets one card per binding instead of a sideways
+                    // scroll. Same five facts as the table: plugin id, external id, state, format,
+                    // held bytes and last played from.
+                    <Stack gap="xxs">
+                        {detail.bindings.map(binding => {
+                            const status = bindingStatus(binding);
+                            return (
+                                <PhoneCard
+                                    key={binding.sourceId}
+                                    leading={
+                                        <Stack gap={2}>
+                                            <Text size="sm" fw={500}>
+                                                {binding.pluginId}
+                                            </Text>
+                                            {binding.origin === 'discovered' ? (
+                                                <Tooltip label="Looked up by name when something chose this record, rather than seen in a playlist.">
+                                                    <Badge size="xs" variant="light" color="grape">
+                                                        found
+                                                    </Badge>
+                                                </Tooltip>
+                                            ) : undefined}
+                                        </Stack>
+                                    }
+                                    title={
+                                        <Text size="sm" c="dimmed" truncate>
+                                            {binding.externalId}
+                                        </Text>
+                                    }
+                                    subtitle={
+                                        <Text size="xs" c="dimmed">
+                                            {binding.format ?? '—'}
+                                            {binding.bitrate === undefined ? '' : ` • ${Math.round(binding.bitrate / 1000)}k`}
+                                        </Text>
+                                    }
+                                    figure={
+                                        <Tooltip label={status.detail} multiline w={280}>
+                                            <span>
+                                                <StatusLamp tone={status.tone} label={status.label} />
+                                            </span>
+                                        </Tooltip>
+                                    }
+                                    below={
+                                        <Group justify="space-between" pt="xxs">
+                                            <Text size="xs" c="dimmed" className="da-num">
+                                                Held {formatBytes(binding.byteSize)}
+                                            </Text>
+                                            <Text size="xs" c="dimmed" className="da-num">
+                                                Last played {moment(binding.lastServedAt)}
+                                            </Text>
+                                        </Group>
+                                    }
+                                />
+                            );
+                        })}
+                    </Stack>
                 ) : (
                     <Table.ScrollContainer minWidth={600}>
                         <Table verticalSpacing="xs" horizontalSpacing="sm">

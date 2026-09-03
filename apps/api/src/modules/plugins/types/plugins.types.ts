@@ -56,6 +56,7 @@ export type ConfigFieldOption = z.infer<typeof ConfigFieldOption>;
  */
 export const ConfigFieldOptionSource = z.enum([
     'station.newsCategories',
+    'station.newsFeeds',
     'intl.timeZones',
     'plugins.speech',
     'plugins.llm',

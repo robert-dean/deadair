@@ -42,7 +42,7 @@ export interface ConfigFieldOption {
  * generated from [ConfigFieldOptionSource](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L31)
  */
 export type ConfigFieldOptionSource =
-    'station.newsCategories' | 'intl.timeZones' | 'plugins.speech' | 'plugins.llm' | 'plugins.mixer' | 'plugins.analysis';
+    'station.newsCategories' | 'station.newsFeeds' | 'intl.timeZones' | 'plugins.speech' | 'plugins.llm' | 'plugins.mixer' | 'plugins.analysis';
 
 /**
  * generated from [PluginLogLevel](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L80)

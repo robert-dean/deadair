@@ -186,6 +186,20 @@ a check that declined over it would be refusing the character for being itself.
 
 ## Bulletins
 
+**Which feeds a bulletin reads is a LIST the station orders, and it used to be one id typed by
+hand.** `rotation.newsFeed` was a free-text box holding a single qualified feed id copied off another
+page; it was blank on every install that had one, which is what an operator does with a control like
+that. What it could not express is the thing a multi-feed station actually wants. `NewsService`
+merges every plugin's answer newest first, so a publisher posting twenty times a day took every slot
+from one posting three times, and this station read a technology site's afternoon as the day's news.
+`rotation.newsFeeds` is a `list` setting whose one column offers the feeds the plugins currently
+have (`station.newsFeeds`, the fourth thing only the console can enumerate), and `feedRoster` reads
+it. **An empty list is every feed and a written one is the roster**: a feed nobody listed is not read
+out, rather than being read after the listed ones — otherwise adding a feed to a plugin would change
+what airs with nobody having decided it should. The console, the news page and `read_news` still see
+every feed, because this is about what is SAID; the menu simply follows the station's order where
+there is one. A listed feed the station no longer offers answers nothing and is skipped.
+
 **A bulletin does not read a story twice, and what it is not shown is as deliberate as what it is.**
 `BulletinSource` took the top `rotation.newsStoriesMin`–`Max` off a newest-first feed with nothing remembering
 the last bulletin, so on a feed that had not moved the same three stories went out in twenty-seven consecutive

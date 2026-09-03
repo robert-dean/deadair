@@ -100,6 +100,12 @@ export interface ConfigFieldOption {
  * console is again the only side that can — a zone name has to be one the browser and the server
  * both know, and a server that enumerated its own would be answering for a different machine.
  *
+ * `station.newsFeeds` answers the feeds the installed plugins currently offer, by their qualified id
+ * and the operator's own name for each. It is the one source whose value is minted by a PLUGIN and
+ * whose list only the station can assemble, which is why it is here rather than being something a
+ * plugin could answer: the ids are qualified with the plugin that offered them, and no plugin knows
+ * what the others are called.
+ *
  * The four `plugins.*` members answer the enabled plugins that declare a given capability — speech,
  * llm, mixer, analysis — by id and name, for the settings that pick which plugin a capability with
  * several installed candidates uses. Those settings stay free text (`selectPlugin` in
@@ -112,7 +118,7 @@ export interface ConfigFieldOption {
  * it names is resolved by the CONSOLE; nothing here reaches a plugin.
  */
 export type ConfigFieldOptionSource =
-    'station.newsCategories' | 'intl.timeZones' | 'plugins.speech' | 'plugins.llm' | 'plugins.mixer' | 'plugins.analysis';
+    'station.newsCategories' | 'station.newsFeeds' | 'intl.timeZones' | 'plugins.speech' | 'plugins.llm' | 'plugins.mixer' | 'plugins.analysis';
 
 /**
  * One column of a `list` field.

@@ -18,6 +18,7 @@ import {
 } from '../../../src/modules/director/bulletin.source.js';
 import { NEWS_KIND } from '../../../src/modules/director/news.break.writer.js';
 import type { NewsService } from '../../../src/modules/news/news.service.js';
+import { NEWS_FEEDS_KEY } from '../../../src/modules/news/news.settings.js';
 import type { Topic } from '../../../src/modules/topics/topic.js';
 import type { TopicRepository } from '../../../src/modules/topics/topic.repository.js';
 import type { ActivityRecorder } from '../../../src/modules/activity/activity.recorder.js';
@@ -66,6 +67,13 @@ interface Options {
      * on what it says, which is what most of these tests are about.
      */
     feedCategories?: Record<string, string>;
+    /**
+     * What each feed answers, for the cases about the station's own order.
+     *
+     * Only consulted when a feed was named, which is what a roster does: without one the source asks
+     * for everything at once and {@link Options.items} is the whole page.
+     */
+    byFeed?: Record<string, NewsItem[]>;
 }
 
 /** One of the operator's categories, as the classifier will read it. */
@@ -80,9 +88,17 @@ const category = (key: string, config: Record<string, unknown>): Topic => ({
 
 const activity = { record: vi.fn(async () => {}) } as unknown as ActivityRecorder;
 
+/** The station's own feed list, as the settings row holds it: a JSON array of one-column rows. */
+const roster = (...feedIds: string[]): Record<string, unknown> => ({
+    [NEWS_FEEDS_KEY]: JSON.stringify(feedIds.map(feed => ({ feed }))),
+});
+
 function build(options: Options = {}, values: Record<string, unknown> = {}) {
-    const fetchItems = vi.fn(async (_query: { feedId?: string; limit: number; since?: string }): Promise<NewsItem[]> => {
+    const fetchItems = vi.fn(async (query: { feedId?: string; limit: number; since?: string }): Promise<NewsItem[]> => {
         if (options.throws) throw new Error('the news module is gone');
+        // A roster asks feed by feed, so a test about ordering has to be able to answer each one
+        // differently. Everything else is one page whichever feed asked for it.
+        if (query.feedId !== undefined && options.byFeed !== undefined) return options.byFeed[query.feedId] ?? [];
         return options.items ?? [item('Bridge reopens after four years')];
     });
     const feedCategories = vi.fn(async () => new Map(Object.entries(options.feedCategories ?? {})));
@@ -206,14 +222,33 @@ describe('what it asks for', () => {
         expect(fetchItems).toHaveBeenCalledWith(expect.objectContaining({ limit: 3 * 4 }));
     });
 
-    it('reads across every feed unless the operator named one', async () => {
+    it('reads across every feed when the station has listed none', async () => {
         const { source, fetchItems } = build();
-        await source.storiesFor(NEWS_KIND, undefined, NOW);
-        expect(fetchItems.mock.calls[0]?.[0]).not.toHaveProperty('feedId');
 
-        const named = build({}, { [BULLETIN_KEYS.feed]: 'deadair.rss:world' });
-        await named.source.storiesFor(NEWS_KIND, undefined, NOW);
-        expect(named.fetchItems).toHaveBeenCalledWith(expect.objectContaining({ feedId: 'deadair.rss:world' }));
+        await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(fetchItems.mock.calls[0]?.[0]).not.toHaveProperty('feedId');
+    });
+
+    // Feed by feed rather than as one merged page, which is what makes the station's order
+    // expressible at all: the service merges newest first, so one prolific publisher would
+    // otherwise take every slot.
+    it('asks each feed the station listed, by name', async () => {
+        const { source, fetchItems } = build({}, roster('deadair.rss:world', 'deadair.rss:sport'));
+
+        await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(fetchItems).toHaveBeenCalledWith(expect.objectContaining({ feedId: 'deadair.rss:world' }));
+        expect(fetchItems).toHaveBeenCalledWith(expect.objectContaining({ feedId: 'deadair.rss:sport' }));
+        expect(fetchItems).toHaveBeenCalledTimes(2);
+    });
+
+    it('reads a feed the station listed twice only once', async () => {
+        const { source, fetchItems } = build({}, roster('deadair.rss:world', 'deadair.rss:world'));
+
+        await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(fetchItems).toHaveBeenCalledTimes(1);
     });
 
     it('holds a mistyped count inside its bounds instead of reading a ten-minute bulletin', async () => {

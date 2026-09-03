@@ -29,6 +29,7 @@ import {
     DEFAULT_STORY_COUNT_MIN,
     MAX_STORY_COUNT,
 } from '#modules/director/bulletin.source.js';
+import { NEWS_FEEDS_KEY } from '#modules/news/news.settings.js';
 import { CLOCK_KEYS, NAMES_THE_TIME_DEFAULT } from '#modules/director/clock.words.js';
 import { DEFAULT_UNITS, WEATHER_KEYS } from '#modules/weather/weather.keys.js';
 import {
@@ -662,10 +663,20 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
-        key: BULLETIN_KEYS.feed,
-        label: 'Which news feed',
-        type: 'string',
-        help: 'The id of a feed one of your plugins offers, as listed at /news/feeds. Leave it blank to read across all of them, newest first.',
+        key: NEWS_FEEDS_KEY,
+        label: 'The feeds a bulletin reads',
+        type: 'list',
+        placeholder: 'No feeds listed, so a bulletin reads every feed the station has, newest first.',
+        // One column, because a row here IS a feed. The choices are the feeds the plugins currently
+        // offer, resolved by the console — the cell stores the qualified id and shows the operator's
+        // own name for it, which is the only form they have ever seen. It replaced a free-text box
+        // holding one id typed by hand off another page, blank on every install that had one.
+        columns: [{ key: 'feed', label: 'Feed', type: 'select', required: true, optionsFrom: 'station.newsFeeds' }],
+        help:
+            'The bulletin reads one story from each of these in turn, in this order, so a publisher who posts twenty times a day cannot crowd ' +
+            'out one who posts three. A feed with nothing new is skipped and the next takes its place. Leave the list empty and the station ' +
+            'reads every feed it has, newest first; a feed that is not listed is not read out, though it is still shown on the news page and ' +
+            'still offered to the presenter.',
     },
     {
         group: 'rotation',

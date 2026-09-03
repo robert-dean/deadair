@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { ConfigFieldDescriptor, ConfigFieldOption, ConfigFieldOptionSource } from '@deadair/sdk';
 
+import { newsFeedsOptions } from '../../api/news.queries';
 import { pluginsListOptions } from '../../api/plugins.queries';
 import { topicsOptions } from '../../api/topics.queries';
 
@@ -48,6 +49,11 @@ export const columnSuggestionKey = (fieldKey: string, columnKey: string): string
  * Answered in the shape the form already merges (suggestions keyed by input), so a resolved source
  * and a plugin's own answer arrive by one route and neither call site grows its own copy.
  *
+ * The one thing a source cannot do is close a field: `station.newsFeeds` names feeds that exist
+ * right now, and a plugin being reloaded when the page was drawn is not a reason an operator cannot
+ * keep a feed in their list. So its cells stay typeable, which is the same call the voice columns
+ * make and for the same reason.
+ *
  * A FIELD may name one as well as a column, which is what lets the station's timezone offer the
  * zones this browser actually knows: it was free text whose typo did not fail until the first break
  * tried to speak the time, because `stationZone` deliberately lets `Intl.DateTimeFormat` throw on
@@ -58,6 +64,7 @@ export const columnSuggestionKey = (fieldKey: string, columnKey: string): string
 export function useDeclaredOptions(fields: readonly ConfigFieldDescriptor[]): Record<string, readonly ConfigFieldOption[]> {
     const wanted = declaredSources(fields);
     const topics = useQuery({ ...topicsOptions, enabled: wanted.has('station.newsCategories') });
+    const feeds = useQuery({ ...newsFeedsOptions, enabled: wanted.has('station.newsFeeds') });
     const wantsAPlugin = [...wanted].some(isPluginSource);
     const plugins = useQuery({ ...pluginsListOptions, enabled: wantsAPlugin });
 
@@ -72,6 +79,11 @@ export function useDeclaredOptions(fields: readonly ConfigFieldDescriptor[]): Re
         'station.newsCategories': (topics.data?.topics ?? [])
             .filter(topic => topic.kind === NEWS_KIND)
             .map(topic => ({ value: topic.key, label: topic.label })),
+        // The VALUE is the qualified id, because that is what everything downstream asks for, and
+        // the LABEL is the operator's own name for the feed, because that is the only form they have
+        // ever seen. It is the one source whose entries a plugin minted and only the station can
+        // list: the ids carry the plugin that offered them, and no plugin knows the others' names.
+        'station.newsFeeds': (feeds.data?.feeds ?? []).map(feed => ({ value: feed.id, label: feed.name })),
         // No query and no round trip: the platform holds this list, and the browser's copy is the
         // one that matters — a zone the operator's own machine cannot name is a zone they cannot
         // check the clock against. `supportedValuesOf` is ES2022 and has been in every engine this

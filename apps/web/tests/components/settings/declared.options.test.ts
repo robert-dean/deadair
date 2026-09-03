@@ -9,17 +9,22 @@ import { createTestQueryClient } from '../../utils/render';
 import { pluginSummary } from '../../utils/plugin.fixture';
 
 const listPlugins = vi.fn();
+const listFeeds = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         plugins: {
             listPlugins: (...args: unknown[]) => listPlugins(...args),
         },
+        news: {
+            listFeeds: (...args: unknown[]) => listFeeds(...args),
+        },
     },
 }));
 
 afterEach(() => {
     listPlugins.mockReset();
+    listFeeds.mockReset();
 });
 
 function wrapWithQueryClient(queryClient: QueryClient) {
@@ -48,6 +53,42 @@ describe('useDeclaredOptions', () => {
         renderHook(() => useDeclaredOptions(fields), { wrapper: wrapWithQueryClient(queryClient) });
 
         expect(listPlugins).not.toHaveBeenCalled();
+    });
+
+    it('does not fetch the feeds for a form that never asks for them', () => {
+        const queryClient = createTestQueryClient();
+
+        renderHook(() => useDeclaredOptions([stringField({ optionsFrom: 'intl.timeZones' })]), { wrapper: wrapWithQueryClient(queryClient) });
+
+        expect(listFeeds).not.toHaveBeenCalled();
+    });
+
+    // The value is the qualified id because that is what the bulletin and the tool both ask for; the
+    // label is the operator's own name for the feed, because that is the only form they have seen.
+    it('resolves station.newsFeeds to the feeds the plugins currently offer', async () => {
+        const queryClient = createTestQueryClient();
+        listFeeds.mockResolvedValue({
+            feeds: [
+                { id: 'deadair.rss:world', pluginId: 'deadair.rss', name: 'World news' },
+                { id: 'deadair.rss:sport', pluginId: 'deadair.rss', name: 'Sport' },
+            ],
+        });
+
+        const fields = [
+            stringField({
+                key: 'rotation.newsFeeds',
+                type: 'list',
+                columns: [{ key: 'feed', label: 'Feed', type: 'select', optionsFrom: 'station.newsFeeds' }],
+            }),
+        ];
+        const { result } = renderHook(() => useDeclaredOptions(fields), { wrapper: wrapWithQueryClient(queryClient) });
+
+        await waitFor(() =>
+            expect(result.current[columnSuggestionKey('rotation.newsFeeds', 'feed')]).toEqual([
+                { value: 'deadair.rss:world', label: 'World news' },
+                { value: 'deadair.rss:sport', label: 'Sport' },
+            ]),
+        );
     });
 
     it.each(['plugins.speech', 'plugins.llm', 'plugins.mixer', 'plugins.analysis'] as const)(

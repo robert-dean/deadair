@@ -1,10 +1,11 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { truncateSentences } from '@deadair/plugin-sdk';
+import { truncateSentences, type NewsItem } from '@deadair/plugin-sdk';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { categoriesOf, newsTopicRules, type NewsTopicRules } from '#modules/news/news.classify.js';
 import { NewsService } from '#modules/news/news.service.js';
+import { feedRoster } from '#modules/news/news.settings.js';
 import { TopicRepository } from '#modules/topics/topic.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import type { BreakContext } from './break.request.js';
@@ -50,7 +51,6 @@ import { NEWS_KIND } from './news.break.writer.js';
 
 /** The `deadair.settings` keys. In `rotation`, beside the station's other words. */
 export const BULLETIN_KEYS = {
-    feed: 'rotation.newsFeed',
     storiesMin: 'rotation.newsStoriesMin',
     storiesMax: 'rotation.newsStoriesMax',
     maxAgeHours: 'rotation.newsMaxAgeHours',
@@ -308,7 +308,7 @@ export class BulletinSource {
         // `chooseFacts` documents, unchanged in kind by there being a range.
         const wanted = this.howManyStories(random);
         const maxAgeHours = clamp(this.config.get(BULLETIN_KEYS.maxAgeHours, DEFAULT_MAX_AGE_HOURS), 1, MAX_AGE_HOURS, DEFAULT_MAX_AGE_HOURS);
-        const feed = this.config.get(BULLETIN_KEYS.feed, '').trim();
+        const roster = feedRoster(this.config);
 
         // Every category this station holds, read once: the one this bulletin was asked for cuts the
         // page down, and the rest are what a general bulletin spreads across.
@@ -322,15 +322,22 @@ export class BulletinSource {
             // plugin that could not answer contributes nothing, which is a bulletin classified on
             // what its stories say — the state every station was in before feeds carried a category.
             const declared = await this.feedCategories();
-            const items = await this.news.fetchItems({
-                ...(feed.length === 0 ? {} : { feedId: feed }),
-                // Asked for more than will be read, because the cut below drops anything without a
-                // usable headline and anything the station has already said, and a bulletin that
-                // came up two short of what the operator asked for is a worse read than one that
-                // reached a little further down the page. See `OVERSAMPLE`.
-                limit: wanted * OVERSAMPLE,
-                since: new Date(now - windowMs).toISOString(),
-            });
+            // Asked for more than will be read, because the cut below drops anything without a
+            // usable headline and anything the station has already said, and a bulletin that came up
+            // two short of what the operator asked for is a worse read than one that reached a
+            // little further down the page. See `OVERSAMPLE`.
+            const limit = wanted * OVERSAMPLE;
+            const since = new Date(now - windowMs).toISOString();
+
+            // A roster is asked feed by feed rather than as one merged page, which is what makes the
+            // station's order expressible at all: `NewsService` merges newest-first, so a publisher
+            // posting twenty times a day would otherwise take every slot from one posting three
+            // times. A feed the station no longer offers answers nothing and is skipped, which
+            // `NewsService` already logs by name.
+            const items =
+                roster.length === 0
+                    ? await this.news.fetchItems({ limit, since })
+                    : newestFirst((await Promise.all(roster.map(async feedId => await this.news.fetchItems({ feedId, limit, since })))).flat());
 
             // Before the filter, so a story that has aged past the window is sayable again even on a
             // station whose every recent bulletin declined. See `ReadLog.forget`.
@@ -388,7 +395,7 @@ export class BulletinSource {
                 offered: offered.length,
                 using: stories.length,
                 repeats: offered.length - unread.length,
-                feed: feed || 'all',
+                feeds: roster.length === 0 ? 'all' : roster.length,
                 topic: asked?.key ?? 'anything',
             });
             return { stories, ...(asked === undefined ? {} : { subject: asked }) };
@@ -474,6 +481,19 @@ function subjectOf(context: BreakContext | undefined, rules: readonly NewsTopicR
 
     const held = rules.find(rule => rule.key === key && !rule.offAir);
     return held === undefined ? undefined : { key: held.key, label: held.label };
+}
+
+/**
+ * Several feeds' answers as one page.
+ *
+ * Each feed answered in its own order and `NewsService` guarantees only that one feed's items are
+ * newest first, so the concatenation is not: a roster's second feed would otherwise be read entirely
+ * after its first, whatever the clock said. Undated entries sort behind, exactly as they do one
+ * layer down.
+ */
+function newestFirst(items: readonly NewsItem[]): NewsItem[] {
+    const at = (item: NewsItem): number => (item.publishedAt === undefined ? 0 : new Date(item.publishedAt).getTime() || 0);
+    return [...items].sort((left, right) => at(right) - at(left));
 }
 
 /**

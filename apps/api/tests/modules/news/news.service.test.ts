@@ -5,6 +5,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Logger } from '@maroonedsoftware/logger';
+import type { AppConfig } from '@maroonedsoftware/appconfig';
 import { PluginError, type NewsFeedDescriptor, type NewsItem, type PluginManifest } from '@deadair/plugin-sdk';
 
 import { MAX_NEWS_ITEMS, NewsService } from '../../../src/modules/news/news.service.js';
@@ -80,10 +81,19 @@ const topicsAnswering = (rows: Topic[] | Error): TopicRepository =>
         }),
     }) as unknown as TopicRepository;
 
-const build = (records: PluginRecord[], topics: Topic[] | Error = []): NewsService => {
+/** The settings, of which this service reads exactly one: the station's own feed order. */
+const config = (values: Record<string, unknown> = {}): AppConfig =>
+    ({ get: vi.fn((key: string, fallback: unknown) => values[key] ?? fallback) }) as unknown as AppConfig;
+
+/** The station's own feed list, as the settings row holds it. */
+const roster = (...feedIds: string[]): Record<string, unknown> => ({
+    'rotation.newsFeeds': JSON.stringify(feedIds.map(feed => ({ feed }))),
+});
+
+const build = (records: PluginRecord[], topics: Topic[] | Error = [], settings: Record<string, unknown> = {}): NewsService => {
     const registry = new PluginRegistry();
     registry.setAll(records);
-    return new NewsService(registry, new PluginInvoker(registry, stubPluginLog().log), topicsAnswering(topics), stubLogger());
+    return new NewsService(registry, new PluginInvoker(registry, stubPluginLog().log), topicsAnswering(topics), config(settings), stubLogger());
 };
 
 beforeEach(() => {
@@ -276,5 +286,41 @@ describe('what the station keeps off the air', () => {
         const service = build([record(RSS, {}, { fetchItems: vi.fn(async () => deals()) })], [ordinary]);
 
         expect((await service.fetchItems({ limit: 10 })).map(story => story.title)).toHaveLength(3);
+    });
+});
+
+/**
+ * The menu follows the station's own order where it has one, so a picker and a model's list do not
+ * disagree with what the bulletin actually reads. It still shows everything: what is READ OUT is the
+ * bulletin's question, and nothing here narrows it.
+ */
+describe("the station's own feed order", () => {
+    const twoFeeds = (): NewsFeedDescriptor[] => [
+        { id: 'world', name: 'World news' },
+        { id: 'sport', name: 'Sport' },
+    ];
+
+    it("leaves the plugins' own order alone when the station has listed nothing", async () => {
+        const service = build([record(RSS, {}, { listFeeds: vi.fn(async () => twoFeeds()) })]);
+
+        expect((await service.listFeeds()).map(feed => feed.name)).toEqual(['World news', 'Sport']);
+    });
+
+    it('puts the feeds the station listed first, in its order', async () => {
+        const service = build([record(RSS, {}, { listFeeds: vi.fn(async () => twoFeeds()) })], [], roster(qualifyFeedId(RSS, 'sport')));
+
+        expect((await service.listFeeds()).map(feed => feed.name)).toEqual(['Sport', 'World news']);
+    });
+
+    it('still shows a feed the station did not list, since this is the menu and not the bulletin', async () => {
+        const service = build([record(RSS, {}, { listFeeds: vi.fn(async () => twoFeeds()) })], [], roster(qualifyFeedId(RSS, 'sport')));
+
+        expect(await service.listFeeds()).toHaveLength(2);
+    });
+
+    it('ignores a listed id no plugin offers, rather than inventing a row for it', async () => {
+        const service = build([record(RSS, {}, { listFeeds: vi.fn(async () => twoFeeds()) })], [], roster('deadair.gone:world'));
+
+        expect((await service.listFeeds()).map(feed => feed.name)).toEqual(['World news', 'Sport']);
     });
 });

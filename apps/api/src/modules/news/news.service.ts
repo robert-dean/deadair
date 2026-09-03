@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { AppConfig } from '@maroonedsoftware/appconfig';
 import type { NewsItem } from '@deadair/plugin-sdk';
 import { asNewsPlugin, type NewsPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, pluginsWith } from '#modules/plugins/plugin.selection.js';
@@ -9,6 +10,7 @@ import { TopicRepository } from '#modules/topics/topic.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { NEWS_KIND } from '#modules/director/news.break.writer.js';
 import { keptOffAir, newsTopicRules, type ClassifiableStory, type NewsTopicRules } from './news.classify.js';
+import { feedRoster } from './news.settings.js';
 import { qualifyFeedId, splitFeedId } from './feed.ids.js';
 import type { NewsPage, NewsQuery, StationFeed, StationFeedList } from './types/news.types.js';
 
@@ -53,6 +55,7 @@ export class NewsService {
         private readonly pluginInvoker: PluginInvoker,
         /** The station's own categories, read per call for `BulletinSource.categories`'s reason. */
         private readonly topics: TopicRepository,
+        private readonly config: AppConfig,
         private readonly logger: Logger,
     ) {}
 
@@ -101,6 +104,12 @@ export class NewsService {
      * Ordered by plugin and then by the order the plugin itself gave, because
      * that order is a decision somebody made — an operator's list is in the
      * order they wrote it — and re-sorting by name would throw it away.
+     *
+     * The station's own roster comes FIRST where it has one, for that same reason one level up:
+     * the feeds a bulletin reads in turn are the order the operator actually decided, and a picker
+     * or a model's menu that disagreed with it would be showing a different station's priorities.
+     * Everything unlisted follows, because this is the menu rather than the bulletin — what is
+     * READ OUT is `BulletinSource`'s question, and nothing here narrows it.
      */
     async listFeeds(): Promise<StationFeed[]> {
         const feeds: StationFeed[] = [];
@@ -127,7 +136,7 @@ export class NewsService {
             }
         }
 
-        return feeds;
+        return rosterFirst(feeds, feedRoster(this.config));
     }
 
     /**
@@ -299,6 +308,20 @@ const clampLimit = (value: number): number => {
     if (!Number.isFinite(value)) return MAX_NEWS_ITEMS;
     return Math.min(Math.max(Math.floor(value), 1), MAX_NEWS_ITEMS);
 };
+
+/**
+ * The feeds the station listed, in its order, then everything else in the order it arrived.
+ *
+ * A listed id that no plugin currently offers simply contributes nothing, which is the same answer
+ * `fetchItems` gives it: a roster written against a plugin that is being reloaded is a roster, not
+ * an error.
+ */
+function rosterFirst(feeds: readonly StationFeed[], roster: readonly string[]): StationFeed[] {
+    if (roster.length === 0) return [...feeds];
+
+    const listed = roster.flatMap(id => feeds.filter(feed => feed.id === id));
+    return [...listed, ...feeds.filter(feed => !roster.includes(feed.id))];
+}
 
 /** A story with what its feed says it is attached, which is the one classification signal it does not carry. */
 const withFeedCategory = (story: NewsItem, declared: ReadonlyMap<string, string>): ClassifiableStory => {

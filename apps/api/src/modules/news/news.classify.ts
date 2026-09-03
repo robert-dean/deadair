@@ -1,3 +1,4 @@
+import { flagIsOn } from '#modules/shared/setting.flags.js';
 import type { Topic } from '#modules/topics/topic.js';
 
 /**
@@ -27,6 +28,13 @@ import type { Topic } from '#modules/topics/topic.js';
  *
  * The rank is kept on the match rather than collapsed to a boolean because the bulletin uses it:
  * asked for technology, it reads the definite matches before the guesses.
+ *
+ * ## The same three signals decide what is never read
+ *
+ * A category may be marked to keep its stories OFF the air, which is how a publisher's shopping desk
+ * and its sponsored posts stop reaching a bulletin. It is the same matching with the threshold moved:
+ * any signal is enough to withhold a story, where the strongest alone decides what one is about. See
+ * {@link keptOffAir}.
  *
  * ## A story may belong to several, and that is not a failure to decide
  *
@@ -65,6 +73,19 @@ export interface NewsTopicRules {
     labels: string[];
     /** Words that mean it, normalized. Matched as whole words against the headline and teaser. */
     words: string[];
+    /**
+     * Whether a story this category claims is kept OFF the air entirely.
+     *
+     * A category is normally a subject a bulletin can be about. This is the same machinery pointed
+     * the other way: the operator names what the station will not read — a publisher's shopping
+     * desk, its sponsored posts — and a story that matches is withheld from the bulletin, from the
+     * model's tool and from the news page, rather than being offered under a name.
+     *
+     * It is the same three signals because it is the same problem. A feed that IS a shopping feed
+     * says so on the feed, a publisher labels its own deals posts, and a discount code in a headline
+     * is what catches the rest.
+     */
+    offAir: boolean;
 }
 
 /** As much of a story as the classifier looks at. */
@@ -105,6 +126,11 @@ export function newsTopicRules(topic: Topic): NewsTopicRules {
         words: entriesIn(topic.config.words)
             .map(normalize)
             .filter(entry => entry.length > 0),
+        // Through `flagIsOn` rather than as a boolean, on the chassis rule: the console writes a
+        // real `true` into the jsonb, and a row edited by hand writes whatever the operator typed.
+        // `config.offAir === true` would read `"true"` as off, which is a category that silently
+        // stopped filtering.
+        offAir: flagIsOn(topic.config.offAir, false),
     };
 }
 
@@ -132,9 +158,32 @@ export function rankOf(story: ClassifiableStory, rules: NewsTopicRules): MatchRa
     return undefined;
 }
 
-/** Every category this story belongs to, strongest first. */
+/**
+ * The first off-air category that claims this story, or `undefined` when none does.
+ *
+ * ANY rank is enough, where {@link categoriesOf} keeps the strongest and {@link rankOf} ranks them.
+ * The two questions are different: "what is this story about" wants the best answer and can afford
+ * to be unsure, and "may the station read this out" wants any evidence at all. A word in a headline
+ * is the weakest signal there is and it is still a reason not to broadcast an advertisement.
+ *
+ * Which one claimed it is answered rather than a boolean, because the caller logs it: "this story
+ * was dropped" is not an operator-actionable line and "dropped by Shopping" is.
+ */
+export function keptOffAir(story: ClassifiableStory, rules: readonly NewsTopicRules[]): NewsTopicRules | undefined {
+    return rules.find(rule => rule.offAir && rankOf(story, rule) !== undefined);
+}
+
+/**
+ * Every category this story belongs to, strongest first.
+ *
+ * Off-air categories are not among them, deliberately: they are a rule about what the station will
+ * not say rather than a subject it has, so a writer is never told "this is one of ours and it is
+ * shopping", a band can never be pointed at one, and `spread` never gives one a turn. What actually
+ * withholds the story is {@link keptOffAir}, one layer up where the fetch happens.
+ */
 export function categoriesOf(story: ClassifiableStory, rules: readonly NewsTopicRules[]): { key: string; rank: MatchRank }[] {
     return rules
+        .filter(rule => !rule.offAir)
         .flatMap(rule => {
             const rank = rankOf(story, rule);
             return rank === undefined ? [] : [{ key: rule.key, rank }];

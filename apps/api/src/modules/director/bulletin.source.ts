@@ -460,12 +460,19 @@ export class BulletinSource {
  * whatever it finds. That cannot happen through the console — deleting a category takes its bands
  * with it — so reaching here means somebody edited a row by hand, and a general bulletin is a better
  * answer than a slot that can never be filled again.
+ *
+ * A category marked OFF AIR is treated exactly the same way, and it is the case that can actually
+ * arrive: a band written before the switch was turned on still points at it. Such a category is a
+ * rule about what the station will not say rather than a subject, `categoriesOf` never stamps one on
+ * a story, and a subject resolved here would therefore claim the slot and then decline it on every
+ * pass, forever, reporting an empty category each time. Answering `undefined` turns that into an
+ * ordinary general bulletin.
  */
 function subjectOf(context: BreakContext | undefined, rules: readonly NewsTopicRules[]): BreakSubject | undefined {
     const key = typeof context?.topic === 'string' ? context.topic.trim() : '';
     if (key.length === 0) return undefined;
 
-    const held = rules.find(rule => rule.key === key);
+    const held = rules.find(rule => rule.key === key && !rule.offAir);
     return held === undefined ? undefined : { key: held.key, label: held.label };
 }
 

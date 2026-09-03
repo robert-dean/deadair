@@ -226,7 +226,11 @@ export class NewsTool implements ToolSource {
      */
     private async categories(): Promise<NewsTopicRules[]> {
         try {
-            return (await this.topics.list(NEWS_KIND)).map(newsTopicRules);
+            // Off-air categories are left out: they are a rule about what the station will not read
+            // rather than a subject it has, and offering one as a `topic` would teach a model to ask
+            // for the material `NewsService` has already withheld. `categoriesOf` skips them too, so
+            // the filter below could never match one anyway.
+            return (await this.topics.list(NEWS_KIND)).map(newsTopicRules).filter(rule => !rule.offAir);
         } catch {
             return [];
         }

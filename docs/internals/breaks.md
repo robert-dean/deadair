@@ -350,6 +350,25 @@ Eleven categories are seeded on `persona.defaults.ts`'s rule, none naming a feed
 and `local` naming nothing at all, because only the operator knows their town and a guess would look as though
 it worked.
 
+**A category can also be a rule about what is NEVER read, which is the same matching with the
+threshold moved.** A general feed from a publisher with a deals desk carries the deals desk: this
+station aired a shop's discount code, a laptop sale and an affiliate disclosure ("purchases made via
+a link may earn a commission") as news, in 10 of its first 213 bulletins. Nothing detected it because
+nothing was looking — the entries carry the publisher's own `Deals` label and are otherwise ordinary
+items. So a category may be marked OFF AIR (`offAir` on the topic's own config, read through
+`flagIsOn` because the column is edited by a form and by hand), and `keptOffAir` withholds any story
+it claims. Three things differ from classifying a subject, and each of them is the point. **Any rank
+is enough**, where a subject takes the strongest and can afford to be unsure: a word in a headline is
+the weakest signal there is and is still a reason not to broadcast an advertisement. **The withhold
+happens in `NewsService.fetchItems`**, not in the bulletin, so the bulletin, `read_news` and the news
+page cannot disagree about what the station has — and it happens BEFORE the limit is applied, or a
+page of shopping posts would push the real stories past the cut and then be dropped. And **an off-air
+category is not a subject**: `categoriesOf` skips them, so no writer is told a story is one, `spread`
+never gives one a turn, the console does not offer one on a band, and `subjectOf` resolves one to
+nothing — a band written before the switch was turned on would otherwise claim its slot and decline
+it forever. A station whose topics table cannot be read withholds nothing, on `categories()`' rule:
+the news is read exactly as it was before any of this existed.
+
 **The strongest signal is stated on the FEED**, as a row on the plugin that reads it, and a category holds
 only the two fields that are about the WORDS. It was a box on the category naming `pluginId:feedId` by hand:
 an id derived from a name written in another form, for a feed the operator was not looking at.

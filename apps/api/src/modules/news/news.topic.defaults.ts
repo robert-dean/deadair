@@ -25,6 +25,16 @@ import { NEWS_KIND } from '#modules/director/news.break.writer.js';
  * it declined for, which is a state somebody can act on. Seeding it with a guess — a country, a
  * capital — would be worse than empty, because it would look as though it worked.
  *
+ * ## One of them is a rule about what is never read
+ *
+ * `shopping` is seeded with its switch on, which makes it the one category here that withholds
+ * stories rather than describing them. It is seeded because the failure is not exotic: a general
+ * feed from a publisher with a deals desk mixes them in, and this station read a discount code and
+ * an affiliate disclosure out as news. Its labels are the words publishers actually file that
+ * material under, and a publisher's own name for its shopping desk is deliberately not among them —
+ * only the operator knows which feeds they have, which is the same rule that keeps a feed out of
+ * every other seed here.
+ *
  * ## The word lists are short on purpose
  *
  * A word is the weakest of the three signals (`news.classify.ts`), and a long list is how a category
@@ -74,6 +84,41 @@ export const NEWS_TOPIC_SEEDS: readonly TopicDraft[] = ordered([
         labels: ['Pop culture', 'Celebrity', 'Celebrities', 'Viral', 'Social media', 'Internet'],
         words: ['went viral', 'meme', 'influencer', 'streaming numbers', 'fandom'],
     }),
+    // The one seed that keeps stories OFF the air rather than naming a subject. See the note above.
+    seed('shopping', 'Shopping and sponsored', {
+        offAir: true,
+        labels: [
+            'Deals',
+            'Shopping',
+            'Commerce',
+            'Sponsored',
+            'Sponsored content',
+            'Sponsored post',
+            'Advertisement',
+            'Advertising',
+            'Advertorial',
+            'Partner content',
+            'Paid content',
+            'Promoted',
+        ],
+        // Longer than the other lists here, and it is allowed to be: a word that wrongly claims a
+        // story costs one story out of a page, where the same word wrongly claiming it for `business`
+        // would put it in the wrong bulletin. Each of these is a shop's sentence rather than a
+        // reporter's.
+        words: [
+            'discount code',
+            'promo code',
+            'coupon code',
+            'affiliate link',
+            'earn a commission',
+            'earns a commission',
+            'best deals',
+            'deal of the day',
+            'on sale for',
+            'percent off',
+            'save big on',
+        ],
+    }),
     seed('sport', 'Sport', {
         labels: ['Sport', 'Sports', 'Football', 'Soccer', 'Basketball', 'Baseball'],
         words: ['championship', 'playoffs', 'transfer window', 'world cup', 'olympics'],
@@ -95,12 +140,14 @@ function ordered(seeds: readonly TopicDraft[]): readonly TopicDraft[] {
 }
 
 /** One seeded category. Its position is stamped by {@link ordered}. */
-function seed(key: string, label: string, config: { labels?: string[]; words?: string[] }): TopicDraft {
+function seed(key: string, label: string, config: { labels?: string[]; words?: string[]; offAir?: boolean }): TopicDraft {
     return {
         kind: NEWS_KIND,
         key,
         label,
         config: {
+            // A real boolean, which is what the console writes and what `flagIsOn` reads either way.
+            offAir: config.offAir ?? false,
             // Written as arrays rather than as the comma strings the form produces, because the
             // classifier reads both and an array is the shape that cannot be mis-split. The console
             // shows them joined, which is what an operator then edits.

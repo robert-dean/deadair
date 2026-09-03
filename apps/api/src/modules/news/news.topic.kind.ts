@@ -19,6 +19,14 @@ import { NEWS_KIND } from '#modules/director/news.break.writer.js';
  * coincidence often enough to matter and because a category matched on a word alone is how a
  * bulletin about a chip shop ends up in the technology slot.
  *
+ * ## A category can also be a rule about what is never said
+ *
+ * The switch turns the same matching into an exclusion: a story an off-air category claims is not
+ * read on air, not offered to a model and not shown on the news page. It is here rather than as a
+ * station setting of its own because the matching already exists and is already the operator's
+ * vocabulary — a publisher's shopping desk is a category of theirs, and what changes is only whether
+ * the station is willing to read it.
+ *
  * ## Every field is optional, and one of the seeds ships with none
  *
  * A category nothing matches is not broken, it is unfinished — which is exactly what `local` is on a
@@ -33,6 +41,16 @@ export const NEWS_TOPIC_KIND: TopicKind = {
         'or leave the band without one and the station spreads its headlines across whatever the categories say it has. A feed can be a whole ' +
         'category on its own: say so on the feed itself, where the plugin that reads it is configured.',
     fields: [
+        {
+            key: 'offAir',
+            label: 'Keep these off the air',
+            type: 'boolean',
+            default: false,
+            help:
+                'A story this category claims is never read in a bulletin, never offered to the presenter and not listed as news. Use it for ' +
+                "the parts of a feed that are not news — a publisher's shopping desk, its sponsored posts. A whole feed can be kept out by " +
+                'naming this category on the feed itself, where the plugin that reads it is configured.',
+        },
         {
             key: 'labels',
             label: "The publisher's own words for it",

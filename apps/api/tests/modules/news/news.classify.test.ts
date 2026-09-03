@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { categoriesOf, newsTopicRules, rankOf, type ClassifiableStory } from '../../../src/modules/news/news.classify.js';
+import { categoriesOf, keptOffAir, newsTopicRules, rankOf, type ClassifiableStory } from '../../../src/modules/news/news.classify.js';
 import type { Topic } from '../../../src/modules/topics/topic.js';
 
 const topic = (key: string, config: Record<string, unknown>, label?: string): Topic => ({
@@ -127,5 +127,49 @@ describe('categoriesOf', () => {
 
     it('answers nothing for a story no category claims', () => {
         expect(categoriesOf(story(), [tech, science])).toEqual([]);
+    });
+});
+
+/**
+ * The same matching with the threshold moved: any signal at all withholds a story, where the
+ * strongest alone decides what one is about. The asymmetry runs the other way here — a category that
+ * matches too much costs one story off a page, and one that matches too little reads an
+ * advertisement out as news.
+ */
+describe('keptOffAir', () => {
+    const shopping = newsTopicRules(topic('shopping', { offAir: true, labels: ['Deals'], words: ['discount code'] }, 'Shopping and sponsored'));
+
+    it('withholds a story its feed was filed under', () => {
+        expect(keptOffAir(story({ feedCategory: 'Shopping and sponsored' }), [shopping])?.key).toBe('shopping');
+    });
+
+    it('withholds a story the publisher labelled as its own deals desk', () => {
+        expect(keptOffAir(story({ categories: ['Deals'], title: 'A new pair of headphones' }), [shopping])?.key).toBe('shopping');
+    });
+
+    // The weakest signal there is, and it is still enough here: this is not a claim about what the
+    // story is about, it is a refusal to broadcast it.
+    it('withholds on a word alone, which is where it differs from deciding a subject', () => {
+        expect(keptOffAir(story({ title: 'Save on tents with this discount code' }), [shopping])?.key).toBe('shopping');
+    });
+
+    it('leaves a story no off-air category claims', () => {
+        expect(keptOffAir(story({ categories: ['Technology'], title: 'Semiconductor plant opens' }), [shopping])).toBeUndefined();
+    });
+
+    it('ignores a category that is not marked off air, however well it matches', () => {
+        expect(keptOffAir(story({ categories: ['Technology'] }), [tech])).toBeUndefined();
+    });
+
+    it('reads the switch as the settings vocabulary does, so a hand-edited row still filters', () => {
+        const typed = newsTopicRules(topic('shopping', { offAir: 'true', labels: ['Deals'] }));
+
+        expect(keptOffAir(story({ categories: ['Deals'] }), [typed])?.key).toBe('shopping');
+    });
+
+    it('is not a subject, so nothing is ever told a story is one of these', () => {
+        const deal = story({ categories: ['Deals'], title: 'Save on tents with this discount code' });
+
+        expect(categoriesOf(deal, [shopping, tech])).toEqual([]);
     });
 });

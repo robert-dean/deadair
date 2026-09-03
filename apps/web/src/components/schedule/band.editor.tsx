@@ -62,7 +62,11 @@ export function BandEditor({ target, kinds, onClose, onSubmit, onDelete, saving,
 
     // The subjects named for whatever sort of break is typed above, which is why this reads the live
     // field rather than the band: switching the kind switches what it can be about.
-    const subjects = (topics.data?.topics ?? []).filter(topic => topic.kind === form.values.kind.trim());
+    //
+    // A subject the station keeps off the air is not offered: it names what a break may never say, so
+    // a band pointed at one could only ever decline its slot. The flag is the kind's own field rather
+    // than anything this component understands, which is why it is read off `config` by name.
+    const subjects = (topics.data?.topics ?? []).filter(topic => topic.kind === form.values.kind.trim() && topic.config.offAir !== true);
 
     const submit = form.onSubmit(values => {
         const shape = shapeOf(values);

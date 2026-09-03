@@ -625,3 +625,38 @@ describe('what the bulletin is about', () => {
         expect(bulletin?.stories[0]?.categories).toEqual(['technology']);
     });
 });
+
+/**
+ * The station's refusal to read something is enforced in `NewsService`, before a story reaches here
+ * at all, which is why there is no test of a withheld story below. What this checks is the half that
+ * IS this file's: an off-air category is a rule rather than a subject, so nothing here ever hands a
+ * writer one, gives one a turn in the spread, or lets a band be filled by one.
+ */
+describe('a category the station keeps off the air', () => {
+    const shopping = category('shopping', { offAir: true, labels: ['Deals'], words: ['discount code'] });
+
+    it('is never stamped on a story, however well it matches', async () => {
+        const { source } = build({
+            topics: [shopping],
+            items: [item('Save on tents with this discount code', { categories: ['Deals'] })],
+        });
+
+        const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        // The story is here only because this test stubs the service that would have withheld it.
+        // What matters is that it arrives uncategorised: a writer is never told it is one of ours.
+        expect(bulletin?.stories[0]?.categories).toEqual([]);
+    });
+
+    it('cannot be what a bulletin was asked for, so a band pointed at one reads generally', async () => {
+        const { source } = build({
+            topics: [shopping],
+            items: [item('Council reopens the bridge')],
+        });
+
+        const bulletin = await source.storiesFor(NEWS_KIND, { topic: 'shopping' }, NOW);
+
+        expect(bulletin?.subject).toBeUndefined();
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['Council reopens the bridge.']);
+    });
+});

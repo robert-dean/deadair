@@ -12,6 +12,8 @@ import { qualifyFeedId, splitFeedId } from '../../../src/modules/news/feed.ids.j
 import { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
+import type { Topic } from '../../../src/modules/topics/topic.js';
+import type { TopicRepository } from '../../../src/modules/topics/topic.repository.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
 const RSS = 'deadair.rss';
@@ -59,10 +61,29 @@ function record(id: string, overrides: Partial<PluginRecord> = {}, options: Inst
     return { id, dir: `/plugins/${id}`, status: 'active', manifest: manifest(id), instance: instance(options) as never, ...overrides };
 }
 
-const build = (records: PluginRecord[]): NewsService => {
+/** One of the operator's categories, as the repository answers with it. */
+const topic = (key: string, label: string, config: Record<string, unknown>): Topic => ({
+    id: `t-${key}`,
+    kind: 'news',
+    key,
+    label,
+    config,
+    position: 0,
+});
+
+/** A topic table that answers with these rows, or throws when they are an error. */
+const topicsAnswering = (rows: Topic[] | Error): TopicRepository =>
+    ({
+        list: vi.fn(async () => {
+            if (rows instanceof Error) throw rows;
+            return rows;
+        }),
+    }) as unknown as TopicRepository;
+
+const build = (records: PluginRecord[], topics: Topic[] | Error = []): NewsService => {
     const registry = new PluginRegistry();
     registry.setAll(records);
-    return new NewsService(registry, new PluginInvoker(registry, stubPluginLog().log), stubLogger());
+    return new NewsService(registry, new PluginInvoker(registry, stubPluginLog().log), topicsAnswering(topics), stubLogger());
 };
 
 beforeEach(() => {
@@ -198,5 +219,62 @@ describe('what the console reads', () => {
 
         expect(await service.readFeeds()).toEqual({ feeds: [] });
         expect(await service.readNews({})).toEqual({ stories: [] });
+    });
+});
+
+/**
+ * What the station will not read is decided here rather than in the bulletin, so the page, the
+ * model's tool and the bulletin cannot disagree about what the station has. The failure it answers
+ * aired: a publisher's deals desk shares its main feed, and a discount code was read out as news.
+ */
+describe('what the station keeps off the air', () => {
+    const shopping = topic('shopping', 'Shopping and sponsored', { offAir: true, labels: ['Deals'], words: ['discount code'] });
+
+    const deals = (): NewsItem[] => [
+        { ...item('g1', 'Council reopens the bridge', '2026-08-15T08:00:00.000Z') },
+        { ...item('g2', 'Save on tents with this discount code', '2026-08-15T07:00:00.000Z') },
+        { ...item('g3', 'A new pair of headphones', '2026-08-15T06:00:00.000Z'), categories: ['Deals'] },
+    ];
+
+    it('withholds a story an off-air category claims', async () => {
+        const service = build([record(RSS, {}, { fetchItems: vi.fn(async () => deals()) })], [shopping]);
+
+        expect((await service.fetchItems({ limit: 10 })).map(story => story.title)).toEqual(['Council reopens the bridge']);
+    });
+
+    it('withholds it from one named feed as well as from the merge', async () => {
+        const service = build([record(RSS, {}, { fetchItems: vi.fn(async () => deals()) })], [shopping]);
+
+        const stories = await service.fetchItems({ limit: 10, feedId: qualifyFeedId(RSS, 'world') });
+
+        expect(stories.map(story => story.title)).toEqual(['Council reopens the bridge']);
+    });
+
+    it('spends the limit on stories the station will read, not on the ones it drops', async () => {
+        const service = build([record(RSS, {}, { fetchItems: vi.fn(async () => deals()) })], [shopping]);
+
+        // Two of the three are withheld, so a caller asking for one gets the story rather than
+        // a page whose only survivor fell off the end of the cut.
+        expect((await service.fetchItems({ limit: 1 })).map(story => story.title)).toEqual(['Council reopens the bridge']);
+    });
+
+    it('keeps a whole feed out when the feed itself is filed under one', async () => {
+        const listFeeds = vi.fn(async (): Promise<NewsFeedDescriptor[]> => [{ id: 'world', name: 'World news', category: 'Shopping and sponsored' }]);
+        const service = build([record(RSS, {}, { listFeeds, fetchItems: vi.fn(async () => deals()) })], [shopping]);
+
+        expect(await service.fetchItems({ limit: 10 })).toEqual([]);
+    });
+
+    it('drops nothing on a station whose categories cannot be read', async () => {
+        const service = build([record(RSS, {}, { fetchItems: vi.fn(async () => deals()) })], new Error('no topics table'));
+
+        expect((await service.fetchItems({ limit: 10 })).map(story => story.title)).toHaveLength(3);
+    });
+
+    it('drops nothing when no category is marked off air', async () => {
+        const ordinary = topic('technology', 'Technology', { labels: ['Deals'] });
+        const service = build([record(RSS, {}, { fetchItems: vi.fn(async () => deals()) })], [ordinary]);
+
+        expect((await service.fetchItems({ limit: 10 })).map(story => story.title)).toHaveLength(3);
     });
 });

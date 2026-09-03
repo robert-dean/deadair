@@ -3,8 +3,9 @@
 **Written:** 2026-08-15, the day the source half landed.
 **Revised:** 2026-08-15, when the bulletin landed too. **§1 is now BUILT**; what shipped is
 described in its place, and the sections below it are the ones still open.
-**Revised again:** 2026-08-20, when categories landed. §1 grew a subject; §4's console page is still
-open and is now the last place `GET /news` is drawn nowhere.
+**Revised again:** 2026-08-20, when categories landed. §1 grew a subject.
+**Revised again:** 2026-09-02. §4's console page is BUILT. Categories grew an off-air switch, which
+is what keeps a publisher's deals desk out of a bulletin; see `docs/internals/breaks.md`.
 **State of the tree:** the source half and the bulletin are built and are described as fact.
 Everything under "What is deferred" is not built, and each piece names the seam it drops into.
 
@@ -18,8 +19,8 @@ Everything under "What is deferred" is not built, and each piece names the seam 
   the argument `plugin.http.ts` makes about the status ladder.
 - **A `news` capability** (`capabilities/news.ts`): `listFeeds()` and `fetchItems({ feedId?, limit,
   since? })`, answering `NewsItem`s. Charts' shape rather than enrichment's — a menu, never a merge.
-- **`plugins/rss`**, bundled. The operator's own list, one feed per line, with an optional id and
-  name in front of the address.
+- **`plugins/rss`**, bundled. The operator's own list, as a `list` config field with a name, an
+  address and a category per row (it was one feed per line when this was written).
 - **A `fromConfig` allowlist entry resolves a LIST of hostnames** (`plugin.host.factory.ts`), which
   is what makes a plugin pointed at operator-supplied upstreams expressible at all.
 - **`modules/news`**: `NewsService`, `GET /news/feeds` and `GET /news` on `platform.view`.
@@ -128,14 +129,13 @@ schedule — at which point it is the same code either way. With one consumer it
 surface built for an audience of one; the RSS plugin's in-memory window covers today's actual
 failure mode, which is a model calling the tool twice inside one break.
 
-### 4. A console page
+### 4. A console page — BUILT
 
-`GET /news/feeds` and `GET /news` exist and nothing draws them. The charts page is the shape to
-copy. Worth having before the bulletin lands rather than after: "what does the station think the
-news is" is the first question when a bulletin reads oddly — and it is a better question again now
-that categories exist, since the page that would answer it is also the page that would show which
-stories a category is actually claiming. `apps/api/scripts/news.smoke.ts` prints exactly that
-against the real feeds and is what stands in for it today.
+`apps/web/src/components/news/news.page.tsx` draws `GET /news/feeds` and `GET /news`: the stories a
+bulletin would be written from, with a feed filter asked of the server and a category filter applied
+in the browser by joining stories to feeds on `feedId`. It deliberately does not show what was READ
+on air — the twelve-hour log is in memory and on no contract, and `script_history` is the record.
+`apps/api/scripts/news.smoke.ts` prints the same thing from a shell.
 
 ---
 

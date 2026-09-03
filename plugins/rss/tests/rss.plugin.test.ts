@@ -336,6 +336,54 @@ ${items
         expect(items.filter(item => item.content !== undefined)).toHaveLength(4);
     });
 
+    // The cap is on stories carried, not on requests paid for, and this is the
+    // test that tells the two apart. Counting requests let a warm cache hand
+    // back the top four for free without spending a slot, so the call went on to
+    // fetch items five and six — and the call after that, seven and eight. The
+    // console's page measured flat at ~3s across consecutive loads for exactly
+    // this reason: caching it changed nothing.
+    it('carries the same four out of the cache rather than fetching further down the list', async () => {
+        const six = Array.from({ length: 6 }, (_unused, at) => ({ title: `Story ${at}`, guid: `g${at}`, link: `https://one.example.com/${at}` }));
+        await initialize({ cacheSeconds: 600 });
+        serving(
+            Object.fromEntries(six.map(item => [item.link, articlePage(`The body of ${item.title}, long enough to be taken for real prose.`)])),
+            linkedFeed(...six),
+        );
+
+        await plugin.fetchItems({ limit: 6 });
+        const paid = host.calls.length;
+        const second = await plugin.fetchItems({ limit: 6 });
+
+        expect(host.calls).toHaveLength(paid);
+        expect(second.filter(item => item.content !== undefined)).toHaveLength(4);
+    });
+
+    // The other half of that rule, and the reason it is not simply "count every
+    // item". A page already known to carry no prose can never carry a story, and
+    // the cache remembers misses — so a slot held by one would be held for as
+    // long as the cache lasts, starving the items behind it.
+    it('lets the item behind an empty page have the slot that page cannot use', async () => {
+        const five = Array.from({ length: 5 }, (_unused, at) => ({ title: `Story ${at}`, guid: `g${at}`, link: `https://one.example.com/${at}` }));
+        await initialize({ cacheSeconds: 600 });
+        serving(
+            {
+                'https://one.example.com/0': '<html><body><p>Menu</p></body></html>',
+                ...Object.fromEntries(
+                    five.slice(1).map(item => [item.link, articlePage(`The body of ${item.title}, long enough to be taken for real prose.`)]),
+                ),
+            },
+            linkedFeed(...five),
+        );
+
+        const first = await plugin.fetchItems({ limit: 5 });
+        const second = await plugin.fetchItems({ limit: 5 });
+
+        // The empty page spent a slot the first time, because it cost a request to learn that.
+        expect(first.filter(item => item.content !== undefined)).toHaveLength(3);
+        // Knowing it is empty, the second call spends nothing on it and reaches the fifth item.
+        expect(second.filter(item => item.content !== undefined)).toHaveLength(4);
+    });
+
     it('stops reading stories when the budget runs low, and still answers', async () => {
         await initialize();
         serving(

@@ -52,7 +52,7 @@ export { rssManifest } from './rss.manifest.js';
  *
  * Three bounds, because this is the expensive half. Only items actually being
  * RETURNED are read, so a `maxItems` of 25 never costs 25 pages; no more than
- * {@link MAX_ARTICLE_FETCHES} per call; and the loop stops on
+ * {@link MAX_STORIES} per call; and the loop stops on
  * `host.remainingMs`, so a bulletin's long budget reads more of them than a DJ's
  * mid-break tool call does. A page that fails costs its own item and nothing
  * else, exactly as a feed does — the entry's own words are the fallback, and
@@ -101,15 +101,20 @@ const FEED_BUDGET_MS = 1_500;
 const ARTICLE_BUDGET_MS = 2_500;
 
 /**
- * Most article pages one call will read.
+ * Most stories one call will carry.
  *
  * A bulletin asks for twice what it will read (the caller drops anything with no
  * usable headline), so this is deliberately BELOW an ordinary request's limit:
  * the stories a bulletin actually reads are the first few, and paying for the
  * spares would double the cost of the over-fetch that exists to protect the
  * headline count.
+ *
+ * A cap on STORIES rather than on requests, which it used to be. The rename is
+ * the point rather than tidying: a cap on requests is satisfied by fetching,
+ * never by having already fetched, so it could not converge. See
+ * {@link RssPlugin.withStories}.
  */
-const MAX_ARTICLE_FETCHES = 4;
+const MAX_STORIES = 4;
 
 export class RssPlugin extends Plugin implements NewsPluginInstance {
     private feeds: ConfiguredFeed[] = [];
@@ -192,19 +197,38 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
      * they are the same outcome to the caller: a refused host, a page with
      * nothing on it, a PDF, and a budget that ran out all leave the entry's own
      * words as the answer, which is a real answer rather than a hole.
+     *
+     * {@link MAX_STORIES} counts a story this already HAS, not only one
+     * it paid for, and that distinction is the whole of why a warm cache is
+     * worth having. Counting requests alone reads as the cheaper rule and is
+     * not: a cached page returned without consuming a slot, so the next call
+     * carried the top four for free and then went and fetched items five to
+     * eight, the call after that nine to twelve, and every call for as long as
+     * uncached items remained on the list paid the full four page loads. The cap
+     * walked down the list instead of being satisfied by it. Measured on the
+     * console's own page, three consecutive loads inside one `cacheSeconds`
+     * window cost 3200ms, 3065ms and 3053ms — flat, because the cache was never
+     * allowed to answer.
+     *
+     * So a slot is spent when the item ends up with a story or when a request
+     * was paid for trying. What still costs nothing is the case that rule was
+     * written for: an item with no link, and a page already known to carry no
+     * prose. Neither of those can ever carry a story, so letting either hold a
+     * slot would starve the items behind it — which, the cache remembering
+     * misses, would otherwise be permanent.
      */
     private async withStories(items: NewsItem[]): Promise<NewsItem[]> {
         if (!this.fetchArticles) return items;
 
-        let fetched = 0;
+        let carried = 0;
         const answered: NewsItem[] = [];
 
         for (const item of items) {
-            const text = await this.storyFor(item, fetched);
+            const text = await this.storyFor(item, carried);
             if (text !== undefined) answered.push({ ...item, content: text.content });
             else answered.push(item);
 
-            if (text?.fetched === true) fetched += 1;
+            if (text !== undefined && (text.content !== undefined || text.fetched)) carried += 1;
         }
 
         return answered;
@@ -213,12 +237,12 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
     /**
      * One item's story: from the cache, from the publisher, or not at all.
      *
-     * Answers whether it PAID for the page as well as what it found, because the
-     * per-call cap is about requests rather than about items — a cached page and
-     * an item with no link both cost nothing and neither should push a later
-     * story off the end.
+     * Answers whether it PAID for the page as well as what it found, because
+     * those are the two separate ways a slot gets spent and the caller is the
+     * one holding the count. See {@link RssPlugin.withStories} for which
+     * combinations spend one.
      */
-    private async storyFor(item: NewsItem, fetched: number): Promise<{ content?: string; fetched: boolean } | undefined> {
+    private async storyFor(item: NewsItem, carried: number): Promise<{ content?: string; fetched: boolean } | undefined> {
         const url = item.url;
         if (url === undefined) return undefined;
 
@@ -229,9 +253,9 @@ export class RssPlugin extends Plugin implements NewsPluginInstance {
 
         // Both checks before starting one, for the reason the feed loop's is:
         // being cut off mid-page costs the request and leaves nothing to show.
-        if (fetched >= MAX_ARTICLE_FETCHES) return undefined;
+        if (carried >= MAX_STORIES) return undefined;
         if (this.host.remainingMs() < ARTICLE_BUDGET_MS) {
-            this.host.logger.debug('rss: stopped short of the stories, out of budget', { read: fetched });
+            this.host.logger.debug('rss: stopped short of the stories, out of budget', { read: carried });
             return undefined;
         }
 

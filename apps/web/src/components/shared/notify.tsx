@@ -1,3 +1,4 @@
+import { Button } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 
 import { toneColor } from './status';
@@ -65,6 +66,46 @@ export function notifyQueued(message: string): void {
         message,
         color: toneColor.standby,
         autoClose: 4000,
+        withBorder: true,
+    });
+}
+
+/**
+ * An action that is already done, and can be taken back with one more click.
+ *
+ * These three still say success-only, on the reasoning above: nothing here reports a failure. This
+ * is the exception that is not really one — it exists because one of those successes was a mistake
+ * an operator wants a way out of, not because the action failed. Dropping an item from the running
+ * order is the first caller: it happens many times an hour, so a confirm dialog in front of it is
+ * the wrong cost, and a toast with a way back is the right one.
+ *
+ * The button is a `Button` rather than an `Anchor`, unlike the rest of this console's inline actions
+ * — a toast has no surrounding text for an anchor to sit in, and it disappears on its own, so it
+ * needs to read as a control at a glance rather than as a link. Mantine's `Notification` renders its
+ * `message` inside a `div`, so a real `<button>` nested in it is ordinary markup rather than
+ * anything that needs a polymorphic `component` to work around. It hides the toast itself on click,
+ * rather than leaving that to `autoClose`: an operator who has just pressed undo does not need the
+ * confirmation sitting on screen for the rest of its six seconds.
+ */
+export function notifyUndoable(message: string, action: { label: string; onUndo: () => void }): void {
+    const id = notifications.show({
+        message: (
+            <>
+                {message}{' '}
+                <Button
+                    variant="subtle"
+                    size="compact-xs"
+                    onClick={() => {
+                        action.onUndo();
+                        notifications.hide(id);
+                    }}
+                >
+                    {action.label}
+                </Button>
+            </>
+        ),
+        color: toneColor.ok,
+        autoClose: 6000,
         withBorder: true,
     });
 }

@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { truncateSentences, type NewsItem } from '@deadair/plugin-sdk';
+import { truncateSentences } from '@deadair/plugin-sdk';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { categoriesOf, newsTopicRules, type NewsTopicRules } from '#modules/news/news.classify.js';
 import { NewsService } from '#modules/news/news.service.js';
@@ -329,27 +329,40 @@ export class BulletinSource {
             const limit = wanted * OVERSAMPLE;
             const since = new Date(now - windowMs).toISOString();
 
-            // A roster is asked feed by feed rather than as one merged page, which is what makes the
-            // station's order expressible at all: `NewsService` merges newest-first, so a publisher
-            // posting twenty times a day would otherwise take every slot from one posting three
-            // times. A feed the station no longer offers answers nothing and is skipped, which
-            // `NewsService` already logs by name.
-            const items =
+            // A roster is asked feed by feed and kept feed by feed, which is what makes the station's
+            // order mean anything: `NewsService` merges newest first, so a publisher posting twenty
+            // times a day took every slot from one posting three times whatever order they were
+            // written in. Each feed also gets its own `limit`, so a quiet feed is never cut short by
+            // a loud one, and its own share of the article budget the plugin spends. A feed the
+            // station no longer offers answers nothing and drops out, which `NewsService` logs by
+            // name.
+            const pages =
                 roster.length === 0
-                    ? await this.news.fetchItems({ limit, since })
-                    : newestFirst((await Promise.all(roster.map(async feedId => await this.news.fetchItems({ feedId, limit, since })))).flat());
+                    ? [await this.news.fetchItems({ limit, since })]
+                    : await Promise.all(roster.map(async feedId => await this.news.fetchItems({ feedId, limit, since })));
 
             // Before the filter, so a story that has aged past the window is sayable again even on a
             // station whose every recent bulletin declined. See `ReadLog.forget`.
             this.read.forget(now - windowMs);
 
-            const offered = items.flatMap(item => toStory(item, rules, declared.get(item.feedId)) ?? []);
-            const unread = offered.filter(story => !this.read.has(story.headline));
+            // Each feed's page carried the whole way down, so the round below has something to take
+            // turns over. Flattened only where a COUNT is wanted.
+            const offeredBy = pages.map(page => page.flatMap(item => toStory(item, rules, declared.get(item.feedId)) ?? []));
+            const offered = offeredBy.flat();
 
-            // Cut to what this bulletin is about, or spread across whatever the categories say the
-            // page holds. Two different jobs and one line, because a bulletin that was asked for a
-            // category has already had its variety decided for it.
-            const eligible = asked === undefined ? spread(unread) : unread.filter(story => (story.categories ?? []).includes(asked.key));
+            const eligibleBy = offeredBy.map(page => {
+                const unread = page.filter(story => !this.read.has(story.headline));
+                // Cut to what this bulletin is about, when it was asked for one.
+                return asked === undefined ? unread : unread.filter(story => (story.categories ?? []).includes(asked.key));
+            });
+            const unread = offeredBy.flat().filter(story => !this.read.has(story.headline));
+
+            // Two ways of ordering one page, and which applies is decided by whether the operator
+            // wrote a running order. With a roster the station's own turn-taking is the answer and
+            // `spread` would fight it; without one there is a single merged page and `spread` is
+            // what stops one category taking all of it. A briefed bulletin has had its variety
+            // decided for it either way.
+            const eligible = roster.length === 0 ? (asked === undefined ? spread(eligibleBy[0] ?? []) : (eligibleBy[0] ?? [])) : inTurn(eligibleBy);
             const stories = eligible.slice(0, wanted);
 
             // The category is empty. DECLINED rather than filled with general news, which is the
@@ -484,16 +497,34 @@ function subjectOf(context: BreakContext | undefined, rules: readonly NewsTopicR
 }
 
 /**
- * Several feeds' answers as one page.
+ * One story from each feed in turn, in the station's order, then round again.
  *
- * Each feed answered in its own order and `NewsService` guarantees only that one feed's items are
- * newest first, so the concatenation is not: a roster's second feed would otherwise be read entirely
- * after its first, whatever the clock said. Undated entries sort behind, exactly as they do one
- * layer down.
+ * What the operator's list actually buys. The alternative every version of this had before was one
+ * page merged newest first, which sounds fair and is not: a publisher posting twenty times a day
+ * holds every one of the top slots, so a station following a wire, a local paper and a technology
+ * site read the technology site. Measured on this station's own bulletins, where a technology
+ * feed's afternoon output went out as the day's news.
+ *
+ * A feed with nothing left simply stops taking turns rather than holding a place, so a quiet
+ * publisher costs the bulletin nothing and the next feed fills. Within a feed the order is whatever
+ * that feed answered with, which is newest first — the station decides between feeds and the
+ * publisher decides inside one.
+ *
+ * Everything is kept and only the ORDER changes, exactly as in {@link spread}: a bulletin whose
+ * first feed is the only one with anything unread still gets its full count, from that feed.
  */
-function newestFirst(items: readonly NewsItem[]): NewsItem[] {
-    const at = (item: NewsItem): number => (item.publishedAt === undefined ? 0 : new Date(item.publishedAt).getTime() || 0);
-    return [...items].sort((left, right) => at(right) - at(left));
+function inTurn(pages: readonly (readonly BreakStory[])[]): BreakStory[] {
+    const taken: BreakStory[] = [];
+    const deepest = Math.max(0, ...pages.map(page => page.length));
+
+    for (let round = 0; round < deepest; round += 1) {
+        for (const page of pages) {
+            const story = page[round];
+            if (story !== undefined) taken.push(story);
+        }
+    }
+
+    return taken;
 }
 
 /**

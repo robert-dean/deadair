@@ -200,6 +200,17 @@ what airs with nobody having decided it should. The console, the news page and `
 every feed, because this is about what is SAID; the menu simply follows the station's order where
 there is one. A listed feed the station no longer offers answers nothing and is skipped.
 
+**The roster is read one story per feed IN TURN, not merged.** Each listed feed is asked separately —
+its own `limit`, so a quiet feed is never cut short by a loud one, and its own share of the article
+fetches the plugin spends — and the bulletin then takes the first unread story of feed one, then of
+feed two, and rounds again until it has what it asked for. A feed with nothing left stops taking
+turns rather than holding a place, so a slow publisher costs the bulletin nothing. Within one feed
+the order is the publisher's, which is newest first: **the station decides between feeds and the
+publisher decides inside one.** `spread` is untouched and still runs, but only where there is no
+roster — with one merged page it is what stops a single category taking all of it, and against a
+roster it would be fighting the order the operator wrote. A briefed bulletin cuts to its category
+first and takes turns among what is left.
+
 **A bulletin does not read a story twice, and what it is not shown is as deliberate as what it is.**
 `BulletinSource` took the top `rotation.newsStoriesMin`–`Max` off a newest-first feed with nothing remembering
 the last bulletin, so on a feed that had not moved the same three stories went out in twenty-seven consecutive

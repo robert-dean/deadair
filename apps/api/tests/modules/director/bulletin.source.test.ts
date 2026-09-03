@@ -695,3 +695,93 @@ describe('a category the station keeps off the air', () => {
         expect(bulletin?.stories.map(story => story.headline)).toEqual(['Council reopens the bridge.']);
     });
 });
+
+/**
+ * What the operator's list actually buys, and the failure it answers is measured rather than
+ * imagined: merged newest first, a publisher posting twenty times a day holds every top slot, and
+ * this station read a technology feed's afternoon out as the day's news.
+ */
+describe("reading the station's feeds in turn", () => {
+    const WORLD = 'deadair.rss:world';
+    const SPORT = 'deadair.rss:sport';
+    const TECH = 'deadair.rss:tech';
+
+    /** A feed's own page, newest first, as `NewsService` answers one. */
+    const page = (feedId: string, ...titles: string[]): NewsItem[] => titles.map(title => item(title, { feedId }));
+
+    it('takes one story from each feed before going round again', async () => {
+        const { source } = build(
+            {
+                byFeed: {
+                    [WORLD]: page(WORLD, 'World one', 'World two', 'World three'),
+                    [SPORT]: page(SPORT, 'Sport one', 'Sport two'),
+                },
+            },
+            { ...roster(WORLD, SPORT), [BULLETIN_KEYS.storiesMin]: 4, [BULLETIN_KEYS.storiesMax]: 4 },
+        );
+
+        const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['World one.', 'Sport one.', 'World two.', 'Sport two.']);
+    });
+
+    it("reads them in the station's order rather than the plugin's", async () => {
+        const byFeed = { [WORLD]: page(WORLD, 'World one'), [SPORT]: page(SPORT, 'Sport one') };
+
+        const worldFirst = await build({ byFeed }, roster(WORLD, SPORT)).source.storiesFor(NEWS_KIND, undefined, NOW);
+        const sportFirst = await build({ byFeed }, roster(SPORT, WORLD)).source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(worldFirst?.stories[0]?.headline).toBe('World one.');
+        expect(sportFirst?.stories[0]?.headline).toBe('Sport one.');
+    });
+
+    // A quiet publisher costs the bulletin nothing: it stops taking turns rather than holding a
+    // place, which is the whole reason a roster is safe to write.
+    it('skips a feed with nothing to say and lets the next one fill', async () => {
+        const { source } = build({ byFeed: { [WORLD]: page(WORLD, 'World one', 'World two'), [SPORT]: [] } }, roster(WORLD, SPORT));
+
+        const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['World one.', 'World two.']);
+    });
+
+    it('does not read a feed the station left off the list', async () => {
+        const { source, fetchItems } = build({ byFeed: { [WORLD]: page(WORLD, 'World one'), [TECH]: page(TECH, 'Save on tents') } }, roster(WORLD));
+
+        const bulletin = await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        expect(fetchItems).toHaveBeenCalledTimes(1);
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['World one.']);
+    });
+
+    it('still gives each feed its own share to reach into, so a quiet feed is not cut by a loud one', async () => {
+        const { source, fetchItems } = build(
+            { byFeed: { [WORLD]: page(WORLD, 'World one'), [SPORT]: page(SPORT, 'Sport one') } },
+            roster(WORLD, SPORT),
+        );
+
+        await source.storiesFor(NEWS_KIND, undefined, NOW);
+
+        // The oversample is per feed rather than shared out between them.
+        for (const call of fetchItems.mock.calls) expect(call[0]).toEqual(expect.objectContaining({ limit: 3 * 4 }));
+    });
+
+    // A briefed bulletin has had its variety decided for it, so the turn-taking runs over what is
+    // left after the category cut rather than instead of it.
+    it('takes turns only among the stories a briefed bulletin may read', async () => {
+        const { source } = build(
+            {
+                topics: [category('technology', { labels: ['Technology'] })],
+                byFeed: {
+                    [WORLD]: page(WORLD, 'A council meeting'),
+                    [SPORT]: [item('Semiconductor plant opens', { feedId: SPORT, categories: ['Technology'] })],
+                },
+            },
+            roster(WORLD, SPORT),
+        );
+
+        const bulletin = await source.storiesFor(NEWS_KIND, { topic: 'technology' }, NOW);
+
+        expect(bulletin?.stories.map(story => story.headline)).toEqual(['Semiconductor plant opens.']);
+    });
+});

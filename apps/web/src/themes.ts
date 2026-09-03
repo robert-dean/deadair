@@ -59,7 +59,10 @@ const white = consoleTheme(
         dark: ['#7d7469', '#56504a', '#3c3830', '#2b2822', '#221f1a', '#1c1a15', '#18160f', '#12100b', '#0c0b07', '#060503'],
         // Warm paper, lightest first. This is what `c="dimmed"`, every default border and every
         // `color="gray"` badge resolve through, exactly as carbon's ramp does.
-        gray: ['#ffffff', '#fbf9f4', '#f4f1ea', '#efebe1', '#e9e3d7', '#ddd6c8', '#c3b9a5', '#a89d89', '#7d7469', '#56504a'],
+        // Index 8 tracks `--da-text-dimmed` in tokens.css (#6b6257, darkened off #7d7469 for AA
+        // contrast — see that file); index 7 is nudged a step lighter so it stays visibly distinct
+        // from it rather than converging on the same swatch.
+        gray: ['#ffffff', '#fbf9f4', '#f4f1ea', '#efebe1', '#e9e3d7', '#ddd6c8', '#c3b9a5', '#b0a68f', '#6b6257', '#56504a'],
         red: ['#fdecec', '#f9cfcf', '#f0a3a3', '#e06060', '#c81f22', '#b31b1e', '#a81618', '#93211f', '#7c1214', '#5e0d0f'],
         blue: ['#e8f0fc', '#dbe6f7', '#b3ccef', '#5f8fd9', '#1a5cba', '#1750a3', '#14488f', '#113c78', '#0e3160', '#0a2447'],
         // The one that had to move furthest. Carbon's amber is #ffb224 and is invisible on paper;

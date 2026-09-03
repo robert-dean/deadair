@@ -30,7 +30,12 @@
 
     --da-text: #e8edea;
     --da-text-secondary: #a7b2ac;
-    --da-text-dimmed: #6e7a74;
+    /* #6e7a74 measured 4.33:1 against `--da-bg` and 4.11:1 against `--da-panel`, both under the
+       4.5:1 AA floor for text under 18px — which is every reading this token draws: the station
+       clock, the rail's key hints, a table's secondary line. Found by the contrast test written for
+       Studio White, which is the whole reason that test asserts across every theme rather than the
+       one that was being audited. Seven steps lighter clears both at 4.78 and 4.53. */
+    --da-text-dimmed: #75817b;
 
     /* Only the two the theme cannot reach: the nav's active bar is drawn in a CSS module, and the
        two glows are alpha over a hue Mantine publishes no transparent form of. The solid accent and
@@ -125,7 +130,11 @@
 
     --da-text: #18160f;
     --da-text-secondary: #56504a;
-    --da-text-dimmed: #7d7469;
+    /* #7d7469 measured 4.07:1 against --da-bg and 4.59:1 against --da-panel, both under the 4.5:1
+       AA floor for text under 18px (the station clock and the nav rail's hint letter both read
+       through this token). Darkened until both surfaces clear the floor with margin: 5.30:1 and
+       5.98:1. */
+    --da-text-dimmed: #6b6257;
 
     --da-phosphor: #0e7247;
     /* Weaker than carbon's 35%: the same alpha over white is a highlighter stripe through a

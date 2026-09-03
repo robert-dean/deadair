@@ -1,4 +1,4 @@
-import { createTheme, type CSSVariablesResolver, type MantineColorsTuple, type MantineThemeOverride } from '@mantine/core';
+import { createTheme, type CSSVariablesResolver, type MantineColorsTuple, type MantineTheme, type MantineThemeOverride } from '@mantine/core';
 
 /**
  * The two rungs added below `xs`, told to TypeScript.
@@ -315,7 +315,50 @@ export function consoleTheme(colors: ConsolePalettes, faces: ConsoleFaces, signa
                 styles: { root: { textTransform: signage.titleTransform, letterSpacing: signage.titleTracking } },
             },
             Button: {
-                styles: { root: { textTransform: signage.buttonTransform, letterSpacing: signage.buttonTracking } },
+                // `styles` as a function of props rather than a plain object: Mantine's own disabled
+                // rule (`.m_.../Button.css`) sets `background`/`color` off `--mantine-color-disabled`
+                // and `--mantine-color-disabled-color`, both resolved from the `gray` tuple (gray.2,
+                // gray.5) — on Studio White's warm palette those sit close enough to measure 1.28:1,
+                // a control that reads as blank rather than as unavailable. A disabled control still
+                // has to be findable and legible; it just must not look pressable. Named directly
+                // against the dimmed token rather than through the ramp, and scoped to `disabled` so
+                // the enabled state (and its hover/press styling) is untouched.
+                // Annotated because `theme.components` types its `styles` callback as `any`, and an
+                // implicit `any` here is a parameter TypeScript stops checking — the same trap
+                // `apps/web/CLAUDE.md` records for `renderRoot`, in a different costume.
+                styles: (_theme: MantineTheme, props: { disabled?: boolean }) => ({
+                    root: {
+                        textTransform: signage.buttonTransform,
+                        letterSpacing: signage.buttonTracking,
+                        ...(props.disabled ? { backgroundColor: 'var(--da-raised)', color: 'var(--da-text-dimmed)' } : {}),
+                    },
+                }),
+            },
+            SegmentedControl: {
+                // No entry existed for this before, so it rendered Mantine stock everywhere it
+                // appears — the desk's rating control, the traces filter. Stock draws the inactive
+                // label off `gray.7` against a `gray.1` track, which on this theme's warm palette
+                // measured 2.54:1 at the 12px label size these controls use.
+                //
+                // Both inks are set here as custom properties on `root` rather than a `color` on
+                // `label`, because `getStyles('label')` is called once per option with the SAME
+                // component-level props each time — Mantine tells active from inactive with a
+                // `[data-active]` DOM attribute, which this styles layer never sees, so a plain
+                // `color` would paint every option alike. `--mantine-color-gray-7` is the exact
+                // variable the inactive label's own rule reads (`color: var(--mantine-color-gray-7)`
+                // in Mantine's compiled CSS) — shadowed here rather than touched app-wide, so it
+                // only reaches labels inside this control and every other `gray.7` consumer keeps
+                // the ramp value. `--sc-label-color` is SegmentedControl's own published hook for
+                // the active label's ink (normally set per-instance by a `color` prop, and empty
+                // otherwise), so setting it on `root` reaches exactly the state Mantine already
+                // carves out for it, and only it.
+                styles: {
+                    root: {
+                        '--mantine-color-gray-7': 'var(--da-text-secondary)',
+                        '--sc-label-color': 'var(--da-text)',
+                    },
+                    indicator: { backgroundColor: 'var(--da-panel)' },
+                },
             },
             Badge: {
                 // Uppercase is the desk's voice for a state, and tracking is what keeps it readable

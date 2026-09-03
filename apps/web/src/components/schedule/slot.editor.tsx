@@ -6,6 +6,8 @@ import type { ScheduleSlot, ScheduleSlotInput } from '@deadair/sdk';
 import {
     BriefField,
     CallinsField,
+    ChartOrderField,
+    chartSourceValue,
     EraFields,
     EraNote,
     HostField,
@@ -82,7 +84,11 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             startsAtMinutes,
             endsAtMinutes,
             days: values.days.map(Number),
-            ...(source === undefined ? {} : { sourcePluginId: source.pluginId, sourcePlaylistId: source.playlistId }),
+            ...(source === undefined
+                ? {}
+                : source.kind === 'chart'
+                  ? { sourceChartId: source.chartId, sourceChartOrder: values.chartOrder }
+                  : { sourcePluginId: source.pluginId, sourcePlaylistId: source.playlistId }),
             ...(values.personaId ? { personaId: values.personaId } : {}),
             ...(values.brief.trim() ? { brief: values.brief.trim() } : {}),
             // An empty box is no bound rather than a zero, and the two ends are independent: a lower
@@ -146,6 +152,11 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
                     </Text>
 
                     <SourceField description="Leave it empty for a slot the station fills itself." {...form.getInputProps('source')} />
+
+                    {/* Only under a chart, because it means nothing under anything else. A row that
+                        sat there greyed out for every playlist would be a control explaining its own
+                        irrelevance on the page an operator uses most. */}
+                    {splitSource(form.values.source)?.kind === 'chart' ? <ChartOrderField {...form.getInputProps('chartOrder')} /> : undefined}
 
                     <HostField {...form.getInputProps('personaId')} />
 
@@ -235,8 +246,10 @@ interface FormValues {
     startsAt: string;
     endsAt: string;
     days: string[];
-    /** Plugin and playlist as one option value, since a picker holds one string. */
+    /** A playlist pair or a chart id as one tagged option value, since a picker holds one string. */
     source: string;
+    /** Which way round a chart is played. Sent only when the source IS one; meaningless otherwise. */
+    chartOrder: NonNullable<ScheduleSlot['sourceChartOrder']>;
     personaId: string;
     brief: string;
     /** Empty string is Mantine's "nothing typed" for a NumberInput, and it means no bound. */
@@ -260,7 +273,14 @@ function valuesOf(target?: EditorTarget): FormValues {
         startsAt: minutesToClock(slot?.startsAtMinutes ?? prefill?.startsAtMinutes ?? 6 * 60),
         endsAt: minutesToClock(slot?.endsAtMinutes ?? (prefill?.startsAtMinutes ?? 6 * 60) + 3 * 60),
         days: (slot?.days ?? prefill?.days ?? []).map(String),
-        source: slot?.sourcePluginId && slot.sourcePlaylistId ? sourceValue(slot.sourcePluginId, slot.sourcePlaylistId) : '',
+        source: slot?.sourceChartId
+            ? chartSourceValue(slot.sourceChartId)
+            : slot?.sourcePluginId && slot.sourcePlaylistId
+              ? sourceValue(slot.sourcePluginId, slot.sourcePlaylistId)
+              : '',
+        // Only ever sent alongside a chart, so a slot that has never been one still carries the
+        // default the API would have applied anyway.
+        chartOrder: slot?.sourceChartOrder ?? 'countdown',
         personaId: slot?.personaId ?? '',
         brief: slot?.brief ?? '',
         eraFrom: slot?.eraFrom ?? '',

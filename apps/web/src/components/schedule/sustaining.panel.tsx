@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { Button, Card, Collapse, Group, Stack, Text } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
-import type { CatalogPlaylist } from '@deadair/sdk';
+import type { CatalogPlaylist, StationChart } from '@deadair/sdk';
 
+import { chartsListOptions } from '../../api/charts.queries';
 import { playlistsListOptions } from '../../api/playlists.queries';
 import { useSettings, useUpdateSettings } from '../../api/settings.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
-import { BriefField, EraFields, SourceField, sourceValue, splitSource } from '../programme/programme.fields';
+import { BriefField, ChartOrderField, chartSourceValue, EraFields, SourceField, sourceValue, splitSource } from '../programme/programme.fields';
 import { ErrorAlert } from '../shared/error.alert';
 import { Eyebrow } from '../shared/eyebrow';
 
@@ -24,6 +25,8 @@ import { Eyebrow } from '../shared/eyebrow';
 const KEYS = {
     pluginId: 'schedule.sustainingPluginId',
     playlistId: 'schedule.sustainingPlaylistId',
+    chartId: 'schedule.sustainingChartId',
+    chartOrder: 'schedule.sustainingChartOrder',
     brief: 'schedule.sustainingBrief',
     eraFrom: 'schedule.sustainingEraFrom',
     eraTo: 'schedule.sustainingEraTo',
@@ -31,12 +34,15 @@ const KEYS = {
 
 interface FormValues {
     /**
-     * Plugin and playlist as one option value, since a picker holds one string. As the slot editor.
+     * A playlist pair or a chart id as one tagged option value, since a picker holds one string.
+     * As the slot editor.
      *
-     * Nullable because clearing the picker is what "no playlist" is, and Mantine answers that with
+     * Nullable because clearing the picker is what "no source" is, and Mantine answers that with
      * null rather than with the empty string the field was built with.
      */
     source: string | null;
+    /** Which way round a chart is played. Saved only when the source IS one. */
+    chartOrder: 'countdown' | 'ranked' | 'unordered';
     brief: string;
     /** Empty string is Mantine's "nothing typed" for a `NumberInput`, and it means no bound. */
     eraFrom: number | string;
@@ -48,9 +54,9 @@ interface FormValues {
  *
  * ## A slot with the when-half removed
  *
- * That is what a sustaining source IS: a playlist or a brief and a period, with no times and no days,
+ * That is what a sustaining source IS: a playlist or a chart, or a brief and a period, with no times and no days,
  * standing behind the grid rather than on it. So it is drawn with the controls the slot editor
- * already uses — one searchable picker over the plugins' real playlists, a brief, and the two year
+ * already uses — one searchable picker over the plugins' real playlists and charts, a brief, and the two year
  * boxes — rather than as the five settings rows it is stored as. It lived on the settings page,
  * halfway down a card about rotation rules, under labels that had to re-explain the schedule in
  * order to say what they were for.
@@ -70,24 +76,30 @@ export function SustainingPanel() {
     const settings = useSettings();
     const save = useUpdateSettings();
     const playlists = useQuery(playlistsListOptions);
+    const charts = useQuery(chartsListOptions);
     const [opened, setOpened] = useState(false);
 
     const stored = storedValues(settings.data?.values ?? {});
     const catalog = playlists.data?.playlists ?? [];
+    const chartMenu = charts.data?.charts ?? [];
 
     const submit = (next: FormValues) => {
         // `splitSource` takes the null clearing a Mantine `Select` leaves behind, which is the
-        // gesture for "no playlist" and is not the empty string the field started as.
+        // gesture for "no source" and is not the empty string the field started as.
         const source = splitSource(next.source);
-        const named = source !== undefined;
+        const playlist = source?.kind === 'playlist' ? source : undefined;
+        const chart = source?.kind === 'chart' ? source : undefined;
 
         // `null` rather than `''` for anything emptied: an explicit null deletes the row, which is
         // how a setting goes back to unset rather than being pinned to an empty string. The two
-        // halves of the source go together, since one without the other names nothing a playlist
-        // reader could be asked for.
+        // halves of a playlist go together, since one without the other names nothing a playlist
+        // reader could be asked for — and the arm that was NOT chosen is cleared rather than left,
+        // because a stale chart id beside a fresh playlist is a source that would win over it.
         save.mutate({
-            [KEYS.pluginId]: named ? source.pluginId : null,
-            [KEYS.playlistId]: named ? source.playlistId : null,
+            [KEYS.pluginId]: playlist?.pluginId ?? null,
+            [KEYS.playlistId]: playlist?.playlistId ?? null,
+            [KEYS.chartId]: chart?.chartId ?? null,
+            [KEYS.chartOrder]: chart === undefined ? null : next.chartOrder,
             [KEYS.brief]: next.brief.trim() === '' ? null : next.brief.trim(),
             [KEYS.eraFrom]: typeof next.eraFrom === 'number' ? next.eraFrom : null,
             [KEYS.eraTo]: typeof next.eraTo === 'number' ? next.eraTo : null,
@@ -104,7 +116,7 @@ export function SustainingPanel() {
                             and a station with nothing set are the same empty map, and only one of
                             them is worth a sentence. */}
                         <Text size="sm" c="dimmed" maw={620}>
-                            {settings.data === undefined ? ' ' : summaryOf(stored, catalog)}
+                            {settings.data === undefined ? ' ' : summaryOf(stored, catalog, chartMenu)}
                         </Text>
                     </Stack>
                     <Button size="xs" variant="light" onClick={() => setOpened(open => !open)}>
@@ -167,6 +179,8 @@ function SustainingForm({ initial, onSubmit, saving, succeeded, failure }: Susta
                     {...form.getInputProps('source')}
                 />
 
+                {splitSource(form.values.source)?.kind === 'chart' ? <ChartOrderField {...form.getInputProps('chartOrder')} /> : undefined}
+
                 <BriefField
                     description="In your own words, for the model that chooses records, exactly as a block's own brief works."
                     {...form.getInputProps('brief')}
@@ -220,12 +234,18 @@ function year(values: Record<string, unknown>, key: string): number | string {
 function storedValues(values: Record<string, unknown>): FormValues {
     const pluginId = text(values, KEYS.pluginId);
     const playlistId = text(values, KEYS.playlistId);
+    const chartId = text(values, KEYS.chartId);
+    const chartOrder = text(values, KEYS.chartOrder);
 
     return {
-        // `null` rather than `''` for "no playlist", because Mantine draws its clear cross for any
+        // `null` rather than `''` for "no source", because Mantine draws its clear cross for any
         // value that is not null — so an empty picker offering to be cleared is what an empty string
         // looks like on the screen.
-        source: pluginId && playlistId ? sourceValue(pluginId, playlistId) : null,
+        //
+        // A chart first, which is the precedence the API reads these two with. Saying it differently
+        // here would show a playlist the station is not actually sustaining from.
+        source: chartId ? chartSourceValue(chartId) : pluginId && playlistId ? sourceValue(pluginId, playlistId) : null,
+        chartOrder: chartOrder === 'ranked' || chartOrder === 'unordered' ? chartOrder : 'countdown',
         brief: text(values, KEYS.brief),
         eraFrom: year(values, KEYS.eraFrom),
         eraTo: year(values, KEYS.eraTo),
@@ -243,11 +263,16 @@ function storedValues(values: Record<string, unknown>): FormValues {
  * station keeps what was on. That is a working station rather than a fault, so it is not phrased as
  * one.
  */
-function summaryOf(stored: FormValues, catalog: readonly CatalogPlaylist[]): string {
+function summaryOf(stored: FormValues, catalog: readonly CatalogPlaylist[], charts: readonly StationChart[]): string {
     const parts: string[] = [];
 
     const source = splitSource(stored.source);
-    if (source !== undefined) {
+    if (source?.kind === 'chart') {
+        const known = charts.find(entry => entry.id === source.chartId);
+        // The order goes in the line too, because "the top forty" and "the top forty counting down"
+        // are two different hours and the picker is behind a fold.
+        parts.push(`${known?.name ?? source.chartId}${stored.chartOrder === 'countdown' ? ', counting down' : ''}`);
+    } else if (source !== undefined) {
         const known = catalog.find(entry => entry.pluginId === source.pluginId && entry.id === source.playlistId);
         parts.push(known ? `${known.name} — ${known.pluginName}` : source.playlistId);
     }

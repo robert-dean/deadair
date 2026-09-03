@@ -58,7 +58,7 @@ import { SustainingPanel } from './sustaining.panel';
  * ## The hours nothing claims are edited here too
  *
  * A gap is an ordinary state rather than a fault, and what plays through one is the sustaining
- * source — a playlist or a brief and a period, with no times and no days, which is a slot with the
+ * source — a playlist or a chart, or a brief and a period, with no times and no days, which is a slot with the
  * when-half taken off. It is stored as station settings and was drawn on the settings page for as
  * long as that was true of it, which put the answer to "what plays in the white space on this grid"
  * on a card about rotation rules two pages away. `SustainingPanel` is it, on its own tab: it is a
@@ -270,7 +270,7 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
             )}
 
             {/* Its own tab rather than a fold under the grid. What plays through an unclaimed hour
-                is a whole answer with five fields of its own — a playlist, or a brief and a period —
+                is a whole answer with fields of its own — a playlist or a chart, or a brief and a period —
                 and it was competing for attention with the week it applies to. */}
             {tab === 'sustaining' ? <SustainingPanel /> : undefined}
 

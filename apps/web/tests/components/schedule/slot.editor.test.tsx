@@ -13,25 +13,29 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CatalogPlaylistPage, PersonaList, ScheduleSlot } from '@deadair/sdk';
 
 import { SlotEditor } from '../../../src/components/schedule/slot.editor';
-import { render, screen, setupUser } from '../../utils/render';
+import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const listImportablePlaylists = vi.fn();
 const listPersonas = vi.fn();
+const listCharts = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         playlists: { listImportablePlaylists: () => listImportablePlaylists() },
         personas: { listPersonas: () => listPersonas() },
+        charts: { listCharts: () => listCharts() },
     },
 }));
 
 afterEach(() => {
     listImportablePlaylists.mockReset();
     listPersonas.mockReset();
+    listCharts.mockReset();
 });
 
 const PLAYLISTS: CatalogPlaylistPage = { playlists: [], errors: [] };
 const PERSONAS: PersonaList = { personas: [], onAirPersonaId: undefined };
+const CHARTS = { charts: [{ id: 'deadair.lastfm:top-100', pluginId: 'deadair.lastfm', name: 'Global Top 100' }] };
 
 const slot = (over: Partial<ScheduleSlot> = {}): ScheduleSlot => ({
     id: 'slot-1',
@@ -159,5 +163,64 @@ describe('SlotEditor', () => {
         // A space in the id is the case a naive `split(' ')` loses the tail of. Nothing promises a
         // provider's ids have none, and losing it names a different playlist rather than erroring.
         expect(draft.sourcePlaylistId).toBe(offered.id);
+    });
+
+    it('opens a slot that plays a chart on its chart, and on the way round it plays it', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        listCharts.mockResolvedValue(CHARTS);
+
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ sourceChartId: 'deadair.lastfm:top-100', sourceChartOrder: 'ranked' }) }}
+                onClose={noop}
+                onSubmit={noop}
+                onDelete={noop}
+            />,
+        );
+
+        // Waited for rather than read straight off: a Mantine `Select` shows a name only once the
+        // option carrying it is in `data`, and the chart menu is a second request behind the form.
+        await waitFor(() => {
+            expect(screen.getByRole('combobox', { name: 'Playing from' })).toHaveValue('Global Top 100 — deadair.lastfm');
+        });
+        expect(screen.getByRole('combobox', { name: 'Played' })).toHaveValue('Number one first');
+    });
+
+    it('offers the way-round picker only under a chart', async () => {
+        // It means nothing under a playlist, and a row sitting there greyed out for every other kind
+        // of source is a control explaining its own irrelevance on the page an operator uses most.
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        listCharts.mockResolvedValue(CHARTS);
+
+        render(<SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={noop} onDelete={noop} />);
+
+        await screen.findByRole('combobox', { name: 'Playing from' });
+        expect(screen.queryByRole('combobox', { name: 'Played' })).toBeNull();
+    });
+
+    it('sends a chart slot its chart and no playlist, since the two are alternatives', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+        listCharts.mockResolvedValue(CHARTS);
+        const onSubmit = vi.fn();
+        render(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot({ sourceChartId: 'deadair.lastfm:top-100' }) }}
+                onClose={noop}
+                onSubmit={onSubmit}
+                onDelete={noop}
+            />,
+        );
+        await screen.findByRole('combobox', { name: 'Playing from' });
+
+        await setupUser().click(screen.getByRole('button', { name: 'Save' }));
+
+        expect(onSubmit).toHaveBeenCalledWith(
+            expect.objectContaining({ sourceChartId: 'deadair.lastfm:top-100', sourceChartOrder: 'countdown' }),
+        );
+        expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourcePluginId');
+        expect(onSubmit.mock.calls[0]![0]).not.toHaveProperty('sourcePlaylistId');
     });
 });

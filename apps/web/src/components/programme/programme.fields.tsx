@@ -2,6 +2,7 @@ import { Group, NumberInput, Select, Text, Textarea, Checkbox } from '@mantine/c
 import type { GetInputPropsReturnType } from '@mantine/form';
 import { useQuery } from '@tanstack/react-query';
 
+import { chartsListOptions } from '../../api/charts.queries';
 import { playlistsListOptions } from '../../api/playlists.queries';
 import { usePersonas } from '../../api/personas.queries';
 
@@ -30,51 +31,137 @@ import { usePersonas } from '../../api/personas.queries';
  * because a picker holds one string, and that was encoded at four sites and decoded at three.
  */
 
-/** A plugin and one of its playlists as the single string a picker can hold. */
-export const sourceValue = (pluginId: string, playlistId: string): string => `${pluginId} ${playlistId}`;
+/**
+ * What a picker's one string can name.
+ *
+ * A discriminated union rather than a second optional field, because the two are alternatives all
+ * the way down: `PutOnAirInput` takes a playlist pair or a chart id and refuses to make sense of
+ * both, and a slot stores one or the other. A shape that could hold neither-or-both would push that
+ * decision into every caller.
+ */
+export type ProgrammeSource = { kind: 'playlist'; pluginId: string; playlistId: string } | { kind: 'chart'; chartId: string };
 
 /**
- * The pair back out of a picker's value.
+ * The tag every encoded value carries, and why it is there at all.
  *
- * Both halves or neither: one without the other is not a source anything could read, which is the
- * same call `ScheduleRepository`'s row mapper makes on the way out of the database.
+ * The encoding used to be `pluginId playlistId` and nothing else, which was unambiguous while a
+ * playlist was the only thing a source could be. It is not: a chart id is already qualified as
+ * `plugin:chart`, so it holds no space and would decode as "not a source" — and a Last.fm `tag:`
+ * chart can legitimately hold one, so it might decode as a playlist instead. Tagging BOTH arms is
+ * what avoids that, and tagging both rather than only the new one is what keeps a plugin
+ * legitimately called `chart` from colliding with the tag. It is the same first-versus-last
+ * reasoning `chart.ids.ts` writes down on the API side.
  */
-export function splitSource(value: string | null | undefined): { pluginId: string; playlistId: string } | undefined {
+const SEPARATOR = ' ';
+
+/** A plugin and one of its playlists as the single string a picker can hold. */
+export const sourceValue = (pluginId: string, playlistId: string): string => `playlist${SEPARATOR}${pluginId}${SEPARATOR}${playlistId}`;
+
+/** A qualified chart id as the same. */
+export const chartSourceValue = (chartId: string): string => `chart${SEPARATOR}${chartId}`;
+
+/**
+ * A picker's value back out.
+ *
+ * `undefined` for anything that is not one — no tag, an unknown tag, or a missing half — because
+ * the caller's next move is the same in every case: treat it as no source rather than guess what
+ * was meant. That is the call `ScheduleRepository`'s row mapper already makes on the way out of the
+ * database.
+ */
+export function splitSource(value: string | null | undefined): ProgrammeSource | undefined {
+    const at = (value ?? '').indexOf(SEPARATOR);
+    if (at <= 0) return undefined;
+
+    const tag = value!.slice(0, at);
+    const rest = value!.slice(at + SEPARATOR.length);
+    if (rest.length === 0) return undefined;
+
+    if (tag === 'chart') return { kind: 'chart', chartId: rest };
+    if (tag !== 'playlist') return undefined;
+
     // At the FIRST separator rather than every one. A plugin id has no spaces, but a playlist id is
     // a provider's and nothing here can promise it has none either — and `split(' ')` would quietly
     // keep the first word of one and drop the rest, which is a source that reads back as a different
     // playlist rather than as an error.
-    const at = (value ?? '').indexOf(' ');
-    if (at <= 0) return undefined;
+    const split = rest.indexOf(SEPARATOR);
+    if (split <= 0) return undefined;
 
-    const pluginId = value!.slice(0, at);
-    const playlistId = value!.slice(at + 1);
-
-    return playlistId ? { pluginId, playlistId } : undefined;
+    const playlistId = rest.slice(split + SEPARATOR.length);
+    return playlistId ? { kind: 'playlist', pluginId: rest.slice(0, split), playlistId } : undefined;
 }
 
 /**
- * Where the records come from: a plugin and one of its playlists.
+ * Where the records come from: one of the plugins' playlists, or a published chart.
  *
  * Choosing nothing is a real answer rather than an empty field — it is a broadcast the station
- * fills for itself, which is what a rotation with no playlist behind it is.
+ * fills for itself, which is what a rotation with no source behind it is.
+ *
+ * ## Two groups in one picker rather than two pickers
+ *
+ * A playlist and a chart are alternatives, not settings that combine, and `PutOnAirInput` says so
+ * by taking one or the other. Two controls would let an operator fill in both and leave the console
+ * deciding which wins, which is a decision nobody asked it to make. The groups are what say the two
+ * are different KINDS of thing while still being one choice.
+ *
+ * They differ in one way worth knowing before choosing: a playlist names copies the station can
+ * already fetch, and a chart names records, so airing a chart has the station look each one up and
+ * ingest it. A station with `rotation.discover` off can play almost none of one.
  */
 export function SourceField({ description, ...input }: GetInputPropsReturnType & { description?: string }) {
     const playlists = useQuery(playlistsListOptions);
-    const options = (playlists.data?.playlists ?? []).map(entry => ({
+    const charts = useQuery(chartsListOptions);
+
+    const playlistOptions = (playlists.data?.playlists ?? []).map(entry => ({
         value: sourceValue(entry.pluginId, entry.id),
         label: `${entry.name} — ${entry.pluginName}`,
     }));
+    const chartOptions = (charts.data?.charts ?? []).map(entry => ({
+        value: chartSourceValue(entry.id),
+        label: `${entry.name} — ${entry.pluginId}`,
+    }));
+
+    // Groups only where there is something to group. A station with no chart plugin should see the
+    // list it has always seen rather than a heading over it explaining an absence.
+    const data =
+        chartOptions.length === 0
+            ? playlistOptions
+            : [
+                  { group: 'Playlists', items: playlistOptions },
+                  { group: 'Charts', items: chartOptions },
+              ];
 
     return (
         <Select
             label="Playing from"
             description={description ?? 'Leave it empty for a broadcast the station fills itself.'}
-            data={options}
+            data={data}
             searchable
             clearable
-            clearButtonProps={{ 'aria-label': 'Play from no playlist' }}
-            nothingFoundMessage={playlists.isPending ? 'Reading the plugins…' : 'No playlists on offer'}
+            clearButtonProps={{ 'aria-label': 'Play from no playlist or chart' }}
+            nothingFoundMessage={playlists.isPending || charts.isPending ? 'Reading the plugins…' : 'Nothing on offer'}
+            {...input}
+        />
+    );
+}
+
+/**
+ * Which way round a chart is played, shown only once one is chosen.
+ *
+ * A countdown is the shape a chart show has on the radio, so it leads and it is what an unset slot
+ * means. Meaningless for a playlist, which is why this is its own field rather than a row that sits
+ * there greyed out under every other kind of source.
+ */
+export function ChartOrderField(input: GetInputPropsReturnType) {
+    return (
+        <Select
+            label="Played"
+            description="A countdown ends on number one, which is the shape a chart show has."
+            data={[
+                { value: 'countdown', label: 'Countdown, ending on number one' },
+                { value: 'ranked', label: 'Number one first' },
+                { value: 'unordered', label: 'No fixed order' },
+            ]}
+            allowDeselect={false}
             {...input}
         />
     );

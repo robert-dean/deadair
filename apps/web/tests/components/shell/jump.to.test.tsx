@@ -1,15 +1,31 @@
 import { spotlight } from '@mantine/spotlight';
 import { act } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { JumpTo } from '../../../src/components/shell/jump.to';
-import { render, screen, setupUser } from '../../utils/render';
+import { render, screen, setupUser, waitFor } from '../../utils/render';
 
 const navigate = vi.fn();
 
 // Only the navigation is reached: the palette is a list of places and a way to go to one.
 vi.mock('@tanstack/react-router', () => ({
     useNavigate: () => navigate,
+}));
+
+const listTracks = vi.fn();
+const listArtists = vi.fn();
+const listPersonas = vi.fn();
+
+vi.mock('../../../src/api/client', () => ({
+    sdk: {
+        catalog: {
+            listTracks: (...args: unknown[]) => listTracks(...args),
+            listArtists: (...args: unknown[]) => listArtists(...args),
+        },
+        personas: {
+            listPersonas: (...args: unknown[]) => listPersonas(...args),
+        },
+    },
 }));
 
 /** The palette is a portal opened by an imperative store, so every case opens it the same way. */
@@ -23,9 +39,19 @@ function open() {
 describe('JumpTo', () => {
     beforeEach(() => {
         navigate.mockClear();
+        // Answering empty is the ordinary case for every case that never types enough to search —
+        // only the cases that DO search override these, and they do it before `open()` so the first
+        // render already has something to resolve.
+        listTracks.mockResolvedValue({ data: [], meta: { total: 0 }, states: {} });
+        listArtists.mockResolvedValue({ data: [], meta: { total: 0 } });
+        listPersonas.mockResolvedValue({ personas: [] });
         act(() => {
             spotlight.close();
         });
+    });
+
+    afterEach(() => {
+        vi.clearAllMocks();
     });
 
     /**
@@ -65,11 +91,16 @@ describe('JumpTo', () => {
         expect(screen.queryByRole('button', { name: /Charts/ })).not.toBeInTheDocument();
     });
 
-    it('says so rather than sitting empty when nothing matches', async () => {
+    it('says so rather than sitting empty when nothing matches, on a name too short to search on', async () => {
+        // Six characters, past the two-character floor, so this also proves the empty catalog/persona
+        // answers above do not leave the box silently broken — it has actually asked and come back
+        // with nothing, not merely declined to ask.
         open();
-        await setupUser().type(screen.getByPlaceholderText('Jump to anything'), 'lineups');
+        await setupUser().type(screen.getByPlaceholderText('Jump to anything'), 'lineup');
 
-        expect(screen.getByText('No page by that name.')).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByText('No page, record or character by that name.')).toBeInTheDocument();
+        });
     });
 
     it('lands a tab on the tab, not on its destination', async () => {
@@ -107,5 +138,71 @@ describe('JumpTo', () => {
         await setupUser().click(screen.getByRole('button', { name: /Plugins/ }));
 
         expect(navigate).toHaveBeenCalledWith({ to: '/plugins' });
+    });
+
+    // The four cases below are what changed: the palette used to be pages only, and a typed record
+    // name answered "no page by that name" for the one thing this station actually exists to hold.
+    describe('records and characters', () => {
+        it('asks nothing below the two-character floor', async () => {
+            open();
+            await setupUser().type(screen.getByPlaceholderText('Jump to anything'), 'a');
+
+            // A pause would let a debounced call land; there is nothing to wait for here on
+            // purpose, so the assertion is made straight away rather than after a `waitFor`.
+            expect(listTracks).not.toHaveBeenCalled();
+            expect(listArtists).not.toHaveBeenCalled();
+        });
+
+        it('lists a matching record under Records, and goes straight to its page', async () => {
+            listTracks.mockResolvedValue({
+                data: [{ id: 'track-1', title: '1-2-3-4 (Sumpin’ New)', artistName: 'Coolio', artistId: 'artist-1' }],
+                meta: { total: 1 },
+                states: {},
+            });
+
+            open();
+            await setupUser().type(screen.getByPlaceholderText('Jump to anything'), 'coolio');
+
+            const result = await screen.findByRole('button', { name: /1-2-3-4/ });
+            await setupUser().click(result);
+
+            expect(navigate).toHaveBeenCalledWith({ to: '/catalog/tracks/$trackId', params: { trackId: 'track-1' } });
+        });
+
+        it('lists a matching artist under Artists', async () => {
+            listArtists.mockResolvedValue({ data: [{ id: 'artist-1', name: 'Coolio', albumCount: 1, trackCount: 1 }], meta: { total: 1 } });
+
+            open();
+            await setupUser().type(screen.getByPlaceholderText('Jump to anything'), 'coolio');
+
+            const result = await screen.findByRole('button', { name: /^Coolio/ });
+            await setupUser().click(result);
+
+            expect(navigate).toHaveBeenCalledWith({
+                to: '/catalog/artists/$artistId',
+                params: { artistId: 'artist-1' },
+                search: expect.objectContaining({ page: 0 }),
+            });
+        });
+
+        // Personas carry no search parameter of their own, so this is a narrowing of the roster
+        // already in memory rather than a fourth request — the point this case actually pins.
+        it('narrows the roster already in memory rather than asking the API for one', async () => {
+            listPersonas.mockResolvedValue({
+                personas: [
+                    { id: 'p1', key: 'marlowe', label: 'Marlowe', kind: 'host', style: 'noir' },
+                    { id: 'p2', key: 'judith', label: 'Judith', kind: 'caller', style: 'pedant' },
+                ],
+            });
+
+            open();
+            await setupUser().type(screen.getByPlaceholderText('Jump to anything'), 'marlo');
+
+            const result = await screen.findByRole('button', { name: /Marlowe/ });
+            expect(screen.queryByRole('button', { name: /Judith/ })).not.toBeInTheDocument();
+            await setupUser().click(result);
+
+            expect(navigate).toHaveBeenCalledWith({ to: '/voice', search: { tab: 'characters', segment: '', persona: 'marlowe' } });
+        });
     });
 });

@@ -77,6 +77,15 @@ def _stub_decode(monkeypatch: pytest.MonkeyPatch, *, channels: int = 1) -> None:
     monkeypatch.setattr(app, "_decode", lambda path, channels: silence)
 
 
+def _stub_encode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A stand-in for the FLAC encoder, which is ffmpeg too.
+
+    The join tests are about when the pool of downloads is freed, not about
+    what the encoder makes of the result, and the CI runner has no ffmpeg.
+    """
+    monkeypatch.setattr(app, "_encode_flac", lambda samples, channels: b"fLaC")
+
+
 def test_analyze_trims_after_a_successful_decode(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = _spy_trim(monkeypatch)
     monkeypatch.setattr(app, "_download", lambda url: ("/no/such/file", True))
@@ -112,6 +121,7 @@ def test_join_trims_once_after_decoding_every_part(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(app, "_download", lambda url: (next(paths), True))
     monkeypatch.setattr(app, "_probe", lambda path: Probed(channels=1, tags={}))
     _stub_decode(monkeypatch)
+    _stub_encode(monkeypatch)
 
     audio, length_ms = _join(["https://example.invalid/a.flac", "https://example.invalid/b.flac"], 0, False, [])
 

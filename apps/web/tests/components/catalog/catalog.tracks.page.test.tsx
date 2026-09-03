@@ -143,9 +143,10 @@ describe('CatalogTracksPage', () => {
         // The row renders at all, which is the point: an earlier contract required `albumId` and
         // this row took the whole page down with it.
         expect(await screen.findByText('Untitled')).toBeInTheDocument();
-        // Back to catalog, the artist, and the title itself — which links to what that record has
-        // accumulated. The album cell stays empty rather than becoming a fourth.
-        expect(screen.getAllByRole('link')).toHaveLength(3);
+        // The artist and the title itself — which links to what that record has accumulated. The
+        // album cell stays empty rather than becoming a third; there is no "back to catalog" link
+        // any more since the tab strip is the navigation now.
+        expect(screen.getAllByRole('link')).toHaveLength(2);
     });
 
     // Three empty lists, three different facts, and only one of them is a problem. A benched filter

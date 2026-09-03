@@ -81,8 +81,10 @@ export function TrackClearMenu({ trackId }: { trackId: string }) {
             <Stack gap="xs" align="flex-end">
                 <Menu position="bottom-end" withinPortal>
                     <Menu.Target>
+                        {/* "Clear…" named the mechanism and not the reason anyone opens this: every
+                            entry here is about getting a record that will not play to play. */}
                         <Button variant="default" size="xs">
-                            Clear…
+                            Repair…
                         </Button>
                     </Menu.Target>
                     <Menu.Dropdown>

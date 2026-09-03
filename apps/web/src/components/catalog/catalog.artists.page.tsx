@@ -1,4 +1,4 @@
-import { Anchor, Group, Stack, Table, Text } from '@mantine/core';
+import { Anchor, Stack, Table, Text } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 
@@ -10,7 +10,7 @@ import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { SortableTh } from '../shared/sortable.th';
 import type { CatalogSort } from '@deadair/sdk';
-import { CATALOG_ALBUM_DEFAULTS, CATALOG_TRACK_DEFAULTS, type CatalogListOrder } from './catalog.page.params';
+import { CATALOG_ALBUM_DEFAULTS, type CatalogListOrder } from './catalog.page.params';
 import { CatalogPagination } from './catalog.pagination';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
@@ -41,7 +41,7 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
     return (
         <Stack gap="lg">
             <PageHeader
-                title="Catalog"
+                title="Artists"
                 description={
                     <Text c="dimmed" size="sm">
                         Every artist the station has ingested.
@@ -49,14 +49,9 @@ export function CatalogArtistsPage({ page, search, order, onPageChange, onSearch
                 }
             />
 
-            <Group justify="space-between" align="center">
-                <CatalogSearch value={search} placeholder="Search artists" onChange={onSearchChange} />
-                {/* The flat list is the only way to find a song whose artist the operator does not
-                    already know, so it needs a way in that is not the address bar. */}
-                <Anchor renderRoot={(props: object) => <Link to="/catalog/tracks" search={CATALOG_TRACK_DEFAULTS} {...props} />} size="sm">
-                    Browse all tracks
-                </Anchor>
-            </Group>
+            {/* No "browse all tracks" link here: the Library's tab strip is the way to the flat
+                list now, and a hand-written link beside the search duplicated it. */}
+            <CatalogSearch value={search} placeholder="Search artists" onChange={onSearchChange} />
 
             {artists.error ? (
                 <ErrorAlert title="The catalog could not be loaded" error={artists.error} fallback="The catalog is unavailable." />

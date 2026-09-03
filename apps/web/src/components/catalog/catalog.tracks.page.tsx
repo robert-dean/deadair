@@ -1,6 +1,5 @@
 import { Fragment } from 'react';
-import { Anchor, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
-import { Link } from '@tanstack/react-router';
+import { Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 
 import { catalogTracksOptions, useRateTrack } from '../../api/catalog.queries';
@@ -16,7 +15,7 @@ import { SortableTh } from '../shared/sortable.th';
 import { usePhone } from '../shared/use.phone';
 import { CatalogPagination } from './catalog.pagination';
 import type { TrackSort } from '@deadair/sdk';
-import { CATALOG_SEARCH_DEFAULTS, type TrackListOrder, type TrackStateParam } from './catalog.page.params';
+import type { TrackListOrder, TrackStateParam } from './catalog.page.params';
 import { CatalogSearch } from './catalog.search';
 import { RatingControl } from './rating.control';
 import { TrackSortSelect } from './track.sort.select';
@@ -123,21 +122,17 @@ export function CatalogTracksPage({
 
     return (
         <Stack gap="lg">
-            <Stack gap="xxs">
-                {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
-                    router's own types, and with them the check that `params` matches the path. */}
-                <Anchor renderRoot={(props: object) => <Link to="/catalog" search={CATALOG_SEARCH_DEFAULTS} {...props} />} size="sm">
-                    Back to catalog
-                </Anchor>
-                <PageHeader
-                    title="Tracks"
-                    description={
-                        <Text c="dimmed" size="sm">
-                            Every track the station has ingested.
-                        </Text>
-                    }
-                />
-            </Stack>
+            {/* No "back to catalog" link here: the Library's tab strip is the navigation between
+                Tracks and Artists, and a hand-written link beside it duplicated the strip under
+                the wrong name — `/catalog` is the Artists tab, not "catalog". */}
+            <PageHeader
+                title="Tracks"
+                description={
+                    <Text c="dimmed" size="sm">
+                        Every track the station has ingested.
+                    </Text>
+                }
+            />
 
             <CatalogSearch value={search} placeholder="Search tracks" onChange={onSearchChange} />
 

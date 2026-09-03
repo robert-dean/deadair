@@ -36,7 +36,7 @@ afterEach(() => {
 });
 
 const open = async (label: string | RegExp) => {
-    await userEvent.click(screen.getByRole('button', { name: 'Clear…' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Repair…' }));
     await userEvent.click(await screen.findByRole('menuitem', { name: label }));
 };
 

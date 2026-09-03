@@ -274,6 +274,32 @@ a[data-truncate] {
 }
 
 /**
+ * The skip link: invisible except to a keyboard, and first in the document for exactly that reason.
+ *
+ * Off-screen rather than `display: none` — a hidden element cannot take focus, which is the one
+ * thing this has to be able to do. `:focus-visible` rather than `:focus` so a mouse click on it does
+ * not leave a highlighted anchor sitting over the header; a keyboard is the only way this is ever
+ * reached anyway; `:focus` is asked at the same time only as the fallback for browsers with no
+ * `:focus-visible`, since a rule this element cannot afford to lose is not one to gate on it alone.
+ */
+.da-skip {
+    position: absolute;
+    top: -100%;
+    left: var(--mantine-spacing-md);
+    z-index: 1000;
+    padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+    background: var(--da-panel);
+    border: 1px solid var(--da-border-strong);
+    border-radius: var(--mantine-radius-sm);
+    color: var(--da-text);
+}
+
+.da-skip:focus,
+.da-skip:focus-visible {
+    top: var(--mantine-spacing-xs);
+}
+
+/**
  * The one texture in the console, and it is confined to chrome.
  *
  * Content areas never get this: a scanline over a table of track titles is decoration paid for in

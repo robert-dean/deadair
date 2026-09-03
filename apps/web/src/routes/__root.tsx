@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActionIcon, AppShell, Box, Button, Group, Kbd, ScrollArea, Text } from '@mantine/core';
+import { ActionIcon, Anchor, AppShell, Box, Button, Group, Kbd, ScrollArea, Text } from '@mantine/core';
 import { useHotkeys } from '@mantine/hooks';
 import { IconSearch } from '@tabler/icons-react';
 import { spotlight } from '@mantine/spotlight';
@@ -115,6 +115,17 @@ export function RootLayout() {
             footer={signedIn && phone ? { height: 64 } : undefined}
             padding="md"
         >
+            {/* First focusable element in the document, so it is the first Tab stop on every page.
+                Everything else in the shell comes before the content it names: the wordmark, the
+                tally, the jump button, four destinations, two pinned links — eight stops before an
+                operator who cannot see the rail reaches the running order it exists to get them to.
+                Visible only on focus, through `.da-skip` in `tokens.css`; `href="#main"` is a
+                fragment rather than a route, so this is a plain `Anchor` and not a `renderRoot`
+                `Link` — there is no route here for the router's typing to protect. */}
+            <Anchor href="#main" className="da-skip">
+                Skip to content
+            </Anchor>
+
             <AppShell.Header className="da-scanlines">
                 <Group h="100%" px="md" gap="md" wrap="nowrap">
                     <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
@@ -219,7 +230,7 @@ export function RootLayout() {
                     </AppShell.Section>
                 </AppShell.Navbar>
             ) : undefined}
-            <AppShell.Main>
+            <AppShell.Main id="main" tabIndex={-1}>
                 {/* Above everything, including the page's own failures, and drawn whether or not
                     anybody is signed in: an unreachable API is why the login page will not submit
                     either, and that is worth saying rather than leaving as a spinner. It carries

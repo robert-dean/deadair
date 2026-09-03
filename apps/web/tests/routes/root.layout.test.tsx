@@ -63,6 +63,19 @@ describe('RootLayout', () => {
         expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
     });
 
+    /**
+     * The first Tab stop on every page, before the wordmark or a single destination. Drawn whether
+     * or not a session exists, since an anonymous visitor's keyboard deserves the same shortcut past
+     * whatever the header holds for them.
+     */
+    it('offers a skip link naming the main landmark it jumps to', () => {
+        render(<RootLayout />);
+
+        const skip = screen.getByRole('link', { name: 'Skip to content' });
+        expect(skip).toHaveAttribute('href', '#main');
+        expect(document.getElementById('main')).not.toBeNull();
+    });
+
     it('hides them again for a token that exists but has expired', () => {
         setSession('token-123', -1);
         render(<RootLayout />);

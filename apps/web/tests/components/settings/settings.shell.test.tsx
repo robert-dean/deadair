@@ -1,85 +1,99 @@
-import { describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { SETTINGS_ROUTES, SETTINGS_SECTIONS, SettingsShell } from '../../../src/components/settings/settings.shell';
-import { render, screen, setupUser, within } from '../../utils/render';
+import { SettingsShell } from '../../../src/components/settings/settings.shell';
+import { render, screen } from '../../utils/render';
 
-// `DestinationTabs` navigates on select rather than linking, so the router is stubbed to the one
-// hook the shell reaches for. This is what the tabs were chosen for over Mantine's own: the router
-// is the only state, so the thing worth asserting is where a tab sends you.
-const navigate = vi.fn().mockResolvedValue(undefined);
+// Whether this is being read on a phone, which is the only thing the shell asks its surroundings.
+let phone = false;
+
+vi.mock('../../../src/components/shared/use.phone', () => ({ usePhone: () => phone }));
 
 vi.mock('@tanstack/react-router', () => ({
-    useNavigate: () => navigate,
+    Link: ({ to, children, ...props }: { to?: string; children?: ReactNode }) => (
+        <a href={to} {...props}>
+            {children}
+        </a>
+    ),
 }));
 
-/** The strip, which is one nav for both widths where there used to be two. */
-function tabs(): HTMLElement[] {
-    return within(screen.getByRole('tablist', { name: 'Settings' })).getAllByRole('tab');
-}
+afterEach(() => {
+    phone = false;
+});
 
 describe('SettingsShell', () => {
-    it('offers every section exactly once', () => {
+    it('draws the destination and embeds whatever section it is given', () => {
         render(
-            <SettingsShell active="station">
-                <div />
+            <SettingsShell active="rotation">
+                <div>the rotation settings</div>
             </SettingsShell>,
         );
 
-        // Once, where the sidebar and the phone strip drew every section twice and the phone's copy
-        // left Plugins out entirely.
-        expect(tabs().map(tab => tab.textContent)).toEqual(SETTINGS_SECTIONS.map(section => section.label));
+        expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+        expect(screen.getByText('the rotation settings')).toBeInTheDocument();
+        // Not asserted here: that a section draws no `<h1>` of its own. `EmbeddedPage` suppresses
+        // `PageHeader`'s heading through context, not any heading a child happens to render, so a
+        // literal `<h1>` in this test would pass straight through and prove nothing either way.
     });
 
-    it('marks the section it is showing, and only that one', () => {
+    // It navigated the sections three ways: anchors down one long page, then a strip of ten tabs,
+    // and now neither. The rail lists them on a desk and `SettingsIndex` does on a phone, so a
+    // navigator here would be a third copy of one list and the one with least room for it.
+    it('navigates nothing itself, on the widths where something else does', () => {
         render(
             <SettingsShell active="rotation">
                 <div />
             </SettingsShell>,
         );
 
-        // It was a scroll spy, which could disagree with the address bar and had to be told to
-        // light nothing on the plugins route. It is the route now, so it cannot.
-        const selected = tabs().filter(tab => tab.getAttribute('aria-selected') === 'true');
-        expect(selected).toHaveLength(1);
-        expect(selected[0]).toHaveTextContent('Rotation');
+        expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: 'Measurement' })).not.toBeInTheDocument();
     });
 
-    it('marks Plugins on the plugins route, which is a section like any other now', () => {
-        render(
-            <SettingsShell active="plugins">
-                <div />
-            </SettingsShell>,
-        );
-
-        const selected = tabs().filter(tab => tab.getAttribute('aria-selected') === 'true');
-        expect(selected).toHaveLength(1);
-        expect(selected[0]).toHaveTextContent('Plugins');
-    });
-
-    it('navigates to a section rather than scrolling to it', async () => {
+    it('says the sections save separately, where the section list used to', () => {
         render(
             <SettingsShell active="station">
                 <div />
             </SettingsShell>,
         );
 
-        await setupUser().click(screen.getByRole('tab', { name: 'Measurement' }));
-
-        expect(navigate).toHaveBeenCalledWith({ to: '/settings/analysis' });
+        // The write is partial, so a section cannot clear another. Worth saying out loud: a settings
+        // page whose one button writes forty keys makes every change feel consequential.
+        expect(screen.getByText(/Every section saves on its own/)).toBeInTheDocument();
     });
 
-    it('sends Plugins out of /settings, since that is where it already lived', async () => {
-        // The heterogeneous entry, and the shell does not special-case it: `SETTINGS_ROUTES` is
-        // what knows a section's URL, and it is the only thing that does.
+    describe('on a phone', () => {
+        it('offers the way back to the list, which the collapsed rail no longer is', () => {
+            phone = true;
+            render(
+                <SettingsShell active="rotation">
+                    <div />
+                </SettingsShell>,
+            );
+
+            expect(screen.getByRole('link', { name: 'All settings' })).toHaveAttribute('href', '/settings');
+        });
+
+        it('offers no way back from the list itself', () => {
+            // `active` absent IS the list. A link here would point at the page the operator is on.
+            phone = true;
+            render(
+                <SettingsShell>
+                    <div />
+                </SettingsShell>,
+            );
+
+            expect(screen.queryByRole('link', { name: 'All settings' })).not.toBeInTheDocument();
+        });
+    });
+
+    it('draws no way back on a desk, where the rail is already one', () => {
         render(
-            <SettingsShell active="station">
+            <SettingsShell active="rotation">
                 <div />
             </SettingsShell>,
         );
 
-        await setupUser().click(screen.getByRole('tab', { name: 'Plugins' }));
-
-        expect(navigate).toHaveBeenCalledWith({ to: SETTINGS_ROUTES.plugins });
-        expect(SETTINGS_ROUTES.plugins).toBe('/plugins');
+        expect(screen.queryByRole('link', { name: 'All settings' })).not.toBeInTheDocument();
     });
 });

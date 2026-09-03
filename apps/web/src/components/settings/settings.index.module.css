@@ -1,0 +1,22 @@
+/*
+ * One tappable row of the phone's settings list.
+ *
+ * A CSS module rather than inline styles because the hover and active states are pseudo-classes,
+ * which a `style` prop cannot say. The row is a link, so it also has to lose the underline a card
+ * rendered as an anchor would otherwise inherit.
+ */
+.row {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    transition: background-color var(--da-fast) var(--da-ease);
+}
+
+.row:hover {
+    background-color: var(--da-raised);
+}
+
+/* A tap on a phone has no hover to confirm it, so the press itself is what answers. */
+.row:active {
+    background-color: var(--da-raised);
+}

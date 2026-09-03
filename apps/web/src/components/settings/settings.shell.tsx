@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
-import { Stack, Text, Title } from '@mantine/core';
-import { useNavigate } from '@tanstack/react-router';
+import { Anchor, Group, Stack, Text, Title } from '@mantine/core';
+import { IconChevronLeft } from '@tabler/icons-react';
+import { Link } from '@tanstack/react-router';
 import type { StationSettingDescriptor } from '@deadair/sdk';
 
-import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';
 import { EmbeddedPage } from '../shared/page.header';
+import { usePhone } from '../shared/use.phone';
 
 /**
  * Every section there is.
@@ -117,14 +118,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
 ];
 
 /**
- * The strip, in list order.
- *
- * Derived rather than declared beside the list, which is the whole reason the list carries labels:
- * a tab and a section are the same thing said once.
- */
-const SETTINGS_TABS: readonly DestinationTab<SettingsSectionId>[] = SETTINGS_SECTIONS.map(section => ({ key: section.id, label: section.label }));
-
-/**
  * Where each section goes. Separate from the list above so the labels stay free of route strings.
  *
  * Exported because the command palette navigates to these too, and a second copy of this table is a
@@ -160,50 +153,57 @@ export const SETTINGS_ROUTES: Record<
 };
 
 export interface SettingsShellProps {
-    /** Which section is being read. Every settings route names its own. */
-    active: SettingsSectionId;
+    /**
+     * Which section is being read, or nothing for the list of them.
+     *
+     * Only a phone reads this, and only to decide whether to draw the way back: on a desk the rail
+     * says where the operator is, and it reads that off the router rather than off a prop.
+     */
+    active?: SettingsSectionId;
     children: ReactNode;
 }
 
 /**
- * The station itself, as a destination with a tab per section.
+ * The station itself, with its sections wherever this viewport keeps them.
  *
- * It was nine cards in one 720px column with a sticky list of anchors beside them, and an operator
- * who came to change the mount read four sections they did not want on the way. Each section is its
- * own route now, so the strip is navigation between pages rather than a scroll position.
+ * It has been three navigators. Nine cards in one column with a sticky list of anchors beside them,
+ * where an operator who came to change the mount read four sections they did not want on the way.
+ * Then a route per section with a strip of tabs, which is the shape every other destination here
+ * uses and is the one that does not survive ten of them: 1298px of tabs against a phone's 358 means
+ * most of the sections are off-screen while somebody is looking for one, and a strip has nowhere to
+ * put the sentence saying what each one holds.
  *
- * **The sections still save one at a time**, which is worth being explicit about because the tabs
- * make it look more like one form than the cards ever did: a settings page whose single button
- * writes forty keys makes every change feel consequential. The API write is partial, so a section
- * cannot clear another, and the line under the title says so where the section list used to.
+ * Now neither. The rail lists them on a desk and `SettingsIndex` lists them on a phone, so this
+ * draws the destination and gets out of the way.
+ *
+ * **The sections still save one at a time.** The API write is partial, so a section cannot clear
+ * another, and the line under the title is where that is said.
  */
 export function SettingsShell({ active, children }: SettingsShellProps) {
-    const navigate = useNavigate();
+    const phone = usePhone();
+
+    // The rail is collapsed on a phone, so a section reached from the list has nothing to get back
+    // to it with. On a desk the rail is the way back and a second one would be clutter.
+    const back = phone && active !== undefined;
 
     return (
         <Stack gap="lg">
             <Stack gap="xxs">
+                {back ? (
+                    <Anchor size="sm" underline="never" c="dimmed" w="fit-content" renderRoot={(props: object) => <Link to="/settings" {...props} />}>
+                        <Group gap={4} wrap="nowrap">
+                            <IconChevronLeft aria-hidden size={14} stroke={2} />
+                            All settings
+                        </Group>
+                    </Anchor>
+                ) : undefined}
+
                 <Title order={1}>Settings</Title>
                 <Text size="sm" c="dimmed" maw={760}>
                     The station itself, and the plugins it runs. Every section saves on its own, and nothing here can clear another. What plays
                     between blocks is on Programme instead, beside the timetable that makes sense of it.
                 </Text>
             </Stack>
-
-            {/* One strip for both widths, where this was a sticky column beside the cards and a
-                scrolling row of chips below `md`. Two navigations for one list was two things to
-                keep in step, and the phone's copy never offered Plugins at all. */}
-            <DestinationTabs
-                tabs={SETTINGS_TABS}
-                active={active}
-                label="Settings"
-                onSelect={key => {
-                    // Each section is its own route, so this is a real navigation rather than a
-                    // state change: the back button steps between them, and an unsaved edit is
-                    // caught by the guard on the section being left.
-                    void navigate({ to: SETTINGS_ROUTES[key] });
-                }}
-            />
 
             {/* Stops each section drawing a second `<h1>` under the destination's own. */}
             <EmbeddedPage>{children}</EmbeddedPage>

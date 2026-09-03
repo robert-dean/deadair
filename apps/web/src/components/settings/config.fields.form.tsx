@@ -28,7 +28,7 @@ import {
     type OptionsFilter,
 } from '@mantine/core';
 import { useForm, type GetInputPropsReturnType } from '@mantine/form';
-import { IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconArrowDown, IconArrowUp, IconPlus, IconTrash } from '@tabler/icons-react';
 import type { ConfigFieldColumn, ConfigFieldDescriptor, ConfigFieldOption } from '@deadair/sdk';
 
 import { apiErrorDetails, apiErrorMessage } from '../../api/sdk.error';
@@ -688,6 +688,9 @@ export function ConfigFieldsForm({
                         onRemove={index => {
                             form.removeListItem(name, index);
                         }}
+                        onMove={(index, by) => {
+                            form.reorderListItem(name, { from: index, to: index + by });
+                        }}
                     />
                 );
             }
@@ -838,6 +841,8 @@ interface RowsFieldProps {
     optionsFor: (column: ConfigFieldColumn) => { value: string; label: string }[];
     onAdd: () => void;
     onRemove: (index: number) => void;
+    /** Move one row a single place, `-1` up and `1` down. See {@link RowsField}. */
+    onMove: (index: number, by: -1 | 1) => void;
 }
 
 /**
@@ -852,6 +857,19 @@ interface RowsFieldProps {
  * do the inserting and removing. Nothing here holds state of its own, which is what keeps a row that
  * was removed from leaving its typed-in values behind on the row that took its place.
  *
+ * ## The order of the rows is a decision, so it can be changed
+ *
+ * A list whose order MEANS something — the feeds a bulletin reads in turn, the sites worth quoting —
+ * had exactly one way to reorder it: delete every row after the one in the wrong place and type them
+ * again. So each row carries a pair of arrows that move it one place, which is `clock.panel.tsx`'s
+ * control for the same problem one layer down. Deliberately not drag and drop: this console has no
+ * drag anywhere, a table row is a small target, and the lists an operator actually keeps here are
+ * short enough that one place at a time is the whole journey.
+ *
+ * The move goes through the form's own `reorderListItem` rather than through any state here, for the
+ * reason the cells are addressed by path: the values move with the row, and a row that has been
+ * typed into and not yet saved moves with its typing intact.
+ *
  * ## On a phone it is a stack of cards, and every control grows a label
  *
  * A table of text boxes is the one shape that cannot survive a sideways scroll: an operator TYPING
@@ -862,7 +880,7 @@ interface RowsFieldProps {
  * unlabelled boxes. Both shapes draw their cells through {@link RowCell}, so a column type only ever
  * decides its control once.
  */
-function RowsField({ field, name, phone, rows, error, disabled, cellProps, cellKey, optionsFor, onAdd, onRemove }: RowsFieldProps) {
+function RowsField({ field, name, phone, rows, error, disabled, cellProps, cellKey, optionsFor, onAdd, onRemove, onMove }: RowsFieldProps) {
     const columns = columnsOf(field);
 
     return (
@@ -878,7 +896,7 @@ function RowsField({ field, name, phone, rows, error, disabled, cellProps, cellK
                             <PhoneCard
                                 key={cellKey(`${name}.${index}`)}
                                 title={<Eyebrow>Row {index + 1}</Eyebrow>}
-                                action={<RemoveRow index={index} disabled={disabled} onRemove={onRemove} />}
+                                action={<RowControls index={index} last={rows.length - 1} disabled={disabled} onRemove={onRemove} onMove={onMove} />}
                                 below={
                                     <Stack gap="xs" mt="xs">
                                         {columns.map((column, at) => (
@@ -904,9 +922,9 @@ function RowsField({ field, name, phone, rows, error, disabled, cellProps, cellK
                                     {columns.map(column => (
                                         <Table.Th key={column.key}>{column.label}</Table.Th>
                                     ))}
-                                    {/* The remove control's column. Headed by nothing, because a heading
+                                    {/* The row controls' column. Headed by nothing, because a heading
                                     over a row of buttons reads as a third piece of data. */}
-                                    <Table.Th w={40} />
+                                    <Table.Th w={108} />
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
@@ -923,7 +941,13 @@ function RowsField({ field, name, phone, rows, error, disabled, cellProps, cellK
                                             </Table.Td>
                                         ))}
                                         <Table.Td>
-                                            <RemoveRow index={index} disabled={disabled} onRemove={onRemove} />
+                                            <RowControls
+                                                index={index}
+                                                last={rows.length - 1}
+                                                disabled={disabled}
+                                                onRemove={onRemove}
+                                                onMove={onMove}
+                                            />
                                         </Table.Td>
                                     </Table.Tr>
                                 ))}
@@ -1295,6 +1319,57 @@ function RowCell({ column, labelled, choices, disabled, cell }: RowCellProps) {
  * Its own component only because both shapes need it and the accessible name is built from the
  * index, which is the part that would be got wrong if it were written twice.
  */
+/**
+ * The three things that can be done to a row: move it up, move it down, remove it.
+ *
+ * The arrows are DISABLED at the ends rather than absent, so the group is the same width on every
+ * row and the remove control does not move sideways as the list is reordered — the same reason the
+ * clock panel's are. Each is labelled with the row's own number, which is the only thing telling a
+ * screen reader which of a dozen identical buttons this one is.
+ */
+function RowControls({
+    index,
+    last,
+    disabled,
+    onRemove,
+    onMove,
+}: {
+    index: number;
+    /** The last row's index, so the bottom row's down arrow can be turned off. */
+    last: number;
+    disabled: boolean;
+    onRemove: (index: number) => void;
+    onMove: (index: number, by: -1 | 1) => void;
+}) {
+    return (
+        <Group gap={2} wrap="nowrap" justify="flex-end">
+            <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label={`Move row ${index + 1} up`}
+                disabled={disabled || index === 0}
+                onClick={() => {
+                    onMove(index, -1);
+                }}
+            >
+                <IconArrowUp size={16} />
+            </ActionIcon>
+            <ActionIcon
+                variant="subtle"
+                color="gray"
+                aria-label={`Move row ${index + 1} down`}
+                disabled={disabled || index === last}
+                onClick={() => {
+                    onMove(index, 1);
+                }}
+            >
+                <IconArrowDown size={16} />
+            </ActionIcon>
+            <RemoveRow index={index} disabled={disabled} onRemove={onRemove} />
+        </Group>
+    );
+}
+
 function RemoveRow({ index, disabled, onRemove }: { index: number; disabled: boolean; onRemove: (index: number) => void }) {
     return (
         <ActionIcon

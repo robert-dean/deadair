@@ -4,6 +4,7 @@ import { catalogTracksOptions } from '../../../api/catalog.queries';
 import { CATALOG_TRACK_DEFAULTS, validateCatalogTracks } from '../../../components/catalog/catalog.page.params';
 import { CatalogTracksPage } from '../../../components/catalog/catalog.tracks.page';
 import { LibraryShell } from '../../../components/library/library.shell';
+import { PageSkeleton } from '../../../components/shared/page.skeleton';
 
 export const Route = createFileRoute('/catalog/tracks/')({
     component: CatalogTracksRoute,
@@ -17,10 +18,33 @@ export const Route = createFileRoute('/catalog/tracks/')({
         sort: search.sort,
         pageSize: search.pageSize,
     }),
-    // See the sibling `/catalog` route: the rejection stays in the cache for the page's own alert.
+    // This used to `await ensureQueryData`, which made every committed search keystroke, page
+    // change or re-sort an awaited loader run. `main.tsx`'s `defaultPendingComponent` has no
+    // `defaultPendingMs` override, so TanStack's 1000ms default applies — any of those crossing a
+    // second swapped the WHOLE route, `LibraryShell` included, for four grey bars (measured over
+    // 5s on the phone). The page's own `tracks.isPending` skeleton in `catalog.tracks.page.tsx`
+    // almost never got the chance to show, because `catalogTracksOptions` keeps the previous
+    // page's rows on screen (`placeholderData: keepPreviousData`) while the new query is inflight.
+    //
+    // Firing the fetch and letting the route render immediately is the same shape `/news` uses for
+    // its slower query: `keepPreviousData` covers a re-query of a warm list, and the `pendingComponent`
+    // below covers the one case that's actually cold — first arrival at this route.
+    //
+    // `prefetchQuery` resolves rather than rejects on failure (unlike `ensureQueryData`), so no
+    // `.catch` is needed to stop a failed fetch turning into a thrown loader and the router's error
+    // boundary — the failure still lands in the query cache for the page's own alert.
     loader: async ({ context, deps }) => {
-        await context.queryClient.ensureQueryData(catalogTracksOptions(deps)).catch(() => undefined);
+        void context.queryClient.prefetchQuery(catalogTracksOptions(deps));
     },
+    // Keeps the heading, tab strip and search box on screen for the one pending case this route
+    // still has: a genuinely cold first load, before anything is cached to render around. Rendered
+    // inside `LibraryShell` rather than falling through to `main.tsx`'s bare `defaultPendingComponent`,
+    // which is what blanked the whole destination in the first place.
+    pendingComponent: () => (
+        <LibraryShell active="tracks">
+            <PageSkeleton variant="table" />
+        </LibraryShell>
+    ),
 });
 
 function CatalogTracksRoute() {

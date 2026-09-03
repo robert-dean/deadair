@@ -109,37 +109,46 @@ describe('catalog search params', () => {
 });
 
 describe('/catalog loader', () => {
-    it('warms the cache from the same query the page reads, for the page that was asked for', async () => {
+    // The loader no longer awaits this fetch — see the route's own comment for why blocking it
+    // made every committed keystroke swap the whole destination for the router's pending skeleton
+    // — so the assertion has to wait for the fetch it fired rather than assume it already landed.
+    it('warms the cache from the same query the page reads, for the page that was asked for, without the loader waiting on it', async () => {
         listArtists.mockResolvedValue(emptyPage);
         const queryClient = createTestQueryClient();
 
-        await runLoader(ArtistsRoute, { context: { queryClient }, deps: { page: 2, search: 'sig', ...ORDER } });
+        const result = runLoader(ArtistsRoute, { context: { queryClient }, deps: { page: 2, search: 'sig', ...ORDER } });
+        await expect(result).resolves.toBeUndefined();
 
-        expect(listArtists).toHaveBeenCalledWith(expect.objectContaining({ page: 2, search: 'sig' }));
-        expect(queryClient.getQueryData(queryKeys.catalog.artists(2, 'sig', orderKey('name')))).toEqual(emptyPage);
+        await vi.waitFor(() => expect(listArtists).toHaveBeenCalledWith(expect.objectContaining({ page: 2, search: 'sig' })));
+        await vi.waitFor(() => expect(queryClient.getQueryData(queryKeys.catalog.artists(2, 'sig', orderKey('name')))).toEqual(emptyPage));
     });
 
-    it('resolves rather than rejecting when the catalog is unreachable, so navigation still lands', async () => {
+    it('never rejects when the catalog is unreachable, so navigation still lands, and the failure still reaches the cache', async () => {
         listArtists.mockRejectedValue(new SdkError(503, 'Service Unavailable', { statusCode: 503, message: 'no' }, new Headers()));
         const queryClient = createTestQueryClient();
 
         await expect(runLoader(ArtistsRoute, { context: { queryClient }, deps: { page: 0, search: '', ...ORDER } })).resolves.toBeUndefined();
-        expect(queryClient.getQueryState(queryKeys.catalog.artists(0, '', orderKey('name')))?.status).toBe('error');
+        await vi.waitFor(() => expect(queryClient.getQueryState(queryKeys.catalog.artists(0, '', orderKey('name')))?.status).toBe('error'));
     });
 });
 
 describe('/catalog/tracks loader', () => {
-    it('carries the search term through, since finding one song is what the flat list is for', async () => {
+    // Same contract as `/catalog` above: `prefetchQuery` is fired and not awaited, so the loader's
+    // own promise resolves before the fetch does. Asserting that resolves quickly is the point of
+    // this change; asserting the cache still gets warmed is what stops that from being a change
+    // nobody could tell from a loader that does nothing at all.
+    it('resolves without waiting on the fetch, and still carries the search term into the cache the page reads', async () => {
         listTracks.mockResolvedValue(emptyPage);
         const queryClient = createTestQueryClient();
 
-        await runLoader(TracksRoute, {
+        const result = runLoader(TracksRoute, {
             context: { queryClient },
             deps: { page: 0, search: 'vaka', sortBy: 'title', sort: 'asc', pageSize: DEFAULT_PAGE_SIZE },
         });
+        await expect(result).resolves.toBeUndefined();
 
-        expect(listTracks).toHaveBeenCalledWith(expect.objectContaining({ search: 'vaka' }));
-        expect(queryClient.getQueryData(queryKeys.catalog.tracks(0, 'vaka', undefined, orderKey('title')))).toEqual(emptyPage);
+        await vi.waitFor(() => expect(listTracks).toHaveBeenCalledWith(expect.objectContaining({ search: 'vaka' })));
+        await vi.waitFor(() => expect(queryClient.getQueryData(queryKeys.catalog.tracks(0, 'vaka', undefined, orderKey('title')))).toEqual(emptyPage));
     });
 });
 

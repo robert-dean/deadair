@@ -171,6 +171,62 @@ describe('extractArticle: reference apparatus', () => {
     });
 });
 
+/**
+ * The other half of the furniture problem, and the half nothing structural can reach.
+ *
+ * A newsletter puts its sponsor in an ordinary paragraph between two paragraphs of reporting: no
+ * class, no element, nothing to key on but the words it opens with. The station read one out as
+ * news, which is what this exists to stop.
+ */
+describe('extractArticle: sponsors', () => {
+    const page = (...paragraphs: string[]): string => `<article>${paragraphs.map(one => `<p>${one}</p>`).join('')}</article>`;
+
+    const REPORTING = 'The council voted on Tuesday to reopen the bridge, three months later than the contractor had promised.';
+
+    it('drops a sponsor block sitting between two paragraphs of reporting', () => {
+        const text = extractArticle(
+            page(
+                REPORTING,
+                'A message from Example Corp: our platform helps teams answer their customers faster, and you can start a free trial today.',
+                'The vote was unanimous, and the first buses are expected to cross the bridge again on Monday morning.',
+            ),
+        );
+
+        expect(text).toBe(`${REPORTING} The vote was unanimous, and the first buses are expected to cross the bridge again on Monday morning.`);
+    });
+
+    it('drops the openers a newsletter actually uses, whatever their case', () => {
+        for (const opener of [
+            'Presented by Example Corp, the platform that helps teams answer their customers faster than before.',
+            'SPONSORED: Example Corp would like to tell you about its newest range of outdoor equipment this month.',
+            'Advertisement — Example Corp is offering readers of this newsletter a discount on everything in its shop.',
+            'Paid for by the Committee for Example, which is responsible for the content of this advertising message.',
+            'Support comes from Example Corp, whose products are described at some length in this paragraph here.',
+        ]) {
+            expect(extractArticle(page(opener, REPORTING))).toBe(REPORTING);
+        }
+    });
+
+    // The safety property: anchored at the start, so reporting ABOUT advertising is reporting.
+    it('leaves a sentence that merely mentions being paid for, since that is the story', () => {
+        const story = 'The campaign was paid for by donors whose names the committee has so far declined to publish in full.';
+
+        expect(extractArticle(page(story))).toBe(story);
+    });
+
+    it('leaves a story about sponsorship, which is not a sponsor announcing itself', () => {
+        const story = 'Sponsorship deals across the league collapsed this year, leaving four clubs without a shirt partner for the season.';
+
+        expect(extractArticle(page(story))).toBe(story);
+    });
+
+    it('answers with nothing for a page whose only paragraph was the advertisement', () => {
+        expect(
+            extractArticle(page('Sponsored content: Example Corp has been making outdoor equipment for readers like you since 1974.')),
+        ).toBeUndefined();
+    });
+});
+
 /** A host whose only job here is to answer one fetch. */
 const hostAnswering = (response: Response): PluginHost => ({ fetch: vi.fn(async () => response) }) as unknown as PluginHost;
 

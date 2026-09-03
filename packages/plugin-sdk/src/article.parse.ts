@@ -24,6 +24,10 @@ import type { HostFetchInit, PluginHost } from './plugin.host.js';
  * host can check a claim against the text it came from, and prose that has been
  * through a plugin's own paraphrase is prose nothing can check.
  *
+ * The one thing removed that is not furniture is a paragraph announcing itself as an advertisement
+ * — see {@link SPONSOR_OPENERS}. It is still a cut rather than a rewrite: what is left is the
+ * publisher's own prose, and what went is prose the publisher was paid for.
+ *
  * ## Wrong in one direction on purpose
  *
  * A page that cannot be read answers `undefined` rather than a guess. Every
@@ -121,6 +125,60 @@ const REFERENCE_APPARATUS: readonly (readonly [RegExp, string])[] = [
     [/\[\[(?:[^[\]|]*\|)?([^[\]|]*)\]\]/g, '$1'],
 ];
 
+/**
+ * How a paragraph announces that it is somebody's advertisement.
+ *
+ * A newsletter carries its sponsor inside its own prose rather than in a block anything structural
+ * can find: no class, no element, just a paragraph that opens "A message from …" or "Presented by
+ * …" between two paragraphs of reporting. {@link FURNITURE_CLASSES} cannot see it, the length
+ * filter passes it, and what a bulletin then reads out is an advertisement in the voice it has just
+ * established as the one that reports facts. Measured on the station's own feeds: an aired bulletin
+ * opened with a shop's discount code and the affiliate disclosure that came with it.
+ *
+ * Anchored at the START and nowhere else, which is the whole safety property. "The campaign was
+ * paid for by donors" is reporting and is left alone; a paragraph that BEGINS "Paid for by" is the
+ * disclosure itself. The vocabulary is closed and every entry names something that is an
+ * advertisement wherever it appears, so this can only ever cut, which is {@link FURNITURE_CLASSES}'
+ * argument one level down — and a false positive costs one paragraph of a story that has others.
+ */
+const SPONSOR_OPENERS: readonly string[] = [
+    'a message from',
+    'a note from our sponsor',
+    'advertisement',
+    'advertorial',
+    'paid content',
+    'paid for by',
+    'paid partnership',
+    'presented by',
+    'promoted by',
+    'sponsored',
+    'sponsored by',
+    'sponsored content',
+    'sponsored survey',
+    'support for this',
+    'support comes from',
+    'this post is sponsored',
+];
+
+/**
+ * Whether a paragraph opens by announcing itself as an advertisement.
+ *
+ * The opener has to be FOLLOWED by a separator rather than merely be a prefix, or "Sponsored" would
+ * match "Sponsorship deals collapsed" and "Advertisement" would match "Advertisements for the
+ * scheme ran for a month" — both of which are stories about advertising rather than advertisements.
+ * A colon, a dash, a space or the end of the paragraph are what an announcement actually looks like.
+ */
+function opensWithASponsor(text: string): boolean {
+    const said = text.toLowerCase();
+
+    return SPONSOR_OPENERS.some(opener => {
+        if (!said.startsWith(opener)) return false;
+
+        const next = said.charAt(opener.length);
+        return next === '' || /[\s:;,.\u2013\u2014-]/.test(next);
+    });
+}
+
 /** The containers a publisher marks the story with, in the order they are worth trusting. */
 const CONTAINERS = [/<article\b[^>]*>([\s\S]*?)<\/article>/i, /<main\b[^>]*>([\s\S]*?)<\/main>/i];
 
@@ -156,6 +214,10 @@ export function extractArticle(html: string, maxChars: number = ARTICLE_MAX_CHAR
         // stripping tags first is what makes the braces the outermost thing.
         const text = withoutApparatus(plainText(match[1] ?? ''));
         if (text === undefined || text.length < MIN_PARAGRAPH_CHARS) continue;
+
+        // After the length test rather than before it, because this is the more expensive check and
+        // most of what it would run over has already been dropped for being too short to be prose.
+        if (opensWithASponsor(text)) continue;
 
         // A page that repeats its own standfirst inside the body is ordinary,
         // and reading it twice is not.

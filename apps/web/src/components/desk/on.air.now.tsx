@@ -223,8 +223,14 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                         <Text size="xs" c="dimmed">
                                             The schedule takes this back at the next block.
                                         </Text>
+                                        {/* Each says what it does to the sentence above it rather
+                                            than naming the mechanism. "Hold it" and "Hold two hours"
+                                            are the station's word for this, and beside a line about
+                                            the schedule taking the broadcast back they read as
+                                            holding something else entirely — the record, the stream,
+                                            the whole desk. */}
                                         <Anchor component="button" type="button" size="xs" disabled={hold.isPending} onClick={() => hold.mutate({})}>
-                                            Hold it
+                                            Keep it on past the next block
                                         </Anchor>
                                         <Anchor
                                             component="button"
@@ -233,7 +239,7 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                                             disabled={hold.isPending}
                                             onClick={() => hold.mutate({ minutes: 120 })}
                                         >
-                                            Hold two hours
+                                            Keep it on for two hours
                                         </Anchor>
                                     </>
                                 ) : (
@@ -394,7 +400,11 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
                             onClick={() => setWhy(open => !open)}
                             aria-expanded={why}
                         >
-                            Why is it on air?
+                            {/* Worded from the state it explains. Off air, the panel this opens is
+                                headed "Waiting for a listener" and the eyebrow above it says READY,
+                                so a button asking why it is ON air contradicted both of them and the
+                                two words either side of itself. */}
+                            {reading.live ? 'Why is it on air?' : 'Why is it not on air?'}
                         </Button>
                     </Stack>
                 </Group>
@@ -453,10 +463,18 @@ export function OnAirNow({ status, order, standingDown, airMode, airSource, held
     );
 }
 
-/** The badge's own word for who is driving. */
+/**
+ * The badge's own word for who is driving.
+ *
+ * A sentence with a subject rather than a piece of station shorthand. "You are driving" and
+ * "sustaining" both name a state the console understands and the reader has to be taught, and the
+ * badge is the one place there is no room to teach it: whoever is reading this arrived because
+ * something is playing and they want to know who chose it. So each of these answers that question in
+ * the words the answer is actually in.
+ */
 function drivingWord(source: 'schedule' | 'sustaining' | 'operator'): string {
-    if (source === 'operator') return 'you are driving';
-    return source === 'sustaining' ? 'sustaining' : 'on the schedule';
+    if (source === 'operator') return 'You put this on';
+    return source === 'sustaining' ? 'Between blocks' : 'The schedule put this on';
 }
 
 /**

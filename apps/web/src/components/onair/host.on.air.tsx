@@ -61,7 +61,10 @@ export function HostOnAir({ personaId, personaLabel }: HostOnAirProps) {
                     role="button"
                     opacity={recast.isPending ? 0.6 : 1}
                 >
-                    hosted by: {hosting ?? 'nobody'}
+                    {/* A phrase rather than a field. "hosted by:" is a label with a value stuck on
+                        the end of it, and it sat in a row of three badges each doing the same thing,
+                        which read as a debug line rather than as the desk saying who is on. */}
+                    Presented by {hosting ?? 'nobody'}
                 </Badge>
             </Menu.Target>
             {/* Bounded and scrolling, because this list is as long as the operator has made it: a

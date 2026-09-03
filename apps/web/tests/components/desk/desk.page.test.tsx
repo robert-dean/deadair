@@ -257,4 +257,30 @@ describe('DeskPage', () => {
 
         expect(await screen.findByText(/Nothing here is urgent enough to take the station off air/)).toBeInTheDocument();
     });
+
+    // Two sentences the hero used to get wrong about its own state. The panel behind the disclosure
+    // is headed "Waiting for a listener" whenever nobody is hearing the station, so a button asking
+    // why it is ON air argued with the panel it opened and with the READY eyebrow beside it. And the
+    // badge said "you are driving", which is the station's own shorthand for a fact the reader
+    // arrived here not knowing.
+    it('asks why the station is not on air while it is not on air, and names who put it on in a sentence', async () => {
+        arrange();
+        getStationAir.mockResolvedValue(stationAir({ airSource: 'operator' }));
+        getPlayoutStatus.mockResolvedValue(playoutStatus({ listeners: 0, audience: false, silence: stationSilence('noAudience') }));
+        render(<DeskPage />);
+
+        expect(await screen.findByRole('button', { name: /Why is it not on air\?/ })).toBeInTheDocument();
+        expect(screen.getByText('You put this on')).toBeInTheDocument();
+    });
+
+    // The hold is the one control here that changes what the schedule will do, and it sat behind two
+    // links naming the mechanism rather than the outcome.
+    it('says what holding the broadcast actually holds', async () => {
+        arrange();
+        getStationAir.mockResolvedValue(stationAir({ airSource: 'operator' }));
+        render(<DeskPage />);
+
+        expect(await screen.findByRole('button', { name: 'Keep it on past the next block' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Keep it on for two hours' })).toBeInTheDocument();
+    });
 });

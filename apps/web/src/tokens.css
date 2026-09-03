@@ -249,6 +249,22 @@ body {
 }
 
 /**
+ * Mantine's `truncate`, finished.
+ *
+ * `[data-truncate]` is `overflow: hidden` plus `text-overflow: ellipsis` plus `white-space: nowrap`
+ * and no `display`. All three are inert on an inline box, and `Anchor` is an `<a>` — so a truncating
+ * LINK does not truncate while the identical truncating `Text` beside it does, and in a
+ * `layout: fixed` table an unclipped cell does not scroll or wrap, it prints over the column to its
+ * right. That is what put "Tyler, The Creator, Kali Uchis" across the running time on the desk, and
+ * it was live in every table that links a credit or an album.
+ *
+ * Scoped to the anchors that ASKED to truncate, so an ordinary link in a sentence stays inline.
+ */
+a[data-truncate] {
+    display: block;
+}
+
+/**
  * The one texture in the console, and it is confined to chrome.
  *
  * Content areas never get this: a scanline over a table of track titles is decoration paid for in

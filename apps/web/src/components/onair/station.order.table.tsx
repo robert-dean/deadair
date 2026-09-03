@@ -102,6 +102,47 @@ function writerHint(writer: string): string {
 }
 
 /**
+ * Whether a break will be heard, in the words the row puts on it.
+ *
+ * `playable` is one boolean standing in front of seven segment states, and the row used to spend all
+ * seven of them on the same word. A break the station has simply not got round to writing is not a
+ * fault — it is the normal condition of most of the order, because a break is written when it comes
+ * round rather than when it is planted — so "will skip" on nine rows at once said the station was
+ * failing when it was working exactly as designed. Three readings rather than one, because they are
+ * the three an operator does something different about: wait, wait, and go and look.
+ *
+ * Grey for the two that are still coming, yellow only for the one that is not.
+ */
+export function skipReading(item: StationOrderItem): { label: string; colour: string; hint: string } | undefined {
+    if (item.kind !== 'segment' || item.playable !== false || item.state !== 'planned') return undefined;
+
+    if (item.segmentState === 'planned' || item.segmentState === 'writing') {
+        return {
+            label: 'not written yet',
+            colour: 'gray',
+            hint: 'The station writes a break when it comes round, not when it plants it. Nothing has gone wrong and nothing is being skipped.',
+        };
+    }
+
+    if (item.segmentState === 'written' || item.segmentState === 'rendering') {
+        return {
+            label: 'no audio yet',
+            colour: 'gray',
+            hint: 'The words are written and are being spoken now. It is heard if the audio arrives before the boundary does, and skipped if it does not.',
+        };
+    }
+
+    // `failed` and `gone`, plus the case the row carries no state at all. The reason when the row has
+    // one: a break that could not be written and a DJ that simply talks less look identical without
+    // it, and the difference is a sentence already on the segment.
+    return {
+        label: 'will skip',
+        colour: 'yellow',
+        hint: item.segmentError ?? `This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}.`,
+    };
+}
+
+/**
  * How each state reads to somebody at the desk.
  *
  * The words matter more than they look. "Handed over" is deliberately not "playing": the pusher
@@ -491,14 +532,21 @@ export function StationOrderTable({
                 {/* `layout="fixed"` because only a window of rows is mounted: under the default
                     auto layout every column is sized from the content that happens to be on
                     screen, so scrolling would re-measure the table and the columns would breathe.
-                    Fixed layout sizes them from the header row once; Title takes its share
-                    explicitly and the credit and album split what the fixed columns leave. */}
+                    Fixed layout sizes them from the header row once.
+
+                    The CREDIT takes a share of its own rather than whatever is left. Left to the
+                    residual it settled at 120px on a 1200px window, which is narrower than plenty
+                    of real credits — "Tyler, The Creator, Kali Uchis" wants 188 — and an overflowing
+                    cell in a fixed layout does not truncate, it prints over the column beside it. So
+                    two records in the first four were writing their artists across the running
+                    time. Album has no share because it is not drawn at all below `xl`; above it,
+                    what these two leave is its. */}
                 <Table highlightOnHover verticalSpacing="xs" miw={780} stickyHeader stickyHeaderOffset={0} layout="fixed">
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th w={40}>#</Table.Th>
-                            <Table.Th w="40%">Title</Table.Th>
-                            <Table.Th>Artists</Table.Th>
+                            <Table.Th w="36%">Title</Table.Th>
+                            <Table.Th w="24%">Artists</Table.Th>
                             <Table.Th visibleFrom="xl">Album</Table.Th>
                             <Table.Th w={90}>Duration</Table.Th>
                             {onRate ? <Table.Th w={112}>Rating</Table.Th> : undefined}
@@ -613,6 +661,7 @@ const OrderRow = memo(function OrderRow({
     ref,
 }: OrderRowProps) {
     const state = STATE_LABEL[item.state];
+    const skipping = skipReading(item);
     // A segment is the station's own words, and a record the catalog has never seen
     // has no row to hold an opinion — a station can air one it never ingested.
     const trackId = item.kind === 'track' ? item.trackId : undefined;
@@ -687,19 +736,13 @@ const OrderRow = memo(function OrderRow({
                     )}
                     {/* The station SKIPS a segment that has no audio when it comes
                                             round, rather than waiting for one. An operator reading the
-                                            order has to be able to see which items will not be heard. */}
-                    {item.kind === 'segment' && item.playable === false && item.state === 'planned' ? (
-                        // The reason when the row carries one. A break that could
-                        // not be written and a DJ that simply talks less look
-                        // identical without it, and the difference is a sentence
-                        // already on the segment.
-                        <Tooltip
-                            multiline
-                            maw={360}
-                            label={item.segmentError ?? `This will be skipped: the segment is ${item.segmentState ?? 'unavailable'}`}
-                        >
-                            <Badge size="xs" variant="light" color="yellow" style={{ flexShrink: 0 }}>
-                                will skip
+                                            order has to be able to see which items will not be heard —
+                                            and, just as importantly, which ones are simply not written
+                                            yet. See `skipReading`. */}
+                    {skipping ? (
+                        <Tooltip multiline maw={360} label={skipping.hint}>
+                            <Badge size="xs" variant="light" color={skipping.colour} style={{ flexShrink: 0 }}>
+                                {skipping.label}
                             </Badge>
                         </Tooltip>
                     ) : undefined}

@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent } from '@testing-library/react';
 import type { StationOrderItem } from '@deadair/sdk';
 
-import { StationOrderTable } from '../../../src/components/onair/station.order.table';
+import { StationOrderTable, skipReading } from '../../../src/components/onair/station.order.table';
 import { measureTheOrderPort } from '../../utils/order.port';
 import { render, screen, waitFor } from '../../utils/render';
 
@@ -130,5 +130,53 @@ describe('StationOrderTable: the pin', () => {
         await waitFor(() => {
             expect(screen.queryByRole('button', { name: 'Back to what is on air' })).not.toBeInTheDocument();
         });
+    });
+});
+
+// One boolean, `playable`, stands in front of seven segment states, and the row used to spend all
+// seven of them on "will skip" — which on a full order meant nine rows announcing a failure that
+// had not happened, because a break is written when it comes round rather than when it is planted.
+// These are the three readings and the one case that must stay silent.
+describe('what a break says about whether it will be heard', () => {
+    const segment = (overrides: Partial<StationOrderItem> = {}): StationOrderItem =>
+        orderItem(0, {
+            kind: 'segment',
+            segmentId: 'segment-1',
+            title: 'Talk break',
+            artists: [],
+            playable: false,
+            ...overrides,
+        });
+
+    it('says a break nobody has written yet is not written yet, rather than that it will be skipped', () => {
+        for (const state of ['planned', 'writing'] as const) {
+            const reading = skipReading(segment({ segmentState: state }));
+            expect(reading?.label).toBe('not written yet');
+            expect(reading?.colour).toBe('gray');
+        }
+    });
+
+    it('separates words that exist from audio that does not', () => {
+        for (const state of ['written', 'rendering'] as const) {
+            expect(skipReading(segment({ segmentState: state }))?.label).toBe('no audio yet');
+        }
+    });
+
+    // The one an operator can act on, and the only one that earns the tally's yellow.
+    it('keeps will-skip for a break that failed, and carries the segment’s own reason', () => {
+        const failed = skipReading(segment({ segmentState: 'failed', segmentError: 'the model declined it' }));
+        expect(failed?.label).toBe('will skip');
+        expect(failed?.colour).toBe('yellow');
+        expect(failed?.hint).toBe('the model declined it');
+
+        expect(skipReading(segment({ segmentState: 'gone' }))?.label).toBe('will skip');
+    });
+
+    // A record is never one of these, and neither is a break that has already been dealt with: the
+    // badge is about what is still to come.
+    it('says nothing about a record, a playable break, or a break that has already aired', () => {
+        expect(skipReading(orderItem(0))).toBeUndefined();
+        expect(skipReading(segment({ playable: true, segmentState: 'ready' }))).toBeUndefined();
+        expect(skipReading(segment({ segmentState: 'failed', state: 'skipped' }))).toBeUndefined();
     });
 });

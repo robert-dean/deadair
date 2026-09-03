@@ -70,6 +70,24 @@ describe('NewsPage', () => {
         expect(within(card as HTMLElement).getByText('politics')).toBeInTheDocument();
     });
 
+    /**
+     * The state a visitor now lands in, and the reason the route stopped waiting for the stories.
+     *
+     * `/news` is two orders of magnitude slower than `/news/feeds`, so the feeds arrive first and
+     * this page has to be worth looking at on them alone: the filters reachable, a skeleton where
+     * the stories will go, and above all NOT the empty state — "the feeds answered with no stories"
+     * is a claim, and it would be a false one for as long as they were still coming.
+     */
+    it('draws the filters and a skeleton while the stories are still coming', async () => {
+        listFeeds.mockResolvedValue({ feeds: [feed(), feed({ id: 'deadair.rss:sport', name: 'Sport' })] });
+        readNews.mockReturnValue(new Promise(() => undefined));
+
+        render(<NewsPage />);
+
+        expect(await screen.findByRole('combobox', { name: 'Feed' })).toBeInTheDocument();
+        expect(screen.queryByText(/answered with no stories/)).not.toBeInTheDocument();
+    });
+
     /** Narrowing by feed is a QUERY, because the contract takes one and a dozen feeds is a lot to pull. */
     it('asks the API for one feed rather than filtering what it already has', async () => {
         listFeeds.mockResolvedValue({ feeds: [feed(), feed({ id: 'deadair.rss:sport', name: 'Sport' })] });

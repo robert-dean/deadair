@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Group, Stack, Table, Text, Tooltip } from '@mantine/core';
+import { Badge, Group, Stack, Table, Text, Tooltip } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 
 import { catalogTracksOptions, useRateTrack } from '../../api/catalog.queries';
@@ -75,18 +75,21 @@ function NothingHere({ search, state, total }: { search: string; state: TrackSta
 }
 
 /**
- * One of the three state marks on a row.
+ * One of the three facts a row carries about what the station has of a track.
  *
- * A letter rather than a word, and dimmed rather than absent when it is false: a column of present
- * and missing words would be unreadable at fifty rows, and a mark that vanished would make an
- * unmeasured record look like a rendering bug. The tooltip carries the sentence.
+ * Drawn only when it is true, as a word rather than a letter: a fixed "A M E" needed a hover on
+ * each letter to mean anything, and a dimmed one was the only signal that something was missing.
+ * The absence of a badge already says "not yet" without a placeholder to parse. The tooltip still
+ * carries the full sentence.
  */
-function StateMark({ on, label, mark }: { on: boolean; label: string; mark: string }) {
+function StateMark({ on, label, text }: { on: boolean; label: string; text: string }) {
+    if (!on) return null;
+
     return (
-        <Tooltip label={on ? `Has ${label}` : `No ${label}`}>
-            <Text component="span" size="xs" ff="monospace" fw={600} c={on ? 'teal' : 'dimmed'} opacity={on ? 1 : 0.35} aria-label={label}>
-                {mark}
-            </Text>
+        <Tooltip label={`Has ${label}`}>
+            <Badge size="xs" variant="light" aria-label={label}>
+                {text}
+            </Badge>
         </Tooltip>
     );
 }
@@ -175,16 +178,9 @@ export function CatalogTracksPage({
                                 key={track.id}
                                 leading={<Artwork src={track.albumImageUrl} alt={track.albumName ?? track.title} size={36} />}
                                 title={
-                                    <>
-                                        <TrackLink id={track.id} size="sm" truncate>
-                                            {track.title}
-                                        </TrackLink>
-                                        <Group gap="xxs" wrap="nowrap" style={{ flexShrink: 0 }}>
-                                            <StateMark on={track.hasAudio} label="audio on this machine" mark="A" />
-                                            <StateMark on={track.measured} label="measured" mark="M" />
-                                            <StateMark on={track.enriched} label="described by a provider" mark="E" />
-                                        </Group>
-                                    </>
+                                    <TrackLink id={track.id} size="sm" truncate>
+                                        {track.title}
+                                    </TrackLink>
                                 }
                                 subtitle={
                                     <ArtistLink id={track.artistId} size="xs" c="dimmed" truncate>
@@ -208,6 +204,17 @@ export function CatalogTracksPage({
                                 }
                                 below={
                                     <Stack gap="xxs" pt="xxs">
+                                        {/* Below the title rather than beside it: three badges spelled out in
+                                        words don't fit next to a truncating title on a 375px card the way
+                                        three letters did. Only rendered when there is at least one to show,
+                                        so a fresh, empty-of-facts row doesn't reserve a blank line for it. */}
+                                        {track.hasAudio || track.measured || track.enriched ? (
+                                            <Group gap="xxs" wrap="wrap">
+                                                <StateMark on={track.hasAudio} label="audio on this machine" text="audio" />
+                                                <StateMark on={track.measured} label="measured" text="measured" />
+                                                <StateMark on={track.enriched} label="described by a provider" text="described" />
+                                            </Group>
+                                        ) : undefined}
                                         <RatingControl
                                             size="xs"
                                             rating={track.rating}
@@ -255,8 +262,9 @@ export function CatalogTracksPage({
                                     </SortableTh>
                                     {/* Not sortable, and the contract says why: a state is three
                                     independent booleans, so there is no order of it an operator
-                                    would agree with. */}
-                                    <Table.Th w={110}>State</Table.Th>
+                                    would agree with. Wide enough for up to three badges, since only
+                                    the facts that are true are drawn. */}
+                                    <Table.Th w={220}>State</Table.Th>
                                     <SortableTh sortBy="rating" w={150} {...sorting}>
                                         Rating
                                     </SortableTh>
@@ -297,14 +305,15 @@ export function CatalogTracksPage({
                                                 <AlbumLink id={track.albumId}>{track.albumName ?? ''}</AlbumLink>
                                             </Table.Td>
                                             <Table.Td className="da-num">{formatDuration(track.durationMs)}</Table.Td>
-                                            {/* Three facts, as three marks rather than three columns: what
-                                            a row can afford is a glance, and anything more detailed is
-                                            the record's own page one click away. */}
+                                            {/* Three facts, as badges rather than three columns: what a row
+                                            can afford is a glance, and anything more detailed is the
+                                            record's own page one click away. Only the ones that are true
+                                            draw at all — an absent badge already reads as "not yet". */}
                                             <Table.Td>
-                                                <Group gap="xxs" wrap="nowrap">
-                                                    <StateMark on={track.hasAudio} label="audio on this machine" mark="A" />
-                                                    <StateMark on={track.measured} label="measured" mark="M" />
-                                                    <StateMark on={track.enriched} label="described by a provider" mark="E" />
+                                                <Group gap="xxs" wrap="wrap">
+                                                    <StateMark on={track.hasAudio} label="audio on this machine" text="audio" />
+                                                    <StateMark on={track.measured} label="measured" text="measured" />
+                                                    <StateMark on={track.enriched} label="described by a provider" text="described" />
                                                 </Group>
                                             </Table.Td>
                                             <Table.Td>

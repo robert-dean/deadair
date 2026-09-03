@@ -364,7 +364,9 @@ describe('CatalogTracksPage', () => {
         for (const width of widths) expect(width).toBeGreaterThan(1);
     });
 
-    it('marks each row with what the station has of it', async () => {
+    // Only the facts that are true draw a badge at all — the absence of one already says "not yet",
+    // so the row for a fact that is false must have nothing findable by its label.
+    it('marks each row with what the station has of it, and only that', async () => {
         listTracks.mockResolvedValue(page([track({ hasAudio: true, measured: false, enriched: true })]));
 
         render(
@@ -381,8 +383,8 @@ describe('CatalogTracksPage', () => {
         );
 
         expect(await screen.findByLabelText('audio on this machine')).toBeInTheDocument();
-        expect(screen.getByLabelText('measured')).toBeInTheDocument();
         expect(screen.getByLabelText('described by a provider')).toBeInTheDocument();
+        expect(screen.queryByLabelText('measured')).not.toBeInTheDocument();
     });
 
     it('surfaces a failed read as an alert', async () => {

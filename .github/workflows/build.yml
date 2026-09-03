@@ -183,7 +183,7 @@ jobs:
 
             # 3.13, to match `analysis/Dockerfile`'s base image.
             - name: Setup Python
-              uses: actions/setup-python@v5
+              uses: actions/setup-python@v7
               with:
                   python-version: '3.13'
 

@@ -21,9 +21,16 @@ import { render, screen, setupUser, waitFor, within } from '../../utils/render';
 measureTheOrderPort();
 
 // The row titles link into the catalog, which needs a router; the assertions here are about rows
-// existing at all, so the mock only has to render an anchor.
+// existing at all, so the mock only has to render an anchor. `href` is a stand-in rather than
+// anything computed from `to`/`params` — nothing here follows the link anywhere — but it has to be
+// SOME string: an `<a>` with none is not a focusable link at all, native or ARIA, which is exactly
+// what the keyboard-reach cases below are asserting about.
 vi.mock('@tanstack/react-router', () => ({
-    Link: ({ children, ...rest }: { children?: ReactNode }) => <a {...rest}>{children}</a>,
+    Link: ({ children, ...rest }: { children?: ReactNode }) => (
+        <a href="#" {...rest}>
+            {children}
+        </a>
+    ),
 }));
 
 const orderItem = (index: number, overrides: Partial<StationOrderItem> = {}): StationOrderItem => ({
@@ -178,5 +185,76 @@ describe('what a break says about whether it will be heard', () => {
         expect(skipReading(orderItem(0))).toBeUndefined();
         expect(skipReading(segment({ playable: true, segmentState: 'ready' }))).toBeUndefined();
         expect(skipReading(segment({ segmentState: 'failed', state: 'skipped' }))).toBeUndefined();
+    });
+});
+
+// A row used to be five separate Tab stops — title, artist, rating, play next, drop — which made a
+// thirty-item order roughly a hundred and fifty presses to reach the bottom. The row itself is now
+// a stop and the two action icons drop out of the Tab order entirely, reachable only by the arrow
+// keys these cases exercise.
+describe('StationOrderTable: reaching a row by keyboard', () => {
+    // A row rated by the catalog: title, artist and trackId all set, so every one of the row's five
+    // original stops actually renders. Position 1 rather than 0, so it is not the next-up slot and
+    // draws the play-next icon as well as drop — the row the finding was about.
+    const rateable = (index: number, overrides: Partial<StationOrderItem> = {}): StationOrderItem =>
+        orderItem(index, { trackId: `track-${index}`, artistId: `artist-${index}`, ...overrides });
+
+    it('cuts a row from five Tab stops to the row plus its rating control', async () => {
+        const user = setupUser();
+        render(<StationOrderTable items={[rateable(0), rateable(1), rateable(2)]} onMove={() => {}} onRemove={() => {}} onRate={() => {}} />);
+
+        // Starting on the middle row's title — the row with all five of the original stops — count
+        // presses to the next row's title. Before this change that was five: artist, rating, play
+        // next, drop, title. The two icons are no longer in the count at all.
+        screen.getByRole('link', { name: 'Record 1' }).focus();
+        let presses = 0;
+        while (document.activeElement?.textContent !== 'Record 2' && presses < 10) {
+            // eslint-disable-next-line no-await-in-loop
+            await user.tab();
+            presses += 1;
+        }
+
+        expect(document.activeElement?.textContent).toBe('Record 2');
+        expect(presses).toBe(4);
+        expect(presses).toBeLessThan(5);
+    });
+
+    it('rows with actions become their own Tab stop, ahead of the title', () => {
+        render(<StationOrderTable items={[rateable(0)]} onMove={() => {}} onRemove={() => {}} onRate={() => {}} />);
+
+        const row = screen.getAllByRole('row').find(candidate => within(candidate).queryByText('Record 0') !== null)!;
+        expect(row).toHaveAttribute('tabIndex', '0');
+    });
+
+    it('moves focus among the row’s own elements on ArrowRight, without leaving the row', () => {
+        // Every fixture row carries the same artist, so the assertions below are scoped `within`
+        // this one row rather than found by name across the whole table.
+        render(<StationOrderTable items={[rateable(0), rateable(1)]} onMove={() => {}} onRemove={() => {}} onRate={() => {}} />);
+
+        const row = screen.getAllByRole('row').find(candidate => within(candidate).queryByText('Record 0') !== null)!;
+        row.focus();
+        expect(document.activeElement).toBe(row);
+
+        // Row focus, with nothing yet chosen inside it, moves to the first stop: the title.
+        fireEvent.keyDown(row, { key: 'ArrowRight' });
+        expect(document.activeElement).toBe(within(row).getByRole('link', { name: 'Record 0' }));
+
+        // From the title, the next stop over is the artist.
+        fireEvent.keyDown(row, { key: 'ArrowRight' });
+        expect(document.activeElement).toBe(within(row).getByRole('link', { name: 'Aphex Twin' }));
+    });
+
+    it('activates the title link on Enter when the row itself has focus', () => {
+        render(<StationOrderTable items={[rateable(0)]} onMove={() => {}} onRemove={() => {}} onRate={() => {}} />);
+
+        const titleLink = screen.getByRole('link', { name: 'Record 0' });
+        const clicked = vi.fn();
+        titleLink.addEventListener('click', clicked);
+
+        const row = screen.getAllByRole('row').find(candidate => within(candidate).queryByText('Record 0') !== null)!;
+        row.focus();
+        fireEvent.keyDown(row, { key: 'Enter' });
+
+        expect(clicked).toHaveBeenCalled();
     });
 });

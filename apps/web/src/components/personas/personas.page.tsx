@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react';
-import { ActionIcon, Anchor, Badge, Button, Card, CloseButton, Group, Stack, Text, TextInput } from '@mantine/core';
-import { IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
+import { ActionIcon, Anchor, Badge, Button, Card, CloseButton, Group, Menu, Stack, Text, TextInput } from '@mantine/core';
+import { IconDots, IconPlayerPauseFilled, IconPlayerPlayFilled } from '@tabler/icons-react';
 import { Link } from '@tanstack/react-router';
 import type { Persona, PersonaInput, ScriptHistorySummaryRow, Voice } from '@deadair/sdk';
 
@@ -29,6 +29,7 @@ import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { notifyDone } from '../shared/notify';
 import { severityColor, toneColor } from '../shared/status';
+import { usePhone } from '../shared/use.phone';
 import { PersonaDeleteModal } from './persona.delete.modal';
 import { PersonaEditor } from './persona.editor';
 import { PersonaImportModal } from './persona.import';
@@ -50,6 +51,7 @@ import { PresentingBanner } from './presenting.banner';
  * was written in; nothing here can reach into audio that already exists.
  */
 export function PersonasPage() {
+    const phone = usePhone();
     const personas = usePersonas();
     const create = useCreatePersona();
     const update = useUpdatePersona();
@@ -255,7 +257,10 @@ export function PersonasPage() {
                             <Eyebrow>{kindOf(persona) === 'caller' ? 'Callers' : 'Hosts'}</Eyebrow>
                         ) : undefined}
                         <Card>
-                            <Group justify="space-between" align="flex-start" wrap="nowrap">
+                            {/* Wraps on a phone rather than holding its intrinsic width: at 500px the
+                            action row otherwise stayed full size while the left column collapsed
+                            toward zero, and the buttons printed over the persona's name. */}
+                            <Group justify="space-between" align="flex-start" wrap={phone ? 'wrap' : 'nowrap'}>
                                 <Stack gap="xxs" style={{ minWidth: 0 }}>
                                     <Group gap="xs">
                                         <Text fw={600}>{persona.label}</Text>
@@ -270,7 +275,10 @@ export function PersonasPage() {
                                             </Badge>
                                         ) : undefined}
                                     </Group>
-                                    <Text size="sm" c="dimmed">
+                                    {/* Unconstrained free text: without a clamp, a long style sentence
+                                    sets the card's own height, and on a phone a wrapped action row
+                                    beneath it would be pushed further down with every word. */}
+                                    <Text size="sm" c="dimmed" lineClamp={3}>
                                         {persona.style}
                                     </Text>
                                     <PersonaSummary persona={persona} />
@@ -310,8 +318,7 @@ export function PersonasPage() {
                                     <PersonaRecord counts={countsFor(persona.key, summary.data?.rows)} />
 
                                     {/* In the card's own column rather than the row of buttons, because
-                                    it goes somewhere rather than doing something — and because six
-                                    actions in that row is one more than fits. Keyed on the
+                                    it goes somewhere rather than doing something. Keyed on the
                                     persona's KEY rather than its id, since that is what
                                     `script_history` stamps: the rows outlive the character, so what
                                     it said survives it being deleted. */}
@@ -324,23 +331,6 @@ export function PersonasPage() {
                                         >
                                             What they&apos;ve said
                                         </Anchor>
-                                        {/* Here rather than in the row of buttons opposite, which is
-                                        already one action wider than fits — and honestly, because
-                                        this takes the character somewhere rather than doing
-                                        anything to it. What comes back is the sheet and the
-                                        stories, with no id and nothing saying who is on air, so it
-                                        can be read by any station. */}
-                                        <Anchor
-                                            component="button"
-                                            type="button"
-                                            size="xs"
-                                            disabled={exporting === persona.id}
-                                            onClick={() => {
-                                                void save(persona.id);
-                                            }}
-                                        >
-                                            {exporting === persona.id ? 'Saving…' : 'Export'}
-                                        </Anchor>
                                     </Group>
 
                                     {persona.voice && preview.failureFor(persona.voice) ? (
@@ -349,7 +339,7 @@ export function PersonasPage() {
                                         </Text>
                                     ) : undefined}
                                 </Stack>
-                                <Group gap="xs" wrap="nowrap">
+                                <Group gap="xs" wrap="nowrap" {...(phone ? { w: '100%', justify: 'flex-end' } : {})}>
                                     {/* Not offered for a caller at all, rather than offered and refused:
                                     somebody who phones in cannot present the station, and the API
                                     and the database both say so. A button that always fails is a
@@ -385,36 +375,53 @@ export function PersonasPage() {
                                     >
                                         Rehearse
                                     </Button>
-                                    {/* One at a time: the panel fetches per character, and every open
-                                    notebook is a request nobody asked for. */}
-                                    <Button
-                                        variant="subtle"
-                                        size="compact-sm"
-                                        onClick={() => setNotebook(current => (current === persona.id ? undefined : persona.id))}
-                                    >
-                                        {notebook === persona.id ? 'Hide notebook' : 'Notebook'}
-                                    </Button>
-                                    <Button
-                                        variant="subtle"
-                                        size="compact-sm"
-                                        onClick={() => setShelf(current => (current === persona.id ? undefined : persona.id))}
-                                    >
-                                        {shelf === persona.id ? 'Hide stories' : 'Stories'}
-                                    </Button>
                                     <Button variant="subtle" size="compact-sm" onClick={() => setEditing(persona)}>
                                         Edit
                                     </Button>
-                                    {/* The one action here that loses something an operator wrote, so
-                                    it is the one that asks first and says what goes with it. */}
-                                    <Button
-                                        variant="subtle"
-                                        color="red"
-                                        size="compact-sm"
-                                        loading={remove.isPending && remove.variables === persona.id}
-                                        onClick={() => setDeleting(persona)}
-                                    >
-                                        Delete
-                                    </Button>
+                                    {/* Notebook, Stories, Export and Delete behind one control: six
+                                    equal-weight buttons put Delete at the same visual weight as Put
+                                    on air, which is the one action anybody comes to this page for.
+                                    The pending state for Delete lives on this trigger rather than on
+                                    its `Menu.Item` — a menu item has no `loading` prop, and the
+                                    confirmation modal that actually fires the mutation closes the
+                                    menu long before the request resolves, so a spinner inside the
+                                    dropdown would never be seen. */}
+                                    <Menu position="bottom-end" withinPortal>
+                                        <Menu.Target>
+                                            <ActionIcon
+                                                variant="subtle"
+                                                loading={remove.isPending && remove.variables === persona.id}
+                                                aria-label={`More about ${persona.label}`}
+                                            >
+                                                <IconDots size={16} />
+                                            </ActionIcon>
+                                        </Menu.Target>
+                                        <Menu.Dropdown>
+                                            {/* One at a time: the panel fetches per character, and
+                                            every open notebook is a request nobody asked for. */}
+                                            <Menu.Item onClick={() => setNotebook(current => (current === persona.id ? undefined : persona.id))}>
+                                                {notebook === persona.id ? 'Hide notebook' : 'Notebook'}
+                                            </Menu.Item>
+                                            <Menu.Item onClick={() => setShelf(current => (current === persona.id ? undefined : persona.id))}>
+                                                {shelf === persona.id ? 'Hide stories' : 'Stories'}
+                                            </Menu.Item>
+                                            <Menu.Item
+                                                disabled={exporting === persona.id}
+                                                onClick={() => {
+                                                    void save(persona.id);
+                                                }}
+                                            >
+                                                {exporting === persona.id ? 'Saving…' : 'Export'}
+                                            </Menu.Item>
+                                            <Menu.Divider />
+                                            {/* The one action here that loses something an operator
+                                            wrote, so it is the one that asks first and says what
+                                            goes with it — and the one kept last and in red. */}
+                                            <Menu.Item color="red" onClick={() => setDeleting(persona)}>
+                                                Delete
+                                            </Menu.Item>
+                                        </Menu.Dropdown>
+                                    </Menu>
                                 </Group>
                             </Group>
 

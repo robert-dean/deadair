@@ -6,13 +6,19 @@ options {
 
 contract SettingGroup: enum(
     station,
+    stream,
+    housekeeping,
+    secrets,
     rotation,
     playout,
     render,
     llm,
     analysis,
     schedule
-) # Which part of the console owns a setting. Every one of these but `schedule` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes
+) # Which part of the console owns a setting. Every one of these but `schedule` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes.
+  # `station`, `stream`, `housekeeping` and `secrets` were one group until the page under it grew to
+  # thirty-one fields under a single save: station identity, stream formats and HLS tuning, activity
+  # retention and the sync threshold, and four passwords, each meant for a different kind of visit.
 
 # A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
 # and shared deliberately: a plugin's settings form and the station's are the same problem, and the

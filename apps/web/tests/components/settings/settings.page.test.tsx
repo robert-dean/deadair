@@ -55,6 +55,7 @@ afterEach(() => {
 const SETTINGS: StationSettings = {
     descriptors: [
         { group: 'station', key: 'stream.title', label: 'Station name', type: 'string', default: 'Deadair' },
+        { group: 'stream', key: 'stream.mount', label: 'Mount', type: 'string', default: '/live.mp3' },
         { group: 'station', key: 'stream.sourcePassword', label: 'Icecast source password', type: 'secret' },
         { group: 'rotation', key: 'rotation.breakEveryMinutes', label: 'Minutes between breaks', type: 'number', default: 15 },
         {
@@ -69,7 +70,7 @@ const SETTINGS: StationSettings = {
             ],
         },
     ],
-    values: { 'stream.title': 'Old FM', 'rotation.breakEveryMinutes': 15, 'playout.airMode': 'audience' },
+    values: { 'stream.title': 'Old FM', 'stream.mount': '/live.mp3', 'rotation.breakEveryMinutes': 15, 'playout.airMode': 'audience' },
     configured: { 'stream.sourcePassword': true },
 };
 
@@ -95,6 +96,20 @@ describe('SettingsSectionPage', () => {
         await screen.findByLabelText('Station name');
         expect(screen.queryByLabelText('Minutes between breaks')).not.toBeInTheDocument();
         expect(screen.queryByRole('heading', { name: 'Rotation' })).not.toBeInTheDocument();
+    });
+
+    // Station used to be every one of these under one save: identity, streams, housekeeping and
+    // four passwords together. The mount is `stream` now and the station's own name stays where it
+    // was — this is the split's one behavioural claim, pinned directly rather than trusted to follow
+    // from the section-filter case above, which never had two groups sharing a descriptor list to
+    // tell apart.
+    it('keeps the mount on Stream and the station’s own name on Station', async () => {
+        getSettings.mockResolvedValue(settingsOf());
+
+        render(<SettingsSectionPage section="stream" />);
+
+        expect(await screen.findByLabelText('Mount')).toHaveValue('/live.mp3');
+        expect(screen.queryByLabelText('Station name')).not.toBeInTheDocument();
     });
 
     it('never puts a stored secret on the screen', async () => {

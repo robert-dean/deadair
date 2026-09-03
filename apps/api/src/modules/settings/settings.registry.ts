@@ -149,8 +149,14 @@ export interface SettingDescriptor extends ConfigField {
  * page, which is why `GROUPS` in `settings.page.tsx` is a list of its own rather than this one: a
  * group that is not in that list is drawn by whoever claimed it, and a group in neither is a bug
  * `settings.registry.test.ts` cannot see. Adding one means deciding which page draws it.
+ *
+ * `station`, `stream`, `housekeeping` and `secrets` were one group until it grew to thirty-one
+ * fields under a single save: ten identity fields, fifteen stream formats and HLS settings, two
+ * pieces of housekeeping and four passwords, each of them a different reason to open the page.
+ * Split along `SettingGroup` in `settings.types.ck`, so the wire enum and this list cannot disagree
+ * about what a group is called.
  */
-export const SETTING_GROUPS = ['station', 'rotation', 'playout', 'render', 'llm', 'analysis', 'schedule'] as const;
+export const SETTING_GROUPS = ['station', 'stream', 'housekeeping', 'secrets', 'rotation', 'playout', 'render', 'llm', 'analysis', 'schedule'] as const;
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
 
@@ -258,8 +264,10 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: STREAM_DEFAULTS.mount,
         help: 'The Icecast mount point, including its leading slash and extension.',
     },
+
+    // ── stream ─────────────────────────────────────────────────────────────────
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.bitrate,
         label: 'Bitrate (kbps)',
         type: 'string',
@@ -272,7 +280,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'The MP3 mount, which every listener can play and which is the one the station is always on. The usual figures are offered; unlike the formats below, anything you type here is honoured.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.opusEnabled,
         label: 'Also publish Opus',
         type: 'boolean',
@@ -280,7 +288,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'The best quality per bit of any format here, and the one for a browser or a modern player. Hardware radios and car head units generally cannot play it, which is why MP3 stays whatever you choose here. The mount is the MP3 one with its extension swapped.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.opusBitrate,
         label: 'Opus bitrate (kbps)',
         type: 'select',
@@ -289,7 +297,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'A fixed set rather than free text, because the encoder takes this figure when the stream script is read and not as something it can be handed later.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.aacEnabled,
         label: 'Also publish AAC',
         type: 'boolean',
@@ -297,7 +305,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'The format that widens hardware reach: a Sonos takes MP3 or AAC and nothing else, and most players that cannot manage Opus can manage this.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.aacBitrate,
         label: 'AAC bitrate (kbps)',
         type: 'select',
@@ -305,7 +313,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         options: AAC_BITRATES.map(value => ({ value, label: `${value} kbps` })),
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.flacEnabled,
         label: 'Also publish FLAC',
         type: 'boolean',
@@ -313,7 +321,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Lossless, and worth having only when the records themselves are: a FLAC of a decoded lossy file is a perfect copy of a lossy file at seven times the bandwidth. Costs roughly 900 kbps per listener.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.hlsEnabled,
         label: 'Also publish an HLS stream',
         type: 'boolean',
@@ -321,7 +329,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'One address, carrying AAC, that survives a phone moving between wifi and mobile: the mounts above are a single connection that dies with the network, while this is ordinary web requests a player simply retries. Costs a few seconds more delay than the mounts, and one more encoder.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: HLS_REFUSE_KEY,
         label: 'Players the station will not serve',
         type: 'string',
@@ -329,7 +337,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Names from a player\'s "user agent", separated by spaces — anything matching is answered with a refusal and is not counted as a listener. Leave empty unless something is streaming that should not be: with the station set to air only while somebody is listening, one program fetching the stream around the clock keeps it broadcasting to nobody. Use the short product name, such as `Lavf/` or `Go-http-client`, so it keeps matching when that thing updates.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.hlsSegmentSeconds,
         label: 'HLS segment length (seconds)',
         type: 'number',
@@ -341,7 +349,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Shorter segments put a listener closer to live and cost one more request each, per listener. Below about two seconds most players stop keeping up.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.hlsSegmentCount,
         label: 'HLS segments in the playlist',
         type: 'number',
@@ -351,7 +359,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'How much a player is told about at once. More is more delay and more tolerance of a bad connection; fewer is the opposite. Segment length multiplied by this is roughly how far behind live a listener starts.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.hostname,
         label: 'Advertised hostname',
         type: 'string',
@@ -359,7 +367,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'What Icecast calls itself. Leave empty to derive it from the public URL.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.location,
         label: 'Location',
         type: 'string',
@@ -367,7 +375,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Where the station broadcasts from, as Icecast advertises it. Leave empty to advertise none.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.language,
         label: 'Language',
         type: 'string',
@@ -375,7 +383,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'The language of what is broadcast, as a BCP 47 tag such as `en` or `en-GB`. Sent to Icecast with the stream.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.icecastHost,
         label: 'Icecast host',
         type: 'string',
@@ -383,7 +391,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'Where the app tells Liquidsoap to publish. The compose service name, not a public address.',
     },
     {
-        group: 'station',
+        group: 'stream',
         key: STREAM_KEYS.icecastPort,
         label: 'Icecast port',
         // A number rather than free text, so `serializeSetting` refuses one that is not. The stored
@@ -401,8 +409,9 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         max: 65535,
     },
 
+    // ── housekeeping ───────────────────────────────────────────────────────────
     {
-        group: 'station',
+        group: 'housekeeping',
         key: ACTIVITY_KEYS.retentionDays,
         label: 'Keep the activity feed for (days)',
         type: 'number',
@@ -410,7 +419,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         help: 'How long the station remembers its own moments: going on and off air, every time a gate silenced it, every gap that outlived the loop meant to close it. Zero keeps all of it. What aired and what the station wrote have their own lifetimes and are not touched by this.',
     },
     {
-        group: 'station',
+        group: 'housekeeping',
         key: SWEEP_MAX_PERCENT_KEY,
         label: 'Most of a library one sync may retire (%)',
         type: 'number',
@@ -1207,26 +1216,26 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     // comes here to match a password something else already has. Write-only:
     // the read model reports whether one is stored and never what it is.
     {
-        group: 'station',
+        group: 'secrets',
         key: STREAM_KEYS.sourcePassword,
         label: 'Icecast source password',
         type: 'secret',
         help: 'Changing this needs Icecast restarted to adopt it.',
     },
     {
-        group: 'station',
+        group: 'secrets',
         key: STREAM_KEYS.adminPassword,
         label: 'Icecast admin password',
         type: 'secret',
     },
     {
-        group: 'station',
+        group: 'secrets',
         key: STREAM_KEYS.harborPassword,
         label: 'Harbor push password',
         type: 'secret',
     },
     {
-        group: 'station',
+        group: 'secrets',
         key: STREAM_KEYS.spotifyShimSecret,
         label: 'Track shim secret',
         type: 'secret',

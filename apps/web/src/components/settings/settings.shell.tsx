@@ -15,7 +15,20 @@ import { usePhone } from '../shared/use.phone';
  * a section added without a route fails to compile, and `SettingsSection['id']` is narrow enough to
  * index that record — which a list-derived type cannot be while the list is typed by the interface.
  */
-export type SettingsSectionId = 'station' | 'appearance' | 'rotation' | 'playout' | 'render' | 'llm' | 'analysis' | 'storage' | 'grants' | 'plugins';
+export type SettingsSectionId =
+    | 'station'
+    | 'stream'
+    | 'housekeeping'
+    | 'secrets'
+    | 'appearance'
+    | 'rotation'
+    | 'playout'
+    | 'render'
+    | 'llm'
+    | 'analysis'
+    | 'storage'
+    | 'grants'
+    | 'plugins';
 
 /**
  * One section of Settings: what it is called, and where its contents come from.
@@ -72,6 +85,30 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         hint: 'Name, mount and where it publishes',
         group: 'station',
         blurb: 'What the station is called and where it publishes. Icecast and Liquidsoap read these from files rendered on save, so a change reaches them on their next restart.',
+    },
+    // Split out of Station along with the two below it: one save under thirty-one fields, from the
+    // station's own name to four passwords, was a lot of ground to cover for a visit that usually
+    // wants one of them. `SettingGroup` in `settings.types.ck` carries the same four-way split.
+    {
+        id: 'stream',
+        label: 'Stream',
+        hint: 'What puts it on air, in what formats',
+        group: 'stream',
+        blurb: 'The mounts the station publishes to: their formats and bitrates, HLS, and the Icecast connection they all go through. Icecast and Liquidsoap read these from files rendered on save, so a change reaches them on their next restart.',
+    },
+    {
+        id: 'housekeeping',
+        label: 'Housekeeping',
+        hint: 'How long it keeps its own history',
+        group: 'housekeeping',
+        blurb: 'How long the station keeps its own history, and how much of a library sync it will trust before it refuses rather than throwing the rest away.',
+    },
+    {
+        id: 'secrets',
+        label: 'Secrets',
+        hint: 'The passwords it was seeded with',
+        group: 'secrets',
+        blurb: 'Seeded with strong random values on first boot, so this is a page an operator visits only to match a password something else already has.',
     },
     // Second, and the only one on this page that changes nothing about the station. It is here
     // because "how do I make this readable in daylight" is a question an operator brings to
@@ -130,6 +167,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
 export const SETTINGS_ROUTES: Record<
     SettingsSectionId,
     | '/settings/station'
+    | '/settings/stream'
+    | '/settings/housekeeping'
+    | '/settings/secrets'
     | '/settings/appearance'
     | '/settings/rotation'
     | '/settings/playout'
@@ -141,6 +181,9 @@ export const SETTINGS_ROUTES: Record<
     | '/plugins'
 > = {
     station: '/settings/station',
+    stream: '/settings/stream',
+    housekeeping: '/settings/housekeeping',
+    secrets: '/settings/secrets',
     appearance: '/settings/appearance',
     rotation: '/settings/rotation',
     playout: '/settings/playout',

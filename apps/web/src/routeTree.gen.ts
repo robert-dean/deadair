@@ -27,12 +27,15 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAnalysisRouteImport } from './routes/settings/analysis'
 import { Route as SettingsAppearanceRouteImport } from './routes/settings/appearance'
 import { Route as SettingsGrantsRouteImport } from './routes/settings/grants'
+import { Route as SettingsHousekeepingRouteImport } from './routes/settings/housekeeping'
 import { Route as SettingsLlmRouteImport } from './routes/settings/llm'
 import { Route as SettingsPlayoutRouteImport } from './routes/settings/playout'
 import { Route as SettingsRenderRouteImport } from './routes/settings/render'
 import { Route as SettingsRotationRouteImport } from './routes/settings/rotation'
+import { Route as SettingsSecretsRouteImport } from './routes/settings/secrets'
 import { Route as SettingsStationRouteImport } from './routes/settings/station'
 import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
+import { Route as SettingsStreamRouteImport } from './routes/settings/stream'
 import { Route as CatalogAlbumsAlbumIdRouteImport } from './routes/catalog/albums/$albumId'
 import { Route as CatalogArtistsArtistIdRouteImport } from './routes/catalog/artists/$artistId'
 import { Route as CatalogTracksIndexRouteImport } from './routes/catalog/tracks/index'
@@ -131,6 +134,11 @@ const SettingsGrantsRoute = SettingsGrantsRouteImport.update({
   path: '/settings/grants',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsHousekeepingRoute = SettingsHousekeepingRouteImport.update({
+  id: '/settings/housekeeping',
+  path: '/settings/housekeeping',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsLlmRoute = SettingsLlmRouteImport.update({
   id: '/settings/llm',
   path: '/settings/llm',
@@ -151,6 +159,11 @@ const SettingsRotationRoute = SettingsRotationRouteImport.update({
   path: '/settings/rotation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsSecretsRoute = SettingsSecretsRouteImport.update({
+  id: '/settings/secrets',
+  path: '/settings/secrets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsStationRoute = SettingsStationRouteImport.update({
   id: '/settings/station',
   path: '/settings/station',
@@ -159,6 +172,11 @@ const SettingsStationRoute = SettingsStationRouteImport.update({
 const SettingsStorageRoute = SettingsStorageRouteImport.update({
   id: '/settings/storage',
   path: '/settings/storage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsStreamRoute = SettingsStreamRouteImport.update({
+  id: '/settings/stream',
+  path: '/settings/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CatalogAlbumsAlbumIdRoute = CatalogAlbumsAlbumIdRouteImport.update({
@@ -213,12 +231,15 @@ export interface FileRoutesByFullPath {
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/grants': typeof SettingsGrantsRoute
+  '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/llm': typeof SettingsLlmRoute
   '/settings/playout': typeof SettingsPlayoutRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
+  '/settings/secrets': typeof SettingsSecretsRoute
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
+  '/settings/stream': typeof SettingsStreamRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
@@ -246,12 +267,15 @@ export interface FileRoutesByTo {
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/grants': typeof SettingsGrantsRoute
+  '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/llm': typeof SettingsLlmRoute
   '/settings/playout': typeof SettingsPlayoutRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
+  '/settings/secrets': typeof SettingsSecretsRoute
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
+  '/settings/stream': typeof SettingsStreamRoute
   '/catalog': typeof CatalogIndexRoute
   '/playlists': typeof PlaylistsIndexRoute
   '/plugins': typeof PluginsIndexRoute
@@ -280,12 +304,15 @@ export interface FileRoutesById {
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/grants': typeof SettingsGrantsRoute
+  '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/llm': typeof SettingsLlmRoute
   '/settings/playout': typeof SettingsPlayoutRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
+  '/settings/secrets': typeof SettingsSecretsRoute
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
+  '/settings/stream': typeof SettingsStreamRoute
   '/catalog/': typeof CatalogIndexRoute
   '/playlists/': typeof PlaylistsIndexRoute
   '/plugins/': typeof PluginsIndexRoute
@@ -315,12 +342,15 @@ export interface FileRouteTypes {
     | '/settings/analysis'
     | '/settings/appearance'
     | '/settings/grants'
+    | '/settings/housekeeping'
     | '/settings/llm'
     | '/settings/playout'
     | '/settings/render'
     | '/settings/rotation'
+    | '/settings/secrets'
     | '/settings/station'
     | '/settings/storage'
+    | '/settings/stream'
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
@@ -348,12 +378,15 @@ export interface FileRouteTypes {
     | '/settings/analysis'
     | '/settings/appearance'
     | '/settings/grants'
+    | '/settings/housekeeping'
     | '/settings/llm'
     | '/settings/playout'
     | '/settings/render'
     | '/settings/rotation'
+    | '/settings/secrets'
     | '/settings/station'
     | '/settings/storage'
+    | '/settings/stream'
     | '/catalog'
     | '/playlists'
     | '/plugins'
@@ -381,12 +414,15 @@ export interface FileRouteTypes {
     | '/settings/analysis'
     | '/settings/appearance'
     | '/settings/grants'
+    | '/settings/housekeeping'
     | '/settings/llm'
     | '/settings/playout'
     | '/settings/render'
     | '/settings/rotation'
+    | '/settings/secrets'
     | '/settings/station'
     | '/settings/storage'
+    | '/settings/stream'
     | '/catalog/'
     | '/playlists/'
     | '/plugins/'
@@ -415,12 +451,15 @@ export interface RootRouteChildren {
   SettingsAnalysisRoute: typeof SettingsAnalysisRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
   SettingsGrantsRoute: typeof SettingsGrantsRoute
+  SettingsHousekeepingRoute: typeof SettingsHousekeepingRoute
   SettingsLlmRoute: typeof SettingsLlmRoute
   SettingsPlayoutRoute: typeof SettingsPlayoutRoute
   SettingsRenderRoute: typeof SettingsRenderRoute
   SettingsRotationRoute: typeof SettingsRotationRoute
+  SettingsSecretsRoute: typeof SettingsSecretsRoute
   SettingsStationRoute: typeof SettingsStationRoute
   SettingsStorageRoute: typeof SettingsStorageRoute
+  SettingsStreamRoute: typeof SettingsStreamRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
   PlaylistsIndexRoute: typeof PlaylistsIndexRoute
   PluginsIndexRoute: typeof PluginsIndexRoute
@@ -562,6 +601,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsGrantsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/housekeeping': {
+      id: '/settings/housekeeping'
+      path: '/settings/housekeeping'
+      fullPath: '/settings/housekeeping'
+      preLoaderRoute: typeof SettingsHousekeepingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/llm': {
       id: '/settings/llm'
       path: '/settings/llm'
@@ -590,6 +636,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRotationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/secrets': {
+      id: '/settings/secrets'
+      path: '/settings/secrets'
+      fullPath: '/settings/secrets'
+      preLoaderRoute: typeof SettingsSecretsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/station': {
       id: '/settings/station'
       path: '/settings/station'
@@ -602,6 +655,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/storage'
       fullPath: '/settings/storage'
       preLoaderRoute: typeof SettingsStorageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/stream': {
+      id: '/settings/stream'
+      path: '/settings/stream'
+      fullPath: '/settings/stream'
+      preLoaderRoute: typeof SettingsStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/catalog/albums/$albumId': {
@@ -671,12 +731,15 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsAnalysisRoute: SettingsAnalysisRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
   SettingsGrantsRoute: SettingsGrantsRoute,
+  SettingsHousekeepingRoute: SettingsHousekeepingRoute,
   SettingsLlmRoute: SettingsLlmRoute,
   SettingsPlayoutRoute: SettingsPlayoutRoute,
   SettingsRenderRoute: SettingsRenderRoute,
   SettingsRotationRoute: SettingsRotationRoute,
+  SettingsSecretsRoute: SettingsSecretsRoute,
   SettingsStationRoute: SettingsStationRoute,
   SettingsStorageRoute: SettingsStorageRoute,
+  SettingsStreamRoute: SettingsStreamRoute,
   CatalogIndexRoute: CatalogIndexRoute,
   PlaylistsIndexRoute: PlaylistsIndexRoute,
   PluginsIndexRoute: PluginsIndexRoute,

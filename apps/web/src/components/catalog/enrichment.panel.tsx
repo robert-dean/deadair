@@ -93,8 +93,11 @@ function detailPairs(merged: EnrichmentFacts): [string, string][] {
         if (value !== undefined && value !== '') pairs.push([label, String(value)]);
     };
 
-    // `releaseDate` is preferred over `year` when it says more than the year alone does.
-    push('Released', merged.releaseDate !== undefined && merged.releaseDate.length > 4 ? merged.releaseDate : merged.year);
+    // `releaseDate` is preferred over `year` when it says more than the year alone does. Labelled
+    // as the providers' own claim because a track page also shows `deadair.tracks.year`, the raw
+    // tag off the ingested file, and the two disagree often enough that "Released" alone reads as
+    // one fact rather than the two unreconciled ones it actually is.
+    push('Providers say released', merged.releaseDate !== undefined && merged.releaseDate.length > 4 ? merged.releaseDate : merged.year);
     push('Label', merged.label);
     push('BPM', merged.bpm);
     push('Key', merged.musicalKey);

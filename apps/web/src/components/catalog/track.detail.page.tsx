@@ -115,7 +115,18 @@ export function TrackDetailPage({ trackId }: { trackId: string }) {
                             <Text c="dimmed" size="sm">
                                 {detail.artists}
                                 {detail.albumName === undefined ? '' : ` • ${detail.albumName}`}
-                                {detail.year === undefined ? '' : ` • ${detail.year}`}
+                                {/* This is `deadair.tracks.year`, the raw tag off the ingested file — not the
+                                    enrichment panel's "Providers say released" below, which is a different fact
+                                    and can disagree with this one. Worth a tooltip because this is also the
+                                    year the station's own period filter reads. */}
+                                {detail.year === undefined ? undefined : (
+                                    <>
+                                        {' • '}
+                                        <Tooltip label="The year on the file itself. This is what the station's own period filter reads.">
+                                            <span>{detail.year}</span>
+                                        </Tooltip>
+                                    </>
+                                )}
                                 {detail.durationMs === undefined ? '' : ` • ${formatDuration(detail.durationMs)}`}
                             </Text>
                         }

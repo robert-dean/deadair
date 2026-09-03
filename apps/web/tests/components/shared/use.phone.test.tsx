@@ -59,7 +59,11 @@ describe('usePhone', () => {
         // rather than in an effect means that throw has no `try` around it any more.
         const real = window.matchMedia;
         delete (window as { matchMedia?: typeof real }).matchMedia;
-        restore = () => Object.defineProperty(window, 'matchMedia', { writable: true, value: real });
+        // `configurable` as well as `writable`, matching how `tests/setup.ts` put it there in the
+        // first place: a property redefined without it is non-configurable for the rest of the
+        // worker, and jsdom's teardown ends the run by DELETING this one. That threw a teardown
+        // error after every test in the file had already passed.
+        restore = () => Object.defineProperty(window, 'matchMedia', { writable: true, configurable: true, value: real });
 
         const seen: boolean[] = [];
         render(<Probe seen={seen} />);

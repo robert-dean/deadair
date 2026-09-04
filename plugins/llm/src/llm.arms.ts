@@ -5,55 +5,72 @@ import { googleArm } from './google.provider.js';
 import { openAiCompatibleArm } from './openai.compat.provider.js';
 import type { ProviderArm } from './llm.provider.js';
 
-/** Everything the arms are built out of, whichever one is being built. */
+/** Everything the arms are built out of, all of it at once. */
 export interface ArmCredentials {
-    /** The operator's address, already normalized. Empty when unset, which only the OpenAI-compatible arm minds. */
+    /** The operator's address, already normalized. Empty when unset, which is the OpenAI-compatible arm not being configured. */
     baseUrl: string;
 
-    /** The stored key. Absent for a local server that wants none, required by every hosted arm. */
+    /** The key for the address above. Absent for a local server that wants none. */
     apiKey?: string;
+
+    /** Anthropic's key. Its presence is what configures that arm; there is no address to give. */
+    anthropicApiKey?: string;
+
+    /** Gemini's key, likewise. */
+    googleApiKey?: string;
 }
 
 /**
- * The arm for a kind, or nothing when this kind cannot work with what is configured.
+ * Every arm the operator has given a credential for, keyed by kind.
  *
- * `undefined` rather than a throw, and the difference matters: a plugin that
- * will not load is a station that cannot be configured through its own console,
- * whereas an unbuilt arm is a plugin that loads, says what is missing in
- * `testConnection`, and refuses a generation with `config`. An operator saving
- * an address before a key, or a key before an address, passes through this state
- * on the way in.
+ * All of them rather than one, and that is the whole shape of this plugin: a
+ * station wants a hosted model for the words listeners hear and a local one for
+ * the volume nobody hears, and the only place it can say so is the model name
+ * (see `llm.names.ts`). An arm missing from this map is one nothing is
+ * configured for, which is an ordinary state rather than a fault — an operator
+ * pasting a second key passes through it — and a generation naming a model on
+ * that arm is what refuses, with a sentence saying which credential is missing.
  *
- * The switch is exhaustive over {@link ProviderKind} and stays that way: `tsc`
- * fails on a kind added to the manifest with nothing built for it here.
+ * Empty is legitimate and means nothing is configured at all. The manifest
+ * refuses that at SAVE time, so it is reachable here only on a fresh install
+ * nobody has filled in yet.
  */
-export function buildArm(kind: ProviderKind, host: PluginHost, credentials: ArmCredentials): ProviderArm | undefined {
-    switch (kind) {
-        case 'openai-compat':
-            return credentials.baseUrl.length === 0
-                ? undefined
-                : openAiCompatibleArm(host, {
-                      baseUrl: credentials.baseUrl,
-                      ...(credentials.apiKey === undefined ? {} : { apiKey: credentials.apiKey }),
-                  });
+export function buildArms(host: PluginHost, credentials: ArmCredentials): ReadonlyMap<ProviderKind, ProviderArm> {
+    const arms = new Map<ProviderKind, ProviderArm>();
 
-        case 'anthropic':
-            return hasKey(credentials.apiKey) ? anthropicArm(host, { apiKey: credentials.apiKey }) : undefined;
-
-        case 'google':
-            return hasKey(credentials.apiKey) ? googleArm(host, { apiKey: credentials.apiKey }) : undefined;
+    if (credentials.baseUrl.length > 0) {
+        arms.set(
+            'openai-compat',
+            openAiCompatibleArm(host, {
+                baseUrl: credentials.baseUrl,
+                ...(hasKey(credentials.apiKey) ? { apiKey: credentials.apiKey } : {}),
+            }),
+        );
     }
+
+    if (hasKey(credentials.anthropicApiKey)) arms.set('anthropic', anthropicArm(host, { apiKey: credentials.anthropicApiKey }));
+
+    if (hasKey(credentials.googleApiKey)) arms.set('google', googleArm(host, { apiKey: credentials.googleApiKey }));
+
+    return arms;
 }
 
-/** What is missing, said to whoever is looking at the form. */
-export function unconfiguredMessage(kind: ProviderKind): string {
+/**
+ * What is missing for an arm nothing is configured for, named to whoever asked for it.
+ *
+ * Says the credential rather than "not configured", because those are different
+ * repairs: one is a field on this form and the other could be anything.
+ */
+export function missingCredential(kind: ProviderKind): string {
     switch (kind) {
         case 'openai-compat':
-            return 'No server URL set.';
+            return 'no server URL is set';
 
         case 'anthropic':
+            return 'no Anthropic API key is set';
+
         case 'google':
-            return 'No API key set.';
+            return 'no Gemini API key is set';
     }
 }
 

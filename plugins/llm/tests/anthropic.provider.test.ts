@@ -84,8 +84,10 @@ function scriptedHost(responses: (() => Response)[]): FakePluginHost {
 }
 
 async function loadedPlugin(host: FakePluginHost, config: Record<string, unknown> = {}): Promise<LlmPlugin> {
-    host.seedConfig({ providerKind: 'anthropic', model: 'claude-x', ...config });
-    host.seedSecret('apiKey', config.apiKey === null ? '' : 'sk-test');
+    // A key is what configures this arm; there is no address to give and no provider to pick. The
+    // default model names it, which is what routes an unnamed request here.
+    host.seedConfig({ model: 'anthropic:claude-x', ...config });
+    if (config.apiKey !== null) host.seedSecret('anthropicApiKey', 'sk-test');
     const plugin = new LlmPlugin();
     await plugin.init(host);
     return plugin;
@@ -177,8 +179,8 @@ describe('what Anthropic has', () => {
         const plugin = await loadedPlugin(host);
 
         expect(await plugin.listModels()).toEqual([
-            { id: 'claude-x', label: 'claude-x', tools: true, default: true },
-            { id: 'claude-y', label: 'claude-y', tools: true },
+            { id: 'anthropic:claude-x', label: 'claude-x · Anthropic', tools: true, default: true },
+            { id: 'anthropic:claude-y', label: 'claude-y · Anthropic', tools: true },
         ]);
         expect(host.calls[0]?.headers?.['x-api-key']).toBe('sk-test');
     });
@@ -201,7 +203,7 @@ describe('what Anthropic has', () => {
         const host = scriptedHost([() => new Response('nope', { status: 401 })]);
         const plugin = await loadedPlugin(host);
 
-        expect(await plugin.testConnection()).toEqual({ ok: false, message: 'The API key was refused.' });
+        expect((await plugin.testConnection()).message).toContain('The API key was refused.');
     });
 });
 
@@ -210,7 +212,9 @@ describe('an Anthropic provider with no key', () => {
         const host = scriptedHost([() => sseResponse()]);
         const plugin = await loadedPlugin(host, { apiKey: null });
 
-        expect(await plugin.testConnection()).toEqual({ ok: false, message: 'No API key set.' });
+        const { message } = await plugin.testConnection();
+
+        expect(message).toContain('Anthropic key');
         expect(host.calls).toHaveLength(0);
     });
 

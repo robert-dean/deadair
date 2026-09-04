@@ -10,12 +10,11 @@ Read the ones covering whatever you are about to change. The always-loaded index
 ## Where the loop lives
 
 **The station's words are a plugin, and the loop around them is not.** `llm` capability, `plugins/llm` on the
-AI SDK, with the provider behind a `providerKind` setting so one plugin covers a local server and a hosted one
-alike: an OpenAI-compatible arm that reaches Ollama, vLLM, OpenAI itself, Groq, Mistral and OpenRouter behind
-whatever address is set, plus Anthropic and Gemini in their own protocols. A native arm is never there for
-COVERAGE — the compatible one already reaches those two — but for what only their own protocol carries, and
-each one is a dependency, a branch and an option rather than a second plugin, because everything above the
-transport is the same work whoever answers. `llm.pluginId`
+AI SDK, with three provider arms: an OpenAI-compatible one reaching Ollama, vLLM, OpenAI itself, Groq, Mistral
+and OpenRouter behind whatever address is set, plus Anthropic and Gemini in their own protocols. A native arm
+is never there for COVERAGE — the compatible one already reaches those two — but for what only their own
+protocol carries, and each is a dependency and a branch rather than a second plugin, because everything above
+the transport is the same work whoever answers. `llm.pluginId`
 picks it, mirroring `render.speechPluginId` including its DEFAULT — see plugin selection in
 `apps/api/CLAUDE.md`. The MODEL is a per-call parameter rather than config, because `plugin_configs.plugin_id`
 is a primary key and a station wanting a big model for a show and a small one for an ident cannot express that
@@ -25,6 +24,18 @@ admission and covering the drain; the tool loop, because a tool is a station fun
 plugin would be the wrong side of the fence; and `ToolRegistry`, whose sources are an explicit list rather
 than whatever registered itself. A tool declaration goes out and a tool call comes back, both plain JSON, so
 nothing executable crosses.
+
+**Every configured provider is reachable at once, and the MODEL NAME says which.** Not a "which provider"
+setting, because there is already a per-call parameter carrying exactly this decision and a second one beside
+it would drift: the model travels with every request, the plugin is one station setting, so a station wanting
+a hosted model for the words listeners hear and a local one for the volume nobody hears has one place to say
+so. `anthropic:` and `google:` are the whole vocabulary and **a bare name is the OpenAI-compatible server,
+permanently** rather than "the default" — fixed, so a name means the same thing on every station whatever else
+is configured, and so an install from before any of this goes on working with its stored model, its ticked
+tool-capable models and its writer settings untouched. The prefixes are matched exactly and nothing else is
+parsed, which is what keeps Ollama's own `name:tag` and OpenRouter's `vendor/model` off the compatible arm's
+own ids. `llm.names.ts` holds the rule; the arms are built per credential in `llm.arms.ts`, and an arm with no
+credential refuses a generation naming it with a sentence saying which key is missing.
 
 **A signed thinking block is part of the conversation, and the transcript carries it.** Anthropic refuses a
 tool round trip whose earlier turns arrive without their thinking signatures, and Gemini wants its thought

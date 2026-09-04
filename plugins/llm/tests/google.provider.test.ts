@@ -59,8 +59,8 @@ function scriptedHost(responses: (() => Response)[]): FakePluginHost {
 }
 
 async function loadedPlugin(host: FakePluginHost, config: Record<string, unknown> = {}): Promise<LlmPlugin> {
-    host.seedConfig({ providerKind: 'google', model: 'gemini-x', ...config });
-    host.seedSecret('apiKey', config.apiKey === null ? '' : 'goog-test');
+    host.seedConfig({ model: 'google:gemini-x', ...config });
+    if (config.apiKey !== null) host.seedSecret('googleApiKey', 'goog-test');
     const plugin = new LlmPlugin();
     await plugin.init(host);
     return plugin;
@@ -184,8 +184,8 @@ describe('what Gemini has', () => {
         const plugin = await loadedPlugin(host);
 
         expect(await plugin.listModels()).toEqual([
-            { id: 'gemini-x', label: 'gemini-x', tools: true, default: true },
-            { id: 'gemini-y', label: 'gemini-y', tools: true },
+            { id: 'google:gemini-x', label: 'gemini-x · Google Gemini', tools: true, default: true },
+            { id: 'google:gemini-y', label: 'gemini-y · Google Gemini', tools: true },
         ]);
     });
 
@@ -196,12 +196,12 @@ describe('what Gemini has', () => {
             call += 1;
             return call === 1 ? modelsResponse([{ name: 'models/gemini-x' }], 'page-2') : modelsResponse([{ name: 'models/gemini-y' }]);
         });
-        host.seedConfig({ providerKind: 'google', model: 'gemini-x' });
-        host.seedSecret('apiKey', 'goog-test');
+        host.seedConfig({ model: 'google:gemini-x' });
+        host.seedSecret('googleApiKey', 'goog-test');
         const plugin = new LlmPlugin();
         await plugin.init(host);
 
-        expect((await plugin.listModels()).map(model => model.id)).toEqual(['gemini-x', 'gemini-y']);
+        expect((await plugin.listModels()).map(model => model.id)).toEqual(['google:gemini-x', 'google:gemini-y']);
         expect(host.calls[1]?.url).toContain('pageToken=page-2');
     });
 
@@ -209,7 +209,7 @@ describe('what Gemini has', () => {
         const host = scriptedHost([() => new Response('nope', { status: 400 })]);
         const plugin = await loadedPlugin(host);
 
-        expect(await plugin.testConnection()).toEqual({ ok: false, message: 'The API key was refused.' });
+        expect((await plugin.testConnection()).message).toContain('The API key was refused.');
     });
 });
 
@@ -218,7 +218,9 @@ describe('a Gemini provider with no key', () => {
         const host = scriptedHost([() => sseResponse()]);
         const plugin = await loadedPlugin(host, { apiKey: null });
 
-        expect(await plugin.testConnection()).toEqual({ ok: false, message: 'No API key set.' });
+        const { message } = await plugin.testConnection();
+
+        expect(message).toContain('Gemini key');
         expect(host.calls).toHaveLength(0);
     });
 

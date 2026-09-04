@@ -1,6 +1,7 @@
 import { PLUGIN_CAPABILITY_LLM, type PluginManifest } from '@deadair/plugin-sdk';
 import { z } from 'zod';
 import { isParseableModelList } from './llm.models.js';
+import { readModelName } from './llm.names.js';
 
 export const PLUGIN_ID = 'deadair.llm';
 export const PLUGIN_VERSION = '0.0.1';
@@ -30,7 +31,7 @@ export const GOOGLE_HOST = 'generativelanguage.googleapis.com';
 export const GOOGLE_BASE_URL = `https://${GOOGLE_HOST}/v1beta`;
 
 /**
- * How the provider is spoken to.
+ * The providers this plugin can speak to, and what to call each one.
  *
  * A dependency, a branch and an option rather than a plugin each, because
  * everything above the transport is the same work whoever answers: one model
@@ -41,20 +42,14 @@ export const GOOGLE_BASE_URL = `https://${GOOGLE_HOST}/v1beta`;
  * OpenAI itself, Groq, Mistral and OpenRouter behind whatever address is set. So
  * a native arm is never here for coverage: it is here because that service's own
  * protocol carries something the shared one cannot say.
+ *
+ * Note what this is NOT any more: a choice. Every arm with a credential is built
+ * and reachable at once, and which one a generation reaches is read off the
+ * MODEL NAME (`llm.names.ts`). This table is now only what each arm is called.
  */
 export const PROVIDER_KINDS = { 'openai-compat': 'OpenAI-compatible', anthropic: 'Anthropic', google: 'Google Gemini' } as const;
 
 export type ProviderKind = keyof typeof PROVIDER_KINDS;
-
-export const DEFAULT_PROVIDER_KIND: ProviderKind = 'openai-compat';
-
-/** Which kinds cannot work without an API key, for the save-time check below. */
-export const KEYED_KINDS: readonly ProviderKind[] = ['anthropic', 'google'];
-
-/** Whether a config value is one of {@link PROVIDER_KINDS}'s own keys, rather than something a hand-edited row left behind. */
-export function isProviderKind(value: string | undefined): value is ProviderKind {
-    return value !== undefined && Object.hasOwn(PROVIDER_KINDS, value);
-}
 
 /**
  * How hard a reasoning model should think, as an operator can set it rather than
@@ -123,14 +118,19 @@ export const MODEL_CACHE_MS = 60_000;
  */
 export const configSchema = z
     .object({
-        providerKind: z.enum(Object.keys(PROVIDER_KINDS) as [ProviderKind, ...ProviderKind[]]).optional(),
         reasoningEffort: z.enum(Object.keys(REASONING_EFFORTS) as [ReasoningEffortSetting, ...ReasoningEffortSetting[]]).optional(),
-        // Optional here and required per arm below, because whether there is an address to
-        // give depends on which provider was chosen: an OpenAI-compatible endpoint is
-        // nothing without one, and a vendor's own API has an address that is not an
-        // operator's business.
+        // Every credential is optional on its own and at least one is required below, because
+        // each one configures a DIFFERENT provider and a station may want any combination of
+        // them. An address for the OpenAI-compatible arm, a key each for the two that have
+        // their own protocol and an address that is not an operator's business.
+        //
+        // A stale `providerKind` from before this was a combination rather than a choice is
+        // simply not declared here, so zod strips it and the next save drops it. Nothing reads
+        // it, and a row still carrying one loads exactly as a row without one does.
         baseUrl: z.string().optional(),
         apiKey: z.string().optional(),
+        anthropicApiKey: z.string().optional(),
+        googleApiKey: z.string().optional(),
         // Optional, and the reason is a loop the operator would otherwise be stuck in:
         // the server URL cannot be tested until it is saved, and the models cannot be
         // learned until it is tested. Requiring a model to save the address means being
@@ -146,24 +146,41 @@ export const configSchema = z
     })
     // Refused at SAVE time rather than read leniently later, for `plugins/websearch`'s reason:
     // this is the one moment there is somebody looking at the form to tell. The plugin itself
-    // stays lenient, so a row that says something unrecognised by the time it loads costs the
-    // default rather than the station's ability to speak.
+    // stays lenient, so a row saying something unrecognised by the time it loads costs that arm
+    // rather than the station's ability to speak.
     //
     // Note what the check sees: the host validates the form as it WILL be, stored secrets
-    // overlaid with the submission, so an operator who did not retype their key still passes.
-    .refine(config => kindOf(config.providerKind) !== 'openai-compat' || hasText(config.baseUrl), {
-        path: ['baseUrl'],
-        message: 'An OpenAI-compatible endpoint needs its address, e.g. http://localhost:11434/v1',
+    // overlaid with the submission, so an operator who did not retype a key still passes.
+    //
+    // Naming no field, deliberately: the repair is any ONE of three inputs and pointing at a
+    // particular one would be arbitrary. It reaches the operator as the form's own banner,
+    // which is what the field-routing fix in `plugins.service.ts` was for.
+    .refine(config => hasText(config.baseUrl) || hasText(config.anthropicApiKey) || hasText(config.googleApiKey), {
+        message: 'Set a server URL, an Anthropic API key or a Gemini API key, whichever you have',
     })
-    .refine(config => !KEYED_KINDS.includes(kindOf(config.providerKind)) || hasText(config.apiKey), {
-        path: ['apiKey'],
-        message: 'This provider needs an API key',
+    // A default model naming a provider with no credential is a station that will refuse every
+    // generation it does not name a model for, which presents as a DJ that stopped talking. The
+    // name is read exactly as `generate` reads it, so the two can never disagree.
+    .refine(config => configuresNamedArm(config), {
+        path: ['model'],
+        message: 'That model names a provider nothing is configured for',
     });
 
 const hasText = (value: string | undefined): boolean => typeof value === 'string' && value.trim().length > 0;
 
-/** What the form means by its provider field, including the default it leaves unsaid. */
-const kindOf = (value: string | undefined): ProviderKind => (isProviderKind(value) ? value : DEFAULT_PROVIDER_KIND);
+/** Whether the arm this form's default model names is one this form also configures. */
+function configuresNamedArm(config: { model?: string; baseUrl?: string; anthropicApiKey?: string; googleApiKey?: string }): boolean {
+    if (!hasText(config.model)) return true;
+
+    switch (readModelName(config.model).kind) {
+        case 'openai-compat':
+            return hasText(config.baseUrl);
+        case 'anthropic':
+            return hasText(config.anthropicApiKey);
+        case 'google':
+            return hasText(config.googleApiKey);
+    }
+}
 
 export const llmManifest: PluginManifest = {
     id: PLUGIN_ID,
@@ -172,7 +189,7 @@ export const llmManifest: PluginManifest = {
     capabilities: [PLUGIN_CAPABILITY_LLM],
     apiVersion: '^1.0.0',
     description:
-        'Lets the station ask a model for words, through an OpenAI-compatible endpoint or a provider spoken to in its own protocol. One plugin covers a local server and a hosted provider alike; which one is a setting.',
+        'Lets the station ask a model for words, through an OpenAI-compatible endpoint, Anthropic and Gemini — any of them at once. Which provider a request reaches is read off the model name, so one station can write its breaks on a hosted model and do its reading on a local one.',
     permissions: {
         // The OpenAI-compatible arm's address is the operator's, so there is no
         // hostname to write down for it: an unset or unparseable `baseUrl`
@@ -192,20 +209,12 @@ export const llmManifest: PluginManifest = {
     },
     configFields: [
         {
-            key: 'providerKind',
-            label: 'Provider',
-            type: 'select',
-            default: DEFAULT_PROVIDER_KIND,
-            options: (Object.keys(PROVIDER_KINDS) as ProviderKind[]).map(value => ({ value, label: PROVIDER_KINDS[value] })),
-            help: 'How the provider is spoken to. OpenAI-compatible covers a local Ollama or vLLM and most hosted services, OpenAI itself included; the rest are here because their own protocol carries something it cannot.',
-        },
-        {
             key: 'reasoningEffort',
             label: 'Reasoning effort',
             type: 'select',
             default: DEFAULT_REASONING_EFFORT,
             options: (Object.keys(REASONING_EFFORTS) as ReasoningEffortSetting[]).map(value => ({ value, label: REASONING_EFFORTS[value] })),
-            help: 'How hard a reasoning model should think, in whatever the chosen provider calls it. Auto forwards whatever the station asked for; the fixed levels override it. A server that answers 400 to the field itself is what Off is for; a live refusal is already handled without asking.',
+            help: 'How hard a reasoning model should think, in whatever each provider calls it. Auto forwards whatever the station asked for; the fixed levels override it. A server that answers 400 to the field itself is what Off is for; a live refusal is already handled without asking.',
         },
         {
             key: 'baseUrl',
@@ -217,19 +226,31 @@ export const llmManifest: PluginManifest = {
             // those arms ignore. The schema's own refine asks for it on the one arm that
             // needs it, which is the same answer in the right place.
             default: DEFAULT_BASE_URL,
-            help: 'For the OpenAI-compatible provider only, and ignored by the rest. Including any /v1: a local Ollama answers on http://localhost:11434/v1, or its container name from inside compose.',
+            help: 'An OpenAI-compatible server: a local Ollama or vLLM, or OpenAI, Groq, Mistral and OpenRouter by address. Including any /v1. Its models are named plainly, with no prefix.',
         },
         {
             key: 'apiKey',
-            label: 'API key',
+            label: 'Server API key',
             type: 'secret',
-            help: 'Required for Anthropic and Gemini. Leave empty for a local server that wants no key.',
+            help: 'For the server URL above. Leave empty for a local server that wants no key.',
+        },
+        {
+            key: 'anthropicApiKey',
+            label: 'Anthropic API key',
+            type: 'secret',
+            help: 'Setting this makes Claude available. Its models are named anthropic:claude-… and every one of them can use tools.',
+        },
+        {
+            key: 'googleApiKey',
+            label: 'Gemini API key',
+            type: 'secret',
+            help: 'Setting this makes Gemini available. Its models are named google:gemini-… and every one of them can use tools.',
         },
         {
             key: 'model',
             label: 'Default model',
             type: 'string',
-            help: 'Used whenever the station does not name one. Save the provider first and this lists what it has; anything it does not list can still be typed.',
+            help: 'Used whenever the station does not name one, and it decides which provider that is: a plain name is the server URL above, anthropic:… is Claude, google:… is Gemini. Save your credentials first and this lists what they have; anything not listed can still be typed.',
         },
         {
             key: 'temperature',
@@ -241,7 +262,7 @@ export const llmManifest: PluginManifest = {
             key: 'models',
             label: 'Tool-capable models',
             type: 'multiselect',
-            help: "For the OpenAI-compatible provider only: which of this server's models can be given tools. No such endpoint reports it and it cannot be guessed from a name, so it is the one thing here you have to know, and a model not ticked is never sent any. Ignored for a provider whose models all take tools.",
+            help: 'For the server URL only: which of ITS models can be given tools. No such endpoint reports it and it cannot be guessed from a name, so it is the one thing here you have to know, and a model not ticked is never sent any. Claude and Gemini answer this themselves and are not listed here.',
         },
     ],
     configSchema,

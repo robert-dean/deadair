@@ -780,6 +780,10 @@ Four things that are easy to get wrong:
 - **Refuse tools you cannot do.** Throw `unsupported` rather than dropping them:
   a break written without the facts a tool would have supplied is worse than one
   that fell back to the deterministic writer.
+- **A plugin holding several backends qualifies its ids.** `LlmModelInfo.id` is what comes back as
+  `LlmRequest.model`, so it has to be enough to route on: two vendors ship models with similar
+  names, and the host does not inspect the string. Mark exactly one entry `default: true`, whichever
+  one an unnamed request will actually reach.
 - **Carry back what the provider signed.** Put it in `LlmResult.providerState`
   and the host quotes it verbatim onto the `assistant` turn it builds, as
   `LlmMessage.providerState`, without ever reading it. Some providers refuse a

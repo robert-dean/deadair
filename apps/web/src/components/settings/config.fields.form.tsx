@@ -758,7 +758,14 @@ export function ConfigFieldsForm({
     }
 
     // A 422's field messages have already gone to the inputs; anything else needs saying out loud.
-    const failure = error && !apiErrorDetails(error) ? apiErrorMessage(error, failureMessage) : undefined;
+    //
+    // "Has details" is not the same as "was reported", and reading it as such is how a refused save
+    // showed nothing whatsoever: a `details` carrying only the server's own sentence routed to no
+    // input, and suppressed this alert on the strength of existing. So the question asked here is
+    // whether any field actually took a message — and where none did, the sentence is said here.
+    const routed = apiErrorDetails(error);
+    const reachedAField = routed !== undefined && fields.some(field => routed[field.key] !== undefined);
+    const failure = error && !reachedAField ? apiErrorMessage(error, failureMessage) : undefined;
 
     return (
         <form

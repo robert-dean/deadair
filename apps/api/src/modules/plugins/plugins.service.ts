@@ -754,16 +754,28 @@ export class PluginsService {
         const effective = await this.effectiveConfig(manifest, submitted);
 
         let issues: string;
+        // Keyed by the field each issue names, which is what lets the console put the message on the
+        // input it is about. Without them a refused save was SILENT: the settings form reads
+        // `details` as a field map, finds nothing it recognises, and suppresses its own alert on the
+        // grounds that the fields have already been told — so a plugin whose schema refuses a
+        // combination showed the operator nothing at all, on the one screen the refusal exists to
+        // reach them on. First issue per field wins, because the input has room for one message.
+        const fields: Record<string, string> = {};
         try {
             const parsed = manifest.configSchema.safeParse(effective);
             if (parsed.success) return;
             issues = parsed.error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`).join('; ');
+            for (const issue of parsed.error.issues) {
+                const [key] = issue.path;
+                if (typeof key === 'string' && fields[key] === undefined) fields[key] = issue.message;
+            }
         } catch (error) {
             // `configSchema` is plugin code; a refinement may throw.
             throw httpError(422).withDetails({ message: `configuration could not be validated: ${serverkitErrorText(error)}` });
         }
 
-        throw httpError(422).withDetails({ message: `configuration is invalid: ${issues}` });
+        // The sentence stays, and it is what a refusal naming no field at all still says out loud.
+        throw httpError(422).withDetails({ ...fields, message: `configuration is invalid: ${issues}` });
     }
 
     /** The settings form as it will stand once `submitted` is saved. */

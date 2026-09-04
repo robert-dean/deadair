@@ -190,8 +190,14 @@ somebody's paid API this re-opens and the numbers change:
   the one entry 1 added, and every call already funnels through `LlmService.generate` /
   `generateWith` / `converse`. The retrofit surface is one file and stays one file by construction,
   so the "forty call sites" this was racing to get ahead of cannot arise.
-- **The tokens are not billed.** `plugins/llm` is an OpenAI-compatible client against a self-hosted
-  `baseUrl`. A daily token cap caps nothing that costs money. The other thing a cap would buy —
+- **The tokens are not billed.** ~~`plugins/llm` is an OpenAI-compatible client against a
+  self-hosted `baseUrl`. A daily token cap caps nothing that costs money.~~ **This expired
+  2026-09-04.** `plugins/llm` now has Anthropic and Gemini arms behind its `providerKind` setting,
+  which is the day this section named in as many words: "the day `baseUrl` points at somebody's paid
+  API this re-opens and the numbers change". A station on a hosted arm bills per token, and a refill
+  that loops is money rather than a warm GPU. Nothing else here moved — the retrofit is still one
+  file, and `LlmResult.usage` already carries the counts a cap would read — so what is deferred is
+  the cap itself and not the reasoning for it. The other thing a cap would buy —
   contention — is already handled by `LlmGate` serializing to one generation at a time. *(Sharpened
   2026-08-16: serializing handles contention and says nothing about PRIORITY, which is a different
   thing and now has its own answer — `gate.priority.ts`, two tiers, the station ahead of anything an

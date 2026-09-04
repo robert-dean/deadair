@@ -89,11 +89,14 @@ points at that file. Checked against the tree on 2026-08-11.
 - [x] console/logs/activity feed — built 2026-08-13, with the silence diagnosis it was paired with
       in `station-intelligence.md` §8. `GET /activity` unions `station_events`, `segment_events` and
       `play_history`; the console draws it at `/activity`
-- [~] offer multiple LLM options (chatgtp, claude, ect) along with models — half done: `llm` is a
-      capability and `plugins/llm` speaks the OpenAI-compatible protocol, so one plugin covers a
-      local server and a hosted one. The MODEL is a per-call parameter, deliberately
-    - [ ] Enable the breaks, shows, etc to be configured to use a specific one — the per-call
-      parameter is the seam this needs; nothing chooses per break yet
+- [x] offer multiple LLM options (chatgtp, claude, ect) along with models — built 2026-09-04.
+      `plugins/llm` has three provider arms behind one `providerKind` setting: OpenAI-compatible
+      (a local Ollama or vLLM, and OpenAI, Groq, Mistral and OpenRouter by address), Anthropic and
+      Gemini in their own protocols. The two native arms are there for what only their protocol
+      carries — a signed thinking block, a signed function call — rather than for coverage, which is
+      why `LlmResult.providerState` exists. The MODEL stays a per-call parameter, deliberately
+    - [x] Enable the breaks, shows, etc to be configured to use a specific one — every writer has
+      its own `llm.*Model` key, which is the per-call parameter being used as designed
 - [x] plugin system for sources, renderers, streamers, enrichment, discovery, breaks? — built, as
       capabilities: `catalog`, `stream`, `enrichment`, `speech`, `llm`, `analysis`. See
       `packages/plugin-sdk/README.md`. Breaks are host-side and stay that way

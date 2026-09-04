@@ -199,19 +199,40 @@ describe('suggesting what the form should offer', () => {
         expect(suggested.models).toEqual(suggested.model);
     });
 
-    it('offers nothing rather than throwing when the server cannot be reached', async () => {
+    it('offers no models rather than throwing when the server cannot be reached', async () => {
         // An operator fixing a bad address needs the form, and the refresh control is right there.
+        // The addresses survive, because that is the field somebody in this state is fixing.
         const { plugin } = await loaded({ config: { baseUrl: 'https://models.test/v1' }, unreachable: true });
 
-        await expect(plugin.suggestConfigOptions()).resolves.toEqual({});
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested.model).toBeUndefined();
+        expect(suggested.models).toBeUndefined();
+        expect(suggested.baseUrl?.map(option => option.value)).toContain('https://api.openai.com/v1');
     });
 
-    it('offers nothing when the server lists nothing', async () => {
-        // Absent rather than present-and-empty, so the form leaves the fields as plain inputs
+    it('offers no models when the server lists nothing', async () => {
+        // Absent rather than present-and-empty, so the form leaves those fields as plain inputs
         // instead of drawing a dropdown with no rows in it.
         const { plugin } = await loaded({ config: { baseUrl: 'https://models.test/v1' }, models: [] });
 
-        await expect(plugin.suggestConfigOptions()).resolves.toEqual({});
+        const suggested = await plugin.suggestConfigOptions();
+
+        expect(suggested.model).toBeUndefined();
+        expect(suggested.models).toBeUndefined();
+    });
+
+    it("offers no addresses on an arm whose address is not the operator's", async () => {
+        // Anthropic and Gemini are reached where they live. Offering a URL field to fill in there
+        // would be offering a setting that does nothing.
+        const host = createFakePluginHost();
+        host.setFetchImpl(async () => new Response(JSON.stringify({ data: [] }), { status: 200, headers: { 'content-type': 'application/json' } }));
+        host.seedConfig({ providerKind: 'anthropic' });
+        host.seedSecret('apiKey', 'sk-test');
+        const plugin = new LlmPlugin();
+        await plugin.init(host);
+
+        expect((await plugin.suggestConfigOptions()).baseUrl).toBeUndefined();
     });
 
     it('shares the cache with listModels rather than asking twice', async () => {

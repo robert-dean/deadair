@@ -27,7 +27,7 @@ import {
     type ProviderKind,
     type ReasoningEffortSetting,
 } from './llm.manifest.js';
-import { buildArm, unconfiguredMessage } from './llm.arms.js';
+import { buildArm, OPENAI_COMPATIBLE_ADDRESSES, unconfiguredMessage } from './llm.arms.js';
 import type { ProviderArm } from './llm.provider.js';
 
 export { llmManifest };
@@ -164,21 +164,31 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
      * that exist.
      *
      * Answers nothing rather than throwing when the server is unreachable: an operator fixing a bad
-     * address needs the form, and the refresh control is right there.
+     * address needs the form, and the refresh control is right there — and on the arm where the
+     * address is the operator's, it still answers with the addresses, because that is exactly the
+     * field somebody in that state is trying to fix.
      */
     async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
+        // Offered whether or not anything can be reached, and before the models, because
+        // this is the field that has to be right before the rest of the form works at all.
+        // It is also where an operator learns that OpenAI is this arm rather than a missing
+        // one: a `url` field with suggestions draws as free text plus a list, so an address
+        // that is not on it stays typeable.
+        const addresses: Record<string, ConfigFieldOption[]> =
+            this.providerKind === 'openai-compat' ? { baseUrl: [...OPENAI_COMPATIBLE_ADDRESSES] } : {};
+
         let ids: string[];
         try {
             ids = await this.fetchModels();
         } catch (error) {
             this.host.logger.debug('llm could not suggest models', { error: errorText(error) });
-            return {};
+            return addresses;
         }
 
-        if (ids.length === 0) return {};
+        if (ids.length === 0) return addresses;
 
         const options = ids.map(id => ({ value: id, label: id }));
-        return { model: options, models: options };
+        return { ...addresses, model: options, models: options };
     }
 
     /**

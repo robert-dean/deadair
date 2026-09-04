@@ -10,7 +10,12 @@ Read the ones covering whatever you are about to change. The always-loaded index
 ## Where the loop lives
 
 **The station's words are a plugin, and the loop around them is not.** `llm` capability, `plugins/llm` on the
-AI SDK's OpenAI-compatible provider so one plugin covers a local server and a hosted one alike. `llm.pluginId`
+AI SDK, with the provider behind a `providerKind` setting so one plugin covers a local server and a hosted one
+alike: an OpenAI-compatible arm that reaches Ollama, vLLM, OpenAI itself, Groq, Mistral and OpenRouter behind
+whatever address is set, plus Anthropic and Gemini in their own protocols. A native arm is never there for
+COVERAGE — the compatible one already reaches those two — but for what only their own protocol carries, and
+each one is a dependency, a branch and an option rather than a second plugin, because everything above the
+transport is the same work whoever answers. `llm.pluginId`
 picks it, mirroring `render.speechPluginId` including its DEFAULT — see plugin selection in
 `apps/api/CLAUDE.md`. The MODEL is a per-call parameter rather than config, because `plugin_configs.plugin_id`
 is a primary key and a station wanting a big model for a show and a small one for an ident cannot express that
@@ -20,6 +25,15 @@ admission and covering the drain; the tool loop, because a tool is a station fun
 plugin would be the wrong side of the fence; and `ToolRegistry`, whose sources are an explicit list rather
 than whatever registered itself. A tool declaration goes out and a tool call comes back, both plain JSON, so
 nothing executable crosses.
+
+**A signed thinking block is part of the conversation, and the transcript carries it.** Anthropic refuses a
+tool round trip whose earlier turns arrive without their thinking signatures, and Gemini wants its thought
+signatures back on the function calls it made. So `LlmResult.providerState` comes off a generation and goes
+back onto the `assistant` turn the loop builds, opaque the whole way: the host never reads it, and the rule in
+the plugin is **carry what the provider SIGNED** rather than carry the reasoning. That is what keeps the
+OpenAI-compatible arm exactly as it was — a local server signs nothing, so nothing is captured and nothing new
+is sent — and it is why an unsigned reasoning block is dropped rather than replayed, for the same reason
+`spokenAnswer` is careful about reasoning: a model's working-out is not something it said.
 
 **A station with no model plugin is an ordinary state, not a fault** — `canGenerate()` answers it without
 throwing, so a writer picks its deterministic binding.
@@ -33,10 +47,12 @@ costing a silent station while looking like it was helping. The asymmetry is PRI
 is expressed by bounding the background job (`ModelSetGenerator.BUDGET_MS`), which needs nothing from the
 gate.
 
-**A model budget and degradation tiers are deliberately NOT built** (`docs/todo/station-intelligence.md` §2,
-deferred against its own ordering claim): every call goes through `LlmService`, so the retrofit is one file,
-the model is self-hosted so nothing is billed, and "no tier makes music stop" is already structural — the
-chain tops up and the writer registry falls through.
+**A model budget and degradation tiers are still NOT built, and one of the three reasons has now expired**
+(`docs/todo/station-intelligence.md` §2): every call goes through `LlmService`, so the retrofit is one file,
+and "no tier makes music stop" is already structural — the chain tops up and the writer registry falls
+through. But "the model is self-hosted so nothing is billed" stopped being true the day a provider arm reached
+a paid API, which is exactly the trigger that section named. The retrofit surface is unchanged; what changed is
+that a runaway refill now costs money rather than a warm GPU.
 
 ## The tool loop
 

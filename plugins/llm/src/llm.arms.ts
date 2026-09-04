@@ -59,3 +59,23 @@ export function unconfiguredMessage(kind: ProviderKind): string {
 
 /** A key that is actually there, as opposed to one saved blank. */
 const hasKey = (apiKey: string | undefined): apiKey is string => apiKey !== undefined && apiKey.trim().length > 0;
+
+/**
+ * Addresses that answer the OpenAI-compatible protocol, offered as suggestions on the
+ * `baseUrl` field.
+ *
+ * Half a setup aid and half a piece of documentation. An operator looking at a provider
+ * list holding Anthropic and Gemini has every reason to read the absence of OpenAI as a
+ * gap; these say what is actually true, which is that OpenAI, Groq, Mistral and
+ * OpenRouter are all this arm with a different address in it.
+ *
+ * Suggestions rather than a closed list, deliberately: the field stays free text, so the
+ * container name a compose file uses is still typeable.
+ */
+export const OPENAI_COMPATIBLE_ADDRESSES: readonly { value: string; label: string }[] = [
+    { value: 'http://localhost:11434/v1', label: 'Ollama, local' },
+    { value: 'https://api.openai.com/v1', label: 'OpenAI' },
+    { value: 'https://api.groq.com/openai/v1', label: 'Groq' },
+    { value: 'https://api.mistral.ai/v1', label: 'Mistral' },
+    { value: 'https://openrouter.ai/api/v1', label: 'OpenRouter' },
+];

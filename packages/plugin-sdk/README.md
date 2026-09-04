@@ -781,9 +781,10 @@ Four things that are easy to get wrong:
   a break written without the facts a tool would have supplied is worse than one
   that fell back to the deterministic writer.
 - **A plugin holding several backends qualifies its ids.** `LlmModelInfo.id` is what comes back as
-  `LlmRequest.model`, so it has to be enough to route on: two vendors ship models with similar
+  `LlmRequest.model`, so it has to be enough to route on: two backends ship models with similar
   names, and the host does not inspect the string. Mark exactly one entry `default: true`, whichever
-  one an unnamed request will actually reach.
+  one an unnamed request will actually reach. If the backends are rows an operator adds, a `secret`
+  column keeps each credential in its own row — see **Rows, and a credential inside one**.
 - **Carry back what the provider signed.** Put it in `LlmResult.providerState`
   and the host quotes it verbatim onto the `assistant` turn it builds, as
   `LlmMessage.providerState`, without ever reading it. Some providers refuse a

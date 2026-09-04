@@ -25,26 +25,37 @@ plugin would be the wrong side of the fence; and `ToolRegistry`, whose sources a
 than whatever registered itself. A tool declaration goes out and a tool call comes back, both plain JSON, so
 nothing executable crosses.
 
-**Every configured provider is reachable at once, and the MODEL NAME says which.** Not a "which provider"
-setting, because there is already a per-call parameter carrying exactly this decision and a second one beside
-it would drift: the model travels with every request, the plugin is one station setting, so a station wanting
-a hosted model for the words listeners hear and a local one for the volume nobody hears has one place to say
-so. `anthropic:` and `google:` are the whole vocabulary and **a bare name is the OpenAI-compatible server,
-permanently** rather than "the default" — fixed, so a name means the same thing on every station whatever else
-is configured, and so an install from before any of this goes on working with its stored model, its ticked
-tool-capable models and its writer settings untouched. The prefixes are matched exactly and nothing else is
-parsed, which is what keeps Ollama's own `name:tag` and OpenRouter's `vendor/model` off the compatible arm's
-own ids. `llm.names.ts` holds the rule; the arms are built per credential in `llm.arms.ts`, and an arm with no
-credential refuses a generation naming it with a sentence saying which key is missing.
+**Every configured provider is reachable at once, and the MODEL NAME says which.** Not a "which
+provider" setting, because there is already a per-call parameter carrying exactly this decision and a
+second one beside it would drift: the model travels with every request, the plugin is one station
+setting, so a station wanting a hosted model for the words listeners hear and a local one for the
+volume nobody hears has one place to say so. A provider is a ROW the operator adds and NAMES, which
+is what lets a station hold two of the same kind — a local Ollama and Groq are both
+OpenAI-compatible and are two different providers, and a protocol is not a thing you can have two
+of. So a model is `provider:model`, split at the FIRST colon, which is what keeps Ollama's own
+`name:tag` ids intact: `ollama:gpt-oss-radio:latest` is the row called `ollama` and the model
+`gpt-oss-radio:latest`. **An unqualified name is refused rather than guessed at** — "the first row"
+would change meaning the moment somebody reorders the table, and a model quietly reaching the wrong
+provider is worse than a save that will not go through. `llm.names.ts` holds the rule, `llm.arms.ts`
+builds one arm per row, and a row missing what its kind needs refuses a generation naming it with a
+sentence saying which cell is empty.
 
-**Nobody has to TYPE a qualified name.** The six writer settings — the talk break, the set generator, fact
-extraction, the two persona passes and the persona writer — declare `optionsFrom: 'llm.models'`, which the
-console resolves by asking whichever plugin `llm.pluginId` names for its `model` suggestions: the same call
-that plugin's own settings form makes, so one cache entry serves both. That makes them autocompletes over the
-union across every configured provider, labelled with the provider each model lives on, and it is why the
-qualifier can be a convention rather than a documented syntax an operator is expected to remember. They stay
-FREE TEXT with suggestions rather than becoming closed lists, because empty means "the plugin's own default"
-and a model behind a proxy that does not list itself has to stay reachable.
+**The key lives in the row, and that took a chassis feature.** A `list` column may be a `secret` now:
+encrypted per cell, never in the stored row, never returned by the API, write-only in the console —
+everything a `secret` FIELD already was. What it needed was a name for the row, since a ciphertext
+has to belong to one and a list is an array the console rewrites whole on every save. `ROW_ID_KEY`
+and `plugin.config.rows.ts` are that, and the rule the whole file keeps is that a secret cell is
+never in the row: it is merged back exactly once, in memory, so a plugin's own schema can judge a
+form that has one.
+
+**Nobody has to TYPE a qualified name**, which is what makes refusing the unqualified form fair. The six
+writer settings — the talk break, the set generator, fact extraction, the two persona passes and the persona
+writer — declare `optionsFrom: 'llm.models'`, which the console resolves by asking whichever plugin
+`llm.pluginId` names for its `model` suggestions: the same call that plugin's own settings form makes, so one
+cache entry serves both. That makes them autocompletes over every model on every configured provider,
+labelled `model · provider`. They stay FREE TEXT with suggestions rather than becoming closed lists, because
+empty means "the plugin's own default" and a model behind a proxy that does not list itself has to stay
+reachable.
 
 **A signed thinking block is part of the conversation, and the transcript carries it.** Anthropic refuses a
 tool round trip whose earlier turns arrive without their thinking signatures, and Gemini wants its thought

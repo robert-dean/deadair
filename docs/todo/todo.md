@@ -90,11 +90,12 @@ points at that file. Checked against the tree on 2026-08-11.
       in `station-intelligence.md` §8. `GET /activity` unions `station_events`, `segment_events` and
       `play_history`; the console draws it at `/activity`
 - [x] offer multiple LLM options (chatgtp, claude, ect) along with models — built 2026-09-04.
-      `plugins/llm` has three provider arms, all reachable AT ONCE: OpenAI-compatible (a local
-      Ollama or vLLM, and OpenAI, Groq, Mistral and OpenRouter by address), Anthropic and
-      Gemini in their own protocols. Which one a request reaches is read off the model name
-      (`anthropic:…`, `google:…`, bare for the compatible server), so a station can write its
-      breaks on a hosted model and do its reading on a local one. The two native arms are there for what only their protocol
+      `plugins/llm` holds a TABLE of providers, all reachable at once and each named by the
+      operator: OpenAI-compatible (a local Ollama or vLLM, and OpenAI, Groq, Mistral and
+      OpenRouter by address), Anthropic and Gemini, and as many of each as you like. Which one a
+      request reaches is read off the model name, `provider:model`, so a station can write its
+      breaks on a hosted model and do its reading on a local one. The keys live in the rows,
+      which is what the plugin SDK's `secret` COLUMN was built for. The two native arms are there for what only their protocol
       carries — a signed thinking block, a signed function call — rather than for coverage, which is
       why `LlmResult.providerState` exists. The MODEL stays a per-call parameter, deliberately
     - [x] Enable the breaks, shows, etc to be configured to use a specific one — every writer has

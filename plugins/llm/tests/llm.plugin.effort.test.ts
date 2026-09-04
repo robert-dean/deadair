@@ -52,7 +52,11 @@ function scriptedHost(responses: (() => Response)[]): FakePluginHost {
 }
 
 async function loadedPlugin(host: FakePluginHost, config: Record<string, unknown> = {}): Promise<LlmPlugin> {
-    host.seedConfig({ baseUrl: 'https://models.test/v1', model: 'gpt-x', ...config });
+    host.seedConfig({
+        providers: JSON.stringify([{ $id: 'r1', name: 'srv', kind: 'openai-compat', baseUrl: 'https://models.test/v1' }]),
+        model: 'srv:gpt-x',
+        ...config,
+    });
     const plugin = new LlmPlugin();
     await plugin.init(host);
     return plugin;

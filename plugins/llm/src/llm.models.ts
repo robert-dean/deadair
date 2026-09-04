@@ -1,6 +1,5 @@
 import { parseMultiSelect, type LlmModelInfo } from '@deadair/plugin-sdk';
-import type { ProviderKind } from './llm.manifest.js';
-import { armLabel, qualify } from './llm.names.js';
+import { qualify } from './llm.names.js';
 
 /**
  * The operator's list of models, and which of them can be given tools.
@@ -130,11 +129,14 @@ export function isParseableModelList(raw: string | undefined): boolean {
  * being cautious is a break written without facts a tool would have supplied.
  */
 export function describeModels(
+    provider: string,
     discovered: readonly string[],
     raw: string | undefined,
     defaultModel: string,
     everyModelTakesTools = false,
 ): LlmModelInfo[] {
+    // The ticked models are QUALIFIED, because one station now has several providers and
+    // `gpt-oss` on two of them is two models. Compared qualified against qualified below.
     const withTools = new Set(toolCapableModels(raw));
 
     const ids: string[] = [];
@@ -143,54 +145,23 @@ export function describeModels(
         if (trimmed.length > 0 && !ids.includes(trimmed)) ids.push(trimmed);
     };
 
-    // Server first, so the console lists them in the order it reported. Then the
-    // default, then anything annotated that never came back from `/models`.
-    for (const id of discovered) add(id);
-    add(defaultModel);
-    for (const id of withTools) add(id);
+    // The provider first, so the console lists them in the order it reported. Then anything
+    // this provider was annotated with that never came back from its own listing.
+    for (const id of discovered) add(qualify(provider, id));
+    for (const id of withTools) {
+        if (id.startsWith(`${provider}:`)) add(id);
+    }
 
     const fallback = defaultModel.trim();
     return ids.map(id => ({
         id,
-        label: id,
+        // The plain name with the provider beside it, because the qualified id reads as machinery
+        // and this is what a console draws.
+        label: `${id.slice(provider.length + 1)} · ${provider}`,
         tools: everyModelTakesTools || withTools.has(id),
         // Marked so the host knows which entry an unnamed request will actually reach.
         // Without it the host has to assume the worst model on the server, and would
         // never send tools to a station that has more than a couple installed.
         ...(id === fallback ? { default: true } : {}),
-    }));
-}
-
-/**
- * A native arm's models, as the host sees them.
- *
- * The counterpart to {@link describeModels} and much shorter, because the two
- * questions that file exists to answer are already answered here. **Which models
- * exist** comes from a vendor listing its own, and **which of them accept tools**
- * is every one: these arms serve one company's models and tool support is a
- * property of the product. So there is no config half at all, and nothing to ask
- * an operator to tick.
- *
- * The ids come back QUALIFIED, which is what makes a union list usable: two
- * providers can and do ship models with similar names, and an unqualified list
- * would leave the host holding ids it cannot route. The label is the plain name
- * with the provider beside it, because the qualified id reads as machinery and
- * this is what a console draws.
- */
-export function describeNativeModels(kind: ProviderKind, discovered: readonly string[], defaultModel: string): LlmModelInfo[] {
-    const seen: string[] = [];
-    for (const id of discovered) {
-        const trimmed = id.trim();
-        if (trimmed.length > 0 && !seen.includes(trimmed)) seen.push(trimmed);
-    }
-
-    return seen.map(id => ({
-        id: qualify(kind, id),
-        label: `${id} · ${armLabel(kind)}`,
-        tools: true,
-        // Compared qualified against qualified, so the plugin's own default model
-        // marks the entry it actually names rather than one on another arm that
-        // happens to share a bare name.
-        ...(qualify(kind, id) === defaultModel.trim() ? { default: true } : {}),
     }));
 }

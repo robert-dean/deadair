@@ -10,6 +10,7 @@ import { createFakePluginHost } from '@deadair/plugin-sdk/testing';
 import { LlmPlugin } from '../src/llm.plugin.js';
 
 interface HostOptions {
+    /** `baseUrl` and `models` are shorthand for the one provider row most of these want. */
     config?: Record<string, unknown>;
     /** What `GET /models` answers with, or a status to fail on. */
     models?: string[];
@@ -29,9 +30,26 @@ function hostFor(options: HostOptions = {}) {
         return new Response(JSON.stringify({ data }), { status: 200, headers: { 'content-type': 'application/json' } });
     });
 
-    host.seedConfig(options.config ?? {});
+    host.seedConfig(asProviders(options.config ?? {}));
 
     return { host, calls: host.calls };
+}
+
+/**
+ * The config these cases describe, as the form actually holds it.
+ *
+ * Most of them care about one OpenAI-compatible provider and say so by naming an address, which is
+ * what this turns into a row of the providers table. The row is called `srv`, so every model on it
+ * is `srv:…` — every name here is qualified now, because a station can have two of these.
+ */
+function asProviders(config: Record<string, unknown>): Record<string, unknown> {
+    if (!('baseUrl' in config)) return config;
+
+    const { baseUrl, ...rest } = config;
+    return {
+        providers: JSON.stringify([{ $id: 'r1', name: 'srv', kind: 'openai-compat', baseUrl }]),
+        ...rest,
+    };
 }
 
 /** A loaded plugin, which is the only state any of this is meaningful in. */
@@ -49,19 +67,19 @@ describe('listing models', () => {
             models: ['gpt-oss:20b', 'llama3.2:1b'],
         });
 
-        expect((await plugin.listModels()).map(model => model.id)).toEqual(['gpt-oss:20b', 'llama3.2:1b']);
+        expect((await plugin.listModels()).map(model => model.id)).toEqual(['srv:gpt-oss:20b', 'srv:llama3.2:1b']);
     });
 
     it('marks the ones config says can take tools', async () => {
         const { plugin } = await loaded({
-            config: { baseUrl: 'https://models.test/v1', models: 'gpt-oss:20b +tools' },
+            config: { baseUrl: 'https://models.test/v1', models: JSON.stringify(['srv:gpt-oss:20b']) },
             models: ['gpt-oss:20b', 'llama3.2:1b'],
         });
 
         const models = await plugin.listModels();
 
-        expect(models.find(model => model.id === 'gpt-oss:20b')?.tools).toBe(true);
-        expect(models.find(model => model.id === 'llama3.2:1b')?.tools).toBe(false);
+        expect(models.find(model => model.id === 'srv:gpt-oss:20b')?.tools).toBe(true);
+        expect(models.find(model => model.id === 'srv:llama3.2:1b')?.tools).toBe(false);
     });
 
     it('asks the server once and then uses what it heard', async () => {
@@ -79,11 +97,11 @@ describe('listing models', () => {
     it('answers from config rather than throwing when the server cannot be reached', async () => {
         // A blip should cost the console its list, not the station its ability to write.
         const { plugin } = await loaded({
-            config: { baseUrl: 'https://models.test/v1', model: 'the-default', models: 'the-default +tools' },
+            config: { baseUrl: 'https://models.test/v1', model: 'srv:the-default', models: JSON.stringify(['srv:the-default']) },
             unreachable: true,
         });
 
-        expect(await plugin.listModels()).toEqual([{ id: 'the-default', label: 'the-default', tools: true, default: true }]);
+        expect(await plugin.listModels()).toEqual([{ id: 'srv:the-default', label: 'the-default · srv', tools: true, default: true }]);
     });
 
     it('answers nothing at all when there is no server and no config', async () => {
@@ -120,7 +138,7 @@ describe('testing the connection', () => {
 
         const result = await plugin.testConnection();
 
-        expect(result.message).toContain('OpenAI-compatible: 2 model(s).');
+        expect(result.message).toContain('srv: 2 model(s).');
         expect(result.message).toContain('Set one of them as the default model.');
     });
 
@@ -128,7 +146,7 @@ describe('testing the connection', () => {
         // "Connected" alone, with a model name that is not there, sends an operator
         // looking at the network for a fault that is a typo.
         const { plugin } = await loaded({
-            config: { baseUrl: 'https://models.test/v1', model: 'not-installed' },
+            config: { baseUrl: 'https://models.test/v1', model: 'srv:not-installed' },
             models: ['gpt-oss:20b'],
         });
 
@@ -141,11 +159,14 @@ describe('testing the connection', () => {
 
     it('confirms plainly when the configured model is there', async () => {
         const { plugin } = await loaded({
-            config: { baseUrl: 'https://models.test/v1', model: 'gpt-oss:20b' },
+            config: { baseUrl: 'https://models.test/v1', model: 'srv:gpt-oss:20b' },
             models: ['gpt-oss:20b'],
         });
 
-        await expect(plugin.testConnection()).resolves.toMatchObject({ ok: true, message: expect.stringContaining('Default model "gpt-oss:20b"') });
+        await expect(plugin.testConnection()).resolves.toMatchObject({
+            ok: true,
+            message: expect.stringContaining('Default model "srv:gpt-oss:20b"'),
+        });
     });
 
     it('fails only when nothing answered at all', async () => {
@@ -158,15 +179,20 @@ describe('testing the connection', () => {
             }
             throw new Error('connect ECONNREFUSED');
         });
-        host.seedConfig({ baseUrl: 'https://models.test/v1' });
-        host.seedSecret('anthropicApiKey', 'sk-test');
+        host.seedConfig({
+            providers: JSON.stringify([
+                { $id: 'r1', name: 'srv', kind: 'openai-compat', baseUrl: 'https://models.test/v1' },
+                { $id: 'r2', name: 'claude', kind: 'anthropic' },
+            ]),
+        });
+        host.seedSecret('providers/r2/apiKey', 'sk-test');
         const plugin = new LlmPlugin();
         await plugin.init(host);
 
         const result = await plugin.testConnection();
 
         expect(result.ok).toBe(true);
-        expect(result.message).toContain('Anthropic: 1 model(s).');
+        expect(result.message).toContain('claude: 1 model(s).');
         expect(result.message).toContain('ECONNREFUSED');
     });
 
@@ -194,7 +220,7 @@ describe('choosing which provider a request reaches', () => {
         // The live station's own default model is `gpt-oss-radio:latest`. A general "split on the
         // colon" rule would have routed it to a provider called `gpt-oss-radio`.
         const { plugin, calls } = await loaded({
-            config: { baseUrl: 'https://models.test/v1', model: 'gpt-oss:20b' },
+            config: { baseUrl: 'https://models.test/v1', model: 'srv:gpt-oss:20b' },
             models: ['gpt-oss:20b'],
         });
 
@@ -213,7 +239,7 @@ describe('choosing which provider a request reaches', () => {
         const error = await plugin.generate({ messages: [{ role: 'user', content: 'go' }], model: 'anthropic:claude-x' }).catch(e => e);
 
         expect(isPluginError(error) && error.code).toBe('config');
-        expect(String(error)).toContain('Anthropic API key');
+        expect(String(error)).toContain('there is no provider by that name');
     });
 
     it('refuses a name that is a provider and no model', async () => {
@@ -224,13 +250,29 @@ describe('choosing which provider a request reaches', () => {
         expect(isPluginError(error) && error.code).toBe('config');
     });
 
-    it('refuses a generation when nothing at all is configured', async () => {
+    it('refuses an unqualified model name rather than guessing at one', async () => {
+        // "The first row" would be a rule that changes meaning the moment somebody reorders the
+        // table, so the sentence says what a name is supposed to look like instead.
         const { plugin } = await loaded({ config: { model: 'gpt-x' } });
 
         const error = await plugin.generate({ messages: [{ role: 'user', content: 'go' }] }).catch(e => e);
 
         expect(isPluginError(error) && error.code).toBe('config');
-        expect(String(error)).toContain('server URL');
+        expect(String(error)).toContain('provider:model');
+    });
+
+    it('names the credential when the row is there but half filled in', async () => {
+        // A different repair from "there is no such provider", and it reads differently on the form:
+        // this one is a cell to fill in.
+        const host = createFakePluginHost();
+        host.seedConfig({ providers: JSON.stringify([{ $id: 'r1', name: 'claude', kind: 'anthropic' }]) });
+        const plugin = new LlmPlugin();
+        await plugin.init(host);
+
+        const error = await plugin.generate({ messages: [{ role: 'user', content: 'go' }], model: 'claude:x' }).catch(e => e);
+
+        expect(isPluginError(error) && error.code).toBe('config');
+        expect(String(error)).toContain('no API key');
     });
 
     it('loads an install configured before any of this, stale provider key and all', async () => {
@@ -241,7 +283,7 @@ describe('choosing which provider a request reaches', () => {
             models: ['gpt-oss:20b'],
         });
 
-        expect(await plugin.listModels()).toEqual([{ id: 'gpt-oss:20b', label: 'gpt-oss:20b', tools: false, default: true }]);
+        expect(await plugin.listModels()).toEqual([{ id: 'srv:gpt-oss:20b', label: 'gpt-oss:20b · srv', tools: false }]);
     });
 });
 
@@ -253,8 +295,14 @@ describe('listing what every provider has', () => {
             const ids = url.startsWith('https://api.anthropic.com') ? ['claude-x'] : ['gpt-oss:20b'];
             return new Response(JSON.stringify({ data: ids.map(id => ({ id })) }), { status: 200, headers: { 'content-type': 'application/json' } });
         });
-        host.seedConfig({ baseUrl: 'https://models.test/v1', ...config });
-        host.seedSecret('anthropicApiKey', 'sk-test');
+        host.seedConfig({
+            providers: JSON.stringify([
+                { $id: 'r1', name: 'srv', kind: 'openai-compat', baseUrl: 'https://models.test/v1' },
+                { $id: 'r2', name: 'claude', kind: 'anthropic' },
+            ]),
+            ...config,
+        });
+        host.seedSecret('providers/r2/apiKey', 'sk-test');
         const plugin = new LlmPlugin();
         await plugin.init(host);
         return { plugin, calls: host.calls };
@@ -263,15 +311,15 @@ describe('listing what every provider has', () => {
     it('answers the union, with the native arm qualified and the compatible one bare', async () => {
         const { plugin } = await bothArms();
 
-        expect((await plugin.listModels()).map(model => model.id)).toEqual(['gpt-oss:20b', 'anthropic:claude-x']);
+        expect((await plugin.listModels()).map(model => model.id)).toEqual(['srv:gpt-oss:20b', 'claude:claude-x']);
     });
 
     it('marks the default on whichever arm the default model actually names', async () => {
-        const { plugin } = await bothArms({ model: 'anthropic:claude-x' });
+        const { plugin } = await bothArms({ model: 'claude:claude-x' });
 
         const described = await plugin.listModels();
 
-        expect(described.find(model => model.default === true)?.id).toBe('anthropic:claude-x');
+        expect(described.find(model => model.default === true)?.id).toBe('claude:claude-x');
         expect(described.filter(model => model.default === true)).toHaveLength(1);
     });
 
@@ -292,12 +340,17 @@ describe('listing what every provider has', () => {
             if (url.startsWith('https://api.anthropic.com')) throw new Error('connect ECONNREFUSED');
             return new Response(JSON.stringify({ data: [{ id: 'gpt-oss:20b' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
         });
-        host.seedConfig({ baseUrl: 'https://models.test/v1' });
-        host.seedSecret('anthropicApiKey', 'sk-test');
+        host.seedConfig({
+            providers: JSON.stringify([
+                { $id: 'r1', name: 'srv', kind: 'openai-compat', baseUrl: 'https://models.test/v1' },
+                { $id: 'r2', name: 'claude', kind: 'anthropic' },
+            ]),
+        });
+        host.seedSecret('providers/r2/apiKey', 'sk-test');
         const plugin = new LlmPlugin();
         await plugin.init(host);
 
-        expect((await plugin.listModels()).map(model => model.id)).toEqual(['gpt-oss:20b']);
+        expect((await plugin.listModels()).map(model => model.id)).toEqual(['srv:gpt-oss:20b']);
     });
 });
 
@@ -308,9 +361,10 @@ describe('suggesting what the form should offer', () => {
         const suggested = await plugin.suggestConfigOptions();
 
         expect(suggested.model).toEqual([
-            { value: 'gpt-oss:20b', label: 'gpt-oss:20b' },
-            { value: 'llama3.2:1b', label: 'llama3.2:1b' },
+            { value: 'srv:gpt-oss:20b', label: 'gpt-oss:20b · srv' },
+            { value: 'srv:llama3.2:1b', label: 'llama3.2:1b · srv' },
         ]);
+        // The same list, because this provider cannot answer the tool question itself.
         expect(suggested.models).toEqual(suggested.model);
     });
 
@@ -323,7 +377,7 @@ describe('suggesting what the form should offer', () => {
 
         expect(suggested.model).toBeUndefined();
         expect(suggested.models).toBeUndefined();
-        expect(suggested.baseUrl?.map(option => option.value)).toContain('https://api.openai.com/v1');
+        expect(suggested['providers.baseUrl']?.map(option => option.value)).toContain('https://api.openai.com/v1');
     });
 
     it('offers no models when the server lists nothing', async () => {
@@ -345,15 +399,20 @@ describe('suggesting what the form should offer', () => {
             const ids = url.startsWith('https://api.anthropic.com') ? ['claude-x'] : ['gpt-oss:20b'];
             return new Response(JSON.stringify({ data: ids.map(id => ({ id })) }), { status: 200, headers: { 'content-type': 'application/json' } });
         });
-        host.seedConfig({ baseUrl: 'https://models.test/v1' });
-        host.seedSecret('anthropicApiKey', 'sk-test');
+        host.seedConfig({
+            providers: JSON.stringify([
+                { $id: 'r1', name: 'srv', kind: 'openai-compat', baseUrl: 'https://models.test/v1' },
+                { $id: 'r2', name: 'claude', kind: 'anthropic' },
+            ]),
+        });
+        host.seedSecret('providers/r2/apiKey', 'sk-test');
         const plugin = new LlmPlugin();
         await plugin.init(host);
 
         const suggested = await plugin.suggestConfigOptions();
 
-        expect(suggested.models?.map(option => option.value)).toEqual(['gpt-oss:20b']);
-        expect(suggested.model?.map(option => option.value)).toEqual(['gpt-oss:20b', 'anthropic:claude-x']);
+        expect(suggested.models?.map(option => option.value)).toEqual(['srv:gpt-oss:20b']);
+        expect(suggested.model?.map(option => option.value)).toEqual(['srv:gpt-oss:20b', 'claude:claude-x']);
     });
 
     it('shares the cache with listModels rather than asking twice', async () => {

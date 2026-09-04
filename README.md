@@ -126,14 +126,17 @@ Plugins carry their own configuration, declared by the plugin and drawn by the s
 station's own settings use.
 
 The model plugin is worth one note, because it is the only place a name means more than it looks. It
-speaks to an OpenAI-compatible server (a local Ollama or vLLM, or OpenAI, Groq, Mistral and
-OpenRouter by address), to Anthropic and to Gemini, and it speaks to **all of them at once** — you
-give it whichever credentials you have. Which one a request reaches is read off the model name:
-`anthropic:claude-sonnet-5` and `google:gemini-2.5-flash` name those two, and a plain name like
-`gpt-oss:20b` is the server address. That is what lets one station write its talk breaks on a hosted
-model and do its reading and note-taking on a local one, since every job that asks a model for words
-has its own model setting under Settings → Words. Those settings offer what your providers actually
-have, so the names are picked rather than typed.
+speaks to OpenAI-compatible servers (a local Ollama or vLLM, or OpenAI, Groq, Mistral and OpenRouter
+by address), to Anthropic and to Gemini, and it speaks to **as many at once as you add** — each one a
+row in a table, with whatever name you give it. That name is how a model is addressed: a model on the
+row you called `ollama` is `ollama:gpt-oss`, and one on the row you called `claude` is
+`claude:claude-sonnet-5`. Every job that asks a model for words has its own model setting under
+Settings → Words, so a station can write its talk breaks on a hosted model and do its reading and
+note-taking on a local one. Those settings offer what your providers actually have, so the names are
+picked rather than typed.
+
+An API key typed into that table is stored the way every other credential here is: encrypted, never
+shown again, and never returned by the API.
 
 ## Development
 

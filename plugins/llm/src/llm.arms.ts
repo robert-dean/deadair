@@ -5,73 +5,71 @@ import { googleArm } from './google.provider.js';
 import { openAiCompatibleArm } from './openai.compat.provider.js';
 import type { ProviderArm } from './llm.provider.js';
 
-/** Everything the arms are built out of, all of it at once. */
-export interface ArmCredentials {
-    /** The operator's address, already normalized. Empty when unset, which is the OpenAI-compatible arm not being configured. */
+/** One provider, as its row holds it plus the credential the row does not. */
+export interface ProviderRow {
+    /** The operator's own name for it. This is the qualifier a model name carries. */
+    name: string;
+
+    kind: ProviderKind;
+
+    /** The address, for the OpenAI-compatible kind. Empty for the two that are reached where they live. */
     baseUrl: string;
 
-    /** The key for the address above. Absent for a local server that wants none. */
+    /** The key, out of the secrets store rather than out of the row. See `readRowSecret`. */
     apiKey?: string;
-
-    /** Anthropic's key. Its presence is what configures that arm; there is no address to give. */
-    anthropicApiKey?: string;
-
-    /** Gemini's key, likewise. */
-    googleApiKey?: string;
 }
 
 /**
- * Every arm the operator has given a credential for, keyed by kind.
+ * Every provider the operator has configured, by the name they gave it.
  *
- * All of them rather than one, and that is the whole shape of this plugin: a
- * station wants a hosted model for the words listeners hear and a local one for
- * the volume nobody hears, and the only place it can say so is the model name
- * (see `llm.names.ts`). An arm missing from this map is one nothing is
- * configured for, which is an ordinary state rather than a fault — an operator
- * pasting a second key passes through it — and a generation naming a model on
- * that arm is what refuses, with a sentence saying which credential is missing.
+ * Named rows rather than one slot per protocol, and that is the whole shape of this plugin now: a
+ * station wants a hosted model for the words listeners hear and a local one for the volume nobody
+ * hears, and it may well want two of the same KIND — a local Ollama and Groq are both
+ * OpenAI-compatible and are two different providers. A protocol is not a thing you can have two of;
+ * a row is.
  *
- * Empty is legitimate and means nothing is configured at all. The manifest
- * refuses that at SAVE time, so it is reachable here only on a fresh install
- * nobody has filled in yet.
+ * A row missing what its kind needs is skipped rather than built half-configured. The manifest
+ * refuses that at save time, so it is reachable here only from a hand-edited config row, and the
+ * cost is that one provider rather than the station's ability to speak.
  */
-export function buildArms(host: PluginHost, credentials: ArmCredentials): ReadonlyMap<ProviderKind, ProviderArm> {
-    const arms = new Map<ProviderKind, ProviderArm>();
+export function buildArms(host: PluginHost, rows: readonly ProviderRow[]): ReadonlyMap<string, ProviderArm> {
+    const arms = new Map<string, ProviderArm>();
 
-    if (credentials.baseUrl.length > 0) {
-        arms.set(
-            'openai-compat',
-            openAiCompatibleArm(host, {
-                baseUrl: credentials.baseUrl,
-                ...(hasKey(credentials.apiKey) ? { apiKey: credentials.apiKey } : {}),
-            }),
-        );
+    for (const row of rows) {
+        const name = row.name.trim();
+        if (name.length === 0 || arms.has(name)) continue;
+
+        const arm = buildArm(host, row);
+        if (arm !== undefined) arms.set(name, arm);
     }
-
-    if (hasKey(credentials.anthropicApiKey)) arms.set('anthropic', anthropicArm(host, { apiKey: credentials.anthropicApiKey }));
-
-    if (hasKey(credentials.googleApiKey)) arms.set('google', googleArm(host, { apiKey: credentials.googleApiKey }));
 
     return arms;
 }
 
-/**
- * What is missing for an arm nothing is configured for, named to whoever asked for it.
- *
- * Says the credential rather than "not configured", because those are different
- * repairs: one is a field on this form and the other could be anything.
- */
-export function missingCredential(kind: ProviderKind): string {
-    switch (kind) {
+/** One row's arm, or nothing when the row lacks what its kind cannot work without. */
+function buildArm(host: PluginHost, row: ProviderRow): ProviderArm | undefined {
+    switch (row.kind) {
         case 'openai-compat':
-            return 'no server URL is set';
+            return row.baseUrl.length === 0
+                ? undefined
+                : openAiCompatibleArm(host, { baseUrl: row.baseUrl, ...(hasKey(row.apiKey) ? { apiKey: row.apiKey } : {}) });
 
         case 'anthropic':
-            return 'no Anthropic API key is set';
+            return hasKey(row.apiKey) ? anthropicArm(host, { apiKey: row.apiKey }) : undefined;
 
         case 'google':
-            return 'no Gemini API key is set';
+            return hasKey(row.apiKey) ? googleArm(host, { apiKey: row.apiKey }) : undefined;
     }
+}
+
+/**
+ * What a row is missing, named to whoever asked for it.
+ *
+ * Says the credential rather than "not configured", because those are different repairs: one is a
+ * cell in the table on this form and the other could be anything.
+ */
+export function missingCredential(kind: ProviderKind): string {
+    return kind === 'openai-compat' ? 'it has no address' : 'it has no API key';
 }
 
 /** A key that is actually there, as opposed to one saved blank. */

@@ -1,96 +1,78 @@
 // A model name is the one place a station can say WHICH provider it wants, because the model is a
-// per-call parameter and the plugin is a per-station setting. What is tested here is mostly the
-// things that must NOT be read as a qualifier: this station's own Ollama ids are `name:tag` and
-// OpenRouter's are `vendor/model`, so a general "split on the separator" rule would have quietly
-// routed half an existing install's models to a provider it has never heard of.
+// per-call parameter and the plugin is a per-station setting. The provider is a name the OPERATOR
+// gave a row, not a vendor word, so a station can hold two OpenAI-compatible servers and tell them
+// apart. What is tested most carefully is the split: this station's own Ollama ids are `name:tag`,
+// so splitting anywhere but the FIRST colon would rename half an existing install's models.
 
 import { describe, expect, it } from 'vitest';
 
-import { qualify, readModelName } from '../src/llm.names.js';
-import { describeNativeModels } from '../src/llm.models.js';
+import { isProviderName, qualify, readModelName } from '../src/llm.names.js';
 
 describe('reading a model name', () => {
-    it('reads a bare name as the OpenAI-compatible server', () => {
-        expect(readModelName('gpt-oss-radio')).toEqual({ kind: 'openai-compat', id: 'gpt-oss-radio' });
+    it('splits at the first colon, so a model keeping its own tag survives', () => {
+        expect(readModelName('ollama:gpt-oss-radio:latest')).toEqual({ provider: 'ollama', id: 'gpt-oss-radio:latest' });
     });
 
-    it('leaves an Ollama tag alone, colon and all', () => {
-        // The reason the prefixes are a closed set rather than "whatever is before the colon". This
-        // is the live station's own default model.
-        expect(readModelName('gpt-oss-radio:latest')).toEqual({ kind: 'openai-compat', id: 'gpt-oss-radio:latest' });
+    it('reads an ordinary qualified name', () => {
+        expect(readModelName('claude:claude-sonnet-5')).toEqual({ provider: 'claude', id: 'claude-sonnet-5' });
     });
 
-    it('leaves an OpenRouter name alone, slash and all', () => {
-        expect(readModelName('anthropic/claude-sonnet-4.5')).toEqual({ kind: 'openai-compat', id: 'anthropic/claude-sonnet-4.5' });
+    it('answers nothing for a name that qualifies nothing', () => {
+        // Refused rather than guessed at. "The first row" would be a rule that changes meaning the
+        // moment somebody reorders the table, and a model quietly reaching the wrong provider is
+        // worse than a save that would not go through.
+        expect(readModelName('gpt-oss-radio')).toBeUndefined();
+        expect(readModelName(undefined)).toBeUndefined();
+        expect(readModelName('   ')).toBeUndefined();
     });
 
-    it.each([
-        ['anthropic:claude-sonnet-5', 'anthropic', 'claude-sonnet-5'],
-        ['google:gemini-2.5-flash', 'google', 'gemini-2.5-flash'],
-    ])('reads %s as that provider', (name, kind, id) => {
-        expect(readModelName(name)).toEqual({ kind, id });
+    it('answers nothing for half a name', () => {
+        expect(readModelName(':gpt-oss')).toBeUndefined();
+        expect(readModelName('ollama:')).toBeUndefined();
+        expect(readModelName('ollama:   ')).toBeUndefined();
     });
 
-    it('keeps a colon that belongs to the model rather than to the prefix', () => {
-        expect(readModelName('anthropic:claude:weird')).toEqual({ kind: 'anthropic', id: 'claude:weird' });
-    });
-
-    it('reads a prefix with nothing after it as that provider and no model', () => {
-        // Which `generate` refuses as a configuration fault rather than sending an empty model name.
-        expect(readModelName('anthropic:')).toEqual({ kind: 'anthropic', id: '' });
-    });
-
-    it('reads nothing at all as bare and empty', () => {
-        expect(readModelName(undefined)).toEqual({ kind: 'openai-compat', id: '' });
-        expect(readModelName('   ')).toEqual({ kind: 'openai-compat', id: '' });
+    it('keeps an OpenRouter name whole, because the slash is not the separator', () => {
+        expect(readModelName('router:anthropic/claude-3.5-sonnet')).toEqual({ provider: 'router', id: 'anthropic/claude-3.5-sonnet' });
     });
 });
 
 describe('naming a model', () => {
-    it('leaves the OpenAI-compatible arm unprefixed', () => {
-        expect(qualify('openai-compat', 'gpt-oss-radio:latest')).toBe('gpt-oss-radio:latest');
-    });
-
-    it('prefixes a native arm', () => {
-        expect(qualify('anthropic', 'claude-sonnet-5')).toBe('anthropic:claude-sonnet-5');
+    it('joins the provider and the model', () => {
+        expect(qualify('ollama', 'gpt-oss-radio:latest')).toBe('ollama:gpt-oss-radio:latest');
     });
 
     it('does not prefix twice', () => {
         // The ids this produces come back as `LlmRequest.model`, so a round trip through a settings
         // form is the ordinary path rather than an edge case.
-        expect(qualify('anthropic', 'anthropic:claude-sonnet-5')).toBe('anthropic:claude-sonnet-5');
+        expect(qualify('ollama', 'ollama:gpt-oss')).toBe('ollama:gpt-oss');
     });
 
-    it('answers nothing for nothing', () => {
-        expect(qualify('google', '  ')).toBe('');
+    it('answers nothing when either half is missing', () => {
+        expect(qualify('ollama', '  ')).toBe('');
+        expect(qualify('  ', 'gpt-oss')).toBe('');
     });
 
     it('round-trips whatever it produced', () => {
-        expect(readModelName(qualify('google', 'gemini-2.5-flash'))).toEqual({ kind: 'google', id: 'gemini-2.5-flash' });
+        expect(readModelName(qualify('ollama', 'gpt-oss-radio:latest'))).toEqual({ provider: 'ollama', id: 'gpt-oss-radio:latest' });
     });
 });
 
-describe('describing a native arm', () => {
-    it('qualifies the ids and says every model takes tools', () => {
-        expect(describeNativeModels('anthropic', ['claude-x', 'claude-y'], '')).toEqual([
-            { id: 'anthropic:claude-x', label: 'claude-x · Anthropic', tools: true },
-            { id: 'anthropic:claude-y', label: 'claude-y · Anthropic', tools: true },
-        ]);
+describe('what a provider may be called', () => {
+    it('takes an ordinary name', () => {
+        expect(isProviderName('ollama')).toBe(true);
+        expect(isProviderName('my-local-box')).toBe(true);
     });
 
-    it('marks the entry the plugin actually names as default', () => {
-        const described = describeNativeModels('google', ['gemini-x', 'gemini-y'], 'google:gemini-y');
-
-        expect(described.find(entry => entry.default === true)?.id).toBe('google:gemini-y');
+    it('refuses a name holding the separator, or a space', () => {
+        // One would make the split ambiguous; the other reads as two words in a setting that holds
+        // one token.
+        expect(isProviderName('my:server')).toBe(false);
+        expect(isProviderName('my server')).toBe(false);
+        expect(isProviderName('')).toBe(false);
     });
 
-    it('marks nothing when the default lives on another arm', () => {
-        // A bare default names the OpenAI-compatible server, so no native entry may claim it — two
-        // entries marked default would leave the host picking whichever it saw first.
-        expect(describeNativeModels('anthropic', ['claude-x'], 'gpt-oss-radio:latest').some(entry => entry.default === true)).toBe(false);
-    });
-
-    it('drops blanks and repeats', () => {
-        expect(describeNativeModels('anthropic', ['claude-x', ' claude-x ', '  '], '').map(entry => entry.id)).toEqual(['anthropic:claude-x']);
+    it('does not fold case, because two rows named differently are two providers', () => {
+        expect(isProviderName('Ollama')).toBe(true);
     });
 });

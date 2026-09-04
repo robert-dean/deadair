@@ -90,70 +90,65 @@ describe('toolCapableModels', () => {
 });
 
 describe('describeModels', () => {
-    it('takes the ids from the server, which is the half that is discoverable', () => {
-        // The operator should not have to type out what the machine already knows,
-        // least of all before they have any way to find it out.
-        expect(describeModels(['a', 'b'], undefined, '')).toEqual([
-            { id: 'a', label: 'a', tools: false },
-            { id: 'b', label: 'b', tools: false },
+    it('takes the ids from the provider and qualifies them by its name', () => {
+        // The operator should not have to type out what the machine already knows, least of all
+        // before they have any way to find it out. The name is on the front because one station has
+        // several providers now, and `gpt-oss` on two of them is two models.
+        expect(describeModels('srv', ['a', 'b'], undefined, '')).toEqual([
+            { id: 'srv:a', label: 'a · srv', tools: false },
+            { id: 'srv:b', label: 'b · srv', tools: false },
         ]);
     });
 
-    it('takes the tool flags from config, which is the half that is not', () => {
-        expect(describeModels(['a', 'b'], 'b +tools', '')).toEqual([
-            { id: 'a', label: 'a', tools: false },
-            { id: 'b', label: 'b', tools: true },
+    it('takes the tool flags from config, which is the half that is not discoverable', () => {
+        expect(describeModels('srv', ['a', 'b'], JSON.stringify(['srv:b']), '')).toEqual([
+            { id: 'srv:a', label: 'a · srv', tools: false },
+            { id: 'srv:b', label: 'b · srv', tools: true },
         ]);
     });
 
-    it('keeps the server order, so the console lists them the way the server said', () => {
-        expect(describeModels(['z', 'a'], undefined, '').map(model => model.id)).toEqual(['z', 'a']);
+    it('takes the provider at its word when it says every model takes tools', () => {
+        // A vendor serving its own models knows; asking an operator to tick a box confirming it is
+        // asking them for something already known.
+        expect(describeModels('claude', ['a'], undefined, '', true)).toEqual([{ id: 'claude:a', label: 'a · claude', tools: true }]);
     });
 
-    it('folds the default in when the server did not report it', () => {
-        // A plugin that names a model it will not admit to having is a confusing
-        // thing to debug.
-        expect(describeModels(['a'], undefined, 'the-default').map(model => model.id)).toEqual(['a', 'the-default']);
+    it('keeps the order the provider reported', () => {
+        expect(describeModels('srv', ['z', 'a'], undefined, '').map(model => model.id)).toEqual(['srv:z', 'srv:a']);
     });
 
-    it('does not duplicate the default when the server did report it', () => {
-        expect(describeModels(['a', 'the-default'], undefined, 'the-default').map(model => model.id)).toEqual(['a', 'the-default']);
-    });
-
-    it('keeps an annotated model the server never listed', () => {
-        // A proxy that serves a model without listing it is a real thing, and
-        // dropping the entry would silently disable tools on it.
-        expect(describeModels(['a'], 'behind-a-proxy +tools', '')).toEqual([
-            { id: 'a', label: 'a', tools: false },
-            { id: 'behind-a-proxy', label: 'behind-a-proxy', tools: true },
+    it('keeps a ticked model the provider never listed', () => {
+        // A proxy that serves a model without listing it is a real thing, and dropping the entry
+        // would silently disable tools on it.
+        expect(describeModels('srv', ['a'], JSON.stringify(['srv:behind-a-proxy']), '')).toEqual([
+            { id: 'srv:a', label: 'a · srv', tools: false },
+            { id: 'srv:behind-a-proxy', label: 'behind-a-proxy · srv', tools: true },
         ]);
     });
 
-    it('answers from config alone when the server told us nothing', () => {
-        // Which is what a momentary blip looks like: the console loses its list,
-        // the station keeps whatever tool support it was told about.
-        expect(describeModels([], 'a +tools', 'the-default')).toEqual([
-            { id: 'the-default', label: 'the-default', tools: false, default: true },
-            { id: 'a', label: 'a', tools: true },
-        ]);
+    it("leaves another provider's ticked models alone", () => {
+        // Each provider describes only its own. Folding in a name belonging to a different row
+        // would put a model on a server that has never heard of it.
+        expect(describeModels('srv', ['a'], JSON.stringify(['other:b']), '').map(model => model.id)).toEqual(['srv:a']);
     });
 
     it('marks which entry an unnamed request will reach', () => {
-        // Without this the host has to assume the worst model on the server, and would
-        // never send tools to a station with more than a couple installed.
-        const models = describeModels(['a', 'b'], undefined, 'b');
+        // Without this the host has to assume the worst model on the server, and would never send
+        // tools to a station with more than a couple installed.
+        const models = describeModels('srv', ['a', 'b'], undefined, 'srv:b');
 
-        expect(models.find(model => model.id === 'b')?.default).toBe(true);
-        expect(models.find(model => model.id === 'a')?.default).toBeUndefined();
+        expect(models.find(model => model.id === 'srv:b')?.default).toBe(true);
+        expect(models.find(model => model.id === 'srv:a')?.default).toBeUndefined();
     });
 
-    it('marks nothing when there is no default to mark', () => {
-        expect(describeModels(['a'], undefined, '').every(model => model.default === undefined)).toBe(true);
+    it('marks nothing when the default lives on another provider', () => {
+        // Two entries marked default would leave the host picking whichever it saw first.
+        expect(describeModels('srv', ['a'], undefined, 'other:a').every(model => model.default === undefined)).toBe(true);
     });
 
     it('answers nothing when there is nothing anywhere', () => {
-        // The host reads this to decide whether it may send tools. Inventing an
-        // entry would be claiming a model exists that nothing can call.
-        expect(describeModels([], '', '')).toEqual([]);
+        // The host reads this to decide whether it may send tools. Inventing an entry would be
+        // claiming a model exists that nothing can call.
+        expect(describeModels('srv', [], '', '')).toEqual([]);
     });
 });

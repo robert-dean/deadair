@@ -1,90 +1,86 @@
-import { PROVIDER_KINDS, type ProviderKind } from './llm.manifest.js';
-
 /**
  * Which provider a model name says it lives on.
  *
  * ## Why a name carries this at all
  *
- * The station picks a MODEL per call and a plugin per station: `LlmRequest.model`
- * travels with every generation, and `llm.pluginId` is one setting. So a station
- * that wants a hosted model for the words listeners hear and a local one for the
- * volume nobody hears has exactly one place to say so, and it is the model name.
- * Anything else — a second setting beside each of the six model keys, a plugin
- * installed per provider — is a new axis for a distinction the existing one
- * already carries.
+ * The station picks a MODEL per call and a plugin per station: `LlmRequest.model` travels with every
+ * generation, and `llm.pluginId` is one setting. So a station that wants a hosted model for the words
+ * listeners hear and a local one for the volume nobody hears has exactly one place to say so, and it
+ * is the model name. Anything else — a second setting beside each of the six model keys, a plugin
+ * installed per provider — is a new axis for a distinction the existing one already carries.
  *
- * ## Bare means the OpenAI-compatible server, permanently
+ * ## The provider is a name the OPERATOR chose
  *
- * Not "the default", which would make a name mean different things on different
- * days. It is fixed, and that is what lets an install configured before any of
- * this go on working untouched: its stored model, its ticked tool-capable
- * models, and every writer setting still name what they always named.
+ * Not a vendor word. The providers are rows in a list, each named by whoever added it, so a station
+ * can hold two OpenAI-compatible servers — a local Ollama and a hosted one — and tell them apart.
+ * That is the whole reason the qualifier is not `anthropic:` and `google:` any more: those named a
+ * protocol, and a protocol is not a thing you can have two of.
  *
- * ## Why a colon does not collide
+ * ## Every name is qualified, and the split is at the FIRST colon
  *
- * Ollama's own ids are `name:tag` (`gpt-oss-radio:latest`) and OpenRouter's are
- * `vendor/model`, so both live on the OpenAI-compatible arm and both would be
- * ambiguous against a general "split on the separator" rule. This is not that
- * rule: only the two exact prefixes below are read, and everything else is bare
- * without being parsed at all. An Ollama model genuinely named `anthropic:…`
- * would be misread, and that is the one case this trades away knowingly.
+ * `ollama:gpt-oss-radio:latest` is the provider `ollama` and the model `gpt-oss-radio:latest`, which
+ * is what makes Ollama's own `name:tag` ids survive intact. A name with no colon names no provider
+ * and is refused rather than guessed at: "the first row" would be a rule that changes meaning when
+ * somebody reorders the table, and a model quietly reaching the wrong provider is worse than a save
+ * that would not go through.
  */
 
-/** The prefixes, per arm. The OpenAI-compatible arm has none, which is the whole rule. */
-export const ARM_PREFIXES = { anthropic: 'anthropic:', google: 'google:' } as const satisfies Partial<Record<ProviderKind, string>>;
+/** How a provider name and a model are joined. */
+const SEPARATOR = ':';
 
-/** The arm a bare name belongs to. */
-export const BARE_ARM: ProviderKind = 'openai-compat';
-
-/** A model name with its arm, as {@link readModelName} reads it. */
+/** A model name as {@link readModelName} reads it. */
 export interface ModelName {
-    kind: ProviderKind;
+    /** The row's name, as the operator typed it. */
+    provider: string;
 
-    /** The name as that provider knows it, with any prefix taken off. Empty when there was nothing but a prefix. */
+    /** The model as that provider knows it. */
     id: string;
 }
 
 /**
- * The name a station uses for one of this arm's models.
+ * The name a station uses for one of a provider's models.
  *
- * Idempotent on an already-qualified name, so a caller that qualifies twice gets
- * one prefix rather than two: the ids this produces are also the ids that come
- * back in `LlmRequest.model`, and a round trip through a settings form is the
- * ordinary path rather than an edge case.
+ * Idempotent on an already-qualified name, so a caller that qualifies twice gets one prefix rather
+ * than two: the ids this produces are also the ids that come back in `LlmRequest.model`, and a round
+ * trip through a settings form is the ordinary path rather than an edge case.
  */
-export function qualify(kind: ProviderKind, id: string): string {
-    const trimmed = id.trim();
-    if (trimmed.length === 0) return '';
+export function qualify(provider: string, id: string): string {
+    const name = provider.trim();
+    const model = id.trim();
+    if (name.length === 0 || model.length === 0) return '';
 
-    const prefix = prefixFor(kind);
-    if (prefix === undefined) return trimmed;
-
-    return trimmed.startsWith(prefix) ? trimmed : `${prefix}${trimmed}`;
+    return model.startsWith(`${name}${SEPARATOR}`) ? model : `${name}${SEPARATOR}${model}`;
 }
 
 /**
- * Which arm a name is asking for, and what that arm calls it.
+ * Which provider a name asks for and what that provider calls the model, or `undefined` for a name
+ * that says neither.
  *
- * Never throws and never rejects: an unrecognised prefix is not an error, it is a
- * bare name that happens to contain a colon, which is what most of this station's
- * own models look like.
+ * Never throws. An unqualified name is not an error here, it is a question this cannot answer, and
+ * the caller has a better sentence to say about it than this does — the settings form names the
+ * field, and `generate` names what it expected.
  */
-export function readModelName(name: string | undefined): ModelName {
+export function readModelName(name: string | undefined): ModelName | undefined {
     const trimmed = name?.trim() ?? '';
+    const at = trimmed.indexOf(SEPARATOR);
+    if (at <= 0) return undefined;
 
-    for (const [kind, prefix] of Object.entries(ARM_PREFIXES) as [ProviderKind, string][]) {
-        if (trimmed.startsWith(prefix)) return { kind, id: trimmed.slice(prefix.length).trim() };
-    }
+    const provider = trimmed.slice(0, at).trim();
+    const id = trimmed.slice(at + SEPARATOR.length).trim();
+    if (provider.length === 0 || id.length === 0) return undefined;
 
-    return { kind: BARE_ARM, id: trimmed };
+    return { provider, id };
 }
 
-/** How an arm is named to somebody reading a list, rather than to a provider. */
-export function armLabel(kind: ProviderKind): string {
-    return PROVIDER_KINDS[kind];
-}
-
-/** The prefix an arm's names carry, or `undefined` for the bare one. */
-function prefixFor(kind: ProviderKind): string | undefined {
-    return kind in ARM_PREFIXES ? ARM_PREFIXES[kind as keyof typeof ARM_PREFIXES] : undefined;
+/**
+ * Whether a row's name can be used as a qualifier.
+ *
+ * No colon, because that is what a name is split on, and no whitespace, because a name with a space
+ * in it reads as two words in a setting that holds one token. Lowercase is not enforced and is not
+ * assumed: names are matched exactly, so `Ollama` and `ollama` are two providers, which is the
+ * honest reading of a table an operator typed.
+ */
+export function isProviderName(value: string): boolean {
+    const name = value.trim();
+    return name.length > 0 && !name.includes(SEPARATOR) && !/\s/.test(name);
 }

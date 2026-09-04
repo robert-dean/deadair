@@ -83,11 +83,32 @@ function scriptedHost(responses: (() => Response)[]): FakePluginHost {
     return host;
 }
 
+/**
+ * A provider row as the HOST stores one: an id, the plain cells, and the credential in the secrets
+ * store under the key the row hangs off. Seeding the key into the row would be seeding a shape the
+ * server can never produce, which is the mistake `plugins/websearch` was shipping.
+ */
+function seedProvider(
+    host: FakePluginHost,
+    row: { id?: string; name: string; kind?: string; baseUrl?: string; apiKey?: string },
+    extra: Record<string, unknown> = {},
+): void {
+    const id = row.id ?? 'row1';
+    const stored: Record<string, string> = { $id: id, name: row.name, kind: row.kind ?? 'openai-compat' };
+    if (row.baseUrl !== undefined) stored.baseUrl = row.baseUrl;
+
+    host.seedConfig({ providers: JSON.stringify([stored]), ...extra });
+    if (row.apiKey !== undefined) host.seedSecret(`providers/${id}/apiKey`, row.apiKey);
+}
+
 async function loadedPlugin(host: FakePluginHost, config: Record<string, unknown> = {}): Promise<LlmPlugin> {
-    // A key is what configures this arm; there is no address to give and no provider to pick. The
-    // default model names it, which is what routes an unnamed request here.
-    host.seedConfig({ model: 'anthropic:claude-x', ...config });
-    if (config.apiKey !== null) host.seedSecret('anthropicApiKey', 'sk-test');
+    // One row, named `anthropic` by the operator. The name is the qualifier, so the default model
+    // below is what routes an unnamed request to this row.
+    seedProvider(
+        host,
+        { name: 'anthropic', kind: 'anthropic', ...(config.apiKey === null ? {} : { apiKey: 'sk-test' }) },
+        { model: 'anthropic:claude-x', ...config },
+    );
     const plugin = new LlmPlugin();
     await plugin.init(host);
     return plugin;
@@ -179,8 +200,8 @@ describe('what Anthropic has', () => {
         const plugin = await loadedPlugin(host);
 
         expect(await plugin.listModels()).toEqual([
-            { id: 'anthropic:claude-x', label: 'claude-x · Anthropic', tools: true, default: true },
-            { id: 'anthropic:claude-y', label: 'claude-y · Anthropic', tools: true },
+            { id: 'anthropic:claude-x', label: 'claude-x · anthropic', tools: true, default: true },
+            { id: 'anthropic:claude-y', label: 'claude-y · anthropic', tools: true },
         ]);
         expect(host.calls[0]?.headers?.['x-api-key']).toBe('sk-test');
     });
@@ -214,7 +235,7 @@ describe('an Anthropic provider with no key', () => {
 
         const { message } = await plugin.testConnection();
 
-        expect(message).toContain('Anthropic key');
+        expect(message).toContain('no API key');
         expect(host.calls).toHaveLength(0);
     });
 

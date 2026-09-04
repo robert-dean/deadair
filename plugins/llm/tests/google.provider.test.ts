@@ -58,9 +58,30 @@ function scriptedHost(responses: (() => Response)[]): FakePluginHost {
     return host;
 }
 
+/**
+ * A provider row as the HOST stores one: an id, the plain cells, and the credential in the secrets
+ * store under the key the row hangs off. Seeding the key into the row would be seeding a shape the
+ * server can never produce, which is the mistake `plugins/websearch` was shipping.
+ */
+function seedProvider(
+    host: FakePluginHost,
+    row: { id?: string; name: string; kind?: string; baseUrl?: string; apiKey?: string },
+    extra: Record<string, unknown> = {},
+): void {
+    const id = row.id ?? 'row1';
+    const stored: Record<string, string> = { $id: id, name: row.name, kind: row.kind ?? 'openai-compat' };
+    if (row.baseUrl !== undefined) stored.baseUrl = row.baseUrl;
+
+    host.seedConfig({ providers: JSON.stringify([stored]), ...extra });
+    if (row.apiKey !== undefined) host.seedSecret(`providers/${id}/apiKey`, row.apiKey);
+}
+
 async function loadedPlugin(host: FakePluginHost, config: Record<string, unknown> = {}): Promise<LlmPlugin> {
-    host.seedConfig({ model: 'google:gemini-x', ...config });
-    if (config.apiKey !== null) host.seedSecret('googleApiKey', 'goog-test');
+    seedProvider(
+        host,
+        { name: 'google', kind: 'google', ...(config.apiKey === null ? {} : { apiKey: 'goog-test' }) },
+        { model: 'google:gemini-x', ...config },
+    );
     const plugin = new LlmPlugin();
     await plugin.init(host);
     return plugin;
@@ -184,8 +205,8 @@ describe('what Gemini has', () => {
         const plugin = await loadedPlugin(host);
 
         expect(await plugin.listModels()).toEqual([
-            { id: 'google:gemini-x', label: 'gemini-x · Google Gemini', tools: true, default: true },
-            { id: 'google:gemini-y', label: 'gemini-y · Google Gemini', tools: true },
+            { id: 'google:gemini-x', label: 'gemini-x · google', tools: true, default: true },
+            { id: 'google:gemini-y', label: 'gemini-y · google', tools: true },
         ]);
     });
 
@@ -196,8 +217,7 @@ describe('what Gemini has', () => {
             call += 1;
             return call === 1 ? modelsResponse([{ name: 'models/gemini-x' }], 'page-2') : modelsResponse([{ name: 'models/gemini-y' }]);
         });
-        host.seedConfig({ model: 'google:gemini-x' });
-        host.seedSecret('googleApiKey', 'goog-test');
+        seedProvider(host, { name: 'google', kind: 'google', apiKey: 'goog-test' }, { model: 'google:gemini-x' });
         const plugin = new LlmPlugin();
         await plugin.init(host);
 
@@ -220,7 +240,7 @@ describe('a Gemini provider with no key', () => {
 
         const { message } = await plugin.testConnection();
 
-        expect(message).toContain('Gemini key');
+        expect(message).toContain('no API key');
         expect(host.calls).toHaveLength(0);
     });
 

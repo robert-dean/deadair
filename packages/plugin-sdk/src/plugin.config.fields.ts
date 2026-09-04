@@ -137,10 +137,17 @@ export type ConfigFieldOptionSource =
 /**
  * One column of a `list` field.
  *
- * Deliberately a smaller vocabulary than {@link ConfigFieldType}: no `secret`, because a row is
- * stored as plain JSON and nothing encrypts one cell of it, and no nested `list`, because a table
- * inside a table is a form nobody can fill in. Every cell is stored as a STRING, so a column is
- * about the control the operator gets rather than about the shape of what is kept.
+ * Still a smaller vocabulary than {@link ConfigFieldType} — no nested `list`, because a table inside
+ * a table is a form nobody can fill in — but `secret` is now in it, and the reason it was not is
+ * worth keeping because it is what had to be built to allow it. A row was stored as plain JSON with
+ * nothing to encrypt one cell against: a ciphertext has to belong to a ROW, and a row had no
+ * identity beyond its position in an array the console rewrites whole on every save. {@link ROW_ID_KEY}
+ * is that identity, and {@link rowSecretKey} is where the cell's ciphertext lives.
+ *
+ * Every ordinary cell is stored as a STRING in the row, so a column is about the control the
+ * operator gets rather than about the shape of what is kept. A `secret` cell is the exception and
+ * the exception is the point: it is never in the row at all, and the row an author reads back has
+ * no trace of it. See {@link readRowSecret}.
  */
 export interface ConfigFieldColumn {
     /**
@@ -151,14 +158,21 @@ export interface ConfigFieldColumn {
      * the FORM's problem and it solves it the way it already solves the same problem for a
      * dot-keyed station setting: it names its inputs positionally and puts the real keys back on
      * the way out. Nothing a plugin author has to know about.
+     *
+     * One character is refused, and only because {@link rowSecretKey} joins on it: a `/`. That
+     * separator has to be unambiguous or a cell's ciphertext could be addressed by two different
+     * keys, so it is refused at the schema rather than escaped.
      */
     key: string;
 
     /** Column heading. */
     label: string;
 
-    /** `string` free text, `url` free text meant to be an address, `select` one of `options`. */
-    type: 'string' | 'url' | 'select';
+    /**
+     * `string` free text, `url` free text meant to be an address, `select` one of `options`, and
+     * `secret` a credential this row holds — write-only, encrypted per cell, and never in the row.
+     */
+    type: 'string' | 'url' | 'select' | 'secret';
 
     /** Whether a row is only counted once this cell is filled in. */
     required?: boolean;
@@ -192,6 +206,51 @@ export function parseMultiSelect(raw: unknown): string[] {
     } catch {
         return [];
     }
+}
+
+/**
+ * The cell key a row's own identity is stored under.
+ *
+ * A reserved name rather than a column an author declares, because it is not data: nobody types it,
+ * nothing renders it, and a plugin that ignores it entirely is a plugin that behaves exactly as it
+ * did before this existed. The host mints one when a row is first saved and preserves it forever
+ * after.
+ *
+ * ## Why a row needs a name at all
+ *
+ * Only so a {@link ConfigFieldColumn} may be a `secret`. A secret is encrypted and kept out of the
+ * row, which means something has to say which row a given ciphertext belongs to — and until this
+ * existed the only answer was "the third one", from a console that rewrites the whole array on
+ * every save and lets the operator reorder it. Position is not identity. A `$` leads it because no
+ * sensible column key does, and because a row whose keys are printed somewhere reads as obviously
+ * not-a-column.
+ */
+export const ROW_ID_KEY = '$id';
+
+/**
+ * Where a `secret` cell's ciphertext lives, in the same flat map a `secret` FIELD's does.
+ *
+ * `field/row/column`, joined on the one character a field key and a column key may not contain
+ * (both schemas refuse it below). That is what keeps this unambiguous against a plain secret
+ * field's key, which is a bare field key and can therefore never collide with a three-part one.
+ *
+ * One map rather than a nested shape because everything already built for secrets — encrypting per
+ * entry, reporting configured-ness as a boolean, the rule that no value ever leaves the server —
+ * works on a flat `Record<string, string>` and needed no changes to carry these.
+ */
+export function rowSecretKey(fieldKey: string, rowId: string, columnKey: string): string {
+    return `${fieldKey}/${rowId}/${columnKey}`;
+}
+
+/**
+ * Whether a stored secret key belongs to a row rather than to a field.
+ *
+ * For the host, which merges stored secrets back into the form to validate it: a row's cells belong
+ * inside their row and putting them at the top level would show a plugin's schema three keys it has
+ * never declared.
+ */
+export function isRowSecretKey(key: string): boolean {
+    return key.split('/').length === 3;
 }
 
 /**
@@ -370,19 +429,31 @@ export const configFieldUnitSchema = z.enum(['bytes', 'fraction']);
 
 export const configFieldControlSchema = z.enum(['slider', 'tags']);
 
+/**
+ * Every member of {@link ConfigFieldOptionSource}, and it has to stay every member: this validates
+ * real manifests at load, so a source missing here is a plugin the host refuses to start. Two were
+ * missing for exactly that reason and nothing caught it, because no bundled plugin had asked for
+ * one yet.
+ */
 export const configFieldOptionSourceSchema = z.enum([
     'station.newsCategories',
+    'station.newsFeeds',
     'intl.timeZones',
     'plugins.speech',
     'plugins.llm',
     'plugins.mixer',
     'plugins.analysis',
+    'llm.models',
 ]);
 
+/** The one character a key may not hold, because {@link rowSecretKey} joins on it. */
+const noSeparator = (key: string): boolean => !key.includes('/');
+const separatorMessage = 'a key may not contain "/"';
+
 export const configFieldColumnSchema = z.object({
-    key: z.string().min(1),
+    key: z.string().min(1).refine(noSeparator, separatorMessage),
     label: z.string().min(1),
-    type: z.enum(['string', 'url', 'select']),
+    type: z.enum(['string', 'url', 'select', 'secret']),
     required: z.boolean().optional(),
     placeholder: z.string().optional(),
     options: z.array(configFieldOptionSchema).optional(),
@@ -390,7 +461,7 @@ export const configFieldColumnSchema = z.object({
 });
 
 export const configFieldSchema = z.object({
-    key: z.string().min(1),
+    key: z.string().min(1).refine(noSeparator, separatorMessage),
     label: z.string().min(1),
     type: configFieldTypeSchema,
     required: z.boolean().optional(),

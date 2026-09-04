@@ -1,3 +1,6 @@
+import { ROW_ID_KEY, rowSecretKey } from './plugin.config.fields.js';
+import type { PluginHost } from './plugin.host.js';
+
 /**
  * Reading an operator's typed-in config field.
  *
@@ -38,4 +41,28 @@ export function configString(value: unknown): string | undefined {
  */
 export function configBaseUrl(value: unknown): string {
     return (configString(value) ?? '').replace(/\/+$/, '');
+}
+
+/**
+ * The credential one ROW of a `list` field holds, or `undefined` when the operator has not set it.
+ *
+ * The whole of what a plugin has to know about secret cells. A `secret` column is never in the row
+ * that {@link parseRows} hands back — that is what makes it a secret rather than a JSON string with
+ * a password in it — so this is how the value is reached, and the key it is stored under is nobody's
+ * business but this function's.
+ *
+ * Answers `undefined` for a row the host has never saved, which is the honest answer: a row with no
+ * {@link ROW_ID_KEY} has never been stored, so there is nothing under it.
+ *
+ * ```ts
+ * for (const row of parseRows(config.providers)) {
+ *     const apiKey = await readRowSecret(this.host, 'providers', row, 'apiKey');
+ * }
+ * ```
+ */
+export async function readRowSecret(host: PluginHost, fieldKey: string, row: Record<string, string>, columnKey: string): Promise<string | undefined> {
+    const rowId = row[ROW_ID_KEY];
+    if (rowId === undefined || rowId.length === 0) return undefined;
+
+    return await host.secrets.get(rowSecretKey(fieldKey, rowId, columnKey));
 }

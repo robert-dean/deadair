@@ -873,16 +873,18 @@ bundled music providers declare three and four.
 `configFields` is a declarative form description. The host renders it; plugins
 never ship UI.
 
-| type          | notes                                                |
-| ------------- | ---------------------------------------------------- |
-| `string`      | free text                                            |
-| `url`         | free text, validated as a URL                        |
-| `secret`      | write-only, encrypted, read via `host.secrets.get()` |
-| `number`      | numeric input, bounded by `min` / `max` if declared  |
-| `boolean`     | toggle                                               |
-| `select`      | one of `options`                                     |
-| `multiselect` | any number of `options`, stored as a JSON array      |
-| `note`        | not an input; static help text in the form           |
+| type          | notes                                                       |
+| ------------- | ----------------------------------------------------------- |
+| `string`      | free text                                                   |
+| `text`        | free text over several lines                                |
+| `url`         | free text, validated as a URL                               |
+| `secret`      | write-only, encrypted, read via `host.secrets.get()`        |
+| `number`      | numeric input, bounded by `min` / `max` if declared         |
+| `boolean`     | toggle                                                      |
+| `select`      | one of `options`                                            |
+| `multiselect` | any number of `options`, stored as a JSON array             |
+| `list`        | any number of rows over `columns`; read with `parseRows()`  |
+| `note`        | not an input; static help text in the form                  |
 
 Use `dependsOn` to hide a field until another one is filled in. Use `min` and
 `max` on a `number` to say what it will take, which the form bounds the input to.
@@ -890,6 +892,40 @@ Use `configSchema` for anything the form cannot express: the host parses the
 operator's submission with it before storing, so by the time `onLoad()` runs your
 config is already valid. Read a `multiselect` back with
 `parseMultiSelect(config.myField)`.
+
+### Rows, and a credential inside one
+
+A `list` is a table the operator adds rows to, declared with `columns` and stored
+as a JSON array of objects. A column is `string`, `url`, `select` or `secret`.
+
+```ts
+{ key: 'providers', label: 'Providers', type: 'list', columns: [
+    { key: 'name', label: 'Name', type: 'string', required: true },
+    { key: 'baseUrl', label: 'Address', type: 'url' },
+    { key: 'apiKey', label: 'API key', type: 'secret' },
+]}
+```
+
+A `secret` cell behaves exactly as a `secret` field does and for the same reasons:
+the console never shows it, the API never returns it, and it is encrypted on its
+own. **It is not in the row.** `parseRows` gives you the ordinary cells, and the
+credential is fetched separately:
+
+```ts
+for (const row of parseRows(config.providers)) {
+    const apiKey = await readRowSecret(this.host, 'providers', row, 'apiKey');
+}
+```
+
+Every row also carries `ROW_ID_KEY` (`$id`), minted by the host the first time the
+row is saved and stable across reorders and edits. It exists so a ciphertext can
+belong to a row rather than to a position in an array the console rewrites whole
+on every save. Ignore it and nothing changes; `readRowSecret` is the only thing
+that reads it.
+
+One constraint falls out of that: a field key and a column key may not contain a
+`/`, because `rowSecretKey` joins on it. The manifest schema refuses one, so you
+find out at load rather than at save.
 
 ### Asking for a better control
 

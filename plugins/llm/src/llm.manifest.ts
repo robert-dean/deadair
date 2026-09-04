@@ -15,6 +15,19 @@ export const PLUGIN_VERSION = '0.0.1';
 export const DEFAULT_BASE_URL = 'http://localhost:11434/v1';
 
 /**
+ * Anthropic's own address, and it is named here rather than left to the SDK's
+ * default on purpose: that SDK reads `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY`
+ * out of the environment when it is not told, and a plugin whose upstream and
+ * credential can be moved by the container it happens to run in is a plugin whose
+ * declared network permission describes something other than what it does.
+ *
+ * Beside the manifest rather than beside the arm because the manifest is what has
+ * to name the hostname, and two spellings of one address is how they drift.
+ */
+export const ANTHROPIC_HOST = 'api.anthropic.com';
+export const ANTHROPIC_BASE_URL = `https://${ANTHROPIC_HOST}/v1`;
+
+/**
  * How the provider is spoken to.
  *
  * A dependency, a branch and an option rather than a plugin each, because
@@ -27,14 +40,14 @@ export const DEFAULT_BASE_URL = 'http://localhost:11434/v1';
  * a native arm is never here for coverage: it is here because that service's own
  * protocol carries something the shared one cannot say.
  */
-export const PROVIDER_KINDS = { 'openai-compat': 'OpenAI-compatible' } as const;
+export const PROVIDER_KINDS = { 'openai-compat': 'OpenAI-compatible', anthropic: 'Anthropic' } as const;
 
 export type ProviderKind = keyof typeof PROVIDER_KINDS;
 
 export const DEFAULT_PROVIDER_KIND: ProviderKind = 'openai-compat';
 
 /** Which kinds cannot work without an API key, for the save-time check below. */
-export const KEYED_KINDS: readonly ProviderKind[] = [];
+export const KEYED_KINDS: readonly ProviderKind[] = ['anthropic'];
 
 /** Whether a config value is one of {@link PROVIDER_KINDS}'s own keys, rather than something a hand-edited row left behind. */
 export function isProviderKind(value: string | undefined): value is ProviderKind {
@@ -157,12 +170,19 @@ export const llmManifest: PluginManifest = {
     capabilities: [PLUGIN_CAPABILITY_LLM],
     apiVersion: '^1.0.0',
     description:
-        'Lets the station ask a model for words, through any OpenAI-compatible endpoint. One plugin covers a local server and a hosted provider alike; which one is a setting.',
+        'Lets the station ask a model for words, through an OpenAI-compatible endpoint or a provider spoken to in its own protocol. One plugin covers a local server and a hosted provider alike; which one is a setting.',
     permissions: {
-        // The operator names the address, so there is no hostname to write down
-        // here. An unset or unparseable `baseUrl` contributes no entry at all,
-        // which refuses the call exactly as an undeclared host would.
-        network: [{ fromConfig: 'baseUrl' }],
+        // The OpenAI-compatible arm's address is the operator's, so there is no
+        // hostname to write down for it: an unset or unparseable `baseUrl`
+        // contributes no entry at all, which refuses the call exactly as an
+        // undeclared host would. A native arm's address is not an operator's
+        // business, so it is named outright — the same split `plugins/weather`
+        // makes between a self-hosted supplier and three named ones.
+        //
+        // No rate declared on either. The host serializes model calls through one
+        // slot, so there is no burst here to pace, and a published limit written
+        // down would be a second bound on something already bounded.
+        network: [{ fromConfig: 'baseUrl' }, ANTHROPIC_HOST],
         // Nothing is kept between calls. A conversation belongs to whoever is
         // having it, and this plugin is the transport rather than a party to it.
         storage: false,
@@ -175,7 +195,7 @@ export const llmManifest: PluginManifest = {
             type: 'select',
             default: DEFAULT_PROVIDER_KIND,
             options: (Object.keys(PROVIDER_KINDS) as ProviderKind[]).map(value => ({ value, label: PROVIDER_KINDS[value] })),
-            help: 'How the endpoint is spoken to. OpenAI-compatible covers a local server, OpenAI, and most hosted providers.',
+            help: 'How the provider is spoken to. OpenAI-compatible covers a local Ollama or vLLM and most hosted services, OpenAI itself included; the rest are here because their own protocol carries something it cannot.',
         },
         {
             key: 'reasoningEffort',
@@ -183,7 +203,7 @@ export const llmManifest: PluginManifest = {
             type: 'select',
             default: DEFAULT_REASONING_EFFORT,
             options: (Object.keys(REASONING_EFFORTS) as ReasoningEffortSetting[]).map(value => ({ value, label: REASONING_EFFORTS[value] })),
-            help: 'How hard a reasoning model should think. Auto forwards whatever the station asked for; the fixed levels override it. A server that answers 400 to the field itself is what Off is for; a live refusal is already handled without asking.',
+            help: 'How hard a reasoning model should think, in whatever the chosen provider calls it. Auto forwards whatever the station asked for; the fixed levels override it. A server that answers 400 to the field itself is what Off is for; a live refusal is already handled without asking.',
         },
         {
             key: 'baseUrl',
@@ -191,19 +211,19 @@ export const llmManifest: PluginManifest = {
             type: 'url',
             required: true,
             default: DEFAULT_BASE_URL,
-            help: 'Including any /v1. A local Ollama answers on http://localhost:11434/v1, or its container name from inside compose.',
+            help: 'For the OpenAI-compatible provider only, and ignored by the rest. Including any /v1: a local Ollama answers on http://localhost:11434/v1, or its container name from inside compose.',
         },
         {
             key: 'apiKey',
             label: 'API key',
             type: 'secret',
-            help: 'Leave empty for a local server that wants no key. Required for a hosted provider.',
+            help: 'Required for Anthropic. Leave empty for a local server that wants no key.',
         },
         {
             key: 'model',
             label: 'Default model',
             type: 'string',
-            help: 'Used whenever the station does not name one. Save the server URL first and this lists what it has; anything it does not list can still be typed.',
+            help: 'Used whenever the station does not name one. Save the provider first and this lists what it has; anything it does not list can still be typed.',
         },
         {
             key: 'temperature',
@@ -215,7 +235,7 @@ export const llmManifest: PluginManifest = {
             key: 'models',
             label: 'Tool-capable models',
             type: 'multiselect',
-            help: "Which of this server's models can be given tools. No endpoint reports this and it cannot be guessed from a name, so it is the one thing here you have to know. A model not ticked is never sent any.",
+            help: "For the OpenAI-compatible provider only: which of this server's models can be given tools. No such endpoint reports it and it cannot be guessed from a name, so it is the one thing here you have to know, and a model not ticked is never sent any. Ignored for a provider whose models all take tools.",
         },
     ],
     configSchema,

@@ -1,5 +1,6 @@
 import type { PluginHost } from '@deadair/plugin-sdk';
 import type { ProviderKind } from './llm.manifest.js';
+import { anthropicArm } from './anthropic.provider.js';
 import { openAiCompatibleArm } from './openai.compat.provider.js';
 import type { ProviderArm } from './llm.provider.js';
 
@@ -34,6 +35,9 @@ export function buildArm(kind: ProviderKind, host: PluginHost, credentials: ArmC
                       baseUrl: credentials.baseUrl,
                       ...(credentials.apiKey === undefined ? {} : { apiKey: credentials.apiKey }),
                   });
+
+        case 'anthropic':
+            return hasKey(credentials.apiKey) ? anthropicArm(host, { apiKey: credentials.apiKey }) : undefined;
     }
 }
 
@@ -42,5 +46,11 @@ export function unconfiguredMessage(kind: ProviderKind): string {
     switch (kind) {
         case 'openai-compat':
             return 'No server URL set.';
+
+        case 'anthropic':
+            return 'No API key set.';
     }
 }
+
+/** A key that is actually there, as opposed to one saved blank. */
+const hasKey = (apiKey: string | undefined): apiKey is string => apiKey !== undefined && apiKey.trim().length > 0;

@@ -10,11 +10,13 @@ import { pluginSummary } from '../../utils/plugin.fixture';
 
 const listPlugins = vi.fn();
 const listFeeds = vi.fn();
+const suggestPluginConfigOptions = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
         plugins: {
             listPlugins: (...args: unknown[]) => listPlugins(...args),
+            suggestPluginConfigOptions: (...args: unknown[]) => suggestPluginConfigOptions(...args),
         },
         news: {
             listFeeds: (...args: unknown[]) => listFeeds(...args),
@@ -25,6 +27,7 @@ vi.mock('../../../src/api/client', () => ({
 afterEach(() => {
     listPlugins.mockReset();
     listFeeds.mockReset();
+    suggestPluginConfigOptions.mockReset();
 });
 
 function wrapWithQueryClient(queryClient: QueryClient) {
@@ -140,5 +143,75 @@ describe('useDeclaredOptions', () => {
         const { result } = renderHook(() => useDeclaredOptions(fields), { wrapper: wrapWithQueryClient(queryClient) });
 
         await waitFor(() => expect(result.current[columnSuggestionKey('voices', 'engine')]).toEqual([{ value: 'mixer-a', label: 'Mixer A' }]));
+    });
+});
+
+describe('the models a writer can be set to', () => {
+    const modelField = (): ConfigFieldDescriptor => ({ key: 'llm.breakModel', label: 'Model', type: 'string', optionsFrom: 'llm.models' });
+    const pluginField = (): ConfigFieldDescriptor => ({ key: 'llm.pluginId', label: 'Think with', type: 'string', optionsFrom: 'plugins.llm' });
+
+    const MODELS = [
+        { value: 'gpt-oss-radio:latest', label: 'gpt-oss-radio:latest' },
+        { value: 'anthropic:claude-x', label: 'claude-x · Anthropic' },
+    ];
+
+    function drawWith(valueOf: (key: string) => string | undefined) {
+        const queryClient = createTestQueryClient();
+        return renderHook(() => useDeclaredOptions([pluginField(), modelField()], valueOf), { wrapper: wrapWithQueryClient(queryClient) });
+    }
+
+    it('offers what the named plugin says it has, qualified as the plugin qualified it', async () => {
+        listPlugins.mockResolvedValue([pluginSummary({ id: 'deadair.llm', capabilities: ['llm'], enabled: true })]);
+        suggestPluginConfigOptions.mockResolvedValue({ fields: { model: MODELS }, supported: true });
+
+        const { result } = drawWith(key => (key === 'llm.pluginId' ? 'deadair.llm' : undefined));
+
+        await waitFor(() => expect(result.current['llm.breakModel']).toEqual(MODELS));
+        expect(suggestPluginConfigOptions).toHaveBeenCalledWith('deadair.llm');
+    });
+
+    it('asks the plugin the station would actually reach when the setting is empty', async () => {
+        // `selectPlugin`'s own rule, host-side: an unset key takes the first candidate by id. Asking
+        // a different plugin than the station will use would offer models it cannot reach.
+        listPlugins.mockResolvedValue([
+            pluginSummary({ id: 'aaa.llm', capabilities: ['llm'], enabled: true }),
+            pluginSummary({ id: 'zzz.llm', capabilities: ['llm'], enabled: true }),
+        ]);
+        suggestPluginConfigOptions.mockResolvedValue({ fields: { model: MODELS }, supported: true });
+
+        const { result } = drawWith(() => '');
+
+        await waitFor(() => expect(result.current['llm.breakModel']).toEqual(MODELS));
+        expect(suggestPluginConfigOptions).toHaveBeenCalledWith('aaa.llm');
+    });
+
+    it('answers nothing rather than failing when the plugin has nothing to say', async () => {
+        // An unreachable model server is a form with no suggestions on that field, not a settings
+        // page that will not draw.
+        listPlugins.mockResolvedValue([pluginSummary({ id: 'deadair.llm', capabilities: ['llm'], enabled: true })]);
+        suggestPluginConfigOptions.mockResolvedValue({ fields: {}, supported: true });
+
+        const { result } = drawWith(() => 'deadair.llm');
+
+        await waitFor(() => expect(result.current['llm.breakModel']).toEqual([]));
+    });
+
+    it('asks nothing at all when no llm plugin is installed', async () => {
+        listPlugins.mockResolvedValue([]);
+
+        const { result } = drawWith(() => '');
+
+        await waitFor(() => expect(result.current['llm.breakModel']).toEqual([]));
+        expect(suggestPluginConfigOptions).not.toHaveBeenCalled();
+    });
+
+    it('asks nothing for a form with no model field in it', async () => {
+        listPlugins.mockResolvedValue([pluginSummary({ id: 'deadair.llm', capabilities: ['llm'], enabled: true })]);
+        const queryClient = createTestQueryClient();
+
+        renderHook(() => useDeclaredOptions([pluginField()], () => 'deadair.llm'), { wrapper: wrapWithQueryClient(queryClient) });
+
+        await waitFor(() => expect(listPlugins).toHaveBeenCalled());
+        expect(suggestPluginConfigOptions).not.toHaveBeenCalled();
     });
 });

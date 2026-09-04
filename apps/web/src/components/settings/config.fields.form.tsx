@@ -455,7 +455,16 @@ export function ConfigFieldsForm({
     // configuring: a column declaring `optionsFrom` names a STATION vocabulary, which neither the
     // plugin nor the settings page is in a position to answer. Resolved here rather than at the two
     // call sites so neither grows its own copy, and nothing is fetched for a form that asks for none.
-    const declared = useDeclaredOptions(fields);
+    //
+    // The reader is how one source answers a question about ANOTHER field: `llm.models` offers the
+    // models of whichever plugin `llm.pluginId` names, and that value lives in this form. Positional
+    // names are this form's own business, so the lookup is by KEY and the translation happens here.
+    const declared = useDeclaredOptions(fields, key => {
+        const index = fields.findIndex(field => field.key === key);
+        if (index < 0) return undefined;
+        const value = form.getValues()[nameOf(index)];
+        return typeof value === 'string' ? value : undefined;
+    });
     const offered = (key: string): readonly ConfigFieldOption[] => {
         const suggested = suggestions?.[key];
         return suggested !== undefined && suggested.length > 0 ? suggested : (declared[key] ?? []);

@@ -113,12 +113,26 @@ export interface ConfigFieldOption {
  * this is a suggestion list rather than a closed `select` — the console resolves it the same way as
  * the other sources here, against the plugin list rather than a static enum.
  *
+ * `llm.models` is the odd one and the only member whose answer comes from a PLUGIN rather than from
+ * a station table: the models the selected model plugin currently offers, for the settings that say
+ * which model a particular writer should use. It resolves through the suggestions route every plugin
+ * settings form already uses, against whichever plugin `llm.pluginId` names, so the six writer
+ * settings offer the same list the plugin's own form does — including which provider each model
+ * lives on, since a model name carries that.
+ *
  * An enum rather than a boolean for {@link ConfigFieldUnit}'s reason: the next one (voices,
  * personas) is obvious, and a closed set is what the contract mirroring this can express. Whatever
  * it names is resolved by the CONSOLE; nothing here reaches a plugin.
  */
 export type ConfigFieldOptionSource =
-    'station.newsCategories' | 'station.newsFeeds' | 'intl.timeZones' | 'plugins.speech' | 'plugins.llm' | 'plugins.mixer' | 'plugins.analysis';
+    | 'station.newsCategories'
+    | 'station.newsFeeds'
+    | 'intl.timeZones'
+    | 'plugins.speech'
+    | 'plugins.llm'
+    | 'plugins.mixer'
+    | 'plugins.analysis'
+    | 'llm.models';
 
 /**
  * One column of a `list` field.

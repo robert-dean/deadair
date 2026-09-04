@@ -1134,6 +1134,21 @@ describe('PluginHostFactory config-derived allowlist', () => {
         await expectPluginError(host.fetch('https://sport/x'), 'forbidden', /not allowed to reach/);
     });
 
+    it("never reads a row's own id or a credential as an address", async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        // Both are cells in the row now: `$id` is the name a secret cell hangs off, and a secret
+        // column is declared here even though its value is never in the row. The column check is
+        // what keeps either from becoming an upstream, and it costs nothing to prove.
+        const { service } = configured(rows({ $id: 'ab12cd34', url: 'https://good.example.com/feed.xml', apiKey: 'leaked.example.net' }));
+        const host = factory(undefined, service).createHost(
+            fromRows({ key: 'url', label: 'Address', type: 'url' }, { key: 'apiKey', label: 'API key', type: 'secret' }),
+        );
+
+        await expect(host.fetch('https://good.example.com/feed.xml')).resolves.toMatchObject({ status: 200 });
+        await expectPluginError(host.fetch('https://ab12cd34/x'), 'forbidden', /not allowed to reach/);
+        await expectPluginError(host.fetch('https://leaked.example.net/x'), 'forbidden', /not allowed to reach/);
+    });
+
     it('lets one bad row cost its own upstream and no other', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
         const { service } = configured(rows({ url: '' }, { url: 'https://*.example.org' }, { url: 'https://good.example.com/feed.xml' }));

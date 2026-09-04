@@ -52,13 +52,13 @@ export type ConfigFieldOptionSource =
     | 'llm.models';
 
 /**
- * generated from [PluginLogLevel](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L80)
+ * generated from [PluginLogLevel](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L81)
  */
 export type PluginLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
  * A submitted settings form. Secret values arrive in here and are never echoed back
- * generated from [PluginConfigInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L112)
+ * generated from [PluginConfigInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L113)
  */
 export interface PluginConfigInput {
     config: Record<string, unknown>;
@@ -67,13 +67,13 @@ export interface PluginConfigInput {
 /**
  * What a plugin may do with a capability it asked for. Denied is the default and needs no row: a
  * capability is refused until somebody allows it, so "never answered" and "refused" are one state
- * generated from [GrantDecision](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L118)
+ * generated from [GrantDecision](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L119)
  */
 export type GrantDecision = 'allowed' | 'denied';
 
 /**
  * Outcome of the plugin's own `testConnection()`
- * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L142)
+ * generated from [PluginTestResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L143)
  */
 export interface PluginTestResult {
     ok: boolean;
@@ -83,7 +83,7 @@ export interface PluginTestResult {
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L160)
+ * generated from [PluginOAuthStart](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L161)
  */
 export interface PluginOAuthStart {
     url: string;
@@ -91,7 +91,7 @@ export interface PluginOAuthStart {
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L165)
+ * generated from [PluginOAuthResult](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L166)
  */
 export interface PluginOAuthResult {
     pluginId: string;
@@ -100,7 +100,7 @@ export interface PluginOAuthResult {
 }
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L171)
+ * generated from [PluginOAuthCallbackQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L172)
  */
 export interface PluginOAuthCallbackQuery {
     code?: string;
@@ -120,7 +120,7 @@ export interface PluginOAuthCallbackQuery {
  * Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
  * `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
  * was written, where these are whatever the operator's own server currently says
- * generated from [PluginFieldSuggestions](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L150)
+ * generated from [PluginFieldSuggestions](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L151)
  */
 export interface PluginFieldSuggestions {
     /** Keys the plugin had nothing to say about are simply absent, rather than present and empty */
@@ -133,13 +133,14 @@ export interface PluginFieldSuggestions {
 }
 
 /**
- * One column of a `list` field. Every cell is stored as a string, so this describes the control rather than the value
- * generated from [ConfigFieldColumn](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L34)
+ * One column of a `list` field. Every ordinary cell is stored as a string in the row, so this describes the
+ * control rather than the value; a `secret` cell is encrypted on its own and is never in the row at all
+ * generated from [ConfigFieldColumn](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L35)
  */
 export interface ConfigFieldColumn {
     key: string;
     label: string;
-    type: 'string' | 'url' | 'select';
+    type: 'string' | 'url' | 'select' | 'secret';
     required?: boolean;
     placeholder?: string;
     options?: ConfigFieldOption[];
@@ -147,7 +148,7 @@ export interface ConfigFieldColumn {
 }
 
 /**
- * generated from [PluginLogEntry](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L82)
+ * generated from [PluginLogEntry](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L83)
  */
 export interface PluginLogEntry {
     ts: string;
@@ -157,7 +158,7 @@ export interface PluginLogEntry {
 }
 
 /**
- * generated from [PluginLogQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L94)
+ * generated from [PluginLogQuery](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L95)
  */
 export interface PluginLogQuery {
     limit?: number;
@@ -165,7 +166,7 @@ export interface PluginLogQuery {
 }
 
 /**
- * generated from [PluginLogLevelInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L99)
+ * generated from [PluginLogLevelInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L100)
  */
 export interface PluginLogLevelInput {
     level: PluginLogLevel;
@@ -174,7 +175,7 @@ export interface PluginLogLevelInput {
 /**
  * One capability a plugin asked for, with the station's answer. The ask is the plugin's manifest and
  * the answer is a row, so a plugin that stops asking stops appearing here whatever was stored
- * generated from [PluginGrant](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L122)
+ * generated from [PluginGrant](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L123)
  */
 export interface PluginGrant {
     pluginId: string;
@@ -191,7 +192,7 @@ export interface PluginGrant {
 }
 
 /**
- * generated from [PluginGrantInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L136)
+ * generated from [PluginGrantInput](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L137)
  */
 export interface PluginGrantInput {
     capability: string;
@@ -200,7 +201,7 @@ export interface PluginGrantInput {
 
 /**
  * Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code
- * generated from [ConfigFieldDescriptor](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L45)
+ * generated from [ConfigFieldDescriptor](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L46)
  */
 export interface ConfigFieldDescriptor {
     key: string;
@@ -232,7 +233,7 @@ export interface ConfigFieldDescriptor {
 }
 
 /**
- * generated from [PluginLogPage](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L88)
+ * generated from [PluginLogPage](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L89)
  */
 export interface PluginLogPage {
     pluginId: string;
@@ -242,7 +243,7 @@ export interface PluginLogPage {
 }
 
 /**
- * generated from [PluginGrantList](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L132)
+ * generated from [PluginGrantList](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L133)
  */
 export interface PluginGrantList {
     /** Every capability every installed plugin is asking for, refused ones included */
@@ -251,7 +252,7 @@ export interface PluginGrantList {
 
 /**
  * A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set
- * generated from [PluginSummary](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L66)
+ * generated from [PluginSummary](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L67)
  */
 export interface PluginSummary {
     id: string;
@@ -263,7 +264,7 @@ export interface PluginSummary {
     description?: string;
     icon?: string;
     configFields: ConfigFieldDescriptor[];
-    /** One entry per `secret` field: whether a value is currently stored. Never the value itself */
+    /** Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself */
     secretsConfigured: Record<string, boolean>;
     /** When this plugin was first ever enabled. Absent means it never has been, so the console asks before it is */
     firstEnabledAt?: string;
@@ -279,13 +280,13 @@ export interface PluginSummaryInput {
     description?: string;
     icon?: string;
     configFields: ConfigFieldDescriptor[];
-    /** One entry per `secret` field: whether a value is currently stored. Never the value itself */
+    /** Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself */
     secretsConfigured: Record<string, boolean>;
 }
 
 /**
  * A summary plus the stored NON-SECRET configuration and the last recorded failure
- * generated from [PluginDetail](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L104)
+ * generated from [PluginDetail](file://./../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L105)
  */
 export interface PluginDetail extends PluginSummary {
     config: Record<string, unknown>;

@@ -93,7 +93,13 @@ export class WebSearchPlugin extends Plugin implements SearchPluginInstance, Enr
 
         this.provider = readProvider(config.provider);
         this.baseUrl = readText(config.baseUrl);
-        this.apiKey = readText(config.apiKey);
+        // From the secrets store, not from `config`. `apiKey` is declared `type: 'secret'`, which
+        // means `saveConfig` encrypts it into `secrets` and `host.config.get()` can never contain
+        // it — so reading it here answered `''` for every operator who had one, and Brave and
+        // Tavily were called with no credential at all. Every other plugin in the tree reads its
+        // key this way; this one was the exception, and its tests seeded the key into config, which
+        // is exactly why nothing noticed.
+        this.apiKey = (await this.host.secrets.get('apiKey')) ?? '';
         this.maxResults = positive(config.maxResults) ?? DEFAULT_MAX_RESULTS;
         this.trustedSites = parseTrustedSites(config.trustedSites);
         this.maxDocuments = Math.min(positive(config.maxDocuments) ?? DEFAULT_MAX_DOCUMENTS, MAX_DOCUMENTS);

@@ -13,8 +13,15 @@ import { BRAVE_HOST, REQUEST_TIMEOUT_MS, TAVILY_HOST, websearchManifest } from '
 let host: FakePluginHost;
 let plugin: WebSearchPlugin;
 
+/**
+ * Seeds the form as the HOST would store it: a `secret` field goes to the secrets store and can
+ * never be in `config`. Seeding it into config is what hid a live bug where the key was read from
+ * the wrong place and every keyed engine was called without one.
+ */
 const initialize = async (config: Record<string, unknown>): Promise<void> => {
-    host.seedConfig(config);
+    const { apiKey, ...plain } = config;
+    host.seedConfig(plain);
+    if (typeof apiKey === 'string') host.seedSecret('apiKey', apiKey);
     await plugin.init(host);
 };
 

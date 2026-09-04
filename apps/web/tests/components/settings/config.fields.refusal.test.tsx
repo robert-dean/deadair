@@ -90,3 +90,31 @@ describe('a save the server refused', () => {
         await waitFor(() => expect(screen.getByText('This provider needs an API key')).toBeInTheDocument());
     });
 });
+
+describe('a form whose choices depend on another field', () => {
+    it('renders at all', async () => {
+        // Regression, and it was invisible to every unit test of the resolver: the reader closes
+        // over the form and runs synchronously during the same render, so declaring it above
+        // `useForm` read a `const` in its temporal dead zone. Every test of `useDeclaredOptions`
+        // passed, because they call it directly, and the settings page rendered as "this page did
+        // not load". Rendering the real form with a source that uses the reader is what catches it.
+        render(
+            <ConfigFieldsForm
+                fields={[
+                    { key: 'llm.pluginId', label: 'Think with', type: 'string', optionsFrom: 'plugins.llm' },
+                    { key: 'llm.breakModel', label: 'Model for a talk break', type: 'string', optionsFrom: 'llm.models' },
+                ]}
+                stored={{ 'llm.pluginId': 'deadair.llm' }}
+                secretsConfigured={{}}
+                onSubmit={vi.fn(async () => {})}
+                pending={false}
+                succeeded={false}
+                submitLabel="Save"
+                failureTitle="Save failed"
+                failureMessage="It could not be saved."
+            />,
+        );
+
+        expect(await screen.findByLabelText('Model for a talk break')).toBeInTheDocument();
+    });
+});

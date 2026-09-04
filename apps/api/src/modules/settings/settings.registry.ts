@@ -1008,7 +1008,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: '',
         dependsOn: MODEL_WRITER_KEYS.enabled,
         optionsFrom: 'llm.models',
-        help: "Per call rather than plugin config, so a big model for a show and a small one for a link is expressible. Leave empty for the plugin's own default. A plain name is the plugin's OpenAI-compatible server; anthropic:… and google:… name the others.",
+        help: "Per call rather than plugin config, so a big model for a show and a small one for a link is expressible. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
     },
     // Who the station sounds like was a setting here and is now a row in `deadair.personas`, with
     // its own page: a character has to reach the phrasings and the voice as well as the prompt, and
@@ -1038,7 +1038,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: MODEL_GENERATOR_KEYS.enabled,
         default: '',
         optionsFrom: 'llm.models',
-        help: "Separate from the talk break's model on purpose: programming an hour is a research task and writing a link is not, so the two are worth sizing differently. Leave empty for the plugin's own default. A plain name is the plugin's OpenAI-compatible server; anthropic:… and google:… name the others.",
+        help: "Separate from the talk break's model on purpose: programming an hour is a research task and writing a link is not, so the two are worth sizing differently. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
     },
     {
         group: 'llm',
@@ -1068,7 +1068,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: MODEL_FACTS_KEYS.enabled,
         default: '',
         optionsFrom: 'llm.models',
-        help: "Reading is the one job here where nothing is waiting, so this is the place a slower and more careful model costs you nothing. Leave empty for the plugin's own default. A plain name is the plugin's OpenAI-compatible server; anthropic:… and google:… name the others.",
+        help: "Reading is the one job here where nothing is waiting, so this is the place a slower and more careful model costs you nothing. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
     },
     {
         group: 'llm',
@@ -1086,7 +1086,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: PERSONA_NOTES_KEYS.enabled,
         default: '',
         optionsFrom: 'llm.models',
-        help: "Nothing is waiting on this, so it is another place a slower and more careful model costs you nothing. Leave empty for the plugin's own default. A plain name is the plugin's OpenAI-compatible server; anthropic:… and google:… name the others.",
+        help: "Nothing is waiting on this, so it is another place a slower and more careful model costs you nothing. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
     },
     {
         group: 'llm',
@@ -1104,7 +1104,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         dependsOn: PERSONA_STORIES_KEYS.enabled,
         default: '',
         optionsFrom: 'llm.models',
-        help: "Nothing is waiting on this either, so a slower and more careful model costs you nothing — and this is the one pass that uses the station's own search tools, which a stronger model drives better. Leave empty for the plugin's own default. A plain name is the plugin's OpenAI-compatible server; anthropic:… and google:… name the others.",
+        help: "Nothing is waiting on this either, so a slower and more careful model costs you nothing — and this is the one pass that uses the station's own search tools, which a stronger model drives better. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
     },
     // Declared here at last. It has been read since `persona.writer.ts` was written and never
     // appeared on this page, so the only way to set it was by hand in the settings table — which
@@ -1117,7 +1117,7 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: '',
         optionsFrom: 'llm.models',
-        help: "Used when you press Write on a persona. Nothing is on air waiting for it and what it produces is edited before anything is said, so a slower and more careful model is the right trade. Leave empty for the plugin's own default. A plain name is the plugin's OpenAI-compatible server; anthropic:… and google:… name the others.",
+        help: "Used when you press Write on a persona. Nothing is on air waiting for it and what it produces is edited before anything is said, so a slower and more careful model is the right trade. Leave empty for the plugin's own default. Written provider:model, the provider being the name you gave it in the plugin's own settings.",
     },
     {
         group: 'llm',

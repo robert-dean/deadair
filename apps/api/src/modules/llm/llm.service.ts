@@ -640,7 +640,18 @@ export class LlmService {
             // The transcript is also the model's own record of what it just did, and showing it a
             // well-formed call is showing it the shape to repeat; showing it the loose object is
             // showing it the mistake. The text is not lost — the log line above quotes it.
-            messages.push({ role: 'assistant', content: stray === undefined ? result.text : '', toolCalls: asked });
+            //
+            // `providerState` rides along untouched, and the host never looks inside it. Two
+            // providers refuse a tool round trip whose earlier turns arrive stripped of what they
+            // signed — Anthropic wants its thinking block back, Gemini its thought signatures — and
+            // the alternative to carrying it is a conversation that can search once and then 400.
+            // A rescued call carries none, which is correct: it is a call the model never made.
+            messages.push({
+                role: 'assistant',
+                content: stray === undefined ? result.text : '',
+                toolCalls: asked,
+                ...(stray !== undefined || result.providerState === undefined ? {} : { providerState: result.providerState }),
+            });
 
             for (const call of asked) {
                 const answer = await this.tools.run(call, tools, signal);

@@ -1,5 +1,5 @@
 import { PluginError, type LlmMessage, type LlmToolDeclaration } from '@deadair/plugin-sdk';
-import { jsonSchema, tool, type ModelMessage, type ToolSet } from 'ai';
+import { jsonSchema, tool, type AssistantContent, type ModelMessage, type ProviderMetadata, type ToolSet } from 'ai';
 
 /**
  * Translating between the station's conversation and the AI SDK's.
@@ -52,25 +52,40 @@ export function toModelMessages(messages: readonly LlmMessage[]): ModelMessage[]
                 return { role: 'user', content: message.content };
 
             case 'assistant': {
-                if (message.toolCalls === undefined || message.toolCalls.length === 0) {
+                const signed = readProviderState(message.providerState);
+
+                if ((message.toolCalls === undefined || message.toolCalls.length === 0) && signed.reasoning.length === 0) {
                     return { role: 'assistant', content: message.content };
                 }
 
                 // Content parts rather than a bare string: the text and the calls are
                 // one turn, and splitting them into two assistant messages is how a
                 // model ends up seeing itself say the same thing twice.
-                return {
-                    role: 'assistant',
-                    content: [
-                        ...(message.content.length > 0 ? [{ type: 'text' as const, text: message.content }] : []),
-                        ...message.toolCalls.map(call => ({
-                            type: 'tool-call' as const,
-                            toolCallId: call.id,
-                            toolName: call.name,
-                            input: call.arguments,
-                        })),
-                    ],
-                };
+                //
+                // Reasoning first, then the words, then the calls, and the order is the
+                // provider's rather than a preference: Anthropic reads a thinking block
+                // that arrives after the `tool_use` it belongs to as a turn out of order
+                // and refuses it.
+                const content: AssistantContent = [
+                    ...signed.reasoning.map(part => ({
+                        type: 'reasoning' as const,
+                        text: part.text,
+                        providerOptions: part.providerMetadata,
+                    })),
+                    ...(message.content.length > 0 ? [{ type: 'text' as const, text: message.content }] : []),
+                    ...(message.toolCalls ?? []).map(call => ({
+                        type: 'tool-call' as const,
+                        toolCallId: call.id,
+                        toolName: call.name,
+                        input: call.arguments,
+                        // Only where this provider signed THIS call. An entry the model never
+                        // made cannot be invented here, and a call with nothing signed goes
+                        // out exactly as it did before any of this existed.
+                        ...(signed.toolCalls[call.id] === undefined ? {} : { providerOptions: signed.toolCalls[call.id] }),
+                    })),
+                ];
+
+                return { role: 'assistant', content };
             }
 
             case 'tool': {
@@ -123,3 +138,113 @@ export function toToolSet(declarations: readonly LlmToolDeclaration[] | undefine
     }
     return tools;
 }
+
+/**
+ * What a provider signed on one turn, in the shape it is carried between them.
+ *
+ * Deliberately not a description of anything: the fields hold whatever the
+ * provider put in `providerMetadata`, and nothing here or in the host looks
+ * inside. Two providers need it and neither needs the other's, so a shape that
+ * understood either one would be a shape that has to grow for the third.
+ */
+export interface ProviderState {
+    /**
+     * The reasoning blocks, in the order the model produced them, each with the
+     * metadata that came with it. Anthropic's `signature` lives here, and a turn
+     * replayed without it is refused.
+     */
+    reasoning: { text: string; providerMetadata: ProviderMetadata }[];
+
+    /** Per tool-call id, what the provider attached to that call. Gemini's `thoughtSignature` lives here. */
+    toolCalls: Record<string, ProviderMetadata>;
+}
+
+/** One part of a finished generation, as much of it as this file reads. */
+interface GeneratedPart {
+    type: string;
+    text?: string;
+    toolCallId?: string;
+    providerMetadata?: ProviderMetadata;
+}
+
+/**
+ * What this turn produced that has to go back, out of everything it produced.
+ *
+ * **Only what carries metadata.** A reasoning block with nothing attached is the
+ * model thinking out loud on a server that signs nothing, and sending it back
+ * would put the model's own working-out into the transcript as an assistant turn
+ * — which is exactly what `spokenAnswer` refuses to do for the same reason. So
+ * the rule is "carry what the provider SIGNED", and it is what keeps every
+ * OpenAI-compatible server behaving as it did before this existed: Ollama
+ * attaches nothing, so nothing is captured and nothing new is sent.
+ *
+ * Answers `undefined` rather than an empty state when there is nothing, so a
+ * result and a transcript from a provider that signs nothing carry no new field
+ * at all.
+ */
+export function providerStateOf(parts: readonly GeneratedPart[]): Record<string, unknown> | undefined {
+    const reasoning: ProviderState['reasoning'] = [];
+    const toolCalls: ProviderState['toolCalls'] = {};
+
+    for (const part of parts) {
+        const metadata = part.providerMetadata;
+        if (metadata === undefined || Object.keys(metadata).length === 0) continue;
+
+        if (part.type === 'reasoning') {
+            reasoning.push({ text: part.text ?? '', providerMetadata: metadata });
+            continue;
+        }
+
+        if (part.type === 'tool-call' && part.toolCallId !== undefined) {
+            toolCalls[part.toolCallId] = metadata;
+        }
+    }
+
+    if (reasoning.length === 0 && Object.keys(toolCalls).length === 0) return undefined;
+
+    return {
+        ...(reasoning.length === 0 ? {} : { reasoning }),
+        ...(Object.keys(toolCalls).length === 0 ? {} : { toolCalls }),
+    };
+}
+
+/**
+ * The state as this file will use it, out of the opaque record the host handed back.
+ *
+ * Lenient throughout, and that is the right direction here: this arrives from a
+ * transcript that has been through the host, may have been written and read back
+ * as JSON, and may have been produced by a different provider than the one now
+ * being spoken to. A malformed entry costs its own signature — the same
+ * generation the field exists to improve — where throwing would cost the break.
+ */
+function readProviderState(state: Record<string, unknown> | undefined): ProviderState {
+    const empty: ProviderState = { reasoning: [], toolCalls: {} };
+    if (state === undefined) return empty;
+
+    const reasoning = Array.isArray(state.reasoning)
+        ? state.reasoning
+              .filter(isRecord)
+              .filter(entry => isRecord(entry.providerMetadata))
+              .map(entry => ({
+                  text: typeof entry.text === 'string' ? entry.text : '',
+                  // The one cast in this file, and it is the honest description of what
+                  // happened: this value WAS a `ProviderMetadata` when the provider
+                  // attached it, and the round trip through the host's opaque record and
+                  // possibly through JSON is what lost the type rather than the shape.
+                  // Anything malformed enough for the cast to be a lie is a signature the
+                  // provider will reject, which costs this generation and nothing else.
+                  providerMetadata: entry.providerMetadata as ProviderMetadata,
+              }))
+        : [];
+
+    const toolCalls: ProviderState['toolCalls'] = {};
+    if (isRecord(state.toolCalls)) {
+        for (const [id, metadata] of Object.entries(state.toolCalls)) {
+            if (isRecord(metadata)) toolCalls[id] = metadata as ProviderMetadata;
+        }
+    }
+
+    return { reasoning, toolCalls };
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);

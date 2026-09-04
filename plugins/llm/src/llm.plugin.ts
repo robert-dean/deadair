@@ -18,7 +18,7 @@ import { createOpenAICompatible, type OpenAICompatibleProvider } from '@ai-sdk/o
 import { APICallError, streamText } from 'ai';
 import { hostFetch } from './llm.fetch.js';
 import { abortWith, withCancel } from './llm.abort.js';
-import { splitSystemPrompt, toModelMessages, toToolSet } from './llm.messages.js';
+import { providerStateOf, splitSystemPrompt, toModelMessages, toToolSet } from './llm.messages.js';
 import { describeModels, toolCapableModels } from './llm.models.js';
 import {
     DEFAULT_REASONING_EFFORT,
@@ -489,6 +489,11 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             });
         }
 
+        // Read off `content` rather than off the tool calls alone, because the reasoning
+        // half only exists as parts: `stream.reasoningText` is the text with the
+        // signatures already thrown away, and the signature is the whole point.
+        const providerState = providerStateOf(content);
+
         const spoken = spokenAnswer({ text, reasoningText, toolCalls: toolCalls.length, finishReason });
         if (spoken !== text) {
             this.host.logger.debug('llm: the answer arrived as reasoning rather than text; using it', {
@@ -521,6 +526,10 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                 ...(reasoningText === undefined ? {} : { reasoningChars: reasoningText.length }),
             },
             finishReason: toFinishReason(finishReason),
+            // Only where the provider signed something. See `providerStateOf`: an
+            // OpenAI-compatible server signs nothing, so this field never appears on
+            // one and the transcript the host builds is byte-identical to before.
+            ...(providerState === undefined ? {} : { providerState }),
         };
     }
 

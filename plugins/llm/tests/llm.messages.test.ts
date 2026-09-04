@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isPluginError, type LlmMessage } from '@deadair/plugin-sdk';
 
-import { splitSystemPrompt, toModelMessages, toToolSet } from '../src/llm.messages.js';
+import { providerStateOf, splitSystemPrompt, toModelMessages, toToolSet } from '../src/llm.messages.js';
 
 describe('splitSystemPrompt', () => {
     it('lifts a leading system turn out of the conversation', () => {
@@ -71,6 +71,48 @@ describe('toModelMessages', () => {
         ]);
     });
 
+    it('replays the signed reasoning before the words and the calls', () => {
+        // The order is the provider's rather than a preference: Anthropic reads a thinking block
+        // arriving after the `tool_use` it belongs to as a turn out of order and refuses it.
+        const messages: LlmMessage[] = [
+            {
+                role: 'assistant',
+                content: 'let me check',
+                toolCalls: [{ id: 'call_1', name: 'search_catalog', arguments: { query: 'boc' } }],
+                providerState: {
+                    reasoning: [{ text: 'worth a search', providerMetadata: { anthropic: { signature: 'sig-1' } } }],
+                    toolCalls: { call_1: { google: { thoughtSignature: 'sig-2' } } },
+                },
+            },
+        ];
+
+        expect(toModelMessages(messages)).toEqual([
+            {
+                role: 'assistant',
+                content: [
+                    { type: 'reasoning', text: 'worth a search', providerOptions: { anthropic: { signature: 'sig-1' } } },
+                    { type: 'text', text: 'let me check' },
+                    {
+                        type: 'tool-call',
+                        toolCallId: 'call_1',
+                        toolName: 'search_catalog',
+                        input: { query: 'boc' },
+                        providerOptions: { google: { thoughtSignature: 'sig-2' } },
+                    },
+                ],
+            },
+        ]);
+    });
+
+    it('leaves a turn alone when its state signed nothing it can use', () => {
+        // Lenient rather than throwing, and deliberately: this arrives from a transcript that may
+        // have been through JSON, or through a different provider than the one now being spoken to.
+        // A malformed entry costs its own signature, not the break.
+        const messages: LlmMessage[] = [{ role: 'assistant', content: 'that was Roygbiv', providerState: { reasoning: 'not a list' } }];
+
+        expect(toModelMessages(messages)).toEqual([{ role: 'assistant', content: 'that was Roygbiv' }]);
+    });
+
     it('omits the text part when the model said nothing but the tool call', () => {
         const messages: LlmMessage[] = [{ role: 'assistant', content: '', toolCalls: [{ id: 'call_1', name: 'search_catalog', arguments: {} }] }];
 
@@ -122,6 +164,47 @@ describe('toModelMessages', () => {
         ];
 
         expect(toModelMessages(messages).map(message => message.role)).toEqual(['user', 'assistant', 'tool', 'assistant']);
+    });
+});
+
+describe('providerStateOf', () => {
+    it('answers nothing for a provider that signed nothing', () => {
+        // Every OpenAI-compatible server, which is why the field never appears on one and the
+        // transcript the host builds is what it always was.
+        expect(
+            providerStateOf([
+                { type: 'reasoning', text: 'thinking out loud' },
+                { type: 'text', text: 'that was Roygbiv' },
+                { type: 'tool-call', toolCallId: 'call_1' },
+            ]),
+        ).toBeUndefined();
+    });
+
+    it('keeps a reasoning block that came with a signature', () => {
+        const state = providerStateOf([
+            { type: 'reasoning', text: 'they last played it in March', providerMetadata: { anthropic: { signature: 'sig-1' } } },
+            { type: 'text', text: 'here it is' },
+        ]);
+
+        expect(state).toEqual({ reasoning: [{ text: 'they last played it in March', providerMetadata: { anthropic: { signature: 'sig-1' } } }] });
+    });
+
+    it('keeps what a provider attached to a tool call, against its id', () => {
+        const state = providerStateOf([{ type: 'tool-call', toolCallId: 'call_1', providerMetadata: { google: { thoughtSignature: 'sig-2' } } }]);
+
+        expect(state).toEqual({ toolCalls: { call_1: { google: { thoughtSignature: 'sig-2' } } } });
+    });
+
+    it('drops an unsigned reasoning block sitting beside a signed one', () => {
+        // The rule is "carry what the provider SIGNED" rather than "carry the reasoning": an
+        // unsigned block is the model thinking out loud, and replaying it puts its own working-out
+        // into the transcript as something it said.
+        const state = providerStateOf([
+            { type: 'reasoning', text: 'out loud', providerMetadata: {} },
+            { type: 'reasoning', text: 'signed', providerMetadata: { anthropic: { signature: 'sig-1' } } },
+        ]);
+
+        expect(state).toEqual({ reasoning: [{ text: 'signed', providerMetadata: { anthropic: { signature: 'sig-1' } } }] });
     });
 });
 

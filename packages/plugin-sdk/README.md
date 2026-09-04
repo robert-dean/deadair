@@ -780,6 +780,12 @@ Four things that are easy to get wrong:
 - **Refuse tools you cannot do.** Throw `unsupported` rather than dropping them:
   a break written without the facts a tool would have supplied is worse than one
   that fell back to the deterministic writer.
+- **Carry back what the provider signed.** Put it in `LlmResult.providerState`
+  and the host quotes it verbatim onto the `assistant` turn it builds, as
+  `LlmMessage.providerState`, without ever reading it. Some providers refuse a
+  tool round trip whose earlier turns arrive stripped of their own thinking
+  blocks or call signatures, and that is a fact about a wire protocol rather than
+  about a conversation. Leave it unset if yours signs nothing, which most do.
 
 ### Tools
 

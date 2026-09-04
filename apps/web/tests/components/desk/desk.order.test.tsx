@@ -355,7 +355,15 @@ describe('DeskPage: the running order and the broadcast controls', () => {
             order({
                 items: [
                     ...order().items.slice(0, 3),
-                    orderItem({ id: 'item-4', state: 'planned', title: 'Talk break', kind: 'segment', artists: [], pluginId: undefined, externalId: undefined }),
+                    orderItem({
+                        id: 'item-4',
+                        state: 'planned',
+                        title: 'Talk break',
+                        kind: 'segment',
+                        artists: [],
+                        pluginId: undefined,
+                        externalId: undefined,
+                    }),
                 ],
             }),
         );

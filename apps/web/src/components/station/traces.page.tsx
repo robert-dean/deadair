@@ -195,59 +195,59 @@ function DecisionTable({ decisions, phone, onOpen }: { decisions: TraceDecision[
                     {rows.map(({ decision, depth }) => {
                         const reading = describeDecision(decision.kind);
                         return (
-                        <Table.Tr key={decision.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(decision.id)}>
-                            <Table.Td>
-                                <FeedMoment at={decision.at} />
-                            </Table.Td>
-                            <Table.Td>
-                                {/* The indent is the causal edge and nothing else carries it, so a child
+                            <Table.Tr key={decision.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(decision.id)}>
+                                <Table.Td>
+                                    <FeedMoment at={decision.at} />
+                                </Table.Td>
+                                <Table.Td>
+                                    {/* The indent is the causal edge and nothing else carries it, so a child
                                 also says so in words: an operator scanning a column of names should
                                 not have to measure whitespace to know one thing caused another. */}
-                                <Group gap="xs" wrap="nowrap" style={{ paddingLeft: depth * 20 }}>
-                                    {depth > 0 ? (
-                                        <Tooltip label="Enqueued by the decision above it">
-                                            <IconArrowUpRight size={13} stroke={1.8} style={{ transform: 'rotate(90deg)', opacity: 0.5 }} />
-                                        </Tooltip>
-                                    ) : undefined}
-                                    <Stack gap={0}>
-                                        <Text size="sm">{reading.sentence}</Text>
-                                        {/* The raw kind stays, dimmed, EXCEPT for a request — which
+                                    <Group gap="xs" wrap="nowrap" style={{ paddingLeft: depth * 20 }}>
+                                        {depth > 0 ? (
+                                            <Tooltip label="Enqueued by the decision above it">
+                                                <IconArrowUpRight size={13} stroke={1.8} style={{ transform: 'rotate(90deg)', opacity: 0.5 }} />
+                                            </Tooltip>
+                                        ) : undefined}
+                                        <Stack gap={0}>
+                                            <Text size="sm">{reading.sentence}</Text>
+                                            {/* The raw kind stays, dimmed, EXCEPT for a request — which
                                             already reads as `GET /voices` in the sentence itself, so
                                             repeating it underneath would be the same fact twice. */}
-                                        {reading.source === 'request' ? undefined : (
-                                            <Text size="xs" c="dimmed" ff="monospace">
-                                                {decision.kind}
-                                            </Text>
-                                        )}
-                                    </Stack>
-                                </Group>
-                            </Table.Td>
-                            <Table.Td>
-                                {/* Zero is a decision recorded before the station wrote a span for the
+                                            {reading.source === 'request' ? undefined : (
+                                                <Text size="xs" c="dimmed" ff="monospace">
+                                                    {decision.kind}
+                                                </Text>
+                                            )}
+                                        </Stack>
+                                    </Group>
+                                </Table.Td>
+                                <Table.Td>
+                                    {/* Zero is a decision recorded before the station wrote a span for the
                                 job itself, not a decision that took no time. Saying so beats a `0ms`
                                 that reads as a measurement. */}
-                                <Text size="sm" className="da-num" c={decision.ms === 0 ? 'dimmed' : undefined}>
-                                    {decision.ms === 0 ? '—' : formatSpent(decision.ms)}
-                                </Text>
-                            </Table.Td>
-                            <Table.Td>
-                                <Text size="sm" className="da-num">
-                                    {decision.calls}
-                                </Text>
-                            </Table.Td>
-                            <Table.Td>
-                                {decision.failed > 0 ? (
-                                    <Badge size="sm" color={severityColor.failure} variant="light" className="da-num">
-                                        {decision.failed}
-                                    </Badge>
-                                ) : undefined}
-                            </Table.Td>
-                            <Table.Td>
-                                <Text size="xs" c="dimmed" className="da-num">
-                                    {decision.id.slice(0, 8)}
-                                </Text>
-                            </Table.Td>
-                        </Table.Tr>
+                                    <Text size="sm" className="da-num" c={decision.ms === 0 ? 'dimmed' : undefined}>
+                                        {decision.ms === 0 ? '—' : formatSpent(decision.ms)}
+                                    </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                    <Text size="sm" className="da-num">
+                                        {decision.calls}
+                                    </Text>
+                                </Table.Td>
+                                <Table.Td>
+                                    {decision.failed > 0 ? (
+                                        <Badge size="sm" color={severityColor.failure} variant="light" className="da-num">
+                                            {decision.failed}
+                                        </Badge>
+                                    ) : undefined}
+                                </Table.Td>
+                                <Table.Td>
+                                    <Text size="xs" c="dimmed" className="da-num">
+                                        {decision.id.slice(0, 8)}
+                                    </Text>
+                                </Table.Td>
+                            </Table.Tr>
                         );
                     })}
                 </Table.Tbody>
@@ -268,23 +268,21 @@ function TraceDrawer({ id, onClose }: { id: string | undefined; onClose: () => v
             position="right"
             size={phone ? '100%' : 'xl'}
             title={
-                trace.data === undefined ? (
-                    'Decision'
-                ) : (
-                    (() => {
-                        const reading = describeDecision(trace.data.decision.kind);
-                        return (
-                            <Stack gap={0}>
-                                <Text fw={600}>{reading.sentence}</Text>
-                                {reading.source === 'request' ? undefined : (
-                                    <Text size="xs" c="dimmed" ff="monospace">
-                                        {trace.data.decision.kind}
-                                    </Text>
-                                )}
-                            </Stack>
-                        );
-                    })()
-                )
+                trace.data === undefined
+                    ? 'Decision'
+                    : (() => {
+                          const reading = describeDecision(trace.data.decision.kind);
+                          return (
+                              <Stack gap={0}>
+                                  <Text fw={600}>{reading.sentence}</Text>
+                                  {reading.source === 'request' ? undefined : (
+                                      <Text size="xs" c="dimmed" ff="monospace">
+                                          {trace.data.decision.kind}
+                                      </Text>
+                                  )}
+                              </Stack>
+                          );
+                      })()
             }
         >
             {trace.isPending ? <PageSkeleton variant="rows" count={6} /> : undefined}

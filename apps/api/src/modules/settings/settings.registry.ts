@@ -156,7 +156,18 @@ export interface SettingDescriptor extends ConfigField {
  * Split along `SettingGroup` in `settings.types.ck`, so the wire enum and this list cannot disagree
  * about what a group is called.
  */
-export const SETTING_GROUPS = ['station', 'stream', 'housekeeping', 'secrets', 'rotation', 'playout', 'render', 'llm', 'analysis', 'schedule'] as const;
+export const SETTING_GROUPS = [
+    'station',
+    'stream',
+    'housekeeping',
+    'secrets',
+    'rotation',
+    'playout',
+    'render',
+    'llm',
+    'analysis',
+    'schedule',
+] as const;
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
 

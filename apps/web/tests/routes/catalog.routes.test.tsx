@@ -148,7 +148,9 @@ describe('/catalog/tracks loader', () => {
         await expect(result).resolves.toBeUndefined();
 
         await vi.waitFor(() => expect(listTracks).toHaveBeenCalledWith(expect.objectContaining({ search: 'vaka' })));
-        await vi.waitFor(() => expect(queryClient.getQueryData(queryKeys.catalog.tracks(0, 'vaka', undefined, orderKey('title')))).toEqual(emptyPage));
+        await vi.waitFor(() =>
+            expect(queryClient.getQueryData(queryKeys.catalog.tracks(0, 'vaka', undefined, orderKey('title')))).toEqual(emptyPage),
+        );
     });
 });
 

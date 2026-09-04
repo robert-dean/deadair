@@ -227,7 +227,12 @@ function AttemptRow({ attempt }: AttemptRowProps) {
                             sentences, and the full text is already one tap away in the Collapse
                             below. Two lines here keeps the rating buttons beside it instead of
                             floating somewhere down the middle of a wall of text. */}
-                        <Text size="sm" c={attempt.script === undefined ? 'dimmed' : undefined} lineClamp={2} style={{ minWidth: 0, textAlign: 'left' }}>
+                        <Text
+                            size="sm"
+                            c={attempt.script === undefined ? 'dimmed' : undefined}
+                            lineClamp={2}
+                            style={{ minWidth: 0, textAlign: 'left' }}
+                        >
                             {line}
                         </Text>
                     </Group>

@@ -89,9 +89,10 @@ describe('theme tokens: WCAG AA text contrast', () => {
             const ratioAgainstBg = contrastRatio(textColor, tokens['--da-bg']);
             const ratioAgainstPanel = contrastRatio(textColor, tokens['--da-panel']);
 
-            expect(ratioAgainstBg, `${themeId}'s ${tokenName} (${textColor}) measures ${ratioAgainstBg.toFixed(2)}:1 against --da-bg (${tokens['--da-bg']}), under the 4.5:1 AA floor`).toBeGreaterThanOrEqual(
-                AA_TEXT_CONTRAST,
-            );
+            expect(
+                ratioAgainstBg,
+                `${themeId}'s ${tokenName} (${textColor}) measures ${ratioAgainstBg.toFixed(2)}:1 against --da-bg (${tokens['--da-bg']}), under the 4.5:1 AA floor`,
+            ).toBeGreaterThanOrEqual(AA_TEXT_CONTRAST);
             expect(
                 ratioAgainstPanel,
                 `${themeId}'s ${tokenName} (${textColor}) measures ${ratioAgainstPanel.toFixed(2)}:1 against --da-panel (${tokens['--da-panel']}), under the 4.5:1 AA floor`,

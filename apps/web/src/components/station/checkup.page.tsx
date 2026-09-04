@@ -425,4 +425,3 @@ function Fact({ label, value }: { label: string; value: string }) {
         </Stack>
     );
 }
-

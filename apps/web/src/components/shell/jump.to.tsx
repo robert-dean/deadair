@@ -156,7 +156,8 @@ export function JumpTo() {
                       id: `artist:${artist.id}`,
                       label: artist.name,
                       description: 'Artist',
-                      onClick: () => void navigate({ to: '/catalog/artists/$artistId', params: { artistId: artist.id }, search: CATALOG_ALBUM_DEFAULTS }),
+                      onClick: () =>
+                          void navigate({ to: '/catalog/artists/$artistId', params: { artistId: artist.id }, search: CATALOG_ALBUM_DEFAULTS }),
                   })),
               },
               {
@@ -180,9 +181,7 @@ export function JumpTo() {
             query={query}
             onQueryChange={setQuery}
             shortcut="mod + K"
-            nothingFound={
-                searching && (tracks.isFetching || artists.isFetching) ? 'Searching…' : 'No page, record or character by that name.'
-            }
+            nothingFound={searching && (tracks.isFetching || artists.isFetching) ? 'Searching…' : 'No page, record or character by that name.'}
             highlightQuery
             scrollable
             maxHeight={420}

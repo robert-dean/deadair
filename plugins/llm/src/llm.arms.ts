@@ -1,6 +1,7 @@
 import type { PluginHost } from '@deadair/plugin-sdk';
 import type { ProviderKind } from './llm.manifest.js';
 import { anthropicArm } from './anthropic.provider.js';
+import { googleArm } from './google.provider.js';
 import { openAiCompatibleArm } from './openai.compat.provider.js';
 import type { ProviderArm } from './llm.provider.js';
 
@@ -38,6 +39,9 @@ export function buildArm(kind: ProviderKind, host: PluginHost, credentials: ArmC
 
         case 'anthropic':
             return hasKey(credentials.apiKey) ? anthropicArm(host, { apiKey: credentials.apiKey }) : undefined;
+
+        case 'google':
+            return hasKey(credentials.apiKey) ? googleArm(host, { apiKey: credentials.apiKey }) : undefined;
     }
 }
 
@@ -48,6 +52,7 @@ export function unconfiguredMessage(kind: ProviderKind): string {
             return 'No server URL set.';
 
         case 'anthropic':
+        case 'google':
             return 'No API key set.';
     }
 }

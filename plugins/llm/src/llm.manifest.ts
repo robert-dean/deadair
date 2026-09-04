@@ -26,6 +26,8 @@ export const DEFAULT_BASE_URL = 'http://localhost:11434/v1';
  */
 export const ANTHROPIC_HOST = 'api.anthropic.com';
 export const ANTHROPIC_BASE_URL = `https://${ANTHROPIC_HOST}/v1`;
+export const GOOGLE_HOST = 'generativelanguage.googleapis.com';
+export const GOOGLE_BASE_URL = `https://${GOOGLE_HOST}/v1beta`;
 
 /**
  * How the provider is spoken to.
@@ -40,14 +42,14 @@ export const ANTHROPIC_BASE_URL = `https://${ANTHROPIC_HOST}/v1`;
  * a native arm is never here for coverage: it is here because that service's own
  * protocol carries something the shared one cannot say.
  */
-export const PROVIDER_KINDS = { 'openai-compat': 'OpenAI-compatible', anthropic: 'Anthropic' } as const;
+export const PROVIDER_KINDS = { 'openai-compat': 'OpenAI-compatible', anthropic: 'Anthropic', google: 'Google Gemini' } as const;
 
 export type ProviderKind = keyof typeof PROVIDER_KINDS;
 
 export const DEFAULT_PROVIDER_KIND: ProviderKind = 'openai-compat';
 
 /** Which kinds cannot work without an API key, for the save-time check below. */
-export const KEYED_KINDS: readonly ProviderKind[] = ['anthropic'];
+export const KEYED_KINDS: readonly ProviderKind[] = ['anthropic', 'google'];
 
 /** Whether a config value is one of {@link PROVIDER_KINDS}'s own keys, rather than something a hand-edited row left behind. */
 export function isProviderKind(value: string | undefined): value is ProviderKind {
@@ -182,7 +184,7 @@ export const llmManifest: PluginManifest = {
         // No rate declared on either. The host serializes model calls through one
         // slot, so there is no burst here to pace, and a published limit written
         // down would be a second bound on something already bounded.
-        network: [{ fromConfig: 'baseUrl' }, ANTHROPIC_HOST],
+        network: [{ fromConfig: 'baseUrl' }, ANTHROPIC_HOST, GOOGLE_HOST],
         // Nothing is kept between calls. A conversation belongs to whoever is
         // having it, and this plugin is the transport rather than a party to it.
         storage: false,
@@ -217,7 +219,7 @@ export const llmManifest: PluginManifest = {
             key: 'apiKey',
             label: 'API key',
             type: 'secret',
-            help: 'Required for Anthropic. Leave empty for a local server that wants no key.',
+            help: 'Required for Anthropic and Gemini. Leave empty for a local server that wants no key.',
         },
         {
             key: 'model',

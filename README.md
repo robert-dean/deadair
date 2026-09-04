@@ -125,6 +125,16 @@ else is a row in the database, edited from the Settings page and applied live. A
 Plugins carry their own configuration, declared by the plugin and drawn by the same form the
 station's own settings use.
 
+The model plugin is worth one note, because it is the only place a name means more than it looks. It
+speaks to an OpenAI-compatible server (a local Ollama or vLLM, or OpenAI, Groq, Mistral and
+OpenRouter by address), to Anthropic and to Gemini, and it speaks to **all of them at once** — you
+give it whichever credentials you have. Which one a request reaches is read off the model name:
+`anthropic:claude-sonnet-5` and `google:gemini-2.5-flash` name those two, and a plain name like
+`gpt-oss:20b` is the server address. That is what lets one station write its talk breaks on a hosted
+model and do its reading and note-taking on a local one, since every job that asks a model for words
+has its own model setting under Settings → Words. Those settings offer what your providers actually
+have, so the names are picked rather than typed.
+
 ## Development
 
 ```bash

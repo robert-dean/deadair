@@ -37,6 +37,15 @@ parsed, which is what keeps Ollama's own `name:tag` and OpenRouter's `vendor/mod
 own ids. `llm.names.ts` holds the rule; the arms are built per credential in `llm.arms.ts`, and an arm with no
 credential refuses a generation naming it with a sentence saying which key is missing.
 
+**Nobody has to TYPE a qualified name.** The six writer settings — the talk break, the set generator, fact
+extraction, the two persona passes and the persona writer — declare `optionsFrom: 'llm.models'`, which the
+console resolves by asking whichever plugin `llm.pluginId` names for its `model` suggestions: the same call
+that plugin's own settings form makes, so one cache entry serves both. That makes them autocompletes over the
+union across every configured provider, labelled with the provider each model lives on, and it is why the
+qualifier can be a convention rather than a documented syntax an operator is expected to remember. They stay
+FREE TEXT with suggestions rather than becoming closed lists, because empty means "the plugin's own default"
+and a model behind a proxy that does not list itself has to stay reachable.
+
 **A signed thinking block is part of the conversation, and the transcript carries it.** Anthropic refuses a
 tool round trip whose earlier turns arrive without their thinking signatures, and Gemini wants its thought
 signatures back on the function calls it made. So `LlmResult.providerState` comes off a generation and goes

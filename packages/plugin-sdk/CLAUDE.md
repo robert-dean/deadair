@@ -47,13 +47,24 @@ one cell. So a column key is shaped however the plugin likes, dots included, and
 reaches a plugin author. The HOST's allowlist reads a `fromConfig` list through the columns declared
 `url` and no others (`addressCells` in `plugin.host.factory.ts`), because `hostnameFromSetting`
 accepts a bare hostname and would otherwise put a category called `sport` on the allowlist. And a
-field or column may declare `optionsFrom`, a closed host vocabulary (`station.newsCategories` and
-`intl.timeZones` today) resolved by the CONSOLE — the third way a form learns what to offer, and the
-only one a plugin cannot answer for itself, since a news plugin has no way to learn which categories
-this station holds. The property is about who can ANSWER rather than about where the answer is kept,
-which is why the platform's zone list sits there beside the station's own tables: a zone name has to
-be one the operator's browser knows, and a server enumerating its own would be answering for a
-different machine.
+field or column may declare `optionsFrom`, a closed host vocabulary resolved by the CONSOLE — the
+third way a form learns what to offer, and the one a plugin usually cannot answer for itself, since a
+news plugin has no way to learn which categories this station holds. The property is about who can
+ANSWER rather than about where the answer is kept, which is why the platform's zone list sits there
+beside the station's own tables: a zone name has to be one the operator's browser knows, and a server
+enumerating its own would be answering for a different machine. Eight members today: the station's
+own tables (`station.newsCategories`, `station.newsFeeds`), the platform's zones (`intl.timeZones`),
+the enabled plugins declaring a capability (`plugins.speech`, `plugins.llm`, `plugins.mixer`,
+`plugins.analysis`), and `llm.models`.
+
+**`llm.models` is the one that breaks the sentence above, and it is worth knowing why it is still
+here.** Its answer comes FROM a plugin: the console asks whichever plugin `llm.pluginId` names for
+its `model` suggestions, through the same route that plugin's own settings form uses. It qualifies as
+a host vocabulary anyway on the property that actually matters — a plugin cannot answer it *for
+itself*, because the question is "what can this STATION'S model plugin offer" and no plugin knows
+which one that is or whether it is the one selected. The station settings that use it are the
+per-writer model keys, and what makes them worth filling from the plugin rather than typing is that a
+model name now carries which provider it lives on.
 
 **A CELL's choices can also come from the plugin, which is the second of those three ways reaching one column
 rather than one field.** `suggestConfigOptions()` publishes under `columnSuggestionKey(fieldKey, columnKey)` —

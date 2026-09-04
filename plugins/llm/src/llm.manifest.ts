@@ -211,7 +211,11 @@ export const llmManifest: PluginManifest = {
             key: 'baseUrl',
             label: 'Server URL',
             type: 'url',
-            required: true,
+            // NOT `required`, even though the OpenAI-compatible arm cannot work without it.
+            // The console enforces a required field before it will submit the form at all,
+            // which would make an operator choosing Anthropic or Gemini fill in an address
+            // those arms ignore. The schema's own refine asks for it on the one arm that
+            // needs it, which is the same answer in the right place.
             default: DEFAULT_BASE_URL,
             help: 'For the OpenAI-compatible provider only, and ignored by the rest. Including any /v1: a local Ollama answers on http://localhost:11434/v1, or its container name from inside compose.',
         },

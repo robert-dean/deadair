@@ -4,7 +4,6 @@ import {
     configBaseUrl,
     configString,
     errorText,
-    jsonBody,
     type LlmFinishReason,
     type LlmHandle,
     type LlmModelInfo,
@@ -14,21 +13,22 @@ import {
     type LlmToolCall,
     type ConfigFieldOption,
 } from '@deadair/plugin-sdk';
-import { createOpenAICompatible, type OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
-import { APICallError, streamText } from 'ai';
-import { hostFetch } from './llm.fetch.js';
+import { streamText } from 'ai';
 import { abortWith, withCancel } from './llm.abort.js';
 import { providerStateOf, splitSystemPrompt, toModelMessages, toToolSet } from './llm.messages.js';
 import { describeModels, toolCapableModels } from './llm.models.js';
 import {
+    DEFAULT_PROVIDER_KIND,
     DEFAULT_REASONING_EFFORT,
+    isProviderKind,
     isReasoningEffortSetting,
     llmManifest,
     MODEL_CACHE_MS,
-    PROBE_TIMEOUT_MS,
-    PROVIDER_NAME,
+    type ProviderKind,
     type ReasoningEffortSetting,
 } from './llm.manifest.js';
+import { buildArm, unconfiguredMessage } from './llm.arms.js';
+import type { ProviderArm } from './llm.provider.js';
 
 export { llmManifest };
 
@@ -39,13 +39,14 @@ interface Attempt {
 }
 
 /**
- * Words out of any OpenAI-compatible endpoint.
+ * Words out of whichever kind of provider the operator chose.
  *
- * One plugin rather than one per provider, because the AI SDK is already the
- * provider abstraction: `createOpenAICompatible` reaches a local Ollama, OpenAI,
- * vLLM and most hosted providers behind a single base URL, and a native adapter
- * for something with its own protocol slots in behind the `providerKind`
- * discriminator without the host noticing.
+ * One plugin rather than one per provider, because everything here except the
+ * transport is the same work whoever is answering: the stream whose cancellation
+ * stops the generation, the one re-attempt without a thinking field, the answer
+ * recovered out of a reasoning channel, the tool declarations that come back
+ * unrun. `providerKind` picks an arm and the arm is deliberately small — see
+ * `llm.provider.ts`, which says what an arm may and may not know.
  *
  * ## The words are a stream, and that is load-bearing
  *
@@ -62,19 +63,18 @@ interface Attempt {
  * `llm.messages.ts`, which is where that decision is enforced.
  */
 export class LlmPlugin extends Plugin implements LlmPluginInstance {
-    private baseUrl = '';
-    private apiKey?: string;
     private model = '';
     private temperature?: number;
     private models = '';
-    private provider?: OpenAICompatibleProvider;
+    private arm?: ProviderArm;
+    private providerKind: ProviderKind = DEFAULT_PROVIDER_KIND;
     private reasoningEffort: ReasoningEffortSetting = DEFAULT_REASONING_EFFORT;
 
     /**
-     * Set for the rest of this load once a server has answered 400 naming
-     * `reasoning_effort`. Not config, and not carried across a reload: a
-     * reconfigure may point this at a different server entirely, and a strict
-     * server today says nothing about tomorrow's.
+     * Set for the rest of this load once a service has refused the thinking field
+     * itself. Not config, and not carried across a reload: a reconfigure may point
+     * this at a different service entirely, and a strict server today says nothing
+     * about tomorrow's.
      */
     private reasoningRefused = false;
 
@@ -83,44 +83,34 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
-        this.baseUrl = configBaseUrl(config.baseUrl);
         this.model = configString(config.model) ?? '';
         this.temperature = typeof config.temperature === 'number' ? config.temperature : undefined;
         this.models = typeof config.models === 'string' ? config.models : '';
         const configuredEffort = configString(config.reasoningEffort);
         this.reasoningEffort = isReasoningEffortSetting(configuredEffort) ? configuredEffort : DEFAULT_REASONING_EFFORT;
         this.reasoningRefused = false;
-        this.apiKey = await this.host.secrets.get('apiKey');
 
-        // Built once per load rather than per call: it is a closure over the base
-        // URL, the key and the fetch, none of which change without a reload. A
+        // Read leniently here and refused strictly at save, which is the split
+        // `plugins/websearch` settled on: the form is where somebody is looking and
+        // can be told, and a config row that says something unrecognised by the time
+        // it is loaded — hand-edited, or written by a version that had another arm —
+        // should cost the default rather than the station's ability to speak.
+        const configuredKind = configString(config.providerKind);
+        this.providerKind = isProviderKind(configuredKind) ? configuredKind : DEFAULT_PROVIDER_KIND;
+
+        // Built once per load rather than per call: an arm is a closure over the
+        // address, the key and the fetch, none of which change without a reload. A
         // reconfigure reinitializes the plugin, which runs this again.
-        this.provider =
-            this.baseUrl.length === 0
-                ? undefined
-                : createOpenAICompatible({
-                      name: PROVIDER_NAME,
-                      baseURL: this.baseUrl,
-                      ...(this.apiKey === undefined ? {} : { apiKey: this.apiKey }),
-                      // Sends `stream_options: { include_usage: true }`. Without it a streaming
-                      // response carries no token counts at all — measured against Ollama, which
-                      // answers with usage only when asked — and `LlmResult.usage` comes back
-                      // empty, which is the one thing that makes what a break cost observable.
-                      includeUsage: true,
-                      // The whole reason this is safe to point at an operator-supplied
-                      // address. Everything the SDK sends goes through the host's fetch,
-                      // so the allowlist, the per-upstream rate limit, the redirect
-                      // re-check and the body bounds all apply to a model call exactly as
-                      // they do to anything else. A plugin reaching for global fetch here
-                      // would quietly opt out of all four. See `llm.fetch.ts`.
-                      fetch: hostFetch(this.host),
-                  });
+        this.arm = buildArm(this.providerKind, this.host, {
+            baseUrl: configBaseUrl(config.baseUrl),
+            apiKey: await this.host.secrets.get('apiKey'),
+        });
 
         // Dropped rather than kept: the operator may have just pointed this
-        // somewhere else, and a list from the old server is worse than no list.
+        // somewhere else, and a list from the old service is worse than no list.
         this.discovered = undefined;
 
-        this.host.logger.info('llm ready', { baseUrl: this.baseUrl, model: this.model });
+        this.host.logger.info('llm ready', { provider: this.providerKind, model: this.model, configured: this.arm !== undefined });
     }
 
     /**
@@ -133,7 +123,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
      * that only works if this says the names out loud.
      */
     async testConnection(): Promise<{ ok: boolean; message: string }> {
-        if (this.baseUrl.length === 0) return { ok: false, message: 'No server URL set.' };
+        if (this.arm === undefined) return { ok: false, message: unconfiguredMessage(this.providerKind) };
 
         let models: string[];
         try {
@@ -194,10 +184,11 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     /**
      * The models this server has, annotated with which accept tools.
      *
-     * The ids come from the server, because it knows them and the operator should
-     * not have to type out what the machine can say. The tool flags come from
-     * config, because no OpenAI-compatible endpoint reports tool support and it
-     * cannot be inferred from a name. See `llm.models.ts`.
+     * The ids come from the service, because it knows them and the operator should
+     * not have to type out what the machine can say. Where the tool flags come from
+     * depends on the arm: a vendor whose own models all take tools says so, and an
+     * OpenAI-compatible endpoint cannot, so there the flags come from config. See
+     * `llm.models.ts`.
      *
      * A server that cannot be reached answers from config alone rather than
      * throwing: a momentary blip should cost the console its list, not the
@@ -212,11 +203,11 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             discovered = [];
         }
 
-        return describeModels(discovered, this.models, this.model);
+        return describeModels(discovered, this.models, this.model, this.arm?.toolsOnEveryModel ?? false);
     }
 
     /**
-     * `GET /models`, cached briefly.
+     * What the service has, cached briefly.
      *
      * Cached because `listModels` is on the path of every conversation that might
      * use tools, and a round trip per break to learn something that changes when
@@ -227,25 +218,22 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
      * refused or could not be reached.
      */
     private async fetchModels(): Promise<string[]> {
+        const arm = this.arm;
+        if (arm === undefined) throw new Error(unconfiguredMessage(this.providerKind));
+
         const cached = this.discovered;
         if (cached !== undefined && Date.now() - cached.at < MODEL_CACHE_MS) return cached.ids;
 
-        const response = await this.host.fetch(`${this.baseUrl}/models`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
-        if (!response.ok) {
-            await response.body?.cancel().catch(() => {});
-            throw new Error(`Server answered HTTP ${response.status}.`);
-        }
-
-        const body = await jsonBody<{ data?: { id?: unknown }[] }>(response);
-        const ids = (body?.data ?? []).map(entry => (typeof entry.id === 'string' ? entry.id.trim() : '')).filter(id => id.length > 0);
+        const ids = await arm.fetchModels();
 
         this.discovered = { at: Date.now(), ids };
         return ids;
     }
 
     async generate(request: LlmRequest): Promise<LlmHandle> {
-        const provider = this.provider;
-        if (provider === undefined) throw new PluginError('the model plugin has no server URL configured').withCode('config');
+        const arm = this.arm;
+        if (arm === undefined)
+            throw new PluginError(`the model plugin is not configured: ${unconfiguredMessage(this.providerKind)}`).withCode('config');
 
         const model = configString(request.model) ?? this.model;
         if (model.length === 0) throw new PluginError('the model plugin has no model configured and none was asked for').withCode('config');
@@ -266,20 +254,24 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         // until something reads the stream, which is what lets the fallback below build a second one
         // only if the first is refused.
         const buildAttempt = (effortField: string | undefined): Attempt => {
+            const reasoning = effortField === undefined ? undefined : arm.reasoningOptions(effortField);
+
             // Aborted when the host cancels the text stream, and linked to the invocation signal so
             // that being abandoned before the first chunk still stops the request.
             const controller = new AbortController();
             abortWith(this.host.signal, controller);
 
             const stream = streamText({
-                model: provider.chatModel(model),
+                model: arm.languageModel(model),
                 ...(system === undefined ? {} : { system }),
                 messages: toModelMessages(rest),
                 ...(temperature === undefined ? {} : { temperature }),
                 ...(request.maxOutputTokens === undefined ? {} : { maxOutputTokens: request.maxOutputTokens }),
                 ...(tools === undefined ? {} : { tools }),
-                // Unset unless the setting or the caller's own hint asks for it. See `effortToSend`.
-                ...(effortField === undefined ? {} : { providerOptions: { [PROVIDER_NAME]: { reasoningEffort: effortField } } }),
+                // Unset unless the setting or the caller's own hint asks for it, and in whatever
+                // this service calls thinking. See `effortToSend` and the arm's own
+                // `reasoningOptions`.
+                ...(reasoning === undefined ? {} : { providerOptions: reasoning }),
                 // The host already runs the one server-sanctioned retry, on a 429 or 503 carrying
                 // `Retry-After` (`plugin.host.factory.ts`). A second layer underneath it multiplied a
                 // throttled or failing provider's load by however many times the SDK retried on its
@@ -389,10 +381,10 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                     continue;
                 }
 
-                if (part.type === 'error' && retriable && isReasoningEffortRefusal(part.error)) {
+                if (part.type === 'error' && retriable && this.arm?.isReasoningRefusal(part.error) === true) {
                     retriable = false;
                     this.reasoningRefused = true;
-                    this.host.logger.warn('llm: the server refused reasoning_effort; retrying once without it', {
+                    this.host.logger.warn('llm: the provider refused the thinking field; retrying once without it', {
                         error: errorText(part.error),
                     });
 
@@ -454,6 +446,10 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         // Read from config alone rather than through `describeModels`, so this
         // stays synchronous and cannot be fooled by a `/models` blip: a model the
         // server did not list this second is still one the operator ticked.
+        // A vendor whose models all take tools has already answered this, and asking the
+        // operator to tick a box confirming it is asking them to know something the arm knows.
+        if (this.arm?.toolsOnEveryModel === true) return;
+
         if (toolCapableModels(this.models).includes(model)) return;
 
         throw new PluginError(`model "${model}" is not marked as able to use tools; tick it under the plugin's tool-capable models`).withCode(
@@ -531,10 +527,6 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             // one and the transcript the host builds is byte-identical to before.
             ...(providerState === undefined ? {} : { providerState }),
         };
-    }
-
-    private authHeaders(): Record<string, string> {
-        return this.apiKey === undefined || this.apiKey.length === 0 ? {} : { authorization: `Bearer ${this.apiKey}` };
     }
 }
 
@@ -674,14 +666,4 @@ function streamFromGenerator<T>(generator: AsyncGenerator<T, void, unknown>): Re
             await generator.return(undefined).catch(() => undefined);
         },
     });
-}
-
-/**
- * Whether a fault is a strict server saying it does not know `reasoning_effort`, rather than any
- * other way a generation can fail. `maxRetries: 0` is why this arrives as `APICallError` rather than
- * the SDK's own `RetryError` wrapping it: unwrapped, the status code and the response body it
- * quotes are still on it.
- */
-function isReasoningEffortRefusal(error: unknown): boolean {
-    return APICallError.isInstance(error) && error.statusCode === 400 && /reasoning_effort/.test(error.responseBody ?? '');
 }

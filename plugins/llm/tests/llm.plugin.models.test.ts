@@ -162,6 +162,30 @@ describe('testing the connection', () => {
     });
 });
 
+describe('choosing how the provider is spoken to', () => {
+    it('falls back to the OpenAI-compatible arm when the stored kind means nothing', async () => {
+        // Lenient at load and strict at save, which is `plugins/websearch`'s split: the form is
+        // where somebody is looking and can be told, and a row that says something unrecognised by
+        // the time it loads — hand-edited, or written by a version that had another arm — should
+        // cost the default rather than the station's ability to speak.
+        const { plugin } = await loaded({
+            config: { providerKind: 'something-else', baseUrl: 'http://models.test/v1', model: 'gpt-x' },
+            models: ['gpt-x'],
+        });
+
+        const result = await plugin.testConnection();
+
+        expect(result.ok).toBe(true);
+        expect(result.message).toContain('gpt-x');
+    });
+
+    it('refuses a generation while the chosen arm has nothing to reach', async () => {
+        const { plugin } = await loaded({ config: { model: 'gpt-x' } });
+
+        await expect(plugin.generate({ messages: [{ role: 'user', content: 'go' }] })).rejects.toThrow(/not configured/);
+    });
+});
+
 describe('suggesting what the form should offer', () => {
     it('offers the server list for both the default model and the tool-capable ones', async () => {
         const { plugin } = await loaded({ config: { baseUrl: 'https://models.test/v1' }, models: ['gpt-oss:20b', 'llama3.2:1b'] });

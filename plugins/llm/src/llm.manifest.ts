@@ -17,17 +17,29 @@ export const DEFAULT_BASE_URL = 'http://localhost:11434/v1';
 /**
  * How the provider is spoken to.
  *
- * One arm today, and the discriminator exists precisely so the second one is a
- * dependency, a branch and an option rather than a second plugin. An
- * OpenAI-compatible endpoint already covers a local Ollama, OpenAI itself,
- * vLLM and most hosted providers, so the second arm is for the ones with a
- * native protocol worth using rather than for coverage.
+ * A dependency, a branch and an option rather than a plugin each, because
+ * everything above the transport is the same work whoever answers: one model
+ * slot, one tool loop, one effort fallback. See `llm.provider.ts` for what an
+ * arm is allowed to know.
+ *
+ * The OpenAI-compatible arm is the broad one and covers a local Ollama or vLLM,
+ * OpenAI itself, Groq, Mistral and OpenRouter behind whatever address is set. So
+ * a native arm is never here for coverage: it is here because that service's own
+ * protocol carries something the shared one cannot say.
  */
 export const PROVIDER_KINDS = { 'openai-compat': 'OpenAI-compatible' } as const;
 
 export type ProviderKind = keyof typeof PROVIDER_KINDS;
 
 export const DEFAULT_PROVIDER_KIND: ProviderKind = 'openai-compat';
+
+/** Which kinds cannot work without an API key, for the save-time check below. */
+export const KEYED_KINDS: readonly ProviderKind[] = [];
+
+/** Whether a config value is one of {@link PROVIDER_KINDS}'s own keys, rather than something a hand-edited row left behind. */
+export function isProviderKind(value: string | undefined): value is ProviderKind {
+    return value !== undefined && Object.hasOwn(PROVIDER_KINDS, value);
+}
 
 /**
  * How hard a reasoning model should think, as an operator can set it rather than
@@ -94,24 +106,49 @@ export const MODEL_CACHE_MS = 60_000;
  * operator to type out something the server will tell you if you ask it. It now
  * carries only the `+tools` flags, which is the part no endpoint reports.
  */
-export const configSchema = z.object({
-    providerKind: z.enum(Object.keys(PROVIDER_KINDS) as [ProviderKind, ...ProviderKind[]]).optional(),
-    reasoningEffort: z.enum(Object.keys(REASONING_EFFORTS) as [ReasoningEffortSetting, ...ReasoningEffortSetting[]]).optional(),
-    baseUrl: z.string().min(1),
-    apiKey: z.string().optional(),
-    // Optional, and the reason is a loop the operator would otherwise be stuck in:
-    // the server URL cannot be tested until it is saved, and the models cannot be
-    // learned until it is tested. Requiring a model to save the address means being
-    // asked for a name there is no way to find out. Save, test, read the names,
-    // come back. `generate` refuses with `config` if it is still unset by the time
-    // something asks for words, which is the right place to notice.
-    model: z.string().optional(),
-    temperature: z.number().min(0).max(2).optional(),
-    // Tolerant on purpose: the ordinary form is the multiselect's JSON array, and the older
-    // "name +tools" text is still accepted so an install configured before the field changed keeps
-    // its tool support rather than silently losing it.
-    models: z.string().optional().refine(isParseableModelList, { message: 'expected a list of models' }),
-});
+export const configSchema = z
+    .object({
+        providerKind: z.enum(Object.keys(PROVIDER_KINDS) as [ProviderKind, ...ProviderKind[]]).optional(),
+        reasoningEffort: z.enum(Object.keys(REASONING_EFFORTS) as [ReasoningEffortSetting, ...ReasoningEffortSetting[]]).optional(),
+        // Optional here and required per arm below, because whether there is an address to
+        // give depends on which provider was chosen: an OpenAI-compatible endpoint is
+        // nothing without one, and a vendor's own API has an address that is not an
+        // operator's business.
+        baseUrl: z.string().optional(),
+        apiKey: z.string().optional(),
+        // Optional, and the reason is a loop the operator would otherwise be stuck in:
+        // the server URL cannot be tested until it is saved, and the models cannot be
+        // learned until it is tested. Requiring a model to save the address means being
+        // asked for a name there is no way to find out. Save, test, read the names,
+        // come back. `generate` refuses with `config` if it is still unset by the time
+        // something asks for words, which is the right place to notice.
+        model: z.string().optional(),
+        temperature: z.number().min(0).max(2).optional(),
+        // Tolerant on purpose: the ordinary form is the multiselect's JSON array, and the older
+        // "name +tools" text is still accepted so an install configured before the field changed keeps
+        // its tool support rather than silently losing it.
+        models: z.string().optional().refine(isParseableModelList, { message: 'expected a list of models' }),
+    })
+    // Refused at SAVE time rather than read leniently later, for `plugins/websearch`'s reason:
+    // this is the one moment there is somebody looking at the form to tell. The plugin itself
+    // stays lenient, so a row that says something unrecognised by the time it loads costs the
+    // default rather than the station's ability to speak.
+    //
+    // Note what the check sees: the host validates the form as it WILL be, stored secrets
+    // overlaid with the submission, so an operator who did not retype their key still passes.
+    .refine(config => kindOf(config.providerKind) !== 'openai-compat' || hasText(config.baseUrl), {
+        path: ['baseUrl'],
+        message: 'An OpenAI-compatible endpoint needs its address, e.g. http://localhost:11434/v1',
+    })
+    .refine(config => !KEYED_KINDS.includes(kindOf(config.providerKind)) || hasText(config.apiKey), {
+        path: ['apiKey'],
+        message: 'This provider needs an API key',
+    });
+
+const hasText = (value: string | undefined): boolean => typeof value === 'string' && value.trim().length > 0;
+
+/** What the form means by its provider field, including the default it leaves unsaid. */
+const kindOf = (value: string | undefined): ProviderKind => (isProviderKind(value) ? value : DEFAULT_PROVIDER_KIND);
 
 export const llmManifest: PluginManifest = {
     id: PLUGIN_ID,

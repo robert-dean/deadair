@@ -1,4 +1,4 @@
-import { PluginError, headersToRecord, hostFetchMethod, type HostFetchInit, type HostFetchMethod, type PluginHost } from '@deadair/plugin-sdk';
+import { PluginError, headersToRecord, hostFetchMethod, type HostFetchInit, type PluginHost } from '@deadair/plugin-sdk';
 
 /**
  * `host.fetch` in the shape the AI SDK wants.

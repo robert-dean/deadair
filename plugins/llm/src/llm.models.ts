@@ -113,13 +113,26 @@ export function isParseableModelList(raw: string | undefined): boolean {
  * anyway: a proxy that serves a model without listing it is a real thing, and
  * dropping the entry would silently disable tools on it.
  *
+ * `everyModelTakesTools` is the arm answering the second question outright, and
+ * it is not a shortcut: a vendor serving only its own models knows which of them
+ * take tools, so asking an operator to tick a box confirming it is asking them
+ * to supply something already known — and a box they have not found yet reads,
+ * from the console, as a station that will not use its own library. Only an
+ * OpenAI-compatible endpoint genuinely cannot say, and that is where the config
+ * half earns its place.
+ *
  * `defaultModel` is folded in for the same reason it always was: a plugin that
  * names a model it will not admit to having is a confusing thing to debug.
  * Anything not annotated arrives without tools, which is the conservative
  * direction — the cost of being wrong is a failed generation, and the cost of
  * being cautious is a break written without facts a tool would have supplied.
  */
-export function describeModels(discovered: readonly string[], raw: string | undefined, defaultModel: string): LlmModelInfo[] {
+export function describeModels(
+    discovered: readonly string[],
+    raw: string | undefined,
+    defaultModel: string,
+    everyModelTakesTools = false,
+): LlmModelInfo[] {
     const withTools = new Set(toolCapableModels(raw));
 
     const ids: string[] = [];
@@ -138,7 +151,7 @@ export function describeModels(discovered: readonly string[], raw: string | unde
     return ids.map(id => ({
         id,
         label: id,
-        tools: withTools.has(id),
+        tools: everyModelTakesTools || withTools.has(id),
         // Marked so the host knows which entry an unnamed request will actually reach.
         // Without it the host has to assume the worst model on the server, and would
         // never send tools to a station that has more than a couple installed.

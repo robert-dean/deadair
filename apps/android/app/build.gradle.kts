@@ -48,6 +48,15 @@ android {
         // `@mipmap/ic_launcher` at all and the build fails at resource linking. Measured, both
         // ways, on a clean build.
         disable += "ObsoleteSdkInt"
+        // `DataExtractionRules` asks for `android:fullBackupContent` beside the rules file,
+        // because that file does nothing below Android 12. True, and `android:allowBackup="false"`
+        // is already the whole answer there — the check does not model it. Answering it properly
+        // would mean a third file configuring a backup that never happens.
+        disable += "DataExtractionRules"
+        // `InsecureBaseConfiguration` flags the cleartext this app cannot do without: TLS
+        // terminates outside the station's container, so a LAN install is plain HTTP and nothing
+        // else. The argument in full is in `network_security_config.xml`.
+        disable += "InsecureBaseConfiguration"
     }
 }
 
@@ -69,6 +78,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
 
     implementation(platform(libs.compose.bom))

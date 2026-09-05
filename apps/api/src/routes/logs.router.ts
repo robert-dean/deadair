@@ -5,13 +5,13 @@ import { LogPage, LogQuery, LogSourceList } from '../modules/station/types/logs.
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
- * generated from [logs.ck](file://./../../data/contracts/station/logs.ck)
+ * generated from [logs.ck](../../data/contracts/station/logs.ck)
  */
 export const LogsRouter = ServerKitRouter();
 
 /**
  * Every log this install has, present or not, with its size and when it was last written
- * from [logs.ck](file://./../../data/contracts/station/logs.ck#L42)
+ * from [logs.ck](../../data/contracts/station/logs.ck#L42)
  */
 LogsRouter.get('/logs', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const service = ctx.container.get(LogsService);
@@ -24,13 +24,13 @@ LogsRouter.get('/logs', requirePolicy({ policy: 'platform.manage' }), async ctx 
 
 /**
  * A tail of one log, newest first
- * from [logs.ck](file://./../../data/contracts/station/logs.ck#L57)
+ * from [logs.ck](../../data/contracts/station/logs.ck#L57)
  */
 LogsRouter.get('/logs/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
-            id: z.string().min(1).max(40),
+            id: z.string().min(1).max(40).describe('One of the ids `GET /logs` reported'),
         }),
     );
 
@@ -46,7 +46,7 @@ LogsRouter.get('/logs/:id', requirePolicy({ policy: 'platform.manage' }), async 
 
 /**
  * The retained log as a plain-text attachment, oldest first, as the file is written
- * from [logs.ck](file://./../../data/contracts/station/logs.ck#L74)
+ * from [logs.ck](../../data/contracts/station/logs.ck#L74)
  */
 LogsRouter.get('/logs/:id/download', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

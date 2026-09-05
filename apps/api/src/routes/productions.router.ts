@@ -5,13 +5,13 @@ import { Production, ProductionList, ProductionRequest } from '../modules/produc
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
- * generated from [productions.ck](file://./../../data/contracts/productions/productions.ck)
+ * generated from [productions.ck](../../data/contracts/productions/productions.ck)
  */
 export const ProductionsRouter = ServerKitRouter();
 
 /**
  * Everything the station has made or is making, newest first
- * from [productions.ck](file://./../../data/contracts/productions/productions.ck#L29)
+ * from [productions.ck](../../data/contracts/productions/productions.ck#L29)
  */
 ProductionsRouter.get('/productions', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(ProductionsService);
@@ -24,7 +24,7 @@ ProductionsRouter.get('/productions', requirePolicy({ policy: 'platform.view' })
 
 /**
  * Asks the station to make one. It is queued, not started
- * from [productions.ck](file://./../../data/contracts/productions/productions.ck#L42)
+ * from [productions.ck](../../data/contracts/productions/productions.ck#L42)
  */
 ProductionsRouter.post('/productions', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, ProductionRequest);
@@ -39,7 +39,7 @@ ProductionsRouter.post('/productions', requirePolicy({ policy: 'platform.manage'
 
 /**
  * Stops a production being made, for good
- * from [productions.ck](file://./../../data/contracts/productions/productions.ck#L67)
+ * from [productions.ck](../../data/contracts/productions/productions.ck#L67)
  */
 ProductionsRouter.post('/productions/:id/cancel', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

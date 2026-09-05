@@ -1,6 +1,6 @@
 /**
  * An action a source will permit on one playlist's items. Item-scoped: neither value covers the playlist's own name or description
- * generated from [PlaylistPermission](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L8)
+ * generated from [PlaylistPermission](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L8)
  */
 export type PlaylistPermission = 'read' | 'edit';
 
@@ -11,7 +11,7 @@ export type PlaylistPermission = 'read' | 'edit';
  * listing of what a playlist holds, not of what the station has ingested. The three ids below are the
  * station's own and are absent for anything it has never seen, which on most playlists is plenty of
  * rows — a playlist is a provider's list and the library is what a sync has walked
- * generated from [CatalogTrack](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L28)
+ * generated from [CatalogTrack](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L28)
  */
 export interface CatalogTrack {
     /** The PROVIDER's id for this copy, which is what an import names it by. Never a `deadair.tracks` id */
@@ -33,7 +33,7 @@ export interface CatalogTrack {
 
 /**
  * One catalog-capable plugin that could not be listed
- * generated from [CatalogSourceError](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L42)
+ * generated from [CatalogSourceError](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L42)
  */
 export interface CatalogSourceError {
     pluginId: string;
@@ -43,7 +43,7 @@ export interface CatalogSourceError {
 
 /**
  * A playlist a catalog-capable plugin offers, tagged with the plugin it came from so an aggregated list is addressable
- * generated from [CatalogPlaylist](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L11)
+ * generated from [CatalogPlaylist](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L11)
  */
 export interface CatalogPlaylist {
     pluginId: string;
@@ -58,7 +58,7 @@ export interface CatalogPlaylist {
 }
 
 /**
- * generated from [CatalogPlaylistTracks](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L53)
+ * generated from [CatalogPlaylistTracks](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L53)
  */
 export interface CatalogPlaylistTracks {
     pluginId: string;
@@ -67,7 +67,7 @@ export interface CatalogPlaylistTracks {
 }
 
 /**
- * generated from [CatalogPlaylistPage](file://./../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L48)
+ * generated from [CatalogPlaylistPage](../../../../../apps/api/data/contracts/playlists/playlists.types.ck#L48)
  */
 export interface CatalogPlaylistPage {
     playlists: CatalogPlaylist[];

@@ -1,6 +1,6 @@
 /**
  * One rule on the station's format clock: a sort of break, and when it happens
- * generated from [ClockBand](file://./../../../../../apps/api/data/contracts/director/clock.types.ck#L8)
+ * generated from [ClockBand](../../../../../apps/api/data/contracts/director/clock.types.ck#L8)
  */
 export interface ClockBand {
     id: string;
@@ -44,7 +44,7 @@ export interface ClockBandInput {
 }
 
 /**
- * generated from [ClockBandList](file://./../../../../../apps/api/data/contracts/director/clock.types.ck#L21)
+ * generated from [ClockBandList](../../../../../apps/api/data/contracts/director/clock.types.ck#L21)
  */
 export interface ClockBandList {
     bands: ClockBand[];

@@ -15,6 +15,7 @@ import type {
     PluginSummary,
     PluginTestResult,
 } from './types/plugins.types.js';
+import { revivePluginDetail, revivePluginSummary } from './types/plugins.types.js';
 
 export class PluginsClient {
     constructor(private fetch: SdkFetch) {}
@@ -25,7 +26,7 @@ export class PluginsClient {
      */
     async listPlugins(): Promise<PluginSummary[]> {
         const result = await this.fetch(`/plugins`, { method: 'GET' });
-        return await parseJson<PluginSummary[]>(result);
+        return (await parseJson<PluginSummary[]>(result)).map(revivePluginSummary);
     }
 
     /**
@@ -43,7 +44,7 @@ export class PluginsClient {
      */
     async rescanPlugins(): Promise<PluginSummary[]> {
         const result = await this.fetch(`/plugins/rescan`, { method: 'POST' });
-        return await parseJson<PluginSummary[]>(result);
+        return (await parseJson<PluginSummary[]>(result)).map(revivePluginSummary);
     }
 
     /**
@@ -52,7 +53,7 @@ export class PluginsClient {
      */
     async getPlugin(id: string): Promise<PluginDetail> {
         const result = await this.fetch(`/plugins/${encodeURIComponent(id)}`, { method: 'GET' });
-        return await parseJson<PluginDetail>(result);
+        return revivePluginDetail(await parseJson<PluginDetail>(result));
     }
 
     /**
@@ -65,7 +66,7 @@ export class PluginsClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<PluginDetail>(result);
+        return revivePluginDetail(await parseJson<PluginDetail>(result));
     }
 
     /**
@@ -74,7 +75,7 @@ export class PluginsClient {
      */
     async enablePlugin(id: string): Promise<PluginDetail> {
         const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/enable`, { method: 'POST' });
-        return await parseJson<PluginDetail>(result);
+        return revivePluginDetail(await parseJson<PluginDetail>(result));
     }
 
     /**
@@ -83,7 +84,7 @@ export class PluginsClient {
      */
     async disablePlugin(id: string): Promise<PluginDetail> {
         const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/disable`, { method: 'POST' });
-        return await parseJson<PluginDetail>(result);
+        return revivePluginDetail(await parseJson<PluginDetail>(result));
     }
 
     /**
@@ -105,7 +106,7 @@ export class PluginsClient {
      */
     async reloadPlugin(id: string): Promise<PluginDetail> {
         const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/reload`, { method: 'POST' });
-        return await parseJson<PluginDetail>(result);
+        return revivePluginDetail(await parseJson<PluginDetail>(result));
     }
 
     /**
@@ -158,7 +159,7 @@ export class PluginsClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<PluginDetail>(result);
+        return revivePluginDetail(await parseJson<PluginDetail>(result));
     }
 
     /**
@@ -176,7 +177,7 @@ export class PluginsClient {
      */
     async disconnectPluginOAuth(id: string): Promise<PluginDetail> {
         const result = await this.fetch(`/plugins/${encodeURIComponent(id)}/oauth`, { method: 'DELETE' });
-        return await parseJson<PluginDetail>(result);
+        return revivePluginDetail(await parseJson<PluginDetail>(result));
     }
 
     /**

@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
-import type { ClockBand, ClockBandInput, ClockBandList } from './types/clock.types.js';
+import type { ClockBandInput, ClockBandList } from './types/clock.types.js';
 import type {
     AddStationSegmentInput,
     AddStationTrackInput,
@@ -17,6 +17,50 @@ import type {
 
 export class DirectorClient {
     constructor(private fetch: SdkFetch) {}
+
+    /**
+     * @name List clock bands
+     * @description Every band on this station's clock, including the ones switched off, in the operator's own order
+     */
+    async listClockBands(): Promise<ClockBandList> {
+        const result = await this.fetch(`/clock/bands`, { method: 'GET' });
+        return await parseJson<ClockBandList>(result);
+    }
+
+    /**
+     * @name Create clock band
+     * @description Adds a band. It claims its first boundary on the next commit pass
+     */
+    async createClockBand(body: ClockBandInput): Promise<ClockBandList> {
+        const result = await this.fetch(`/clock/bands`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<ClockBandList>(result);
+    }
+
+    /**
+     * @name Update clock band
+     * @description Rewrites one band. Breaks it has already planted stay where they are: the running order is the memory
+     */
+    async updateClockBand(id: string, body: ClockBandInput): Promise<ClockBandList> {
+        const result = await this.fetch(`/clock/bands/${encodeURIComponent(id)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<ClockBandList>(result);
+    }
+
+    /**
+     * @name Delete clock band
+     * @description Removes a band, which costs it the boundaries it had not claimed yet and nothing else
+     */
+    async deleteClockBand(id: string): Promise<ClockBandList> {
+        const result = await this.fetch(`/clock/bands/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        return await parseJson<ClockBandList>(result);
+    }
 
     /**
      * @name Get station air
@@ -176,49 +220,5 @@ export class DirectorClient {
     async removeARunningOrderItem(itemId: string): Promise<StationOrder> {
         const result = await this.fetch(`/director/air/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
         return await parseJson<StationOrder>(result);
-    }
-
-    /**
-     * @name List clock bands
-     * @description Every band on this station's clock, including the ones switched off, in the operator's own order
-     */
-    async listClockBands(): Promise<ClockBandList> {
-        const result = await this.fetch(`/clock/bands`, { method: 'GET' });
-        return await parseJson<ClockBandList>(result);
-    }
-
-    /**
-     * @name Create clock band
-     * @description Adds a band. It claims its first boundary on the next commit pass
-     */
-    async createClockBand(body: ClockBandInput): Promise<ClockBandList> {
-        const result = await this.fetch(`/clock/bands`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body, bigIntReplacer),
-        });
-        return await parseJson<ClockBandList>(result);
-    }
-
-    /**
-     * @name Update clock band
-     * @description Rewrites one band. Breaks it has already planted stay where they are: the running order is the memory
-     */
-    async updateClockBand(id: string, body: ClockBandInput): Promise<ClockBandList> {
-        const result = await this.fetch(`/clock/bands/${encodeURIComponent(id)}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body, bigIntReplacer),
-        });
-        return await parseJson<ClockBandList>(result);
-    }
-
-    /**
-     * @name Delete clock band
-     * @description Removes a band, which costs it the boundaries it had not claimed yet and nothing else
-     */
-    async deleteClockBand(id: string): Promise<ClockBandList> {
-        const result = await this.fetch(`/clock/bands/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        return await parseJson<ClockBandList>(result);
     }
 }

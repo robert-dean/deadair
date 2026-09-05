@@ -8,7 +8,7 @@ const _ZodDatetime = z.preprocess(
 
 /**
  * Which part of the station an entry came from, and the console's one filter axis
- * generated from [ActivityModule](file://./../../../../data/contracts/activity/activity.types.ck#L8)
+ * generated from [ActivityModule](../../../../data/contracts/activity/activity.types.ck#L8)
  */
 export const ActivityModule = z.enum(['playout', 'director', 'render', 'catalog', 'plugins']);
 export type ActivityModule = z.infer<typeof ActivityModule>;
@@ -17,14 +17,14 @@ export type ActivityModule = z.infer<typeof ActivityModule>;
  * How an entry reads, not how bad it is. There is deliberately no `waiting`: a station idling for
  * want of a listener says so in its own words and stays `info`, for the same reason the transport
  * reports it as `ready` rather than as a mild fault
- * generated from [ActivitySeverity](file://./../../../../data/contracts/activity/activity.types.ck#L13)
+ * generated from [ActivitySeverity](../../../../data/contracts/activity/activity.types.ck#L13)
  */
 export const ActivitySeverity = z.enum(['info', 'warn', 'fault']);
 export type ActivitySeverity = z.infer<typeof ActivitySeverity>;
 
 /**
  * One thing that happened, from whichever of the feed's sources holds it
- * generated from [ActivityEntry](file://./../../../../data/contracts/activity/activity.types.ck#L15)
+ * generated from [ActivityEntry](../../../../data/contracts/activity/activity.types.ck#L15)
  */
 export const ActivityEntry = z.strictObject({
     id: z.string().min(1).max(100).describe('Unique across the whole feed, and half of the cursor below'),
@@ -47,10 +47,10 @@ export type ActivityEntry = z.infer<typeof ActivityEntry>;
 
 /**
  * One page of the feed, newest first
- * generated from [ActivityQuery](file://./../../../../data/contracts/activity/activity.types.ck#L27)
+ * generated from [ActivityQuery](../../../../data/contracts/activity/activity.types.ck#L27)
  */
 export const ActivityQuery = z.strictObject({
-    limit: z.coerce.number().int().min(1).max(200).optional(),
+    limit: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(200)).optional(),
     before: z
         .string()
         .min(1)
@@ -67,7 +67,7 @@ export const ActivityQuery = z.strictObject({
 export type ActivityQuery = z.infer<typeof ActivityQuery>;
 
 /**
- * generated from [ActivityPage](file://./../../../../data/contracts/activity/activity.types.ck#L34)
+ * generated from [ActivityPage](../../../../data/contracts/activity/activity.types.ck#L34)
  */
 export const ActivityPage = z.strictObject({
     entries: z.array(ActivityEntry),

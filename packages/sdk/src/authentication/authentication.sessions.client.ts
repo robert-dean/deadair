@@ -1,7 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 
 /**
- * generated from [authentication.sessions.ck](file://./../../../../apps/api/data/contracts/authentication/authentication.sessions.ck)
+ * generated from [authentication.sessions.ck](../../../../apps/api/data/contracts/authentication/authentication.sessions.ck)
  */
 export class AuthenticationSessionsClient {
     constructor(private fetch: SdkFetch) {}

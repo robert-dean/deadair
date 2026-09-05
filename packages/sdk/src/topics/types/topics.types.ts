@@ -2,7 +2,7 @@ import type { ConfigFieldDescriptor } from '../../plugins/types/plugins.types.js
 
 /**
  * What a break can be about: a news category, and later a weather location. The operator's own vocabulary, per sort of break
- * generated from [Topic](file://./../../../../../apps/api/data/contracts/topics/topics.types.ck#L8)
+ * generated from [Topic](../../../../../apps/api/data/contracts/topics/topics.types.ck#L8)
  */
 export interface Topic {
     id: string;
@@ -33,7 +33,7 @@ export interface TopicInput {
 
 /**
  * A sort of break that has subjects at all, and how one of its subjects is edited. `ConfigFieldDescriptor` is the plugins area's, shared for the reason a station setting shares it: one form component renders them all
- * generated from [TopicKindDescriptor](file://./../../../../../apps/api/data/contracts/topics/topics.types.ck#L22)
+ * generated from [TopicKindDescriptor](../../../../../apps/api/data/contracts/topics/topics.types.ck#L22)
  */
 export interface TopicKindDescriptor {
     kind: string;
@@ -45,7 +45,7 @@ export interface TopicKindDescriptor {
 }
 
 /**
- * generated from [TopicQuery](file://./../../../../../apps/api/data/contracts/topics/topics.types.ck#L34)
+ * generated from [TopicQuery](../../../../../apps/api/data/contracts/topics/topics.types.ck#L34)
  */
 export interface TopicQuery {
     /** One sort of break, or absent for every subject this station has named */
@@ -53,7 +53,7 @@ export interface TopicQuery {
 }
 
 /**
- * generated from [TopicList](file://./../../../../../apps/api/data/contracts/topics/topics.types.ck#L17)
+ * generated from [TopicList](../../../../../apps/api/data/contracts/topics/topics.types.ck#L17)
  */
 export interface TopicList {
     topics: Topic[];
@@ -64,7 +64,7 @@ export interface TopicListInput {
 }
 
 /**
- * generated from [TopicKindList](file://./../../../../../apps/api/data/contracts/topics/topics.types.ck#L30)
+ * generated from [TopicKindList](../../../../../apps/api/data/contracts/topics/topics.types.ck#L30)
  */
 export interface TopicKindList {
     kinds: TopicKindDescriptor[];

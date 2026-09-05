@@ -1,3 +1,16 @@
+import { Decimal } from 'decimal.js';
+import { DateTime } from 'luxon';
+
+Decimal.set({ toExpNeg: -9e15, toExpPos: 9e15 });
+const __dt = (v: unknown, path: string): DateTime => {
+    if (typeof v !== 'string') {
+        throw new TypeError(`ContractKit: expected an ISO 8601 string at '${path}', received ${typeof v}.`);
+    }
+    const d = DateTime.fromISO(v);
+    if (!d.isValid) throw new TypeError(`ContractKit: '${v}' at '${path}' is not a valid ISO 8601 datetime.`);
+    return d;
+};
+
 /**
  * One concrete thing an attention row is about, so the reason does not live a page away.
  *
@@ -6,7 +19,7 @@
  * every one of those facts was already stored — the fetch error on `track_audio.last_error`, the
  * provider's refusal on `track_sources.playable` — and reachable only by finding the record and
  * hovering a cell on its page. This is that fact travelling with the row that counted it.
- * generated from [AttentionEvidence](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L14)
+ * generated from [AttentionEvidence](../../../../../apps/api/data/contracts/station/station.types.ck#L14)
  */
 export interface AttentionEvidence {
     /** The thing itself, as an operator would name it: a record's title and who made it */
@@ -27,24 +40,34 @@ export interface AttentionEvidence {
  *
  * `lastBeat` is absent until a loop finishes its first pass, which is why `startedAt` is there: from
  * the two of them a reader can tell a loop that has never completed anything from one that stopped.
- * generated from [StationHeartbeat](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L45)
+ * generated from [StationHeartbeat](../../../../../apps/api/data/contracts/station/station.types.ck#L45)
  */
 export interface StationHeartbeat {
     name: string;
     /** When the loop registered, which is when it was last (re)started */
-    startedAt: string;
+    startedAt: DateTime;
     /** When it last completed a pass. Absent until it completes its first */
-    lastBeat?: string;
+    lastBeat?: DateTime;
 }
 
 export interface StationHeartbeatInput {}
+
+/** Rehydrates every wire-encoded scalar in a StationHeartbeat into its runtime type. Mutates and returns `raw`. */
+export function reviveStationHeartbeat(raw: StationHeartbeat): StationHeartbeat {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['startedAt'] = __dt(__o0['startedAt'], 'StationHeartbeat.startedAt');
+    if (__o0['lastBeat'] != null) {
+        __o0['lastBeat'] = __dt(__o0['lastBeat'], 'StationHeartbeat.lastBeat');
+    }
+    return raw;
+}
 
 /**
  * How much of the library the station has actually looked at.
  *
  * The counts `/catalog/tracks` already answers with, lifted out of a page of rows: a check-up wants
  * the sentence "13 of 581 measured" without asking for thirteen tracks to get it.
- * generated from [StationBacklog](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L55)
+ * generated from [StationBacklog](../../../../../apps/api/data/contracts/station/station.types.ck#L55)
  */
 export interface StationBacklog {
     total: number;
@@ -56,7 +79,7 @@ export interface StationBacklogInput {}
 
 /**
  * One thing that wants the operator's attention, or the fact that nothing does
- * generated from [AttentionItem](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L21)
+ * generated from [AttentionItem](../../../../../apps/api/data/contracts/station/station.types.ck#L21)
  */
 export interface AttentionItem {
     /** What this is, as a stable key: `silence`, `benchedCopies`, `noPersona`. The console groups and counts on it rather than on the sentence */
@@ -95,11 +118,11 @@ export interface AttentionItem {
  * `operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it
  * — which would leave "which build is this" answerable only from a shell, the one thing carrying it
  * here exists to fix.
- * generated from [StationCheckup](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L80)
+ * generated from [StationCheckup](../../../../../apps/api/data/contracts/station/station.types.ck#L80)
  */
 export interface StationCheckup {
     /** When this reading was taken, so a stale page cannot pass itself off as now */
-    readAt: string;
+    readAt: DateTime;
     /** The commit this station was built from, as the image's `org.opencontainers.image.revision` label says it. Unlike the sections below, absent is not a failed reader: it means nothing stamped this build, which is what a development tree and a hand-built image both are */
     revision?: string;
     heartbeats?: StationHeartbeat[];
@@ -108,9 +131,24 @@ export interface StationCheckup {
 
 export interface StationCheckupInput {}
 
+/** Rehydrates every wire-encoded scalar in a StationCheckup into its runtime type. Mutates and returns `raw`. */
+export function reviveStationCheckup(raw: StationCheckup): StationCheckup {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['readAt'] = __dt(__o0['readAt'], 'StationCheckup.readAt');
+    if (__o0['heartbeats'] != null) {
+        {
+            const __a1 = __o0['heartbeats'] as unknown[];
+            for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+                reviveStationHeartbeat(__a1[__i2] as never);
+            }
+        }
+    }
+    return raw;
+}
+
 /**
  * Everything wrong or waiting, worst first
- * generated from [StationAttention](file://./../../../../../apps/api/data/contracts/station/station.types.ck#L32)
+ * generated from [StationAttention](../../../../../apps/api/data/contracts/station/station.types.ck#L32)
  */
 export interface StationAttention {
     items: AttentionItem[];

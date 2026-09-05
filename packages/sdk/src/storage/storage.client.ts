@@ -1,6 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { parseJson } from '../sdk-options.js';
 import type { StorageReport } from './types/storage.types.js';
+import { reviveStorageReport } from './types/storage.types.js';
 
 export class StorageClient {
     constructor(private fetch: SdkFetch) {}
@@ -11,6 +12,6 @@ export class StorageClient {
      */
     async readStorage(): Promise<StorageReport> {
         const result = await this.fetch(`/storage`, { method: 'GET' });
-        return await parseJson<StorageReport>(result);
+        return reviveStorageReport(await parseJson<StorageReport>(result));
     }
 }

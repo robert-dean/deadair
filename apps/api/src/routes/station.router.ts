@@ -4,13 +4,13 @@ import { StationCheckupService } from '#src/modules/station/station.checkup.serv
 import { StationAttention, StationCheckup } from '../modules/station/types/station.types.js';
 
 /**
- * generated from [station.ck](file://./../../data/contracts/station/station.ck)
+ * generated from [station.ck](../../data/contracts/station/station.ck)
  */
 export const StationRouter = ServerKitRouter();
 
 /**
  * Everything wrong or waiting, worst first, each with the console page that can act on it
- * from [station.ck](file://./../../data/contracts/station/station.ck#L25)
+ * from [station.ck](../../data/contracts/station/station.ck#L25)
  */
 StationRouter.get('/station/attention', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(StationAttentionService);
@@ -23,7 +23,7 @@ StationRouter.get('/station/attention', requirePolicy({ policy: 'platform.view' 
 
 /**
  * The loops the station runs and how much of the library it has looked at
- * from [station.ck](file://./../../data/contracts/station/station.ck#L48)
+ * from [station.ck](../../data/contracts/station/station.ck#L48)
  */
 StationRouter.get('/station/checkup', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(StationCheckupService);

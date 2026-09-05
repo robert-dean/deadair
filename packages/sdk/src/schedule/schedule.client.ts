@@ -1,13 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
-import type {
-    ScheduleNow,
-    ScheduleSlot,
-    ScheduleSlotInput,
-    ScheduleSlotList,
-    ScheduleTimetable,
-    ScheduleTimetableQuery,
-} from './types/schedule.types.js';
+import type { ScheduleNow, ScheduleSlotInput, ScheduleSlotList, ScheduleTimetable, ScheduleTimetableQuery } from './types/schedule.types.js';
 
 export class ScheduleClient {
     constructor(private fetch: SdkFetch) {}

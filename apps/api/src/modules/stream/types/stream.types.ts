@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * What the station's track fetcher holds by way of a Spotify login
- * generated from [FetcherAuthorization](file://./../../../../data/contracts/stream/stream.types.ck#L8)
+ * generated from [FetcherAuthorization](../../../../data/contracts/stream/stream.types.ck#L8)
  */
 export const FetcherAuthorization = z.strictObject({
     reachable: z
@@ -43,17 +43,19 @@ export type FetcherAuthorization = z.infer<typeof FetcherAuthorization>;
 
 /**
  * An authorization to open in a browser
- * generated from [FetcherAuthorizationStart](file://./../../../../data/contracts/stream/stream.types.ck#L19)
+ * generated from [FetcherAuthorizationStart](../../../../data/contracts/stream/stream.types.ck#L19)
  */
 export const FetcherAuthorizationStart = z.strictObject({
     authorizeUrl: z.string().min(1).max(2000).describe('The Spotify consent page, to be opened by the operator'),
-    expiresInMs: z.coerce.number().int().min(0).describe('How long this URL is good for. Starting another replaces it'),
+    expiresInMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How long this URL is good for. Starting another replaces it'),
 });
 export type FetcherAuthorizationStart = z.infer<typeof FetcherAuthorizationStart>;
 
 /**
  * The callback the browser could not deliver, handed over by the operator instead
- * generated from [FetcherAuthorizationInput](file://./../../../../data/contracts/stream/stream.types.ck#L25)
+ * generated from [FetcherAuthorizationInput](../../../../data/contracts/stream/stream.types.ck#L25)
  */
 export const FetcherAuthorizationInput = z.strictObject({
     redirectUrl: z
@@ -68,7 +70,7 @@ export type FetcherAuthorizationInput = z.infer<typeof FetcherAuthorizationInput
 
 /**
  * Which account the station now fetches as
- * generated from [FetcherAuthorizationFinished](file://./../../../../data/contracts/stream/stream.types.ck#L30)
+ * generated from [FetcherAuthorizationFinished](../../../../data/contracts/stream/stream.types.ck#L30)
  */
 export const FetcherAuthorizationFinished = z.strictObject({
     username: z

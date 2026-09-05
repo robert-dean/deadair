@@ -4,13 +4,13 @@ import { ArtService } from '#src/modules/art/art.service.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
- * generated from [art.ck](file://./../../data/contracts/art/art.ck)
+ * generated from [art.ck](../../data/contracts/art/art.ck)
  */
 export const ArtRouter = ServerKitRouter();
 
 /**
  * The bytes of one cached image
- * from [art.ck](file://./../../data/contracts/art/art.ck#L25)
+ * from [art.ck](../../data/contracts/art/art.ck#L25)
  * anonymous access, no security required
  */
 ArtRouter.get('/art/:id', async ctx => {

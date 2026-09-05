@@ -1,10 +1,22 @@
+import { Decimal } from 'decimal.js';
+import { DateTime } from 'luxon';
 import type { Pagination } from '../../shared/types/pagination.js';
 import type { PaginationInput } from '../../shared/types/pagination.js';
+
+Decimal.set({ toExpNeg: -9e15, toExpPos: 9e15 });
+const __dt = (v: unknown, path: string): DateTime => {
+    if (typeof v !== 'string') {
+        throw new TypeError(`ContractKit: expected an ISO 8601 string at '${path}', received ${typeof v}.`);
+    }
+    const d = DateTime.fromISO(v);
+    if (!d.isValid) throw new TypeError(`ContractKit: '${v}' at '${path}' is not a valid ISO 8601 datetime.`);
+    return d;
+};
 
 /**
  * What the station has been told about a record. `neutral` is the absence of an opinion rather than
  * a middling one, and it is what rating something back to nothing means.
- * generated from [Rating](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L9)
+ * generated from [Rating](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L9)
  */
 export type Rating = 'liked' | 'neutral' | 'disliked';
 
@@ -19,7 +31,7 @@ export type Rating = 'liked' | 'neutral' | 'disliked';
  * The failure columns are here rather than hidden because that is the question this page exists to
  * answer. A row with `attempts` and no `fetchedAt` is a remembered failure, and `lastError` with
  * `nextAttemptAt` is the whole of why a perfectly good-looking record will not play.
- * generated from [TrackBinding](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L73)
+ * generated from [TrackBinding](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L73)
  */
 export interface TrackBinding {
     /** `track_sources.id`, which is also what the audio URL carries */
@@ -29,23 +41,44 @@ export interface TrackBinding {
     /** False when the provider still knows the record but will not serve it here */
     playable: boolean;
     /** When the station gave up on this copy. Cleared by the next sync that sees it again */
-    missingAt?: string;
+    missingAt?: DateTime;
     /** `sync` if a playlist walk saw it, `discovered` if something looked it up */
     origin: string;
     bitrate?: number;
     format?: string;
-    lastSeenAt?: string;
+    lastSeenAt?: DateTime;
     /** What the station holds of this copy, absent when nothing has ever fetched it. */
     byteSize?: number;
-    fetchedAt?: string;
-    lastServedAt?: string;
+    fetchedAt?: DateTime;
+    lastServedAt?: DateTime;
     /** CONSECUTIVE failures. Reset by a fetch that works */
     attempts: number;
     lastError?: string;
-    nextAttemptAt?: string;
+    nextAttemptAt?: DateTime;
 }
 
 export interface TrackBindingInput {}
+
+/** Rehydrates every wire-encoded scalar in a TrackBinding into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackBinding(raw: TrackBinding): TrackBinding {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['missingAt'] != null) {
+        __o0['missingAt'] = __dt(__o0['missingAt'], 'TrackBinding.missingAt');
+    }
+    if (__o0['lastSeenAt'] != null) {
+        __o0['lastSeenAt'] = __dt(__o0['lastSeenAt'], 'TrackBinding.lastSeenAt');
+    }
+    if (__o0['fetchedAt'] != null) {
+        __o0['fetchedAt'] = __dt(__o0['fetchedAt'], 'TrackBinding.fetchedAt');
+    }
+    if (__o0['lastServedAt'] != null) {
+        __o0['lastServedAt'] = __dt(__o0['lastServedAt'], 'TrackBinding.lastServedAt');
+    }
+    if (__o0['nextAttemptAt'] != null) {
+        __o0['nextAttemptAt'] = __dt(__o0['nextAttemptAt'], 'TrackBinding.nextAttemptAt');
+    }
+    return raw;
+}
 
 /**
  * What the measurement sidecar made of a record.
@@ -54,7 +87,7 @@ export interface TrackBindingInput {}
  * argues at length: a measurement of a truncated download is confident and wrong, so every reader in
  * the app filters on `complete` and a page that showed only a date would be reporting a record as
  * measured that nothing will use the measurement of.
- * generated from [TrackAnalysis](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L98)
+ * generated from [TrackAnalysis](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L98)
  */
 export interface TrackAnalysis {
     schemaVersion: number;
@@ -62,19 +95,31 @@ export interface TrackAnalysis {
     /** The measuring thing itself, which is not the plugin adapting it */
     analyzer?: string;
     analyzerPluginId?: string;
-    analyzedAt?: string;
-    failedAt?: string;
+    analyzedAt?: DateTime;
+    failedAt?: DateTime;
     failureReason?: string;
 }
 
 export interface TrackAnalysisInput {}
 
+/** Rehydrates every wire-encoded scalar in a TrackAnalysis into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackAnalysis(raw: TrackAnalysis): TrackAnalysis {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['analyzedAt'] != null) {
+        __o0['analyzedAt'] = __dt(__o0['analyzedAt'], 'TrackAnalysis.analyzedAt');
+    }
+    if (__o0['failedAt'] != null) {
+        __o0['failedAt'] = __dt(__o0['failedAt'], 'TrackAnalysis.failedAt');
+    }
+    return raw;
+}
+
 /**
  * One airing of a record, as this page needs it: when, and under which broadcast.
- * generated from [TrackPlay](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L109)
+ * generated from [TrackPlay](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L109)
  */
 export interface TrackPlay {
-    airedAt: string;
+    airedAt: DateTime;
     broadcastId?: string;
     /** What put it in the running order */
     source: string;
@@ -82,13 +127,20 @@ export interface TrackPlay {
 
 export interface TrackPlayInput {}
 
+/** Rehydrates every wire-encoded scalar in a TrackPlay into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackPlay(raw: TrackPlay): TrackPlay {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['airedAt'] = __dt(__o0['airedAt'], 'TrackPlay.airedAt');
+    return raw;
+}
+
 /**
  * What a clear actually did.
  *
  * A count rather than a bare 204, because the interesting answers are the small ones: clearing the
  * audio of a record with three copies and being told `1` is the station saying two of them were
  * never here — which is a fact about the record and not about the button.
- * generated from [TrackClearResult](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L132)
+ * generated from [TrackClearResult](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L132)
  */
 export interface TrackClearResult {
     trackId: string;
@@ -103,7 +155,7 @@ export interface TrackClearResultInput {}
 /**
  * Narrow a clear to one provider's answer, for the case where one source is wrong and the rest are
  * not. Absent clears every provider's.
- * generated from [ClearEnrichmentQuery](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L140)
+ * generated from [ClearEnrichmentQuery](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L140)
  */
 export interface ClearEnrichmentQuery {
     provider?: string;
@@ -121,7 +173,7 @@ export interface ClearEnrichmentQuery {
  * One enum for both lists rather than two, because the alternative is a second near-identical
  * contract whose only content is which two keys it drops. A key the row cannot answer falls back to
  * name order rather than failing: an ordering nobody can serve is a page an operator cannot open.
- * generated from [CatalogSort](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L155)
+ * generated from [CatalogSort](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L155)
  */
 export type CatalogSort = 'name' | 'albums' | 'tracks' | 'year' | 'rating';
 
@@ -133,7 +185,7 @@ export type CatalogSort = 'name' | 'albums' | 'tracks' | 'year' | 'rating';
  *   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
  *   benched     every copy written off, which is the one state that means it CANNOT air
  *   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
- * generated from [TrackState](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L171)
+ * generated from [TrackState](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L171)
  */
 export type TrackState = 'cached' | 'uncached' | 'unmeasured' | 'benched' | 'failing';
 
@@ -144,7 +196,7 @@ export type TrackState = 'cached' | 'uncached' | 'unmeasured' | 'benched' | 'fai
  * `state` is deliberately absent. It is three independent booleans rather than one column, so there
  * is no ordering of it an operator would agree with: a benched record and an unmeasured one are not
  * more or less than each other.
- * generated from [TrackSort](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L179)
+ * generated from [TrackSort](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L179)
  */
 export type TrackSort = 'title' | 'artist' | 'album' | 'year' | 'duration' | 'rating';
 
@@ -155,7 +207,7 @@ export type TrackSort = 'title' | 'artist' | 'album' | 'year' | 'duration' | 'ra
  * `docs/todo/analysis-queue-ordering.md` necessary, and it was a psql query then. `total` is the
  * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
  * read as N of M without reaching into the pager.
- * generated from [TrackStateCounts](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L196)
+ * generated from [TrackStateCounts](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L196)
  */
 export interface TrackStateCounts {
     total: number;
@@ -169,7 +221,7 @@ export interface TrackStateCounts {
 export interface TrackStateCountsInput {}
 
 /**
- * generated from [EnrichmentExternalId](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L244)
+ * generated from [EnrichmentExternalId](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L244)
  */
 export interface EnrichmentExternalId {
     /** e.g. `musicbrainz`, `wikidata` */
@@ -180,7 +232,7 @@ export interface EnrichmentExternalId {
 /**
  * Narrowed to http(s) by the host before it is stored, since the console renders these as
  * something a human clicks.
- * generated from [EnrichmentLink](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L251)
+ * generated from [EnrichmentLink](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L251)
  */
 export interface EnrichmentLink {
     label: string;
@@ -191,7 +243,7 @@ export interface EnrichmentLink {
  * One thing the station believes, and the words it read that say so. Extracted by the host out of
  * an article a plugin handed over, rather than said by any plugin: `sourceUrl` is where a person
  * checks it and `sourceQuote` is the span that supports it, and neither is ever absent.
- * generated from [FactClaim](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L344)
+ * generated from [FactClaim](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L344)
  */
 export interface FactClaim {
     id: string;
@@ -206,15 +258,24 @@ export interface FactClaim {
     confidence?: number;
     model?: string;
     /** Absent means never said on air */
-    lastUsedAt?: string;
+    lastUsedAt?: DateTime;
 }
 
 export interface FactClaimInput {}
 
+/** Rehydrates every wire-encoded scalar in a FactClaim into its runtime type. Mutates and returns `raw`. */
+export function reviveFactClaim(raw: FactClaim): FactClaim {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['lastUsedAt'] != null) {
+        __o0['lastUsedAt'] = __dt(__o0['lastUsedAt'], 'FactClaim.lastUsedAt');
+    }
+    return raw;
+}
+
 /**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
- * generated from [RateInput](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L13)
+ * generated from [RateInput](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L13)
  */
 export interface RateInput {
     rating: Rating;
@@ -230,7 +291,7 @@ export interface RateInput {
  * the station's copy, to be resolved against the API base the client already configures (the API
  * mounts at the root and does not know the `/api` prefix the edge adds). Prefer the local one by
  * doing nothing: the switch happens server-side as soon as the art cache pass has the bytes.
- * generated from [Artist](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L26)
+ * generated from [Artist](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L26)
  */
 export interface Artist {
     id: string;
@@ -256,7 +317,7 @@ export interface ArtistInput {
 }
 
 /**
- * generated from [Album](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L36)
+ * generated from [Album](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L36)
  */
 export interface Album {
     id: string;
@@ -284,7 +345,7 @@ export interface AlbumInput {
 }
 
 /**
- * generated from [Track](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L48)
+ * generated from [Track](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L48)
  */
 export interface Track {
     id: string;
@@ -317,7 +378,7 @@ export interface TrackInput {
 /**
  * Pagination plus a name filter. Every list operation here takes it, so the console's search box
  * narrows server-side rather than filtering one page client-side and lying about the total.
- * generated from [CatalogQuery](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L159)
+ * generated from [CatalogQuery](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L159)
  */
 export interface CatalogQuery extends Pagination {
     search?: string;
@@ -334,7 +395,7 @@ export interface CatalogQueryInput extends PaginationInput {
  * `1997`, `1997-06` or `1997-06-24` depending on what is actually known about the release, and the
  * SDK types it the same way. A `datetime` would reject the first two or invent a day and a time
  * for them, which is a precision the source never claimed.
- * generated from [TrackEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L260)
+ * generated from [TrackEnrichmentData](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L260)
  */
 export interface TrackEnrichmentData {
     artist?: string;
@@ -360,7 +421,7 @@ export interface TrackEnrichmentData {
 }
 
 /**
- * generated from [ArtistEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L280)
+ * generated from [ArtistEnrichmentData](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L280)
  */
 export interface ArtistEnrichmentData {
     name?: string;
@@ -374,7 +435,7 @@ export interface ArtistEnrichmentData {
 }
 
 /**
- * generated from [AlbumEnrichmentData](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L291)
+ * generated from [AlbumEnrichmentData](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L291)
  */
 export interface AlbumEnrichmentData {
     name?: string;
@@ -394,7 +455,7 @@ export interface AlbumEnrichmentData {
 
 /**
  * One page of artists, with the totals the request was counted against
- * generated from [ArtistPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L224)
+ * generated from [ArtistPage](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L224)
  */
 export interface ArtistPage {
     meta: Pagination;
@@ -408,7 +469,7 @@ export interface ArtistPageInput {
 
 /**
  * One page of albums
- * generated from [AlbumPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L229)
+ * generated from [AlbumPage](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L229)
  */
 export interface AlbumPage {
     meta: Pagination;
@@ -426,7 +487,7 @@ export interface AlbumPageInput {
  * The enrichment is deliberately NOT here. It has its own operation already, answering
  * `TrackEnrichmentDetail` with every provider's payload and the station's own sourced claims, and
  * the console draws it through the same panel the list uses. One enrichment shape rather than two.
- * generated from [TrackDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L120)
+ * generated from [TrackDetail](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L120)
  */
 export interface TrackDetail extends Track {
     bindings: TrackBinding[];
@@ -446,6 +507,27 @@ export interface TrackDetailInput extends TrackInput {
     plays: TrackPlayInput[];
 }
 
+/** Rehydrates every wire-encoded scalar in a TrackDetail into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackDetail(raw: TrackDetail): TrackDetail {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['bindings'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveTrackBinding(__a1[__i2] as never);
+        }
+    }
+    if (__o0['analysis'] != null) {
+        reviveTrackAnalysis(__o0['analysis'] as never);
+    }
+    {
+        const __a3 = __o0['plays'] as unknown[];
+        for (let __i4 = 0; __i4 < __a3.length; __i4++) {
+            reviveTrackPlay(__a3[__i4] as never);
+        }
+    }
+    return raw;
+}
+
 /**
  * A track as a LIST shows it: the record, plus three facts about what the station has of it.
  *
@@ -453,7 +535,7 @@ export interface TrackDetailInput extends TrackInput {
  * the query that was already running — and everything wider (which providers, how many bytes, why the
  * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
  * the detail page in a table cell.
- * generated from [TrackRow](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L211)
+ * generated from [TrackRow](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L211)
  */
 export interface TrackRow extends Track {
     /** The bytes are on this machine */
@@ -471,7 +553,7 @@ export interface TrackRowInput extends TrackInput {}
  *
  * Its own contract rather than a field on `CatalogQuery`, because that one is shared with the artist
  * and album lists where none of these states means anything.
- * generated from [TrackQuery](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L185)
+ * generated from [TrackQuery](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L185)
  */
 export interface TrackQuery extends Omit<CatalogQuery, 'sortBy'> {
     state?: TrackState;
@@ -487,14 +569,14 @@ export interface TrackQueryInput extends Omit<CatalogQueryInput, 'sortBy'> {
  * One provider's stored answer. `found: false` is a recorded miss, which is a fact rather than a
  * failure: the provider was asked, had nothing, and is not asked again until `expiresAt`. A provider
  * that could not be asked at all is `failed` instead, and the two never both hold.
- * generated from [TrackEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L308)
+ * generated from [TrackEnrichmentSource](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L308)
  */
 export interface TrackEnrichmentSource {
     provider: string;
     /** The id it was fetched under. Provenance, not identity */
     providerRef?: string;
-    fetchedAt: string;
-    expiresAt?: string;
+    fetchedAt: DateTime;
+    expiresAt?: DateTime;
     /** Past its TTL, so the next pass will ask again */
     stale: boolean;
     found: boolean;
@@ -507,14 +589,24 @@ export interface TrackEnrichmentSourceInput {
     data: TrackEnrichmentData;
 }
 
+/** Rehydrates every wire-encoded scalar in a TrackEnrichmentSource into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackEnrichmentSource(raw: TrackEnrichmentSource): TrackEnrichmentSource {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['fetchedAt'] = __dt(__o0['fetchedAt'], 'TrackEnrichmentSource.fetchedAt');
+    if (__o0['expiresAt'] != null) {
+        __o0['expiresAt'] = __dt(__o0['expiresAt'], 'TrackEnrichmentSource.expiresAt');
+    }
+    return raw;
+}
+
 /**
- * generated from [ArtistEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L319)
+ * generated from [ArtistEnrichmentSource](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L319)
  */
 export interface ArtistEnrichmentSource {
     provider: string;
     providerRef?: string;
-    fetchedAt: string;
-    expiresAt?: string;
+    fetchedAt: DateTime;
+    expiresAt?: DateTime;
     stale: boolean;
     found: boolean;
     /** The last attempt errored, so `expiresAt` is a backoff rather than a TTL */
@@ -526,14 +618,24 @@ export interface ArtistEnrichmentSourceInput {
     data: ArtistEnrichmentData;
 }
 
+/** Rehydrates every wire-encoded scalar in a ArtistEnrichmentSource into its runtime type. Mutates and returns `raw`. */
+export function reviveArtistEnrichmentSource(raw: ArtistEnrichmentSource): ArtistEnrichmentSource {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['fetchedAt'] = __dt(__o0['fetchedAt'], 'ArtistEnrichmentSource.fetchedAt');
+    if (__o0['expiresAt'] != null) {
+        __o0['expiresAt'] = __dt(__o0['expiresAt'], 'ArtistEnrichmentSource.expiresAt');
+    }
+    return raw;
+}
+
 /**
- * generated from [AlbumEnrichmentSource](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L330)
+ * generated from [AlbumEnrichmentSource](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L330)
  */
 export interface AlbumEnrichmentSource {
     provider: string;
     providerRef?: string;
-    fetchedAt: string;
-    expiresAt?: string;
+    fetchedAt: DateTime;
+    expiresAt?: DateTime;
     stale: boolean;
     found: boolean;
     /** The last attempt errored, so `expiresAt` is a backoff rather than a TTL */
@@ -545,9 +647,19 @@ export interface AlbumEnrichmentSourceInput {
     data: AlbumEnrichmentData;
 }
 
+/** Rehydrates every wire-encoded scalar in a AlbumEnrichmentSource into its runtime type. Mutates and returns `raw`. */
+export function reviveAlbumEnrichmentSource(raw: AlbumEnrichmentSource): AlbumEnrichmentSource {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['fetchedAt'] = __dt(__o0['fetchedAt'], 'AlbumEnrichmentSource.fetchedAt');
+    if (__o0['expiresAt'] != null) {
+        __o0['expiresAt'] = __dt(__o0['expiresAt'], 'AlbumEnrichmentSource.expiresAt');
+    }
+    return raw;
+}
+
 /**
  * One page of tracks, with what the station has of each and of the whole set
- * generated from [TrackPage](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L234)
+ * generated from [TrackPage](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L234)
  */
 export interface TrackPage {
     meta: Pagination;
@@ -569,7 +681,7 @@ export interface TrackPageInput {
  * `claims` sits beside them rather than inside `merged`, because a claim is the host's own and not
  * any provider's. The articles they were read out of are deliberately NOT here: raw source prose is
  * stored and never sent.
- * generated from [TrackEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L364)
+ * generated from [TrackEnrichmentDetail](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L364)
  */
 export interface TrackEnrichmentDetail {
     trackId: string;
@@ -584,8 +696,26 @@ export interface TrackEnrichmentDetailInput {
     claims: FactClaimInput[];
 }
 
+/** Rehydrates every wire-encoded scalar in a TrackEnrichmentDetail into its runtime type. Mutates and returns `raw`. */
+export function reviveTrackEnrichmentDetail(raw: TrackEnrichmentDetail): TrackEnrichmentDetail {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['sources'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveTrackEnrichmentSource(__a1[__i2] as never);
+        }
+    }
+    {
+        const __a3 = __o0['claims'] as unknown[];
+        for (let __i4 = 0; __i4 < __a3.length; __i4++) {
+            reviveFactClaim(__a3[__i4] as never);
+        }
+    }
+    return raw;
+}
+
 /**
- * generated from [ArtistEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L371)
+ * generated from [ArtistEnrichmentDetail](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L371)
  */
 export interface ArtistEnrichmentDetail {
     artistId: string;
@@ -600,8 +730,26 @@ export interface ArtistEnrichmentDetailInput {
     claims: FactClaimInput[];
 }
 
+/** Rehydrates every wire-encoded scalar in a ArtistEnrichmentDetail into its runtime type. Mutates and returns `raw`. */
+export function reviveArtistEnrichmentDetail(raw: ArtistEnrichmentDetail): ArtistEnrichmentDetail {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['sources'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveArtistEnrichmentSource(__a1[__i2] as never);
+        }
+    }
+    {
+        const __a3 = __o0['claims'] as unknown[];
+        for (let __i4 = 0; __i4 < __a3.length; __i4++) {
+            reviveFactClaim(__a3[__i4] as never);
+        }
+    }
+    return raw;
+}
+
 /**
- * generated from [AlbumEnrichmentDetail](file://./../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L378)
+ * generated from [AlbumEnrichmentDetail](../../../../../apps/api/data/contracts/catalog/catalog.types.ck#L378)
  */
 export interface AlbumEnrichmentDetail {
     albumId: string;
@@ -614,4 +762,22 @@ export interface AlbumEnrichmentDetailInput {
     merged: AlbumEnrichmentData;
     sources: AlbumEnrichmentSourceInput[];
     claims: FactClaimInput[];
+}
+
+/** Rehydrates every wire-encoded scalar in a AlbumEnrichmentDetail into its runtime type. Mutates and returns `raw`. */
+export function reviveAlbumEnrichmentDetail(raw: AlbumEnrichmentDetail): AlbumEnrichmentDetail {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['sources'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveAlbumEnrichmentSource(__a1[__i2] as never);
+        }
+    }
+    {
+        const __a3 = __o0['claims'] as unknown[];
+        for (let __i4 = 0; __i4 < __a3.length; __i4++) {
+            reviveFactClaim(__a3[__i4] as never);
+        }
+    }
+    return raw;
 }

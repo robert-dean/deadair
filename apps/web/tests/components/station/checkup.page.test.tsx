@@ -3,6 +3,7 @@
 // screen, which is the whole reason a page like this is worth having.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 import type { ReactNode } from 'react';
 
 import { CheckupPage } from '../../../src/components/station/checkup.page';
@@ -34,10 +35,14 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const checkup = () => ({
-    readAt: '2026-08-25T12:00:00.000Z',
+    readAt: DateTime.fromISO('2026-08-25T12:00:00.000Z'),
     heartbeats: [
-        { name: 'playout.reconcile', startedAt: '2026-08-25T11:00:00.000Z', lastBeat: '2026-08-25T11:59:55.000Z' },
-        { name: 'audience.poll', startedAt: '2026-08-25T11:00:00.000Z' },
+        {
+            name: 'playout.reconcile',
+            startedAt: DateTime.fromISO('2026-08-25T11:00:00.000Z'),
+            lastBeat: DateTime.fromISO('2026-08-25T11:59:55.000Z'),
+        },
+        { name: 'audience.poll', startedAt: DateTime.fromISO('2026-08-25T11:00:00.000Z') },
     ],
     backlog: { total: 581, cached: 570, measured: 13 },
 });
@@ -48,7 +53,7 @@ function allWell() {
     readStationAttention.mockResolvedValue({ items: [] });
     readStationCheckup.mockResolvedValue(checkup());
     listPlugins.mockResolvedValue([]);
-    readStorage.mockResolvedValue({ readAt: '2026-08-25T12:00:00.000Z', stores: [] });
+    readStorage.mockResolvedValue({ readAt: DateTime.fromISO('2026-08-25T12:00:00.000Z'), stores: [] });
 }
 
 afterEach(() => {
@@ -151,7 +156,7 @@ describe('CheckupPage', () => {
      */
     it('tells a section it could not read from one with nothing in it', async () => {
         allWell();
-        readStationCheckup.mockResolvedValue({ readAt: '2026-08-25T12:00:00.000Z' });
+        readStationCheckup.mockResolvedValue({ readAt: DateTime.fromISO('2026-08-25T12:00:00.000Z') });
 
         render(<CheckupPage />);
 

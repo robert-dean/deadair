@@ -33,6 +33,7 @@
         "@tanstack/react-router": "^1.170.18",
         "@tanstack/react-virtual": "^3.14.10",
         "dayjs": "^1.11.23",
+        "luxon": "^3.7.2",
         "react": "^19.2.8",
         "react-dom": "^19.2.8"
     },
@@ -45,6 +46,7 @@
         "@testing-library/jest-dom": "^7.0.0",
         "@testing-library/react": "^16.3.2",
         "@testing-library/user-event": "^14.6.3",
+        "@types/luxon": "^3.7.3",
         "@types/react": "^19.2.18",
         "@types/react-dom": "^19.2.4",
         "@vitejs/plugin-react": "^6.0.5",

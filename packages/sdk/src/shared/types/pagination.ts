@@ -1,6 +1,6 @@
 /**
  * Represents a pagination object
- * generated from [Pagination](file://./../../../../../apps/api/data/contracts/shared/pagination.ck#L7)
+ * generated from [Pagination](../../../../../apps/api/data/contracts/shared/pagination.ck#L7)
  */
 export interface Pagination {
     /** The page number */
@@ -23,7 +23,7 @@ export interface PaginationInput {
 }
 
 /**
- * generated from [PaginationWithActive](file://./../../../../../apps/api/data/contracts/shared/pagination.ck#L14)
+ * generated from [PaginationWithActive](../../../../../apps/api/data/contracts/shared/pagination.ck#L14)
  */
 export interface PaginationWithActive extends Pagination {
     /** Optionally filter by whether the items are active */

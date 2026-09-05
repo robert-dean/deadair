@@ -1,6 +1,6 @@
 /**
  * The track a listener is hearing right now
- * generated from [NowPlayingTrack](file://./../../../../../apps/api/data/contracts/nowplaying/nowplaying.types.ck#L7)
+ * generated from [NowPlayingTrack](../../../../../apps/api/data/contracts/nowplaying/nowplaying.types.ck#L7)
  */
 export interface NowPlayingTrack {
     title: string;
@@ -18,7 +18,7 @@ export interface NowPlayingTrack {
 
 /**
  * What the station is playing, for anything that wants to display it
- * generated from [NowPlaying](file://./../../../../../apps/api/data/contracts/nowplaying/nowplaying.types.ck#L17)
+ * generated from [NowPlaying](../../../../../apps/api/data/contracts/nowplaying/nowplaying.types.ck#L17)
  */
 export interface NowPlaying {
     /** The station's on-air name */

@@ -331,7 +331,7 @@ function SpanList({ spans }: { spans: TraceSpan[] }) {
             </Table.Thead>
             <Table.Tbody>
                 {spans.map((span, index) => (
-                    <Table.Tr key={`${span.at}-${index}`}>
+                    <Table.Tr key={`${span.at.toISO()}-${index}`}>
                         <Table.Td>
                             <Text size="sm" className="da-num" c={span.outcome === 'failed' ? severityColor.failure : undefined}>
                                 {formatSpent(span.ms)}

@@ -1,7 +1,19 @@
+import { Decimal } from 'decimal.js';
+import { DateTime } from 'luxon';
 import type { PublicKeyCredentialWithAttestation } from './authentication.types.js';
 
+Decimal.set({ toExpNeg: -9e15, toExpPos: 9e15 });
+const __dt = (v: unknown, path: string): DateTime => {
+    if (typeof v !== 'string') {
+        throw new TypeError(`ContractKit: expected an ISO 8601 string at '${path}', received ${typeof v}.`);
+    }
+    const d = DateTime.fromISO(v);
+    if (!d.isValid) throw new TypeError(`ContractKit: '${v}' at '${path}' is not a valid ISO 8601 datetime.`);
+    return d;
+};
+
 /**
- * generated from [PhoneFactorRegistration](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L7)
+ * generated from [PhoneFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L7)
  */
 export interface PhoneFactorRegistration {
     /** The method of the factor */
@@ -13,7 +25,7 @@ export interface PhoneFactorRegistration {
 }
 
 /**
- * generated from [PasswordFactorRegistration](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L13)
+ * generated from [PasswordFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L13)
  */
 export interface PasswordFactorRegistration {
     /** The method of the factor */
@@ -23,7 +35,7 @@ export interface PasswordFactorRegistration {
 }
 
 /**
- * generated from [EmailFactorRegistration](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L18)
+ * generated from [EmailFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L18)
  */
 export interface EmailFactorRegistration {
     /** The method of the factor */
@@ -35,7 +47,7 @@ export interface EmailFactorRegistration {
 }
 
 /**
- * generated from [AuthenticatorFactorRegistration](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L24)
+ * generated from [AuthenticatorFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L24)
  */
 export interface AuthenticatorFactorRegistration {
     /** The method of the factor */
@@ -47,7 +59,7 @@ export interface AuthenticatorFactorRegistration {
 }
 
 /**
- * generated from [FidoFactorRegistration](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L30)
+ * generated from [FidoFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L30)
  */
 export interface FidoFactorRegistration {
     /** The method of the factor */
@@ -57,7 +69,7 @@ export interface FidoFactorRegistration {
 }
 
 /**
- * generated from [PhoneFactorRegistrationResponse](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L37)
+ * generated from [PhoneFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L37)
  */
 export interface PhoneFactorRegistrationResponse {
     /** The method of the factor */
@@ -65,13 +77,21 @@ export interface PhoneFactorRegistrationResponse {
     /** The registration identifier */
     registrationId: string;
     /** The expiration timestamp */
-    expiresAt: string;
+    expiresAt: DateTime;
     /** The issuance timestamp */
-    issuedAt: string;
+    issuedAt: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a PhoneFactorRegistrationResponse into its runtime type. Mutates and returns `raw`. */
+export function revivePhoneFactorRegistrationResponse(raw: PhoneFactorRegistrationResponse): PhoneFactorRegistrationResponse {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['expiresAt'] = __dt(__o0['expiresAt'], 'PhoneFactorRegistrationResponse.expiresAt');
+    __o0['issuedAt'] = __dt(__o0['issuedAt'], 'PhoneFactorRegistrationResponse.issuedAt');
+    return raw;
 }
 
 /**
- * generated from [PasswordFactorRegistrationResponse](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L44)
+ * generated from [PasswordFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L44)
  */
 export interface PasswordFactorRegistrationResponse {
     /** The method of the factor */
@@ -81,7 +101,7 @@ export interface PasswordFactorRegistrationResponse {
 }
 
 /**
- * generated from [EmailFactorRegistrationResponse](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L49)
+ * generated from [EmailFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L49)
  */
 export interface EmailFactorRegistrationResponse {
     /** The method of the factor */
@@ -89,13 +109,21 @@ export interface EmailFactorRegistrationResponse {
     /** The registration identifier */
     registrationId: string;
     /** The expiration timestamp */
-    expiresAt: string;
+    expiresAt: DateTime;
     /** The issuance timestamp */
-    issuedAt: string;
+    issuedAt: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a EmailFactorRegistrationResponse into its runtime type. Mutates and returns `raw`. */
+export function reviveEmailFactorRegistrationResponse(raw: EmailFactorRegistrationResponse): EmailFactorRegistrationResponse {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['expiresAt'] = __dt(__o0['expiresAt'], 'EmailFactorRegistrationResponse.expiresAt');
+    __o0['issuedAt'] = __dt(__o0['issuedAt'], 'EmailFactorRegistrationResponse.issuedAt');
+    return raw;
 }
 
 /**
- * generated from [AuthenticatorFactorRegistrationResponse](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L56)
+ * generated from [AuthenticatorFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L56)
  */
 export interface AuthenticatorFactorRegistrationResponse {
     /** The method of the factor */
@@ -109,14 +137,22 @@ export interface AuthenticatorFactorRegistrationResponse {
     /** The QR code for the authenticator */
     qrCode: string;
     /** The expiration timestamp */
-    expiresAt: string;
+    expiresAt: DateTime;
     /** The issuance timestamp */
-    issuedAt: string;
+    issuedAt: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a AuthenticatorFactorRegistrationResponse into its runtime type. Mutates and returns `raw`. */
+export function reviveAuthenticatorFactorRegistrationResponse(raw: AuthenticatorFactorRegistrationResponse): AuthenticatorFactorRegistrationResponse {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['expiresAt'] = __dt(__o0['expiresAt'], 'AuthenticatorFactorRegistrationResponse.expiresAt');
+    __o0['issuedAt'] = __dt(__o0['issuedAt'], 'AuthenticatorFactorRegistrationResponse.issuedAt');
+    return raw;
 }
 
 /**
  * The FIDO factor attestation information
- * generated from [FidoFactorAttestation](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L66)
+ * generated from [FidoFactorAttestation](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L66)
  */
 export interface FidoFactorAttestation {
     /** The relying party */
@@ -133,7 +169,7 @@ export interface FidoFactorAttestation {
 }
 
 /**
- * generated from [PhoneFactorRegistrationVerification](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L93)
+ * generated from [PhoneFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L93)
  */
 export interface PhoneFactorRegistrationVerification {
     /** The method of the factor */
@@ -147,7 +183,7 @@ export interface PhoneFactorRegistrationVerification {
 }
 
 /**
- * generated from [EmailFactorRegistrationVerification](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L100)
+ * generated from [EmailFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L100)
  */
 export interface EmailFactorRegistrationVerification {
     /** The method of the factor */
@@ -161,7 +197,7 @@ export interface EmailFactorRegistrationVerification {
 }
 
 /**
- * generated from [AuthenticatorFactorRegistrationVerification](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L107)
+ * generated from [AuthenticatorFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L107)
  */
 export interface AuthenticatorFactorRegistrationVerification {
     /** The method of the factor */
@@ -175,7 +211,7 @@ export interface AuthenticatorFactorRegistrationVerification {
 }
 
 /**
- * generated from [FidoFactorRegistrationVerification](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L114)
+ * generated from [FidoFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L114)
  */
 export interface FidoFactorRegistrationVerification {
     /** The method of the factor */
@@ -188,7 +224,7 @@ export interface FidoFactorRegistrationVerification {
 
 /**
  * Begin enrolling a TOTP authenticator during a pending login MFA challenge (no session — authorized by the challenge)
- * generated from [MfaEnrollAuthenticatorStart](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L122)
+ * generated from [MfaEnrollAuthenticatorStart](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L122)
  */
 export interface MfaEnrollAuthenticatorStart {
     /** The pending MFA challenge from the `mfa_required` login response */
@@ -199,7 +235,7 @@ export interface MfaEnrollAuthenticatorStart {
 
 /**
  * Verify the first TOTP code, persist the authenticator, and complete login
- * generated from [MfaEnrollAuthenticatorVerify](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L127)
+ * generated from [MfaEnrollAuthenticatorVerify](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L127)
  */
 export interface MfaEnrollAuthenticatorVerify {
     /** The same pending MFA challenge */
@@ -212,13 +248,13 @@ export interface MfaEnrollAuthenticatorVerify {
 
 /**
  * A second-factor method a user may enroll
- * generated from [EnrollmentMethod](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L133)
+ * generated from [EnrollmentMethod](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L133)
  */
 export type EnrollmentMethod = 'authenticator' | 'phone' | 'fido';
 
 /**
  * Begin enrolling an SMS phone factor during a pending login MFA challenge (no session — authorized by the challenge)
- * generated from [MfaEnrollPhoneStart](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L139)
+ * generated from [MfaEnrollPhoneStart](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L139)
  */
 export interface MfaEnrollPhoneStart {
     /** The pending MFA challenge from the `mfa_required` login response */
@@ -229,7 +265,7 @@ export interface MfaEnrollPhoneStart {
 
 /**
  * Acknowledges the phone registration and that an OTP was texted
- * generated from [MfaEnrollPhoneStartResponse](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L144)
+ * generated from [MfaEnrollPhoneStartResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L144)
  */
 export interface MfaEnrollPhoneStartResponse {
     /** The method of the factor */
@@ -237,14 +273,22 @@ export interface MfaEnrollPhoneStartResponse {
     /** The registration id — echo back on the verify call */
     registrationId: string;
     /** When the registration expires */
-    expiresAt: string;
+    expiresAt: DateTime;
     /** When the registration was issued */
-    issuedAt: string;
+    issuedAt: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a MfaEnrollPhoneStartResponse into its runtime type. Mutates and returns `raw`. */
+export function reviveMfaEnrollPhoneStartResponse(raw: MfaEnrollPhoneStartResponse): MfaEnrollPhoneStartResponse {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['expiresAt'] = __dt(__o0['expiresAt'], 'MfaEnrollPhoneStartResponse.expiresAt');
+    __o0['issuedAt'] = __dt(__o0['issuedAt'], 'MfaEnrollPhoneStartResponse.issuedAt');
+    return raw;
 }
 
 /**
  * Verify the texted OTP, persist the phone factor, and complete login
- * generated from [MfaEnrollPhoneVerify](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L151)
+ * generated from [MfaEnrollPhoneVerify](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L151)
  */
 export interface MfaEnrollPhoneVerify {
     /** The same pending MFA challenge */
@@ -257,7 +301,7 @@ export interface MfaEnrollPhoneVerify {
 
 /**
  * Begin enrolling a passkey during a pending login MFA challenge (no session — authorized by the challenge)
- * generated from [MfaEnrollFidoStart](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L157)
+ * generated from [MfaEnrollFidoStart](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L157)
  */
 export interface MfaEnrollFidoStart {
     /** The pending MFA challenge from the `mfa_required` login response */
@@ -268,7 +312,7 @@ export interface MfaEnrollFidoStart {
 
 /**
  * Post the new credential back, persist the passkey factor, and complete login
- * generated from [MfaEnrollFidoVerify](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L170)
+ * generated from [MfaEnrollFidoVerify](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L170)
  */
 export interface MfaEnrollFidoVerify {
     /** The same pending MFA challenge */
@@ -280,13 +324,13 @@ export interface MfaEnrollFidoVerify {
 }
 
 /**
- * generated from [AuthenticationFactorRegistration](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L35)
+ * generated from [AuthenticationFactorRegistration](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L35)
  */
 export type AuthenticationFactorRegistration =
     PhoneFactorRegistration | PasswordFactorRegistration | EmailFactorRegistration | AuthenticatorFactorRegistration | FidoFactorRegistration;
 
 /**
- * generated from [FidoFactorRegistrationResponse](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L83)
+ * generated from [FidoFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L83)
  */
 export interface FidoFactorRegistrationResponse {
     /** The method of the factor */
@@ -294,16 +338,24 @@ export interface FidoFactorRegistrationResponse {
     /** The registration identifier */
     registrationId: string;
     /** The expiration timestamp */
-    expiresAt: string;
+    expiresAt: DateTime;
     /** The issuance timestamp */
-    issuedAt: string;
+    issuedAt: DateTime;
     /** The FIDO factor attestation information */
     attestation: FidoFactorAttestation;
 }
 
+/** Rehydrates every wire-encoded scalar in a FidoFactorRegistrationResponse into its runtime type. Mutates and returns `raw`. */
+export function reviveFidoFactorRegistrationResponse(raw: FidoFactorRegistrationResponse): FidoFactorRegistrationResponse {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['expiresAt'] = __dt(__o0['expiresAt'], 'FidoFactorRegistrationResponse.expiresAt');
+    __o0['issuedAt'] = __dt(__o0['issuedAt'], 'FidoFactorRegistrationResponse.issuedAt');
+    return raw;
+}
+
 /**
  * WebAuthn attestation options for `navigator.credentials.create`
- * generated from [MfaEnrollFidoStartResponse](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L162)
+ * generated from [MfaEnrollFidoStartResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L162)
  */
 export interface MfaEnrollFidoStartResponse {
     /** The method of the factor */
@@ -311,15 +363,23 @@ export interface MfaEnrollFidoStartResponse {
     /** The registration id — echo back on the verify call */
     registrationId: string;
     /** When the registration expires */
-    expiresAt: string;
+    expiresAt: DateTime;
     /** When the registration was issued */
-    issuedAt: string;
+    issuedAt: DateTime;
     /** The WebAuthn attestation (credential-creation) options */
     attestation: FidoFactorAttestation;
 }
 
+/** Rehydrates every wire-encoded scalar in a MfaEnrollFidoStartResponse into its runtime type. Mutates and returns `raw`. */
+export function reviveMfaEnrollFidoStartResponse(raw: MfaEnrollFidoStartResponse): MfaEnrollFidoStartResponse {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['expiresAt'] = __dt(__o0['expiresAt'], 'MfaEnrollFidoStartResponse.expiresAt');
+    __o0['issuedAt'] = __dt(__o0['issuedAt'], 'MfaEnrollFidoStartResponse.issuedAt');
+    return raw;
+}
+
 /**
- * generated from [AuthenticationFactorRegistrationVerification](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L120)
+ * generated from [AuthenticationFactorRegistrationVerification](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L120)
  */
 export type AuthenticationFactorRegistrationVerification =
     | PhoneFactorRegistrationVerification
@@ -329,7 +389,7 @@ export type AuthenticationFactorRegistrationVerification =
 
 /**
  * Which second factors this instance permits enrolling. `phone` is present only when an SMS provider is configured (SMS_DELIVERY != noop); `authenticator` and `fido` are always available.
- * generated from [EnrollmentMethods](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L135)
+ * generated from [EnrollmentMethods](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L135)
  */
 export interface EnrollmentMethods {
     /** The enrollable factor methods, in suggested display order */
@@ -337,7 +397,7 @@ export interface EnrollmentMethods {
 }
 
 /**
- * generated from [AuthenticationFactorRegistrationResponse](file://./../../../../../apps/api/data/contracts/authentication/registration.types.ck#L91)
+ * generated from [AuthenticationFactorRegistrationResponse](../../../../../apps/api/data/contracts/authentication/registration.types.ck#L91)
  */
 export type AuthenticationFactorRegistrationResponse =
     | PhoneFactorRegistrationResponse
@@ -345,3 +405,26 @@ export type AuthenticationFactorRegistrationResponse =
     | EmailFactorRegistrationResponse
     | AuthenticatorFactorRegistrationResponse
     | FidoFactorRegistrationResponse;
+
+/** Rehydrates every wire-encoded scalar in a AuthenticationFactorRegistrationResponse into its runtime type. Mutates and returns `raw`. */
+export function reviveAuthenticationFactorRegistrationResponse(
+    raw: AuthenticationFactorRegistrationResponse,
+): AuthenticationFactorRegistrationResponse {
+    const __v = [raw] as unknown[];
+    {
+        const __d0 = (__v[0] as Record<string, unknown>)['method'];
+        if (__d0 === 'phone') {
+            revivePhoneFactorRegistrationResponse(__v[0] as never);
+        }
+        if (__d0 === 'email') {
+            reviveEmailFactorRegistrationResponse(__v[0] as never);
+        }
+        if (__d0 === 'authenticator') {
+            reviveAuthenticatorFactorRegistrationResponse(__v[0] as never);
+        }
+        if (__d0 === 'fido') {
+            reviveFidoFactorRegistrationResponse(__v[0] as never);
+        }
+    }
+    return __v[0] as AuthenticationFactorRegistrationResponse;
+}

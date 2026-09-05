@@ -1,3 +1,12 @@
+import type { DateTime } from 'luxon';
+
+/**
+ * A moment as this console receives it: an ISO string off a plugin payload, or the Luxon
+ * `DateTime` the SDK revives a contract `datetime` into. Both are accepted so a helper reads the
+ * same whichever edge the value crossed.
+ */
+export type Moment = string | DateTime;
+
 const STAMP = new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
@@ -35,17 +44,16 @@ const TIME_OF_DAY = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute
  * 12-hour explicitly, with a 2-digit hour so the column still lines up, because these are read
  * against the operator's memory of their own day rather than against a clock.
  *
- * An absent or unparseable value renders as nothing rather than as `Invalid Date`. The input is an
- * ISO string off the wire, so a value the API never sent and a value it sent wrong look the same
- * here, and neither is worth showing.
+ * An absent or unparseable value renders as nothing rather than as `Invalid Date`. A value the API
+ * never sent and a value it sent wrong look the same here, and neither is worth showing.
  */
-export function formatMomentStamp(iso: string | undefined): string {
+export function formatMomentStamp(iso: Moment | undefined): string {
     const date = parse(iso);
     return date === undefined ? '' : STAMP.format(date);
 }
 
 /** The same moment in full, for the tooltip: the column abbreviates the month and drops the year. */
-export function formatMomentFull(iso: string | undefined): string {
+export function formatMomentFull(iso: Moment | undefined): string {
     const date = parse(iso);
     return date === undefined ? '' : FULL.format(date);
 }
@@ -62,7 +70,7 @@ export function formatMomentFull(iso: string | undefined): string {
  * these read inside sentences and inside table cells, where a blank is a cell that looks broken. The
  * callers that want an em dash ask for one.
  */
-export function formatMomentMinute(iso: string | undefined, options?: { weekday?: boolean; fallback?: string }): string {
+export function formatMomentMinute(iso: Moment | undefined, options?: { weekday?: boolean; fallback?: string }): string {
     const date = parse(iso);
     if (date === undefined) return options?.fallback ?? '';
 
@@ -72,13 +80,14 @@ export function formatMomentMinute(iso: string | undefined, options?: { weekday?
 /**
  * The wall-clock time alone, for a reading taken so recently that the date is today by construction.
  */
-export function formatTimeOfDay(iso: string | undefined, fallback = ''): string {
+export function formatTimeOfDay(iso: Moment | undefined, fallback = ''): string {
     const date = parse(iso);
     return date === undefined ? fallback : TIME_OF_DAY.format(date);
 }
 
-function parse(iso: string | undefined): Date | undefined {
+function parse(iso: Moment | undefined): Date | undefined {
     if (iso === undefined || iso === '') return undefined;
+    if (typeof iso !== 'string') return iso.isValid ? iso.toJSDate() : undefined;
 
     const date = new Date(iso);
     return Number.isNaN(date.getTime()) ? undefined : date;

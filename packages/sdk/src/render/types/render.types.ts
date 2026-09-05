@@ -1,6 +1,19 @@
+import { Decimal } from 'decimal.js';
+import { DateTime } from 'luxon';
+
+Decimal.set({ toExpNeg: -9e15, toExpPos: 9e15 });
+const __dt = (v: unknown, path: string): DateTime => {
+    if (typeof v !== 'string') {
+        throw new TypeError(`ContractKit: expected an ISO 8601 string at '${path}', received ${typeof v}.`);
+    }
+    const d = DateTime.fromISO(v);
+    if (!d.isValid) throw new TypeError(`ContractKit: '${v}' at '${path}' is not a valid ISO 8601 datetime.`);
+    return d;
+};
+
 /**
  * One thing the station can play that is not a record
- * generated from [Segment](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L7)
+ * generated from [Segment](../../../../../apps/api/data/contracts/render/render.types.ck#L7)
  */
 export interface Segment {
     id: string;
@@ -30,7 +43,7 @@ export interface Segment {
 
 /**
  * Something for the station to say, before anything has said it
- * generated from [SegmentCreate](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L22)
+ * generated from [SegmentCreate](../../../../../apps/api/data/contracts/render/render.types.ck#L22)
  */
 export interface SegmentCreate {
     /** What the console calls it, and what the mount is labelled with while it airs */
@@ -49,7 +62,7 @@ export interface SegmentCreate {
  * Documentation rather than validation: a multipart body reaches the service as the raw parser and
  * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
  * send
- * generated from [SegmentUpload](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L34)
+ * generated from [SegmentUpload](../../../../../apps/api/data/contracts/render/render.types.ck#L34)
  */
 export interface SegmentUpload {
     /** The audio itself. mp3, wav, ogg, flac or m4a, and at most 50 MB */
@@ -62,7 +75,7 @@ export interface SegmentUpload {
 
 /**
  * A voice the station can be asked to speak in
- * generated from [Voice](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L44)
+ * generated from [Voice](../../../../../apps/api/data/contracts/render/render.types.ck#L44)
  */
 export interface Voice {
     /** What to pass as a segment's `voice`. Empty means the plugin's own default */
@@ -75,13 +88,13 @@ export interface Voice {
 
 /**
  * Whether there are words, and if not, which way it went wrong
- * generated from [ScriptOutcome](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L56)
+ * generated from [ScriptOutcome](../../../../../apps/api/data/contracts/render/render.types.ck#L56)
  */
 export type ScriptOutcome = 'written' | 'declined' | 'failed';
 
 /**
  * A record a writer was told about, kept as it was told
- * generated from [ScriptNeighbour](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L58)
+ * generated from [ScriptNeighbour](../../../../../apps/api/data/contracts/render/render.types.ck#L58)
  */
 export interface ScriptNeighbour {
     title: string;
@@ -92,7 +105,7 @@ export interface ScriptNeighbour {
 
 /**
  * What the provider said the attempt cost, when it said anything
- * generated from [ScriptUsage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L64)
+ * generated from [ScriptUsage](../../../../../apps/api/data/contracts/render/render.types.ck#L64)
  */
 export interface ScriptUsage {
     inputTokens?: number;
@@ -102,7 +115,7 @@ export interface ScriptUsage {
 
 /**
  * One turn of the conversation a writer sent
- * generated from [ScriptPromptMessage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L70)
+ * generated from [ScriptPromptMessage](../../../../../apps/api/data/contracts/render/render.types.ck#L70)
  */
 export interface ScriptPromptMessage {
     role: string;
@@ -119,13 +132,13 @@ export interface ScriptPromptMessage {
  * `neutral` is a real answer rather than an absence. Rating something back to nothing is a thing an
  * operator does, and it has to be distinguishable from never having listened, which is the field
  * being absent on the attempt.
- * generated from [ScriptRating](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L106)
+ * generated from [ScriptRating](../../../../../apps/api/data/contracts/render/render.types.ck#L106)
  */
 export type ScriptRating = 'liked' | 'neutral' | 'disliked';
 
 /**
  * Words to hear before anything has aired them
- * generated from [SpeechPreviewRequest](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L127)
+ * generated from [SpeechPreviewRequest](../../../../../apps/api/data/contracts/render/render.types.ck#L127)
  */
 export interface SpeechPreviewRequest {
     /** What to say. Far under a segment's 20000 because this is one break heard once, and the cap is what bounds a cache keyed on the words themselves */
@@ -136,7 +149,7 @@ export interface SpeechPreviewRequest {
 
 /**
  * The window the counts cover
- * generated from [ScriptHistorySummaryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L132)
+ * generated from [ScriptHistorySummaryQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L132)
  */
 export interface ScriptHistorySummaryQuery {
     /** How far back to count. Defaults to 24, and a week at most, because past that the nightly sweep may already have taken the rows and the count would quietly be of what survived rather than of what happened */
@@ -145,7 +158,7 @@ export interface ScriptHistorySummaryQuery {
 
 /**
  * One presenter's attempts in the window
- * generated from [ScriptHistorySummaryRow](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L136)
+ * generated from [ScriptHistorySummaryRow](../../../../../apps/api/data/contracts/render/render.types.ck#L136)
  */
 export interface ScriptHistorySummaryRow {
     /** Absent means nobody was presenting, which is an ordinary state rather than a gap in the data */
@@ -158,7 +171,7 @@ export interface ScriptHistorySummaryRow {
 
 /**
  * What one pass over the inbox did
- * generated from [SegmentScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L148)
+ * generated from [SegmentScanResult](../../../../../apps/api/data/contracts/render/render.types.ck#L148)
  */
 export interface SegmentScanResult {
     /** Audio files seen, whether or not they were already known */
@@ -171,7 +184,7 @@ export interface SegmentScanResult {
 
 /**
  * One name the station says differently from how it is written
- * generated from [Pronunciation](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L154)
+ * generated from [Pronunciation](../../../../../apps/api/data/contracts/render/render.types.ck#L154)
  */
 export interface Pronunciation {
     id: string;
@@ -195,7 +208,7 @@ export interface Pronunciation {
 
 /**
  * A name and how to say it
- * generated from [PronunciationWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L171)
+ * generated from [PronunciationWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L171)
  */
 export interface PronunciationWrite {
     written: string;
@@ -205,7 +218,7 @@ export interface PronunciationWrite {
 
 /**
  * Accepting a proposal, turning one down, or taking an entry out of use without losing it
- * generated from [PronunciationStateWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L176)
+ * generated from [PronunciationStateWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L176)
  */
 export interface PronunciationStateWrite {
     state: 'active' | 'suggested' | 'rejected';
@@ -213,7 +226,7 @@ export interface PronunciationStateWrite {
 
 /**
  * Which part of the lexicon to read
- * generated from [PronunciationQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L180)
+ * generated from [PronunciationQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L180)
  */
 export interface PronunciationQuery {
     /** Absent is all of it */
@@ -226,7 +239,7 @@ export interface PronunciationQuery {
  * `name` is what a script writes to hit it and `label` is what a person reads: two columns rather
  * than one, because a token for a model and prose for an operator are different things and the
  * filename produces both
- * generated from [Pad](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L189)
+ * generated from [Pad](../../../../../apps/api/data/contracts/render/render.types.ck#L189)
  */
 export interface Pad {
     id: string;
@@ -245,7 +258,7 @@ export interface Pad {
     /** The file in the library directory it was imported from, so the console can say where it came from */
     sourcePath?: string;
     /** When it was last hit. Absent for one nothing has reached for yet */
-    lastUsedAt?: string;
+    lastUsedAt?: DateTime;
     state: 'active' | 'rejected';
 }
 
@@ -261,8 +274,17 @@ export interface PadInput {
     /** The file in the library directory it was imported from, so the console can say where it came from */
     sourcePath?: string;
     /** When it was last hit. Absent for one nothing has reached for yet */
-    lastUsedAt?: string;
+    lastUsedAt?: DateTime;
     state: 'active' | 'rejected';
+}
+
+/** Rehydrates every wire-encoded scalar in a Pad into its runtime type. Mutates and returns `raw`. */
+export function revivePad(raw: Pad): Pad {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['lastUsedAt'] != null) {
+        __o0['lastUsedAt'] = __dt(__o0['lastUsedAt'], 'Pad.lastUsedAt');
+    }
+    return raw;
 }
 
 /**
@@ -271,7 +293,7 @@ export interface PadInput {
  * Documentation rather than validation: a multipart body reaches the service as the raw parser and
  * the generated client types the body as `FormData`, so nothing checks this shape. It says what to
  * send
- * generated from [PadUpload](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L208)
+ * generated from [PadUpload](../../../../../apps/api/data/contracts/render/render.types.ck#L208)
  */
 export interface PadUpload {
     /** The audio itself. mp3, wav, ogg, flac or m4a, and at most 25 MB */
@@ -290,7 +312,7 @@ export interface PadUpload {
  * The operator names the address, so this is them choosing a file exactly as dropping one in the
  * library is. Nothing inspects what comes back and nothing records a claim about its licence -- see
  * `docs/decisions/pad-licensing.md`, whose line is redistribution rather than use
- * generated from [PadFetch](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L220)
+ * generated from [PadFetch](../../../../../apps/api/data/contracts/render/render.types.ck#L220)
  */
 export interface PadFetch {
     /** Where the audio is. Followed once, bounded, and refused unless what comes back is a format the station serves */
@@ -307,7 +329,7 @@ export interface PadFetch {
  *
  * One library, cut as many ways as an operator likes. `personas.soundboard` holds the `key`, so
  * renaming a set unpoints every persona naming it — which is why `personas` says who those are
- * generated from [PadSet](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L236)
+ * generated from [PadSet](../../../../../apps/api/data/contracts/render/render.types.ck#L236)
  */
 export interface PadSet {
     id: string;
@@ -330,7 +352,7 @@ export interface PadSetInput {
 
 /**
  * A set an operator is naming, or renaming
- * generated from [PadSetWrite](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L245)
+ * generated from [PadSetWrite](../../../../../apps/api/data/contracts/render/render.types.ck#L245)
  */
 export interface PadSetWrite {
     key: string;
@@ -340,7 +362,7 @@ export interface PadSetWrite {
 
 /**
  * Which pad, and whether it is on the set
- * generated from [PadSetMembership](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L251)
+ * generated from [PadSetMembership](../../../../../apps/api/data/contracts/render/render.types.ck#L251)
  */
 export interface PadSetMembership {
     padId: string;
@@ -349,7 +371,7 @@ export interface PadSetMembership {
 
 /**
  * Turning a pad down, or putting one back
- * generated from [PadState](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L256)
+ * generated from [PadState](../../../../../apps/api/data/contracts/render/render.types.ck#L256)
  */
 export interface PadState {
     state: 'active' | 'rejected';
@@ -357,7 +379,7 @@ export interface PadState {
 
 /**
  * What one pass over the pad library did
- * generated from [PadScanResult](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L260)
+ * generated from [PadScanResult](../../../../../apps/api/data/contracts/render/render.types.ck#L260)
  */
 export interface PadScanResult {
     /** Audio files seen, whether or not anything changed */
@@ -374,7 +396,7 @@ export interface PadScanResult {
 
 /**
  * Everything the station can play that is not a record
- * generated from [SegmentList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L40)
+ * generated from [SegmentList](../../../../../apps/api/data/contracts/render/render.types.ck#L40)
  */
 export interface SegmentList {
     segments: Segment[];
@@ -382,7 +404,7 @@ export interface SegmentList {
 
 /**
  * The voices the station's current speech plugin offers
- * generated from [VoiceList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L50)
+ * generated from [VoiceList](../../../../../apps/api/data/contracts/render/render.types.ck#L50)
  */
 export interface VoiceList {
     voices: Voice[];
@@ -394,7 +416,7 @@ export interface VoiceList {
 
 /**
  * One page of what the station has written, newest first
- * generated from [ScriptHistoryQuery](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L112)
+ * generated from [ScriptHistoryQuery](../../../../../apps/api/data/contracts/render/render.types.ck#L112)
  */
 export interface ScriptHistoryQuery {
     limit?: number;
@@ -411,11 +433,11 @@ export interface ScriptHistoryQuery {
 
 /**
  * One attempt to write something the station would say, including the ones that came to nothing
- * generated from [ScriptAttempt](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L75)
+ * generated from [ScriptAttempt](../../../../../apps/api/data/contracts/render/render.types.ck#L75)
  */
 export interface ScriptAttempt {
     id: string;
-    at: string;
+    at: DateTime;
     /** What sort of break it was for: `talkbreak`, `welcome`, `news` */
     kind: string;
     /** The binding that produced or declined it */
@@ -449,7 +471,7 @@ export interface ScriptAttempt {
 
 export interface ScriptAttemptInput {
     id: string;
-    at: string;
+    at: DateTime;
     /** What sort of break it was for: `talkbreak`, `welcome`, `news` */
     kind: string;
     /** The binding that produced or declined it */
@@ -479,8 +501,15 @@ export interface ScriptAttemptInput {
     prompt?: ScriptPromptMessage[];
 }
 
+/** Rehydrates every wire-encoded scalar in a ScriptAttempt into its runtime type. Mutates and returns `raw`. */
+export function reviveScriptAttempt(raw: ScriptAttempt): ScriptAttempt {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    __o0['at'] = __dt(__o0['at'], 'ScriptAttempt.at');
+    return raw;
+}
+
 /**
- * generated from [ScriptRatingInput](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L108)
+ * generated from [ScriptRatingInput](../../../../../apps/api/data/contracts/render/render.types.ck#L108)
  */
 export interface ScriptRatingInput {
     rating: ScriptRating;
@@ -488,7 +517,7 @@ export interface ScriptRatingInput {
 
 /**
  * What each presenter has written lately, and over how long
- * generated from [ScriptHistorySummary](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L143)
+ * generated from [ScriptHistorySummary](../../../../../apps/api/data/contracts/render/render.types.ck#L143)
  */
 export interface ScriptHistorySummary {
     /** The window actually counted, echoed so a console can label the numbers it draws */
@@ -498,7 +527,7 @@ export interface ScriptHistorySummary {
 
 /**
  * The station's lexicon, oldest first
- * generated from [PronunciationList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L167)
+ * generated from [PronunciationList](../../../../../apps/api/data/contracts/render/render.types.ck#L167)
  */
 export interface PronunciationList {
     pronunciations: Pronunciation[];
@@ -506,7 +535,7 @@ export interface PronunciationList {
 
 /**
  * Every sound the station holds, and the sets over it
- * generated from [PadList](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L227)
+ * generated from [PadList](../../../../../apps/api/data/contracts/render/render.types.ck#L227)
  */
 export interface PadList {
     pads: Pad[];
@@ -518,8 +547,20 @@ export interface PadListInput {
     sets: PadSetInput[];
 }
 
+/** Rehydrates every wire-encoded scalar in a PadList into its runtime type. Mutates and returns `raw`. */
+export function revivePadList(raw: PadList): PadList {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['pads'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            revivePad(__a1[__i2] as never);
+        }
+    }
+    return raw;
+}
+
 /**
- * generated from [ScriptHistoryPage](file://./../../../../../apps/api/data/contracts/render/render.types.ck#L122)
+ * generated from [ScriptHistoryPage](../../../../../apps/api/data/contracts/render/render.types.ck#L122)
  */
 export interface ScriptHistoryPage {
     attempts: ScriptAttempt[];
@@ -531,4 +572,16 @@ export interface ScriptHistoryPageInput {
     attempts: ScriptAttemptInput[];
     /** The cursor for the page after this one, absent once the history has been read to its end */
     nextBefore?: string;
+}
+
+/** Rehydrates every wire-encoded scalar in a ScriptHistoryPage into its runtime type. Mutates and returns `raw`. */
+export function reviveScriptHistoryPage(raw: ScriptHistoryPage): ScriptHistoryPage {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['attempts'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveScriptAttempt(__a1[__i2] as never);
+        }
+    }
+    return raw;
 }

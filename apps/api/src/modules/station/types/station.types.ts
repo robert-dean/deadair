@@ -14,7 +14,7 @@ const _ZodDatetime = z.preprocess(
  * every one of those facts was already stored — the fetch error on `track_audio.last_error`, the
  * provider's refusal on `track_sources.playable` — and reachable only by finding the record and
  * hovering a cell on its page. This is that fact travelling with the row that counted it.
- * generated from [AttentionEvidence](file://./../../../../data/contracts/station/station.types.ck#L14)
+ * generated from [AttentionEvidence](../../../../data/contracts/station/station.types.ck#L14)
  */
 export const AttentionEvidence = z.strictObject({
     label: z.string().min(1).max(300).describe("The thing itself, as an operator would name it: a record's title and who made it"),
@@ -44,7 +44,7 @@ export type AttentionEvidence = z.infer<typeof AttentionEvidence>;
  *
  * `lastBeat` is absent until a loop finishes its first pass, which is why `startedAt` is there: from
  * the two of them a reader can tell a loop that has never completed anything from one that stopped.
- * generated from [StationHeartbeat](file://./../../../../data/contracts/station/station.types.ck#L45)
+ * generated from [StationHeartbeat](../../../../data/contracts/station/station.types.ck#L45)
  */
 export const StationHeartbeat = z.strictObject({
     name: z.string().min(1).max(100),
@@ -61,12 +61,12 @@ export type StationHeartbeatInput = z.infer<typeof StationHeartbeatInput>;
  *
  * The counts `/catalog/tracks` already answers with, lifted out of a page of rows: a check-up wants
  * the sentence "13 of 581 measured" without asking for thirteen tracks to get it.
- * generated from [StationBacklog](file://./../../../../data/contracts/station/station.types.ck#L55)
+ * generated from [StationBacklog](../../../../data/contracts/station/station.types.ck#L55)
  */
 export const StationBacklog = z.strictObject({
-    total: z.coerce.number().int().min(0),
-    cached: z.coerce.number().int().min(0),
-    measured: z.coerce.number().int().min(0),
+    total: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    cached: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    measured: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
 });
 export type StationBacklog = z.infer<typeof StationBacklog>;
 
@@ -75,7 +75,7 @@ export type StationBacklogInput = z.infer<typeof StationBacklogInput>;
 
 /**
  * One thing that wants the operator's attention, or the fact that nothing does
- * generated from [AttentionItem](file://./../../../../data/contracts/station/station.types.ck#L21)
+ * generated from [AttentionItem](../../../../data/contracts/station/station.types.ck#L21)
  */
 export const AttentionItem = z.strictObject({
     code: z
@@ -99,7 +99,10 @@ export const AttentionItem = z.strictObject({
             'The whole of it, in a sentence. Where the station already has words for a fact, these are those words rather than a second phrasing of them',
         ),
     route: z.string().min(1).max(200).describe('The console page that can do something about it'),
-    count: z.coerce.number().int().min(0).optional().describe('How many things this is about, where that is a number rather than a state'),
+    count: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe('How many things this is about, where that is a number rather than a state'),
     evidence: z
         .array(AttentionEvidence)
         .optional()
@@ -129,7 +132,7 @@ export type AttentionItem = z.infer<typeof AttentionItem>;
  * `operation(internal)`, deliberately, so it generates no SDK method and the console cannot call it
  * — which would leave "which build is this" answerable only from a shell, the one thing carrying it
  * here exists to fix.
- * generated from [StationCheckup](file://./../../../../data/contracts/station/station.types.ck#L80)
+ * generated from [StationCheckup](../../../../data/contracts/station/station.types.ck#L80)
  */
 export const StationCheckup = z.strictObject({
     readAt: _ZodDatetime.describe('When this reading was taken, so a stale page cannot pass itself off as now'),
@@ -151,7 +154,7 @@ export type StationCheckupInput = z.infer<typeof StationCheckupInput>;
 
 /**
  * Everything wrong or waiting, worst first
- * generated from [StationAttention](file://./../../../../data/contracts/station/station.types.ck#L32)
+ * generated from [StationAttention](../../../../data/contracts/station/station.types.ck#L32)
  */
 export const StationAttention = z.strictObject({
     items: z.array(AttentionItem),

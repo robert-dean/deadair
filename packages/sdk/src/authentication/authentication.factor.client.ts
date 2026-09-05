@@ -1,24 +1,23 @@
 import type {
     AuthenticationFactor,
-    AuthenticationToken,
     AuthenticationTokenOutput,
     FactorChallengeStartRequest,
-    FactorChallengeStartResponse,
     FactorChallengeStartResponseOutput,
     StepUpStartRequest,
-    StepUpStartResponse,
     StepUpStartResponseOutput,
 } from './types/authentication.types.js';
+import { reviveFactorChallengeStartResponseOutput, reviveStepUpStartResponseOutput } from './types/authentication.types.js';
 import type {
     AuthenticationFactorRegistration,
     AuthenticationFactorRegistrationResponse,
     AuthenticationFactorRegistrationVerification,
 } from './types/registration.types.js';
+import { reviveAuthenticationFactorRegistrationResponse } from './types/registration.types.js';
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
 
 /**
- * generated from [authentication.factor.ck](file://./../../../../apps/api/data/contracts/authentication/authentication.factor.ck)
+ * generated from [authentication.factor.ck](../../../../apps/api/data/contracts/authentication/authentication.factor.ck)
  */
 export class AuthenticationFactorsClient {
     constructor(private fetch: SdkFetch) {}
@@ -42,7 +41,7 @@ export class AuthenticationFactorsClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<AuthenticationFactorRegistrationResponse>(result);
+        return reviveAuthenticationFactorRegistrationResponse(await parseJson<AuthenticationFactorRegistrationResponse>(result));
     }
 
     /**
@@ -68,7 +67,7 @@ export class AuthenticationFactorsClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<FactorChallengeStartResponseOutput>(result);
+        return reviveFactorChallengeStartResponseOutput(await parseJson<FactorChallengeStartResponseOutput>(result));
     }
 
     /**
@@ -81,6 +80,6 @@ export class AuthenticationFactorsClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<StepUpStartResponseOutput>(result);
+        return reviveStepUpStartResponseOutput(await parseJson<StepUpStartResponseOutput>(result));
     }
 }

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#101214</color>
+    <!-- What the launch window is painted before Compose's first frame. -->
+    <color name="launch_background">#FFFBFE</color>
+</resources>

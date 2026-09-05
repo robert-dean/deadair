@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The launch window only. Compose draws everything after the first frame, so this exists to
+        keep the moment between tapping the icon and that frame from being a white flash on a dark
+        device.
+
+        `Theme.Material.NoActionBar` rather than a DayNight parent: the DayNight variants of the
+        platform themes arrive at API 29 and this app runs from 26. Following the system is done
+        with the `values-night` override of `launch_background` below instead, which is honoured
+        far further back.
+    -->
+    <style name="Theme.Deadair" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/launch_background</item>
+    </style>
+</resources>

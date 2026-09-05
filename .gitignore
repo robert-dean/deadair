@@ -62,3 +62,14 @@ __pycache__/
 # Rendered by stream/crossfade.check.liq; regenerate rather than commit.
 stream/*.check.wav
 .tanstack/
+
+# The Android listener is the second non-Node thing in the tree, and these are its build
+# droppings. `build/` and `.idea/` above already cover most of it; the rest is Gradle's own
+# caches and the SDK path, which names one machine's filesystem and is never committed.
+.gradle/
+.kotlin/
+local.properties
+*.iml
+.cxx/
+captures/
+*.hprof

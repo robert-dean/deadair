@@ -28,12 +28,12 @@ import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.nowplaying.airState
 import com.maroonedsoftware.deadair.nowplaying.AirState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
-import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.playback.chooseMount
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayhead
 import com.maroonedsoftware.deadair.ui.settings.SettingsScreen
+import com.maroonedsoftware.deadair.ui.settings.availableFormats
 import com.maroonedsoftware.deadair.ui.settings.SettingsViewModel
 import com.maroonedsoftware.deadair.ui.setup.SetupScreen
 import com.maroonedsoftware.deadair.ui.theme.DeadairTheme
@@ -100,9 +100,16 @@ private fun Listener(graph: AppGraph) {
             SettingsScreen(
                 entry = entry,
                 format = settings.format,
-                // Filled in from `/nowplaying`'s `mounts[]` once the poll lands. Empty means "no
-                // reading yet", which offers every format rather than greying them on no evidence.
-                availability = emptyMap<StreamFormat, Boolean>(),
+                // From the station's own `mounts[]`, never by connecting to each mount to see: a
+                // connection is an audience, and the gate lingers five minutes past it.
+                availability =
+                    availableFormats(
+                        when (val current = nowPlaying) {
+                            is NowPlayingState.Answered -> current.reading.nowPlaying.mounts
+                            is NowPlayingState.Unreachable -> current.lastGood?.nowPlaying?.mounts
+                            NowPlayingState.Loading -> null
+                        },
+                    ),
                 onAddressChange = model::onAddressChange,
                 onCheck = model::check,
                 onConfirm = model::confirm,

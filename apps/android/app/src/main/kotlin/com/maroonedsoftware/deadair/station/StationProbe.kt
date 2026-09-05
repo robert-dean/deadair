@@ -2,11 +2,24 @@ package com.maroonedsoftware.deadair.station
 
 import com.maroonedsoftware.deadair.sdk.DeadairSdk
 import com.maroonedsoftware.deadair.sdk.runtime.SdkError
+import kotlinx.serialization.MissingFieldException
+import kotlinx.serialization.SerializationException
 
 /** What asking an address whether it is a station got back. */
 sealed interface StationCheck {
     /** It answered, and this is what it calls itself. */
     data class Reachable(val stationName: String) : StationCheck
+
+    /**
+     * A deadair station, answering a shape this app does not know.
+     *
+     * Told apart from "not a station" because the two are fixed differently and the wrong message
+     * sends somebody to check an address that was right all along. `MissingFieldException` is the
+     * signal: it means the body WAS a JSON object and simply lacked fields the contract requires,
+     * which is what an older API looks like. A web page or a router's login form fails to parse as
+     * JSON at all and lands in the case below.
+     */
+    data class Incompatible(val missing: String?) : StationCheck
 
     /** Something is there and it is not a deadair station: a 404, a login page, a router's UI. */
     data class NotAStation(val status: Int?) : StationCheck
@@ -32,9 +45,16 @@ class StationProbe(private val sdkFor: (StationUrl) -> DeadairSdk) {
             // A status the contract does not describe. Something is listening on this address; it
             // is just not a station.
             StationCheck.NotAStation(error.status)
+        } catch (error: MissingFieldException) {
+            // JSON, and an object, and missing something the contract requires. That is a station
+            // running an API this app does not match — almost always one that has not been
+            // redeployed since the client was built.
+            StationCheck.Incompatible(error.missingFields.firstOrNull())
+        } catch (error: SerializationException) {
+            // A body that would not parse as the contract at all: a web page where JSON was
+            // expected, or JSON of some entirely different shape.
+            StationCheck.NotAStation(null)
         } catch (error: Exception) {
-            // Everything else, which is either the transport failing or a body that would not
-            // decode — a web page where JSON was expected. Both mean "not this address".
-            if (error is kotlinx.serialization.SerializationException) StationCheck.NotAStation(null) else StationCheck.Unreachable(error.message)
+            StationCheck.Unreachable(error.message)
         }
 }

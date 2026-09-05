@@ -82,6 +82,25 @@ class StationProbeTest {
     }
 
     @Test
+    fun `tells an older station apart from something that is not a station`() = runTest {
+        // Exactly what `radio.robertdean.dev` answers until it is redeployed: a real station,
+        // whose `/nowplaying` predates `mounts[]`. Reporting that as "not a station" would send
+        // somebody to check an address that was right all along.
+        val engine =
+            MockEngine {
+                respond(
+                    content = """{"station":"Static Between Stations","onAir":false,"listeners":0}""",
+                    headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()),
+                )
+            }
+
+        val result = probeAgainst(engine).check(station)
+
+        assertTrue("expected Incompatible, got $result", result is StationCheck.Incompatible)
+        assertEquals("mounts", (result as StationCheck.Incompatible).missing)
+    }
+
+    @Test
     fun `reports unreachable when nothing answers at all`() = runTest {
         val engine = MockEngine { throw IOException("connection refused") }
 

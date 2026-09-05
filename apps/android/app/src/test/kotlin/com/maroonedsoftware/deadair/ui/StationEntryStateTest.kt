@@ -41,6 +41,23 @@ class StationEntryStateTest {
     }
 
     @Test
+    fun `names the missing field when the station is running an older API`() {
+        // The fix is a deploy, not a different address, so the message has to say so.
+        val state = StationEntryState.from("https://radio.example.com", StationCheck.Incompatible("mounts"))
+
+        assertTrue(state.error!!.contains("older API"))
+        assertTrue(state.error!!.contains("mounts"))
+        assertTrue(state.error!!.contains("Update the station"))
+    }
+
+    @Test
+    fun `still explains an unknown shape when it cannot name the field`() {
+        val state = StationEntryState.from("https://radio.example.com", StationCheck.Incompatible(null))
+
+        assertTrue(state.error!!.contains("does not know"))
+    }
+
+    @Test
     fun `tells a listener to check the network when nothing answered`() {
         val state = StationEntryState.from("https://nope.invalid", StationCheck.Unreachable("dns"))
 

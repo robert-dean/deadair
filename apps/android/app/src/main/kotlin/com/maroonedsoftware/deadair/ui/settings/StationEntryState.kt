@@ -42,6 +42,15 @@ data class StationEntryState(
             val base = typing(address)
             return when (check) {
                 is StationCheck.Reachable -> base.copy(confirmedName = check.stationName)
+                is StationCheck.Incompatible ->
+                    base.copy(
+                        error =
+                            if (check.missing == null) {
+                                "That is a deadair station, but it answers a shape this app does not know. It may need updating."
+                            } else {
+                                "That is a deadair station running an older API: it does not report `${check.missing}`. Update the station."
+                            },
+                    )
                 is StationCheck.NotAStation ->
                     base.copy(
                         error =

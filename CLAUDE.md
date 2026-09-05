@@ -23,6 +23,7 @@ was shipped first and was wrong.
 | `apps/api/src/**` (lifecycle, config, settings, DI, connections) | [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md) |
 | `apps/web/**` | [`apps/web/CLAUDE.md`](apps/web/CLAUDE.md) |
 | `plugins/**`, `packages/plugin-sdk/**` | [`packages/plugin-sdk/CLAUDE.md`](packages/plugin-sdk/CLAUDE.md), then its [`README.md`](packages/plugin-sdk/README.md) |
+| `apps/android/**`, `packages/sdk-kotlin/**` | [`apps/android/CLAUDE.md`](apps/android/CLAUDE.md) |
 | the running order, briefs, periods, committing, track audio | [`docs/internals/director.md`](docs/internals/director.md) |
 | which records get chosen, ratings, advisory, the search tool | [`docs/internals/programming.md`](docs/internals/programming.md) |
 | what a break says, facts, phrasings, bulletins, the format clock | [`docs/internals/breaks.md`](docs/internals/breaks.md) |
@@ -73,8 +74,12 @@ from scratch: the call may already have been made.**
 ```
 apps/api          Koa server, ContractKit routers, dbmate migrations
 apps/web          React console (Vite, TanStack Router, Mantine)
+apps/android      Kotlin/Compose listener app (Media3). Its own Gradle build and CI job; no
+                  package.json, on the same footing as analysis/
 packages/plugin-sdk   the plugin contract and host capabilities
 packages/sdk          typed client for the API, generated from the contracts
+packages/sdk-kotlin   the same contracts as a Kotlin/Ktor client, for the Android app. Generated;
+                      no package.json, so pnpm and turbo never see it
 packages/error-codes  shared error code constants
 packages/config-*     shared eslint / tsconfig
 plugins/*             bundled plugins: spotify, navidrome, musicbrainz, lastfm, wikipedia (the
@@ -103,7 +108,8 @@ before assuming a subsystem exists.
 Everything else is scoped. These five are not, and each one is cheap to break from anywhere.
 
 **Generated output.** ContractKit routers and types are generated from `.ck` files in
-`apps/api/data/contracts` (`pnpm build:contracts`). Permission types in
+`apps/api/data/contracts` (`pnpm build:contracts`), and so is the Kotlin SDK in
+`packages/sdk-kotlin` that the Android listener compiles. Permission types in
 `apps/api/src/modules/permissions/generated` come from `apps/api/data/permissions/*.perm` via pdsl
 (`pnpm build:permissions`). Kysely types come from `pnpm build:datatypes` (enum override sync, then
 kysely-codegen). `pnpm rebuild:data` rolls the schema all the way down and back up. Never hand-edit

@@ -38,11 +38,35 @@ Given `apps/api/data/contracts/<area>/<filename>.ck`, per `apps/api/contractkit.
 | SDK client | `packages/sdk/src/{area}/<filename>.client.ts` |
 | SDK types | `packages/sdk/src/{area}/types/<filename>.ts` |
 | SDK aggregator + barrel | `packages/sdk/src/deadair.sdk.ts`, `packages/sdk/src/index.ts` |
+| Kotlin models + clients | `packages/sdk-kotlin/src/commonMain/kotlin/com/maroonedsoftware/deadair/sdk/{models,clients}/` |
+| Kotlin runtime + aggregator | `.../sdk/runtime/{SdkRuntime,Serializers}.kt`, `.../sdk/DeadairSdk.kt` |
 
 `{area}` comes from the file's own `options { keys: { area: ... } }` block, so that key decides
 which module directory the types land in and which `sdk.<area>` namespace the client hangs off.
 Split contracts by convention: `<area>.ck` holds `operation` declarations, `<area>.types.ck` holds
 `contract` declarations.
+
+### The Kotlin output
+
+A second plugin, `@contractkit/plugin-kotlin`, generates a Ktor client for the Android listener.
+Its config is three keys — `baseDir`, `packageName`, `sdkName` — and both `scaffold` and
+`includeInternal` are deliberately off: `apps/android` owns the Gradle file, and an
+`operation(internal)` has no business on a listener's phone. One model file per contract file, one
+client per operation file; there is no `area`/`subarea` nesting, so `authentication.factor.ck`
+becomes `AuthenticationFactorClient` rather than a member of an `authentication` namespace.
+
+**Nothing about the Kotlin output is checked by Prettier** — it has no parser for `.kt` — so
+`build:contracts` re-formats only the three TypeScript roots and the Kotlin is committed exactly as
+emitted. It is compiled by `apps/android`'s `:sdk` subproject and by nothing else.
+
+**Kotlin that does not compile is a generator bug**, and it is fixed upstream in the ContractKit
+repository with a test and a changeset, never in the output. The generator's own README says its
+Kotlin had never been put through a toolchain, and the first attempt here found two: a `/*` in
+contract prose opened a nested comment that swallowed the rest of a file (Kotlin block comments
+NEST, so escaping `*/` alone is not enough), and a default against a named `enum` contract was
+emitted as its wire string rather than the enum member. Both fixes are upstream and awaiting
+release as 0.1.1; the pin here is `^0.1.0`, which 0.1.1 satisfies, and until it is published the
+`generated` job regenerates the buggy output and fails on the difference.
 
 ## The two hand-maintained edges
 

@@ -58,6 +58,13 @@ kotlin {
 }
 
 dependencies {
+    // The generated SDK, and the Ktor engine it runs on. The SDK declares no engine of its own —
+    // `HttpClient()` finds whatever is on the classpath — so choosing one is the app's job, and
+    // OkHttp is the choice because Coil uses it too and one client means one connection pool and
+    // one User-Agent. That User-Agent matters: HLS listeners are counted per IP and agent.
+    implementation(project(":sdk"))
+    implementation(libs.ktor.client.okhttp)
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -70,4 +77,5 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
 }

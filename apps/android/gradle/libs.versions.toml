@@ -13,6 +13,9 @@ composeBom = "2026.08.00"
 media3 = "1.11.0"
 datastore = "1.2.1"
 coroutines = "1.11.0"
+ktor = "3.5.2"
+kotlinxSerialization = "1.11.0"
+kotlinxDatetime = "0.8.0"
 junit = "4.13.2"
 
 [libraries]
@@ -33,6 +36,12 @@ media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", versi
 media3-exoplayer-hls = { group = "androidx.media3", name = "media3-exoplayer-hls", version.ref = "media3" }
 media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
 
+ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }
+ktor-client-okhttp = { group = "io.ktor", name = "ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinxDatetime" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -41,11 +50,12 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 compose = ["compose-ui", "compose-ui-graphics", "compose-ui-tooling-preview", "compose-material3"]
 media3 = ["media3-exoplayer", "media3-exoplayer-hls", "media3-session"]
 
-# `org.jetbrains.kotlin.android` is deliberately absent: AGP 9's new DSL cannot be used with it,
-# so the app module takes AGP's built-in Kotlin instead. `kotlin-jvm` is here for the plain JVM
-# module the generated SDK will be compiled as.
+# `org.jetbrains.kotlin.android` and `org.jetbrains.kotlin.jvm` are both deliberately absent.
+# AGP 9's new DSL cannot be used with the former, so the app takes AGP's built-in Kotlin; that
+# puts the Kotlin plugin on the classpath at a version Gradle calls unknown, so the `:sdk` module
+# applies `kotlin.jvm` with no version at all rather than being refused for asking. `kotlin`
+# above still pins the Compose and serialization plugins.
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

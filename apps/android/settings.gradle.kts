@@ -23,3 +23,9 @@ dependencyResolutionManagement {
 rootProject.name = "deadair"
 
 include(":app")
+
+// The generated Kotlin SDK, which lives beside the TypeScript one under `packages/` rather than
+// inside this app: it is an output of `pnpm build:contracts`, not of this build, and a second
+// consumer would take it from there too. Only this build compiles it.
+include(":sdk")
+project(":sdk").projectDir = file("../../packages/sdk-kotlin")

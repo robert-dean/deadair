@@ -242,18 +242,11 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         description: values.get(STREAM_KEYS.description) ?? STREAM_DEFAULTS.description,
         genre: values.get(STREAM_KEYS.genre) ?? STREAM_DEFAULTS.genre,
         publicUrl: values.get(STREAM_KEYS.publicUrl) ?? STREAM_DEFAULTS.publicUrl,
-        mount: values.get(STREAM_KEYS.mount) ?? STREAM_DEFAULTS.mount,
-        bitrate: values.get(STREAM_KEYS.bitrate) ?? STREAM_DEFAULTS.bitrate,
-        // Through `settingIsOn` and never through the `values` map above, because every
-        // layer of the config holds STRINGS: a switch read as `values.get(key) === 'true'`
-        // would be a fourth private coercion, and one read as a boolean would be `'false'`,
-        // which is truthy — the switch that can be turned on and never back off.
-        opusEnabled: settingIsOn(config, STREAM_KEYS.opusEnabled, STREAM_DEFAULTS.opusEnabled),
-        opusBitrate: values.get(STREAM_KEYS.opusBitrate) ?? STREAM_DEFAULTS.opusBitrate,
-        aacEnabled: settingIsOn(config, STREAM_KEYS.aacEnabled, STREAM_DEFAULTS.aacEnabled),
-        aacBitrate: values.get(STREAM_KEYS.aacBitrate) ?? STREAM_DEFAULTS.aacBitrate,
-        flacEnabled: settingIsOn(config, STREAM_KEYS.flacEnabled, STREAM_DEFAULTS.flacEnabled),
-        hlsEnabled: settingIsOn(config, STREAM_KEYS.hlsEnabled, STREAM_DEFAULTS.hlsEnabled),
+        // The eight keys that decide which mounts exist, through the one resolver that
+        // reads them. Spread rather than repeated here because `/nowplaying` needs the
+        // same eight and cannot call this function: it holds no scope, and the
+        // `EncryptionProvider` the secrets below need is scoped.
+        ...resolveMountSettings(config),
         // Clamped rather than refused, on the resolver rule: this is reading a row that is
         // already stored, and a setting that will not load stops the render behind it. The
         // console refuses an out-of-range figure at the point somebody types one.
@@ -345,6 +338,58 @@ export function mountPathFor(mount: string, format: StreamFormat): string {
 }
 
 /**
+ * The settings that decide which mounts exist, and nothing else.
+ *
+ * A narrower reading than {@link resolveStreamSettings} because it is the one every
+ * caller of {@link streamMounts} actually needs, and because the full resolver decrypts
+ * five secrets and therefore takes an `EncryptionProvider` — which is SCOPED. That is
+ * what puts the full settings out of reach of `/nowplaying`, which answers out of
+ * memory with no scope and no transaction so a device can poll it every few seconds.
+ * Splitting the read is what lets both have the same answer rather than two derivations
+ * of it.
+ */
+export type MountSettings = Pick<
+    StreamSettings,
+    'mount' | 'bitrate' | 'opusEnabled' | 'opusBitrate' | 'aacEnabled' | 'aacBitrate' | 'flacEnabled' | 'hlsEnabled'
+>;
+
+/**
+ * Read {@link MountSettings} straight off the config.
+ *
+ * Every switch goes through `settingIsOn` and never through a direct `get`, because
+ * every layer of `AppConfig` holds STRINGS: `config.get(key, false)` answers `'false'`,
+ * which is truthy, and a mount switched on that way could never be switched off again.
+ */
+export function resolveMountSettings(config: AppConfig): MountSettings {
+    // `has` before `get`, on the same rule the full resolver states: an ABSENT key falls
+    // through to its default, and a key stored as the empty string stays empty.
+    const text = (key: string, fallback: string): string => (config.has(key) ? config.get(key, '') : fallback);
+
+    return {
+        mount: text(STREAM_KEYS.mount, STREAM_DEFAULTS.mount),
+        bitrate: text(STREAM_KEYS.bitrate, STREAM_DEFAULTS.bitrate),
+        opusEnabled: settingIsOn(config, STREAM_KEYS.opusEnabled, STREAM_DEFAULTS.opusEnabled),
+        opusBitrate: text(STREAM_KEYS.opusBitrate, STREAM_DEFAULTS.opusBitrate),
+        aacEnabled: settingIsOn(config, STREAM_KEYS.aacEnabled, STREAM_DEFAULTS.aacEnabled),
+        aacBitrate: text(STREAM_KEYS.aacBitrate, STREAM_DEFAULTS.aacBitrate),
+        flacEnabled: settingIsOn(config, STREAM_KEYS.flacEnabled, STREAM_DEFAULTS.flacEnabled),
+        hlsEnabled: settingIsOn(config, STREAM_KEYS.hlsEnabled, STREAM_DEFAULTS.hlsEnabled),
+    };
+}
+
+/**
+ * Where the HLS master playlist is, which is a CONSTANT and not derived from the mount.
+ *
+ * `radio.liq` writes `playlist = "live.m3u8"` as a literal, so the file on disk carries
+ * that name whatever `stream.mount` is called. The nginx redirect matches any
+ * single-segment `.m3u8` at the root by SHAPE, which makes a renamed mount look like it
+ * would work here — it would redirect, and then 404, because nothing writes a playlist
+ * under the new name. Deriving this from the mount is therefore the obvious move and the
+ * wrong one; see `nginx/snippets/hls.conf` and `stream/radio.liq`.
+ */
+export const HLS_PLAYLIST_PATH = '/live.m3u8';
+
+/**
  * Every mount this station publishes right now, MP3 first.
  *
  * The single source of truth for "which mounts exist", which four things need and
@@ -357,7 +402,7 @@ export function mountPathFor(mount: string, format: StreamFormat): string {
  * A format that is switched off is ABSENT rather than present-and-disabled, because
  * every consumer wants the same thing from this: the mounts that are actually there.
  */
-export function streamMounts(settings: StreamSettings): StreamMount[] {
+export function streamMounts(settings: MountSettings): StreamMount[] {
     const bitrate = (raw: string, fallback: number): number => {
         const parsed = Number.parseInt(raw, 10);
         return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;

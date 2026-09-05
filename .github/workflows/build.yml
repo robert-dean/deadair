@@ -197,6 +197,50 @@ jobs:
             - name: Test
               run: python3 -m pytest analysis/
 
+    # The Android listener, which is Kotlin and Gradle and stands alone here for the same reason
+    # the sidecar above does: a Gradle build shares no task graph, no `dist` and no test runner with
+    # the TypeScript tree, so riding turbo or the root `vitest.config.ts` would buy nothing. No
+    # `pnpm install`, no Node at all.
+    #
+    # It is also the only thing that COMPILES `packages/sdk-kotlin`. The `generated` job below
+    # regenerates that from the contracts and checks it did not move; this checks it is Kotlin a
+    # compiler accepts, which is a different question and was answered "no" the first time it was
+    # asked.
+    #
+    # The runner ships an Android SDK at `/usr/local/lib/android/sdk` and `ANDROID_HOME` already
+    # points at it. `images.yml` deletes that directory to make disk room, which is a different
+    # workflow on a different runner and does not reach here.
+    android:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            # 21, to match the toolchain the app is built with locally.
+            - name: Setup Java
+              uses: actions/setup-java@v6
+              with:
+                  distribution: temurin
+                  java-version: 21
+
+            # Also validates the committed wrapper jar against Gradle's published checksums, which
+            # is the one thing about a binary in the tree worth checking on every run.
+            - name: Setup Gradle
+              uses: gradle/actions/setup-gradle@v6
+
+            - name: Accept the SDK licences
+              run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+
+            # `:sdk:build` first and by name, so a generator that emitted Kotlin which does not
+            # compile fails as itself rather than as a puzzling error inside the app.
+            - name: Build, test and lint
+              working-directory: apps/android
+              run: ./gradlew --no-daemon :sdk:build :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+
     # Whether what is COMMITTED is what the inputs actually produce.
     #
     # The contracts, the permission types and the Kysely types are generated and checked in, and the

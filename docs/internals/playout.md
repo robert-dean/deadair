@@ -158,6 +158,18 @@ there, and airing on a failed request would be the worse mistake. What that mean
 POSITIVE reading moves it — a failed poll leaves the last count standing rather than reading as an empty room
 — so an Icecast that dies while somebody is listening does not take the station off air.
 
+**A listener CLIENT is subject to all of this, and the consequences are worth stating once.**
+Connecting to a mount is what puts an audience-gated station on air, so the first seconds after a
+client presses play are warm-up — the lease, the first record, the encoder — and a client that shows
+them as an error, or as a spinner that never resolves, is misreporting the station's ordinary
+behaviour. It follows that a client must never PROBE the mounts to discover which formats exist: a
+connection, however brief, is an audience for the full linger, so a settings screen built that way
+would put a silent station on air for five minutes. `GET /nowplaying` carries `mounts[]` for exactly
+this reason, and it is the only thing a client should read for it. HLS listeners are counted from
+playlist re-fetches keyed on IP and User-Agent, so a client should send ONE stable agent from all of
+its requests — audio, API and artwork — or it will be counted as several listeners, or as none.
+`apps/android` is the worked example.
+
 ## Why it is quiet
 
 **Every gate that can silence the station says so, in ONE ordered answer.** `silence.diagnosis.ts` is eleven

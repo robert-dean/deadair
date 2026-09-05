@@ -14,6 +14,13 @@ three phases below are kept only so the reasoning survives; do not build them. W
 changed is WHICH fact closes it — the original guess was wrong about the blocker and right about the
 outcome.
 
+**Still closed for a HARDWARE player, and routed around for a phone, 2026-09-05.** `apps/android`
+shows cover art and split title/artist/album fields, and gets none of it from the mount: it reads
+`GET /nowplaying` beside the audio and pushes the result into a `MediaSession`, so the lock screen
+and any Bluetooth head unit get the rich fields the ICY stream cannot carry. That is available to
+anything that can run code alongside the stream, and to nothing that can only consume a URL — which
+is what a BluOS player is, and why the verdict above is unchanged.
+
 ---
 
 ## The thing that was actually wanted

@@ -48,56 +48,56 @@ importers:
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
       '@maroonedsoftware/appconfig':
-        specifier: ^2.5.1
-        version: 2.5.1(pg@8.22.0)(yaml@2.9.0)
+        specifier: ^2.6.1
+        version: 2.6.1(pg@8.22.0)(yaml@2.9.0)
       '@maroonedsoftware/authentication':
-        specifier: ^4.30.7
-        version: 4.30.7(ioredis@6.0.0)
+        specifier: ^4.31.0
+        version: 4.31.0(ioredis@6.0.0)
       '@maroonedsoftware/cache':
-        specifier: ^0.4.5
-        version: 0.4.5(ioredis@6.0.0)
+        specifier: ^0.5.0
+        version: 0.5.0(ioredis@6.0.0)
       '@maroonedsoftware/encryption':
-        specifier: ^0.5.11
-        version: 0.5.11
+        specifier: ^0.5.13
+        version: 0.5.13
       '@maroonedsoftware/errors':
-        specifier: ^1.9.0
-        version: 1.9.0
+        specifier: ^1.9.1
+        version: 1.9.1
       '@maroonedsoftware/eventbus':
-        specifier: ^0.1.7
-        version: 0.1.7
+        specifier: ^0.1.8
+        version: 0.1.8
       '@maroonedsoftware/jobbroker':
-        specifier: ^1.12.0
-        version: 1.12.0(pg-boss@12.27.0)
+        specifier: ^1.12.2
+        version: 1.12.2(pg-boss@12.27.0)
       '@maroonedsoftware/koa':
-        specifier: ^3.0.10
-        version: 3.0.10(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)
+        specifier: ^3.2.3
+        version: 3.2.3(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)
       '@maroonedsoftware/kysely':
-        specifier: ^0.7.9
-        version: 0.7.9
+        specifier: ^0.7.11
+        version: 0.7.11
       '@maroonedsoftware/logger':
-        specifier: ^1.1.8
-        version: 1.1.8
+        specifier: ^1.1.9
+        version: 1.1.9
       '@maroonedsoftware/multipart':
-        specifier: ^1.3.6
-        version: 1.3.6
+        specifier: ^1.3.8
+        version: 1.3.8
       '@maroonedsoftware/permissions':
-        specifier: ^0.2.8
-        version: 0.2.8
+        specifier: ^0.2.9
+        version: 0.2.9
       '@maroonedsoftware/policies':
-        specifier: ^0.6.6
-        version: 0.6.6
+        specifier: ^0.6.9
+        version: 0.6.9
       '@maroonedsoftware/serverfeed':
-        specifier: ^0.1.5
-        version: 0.1.5(@maroonedsoftware/logger@1.1.8)
+        specifier: ^0.1.6
+        version: 0.1.6(@maroonedsoftware/logger@1.1.9)
       '@maroonedsoftware/utilities':
         specifier: ^1.11.5
         version: 1.11.5
       '@maroonedsoftware/zod':
-        specifier: ^0.5.6
-        version: 0.5.6
+        specifier: ^0.8.0
+        version: 0.8.0
       injectkit:
-        specifier: ^1.7.0
-        version: 1.7.0
+        specifier: ^1.7.1
+        version: 1.7.1
       ioredis:
         specifier: ^6.0.0
         version: 6.0.0
@@ -129,8 +129,8 @@ importers:
         specifier: ^7.8.5
         version: 7.8.5
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
     devDependencies:
       '@contractkit/cli':
         specifier: ^0.10.7
@@ -145,8 +145,8 @@ importers:
         specifier: workspace:*
         version: link:../../plugins/spotify
       '@maroonedsoftware/permissions-dsl':
-        specifier: ^0.5.5
-        version: 0.5.5
+        specifier: ^0.5.6
+        version: 0.5.6
       '@repo/config-eslint':
         specifier: workspace:*
         version: link:../../packages/config-eslint
@@ -380,8 +380,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   packages/sdk:
     devDependencies:
@@ -407,8 +407,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/chatterbox:
     devDependencies:
@@ -425,8 +425,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/kokoro:
     devDependencies:
@@ -443,8 +443,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/lastfm:
     devDependencies:
@@ -461,17 +461,17 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/llm:
     dependencies:
       '@ai-sdk/openai-compatible':
         specifier: ^1.0.23
-        version: 1.0.47(zod@4.4.3)
+        version: 1.0.47(zod@4.5.4)
       ai:
         specifier: ^5.0.98
-        version: 5.0.228(zod@4.4.3)
+        version: 5.0.228(zod@4.5.4)
     devDependencies:
       '@deadair/plugin-sdk':
         specifier: workspace:*
@@ -486,8 +486,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/musicbrainz:
     devDependencies:
@@ -504,8 +504,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/navidrome:
     devDependencies:
@@ -522,8 +522,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/rss:
     devDependencies:
@@ -540,8 +540,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/spotify:
     dependencies:
@@ -562,8 +562,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/weather:
     devDependencies:
@@ -580,8 +580,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/websearch:
     devDependencies:
@@ -598,8 +598,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
   plugins/wikipedia:
     devDependencies:
@@ -616,8 +616,8 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.5.4
+        version: 4.5.4
 
 packages:
 
@@ -1128,9 +1128,6 @@ packages:
   '@fontsource/space-mono@5.3.0':
     resolution: {integrity: sha512-FrpBMOVWn3PRdRHlrZWC55X3kZG/2BTH7SM5ZyS/bky3iKya2BturI5lk+t0RoDQL2JyHzURsVq/EisCsxpI5A==}
 
-  '@hapi/bourne@3.0.0':
-    resolution: {integrity: sha512-Waj1cwPXJDucOib4a3bAISsKJVb15MKi9IvmTI/7ssVEm6sywXGjVJDhl6/umt1pK1ZS7PacXU3A1PmFKHEZ2w==}
-
   '@hapi/bourne@4.0.1':
     resolution: {integrity: sha512-SrAjK5gEaPONrdkQhiCrAbR20HrSbP/4PS16ETgP2F4jTXoRj5k7m92EHWe300IKC/v0iFQumVRLAsTJ51oibg==}
     engines: {node: '>=22'}
@@ -1251,12 +1248,12 @@ packages:
     peerDependencies:
       react: ^19.2.0
 
-  '@maroonedsoftware/appconfig@2.5.1':
-    resolution: {integrity: sha512-YRVe2hXHNKHERKcSQnygjkN851yT/xYCqsGgbjkdyHaHpJK5G6kpPo6SoHbA4oCnkERK9kbl7efz56OCbesk1g==}
+  '@maroonedsoftware/appconfig@2.6.1':
+    resolution: {integrity: sha512-w9IEudLnC9KorVJ7QgiIU7yh6eAeKeVwAI+H93IeWB0QVDPlO7cw0mbmFtCTK91UhjNd5b4GWegFjWCjyLZh6g==}
     engines: {node: '>=22'}
     peerDependencies:
       '@aws-sdk/client-secrets-manager': ^3.1057.0
-      '@google-cloud/secret-manager': ^6.1.1
+      '@google-cloud/secret-manager': ^6.1.1 || ^7.0.0
       pg: ^8.21.0
       yaml: ^2.8.2
     peerDependenciesMeta:
@@ -1269,33 +1266,33 @@ packages:
       yaml:
         optional: true
 
-  '@maroonedsoftware/authentication@4.30.7':
-    resolution: {integrity: sha512-vwzTsBupT+qKDoJpWeEitUOI0k5ePo3y+0eHLVi5H0bkrfqEBDHriqhlhZI7bpK9YMW9LeVcaUS4hh3p3bxw/A==}
+  '@maroonedsoftware/authentication@4.31.0':
+    resolution: {integrity: sha512-XsJ6f/CiqNiAKPqJu3x8DVnvyJCbl9/GdIoZAnnIDjrYnTuGP8jE4EPmAlmPn/iDPrAKcptCNjOXyllEvumGFw==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/cache@0.4.5':
-    resolution: {integrity: sha512-kvHopmwhBsPK0Gummc7eBeHrd2OHnW3AUX4AmgT3UVivpp8Xjjcunu93EDjm8AKLQY6jnV3JU+2BNazkJVsKYQ==}
+  '@maroonedsoftware/cache@0.5.0':
+    resolution: {integrity: sha512-iC5GnxmWTYYsYNLFn7jiD+X5xunXB6WHkDdaEVyy2RomjHHCifpXRz/fHUGEVBB99ANpKVWqhYPs2ao5OrRqnA==}
     engines: {node: '>=22'}
     peerDependencies:
-      ioredis: ^5.10.1
+      ioredis: ^5.10.1 || ^6.0.0
     peerDependenciesMeta:
       ioredis:
         optional: true
 
-  '@maroonedsoftware/encryption@0.5.11':
-    resolution: {integrity: sha512-hw8wYKFVmzFGxnn3yZ3227SvxdfTIYh2aPEDsYuR8M87yiFqSSBbZEJ5wEf0K9X7RaBEKOUwNbnBmcxkqKvi/Q==}
+  '@maroonedsoftware/encryption@0.5.13':
+    resolution: {integrity: sha512-8UqZcYUOSNCeFptHH8OxtTFYdYZklUg7jyq5D338V25zRQF0T5Gqk42Fd6bTQHAbKiDLM3u8AAI52IujJsyt0g==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/errors@1.9.0':
-    resolution: {integrity: sha512-m0Ahsvc9HeNoBdiZI2awARlHryV7Ji/v+qak01+85+QrHoyZEQVmb1PR+XTBOy2PxbdtBxTlWLfBGQOqoclAoQ==}
+  '@maroonedsoftware/errors@1.9.1':
+    resolution: {integrity: sha512-V2P8iHoxfuFJZ8XrhWzo9SDyEA8tDUv6DzuNntxTWVohHy8NWoZrcjYw4/LFG2NxmQTPeUt0nNLBKRPEV/9R8g==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/eventbus@0.1.7':
-    resolution: {integrity: sha512-rEEI4hcFesKP6ayRroIJJGpBWqBJNfjjWY6CPaHkBai52c6Nssh1LsELl9+m6Nv3PJK2KliPRQMs6Mt2WxiY9Q==}
+  '@maroonedsoftware/eventbus@0.1.8':
+    resolution: {integrity: sha512-GJVGQIjZH58KHJF9YiOnUc2R6p7JUOtgZOQ7PalyJUwISpjPqWvljJl2f8q3uoeNIiot4bfRbvZKXa9nYYfkBQ==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/jobbroker@1.12.0':
-    resolution: {integrity: sha512-akZPxxnyLMBAposKG5LRafN0C0iAWNgmr8kgn6RDFV2UQJ09CPvR9YWvf6aRjefOOpfc7sWQIefuv6rJL1w/3g==}
+  '@maroonedsoftware/jobbroker@1.12.2':
+    resolution: {integrity: sha512-hAvvHTaoNXIwvRfiyOqtDyUYjCIbNssqdXJGVsF4RXPcaVM5wBHVnj3cumaMrRa5IzeDBhBSvf8h/HoKmbINWQ==}
     engines: {node: '>=22'}
     peerDependencies:
       pg-boss: ^12.21.0
@@ -1303,48 +1300,57 @@ packages:
       pg-boss:
         optional: true
 
-  '@maroonedsoftware/koa@3.0.10':
-    resolution: {integrity: sha512-3TLiSvyPnQqQcFSPb32tk42hGrS48BJBc8WRQmyWc7HeBio2zYMezeKMmoEnlq/EBpcq/r+3OT3PPw1KX8kkPA==}
+  '@maroonedsoftware/koa@3.2.3':
+    resolution: {integrity: sha512-P91l15LBd/DZVSKyz/xdTCCwQzqnknIL6kv8rNcvRleV0HXCwyzoxnvMTizyDOqPz0b5lJ8ukTYrokv5uipktQ==}
     engines: {node: '>=22'}
     peerDependencies:
       '@koa/cors': ^5.0.0
       '@koa/router': ^15.2.0
-      '@maroonedsoftware/serverfeed': 0.1.5
+      '@maroonedsoftware/serverfeed': 0.1.6
       koa: ^3.1.1
     peerDependenciesMeta:
       '@maroonedsoftware/serverfeed':
         optional: true
 
-  '@maroonedsoftware/kysely@0.7.9':
-    resolution: {integrity: sha512-hGC6/ufH9cuyLZpDGZRbnPbHjssxTHVMpxp27ImOE8HwJ7LKAb9aIhyDeWSAsjLPkJJCBz5t/96u9Sk/PJB+nQ==}
+  '@maroonedsoftware/kysely@0.7.11':
+    resolution: {integrity: sha512-2wshLM+qldy0dzXWM/VGZLRsE0ebD9vaWjYOQRqX7SbJRmBkxh5TtGsJnFl/myiNkPOOHeUQw70L7I9o623e/Q==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/logger@1.1.8':
-    resolution: {integrity: sha512-wCA2pNoz+4Hu4pIc9+dKlCdc19gUbep6XicdvN9CL0vK8aaybvgEWgCIT30rYVOHTpNI1kgZv91ibZkbHugULg==}
+  '@maroonedsoftware/logger@1.1.9':
+    resolution: {integrity: sha512-eEksDYu/PAWC/mIwLzxFqcF9tOnYURqyP9BDUlSgconUZ/I6MJrXvZ/cYOjCtQ6YEr/8k4GRMvwxIaOwSVaQ4w==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/multipart@1.3.6':
-    resolution: {integrity: sha512-gGub+uQ/+vvtqHJ4MXPenSzL9ZycAKohoYK7PEdv6SAEgWHoKneCut/S41JKmpTm6/pulzseF+BIidYAfKcCuA==}
+  '@maroonedsoftware/multipart@1.3.8':
+    resolution: {integrity: sha512-k4bD2+iqZ7IAL2CMxK7Tt4UQEjhEbRblRxN6hS8OAYF/sbXf0HDBNziUzI6YMmux+G26tDCokIBe9Ph8rSuQ9Q==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/permissions-dsl@0.5.5':
-    resolution: {integrity: sha512-ufsOUuHnBk6qNFBfMf2mNVU0VfB0hX3lhu+I0euPLW0mqNSma+N8GFOHF+415AKOibE9+Qr076gUh8uBEkldfg==}
+  '@maroonedsoftware/permissions-dsl@0.5.6':
+    resolution: {integrity: sha512-SaBM4nijuN00bmqscaOdWwMK8YWCiT83VU4LBRAToCmXN3n7kyizriyvlDKxrEAgu3O/7Yx46V5C5UyAV11xjA==}
     engines: {node: '>=22'}
     hasBin: true
 
-  '@maroonedsoftware/permissions@0.2.8':
-    resolution: {integrity: sha512-Bv7BWoRWQS5uRtulD5kH/LEAeUBU1N1n/DQT8gOA7917TKrjbMuvJTYfae033CtQNneHqQ0ACsBnPAe2S5zW7g==}
+  '@maroonedsoftware/permissions@0.2.9':
+    resolution: {integrity: sha512-SUu/MBLbmogzZYkw8aOe+oR2kVLc6Ksk0lWRXGudcGcRzuGj/rXtkYv/a3o4LiZVU1WVaSWGGK3CYyqRMK3gNA==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/policies@0.6.6':
-    resolution: {integrity: sha512-d/uADGxCYJUw9WZjNbIJyAEYZgMWNMMbcGarfXXKP2SCRNZXprak/dHx37rb2T8ZS70tPJkVsBFQnlpZ7H1yPg==}
+  '@maroonedsoftware/policies@0.6.9':
+    resolution: {integrity: sha512-mfIj55Fdntdw6PrUIKBTeIT2bLIGtOsEnBpvK/BH6kCnhpduWHDWMqKRrQoO1HwqpArVPLsSaFHkfl1UoELdEA==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/serverfeed@0.1.5':
-    resolution: {integrity: sha512-4oiwdVsPV34giYLZii0iigUAhcPTTMl8r4Vgt6Ge4vXz1YTPOTe5XhAuJKxMxaYdgOgWk6i46+HQOMZTdbADlw==}
+  '@maroonedsoftware/servercore@0.3.0':
+    resolution: {integrity: sha512-wz4BWzw65BbdAds7KCD06HbawmCPgqxHAfXxdQ5BlrScjCGN+3PG4/cZcN35DJ297uP5V8WTkBWCbPOSZ5hCDA==}
     engines: {node: '>=22'}
     peerDependencies:
-      '@maroonedsoftware/logger': 1.1.8
+      '@maroonedsoftware/serverfeed': 0.1.6
+    peerDependenciesMeta:
+      '@maroonedsoftware/serverfeed':
+        optional: true
+
+  '@maroonedsoftware/serverfeed@0.1.6':
+    resolution: {integrity: sha512-9whY1qjJrTMn4o1JafCJvG3ZO7ef05mW5b0Bix1Pm4kzNhDV0R4sSM+3ZlKupLpSlE8sOpf2WivNWykuh7TVIQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      '@maroonedsoftware/logger': 1.1.9
     peerDependenciesMeta:
       '@maroonedsoftware/logger':
         optional: true
@@ -1353,9 +1359,14 @@ packages:
     resolution: {integrity: sha512-hkH6nYsz+CdBcexBRzlv2ve0h+6VlkEGbWJXhqofPOBhrnThIfkUYwCPnFDnWRB7ZyL4ImLSQnXmHMvlTuJ6QQ==}
     engines: {node: '>=22'}
 
-  '@maroonedsoftware/zod@0.5.6':
-    resolution: {integrity: sha512-cXP6Kbw4DahvHfdrV+RrgToaZdEZ9zCEgXb4jIihvIeeyMjpMOuETYVXEC+1hgb/rgMUrzOJwTsOOAGyi1YJkA==}
+  '@maroonedsoftware/zod@0.8.0':
+    resolution: {integrity: sha512-7k58EeeTpyWGY4IPJR/jp6E66v4BBx5T31k3vOgh3kmwG9A1URc3Vxm51QBHPCGl9yOoX121D6Chc6PO+kfmog==}
     engines: {node: '>=22'}
+    peerDependencies:
+      fast-json-stringify: ^7.0.0
+    peerDependenciesMeta:
+      fast-json-stringify:
+        optional: true
 
   '@napi-rs/wasm-runtime@0.2.12':
     resolution: {integrity: sha512-ZVWUcfwY4E/yPitQJl481FjFo3K22D6qF0DuFH6Y/nbnE11GY5uguDxZMGXPQ8WQ0128MXQD7TnfHyK4oWoIJQ==}
@@ -1374,90 +1385,90 @@ packages:
   '@nodable/entities@3.0.0':
     resolution: {integrity: sha512-8L9xFeTYKhm49xfIypoe2W5wV1m/3Z58kT+7kR9A8OyFxcPduI4VmxaUMQyKYrRjUoLLSXv6EKKID5Tvj9cUVw==}
 
-  '@node-rs/argon2-android-arm-eabi@2.1.0':
-    resolution: {integrity: sha512-hdWo5kb4eFRbHjdu4O6dVlRPI/CR1vbkJpe3Z9kF2s0Kp42428wg8AxI+8Cv4mygdW309BpUBf3sZaqXBNpdpw==}
+  '@node-rs/argon2-android-arm-eabi@2.2.0':
+    resolution: {integrity: sha512-xbJvpiTlYqKxq5XRkhQlZNiIRE4fZPFJdB46jOPED8pGkxgn1erMMdVCPWp1RcOxuChaiEOl8DVu5sVVu9ApVw==}
     engines: {node: '>= 10'}
     cpu: [arm]
     os: [android]
 
-  '@node-rs/argon2-android-arm64@2.1.0':
-    resolution: {integrity: sha512-MHby1n9UzlVma3GiEYWNNqRhn2Z/90QwF2PFckGwucdz0HfdVX+lSKEcyfwcbvS5sJ9GAzhop3hXlUPxUYe72Q==}
+  '@node-rs/argon2-android-arm64@2.2.0':
+    resolution: {integrity: sha512-i47xYwh8GNKc0yNwFQz7Hqsx6pBZJsJ1hqRXmtThOXbjl6HoVlX7oGBpqq4s+sBrU8ba0kubAqJ8fBjtp4iwHQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [android]
 
-  '@node-rs/argon2-darwin-arm64@2.1.0':
-    resolution: {integrity: sha512-5nayvL9wepOvTO5JmdaiDZ6bgHEsI/vksnXphM3UTy/cflARr9MoD1pBrMPs921hx2otURJhG0avg9hN0Q0KPw==}
+  '@node-rs/argon2-darwin-arm64@2.2.0':
+    resolution: {integrity: sha512-Zet1ekAQPUczRQ6cmFCpQyScg9346SnzYt7CRWPd4GCs8CBOOK34PrtbazdReHcBxUgSDnhMhDWnO0jmtJ15sQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
 
-  '@node-rs/argon2-darwin-x64@2.1.0':
-    resolution: {integrity: sha512-7bFf3qH/PLQ5kU5GkxMF+dMz/tiT+0yFXILpOx4fgSFjw3wdXpGZt3wH4i6dHMURDcwYlNap0hJaX4h2E3JGng==}
+  '@node-rs/argon2-darwin-x64@2.2.0':
+    resolution: {integrity: sha512-JeOpmf5glG9MTS+qt6VZ3tUUZdQ3Kll/e18yUeBmDRSKQDN0AJs5ruzqV08DOclVUqXG0IF2DVhbE825RN96yA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [darwin]
 
-  '@node-rs/argon2-freebsd-x64@2.1.0':
-    resolution: {integrity: sha512-01mVdl+7bjSW0to5xcEzueq7BuYbz3476/dmLMXziJf8fhykzr723YRNcGjOcHSU5fxNrElY9uVeUoow16vBrQ==}
+  '@node-rs/argon2-freebsd-x64@2.2.0':
+    resolution: {integrity: sha512-w7R4yoAcOlZctOz7EHhf2hFHSuRyJcphMZAcyKRJ3Sxu8APjqifLepOkuXC1Gat08DYFTI51RMPj7sMU36KcGA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [freebsd]
 
-  '@node-rs/argon2-linux-arm-gnueabihf@2.1.0':
-    resolution: {integrity: sha512-NxZILF+Hqav6yzJTUFuZXTUC1VagTO4Vfd2HSlzkwankUa1B7goo0NLY2tUPw6MdqtLojkqVG5MZ26AaF49tHw==}
+  '@node-rs/argon2-linux-arm-gnueabihf@2.2.0':
+    resolution: {integrity: sha512-H5uGMLmj2vor3YDAX+LIyw4yGXEESXvr5voyRK+AuxdIvZ/B7mxma06IOmb+4n9t/MQ1Lbwu7gkyWt8f3wyrNA==}
     engines: {node: '>= 10'}
     cpu: [arm]
     os: [linux]
 
-  '@node-rs/argon2-linux-arm64-gnu@2.1.0':
-    resolution: {integrity: sha512-jpx2VwJLyAF/cM64HRigFBk67GwtQBcssYyVhvHqfmCEZz/CP//SV9bxE+uJOGIPKJo7wDg/5f2k3JY0PNMROg==}
+  '@node-rs/argon2-linux-arm64-gnu@2.2.0':
+    resolution: {integrity: sha512-P0A+tUMI7NwImaK7txceScl7d18GAw4hkt27NChZIZdD55w7qZ81LFcA4cEP9L6kgdubItlAqcD/qBR5XMCd5Q==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@node-rs/argon2-linux-arm64-musl@2.1.0':
-    resolution: {integrity: sha512-xXAaPUlnPx/44qwaSekTG/g6/h5QCyrTayPLmvewJNyYz17vyBRmFKWLgv9Q3+NJwSvV88nVnCu/xkQbEPQaog==}
+  '@node-rs/argon2-linux-arm64-musl@2.2.0':
+    resolution: {integrity: sha512-i5s9msRRy+m/yul9M+1OF7fN/VqhJ+4IalPn1rhyrE3gwNcgfoT+A0DuAqR5gtXmDb3zx+QWIjtHCLhvkvu23g==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@node-rs/argon2-linux-x64-gnu@2.1.0':
-    resolution: {integrity: sha512-ICnfyFaxZzr8OdAEwTPsAjx6gpNla1sI3miZJWAVCtZlw98Wo3Wd4H7tvW6S2NRJ1BIOf4l8Z7aX7h3fimXn5w==}
+  '@node-rs/argon2-linux-x64-gnu@2.2.0':
+    resolution: {integrity: sha512-R6oaRA2Iesbsexe06Aeydbdz617WD2lE6yDcb4t5T+0iGM1VyVpI+nNpcAtkcXyO6Dgmuhh+3RKbm/F2CSBt1w==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@node-rs/argon2-linux-x64-musl@2.1.0':
-    resolution: {integrity: sha512-f56jehb/IPTGBWWrvMjDGZWlQm/hKkH2VK/MxJ9u3kUR9PCacdtLFZmX4sL+qKeo4wsyhlD1EvlZF6nV1FSi3Q==}
+  '@node-rs/argon2-linux-x64-musl@2.2.0':
+    resolution: {integrity: sha512-Paql63t7XusSTYMSfEQ0ex5edubWX/OhvLRYsC+oQxWiC+3x2WcYWp+fWVwdlAm+eJRsIOj6w3iG3yDy94ZL8A==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@node-rs/argon2-win32-arm64-msvc@2.1.0':
-    resolution: {integrity: sha512-KH8lBdjoZLUiVG1GjJQIQPKhmddJmEbJbL+e3S7BKVq1wKl1mx+ClmhGtMtYp8ZtEIw8/BYIFUIjL3sBuWGEuQ==}
+  '@node-rs/argon2-win32-arm64-msvc@2.2.0':
+    resolution: {integrity: sha512-ysl+KaEeYVBKY3/J4w3VKD7KVHATpsJ/TMtxjmVyX8KEhwemH2qmlyZcVQb5fPy+Yk18g7cHu7LYuDffROo8pw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [win32]
 
-  '@node-rs/argon2-win32-ia32-msvc@2.1.0':
-    resolution: {integrity: sha512-zZ7NDHoKTgrjoUehNN7xvP+dA/M9krOp42l0MKns6TnMkwrp5nes9agEZsUy+0t0JoR8OQ8D7EUCNLh5BEn++w==}
+  '@node-rs/argon2-win32-ia32-msvc@2.2.0':
+    resolution: {integrity: sha512-2Hp0RtOgM8jxcTsrtYlIkfk0PQXFnENyqvEuFTNCHMFSWhV8D/Ds2OrWSmjWTGQhLNWNp2JrX4XKsZM0+PB3NA==}
     engines: {node: '>= 10'}
     cpu: [ia32]
     os: [win32]
 
-  '@node-rs/argon2-win32-x64-msvc@2.1.0':
-    resolution: {integrity: sha512-JN/yNiX7u8Cw9XXTbRrjnlgzFjCiEQe6x97wJnMIsJ3vty89q0SAg504Otd9qy2ofQS2F5CCWvrOXhm/oyHaAQ==}
+  '@node-rs/argon2-win32-x64-msvc@2.2.0':
+    resolution: {integrity: sha512-cfcNjVqLpgOU/9l2mLOFduuXTxvGH5qoV38AhcOz9oQaC7GDmsFbAgcuizVNuOtpSyQr5HoQez3f2X2jYgGMsg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
 
-  '@node-rs/argon2@2.1.0':
-    resolution: {integrity: sha512-VBOWfM2u58/to3DFqTGJ2U5cJKQwmjN2zxzsQNZ5a2o8Z6aUrhvqQh8NdgotIF1Y0tMsBNtzOBDBdfvvkwJDSQ==}
+  '@node-rs/argon2@2.2.0':
+    resolution: {integrity: sha512-iBItNNiiim2nzhmUY4uxA4nYaNBatj8Ae/YnlwQzRYRFiBysm2scfsyjO+ktH+7VHl1O24UwFd2EeihV4IJzxw==}
     engines: {node: '>= 10'}
 
   '@node-rs/xxhash-android-arm-eabi@1.7.6':
@@ -2698,10 +2709,6 @@ packages:
     resolution: {integrity: sha512-rwHwUfXL40Chm1r08yrhU3qpUvdVlgkKNeyeGPOxnW8/SyVDvgRaed/Uz54AqWNaTCAThlj6QAs3TZcKI0xDEw==}
     engines: {node: '>=0.10.0'}
 
-  co-body@6.2.0:
-    resolution: {integrity: sha512-Kbpv2Yd1NdL1V/V4cwLVxraHDV6K8ayohr2rmH0J87Er8+zJjcTa6dAn9QMPC9CRgU8+aNajKbSf1TzDB1yKPA==}
-    engines: {node: '>=8.0.0'}
-
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
     engines: {node: '>=7.0.0'}
@@ -2825,9 +2832,9 @@ packages:
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
 
-  deepmerge-ts@7.1.6:
-    resolution: {integrity: sha512-gQhL1ksGBLQbHeAo47YU6cs2ahd3Pv+8PFYoWogNZbQnNwQyOh9Ad5kbeHFiWwbKdeWQJ5Z7Y7mwb9ew2hXBLw==}
-    engines: {node: '>=16.0.0'}
+  deepmerge-ts@8.0.2:
+    resolution: {integrity: sha512-uqbvqLUMrc6p0MO+WBRtTxY55hmyh94WRwI5a++PZe54X+bfVh59FSN7uWCBCW1CCVjzjnrwzfI8zidE2obMMw==}
+    engines: {node: '>=16.9.0'}
 
   define-data-property@1.1.4:
     resolution: {integrity: sha512-rBMvIzlpA8v6E+SJZoo++HAYqsLrkg7MSfIinMPFhmkorw7X+dOXVJQs+QT69zGkzMyfDnIMN2Wid1+NbL3T+A==}
@@ -3261,14 +3268,6 @@ packages:
     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
     engines: {node: '>= 0.8'}
 
-  iconv-lite@0.4.24:
-    resolution: {integrity: sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==}
-    engines: {node: '>=0.10.0'}
-
-  iconv-lite@0.7.3:
-    resolution: {integrity: sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==}
-    engines: {node: '>=0.10.0'}
-
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
     engines: {node: '>= 4'}
@@ -3296,8 +3295,8 @@ packages:
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
 
-  injectkit@1.7.0:
-    resolution: {integrity: sha512-gAeyoBJeqoUDu5Lj7OOEEASb/Q6QcV2I+kF8YhQITS5k2PseUDJDLRWTViM4PKvfrSFiuUccu4HC1/dR7GeZjQ==}
+  injectkit@1.7.1:
+    resolution: {integrity: sha512-ynT3kJ8wn0kOT8DZB5cfzOFjc/rnLTnQvH+jrOUIo9hI7itjkaQ8jrsXnvQbKl2GzUNiXhII6a/0QthNn3dXqA==}
     engines: {node: '>=22'}
 
   internal-slot@1.1.0:
@@ -3742,10 +3741,6 @@ packages:
   mdn-data@2.27.1:
     resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
 
-  media-typer@0.3.0:
-    resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
-    engines: {node: '>= 0.6'}
-
   media-typer@1.1.1:
     resolution: {integrity: sha512-yz3xRaG20c6/BOzvYoDaGtPmGscs7YivItZEEqe6GbwNfHuxu9YNmvnEkMzKldAGY4/80pRcQRZSEnhquk9XuQ==}
     engines: {node: '>= 0.8'}
@@ -4134,20 +4129,16 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
 
-  qs@6.15.3:
-    resolution: {integrity: sha512-O9gl3zCl5h5blw1KGUzQKhA5oUXSl8rwUIM5o0S3nCXMliSvy5Dzx7/DJcI+SwgICv+IneSZwhBh1oSyEHA71A==}
+  qs@6.16.0:
+    resolution: {integrity: sha512-h6fhOIaRrID2CbEY2fqs+7t+UXZo+MLAnU5gRIq85uFtdiUPCdsApMlHhXogKVM4HM2DVbIjGNTTYH2OcmP1vA==}
     engines: {node: '>=0.6'}
 
   rate-limiter-flexible@11.2.0:
     resolution: {integrity: sha512-L0eIK+BmFMi6NcvmtEg7RSswOFKi9MMD5RhBIypFfOve+G6Jl1Xbb8qEHgK3uRzNtkOFYF0L9f7P4rSf2PnUVw==}
 
-  raw-body@2.5.3:
-    resolution: {integrity: sha512-s4VSOf6yN0rvbRZGxs8Om5CWj6seneMwK3oDb4lWDH0UPhWcxwOWw5+qk24bxq87szX1ydrwylIOp2uG1ojUpA==}
-    engines: {node: '>= 0.8'}
-
-  raw-body@3.0.2:
-    resolution: {integrity: sha512-K5zQjDllxWkf7Z5xJdV0/B0WTNqx6vxG70zJE4N0kBs4LovmEYWJzQGxC9bS9RAKu3bgM40lrd5zoLJ12MQ5BA==}
-    engines: {node: '>= 0.10'}
+  raw-body@4.0.0:
+    resolution: {integrity: sha512-TMHtwexrgOt9VJ2E5JF9RO8mRXGNgC5wXvKkc5AVSJUt1L5gxvjg7eiCQl96EqUEpCWrnNEkCnbAplYtyuq1IA==}
+    engines: {node: '>=22'}
 
   react-dom@19.2.8:
     resolution: {integrity: sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==}
@@ -4294,9 +4285,6 @@ packages:
   safe-regex-test@1.1.0:
     resolution: {integrity: sha512-x/+Cz4YrimQxQccJf5mKEbIa1NzeCRNI5Ecl/ekmlYaampdNLPalVyIcCZNNH3MvmqBugV5TMYZXv0ljslUlaw==}
     engines: {node: '>= 0.4'}
-
-  safer-buffer@2.1.2:
-    resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
 
   saxes@6.0.0:
     resolution: {integrity: sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==}
@@ -4575,10 +4563,6 @@ packages:
     resolution: {integrity: sha512-YGYEVz3Fm5iy/AybuA0oyNFq7H4CgQNfRp/qfe8nurE1kuCeNm3/vfm9X4Mtl+qLyaKJUh5xrFZwogr41SMjYA==}
     engines: {node: '>=20'}
 
-  type-is@1.6.18:
-    resolution: {integrity: sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==}
-    engines: {node: '>= 0.6'}
-
   type-is@2.1.0:
     resolution: {integrity: sha512-faYHw0anBbc/kWF3zFTEnxSFOAGUX9GFbOBthvDdLsIlEoWOFOtS0zgCiQYwIskL9iGXZL3kAXD8OoZ4GmMATA==}
     engines: {node: '>= 18'}
@@ -4628,10 +4612,6 @@ packages:
   undici@8.9.0:
     resolution: {integrity: sha512-aWZpUj7XoGonMClx4gdDRfgBjqeA+F473aDmROQQbM9n6PRfK/u1q/a0X4wMTgcHfT8H6fpbt98PFuDUwFg2YA==}
     engines: {node: '>=22.19.0'}
-
-  unpipe@1.0.0:
-    resolution: {integrity: sha512-pjy2bYhSsufwWlKwPc+l3cN7+wuJlK6uz0YdJEOlQDbl6jo/YlPi4mb8agUkVC8BF7V8NuzeyPNqRksA3hztKQ==}
-    engines: {node: '>= 0.8'}
 
   unplugin-swc@1.5.10:
     resolution: {integrity: sha512-aNvKH601KYzc/fXyDQJPAk8obNPzA4GdGqx+qSjQoyweMLDMLs5VRbunjL4skIv/hyyAnSgrbxMwXHdRTzhmew==}
@@ -4907,8 +4887,8 @@ packages:
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
 
-  zod@4.4.3:
-    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+  zod@4.5.4:
+    resolution: {integrity: sha512-sC95tT5iHHH9gtpj6A81kh+NEaRAUFN+qlUPDUbRfOMvNf5QCBqsb3WgvnpVtK5Y+4UfA6KqufotuTvMGiTlsA==}
 
   zxcvbn-ts@2.3.4:
     resolution: {integrity: sha512-K98gEkpvRyqWh2GUjNABrSMQ8OW+k9KycIfSufa82CjkZbhK1fl85c75WNUk0mhNEvo59774jLK1dACnXbr0wg==}
@@ -4917,26 +4897,26 @@ snapshots:
 
   '@adobe/css-tools@4.5.0': {}
 
-  '@ai-sdk/gateway@2.0.127(zod@4.4.3)':
+  '@ai-sdk/gateway@2.0.127(zod@4.5.4)':
     dependencies:
       '@ai-sdk/provider': 2.0.3
-      '@ai-sdk/provider-utils': 3.0.31(zod@4.4.3)
+      '@ai-sdk/provider-utils': 3.0.31(zod@4.5.4)
       '@vercel/oidc': 3.1.0
-      zod: 4.4.3
+      zod: 4.5.4
 
-  '@ai-sdk/openai-compatible@1.0.47(zod@4.4.3)':
+  '@ai-sdk/openai-compatible@1.0.47(zod@4.5.4)':
     dependencies:
       '@ai-sdk/provider': 2.0.3
-      '@ai-sdk/provider-utils': 3.0.31(zod@4.4.3)
-      zod: 4.4.3
+      '@ai-sdk/provider-utils': 3.0.31(zod@4.5.4)
+      zod: 4.5.4
 
-  '@ai-sdk/provider-utils@3.0.31(zod@4.4.3)':
+  '@ai-sdk/provider-utils@3.0.31(zod@4.5.4)':
     dependencies:
       '@ai-sdk/provider': 2.0.3
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.1.0
       undici: 5.29.0
-      zod: 4.4.3
+      zod: 4.5.4
 
   '@ai-sdk/provider@2.0.3':
     dependencies:
@@ -5344,8 +5324,6 @@ snapshots:
 
   '@fontsource/space-mono@5.3.0': {}
 
-  '@hapi/bourne@3.0.0': {}
-
   '@hapi/bourne@4.0.1': {}
 
   '@hexagon/base64@2.0.4': {}
@@ -5472,34 +5450,34 @@ snapshots:
     dependencies:
       react: 19.2.8
 
-  '@maroonedsoftware/appconfig@2.5.1(pg@8.22.0)(yaml@2.9.0)':
+  '@maroonedsoftware/appconfig@2.6.1(pg@8.22.0)(yaml@2.9.0)':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.0
-      '@maroonedsoftware/logger': 1.1.8
-      deepmerge-ts: 7.1.6
+      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/logger': 1.1.9
+      deepmerge-ts: 8.0.2
       dotenv: 17.4.2
-      injectkit: 1.7.0
+      injectkit: 1.7.1
     optionalDependencies:
       pg: 8.22.0
       yaml: 2.9.0
 
-  '@maroonedsoftware/authentication@4.30.7(ioredis@6.0.0)':
+  '@maroonedsoftware/authentication@4.31.0(ioredis@6.0.0)':
     dependencies:
-      '@maroonedsoftware/cache': 0.4.5(ioredis@6.0.0)
-      '@maroonedsoftware/encryption': 0.5.11
-      '@maroonedsoftware/errors': 1.9.0
-      '@maroonedsoftware/logger': 1.1.8
-      '@maroonedsoftware/policies': 0.6.6
+      '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
+      '@maroonedsoftware/encryption': 0.5.13
+      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/logger': 1.1.9
+      '@maroonedsoftware/policies': 0.6.9
       '@maroonedsoftware/utilities': 1.11.5
-      '@node-rs/argon2': 2.1.0
+      '@node-rs/argon2': 2.2.0
       '@zxcvbn-ts/core': 4.2.0
       '@zxcvbn-ts/language-common': 4.1.3
       '@zxcvbn-ts/language-en': 4.1.1
       '@zxcvbn-ts/matcher-pwned': 4.1.3
       arctic: 3.7.0
-      deepmerge-ts: 7.1.6
+      deepmerge-ts: 8.0.2
       fido2-lib: 3.5.9
-      injectkit: 1.7.0
+      injectkit: 1.7.1
       jsonwebtoken: 9.0.3
       luxon: 3.7.2
       openid-client: 6.8.7
@@ -5509,57 +5487,50 @@ snapshots:
     transitivePeerDependencies:
       - ioredis
 
-  '@maroonedsoftware/cache@0.4.5(ioredis@6.0.0)':
+  '@maroonedsoftware/cache@0.5.0(ioredis@6.0.0)':
     dependencies:
-      injectkit: 1.7.0
+      injectkit: 1.7.1
       luxon: 3.7.2
     optionalDependencies:
       ioredis: 6.0.0
 
-  '@maroonedsoftware/encryption@0.5.11':
+  '@maroonedsoftware/encryption@0.5.13':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.0
-      '@node-rs/argon2': 2.1.0
-      injectkit: 1.7.0
+      '@maroonedsoftware/errors': 1.9.1
+      '@node-rs/argon2': 2.2.0
+      injectkit: 1.7.1
       luxon: 3.7.2
 
-  '@maroonedsoftware/errors@1.9.0': {}
+  '@maroonedsoftware/errors@1.9.1': {}
 
-  '@maroonedsoftware/eventbus@0.1.7':
+  '@maroonedsoftware/eventbus@0.1.8':
     dependencies:
-      injectkit: 1.7.0
+      injectkit: 1.7.1
 
-  '@maroonedsoftware/jobbroker@1.12.0(pg-boss@12.27.0)':
+  '@maroonedsoftware/jobbroker@1.12.2(pg-boss@12.27.0)':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.0
-      '@maroonedsoftware/logger': 1.1.8
-      injectkit: 1.7.0
+      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/logger': 1.1.9
+      injectkit: 1.7.1
       luxon: 3.7.2
     optionalDependencies:
       pg-boss: 12.27.0
 
-  '@maroonedsoftware/koa@3.0.10(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)':
+  '@maroonedsoftware/koa@3.2.3(@koa/cors@5.0.0)(@koa/router@15.7.0(koa@3.2.1))(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(ioredis@6.0.0)(koa@3.2.1)(pg@8.22.0)(yaml@2.9.0)':
     dependencies:
-      '@hapi/bourne': 4.0.1
       '@koa/cors': 5.0.0
       '@koa/router': 15.7.0(koa@3.2.1)
-      '@maroonedsoftware/appconfig': 2.5.1(pg@8.22.0)(yaml@2.9.0)
-      '@maroonedsoftware/authentication': 4.30.7(ioredis@6.0.0)
-      '@maroonedsoftware/errors': 1.9.0
-      '@maroonedsoftware/logger': 1.1.8
-      '@maroonedsoftware/multipart': 1.3.6
-      '@maroonedsoftware/policies': 0.6.6
-      '@maroonedsoftware/utilities': 1.11.5
-      co-body: 6.2.0
-      inflation: 2.1.0
-      injectkit: 1.7.0
+      '@maroonedsoftware/appconfig': 2.6.1(pg@8.22.0)(yaml@2.9.0)
+      '@maroonedsoftware/authentication': 4.31.0(ioredis@6.0.0)
+      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/logger': 1.1.9
+      '@maroonedsoftware/policies': 0.6.9
+      '@maroonedsoftware/servercore': 0.3.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.22.0)(yaml@2.9.0)
+      injectkit: 1.7.1
       koa: 3.2.1
       luxon: 3.7.2
-      qs: 6.15.3
-      rate-limiter-flexible: 11.2.0
-      raw-body: 3.0.2
     optionalDependencies:
-      '@maroonedsoftware/serverfeed': 0.1.5(@maroonedsoftware/logger@1.1.8)
+      '@maroonedsoftware/serverfeed': 0.1.6(@maroonedsoftware/logger@1.1.9)
     transitivePeerDependencies:
       - '@aws-sdk/client-secrets-manager'
       - '@google-cloud/secret-manager'
@@ -5567,57 +5538,81 @@ snapshots:
       - pg
       - yaml
 
-  '@maroonedsoftware/kysely@0.7.9':
+  '@maroonedsoftware/kysely@0.7.11':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.0
+      '@maroonedsoftware/errors': 1.9.1
       '@maroonedsoftware/utilities': 1.11.5
-      injectkit: 1.7.0
+      injectkit: 1.7.1
       kysely: 0.29.5
       luxon: 3.7.2
       pg: 8.23.0
     transitivePeerDependencies:
       - pg-native
 
-  '@maroonedsoftware/logger@1.1.8':
+  '@maroonedsoftware/logger@1.1.9':
     dependencies:
-      injectkit: 1.7.0
+      injectkit: 1.7.1
 
-  '@maroonedsoftware/multipart@1.3.6':
+  '@maroonedsoftware/multipart@1.3.8':
     dependencies:
       '@fastify/busboy': 3.2.2
-      '@maroonedsoftware/errors': 1.9.0
+      '@maroonedsoftware/errors': 1.9.1
 
-  '@maroonedsoftware/permissions-dsl@0.5.5':
+  '@maroonedsoftware/permissions-dsl@0.5.6':
     dependencies:
-      '@maroonedsoftware/permissions': 0.2.8
+      '@maroonedsoftware/permissions': 0.2.9
       ohm-js: 17.5.0
       prettier: 3.9.6
       yaml: 2.9.0
-      zod: 4.4.3
+      zod: 4.5.4
 
-  '@maroonedsoftware/permissions@0.2.8':
+  '@maroonedsoftware/permissions@0.2.9':
     dependencies:
-      injectkit: 1.7.0
-      zod: 4.4.3
+      injectkit: 1.7.1
+      zod: 4.5.4
 
-  '@maroonedsoftware/policies@0.6.6':
+  '@maroonedsoftware/policies@0.6.9':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.0
-      injectkit: 1.7.0
+      '@maroonedsoftware/errors': 1.9.1
+      injectkit: 1.7.1
       luxon: 3.7.2
 
-  '@maroonedsoftware/serverfeed@0.1.5(@maroonedsoftware/logger@1.1.8)':
+  '@maroonedsoftware/servercore@0.3.0(@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9))(pg@8.22.0)(yaml@2.9.0)':
+    dependencies:
+      '@hapi/bourne': 4.0.1
+      '@maroonedsoftware/appconfig': 2.6.1(pg@8.22.0)(yaml@2.9.0)
+      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/logger': 1.1.9
+      '@maroonedsoftware/multipart': 1.3.8
+      '@maroonedsoftware/policies': 0.6.9
+      '@maroonedsoftware/utilities': 1.11.5
+      inflation: 2.1.0
+      injectkit: 1.7.1
+      luxon: 3.7.2
+      qs: 6.16.0
+      rate-limiter-flexible: 11.2.0
+      raw-body: 4.0.0
+      type-is: 2.1.0
+    optionalDependencies:
+      '@maroonedsoftware/serverfeed': 0.1.6(@maroonedsoftware/logger@1.1.9)
+    transitivePeerDependencies:
+      - '@aws-sdk/client-secrets-manager'
+      - '@google-cloud/secret-manager'
+      - pg
+      - yaml
+
+  '@maroonedsoftware/serverfeed@0.1.6(@maroonedsoftware/logger@1.1.9)':
     dependencies:
       luxon: 3.7.2
     optionalDependencies:
-      '@maroonedsoftware/logger': 1.1.8
+      '@maroonedsoftware/logger': 1.1.9
 
   '@maroonedsoftware/utilities@1.11.5': {}
 
-  '@maroonedsoftware/zod@0.5.6':
+  '@maroonedsoftware/zod@0.8.0':
     dependencies:
-      '@maroonedsoftware/errors': 1.9.0
-      zod: 4.4.3
+      '@maroonedsoftware/errors': 1.9.1
+      zod: 4.5.4
 
   '@napi-rs/wasm-runtime@0.2.12':
     dependencies:
@@ -5644,60 +5639,60 @@ snapshots:
 
   '@nodable/entities@3.0.0': {}
 
-  '@node-rs/argon2-android-arm-eabi@2.1.0':
+  '@node-rs/argon2-android-arm-eabi@2.2.0':
     optional: true
 
-  '@node-rs/argon2-android-arm64@2.1.0':
+  '@node-rs/argon2-android-arm64@2.2.0':
     optional: true
 
-  '@node-rs/argon2-darwin-arm64@2.1.0':
+  '@node-rs/argon2-darwin-arm64@2.2.0':
     optional: true
 
-  '@node-rs/argon2-darwin-x64@2.1.0':
+  '@node-rs/argon2-darwin-x64@2.2.0':
     optional: true
 
-  '@node-rs/argon2-freebsd-x64@2.1.0':
+  '@node-rs/argon2-freebsd-x64@2.2.0':
     optional: true
 
-  '@node-rs/argon2-linux-arm-gnueabihf@2.1.0':
+  '@node-rs/argon2-linux-arm-gnueabihf@2.2.0':
     optional: true
 
-  '@node-rs/argon2-linux-arm64-gnu@2.1.0':
+  '@node-rs/argon2-linux-arm64-gnu@2.2.0':
     optional: true
 
-  '@node-rs/argon2-linux-arm64-musl@2.1.0':
+  '@node-rs/argon2-linux-arm64-musl@2.2.0':
     optional: true
 
-  '@node-rs/argon2-linux-x64-gnu@2.1.0':
+  '@node-rs/argon2-linux-x64-gnu@2.2.0':
     optional: true
 
-  '@node-rs/argon2-linux-x64-musl@2.1.0':
+  '@node-rs/argon2-linux-x64-musl@2.2.0':
     optional: true
 
-  '@node-rs/argon2-win32-arm64-msvc@2.1.0':
+  '@node-rs/argon2-win32-arm64-msvc@2.2.0':
     optional: true
 
-  '@node-rs/argon2-win32-ia32-msvc@2.1.0':
+  '@node-rs/argon2-win32-ia32-msvc@2.2.0':
     optional: true
 
-  '@node-rs/argon2-win32-x64-msvc@2.1.0':
+  '@node-rs/argon2-win32-x64-msvc@2.2.0':
     optional: true
 
-  '@node-rs/argon2@2.1.0':
+  '@node-rs/argon2@2.2.0':
     optionalDependencies:
-      '@node-rs/argon2-android-arm-eabi': 2.1.0
-      '@node-rs/argon2-android-arm64': 2.1.0
-      '@node-rs/argon2-darwin-arm64': 2.1.0
-      '@node-rs/argon2-darwin-x64': 2.1.0
-      '@node-rs/argon2-freebsd-x64': 2.1.0
-      '@node-rs/argon2-linux-arm-gnueabihf': 2.1.0
-      '@node-rs/argon2-linux-arm64-gnu': 2.1.0
-      '@node-rs/argon2-linux-arm64-musl': 2.1.0
-      '@node-rs/argon2-linux-x64-gnu': 2.1.0
-      '@node-rs/argon2-linux-x64-musl': 2.1.0
-      '@node-rs/argon2-win32-arm64-msvc': 2.1.0
-      '@node-rs/argon2-win32-ia32-msvc': 2.1.0
-      '@node-rs/argon2-win32-x64-msvc': 2.1.0
+      '@node-rs/argon2-android-arm-eabi': 2.2.0
+      '@node-rs/argon2-android-arm64': 2.2.0
+      '@node-rs/argon2-darwin-arm64': 2.2.0
+      '@node-rs/argon2-darwin-x64': 2.2.0
+      '@node-rs/argon2-freebsd-x64': 2.2.0
+      '@node-rs/argon2-linux-arm-gnueabihf': 2.2.0
+      '@node-rs/argon2-linux-arm64-gnu': 2.2.0
+      '@node-rs/argon2-linux-arm64-musl': 2.2.0
+      '@node-rs/argon2-linux-x64-gnu': 2.2.0
+      '@node-rs/argon2-linux-x64-musl': 2.2.0
+      '@node-rs/argon2-win32-arm64-msvc': 2.2.0
+      '@node-rs/argon2-win32-ia32-msvc': 2.2.0
+      '@node-rs/argon2-win32-x64-msvc': 2.2.0
 
   '@node-rs/xxhash-android-arm-eabi@1.7.6':
     optional: true
@@ -6180,7 +6175,7 @@ snapshots:
       jiti: 2.7.0
       magic-string: 0.30.21
       prettier: 3.9.6
-      zod: 4.4.3
+      zod: 4.5.4
     transitivePeerDependencies:
       - supports-color
 
@@ -6194,7 +6189,7 @@ snapshots:
       '@tanstack/router-utils': 1.162.2
       chokidar: 5.0.0
       unplugin: 3.3.0(esbuild@0.27.7)(rolldown@1.2.1)(rollup@4.62.3)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0))
-      zod: 4.4.3
+      zod: 4.5.4
     optionalDependencies:
       '@tanstack/react-router': 1.170.18(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       vite: 8.2.0(@types/node@26.1.2)(esbuild@0.27.7)(jiti@2.7.0)(sugarss@5.0.1(postcss@8.5.25))(yaml@2.9.0)
@@ -6577,13 +6572,13 @@ snapshots:
 
   acorn@8.18.0: {}
 
-  ai@5.0.228(zod@4.4.3):
+  ai@5.0.228(zod@4.5.4):
     dependencies:
-      '@ai-sdk/gateway': 2.0.127(zod@4.4.3)
+      '@ai-sdk/gateway': 2.0.127(zod@4.5.4)
       '@ai-sdk/provider': 2.0.3
-      '@ai-sdk/provider-utils': 3.0.31(zod@4.4.3)
+      '@ai-sdk/provider-utils': 3.0.31(zod@4.5.4)
       '@opentelemetry/api': 1.9.0
-      zod: 4.4.3
+      zod: 4.5.4
 
   ajv-draft-04@1.0.0(ajv@8.20.0):
     optionalDependencies:
@@ -6835,14 +6830,6 @@ snapshots:
 
   cluster-key-slot@1.1.1: {}
 
-  co-body@6.2.0:
-    dependencies:
-      '@hapi/bourne': 3.0.0
-      inflation: 2.1.0
-      qs: 6.15.3
-      raw-body: 2.5.3
-      type-is: 1.6.18
-
   color-convert@2.0.1:
     dependencies:
       color-name: 1.1.4
@@ -6953,7 +6940,7 @@ snapshots:
 
   deep-is@0.1.4: {}
 
-  deepmerge-ts@7.1.6: {}
+  deepmerge-ts@8.0.2: {}
 
   define-data-property@1.1.4:
     dependencies:
@@ -7196,8 +7183,8 @@ snapshots:
       '@babel/parser': 7.29.7
       eslint: 10.8.0(jiti@2.7.0)
       hermes-parser: 0.25.1
-      zod: 4.4.3
-      zod-validation-error: 4.0.2(zod@4.4.3)
+      zod: 4.5.4
+      zod-validation-error: 4.0.2(zod@4.5.4)
     transitivePeerDependencies:
       - supports-color
 
@@ -7512,14 +7499,6 @@ snapshots:
       statuses: 2.0.2
       toidentifier: 1.0.1
 
-  iconv-lite@0.4.24:
-    dependencies:
-      safer-buffer: 2.1.2
-
-  iconv-lite@0.7.3:
-    dependencies:
-      safer-buffer: 2.1.2
-
   ignore@5.3.2: {}
 
   ignore@7.0.6: {}
@@ -7537,7 +7516,7 @@ snapshots:
 
   inherits@2.0.4: {}
 
-  injectkit@1.7.0:
+  injectkit@1.7.1:
     dependencies:
       reflect-metadata: 0.2.2
 
@@ -7839,7 +7818,7 @@ snapshots:
       micromatch: 4.0.8
       minimist: 1.2.8
       pluralize: 8.0.0
-      zod: 4.4.3
+      zod: 4.5.4
     optionalDependencies:
       pg: 8.22.0
     transitivePeerDependencies:
@@ -7962,8 +7941,6 @@ snapshots:
   math-intrinsics@1.1.0: {}
 
   mdn-data@2.27.1: {}
-
-  media-typer@0.3.0: {}
 
   media-typer@1.1.1: {}
 
@@ -8353,26 +8330,17 @@ snapshots:
       pngjs: 5.0.0
       yargs: 15.4.1
 
-  qs@6.15.3:
+  qs@6.16.0:
     dependencies:
       es-define-property: 1.0.1
       side-channel: 1.1.1
 
   rate-limiter-flexible@11.2.0: {}
 
-  raw-body@2.5.3:
+  raw-body@4.0.0:
     dependencies:
       bytes: 3.1.2
       http-errors: 2.0.1
-      iconv-lite: 0.4.24
-      unpipe: 1.0.0
-
-  raw-body@3.0.2:
-    dependencies:
-      bytes: 3.1.2
-      http-errors: 2.0.1
-      iconv-lite: 0.7.3
-      unpipe: 1.0.0
 
   react-dom@19.2.8(react@19.2.8):
     dependencies:
@@ -8563,8 +8531,6 @@ snapshots:
       call-bound: 1.0.4
       es-errors: 1.3.0
       is-regex: 1.2.1
-
-  safer-buffer@2.1.2: {}
 
   saxes@6.0.0:
     dependencies:
@@ -8865,11 +8831,6 @@ snapshots:
     dependencies:
       tagged-tag: 1.0.0
 
-  type-is@1.6.18:
-    dependencies:
-      media-typer: 0.3.0
-      mime-types: 2.1.35
-
   type-is@2.1.0:
     dependencies:
       content-type: 2.0.0
@@ -8938,8 +8899,6 @@ snapshots:
       '@fastify/busboy': 2.1.1
 
   undici@8.9.0: {}
-
-  unpipe@1.0.0: {}
 
   unplugin-swc@1.5.10(@swc/core@1.15.47)(rollup@4.62.3):
     dependencies:
@@ -9175,10 +9134,10 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-validation-error@4.0.2(zod@4.4.3):
+  zod-validation-error@4.0.2(zod@4.5.4):
     dependencies:
-      zod: 4.4.3
+      zod: 4.5.4
 
-  zod@4.4.3: {}
+  zod@4.5.4: {}
 
   zxcvbn-ts@2.3.4: {}

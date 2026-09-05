@@ -32,6 +32,6 @@
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
         "vitest": "^4.1.10",
-        "zod": "^4.4.3"
+        "zod": "^4.5.4"
     }
 }

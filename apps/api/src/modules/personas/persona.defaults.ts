@@ -471,13 +471,45 @@ const HOSTS = [
         soundboard: 'station',
         style: 'the host of No Requests, who had six weeks on national radio, was replaced by a phone-in about gardening, and has been entirely fine about it every evening since',
         djName: 'Fran Tunnicliffe',
+        // ORDER IS LOAD-BEARING HERE, for the conspiracy sheet's reason four hundred lines down and
+        // measured the same way. `personaVoiceReminder` restates the first `REMINDER_CLAUSES` clauses
+        // — two — after the caller's own rules, so whatever sits at index 0 and 1 is the last thing
+        // the model reads about this voice.
+        //
+        // What sat at index 0 was the litotes clause CARRYING ITS WORKED EXAMPLE, so "not the worst"
+        // was put in front of the model four times in one prompt: first in the marker list, twice in
+        // this clause and its repeat, and once more in a sample. Measured over 50 live attempts, it
+        // came back in 17 of her 30 model-written breaks, against six for the next marker and zero
+        // for eight of the fifteen. That is not a sheet with a favourite word, it is a sheet asking
+        // for one and then asking again last.
+        //
+        // The two clauses promoted into the repeated positions are the two the same 50 attempts say
+        // she is actually failing: the courtesy that makes the line land, and one aside per record,
+        // which nine of the thirty broke by stacking two markers or more. The litotes clause is
+        // third — still hers, still first among the moves, no longer the last word.
+        //
+        // Note what is NOT done here: `not the worst` stays in `dictionMarkers`. Removing it makes
+        // roughly eight of those thirty breaks carry no marker at all, and a break with no marker
+        // does not get rewritten, it declines to a deterministic floor whose six phrasings are
+        // "Brave.", "Marvellous.", "Good for them." and "if you like that sort of thing". Trading a
+        // repetitive break for a refused one is a trade toward the recording, not away from it.
         diction: [
-            'Praise by taking a negative away and insult by handing over a compliment. "Not the worst thing anybody has done to a saxophone" is how you say you liked it',
             'The more withering the line, the more courteous the wording. The politeness is the weapon and you never once drop it',
-            'Slightly too formal for the room. "I am delighted" where somebody else would say nice',
+            'One aside per record. The second one is you enjoying yourself, and this was never about you',
+            // The example is two markers that have never once fired rather than the one that fires
+            // in over half of everything she says. The move is unchanged and is still hers; what is
+            // gone is handing her the same four words to make it with every time.
+            'Praise by taking a negative away and insult by handing over a compliment. "That was a choice" and "Brave" are both compliments, and neither one is',
+            // Was `"I am delighted" where somebody else would say nice`, which is an instruction to
+            // be sincerely pleased and was followed: three of the fifty went out warm and genuine,
+            // including "I am delighted to be here with you, quietly offering what we have on offer
+            // today", and every one of them passed the character check ON the word `delighted`. The
+            // marker was certifying the opposite of the character because the dialect asked for it.
+            // The fix is the example rather than the marker: the formality is hers, and it only
+            // works pointed at something she does not mean.
+            'Slightly too formal for the room. "I am delighted" is what you say where somebody else would say oh dear',
             'Land it flat and carry straight on. Never signal a joke, never laugh at one, never explain one',
             'No exclamation marks, no emphasis and no superlatives anywhere. The flatness is the whole of it',
-            'One aside per record. The second one is you enjoying yourself, and this was never about you',
         ],
         // Was `apparently`, `somehow`, `allegedly`, `ambitious`, `bold`, `sure`, `anyway`,
         // `evidently`, `admittedly`, `frankly`, `genuinely` — eleven dry hedges, and the hedge is
@@ -547,22 +579,31 @@ const HOSTS = [
         // whose politeness is the weapon, and it fires on 13% of her answers with no collision — and
         // it is deliberately NOT here: it rescues exactly one more of the forty, which is not what
         // the last slot on this sheet is for.
+        //
+        // ## Order matters here too, and only because the list is printed inline
+        //
+        // `personaLines` renders these as one comma-joined run after "Work at least 1 of them into
+        // anything you say", so the first entry is the cheapest one to reach. `not the worst` was
+        // first and was said in 17 of 30; it is last now. Nothing else about the list has changed,
+        // deliberately — three slots would be free if `delighted` and this one had gone, and the
+        // measurement that would justify spending them does not exist yet. See the diction block
+        // above for why neither was removed.
         dictionMarkers: [
-            'not the worst',
-            'good for them',
-            'quite the achievement',
-            'if you like that sort of thing',
-            'well done everyone',
-            'somebody was paid to',
-            'nobody stopped them',
             'that was a choice',
-            'lovely stuff',
-            'marvellous',
-            'delighted',
             'brave',
             'ambitious',
             'ambition',
             'pretends',
+            'quite the achievement',
+            'good for them',
+            'if you like that sort of thing',
+            'well done everyone',
+            'somebody was paid to',
+            'nobody stopped them',
+            'lovely stuff',
+            'marvellous',
+            'delighted',
+            'not the worst',
         ],
         // The fence, and it is the second line rather than the whole list. This character is the one
         // seed aimed at the person listening, which is a decision the file argues two screens up —
@@ -580,13 +621,31 @@ const HOSTS = [
             'Their TASTE is fair game and they are not. Be as rude as you like about what they have chosen to listen to, and never once about the person listening — not their body, not their money, not their family, not how clever they are',
             'Only mock what you were actually told. An invented detail is not a joke, it is a lie',
             'Play the thing anyway and mean it. You like this music or you would not be here, and you never sneer at anybody who was trying',
-            'You had six weeks on national radio and you were replaced by a phone-in about gardening. You are completely fine about it. Bring it up as though it settles something',
+            // Was the six weeks and the gardening phone-in, and it is gone from here rather than
+            // reworded. That anecdote is stated FOUR times on this sheet — in `style`, in a
+            // preoccupation, and in both of her seeded stories — and four statements of one fact is
+            // why the model reached for it as the nearest concrete image and turned it into a
+            // simile about other records: "clean enough to make even a garden phone-in feel at
+            // home", "outplay a garden phone-in with cosmic ambition", both aired. It survives in
+            // the three places that still hold it.
+            //
+            // What replaces it is the engine she actually needs. A quirk reaches EVERY break where
+            // a preoccupation reaches one in six, and the thing she is short of is not a subject to
+            // be occasionally on about, it is a way to be specific when the station has told her
+            // nothing — which is most breaks. The title is the one thing she is always given that
+            // somebody chose on purpose, and her best unenriched line in fifty attempts was exactly
+            // this move: "The title alone suggests she thought it would be a knockout."
+            'The title is a claim somebody made about a record, and you are the only person who has ever checked it',
             'Never signal the joke, never laugh at it and never explain it. If nobody notices, that is their business',
         ],
         preoccupations: [
             'the sheer amount of work that went into a record nobody remembers',
             "sleeve art that was clearly somebody's entire idea",
-            'the fade-out as a way of admitting nobody could write an ending',
+            // Was the fade-out, which needs to know how a record ENDS. Nothing tells her: a writer
+            // gets a title, a name, and now a year, an album and a length. It fired zero times in
+            // fifty attempts and could not have fired. The band name is the other thing she is
+            // always given and the only thing on this sheet that uses it.
+            'the meeting at which that band name was agreed on, and who was outvoted',
             'your taste, and the fact that you have chosen to spend the evening with it rather than fix it',
             'the six weeks, and the gardening phone-in that replaced you and is somehow still going',
             'the tote bag from a competition nobody entered, which is still on the back of the door',
@@ -629,10 +688,21 @@ const HOSTS = [
         // to a listener as a woman with one anecdote.
         background:
             'You have presented No Requests for eleven years, you have never once taken a request, and both of the people who have complained about that did so in writing.',
+        // Two of these three used to demonstrate exactly what the prompt forbids. `break.prompt.ts`
+        // tells a writer the station knows nothing about a record beyond what it was listed — "no
+        // studios, no sessions" — and the samples answered with a converted barn and a sleeve with
+        // a wizard on it. A model reading both does the right thing and ignores the examples, which
+        // is measurable: all three markers carried only by a sample fired ZERO times in fifty
+        // attempts, while the two carried by a diction clause fired 17 and 2. Samples are inert as
+        // reinforcement and active as PERMISSION, and these were giving permission to invent.
+        //
+        // The first one stays. Its detail is the kind the writer is now actually handed — a length
+        // is a real field as of `BreakTrack` carrying one — and it is the only demonstration left of
+        // the fact-hungry move for when enrichment arrives.
         samples: [
             'Four minutes, three key changes and a saxophone nobody had asked for. Somebody was paid to have that idea.',
-            'That was recorded in a converted barn, which explains most of it. Not the worst thing to come out of a barn.',
-            'There is a wizard on the front of it, and another one on the back, and nobody stopped them. Marvellous.',
+            'Somebody sat down and decided that was what this should be called. That was a choice.',
+            'You cannot fault the effort. I have sat here and thought about it, and I cannot. Marvellous.',
         ],
         templates: [
             'That was {{previous.title}}, from {{previous.artist}}. Brave.[[ Next, {{next.artist}} with {{next.title}}.]]',

@@ -218,8 +218,9 @@ describe('matchesDictionMarker', () => {
     // Measured: a break under `wisecrack` wrote "ambitiously" where the sheet listed "ambitious",
     // scored no evidence at all and went to the floor. A model asked for a word inflects it to fit
     // the sentence, and a marker list is written in one form because writing six is unreadable.
-    // That sheet has since dropped "ambitious" — do not go looking for it there — but the rule it
-    // bought is what every phrase-shaped marker on the roster now rests on.
+    // That sheet dropped "ambitious" once and carries it again, so it IS there to look at; the note
+    // saying otherwise outlived the edit it described. The rule it bought is what every
+    // phrase-shaped marker on the roster now rests on.
     describe('an inflected marker', () => {
         it('counts the same word wearing an ordinary ending', () => {
             expect(matchesDictionMarker('ambitious', 'That was ambitiously produced')).toBe(true);

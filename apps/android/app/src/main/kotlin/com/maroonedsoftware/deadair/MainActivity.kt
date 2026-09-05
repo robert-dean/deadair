@@ -23,6 +23,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.DisposableEffect
+import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
+import com.maroonedsoftware.deadair.nowplaying.airState
+import com.maroonedsoftware.deadair.nowplaying.AirState
+import com.maroonedsoftware.deadair.playback.PlayerConnection
 import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.ui.settings.SettingsScreen
 import com.maroonedsoftware.deadair.ui.settings.SettingsViewModel
@@ -60,6 +65,16 @@ private fun Listener(graph: AppGraph) {
     val entry by model.entry.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val connection = remember { PlayerConnection(context) }
+    DisposableEffect(Unit) {
+        connection.connect()
+        onDispose { connection.release() }
+    }
+    val playback by connection.state.collectAsStateWithLifecycle()
+    // Collected here so the poll runs while the screen is up. It stops on its own when it is not.
+    val nowPlaying by graph.nowPlaying.state.collectAsStateWithLifecycle()
+
     // The stored station is what decides between setup and the app proper: an install that has
     // never been pointed at one has nothing to show, and one that has should not be asked again.
     val screen =
@@ -91,8 +106,12 @@ private fun Listener(graph: AppGraph) {
             )
         Screen.NOW_PLAYING ->
             NowPlayingPlaceholder(
-                station = settings.station?.origin.orEmpty(),
+                air = airState(nowPlaying, playback.requested),
+                listeners = (nowPlaying as? NowPlayingState.Answered)?.reading?.nowPlaying?.listeners ?: 0,
                 format = settings.format,
+                playing = playback.requested,
+                onPlay = connection::play,
+                onStop = connection::stop,
                 onSettings = {
                     settings.station?.let { model.editExisting(it.origin) }
                     showSettings = true
@@ -101,16 +120,32 @@ private fun Listener(graph: AppGraph) {
     }
 }
 
-/** Stands in until the now-playing screen lands. It proves the stored station reached the app. */
+/** Stands in until the now-playing screen lands. It proves the session is driving the stream. */
 @Composable
-private fun NowPlayingPlaceholder(station: String, format: StreamFormat, onSettings: () -> Unit) {
+private fun NowPlayingPlaceholder(
+    air: AirState,
+    listeners: Long,
+    format: StreamFormat,
+    playing: Boolean,
+    onPlay: () -> Unit,
+    onStop: () -> Unit,
+    onSettings: () -> Unit,
+) {
     Scaffold { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(station, style = MaterialTheme.typography.titleMedium)
-            Text("Listening in ${format.label}", style = MaterialTheme.typography.bodyMedium)
+            val line =
+                when (air) {
+                    is AirState.OnAir -> "${air.track.title} — ${air.track.artist}"
+                    AirState.WarmingUp -> "Warming up"
+                    AirState.OffAir -> "Off air"
+                    AirState.Unreachable -> "Station unreachable"
+                }
+            Text(line, style = MaterialTheme.typography.titleMedium)
+            Text("$listeners listening · ${format.label}", style = MaterialTheme.typography.bodyMedium)
+            Button(onClick = if (playing) onStop else onPlay) { Text(if (playing) "Stop" else "Play") }
             Button(onClick = onSettings) { Text("Settings") }
         }
     }

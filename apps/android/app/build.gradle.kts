@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.bundles.media3)
     implementation(libs.kotlinx.coroutines.android)
 
     implementation(platform(libs.compose.bom))

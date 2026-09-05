@@ -136,8 +136,8 @@ importers:
         specifier: ^0.11.1
         version: 0.11.1(prettier@3.9.6)
       '@contractkit/plugin-kotlin':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.1.1
+        version: 0.1.1
       '@contractkit/plugin-typescript':
         specifier: ^0.38.1
         version: 0.38.1
@@ -797,8 +797,8 @@ packages:
   '@contractkit/openapi-to-ck@0.12.3':
     resolution: {integrity: sha512-nWNaqIrgWjIsGQI2zvvYVkzuIiE592175XD9C7rbsUdBTEzpRXCbIMKAwjTxJKNa4JMW+JzQ5MTac28LbfNoNw==}
 
-  '@contractkit/plugin-kotlin@0.1.0':
-    resolution: {integrity: sha512-3IVTIhzG7VjyPc6r/8A5f4q29dIpOp6sSJu5CY3WwxoRtm9YXZPobjJ1fsoNfg+f5ZUkyms2bFrGrtVi4iLcig==}
+  '@contractkit/plugin-kotlin@0.1.1':
+    resolution: {integrity: sha512-OZPsrush0MEHDl6PSKuHCtFGjnQfuOLrNATb94XN/+14/VeNBiE44Y/c/yij5GG7vdhNmtYSM8rAtw/Gw2l33g==}
 
   '@contractkit/plugin-typescript@0.38.1':
     resolution: {integrity: sha512-IcNXePIMcsV4Qe85vacg28cfNQ9IW8Ul1L1smZvajsUzQFWWYQJnmldC/IBtB0MjK1L/BDDKqIYNUrnmLjPHKA==}
@@ -5049,7 +5049,7 @@ snapshots:
       '@contractkit/core': 0.29.0
       yaml: 2.9.0
 
-  '@contractkit/plugin-kotlin@0.1.0':
+  '@contractkit/plugin-kotlin@0.1.1':
     dependencies:
       '@contractkit/core': 0.29.0
 

@@ -36,9 +36,8 @@ alone is not enough), and a default against a named `enum` contract came out as 
 rather than the enum member. Expect to find more, and expect them to be reported nowhere near the
 text responsible.
 
-Those two fixes are written and tested upstream and **not yet published**, so CI's `generated` job
-is red until `@contractkit/plugin-kotlin@0.1.1` exists: it regenerates with 0.1.0, gets the buggy
-output, and finds a difference from what is committed here.
+Both are fixed in `@contractkit/plugin-kotlin@0.1.1`, which is the floor this repo pins — 0.1.0
+cannot produce Kotlin that compiles.
 
 **`NowPlayingDecodeTest` is not testing generated code for its own sake.** A generator can be
 perfectly self-consistent and still be wrong about the contract, so those fixtures are the shapes

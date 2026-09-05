@@ -64,9 +64,8 @@ repository with a test and a changeset, never in the output. The generator's own
 Kotlin had never been put through a toolchain, and the first attempt here found two: a `/*` in
 contract prose opened a nested comment that swallowed the rest of a file (Kotlin block comments
 NEST, so escaping `*/` alone is not enough), and a default against a named `enum` contract was
-emitted as its wire string rather than the enum member. Both fixes are upstream and awaiting
-release as 0.1.1; the pin here is `^0.1.0`, which 0.1.1 satisfies, and until it is published the
-`generated` job regenerates the buggy output and fails on the difference.
+emitted as its wire string rather than the enum member. Both are fixed in 0.1.1, which is the
+floor this repo pins.
 
 ## The two hand-maintained edges
 

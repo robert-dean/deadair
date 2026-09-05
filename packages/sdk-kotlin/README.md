@@ -51,11 +51,7 @@ against a real toolchain, and the first attempt found both: a `/*` in contract p
 nested comment that swallowed the rest of a file, and a default against a named `enum` contract
 was emitted as its wire string rather than the enum member.
 
-**Both fixes are written and tested upstream but NOT yet released.** The checked-in Kotlin here is
-what a fixed generator produces, so until `@contractkit/plugin-kotlin@0.1.1` is published CI's
-`generated` job regenerates the 0.1.0 output, finds a difference, and fails. The dependency is
-already pinned `^0.1.0`, which 0.1.1 satisfies, so publishing and refreshing the lockfile is the
-whole of the fix.
+Both are fixed in `@contractkit/plugin-kotlin@0.1.1`, which is the floor this repo pins.
 
 ## Keeping it honest
 

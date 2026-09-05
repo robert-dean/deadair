@@ -2,7 +2,9 @@ package com.maroonedsoftware.deadair
 
 import android.app.Application
 import android.os.SystemClock
+import coil3.SingletonImageLoader
 import com.maroonedsoftware.deadair.net.HttpClients
+import com.maroonedsoftware.deadair.net.imageLoaderFactory
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingRepository
 import com.maroonedsoftware.deadair.settings.SettingsStore
 import com.maroonedsoftware.deadair.station.StationProbe
@@ -24,6 +26,9 @@ class DeadairApp : Application() {
     override fun onCreate() {
         super.onCreate()
         graph = AppGraph(this)
+        // Artwork goes over the same OkHttp client as everything else, so the station sees one
+        // User-Agent from this phone and counts one listener rather than two.
+        SingletonImageLoader.setSafe(imageLoaderFactory(this))
     }
 }
 

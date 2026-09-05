@@ -29,6 +29,10 @@ import com.maroonedsoftware.deadair.nowplaying.airState
 import com.maroonedsoftware.deadair.nowplaying.AirState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.playback.chooseMount
+import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
+import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
+import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayhead
 import com.maroonedsoftware.deadair.ui.settings.SettingsScreen
 import com.maroonedsoftware.deadair.ui.settings.SettingsViewModel
 import com.maroonedsoftware.deadair.ui.setup.SetupScreen
@@ -104,49 +108,42 @@ private fun Listener(graph: AppGraph) {
                 onConfirm = model::confirm,
                 onFormat = model::setFormat,
             )
-        Screen.NOW_PLAYING ->
-            NowPlayingPlaceholder(
-                air = airState(nowPlaying, playback.requested),
-                listeners = (nowPlaying as? NowPlayingState.Answered)?.reading?.nowPlaying?.listeners ?: 0,
-                format = settings.format,
-                playing = playback.requested,
+        Screen.NOW_PLAYING -> {
+            val station = settings.station
+            val reading =
+                when (val current = nowPlaying) {
+                    is NowPlayingState.Answered -> current.reading
+                    is NowPlayingState.Unreachable -> current.lastGood
+                    NowPlayingState.Loading -> null
+                }
+            val air = airState(nowPlaying, playback.requested)
+            val choice = chooseMount(reading?.nowPlaying?.mounts.orEmpty(), settings.format)
+
+            NowPlayingScreen(
+                state =
+                    NowPlayingUiState(
+                        station = reading?.nowPlaying?.station ?: station?.origin.orEmpty(),
+                        air = air,
+                        listeners = reading?.nowPlaying?.listeners ?: 0,
+                        format = settings.format,
+                        playing = playback.requested,
+                        buffering = playback.buffering,
+                        // Only worth saying while something is actually playing; before that it is
+                        // a guess about a station that has not answered yet.
+                        fellBackToMp3 = choice.fellBack && playback.requested,
+                        stale = nowPlaying is NowPlayingState.Unreachable,
+                    ),
+                artworkUrl = station?.artUrl(reading?.nowPlaying?.track?.artworkUrl),
+                // Frozen while the station is unreachable: a bar still sweeping from a reading
+                // minutes old is a moving, confident lie about where the record is.
+                playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }),
                 onPlay = connection::play,
                 onStop = connection::stop,
                 onSettings = {
-                    settings.station?.let { model.editExisting(it.origin) }
+                    station?.let { model.editExisting(it.origin) }
                     showSettings = true
                 },
             )
-    }
-}
-
-/** Stands in until the now-playing screen lands. It proves the session is driving the stream. */
-@Composable
-private fun NowPlayingPlaceholder(
-    air: AirState,
-    listeners: Long,
-    format: StreamFormat,
-    playing: Boolean,
-    onPlay: () -> Unit,
-    onStop: () -> Unit,
-    onSettings: () -> Unit,
-) {
-    Scaffold { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            val line =
-                when (air) {
-                    is AirState.OnAir -> "${air.track.title} — ${air.track.artist}"
-                    AirState.WarmingUp -> "Warming up"
-                    AirState.OffAir -> "Off air"
-                    AirState.Unreachable -> "Station unreachable"
-                }
-            Text(line, style = MaterialTheme.typography.titleMedium)
-            Text("$listeners listening · ${format.label}", style = MaterialTheme.typography.bodyMedium)
-            Button(onClick = if (playing) onStop else onPlay) { Text(if (playing) "Stop" else "Play") }
-            Button(onClick = onSettings) { Text("Settings") }
         }
     }
 }

@@ -845,10 +845,21 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     );
     if (unknown.length > 0) {
         parts.push(
-            `The station knows nothing about ${unknown.map(track => `"${track.title}"`).join(' or ')} beyond the title and who it is by. ` +
-                'Say nothing else about it as fact — no dates, no labels, no pressings or catalogue numbers, no studios, no sessions, ' +
-                'no chart placings, no connection to any other record. What you think of it is yours to say. What happened to it is not, ' +
-                'unless you were told.',
+            // "Beyond the title and who it is by" was true when those were the only two fields a
+            // record arrived with, and stopped being true the moment `BreakTrack` started carrying
+            // the year, the album and the length. Left as it was, this paragraph forbade dates on
+            // the same screen that printed one, which is a prompt arguing with itself and a model
+            // resolving it whichever way it likes. It now names the listing rather than enumerating
+            // what the listing contains, so a field added later cannot make it a lie again.
+            //
+            // Dates keep their clause rather than losing it, narrowed to what is actually shown:
+            // with no year listed "beyond any year listed above" forbids every date, which is the
+            // old rule unchanged, and with one it forbids the pressing dates and session dates the
+            // rest of the sentence is about.
+            `The station knows nothing about ${unknown.map(track => `"${track.title}"`).join(' or ')} beyond what is listed above. ` +
+                'Say nothing else about it as fact — no dates beyond any year listed above, no labels, no pressings or catalogue numbers, ' +
+                'no studios, no sessions, no chart placings, no connection to any other record. What you think of it is yours to say. ' +
+                'What happened to it is not, unless you were told.',
         );
     }
 
@@ -1064,8 +1075,40 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
  */
 function describe(track: BreakTrack, withFacts: boolean): string {
     const lines = [`- Title: ${track.title}`, `- Artist: ${track.artist}`];
+    // Behind `withFacts` with the notes, and for that flag's own argument rather than because these
+    // are facts in the enrichment sense: they are MATERIAL, and "a model handed a list of material
+    // will find a way to read the material out" is exactly as true of a year as of a discography
+    // note. A bulletin's job is the stories.
+    //
+    // Each one absent rather than blank when the order does not know it. See `BreakTrack`, and the
+    // weather describer below, which states the rule this follows: a model given "Wind: —" fills
+    // it in.
+    if (withFacts) {
+        if (track.year !== undefined) lines.push(`- Year: ${track.year}`);
+        if (track.album !== undefined) lines.push(`- Album: ${track.album}`);
+        if (track.durationMs !== undefined) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
+    }
     if (withFacts && track.facts && track.facts.length > 0) lines.push('- Notes:', ...track.facts.map(fact => `  - ${fact}`));
     return lines.join('\n');
+}
+
+/**
+ * A length in words rather than in milliseconds.
+ *
+ * Minutes and seconds because this is something to TALK about — a record that goes on too long is a
+ * subject — where the stored figure is a measurement. A model handed `401000` either reads it out or
+ * divides it, and one of those is worse than the other.
+ *
+ * The two special cases are the ones a bare "6 minutes 0 seconds" gets wrong out loud.
+ */
+function spokenLength(durationMs: number): string {
+    const total = Math.max(0, Math.round(durationMs / 1000));
+    const minutes = Math.floor(total / 60);
+    const seconds = total % 60;
+
+    if (minutes === 0) return `${seconds} seconds`;
+    if (seconds === 0) return `${minutes} minutes`;
+    return `${minutes} minutes ${seconds} seconds`;
 }
 
 /**

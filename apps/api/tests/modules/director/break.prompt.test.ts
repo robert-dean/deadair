@@ -492,6 +492,63 @@ describe('breakPrompt', () => {
         expect(rules).not.toMatch(/describes its presenter/i);
     });
 
+    // The three the running order has always held and the writer never saw. A writer told a title
+    // and a name has nothing specific to be specific about, which is what the station's invented
+    // years and invented studios were: not a model being careless, a model being asked.
+    describe('what the order knows about a record', () => {
+        const known = { ...previous, year: 1973, album: 'Solid Air', durationMs: 401_000 };
+
+        it('hands over the year, the album and the length', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: known }));
+
+            expect(said).toContain('- Year: 1973');
+            expect(said).toContain('- Album: Solid Air');
+            expect(said).toContain('- Length: 6 minutes 41 seconds');
+        });
+
+        it('leaves out what the order does not know rather than showing it blank', () => {
+            // The weather describer's rule, and this follows it: a model given an empty field fills
+            // it in. Absent is the honest shape and a blank is an invitation.
+            const said = user(prompt({ kind: 'talkbreak', previous: { ...previous, year: 1973 } }));
+
+            expect(said).toContain('- Year: 1973');
+            expect(said).not.toContain('- Album:');
+            expect(said).not.toContain('- Length:');
+        });
+
+        it('says the length in minutes and seconds rather than in milliseconds', () => {
+            // A model handed `401000` either reads it out or divides it, and one of those is worse.
+            const said = user(prompt({ kind: 'talkbreak', previous: known }));
+
+            expect(said).not.toContain('401000');
+        });
+
+        it('does not say zero seconds for a whole number of minutes', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: { ...previous, durationMs: 180_000 } }));
+
+            expect(said).toContain('- Length: 3 minutes');
+            expect(said).not.toContain('0 seconds');
+        });
+
+        it('stops claiming the station knows only the title and the artist', () => {
+            // The paragraph forbade dates on the same screen that now prints one, which is a prompt
+            // arguing with itself. It names the listing now instead of enumerating it.
+            const said = user(prompt({ kind: 'talkbreak', previous: known }));
+
+            expect(said).toContain('beyond what is listed above');
+            expect(said).not.toContain('beyond the title and who it is by');
+        });
+
+        it('still forbids every date when no year was listed', () => {
+            // The narrowing has to leave the old rule exactly where it was for a record the order
+            // knows nothing about, which is still the ordinary case.
+            const said = user(prompt({ kind: 'talkbreak', previous }));
+
+            expect(said).toContain('no dates beyond any year listed above');
+            expect(said).not.toContain('- Year:');
+        });
+    });
+
     describe('the notes', () => {
         const withFacts = { ...previous, facts: ['John Martyn was born in New Malden in 1948.'] };
 

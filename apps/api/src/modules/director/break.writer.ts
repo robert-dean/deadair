@@ -51,6 +51,28 @@ export interface BreakTrack {
      */
     trackId?: string;
     /**
+     * The year, the album and the length, where the running order knows them.
+     *
+     * The three came from `RundownItem`, which has carried all of them all along: this builder kept
+     * the title, the artist and the id and dropped the rest on the floor. That is measurable in what
+     * the station said. A writer told a title and a name has nothing specific to be specific ABOUT,
+     * so it reaches for whatever it half-remembers — "recorded in twenty-four eighty-two" for a
+     * Norah Jones single, and a 1980 AC/DC record dated to the year the band formed, both aired.
+     * Handing over the three things the order already holds is the cheapest way to make the
+     * difference between a fact and a guess available to the writer rather than to nobody.
+     *
+     * Optional individually and absent rather than blank when unknown, which is
+     * {@link describe}'s rule and the weather describer's before it: a model shown an empty field
+     * fills it in.
+     *
+     * `durationMs` is integer milliseconds like every other duration here. It is rendered as
+     * minutes and seconds at the prompt, because it is something to talk about rather than a
+     * measurement to read out.
+     */
+    year?: number;
+    album?: string;
+    durationMs?: number;
+    /**
      * Short true things about this record, already chosen for this break.
      *
      * Fetched by the CALLER and never by a writer reaching into a repository, which is what keeps a

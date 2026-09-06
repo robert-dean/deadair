@@ -1379,6 +1379,35 @@ describe('readAnswer, against the half of the day it was told', () => {
         expect(declined?.reason).toMatch(/wrong half of the day/i);
     });
 
+    // The sentence alone sent an operator to read raw answers one at a time to learn which of four
+    // words did it, and only while `llm.captureWrites` happened to be on. `conspiracy` spent months
+    // at a third of its breaks on the floor with this among the leaders and nothing in the record
+    // said whether that was one habit or four.
+    it('names the word it caught, so the row says which of the four it was', () => {
+        const declined = writeDecline('Tonight we are back to back.', { dayPart: at(9) });
+
+        expect(declined?.reason).toContain('it said "tonight"');
+    });
+
+    it('names the word for the time-of-day half too, which is a different fix', () => {
+        // A model reaching for `tonight` in the morning and one saying `midday` at half past four
+        // are one fault to a listener and two different things to change.
+        const declined = writeDecline('Welcome to your midday news blast.', { moment: moment(16) });
+
+        expect(declined?.reason).toContain('it said "midday"');
+    });
+
+    it('leaves every other fault’s sentence exactly as it was', () => {
+        // The word is appended for the one fault whose sentence cannot be acted on without it. A
+        // break that named no record already says where to look.
+        const declined = writeDecline('A pleasant enough record, and that is all there is to say.', {
+            names: [{ title: 'Solid Air', artist: 'John Martyn' }],
+        });
+
+        expect(declined?.fault).toBe('named-nothing');
+        expect(declined?.reason).not.toContain('it said');
+    });
+
     // The half a stretch cannot reach. "Midday" is the afternoon at ten past twelve and still the
     // afternoon at half past four, so the check above passes both — and the second one aired.
     const moment = (hour: number) => ({ at: Date.UTC(2026, 7, 13, hour, 30), zone: 'UTC' });

@@ -1083,10 +1083,18 @@ function describe(track: BreakTrack, withFacts: boolean): string {
     // Each one absent rather than blank when the order does not know it. See `BreakTrack`, and the
     // weather describer below, which states the rule this follows: a model given "Wind: —" fills
     // it in.
+    //
+    // Tested for EMPTINESS and not merely for `undefined`, which is the bug this shipped with. An
+    // item with nothing in a text column carries the empty string rather than `undefined` — the
+    // builder in `write.break.job.ts` says so one line above where it hands these over, and uses
+    // `||` on the artist for exactly this reason. An `- Album: ` with nothing after it is the blank
+    // field this comment promises never to draw, and the station aired the consequence: "Justin
+    // Timberlake's first solo single from his album ." A zero year or a zero length is the same
+    // claim in numbers and is dropped on the same test.
     if (withFacts) {
-        if (track.year !== undefined) lines.push(`- Year: ${track.year}`);
-        if (track.album !== undefined) lines.push(`- Album: ${track.album}`);
-        if (track.durationMs !== undefined) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
+        if (track.year) lines.push(`- Year: ${track.year}`);
+        if (track.album?.trim()) lines.push(`- Album: ${track.album.trim()}`);
+        if (track.durationMs) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
     }
     if (withFacts && track.facts && track.facts.length > 0) lines.push('- Notes:', ...track.facts.map(fact => `  - ${fact}`));
     return lines.join('\n');

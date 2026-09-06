@@ -516,6 +516,24 @@ describe('breakPrompt', () => {
             expect(said).not.toContain('- Length:');
         });
 
+        it('drops a field the order holds as empty rather than drawing it blank', () => {
+            // An item with nothing in a text column carries the empty string, not `undefined`, which
+            // is why the builder uses `||` on the artist. Guarding only on `undefined` drew
+            // "- Album: " with nothing after it, and the station aired "Justin Timberlake's first
+            // solo single from his album ."
+            const said = user(prompt({ kind: 'talkbreak', previous: { ...previous, album: '', year: 0, durationMs: 0 } }));
+
+            expect(said).not.toContain('- Album:');
+            expect(said).not.toContain('- Year:');
+            expect(said).not.toContain('- Length:');
+        });
+
+        it('drops an album that is nothing but whitespace', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: { ...previous, album: '   ' } }));
+
+            expect(said).not.toContain('- Album:');
+        });
+
         it('says the length in minutes and seconds rather than in milliseconds', () => {
             // A model handed `401000` either reads it out or divides it, and one of those is worse.
             const said = user(prompt({ kind: 'talkbreak', previous: known }));

@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.ui.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -13,6 +14,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -40,6 +43,8 @@ fun AccountSection(
     onSignIn: () -> Unit,
     onSignOut: () -> Unit,
 ) {
+    val focus = LocalFocusManager.current
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         when (session) {
             is SessionState.SignedIn -> {
@@ -69,6 +74,7 @@ fun AccountSection(
                     enabled = signedInEnabled && !account.busy,
                     isError = account.error != null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),
                     modifier = Modifier.fillMaxWidth(),
                 )
 
@@ -84,6 +90,8 @@ fun AccountSection(
                     supportingText = account.error?.let { { Text(it) } },
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                    // Done signs in, which is what a thumb on the last field of a form means.
+                    keyboardActions = KeyboardActions(onDone = { if (account.canSubmit) onSignIn() }),
                     modifier = Modifier.fillMaxWidth(),
                 )
 

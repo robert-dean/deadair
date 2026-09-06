@@ -1,11 +1,16 @@
 package com.maroonedsoftware.deadair.ui.setup
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -15,11 +20,14 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.ui.settings.StationEntryState
+import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
+import com.maroonedsoftware.deadair.ui.theme.Gutter
 
 /**
  * First run: name a station.
@@ -35,35 +43,45 @@ fun SetupScreen(
     onConfirm: () -> Unit,
 ) {
     Scaffold { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+        // Scroll first and insets inside it, so the content slides under the bars rather than
+        // stopping short of them; then the keyboard's own inset, so the button is never behind it.
+        Box(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).consumeWindowInsets(padding).imePadding(),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            Text("deadair", style = MaterialTheme.typography.headlineMedium)
-            Text(
-                "The address your station's console loads from. The same one carries the stream.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Column(
+                modifier = Modifier.widthIn(max = FormMaxWidth).fillMaxWidth().padding(horizontal = Gutter, vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text("deadair", style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    "The address your station's console loads from. The same one carries the stream.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
 
-            OutlinedTextField(
-                value = state.address,
-                onValueChange = onAddressChange,
-                label = { Text("Station address") },
-                placeholder = { Text("https://radio.example.com") },
-                singleLine = true,
-                isError = state.error != null,
-                supportingText = state.supportingText?.let { { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                modifier = Modifier.fillMaxWidth(),
-            )
+                OutlinedTextField(
+                    value = state.address,
+                    onValueChange = onAddressChange,
+                    label = { Text("Station address") },
+                    placeholder = { Text("https://radio.example.com") },
+                    singleLine = true,
+                    isError = state.error != null,
+                    supportingText = state.supportingText?.let { { Text(it) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                    // The key says Go, so Go does what the button does. A keyboard promising an
+                    // action it will not perform is a small lie told on every press.
+                    keyboardActions = KeyboardActions(onGo = { if (state.address.isNotBlank() && !state.checking) onCheck() }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            if (state.checking) {
-                CircularProgressIndicator()
-            } else if (state.confirmedName != null) {
-                Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth()) { Text("Listen to ${state.confirmedName}") }
-            } else {
-                Button(onClick = onCheck, enabled = state.address.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                    Text("Check")
+                if (state.checking) {
+                    CircularProgressIndicator()
+                } else if (state.confirmedName != null) {
+                    Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth()) { Text("Listen to ${state.confirmedName}") }
+                } else {
+                    Button(onClick = onCheck, enabled = state.address.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                        Text("Check")
+                    }
                 }
             }
         }

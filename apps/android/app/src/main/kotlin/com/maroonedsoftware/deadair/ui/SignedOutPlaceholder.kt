@@ -1,14 +1,10 @@
 package com.maroonedsoftware.deadair.ui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,11 +18,7 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun SignedOutPlaceholder(what: String, onSettings: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
+    CentredColumn {
         Text(what, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         Text(
             "The station keeps this for signed-in listeners. Listening itself needs no account.",
@@ -42,11 +34,7 @@ fun SignedOutPlaceholder(what: String, onSettings: () -> Unit) {
 /** The same shape for a tab that has nothing to show yet, so an empty answer is not read as a fault. */
 @Composable
 fun EmptyPlaceholder(what: String) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
+    CentredColumn {
         Text(
             what,
             style = MaterialTheme.typography.bodyLarge,

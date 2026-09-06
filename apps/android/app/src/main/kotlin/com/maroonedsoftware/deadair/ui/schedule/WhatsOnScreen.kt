@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.schedule.ScheduleState
 import com.maroonedsoftware.deadair.ui.EmptyPlaceholder
 import com.maroonedsoftware.deadair.ui.SignedOutPlaceholder
+import com.maroonedsoftware.deadair.ui.theme.Gutter
 
 /**
  * What is on, and what is on after it.
@@ -67,7 +68,7 @@ private fun Blocks(state: WhatsOnUiState, stale: Boolean) {
         modifier =
             Modifier.fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(horizontal = Gutter, vertical = 16.dp)
                 .alpha(if (stale) STALE_ALPHA else 1f),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

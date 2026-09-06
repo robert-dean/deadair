@@ -11,8 +11,10 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.maroonedsoftware.deadair.R
@@ -49,10 +51,17 @@ fun HomeScreen(
     onSettings: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    // The bar gives way to a list that scrolls under it and comes back on the first pull down,
+    // which is what Material expects of an app bar above a list and what a flat bar over sliding
+    // content fails to do.
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
                 title = { Text(station, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                scrollBehavior = scrollBehavior,
                 actions = {
                     IconButton(onClick = onSettings) {
                         Icon(painterResource(R.drawable.ic_settings), contentDescription = "Settings")

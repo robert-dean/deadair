@@ -3,13 +3,19 @@ package com.maroonedsoftware.deadair.ui.nowplaying
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -29,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.nowplaying.Playhead
+import com.maroonedsoftware.deadair.ui.CentredColumn
+import com.maroonedsoftware.deadair.ui.theme.ArtworkMaxWidth
+import com.maroonedsoftware.deadair.ui.theme.Gutter
 
 /**
  * What is on air, and a button.
@@ -40,6 +49,14 @@ import com.maroonedsoftware.deadair.nowplaying.Playhead
  * It carries no `Scaffold` and no app bar of its own. The station's name and the settings button
  * belong to the frame every tab shares, so switching tabs does not redraw them and the title cannot
  * sit a few pixels differently on one screen than on another.
+ *
+ * ## Two layouts, one screen
+ *
+ * Upright, the cover sits above the words and the button. Sideways, or on anything wide enough
+ * to be a tablet, the cover sits beside them. That is not a nicety: a full-width square in
+ * landscape is as tall as the screen, and the first version of this measured the play button out
+ * of existence there. The same thing happened upright at the largest accessibility text size,
+ * which is why both layouts scroll when their content outgrows them.
  */
 @Composable
 fun NowPlayingScreen(
@@ -49,95 +66,129 @@ fun NowPlayingScreen(
     onPlay: () -> Unit,
     onStop: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Artwork(artworkUrl, stale = state.stale)
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val viewportHeight = maxHeight
+        val sideBySide = maxWidth > maxHeight || maxWidth >= WIDE
 
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
+        if (sideBySide) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = Gutter, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Artwork(
+                    url = artworkUrl,
+                    stale = state.stale,
+                    // Bounded by the height as well as the width: a square sized off half a wide
+                    // screen is taller than the screen is.
+                    modifier = Modifier.weight(1f).widthIn(max = ArtworkMaxWidth).heightIn(max = viewportHeight - 32.dp),
+                )
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).heightIn(min = viewportHeight - 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    Words(state)
+                    Controls(state, playhead, onPlay, onStop)
+                }
+            }
+        } else {
+            CentredColumn {
+                Artwork(url = artworkUrl, stale = state.stale, modifier = Modifier.fillMaxWidth().widthIn(max = ArtworkMaxWidth))
+                Words(state, modifier = Modifier.padding(top = 32.dp))
+                Controls(state, playhead, onPlay, onStop)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            state.title,
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        state.subtitle?.let {
             Text(
-                state.title,
-                style = MaterialTheme.typography.headlineSmall,
+                it,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            state.subtitle?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            state.album?.let {
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
         }
-
-        // Only when the decoder could say how long is left. A bar that appeared with a guessed
-        // position would be worse than no bar.
-        if (playhead != null) {
-            val progress by animateFloatAsState(playhead.fraction, label = "playhead")
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-            )
-        }
-
-        FilledIconButton(
-            onClick = if (state.playing) onStop else onPlay,
-            modifier = Modifier.padding(top = 32.dp).size(72.dp),
-        ) {
-            if (state.buffering) {
-                CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
-            } else {
-                Icon(
-                    painterResource(if (state.playing) R.drawable.ic_stop else R.drawable.ic_play),
-                    contentDescription = if (state.playing) "Stop" else "Play",
-                    modifier = Modifier.size(32.dp),
-                )
-            }
-        }
-
-        Text(
-            state.footer,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 16.dp),
-        )
-
-        if (state.fellBackToMp3) {
+        state.album?.let {
             Text(
-                "This station does not publish ${state.format.label}. Playing MP3.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
+                it,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
 
 @Composable
-private fun Artwork(url: String?, stale: Boolean) {
+private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit) {
+    // Only when the decoder could say how long is left. A bar that appeared with a guessed
+    // position would be worse than no bar.
+    if (playhead != null) {
+        val progress by animateFloatAsState(playhead.fraction, label = "playhead")
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+        )
+    }
+
+    FilledIconButton(
+        onClick = if (state.playing) onStop else onPlay,
+        modifier = Modifier.padding(top = 32.dp).size(72.dp),
+    ) {
+        if (state.buffering) {
+            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+        } else {
+            Icon(
+                painterResource(if (state.playing) R.drawable.ic_stop else R.drawable.ic_play),
+                contentDescription = if (state.playing) "Stop" else "Play",
+                modifier = Modifier.size(32.dp),
+            )
+        }
+    }
+
+    Text(
+        state.footer,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.padding(top = 16.dp),
+    )
+
+    if (state.fellBackToMp3) {
+        Text(
+            "This station does not publish ${state.format.label}. Playing MP3.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun Artwork(url: String?, stale: Boolean, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)),
+        modifier = modifier.aspectRatio(1f).clip(RoundedCornerShape(12.dp)),
         contentAlignment = Alignment.Center,
     ) {
         if (url == null) {
@@ -158,3 +209,6 @@ private fun Artwork(url: String?, stale: Boolean) {
         }
     }
 }
+
+/** Where a phone stops and a tablet starts, which is Material's own line for a medium window. */
+private val WIDE = 600.dp

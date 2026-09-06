@@ -1,13 +1,19 @@
 package com.maroonedsoftware.deadair.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -20,12 +26,15 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
+import com.maroonedsoftware.deadair.ui.theme.Gutter
 
 /**
  * The address and the format, after first run.
@@ -55,70 +64,78 @@ fun SettingsScreen(
     onSignOut: () -> Unit,
 ) {
     Scaffold { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 24.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        // Scroll first and insets inside it, so the content slides under the bars rather than
+        // stopping short of them; then the keyboard's own inset, so Sign in is never behind it.
+        Box(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).consumeWindowInsets(padding).imePadding(),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            Text("Station", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
+            Column(
+                modifier = Modifier.widthIn(max = FormMaxWidth).fillMaxWidth().padding(horizontal = Gutter),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("Station", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
 
-            OutlinedTextField(
-                value = entry.address,
-                onValueChange = onAddressChange,
-                label = { Text("Station address") },
-                singleLine = true,
-                isError = entry.error != null,
-                supportingText = entry.supportingText?.let { { Text(it) } },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                modifier = Modifier.fillMaxWidth(),
-            )
+                OutlinedTextField(
+                    value = entry.address,
+                    onValueChange = onAddressChange,
+                    label = { Text("Station address") },
+                    singleLine = true,
+                    isError = entry.error != null,
+                    supportingText = entry.supportingText?.let { { Text(it) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                    keyboardActions = KeyboardActions(onGo = { if (entry.address.isNotBlank() && !entry.checking) onCheck() }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            when {
-                entry.checking -> CircularProgressIndicator()
-                entry.confirmedName != null ->
-                    Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth()) { Text("Use ${entry.confirmedName}") }
-                else -> Button(onClick = onCheck, enabled = entry.address.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Check") }
-            }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-            Text("Format", style = MaterialTheme.typography.titleMedium)
-            Column(Modifier.selectableGroup()) {
-                StreamFormat.entries.forEach { option ->
-                    // Absent from the station's `mounts[]` means the operator has not switched that
-                    // encoder on. Shown and disabled rather than hidden, so the list is the same
-                    // list every time and a listener can see what turning it on would give them.
-                    val available = availability[option] ?: true
-                    ListItem(
-                        headlineContent = { Text(option.label) },
-                        supportingContent =
-                            when {
-                                !available -> ({ Text("Not published by this station") })
-                                option == StreamFormat.HLS -> ({ Text("Survives moving between wifi and mobile data") })
-                                option == StreamFormat.MP3 -> ({ Text("Always available") })
-                                else -> null
-                            },
-                        leadingContent = {
-                            RadioButton(selected = option == format, onClick = { onFormat(option) }, enabled = available)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                when {
+                    entry.checking -> CircularProgressIndicator()
+                    entry.confirmedName != null ->
+                        Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth()) { Text("Use ${entry.confirmedName}") }
+                    else -> Button(onClick = onCheck, enabled = entry.address.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Check") }
                 }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                Text("Format", style = MaterialTheme.typography.titleMedium)
+                Column(Modifier.selectableGroup()) {
+                    StreamFormat.entries.forEach { option ->
+                        // Absent from the station's `mounts[]` means the operator has not switched
+                        // that encoder on. Shown and disabled rather than hidden, so the list is the
+                        // same list every time and a listener can see what turning it on would give.
+                        val available = availability[option] ?: true
+                        ListItem(
+                            headlineContent = { Text(option.label) },
+                            supportingContent =
+                                when {
+                                    !available -> ({ Text("Not published by this station") })
+                                    option == StreamFormat.HLS -> ({ Text("Survives moving between wifi and mobile data") })
+                                    option == StreamFormat.MP3 -> ({ Text("Always available") })
+                                    else -> null
+                                },
+                            leadingContent = {
+                                RadioButton(selected = option == format, onClick = { onFormat(option) }, enabled = available)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                Text("Account", style = MaterialTheme.typography.titleMedium)
+                AccountSection(
+                    session = session,
+                    account = account,
+                    signedInEnabled = hasStation,
+                    onEmailChange = onEmailChange,
+                    onPasswordChange = onPasswordChange,
+                    onSignIn = onSignIn,
+                    onSignOut = onSignOut,
+                )
+
+                Spacer(Modifier.height(24.dp))
             }
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-            Text("Account", style = MaterialTheme.typography.titleMedium)
-            AccountSection(
-                session = session,
-                account = account,
-                signedInEnabled = hasStation,
-                onEmailChange = onEmailChange,
-                onPasswordChange = onPasswordChange,
-                onSignIn = onSignIn,
-                onSignOut = onSignOut,
-            )
-
-            Spacer(Modifier.padding(bottom = 24.dp))
         }
     }
 }

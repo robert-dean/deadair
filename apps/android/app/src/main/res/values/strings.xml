@@ -212,6 +212,32 @@
     <string name="source_could_not_reask">%1$s, could not re-ask</string>
     <string name="source_due_again">due again</string>
 
+    <!-- Album and artist pages -->
+    <string name="album">Album</string>
+    <string name="artist">Artist</string>
+    <string name="album_not_found">No album with that id is in the catalog.</string>
+    <string name="artist_not_found">No artist with that id is in the catalog.</string>
+    <string name="tracks">Tracks</string>
+    <string name="albums">Albums</string>
+    <plurals name="tracks_count">
+        <item quantity="one">%1$d track</item>
+        <item quantity="other">%1$d tracks</item>
+    </plurals>
+    <plurals name="albums_count">
+        <item quantity="one">%1$d album</item>
+        <item quantity="other">%1$d albums</item>
+    </plurals>
+    <string name="album_no_tracks">No tracks from this album are in the catalog.</string>
+    <string name="artist_no_albums">Nothing by this artist has been ingested as an album. Their tracks may still be in the catalog, filed without a release.</string>
+    <plurals name="more_not_shown">
+        <item quantity="one">%1$d more, not shown here</item>
+        <item quantity="other">%1$d more, not shown here</item>
+    </plurals>
+    <string name="about_this_album">About this album</string>
+    <string name="about_this_artist">About this artist</string>
+    <string name="enrichment_empty_album">No provider has been asked about this album yet. The enrichment pass picks up what it has not seen, oldest first.</string>
+    <string name="enrichment_empty_artist">No provider has been asked about this artist yet. The enrichment pass picks up what it has not seen, oldest first.</string>
+
     <!-- Rating: the station's own curation mark, with rotation consequences -->
     <string name="rating_dislike">Never play %1$s</string>
     <string name="rating_no_opinion">No opinion about %1$s</string>

@@ -41,6 +41,12 @@ sealed interface Destination : NavKey {
     /** One record, reached from anywhere it is named. */
     @Serializable
     data class Track(val id: String) : Destination
+
+    @Serializable
+    data class Album(val id: String) : Destination
+
+    @Serializable
+    data class Artist(val id: String) : Destination
 }
 
 /**
@@ -58,6 +64,8 @@ val NavConfiguration: SavedStateConfiguration =
                     subclass(Destination.Home::class)
                     subclass(Destination.Settings::class)
                     subclass(Destination.Track::class)
+                    subclass(Destination.Album::class)
+                    subclass(Destination.Artist::class)
                 }
             }
     }

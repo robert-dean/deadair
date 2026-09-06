@@ -64,7 +64,7 @@ fun TrackDetailScreen(
         state = state,
         onBack = onBack,
         onRetry = onRetry,
-        failureText = { status -> stringResource(if (status == NOT_FOUND) R.string.record_not_found else R.string.error_could_not_reach) },
+        failureText = { status -> detailFailure(status, R.string.record_not_found) },
     ) { detail ->
         Header(detail, artUrlFor(detail.albumImageUrl), onArtist, onAlbum)
 
@@ -150,5 +150,3 @@ private fun Airings(detail: TrackDetail) {
         }
     }
 }
-
-private const val NOT_FOUND = 404

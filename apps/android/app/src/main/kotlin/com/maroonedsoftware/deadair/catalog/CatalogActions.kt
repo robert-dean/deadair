@@ -22,4 +22,10 @@ class CatalogActions(private val actions: OperatorActions, private val order: Or
         if (answered) order.refetchSoon(listOf(0L))
         return answered
     }
+
+    suspend fun rateAlbum(albumId: String, rating: Rating): Boolean =
+        actions.run { it.catalog.rateAlbum(Uuid.parse(albumId), RateInput(rating = rating)) } != null
+
+    suspend fun rateArtist(artistId: String, rating: Rating): Boolean =
+        actions.run { it.catalog.rateArtist(Uuid.parse(artistId), RateInput(rating = rating)) } != null
 }

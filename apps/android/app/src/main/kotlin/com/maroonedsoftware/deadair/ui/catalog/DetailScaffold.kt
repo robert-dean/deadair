@@ -74,6 +74,20 @@ fun <T> DetailScaffold(
     }
 }
 
+/**
+ * What a failed fetch says. A 404 is the page's own sentence; no status is no network; anything
+ * else the station refused is shown with its number rather than blamed on the network.
+ */
+@Composable
+fun detailFailure(status: Int?, @androidx.annotation.StringRes notFound: Int): String =
+    when (status) {
+        null -> stringResource(R.string.error_could_not_reach)
+        NOT_FOUND -> stringResource(notFound)
+        else -> stringResource(R.string.notice_failed, status)
+    }
+
+private const val NOT_FOUND = 404
+
 /** A section heading inside a detail page. */
 @Composable
 fun SectionHeading(text: String, modifier: Modifier = Modifier) {

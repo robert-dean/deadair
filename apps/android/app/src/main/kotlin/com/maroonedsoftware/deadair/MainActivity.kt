@@ -27,6 +27,8 @@ import androidx.navigation3.ui.NavDisplay
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
+import com.maroonedsoftware.deadair.ui.catalog.AlbumRoute
+import com.maroonedsoftware.deadair.ui.catalog.ArtistRoute
 import com.maroonedsoftware.deadair.ui.catalog.TrackRoute
 import com.maroonedsoftware.deadair.ui.home.HomeRoute
 import com.maroonedsoftware.deadair.ui.nav.Destination
@@ -146,10 +148,27 @@ private fun Listener(graph: AppGraph) {
                             settings = loaded,
                             trackId = key.id,
                             onBack = { backStack.removeLastOrNull() },
-                            // The album and artist pages arrive in the next phase; until then the
-                            // credit and the album are drawn as words rather than as links.
-                            onArtist = null,
-                            onAlbum = null,
+                            onArtist = { id -> backStack.add(Destination.Artist(id)) },
+                            onAlbum = { id -> backStack.add(Destination.Album(id)) },
+                        )
+                    }
+                    entry<Destination.Album> { key ->
+                        AlbumRoute(
+                            graph = graph,
+                            settings = loaded,
+                            albumId = key.id,
+                            onBack = { backStack.removeLastOrNull() },
+                            onArtist = { id -> backStack.add(Destination.Artist(id)) },
+                            onTrack = { id -> backStack.add(Destination.Track(id)) },
+                        )
+                    }
+                    entry<Destination.Artist> { key ->
+                        ArtistRoute(
+                            graph = graph,
+                            settings = loaded,
+                            artistId = key.id,
+                            onBack = { backStack.removeLastOrNull() },
+                            onAlbum = { id -> backStack.add(Destination.Album(id)) },
                         )
                     }
                     entry<Destination.Settings> {

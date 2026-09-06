@@ -46,7 +46,7 @@ fun HomeScreen(
     tab: Tab,
     onTab: (Tab) -> Unit,
     onSettings: () -> Unit,
-    content: @Composable (Modifier) -> Unit,
+    content: @Composable () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -75,6 +75,6 @@ fun HomeScreen(
             }
         },
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) { content(Modifier.fillMaxSize()) }
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) { content() }
     }
 }

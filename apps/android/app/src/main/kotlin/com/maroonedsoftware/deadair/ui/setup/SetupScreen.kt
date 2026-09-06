@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -15,6 +16,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -74,13 +76,18 @@ fun SetupScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                if (state.checking) {
-                    CircularProgressIndicator()
-                } else if (state.confirmedName != null) {
+                // The button keeps its place while the station answers, with the spinner inside it.
+                // Swapping the whole button for a spinner moved the layout on every tap, and left
+                // nothing to press while a check that can take five seconds ran.
+                if (state.confirmedName != null) {
                     Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth()) { Text("Listen to ${state.confirmedName}") }
                 } else {
-                    Button(onClick = onCheck, enabled = state.address.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                        Text("Check")
+                    Button(onClick = onCheck, enabled = state.address.isNotBlank() && !state.checking, modifier = Modifier.fillMaxWidth()) {
+                        if (state.checking) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
+                        } else {
+                            Text("Check")
+                        }
                     }
                 }
             }

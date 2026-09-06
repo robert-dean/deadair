@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.map
 private val Context.preferences: DataStore<Preferences> by preferencesDataStore(name = "listener")
 
 /**
- * The two settings, on disk.
+ * The settings, on disk.
  *
  * A `Flow` rather than a read, because everything downstream re-reads on change: pointing the app
  * at a different station has to restart the poll and the player, and doing that by observation
@@ -28,13 +28,18 @@ class SettingsStore(private val context: Context) {
                 // app on launch: it sends the listener back to the setup screen, which is where
                 // they can fix it.
                 station = stored[STATION]?.let { StationUrl.parse(it).getOrNull() },
+                stationName = stored[STATION_NAME]?.takeIf { it.isNotBlank() },
                 // Likewise a format this build does not know, which is what a downgrade looks like.
                 format = stored[FORMAT]?.let { name -> StreamFormat.entries.firstOrNull { it.name == name } } ?: StreamFormat.MP3,
             )
         }
 
-    suspend fun setStation(url: StationUrl) {
-        context.preferences.edit { it[STATION] = url.origin }
+    /** Keep a station, and what it called itself when it answered, so the app bar has a name from the first frame. */
+    suspend fun setStation(url: StationUrl, name: String?) {
+        context.preferences.edit {
+            it[STATION] = url.origin
+            if (name.isNullOrBlank()) it.remove(STATION_NAME) else it[STATION_NAME] = name
+        }
     }
 
     suspend fun setFormat(format: StreamFormat) {
@@ -43,6 +48,7 @@ class SettingsStore(private val context: Context) {
 
     private companion object {
         val STATION = stringPreferencesKey("station_url")
+        val STATION_NAME = stringPreferencesKey("station_name")
         val FORMAT = stringPreferencesKey("stream_format")
     }
 }

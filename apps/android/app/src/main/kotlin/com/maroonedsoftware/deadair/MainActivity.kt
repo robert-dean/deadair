@@ -4,11 +4,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -88,8 +93,15 @@ private fun Listener(graph: AppGraph) {
     // The stored station is what decides between setup and the app proper: an install that has
     // never been pointed at one has nothing to show, and one that has should not be asked again.
     // Setup is chosen above the stack rather than pushed onto it, so it is not a place back can go.
-    val station = settings.station
-    if (station == null) {
+    //
+    // Until the first read from disk lands there is no answer, and the honest thing to draw is
+    // nothing: the launch window is still on screen, and drawing Setup for the few frames before
+    // the station arrives was a flash of the wrong screen on every cold start.
+    val loaded = settings
+    val station = loaded?.station
+    if (loaded == null) {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+    } else if (station == null) {
         SetupScreen(
             state = entry,
             onAddressChange = model::onAddressChange,
@@ -105,7 +117,7 @@ private fun Listener(graph: AppGraph) {
                     entry<Destination.Home> {
                         HomeRoute(
                             graph = graph,
-                            settings = settings,
+                            settings = loaded,
                             nowPlaying = nowPlaying,
                             playback = playback,
                             connection = connection,
@@ -118,7 +130,7 @@ private fun Listener(graph: AppGraph) {
                     entry<Destination.Settings> {
                         SettingsScreen(
                             entry = entry,
-                            format = settings.format,
+                            format = loaded.format,
                             // From the station's own `mounts[]`, never by connecting to each mount
                             // to see: a connection is an audience, and the gate lingers five
                             // minutes past it.
@@ -132,10 +144,15 @@ private fun Listener(graph: AppGraph) {
                                 ),
                             session = session,
                             account = account,
-                            hasStation = true,
+                            onBack = { backStack.removeLastOrNull() },
                             onAddressChange = model::onAddressChange,
                             onCheck = model::check,
-                            onConfirm = model::confirm,
+                            // Keeping a station is the end of the errand, so the screen closes on
+                            // it. The now-playing poll restarts against the new address on its own.
+                            onConfirm = {
+                                model.confirm()
+                                backStack.removeLastOrNull()
+                            },
                             onFormat = model::setFormat,
                             onEmailChange = model::onEmailChange,
                             onPasswordChange = model::onPasswordChange,

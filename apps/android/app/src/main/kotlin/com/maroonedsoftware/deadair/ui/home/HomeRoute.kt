@@ -64,7 +64,9 @@ fun HomeRoute(
     val choice = chooseMount(reading?.nowPlaying?.mounts.orEmpty(), settings.format)
 
     HomeScreen(
-        station = reading?.nowPlaying?.station ?: station?.origin.orEmpty(),
+        // What the station calls itself now, else what it called itself when it was kept, else
+        // the address — which a listener should see only in the moments before either exists.
+        station = reading?.nowPlaying?.station ?: settings.stationName ?: station?.origin.orEmpty(),
         tab = tab,
         onTab = { tab = it },
         onSettings = onSettings,

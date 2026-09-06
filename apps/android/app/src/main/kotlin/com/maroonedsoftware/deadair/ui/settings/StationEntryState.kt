@@ -18,6 +18,12 @@ data class StationEntryState(
     val error: String? = null,
     /** True when the entered address is plain HTTP, which is ordinary here and worth saying once. */
     val cleartext: Boolean = false,
+    /**
+     * The origin already kept, when there is one. What lets the settings screen tell an address
+     * that has merely been loaded into the field from one that has been edited — the first has
+     * nothing to check, and offering a Check button for it was two taps to achieve nothing.
+     */
+    val stored: String? = null,
 ) {
     /** What sits under the field: the error if there is one, else the confirmation, else the caution. */
     val supportingText: String?
@@ -32,14 +38,27 @@ data class StationEntryState(
     /** The parsed URL, or `null` while what is typed is not one. */
     val parsed: StationUrl? get() = StationUrl.parse(address).getOrNull()
 
+    /**
+     * Whether there is anything to check.
+     *
+     * An address that has already answered has been checked; one that reads as the origin already
+     * kept needs no checking. Everything else — including text that is not an address yet, which
+     * Check answers with the reason — is worth a button.
+     */
+    val showsCheck: Boolean
+        get() = confirmedName == null && (stored == null || parsed?.origin != stored)
+
     companion object {
         /** Typing again clears both verdicts: what was checked is no longer what is in the field. */
-        fun typing(address: String): StationEntryState =
-            StationEntryState(address = address, cleartext = address.trim().startsWith("http://", ignoreCase = true))
+        fun typing(address: String, stored: String? = null): StationEntryState =
+            StationEntryState(address = address, cleartext = address.trim().startsWith("http://", ignoreCase = true), stored = stored)
+
+        /** What is in the field does not parse as an address at all. */
+        fun invalid(address: String, stored: String? = null): StationEntryState = typing(address, stored).copy(error = "That is not an address")
 
         /** Turn a probe's answer into the state the field shows. */
-        fun from(address: String, check: StationCheck): StationEntryState {
-            val base = typing(address)
+        fun from(address: String, check: StationCheck, stored: String? = null): StationEntryState {
+            val base = typing(address, stored)
             return when (check) {
                 is StationCheck.Reachable -> base.copy(confirmedName = check.stationName)
                 is StationCheck.Incompatible ->

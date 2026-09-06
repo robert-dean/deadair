@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.ui
 import com.maroonedsoftware.deadair.station.StationCheck
 import com.maroonedsoftware.deadair.ui.settings.StationEntryState
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -79,6 +80,53 @@ class StationEntryStateTest {
 
         assertEquals(false, state.cleartext)
         assertNull(state.supportingText)
+    }
+
+    // ── Whether there is anything to check ───────────────────────────────────────────────
+
+    @Test
+    fun `offers nothing to check while the field reads as the address already kept`() {
+        // Two taps to achieve nothing: Check, then Use, for an address that was already in use.
+        val loaded = StationEntryState.typing("https://radio.example.com", stored = "https://radio.example.com")
+
+        assertFalse(loaded.showsCheck)
+    }
+
+    @Test
+    fun `offers a check once the address has been edited`() {
+        assertTrue(StationEntryState.typing("https://radio.example.com:8443", stored = "https://radio.example.com").showsCheck)
+    }
+
+    @Test
+    fun `reads a differently written address as the same one when it parses the same`() {
+        // A trailing slash, or a bare host that parses to the https origin already kept.
+        assertFalse(StationEntryState.typing("https://radio.example.com/", stored = "https://radio.example.com").showsCheck)
+        assertFalse(StationEntryState.typing("radio.example.com", stored = "https://radio.example.com").showsCheck)
+    }
+
+    @Test
+    fun `always offers a check on first run, when nothing is kept yet`() {
+        assertTrue(StationEntryState.typing("https://radio.example.com").showsCheck)
+        assertTrue(StationEntryState.typing("not an address").showsCheck)
+    }
+
+    @Test
+    fun `stops offering a check once the address has answered`() {
+        val answered = StationEntryState.from("https://radio.example.com:8443", StationCheck.Reachable("Static"), stored = "https://radio.example.com")
+
+        assertFalse(answered.showsCheck)
+        assertEquals("https://radio.example.com", answered.stored)
+    }
+
+    @Test
+    fun `keeps the kept address through typing and through an answer`() {
+        val typed = StationEntryState.typing("https://other.example.com", stored = "https://radio.example.com")
+        val refused = StationEntryState.from(typed.address, StationCheck.NotAStation(404), typed.stored)
+        val invalid = StationEntryState.invalid("nope", typed.stored)
+
+        assertEquals("https://radio.example.com", refused.stored)
+        assertEquals("https://radio.example.com", invalid.stored)
+        assertTrue(refused.showsCheck)
     }
 
     @Test

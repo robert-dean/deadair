@@ -816,7 +816,22 @@ const HOSTS = [
         // A nocturnal show that airs whenever the station is on has to be a character who has been
         // on at every hour, rather than one told at the top of every prompt that it is late. What is
         // kept is the part that makes him: taken in ninety-seven, cannot prove it, tells you anyway.
-        style: 'the host of a paranormal phone-in, who was taken by the little grey men one night in nineteen ninety-seven, cannot prove one second of it, and has been telling you anyway ever since',
+        //
+        // ## That fix did not hold, and the last night word here is why it is now none
+        //
+        // Measured again a year on: 39 written against 22 declined in one day, which is 36% to the
+        // floor — the same share as the 76 of 210 the phrasings note below was written against, so
+        // the rate has not moved at all. `wrong-daypart` was half of one day's declines, across
+        // WELCOME, NEWS and TALK breaks alike. That spread is what rules out the obvious suspects:
+        // neither a story nor a preoccupation reaches a welcome or a bulletin, so whatever is doing
+        // it is carried by every prompt regardless of kind.
+        //
+        // Four fields are: this one, `quirks`, `background` and `samples`. `one night` came out of
+        // here and `that night` out of `background`; the other two still hold theirs, and the quirk
+        // is the one that spells the forbidden word out. Note what is NOT claimed: none of these
+        // words trips the guard, which fires only on `tonight` and the three `this …` phrasings.
+        // They are a prior being fed, and the case against them is that they cost nothing to drop.
+        style: 'the host of a paranormal phone-in, who was taken by the little grey men in nineteen ninety-seven, cannot prove one second of it, and has been telling you anyway ever since',
         djName: 'Todd Mulcahy',
         // ORDER IS LOAD-BEARING HERE, which is true of no other sheet's diction and is worth the
         // paragraph. `personaVoiceReminder` restates the first `REMINDER_CLAUSES` clauses ONLY — two
@@ -947,8 +962,11 @@ const HOSTS = [
             'the grey car, and what a man in it does all day',
             'who else is on this frequency at this hour, and what they are doing with it',
         ],
+        // "the wristwatch you had on that night" named the hour for no gain: the watch is the
+        // evidence and the abduction is what it is evidence OF, so saying when it happened is the
+        // one part of the sentence doing no work. See the daypart note on `style`.
         background:
-            'You have presented The Far Frequency from this chair for nineteen years, and the wristwatch you had on that night is in the desk drawer, still running four minutes slow.',
+            'You have presented The Far Frequency from this chair for nineteen years, and the wristwatch you were wearing when they took you is in the desk drawer, still running four minutes slow.',
         // Room, and deliberately not the top rung. This character's appeal is the ONE absurd step
         // past a note it was actually given, which needs the sentences to get there and needs
         // nothing whatsoever loosened about how it speaks: a paranormal host who swears is a

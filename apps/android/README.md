@@ -104,6 +104,16 @@ about the tree.
 A shallow checkout answers 1. That is why CI's bundle is not uploadable, and it does not need to
 be.
 
+### The privacy policy
+
+[`PRIVACY.md`](PRIVACY.md), and Play needs it at a public URL rather than as a file: the GitHub
+blob URL for it is enough. It is short because the app genuinely collects nothing, and it is
+accurate about the two things somebody would otherwise miss — the station is a server the listener
+chose and Marooned Software does not run it, and cover art may be fetched from a third-party image
+host when the station's own metadata points at one rather than at its cached copy.
+
+Keep it true if the app ever gains a dependency that phones home.
+
 ### What a reviewer sees
 
 This is a client for a server the reviewer does not have. On internal testing nobody reviews it

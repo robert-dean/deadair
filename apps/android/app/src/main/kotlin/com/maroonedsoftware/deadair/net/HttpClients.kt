@@ -42,12 +42,19 @@ object HttpClients {
      * Cheap to build — it wraps the shared client rather than creating one — and because the SDK
      * never closes a client it was handed, these can be made per station without leaking a
      * connection pool.
+     *
+     * `headers` is the caller's chance to add to the one header this always sends, and it is a
+     * `suspend` lambda because the SDK calls it once per REQUEST rather than once per client. That
+     * is what lets a session attach a bearer that changes underneath a client already in use, and
+     * it is why nothing has to rebuild an SDK to refresh a token. The agent is merged in here
+     * rather than left to callers: an anonymous poll and a signed-in read have to look like one
+     * listener to a station counting them, and forgetting it in one place would make them two.
      */
-    fun sdkFor(station: StationUrl): DeadairSdk =
+    fun sdkFor(station: StationUrl, headers: suspend () -> Map<String, String> = { emptyMap() }): DeadairSdk =
         DeadairSdk(
             SdkConfig(
                 baseUrl = station.apiBase,
-                headers = { mapOf("User-Agent" to USER_AGENT) },
+                headers = { mapOf("User-Agent" to USER_AGENT) + headers() },
                 httpClient = ktor,
             ),
         )

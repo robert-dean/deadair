@@ -3,6 +3,8 @@ package com.maroonedsoftware.deadair
 import android.app.Application
 import android.os.SystemClock
 import coil3.SingletonImageLoader
+import com.maroonedsoftware.deadair.auth.SessionManager
+import com.maroonedsoftware.deadair.auth.SessionStore
 import com.maroonedsoftware.deadair.net.HttpClients
 import com.maroonedsoftware.deadair.net.imageLoaderFactory
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingRepository
@@ -15,9 +17,9 @@ import kotlinx.coroutines.Dispatchers
 /**
  * The application object, and the few long-lived objects that hang off it.
  *
- * There is no dependency-injection framework here and there is not meant to be: this is three
- * objects, and a code generator to wire three objects is more moving parts than the thing it
- * wires. When it grows past what one class can hold, that is the moment to reconsider — not now.
+ * There is no dependency-injection framework here and there is not meant to be: this is a handful
+ * of objects, and a code generator to wire a handful of objects is more moving parts than the thing
+ * it wires. When it grows past what one class can hold, that is the moment to reconsider — not now.
  */
 class DeadairApp : Application() {
     lateinit var graph: AppGraph
@@ -41,7 +43,24 @@ class AppGraph(application: Application) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     val settings: SettingsStore = SettingsStore(application)
-    val probe: StationProbe = StationProbe(HttpClients::sdkFor)
+
+    // A lambda rather than a method reference: `sdkFor` gained a defaulted second parameter, and a
+    // reference to it is not a one-argument function type however it is called.
+    val probe: StationProbe = StationProbe { station -> HttpClients.sdkFor(station) }
+
+    val session: SessionStore = SessionStore(application)
+
+    /**
+     * The signed-in half, which most installs never use. It holds the refresh lock, so there is one
+     * of it: two would be two callers able to spend the same single-use refresh token.
+     */
+    val sessions: SessionManager =
+        SessionManager(
+            store = session,
+            settings = settings.settings,
+            sdkFor = HttpClients::sdkFor,
+            scope = scope,
+        )
 
     val nowPlaying: NowPlayingRepository =
         NowPlayingRepository(

@@ -37,6 +37,10 @@ sealed interface Destination : NavKey {
     /** Over the top of whichever tab was showing. A thing you go and do, then leave. */
     @Serializable
     data object Settings : Destination
+
+    /** One record, reached from anywhere it is named. */
+    @Serializable
+    data class Track(val id: String) : Destination
 }
 
 /**
@@ -53,6 +57,7 @@ val NavConfiguration: SavedStateConfiguration =
                 polymorphic(NavKey::class) {
                     subclass(Destination.Home::class)
                     subclass(Destination.Settings::class)
+                    subclass(Destination.Track::class)
                 }
             }
     }

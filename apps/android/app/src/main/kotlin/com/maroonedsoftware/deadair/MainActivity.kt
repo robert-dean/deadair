@@ -27,6 +27,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
+import com.maroonedsoftware.deadair.ui.catalog.TrackRoute
 import com.maroonedsoftware.deadair.ui.home.HomeRoute
 import com.maroonedsoftware.deadair.ui.nav.Destination
 import com.maroonedsoftware.deadair.ui.nav.NavConfiguration
@@ -136,6 +137,19 @@ private fun Listener(graph: AppGraph) {
                                 model.editExisting(station.origin)
                                 backStack.add(Destination.Settings)
                             },
+                            onTrack = { id -> backStack.add(Destination.Track(id)) },
+                        )
+                    }
+                    entry<Destination.Track> { key ->
+                        TrackRoute(
+                            graph = graph,
+                            settings = loaded,
+                            trackId = key.id,
+                            onBack = { backStack.removeLastOrNull() },
+                            // The album and artist pages arrive in the next phase; until then the
+                            // credit and the album are drawn as words rather than as links.
+                            onArtist = null,
+                            onAlbum = null,
                         )
                     }
                     entry<Destination.Settings> {

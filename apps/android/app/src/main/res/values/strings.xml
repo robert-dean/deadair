@@ -181,6 +181,37 @@
     <string name="dropped">Dropped “%1$s”.</string>
     <string name="put_it_back">Put it back</string>
 
+    <!-- A record's page -->
+    <string name="record">Record</string>
+    <string name="open_record">Open this record</string>
+    <string name="record_not_found">No record with that id is in the catalog.</string>
+    <string name="airings">Airings</string>
+    <string name="never_aired">Never aired</string>
+    <plurals name="aired_times">
+        <item quantity="one">Aired once</item>
+        <item quantity="other">Aired %1$d times</item>
+    </plurals>
+    <string name="about_this_record">About this record</string>
+    <string name="enrichment_heading">What the providers say</string>
+    <string name="enrichment_failed">Could not load what the providers said.</string>
+    <string name="enrichment_empty_record">No provider has been asked about this record yet. The enrichment pass picks up what it has not seen, oldest first.</string>
+    <string name="loading">Loading…</string>
+    <string name="field_released">Providers say released</string>
+    <string name="field_label">Label</string>
+    <string name="field_bpm">BPM</string>
+    <string name="field_key">Key</string>
+    <string name="field_isrc">ISRC</string>
+    <string name="show_source">Show the source</string>
+    <string name="hide_source">Hide the source</string>
+    <string name="read_more">Read more</string>
+    <string name="show_less">Show less</string>
+    <!-- Provider, then what it said: "musicbrainz · 3 May 2026" -->
+    <string name="source_line">%1$s · %2$s</string>
+    <string name="source_nothing_found">nothing found</string>
+    <string name="source_could_not_ask">could not ask</string>
+    <string name="source_could_not_reask">%1$s, could not re-ask</string>
+    <string name="source_due_again">due again</string>
+
     <!-- Rating: the station's own curation mark, with rotation consequences -->
     <string name="rating_dislike">Never play %1$s</string>
     <string name="rating_no_opinion">No opinion about %1$s</string>

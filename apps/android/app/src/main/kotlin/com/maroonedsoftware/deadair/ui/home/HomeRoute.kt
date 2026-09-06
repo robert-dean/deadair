@@ -65,6 +65,8 @@ fun HomeRoute(
     playback: PlayerUiState,
     connection: PlayerConnection,
     onSettings: () -> Unit,
+    /** Open a record's page. */
+    onTrack: (String) -> Unit,
 ) {
     // Survives a rotation, which `remember` alone would not, and a trip to Settings and back,
     // which the display's saveable-state decorator sees to.
@@ -214,28 +216,17 @@ fun HomeRoute(
                     silence = silence,
                     transport = transport,
                     handlers = handlers,
+                    // The cover leads to the record's page, for a signed-in listener: the public
+                    // reading names no record, so only the transport reading can say which it is.
+                    onArtwork = loaded?.status?.nowPlaying?.item?.trackId?.let { id -> { onTrack(id) } },
                 )
             }
             Tab.UP_NEXT -> {
-                var ratingTrackId by remember { mutableStateOf<String?>(null) }
                 val handlers =
                     if (!isOperator) {
                         null
                     } else {
                         OrderHandlers(
-                            onRate = { trackId: String, rating: Rating ->
-                                if (ratingTrackId == null) {
-                                    ratingTrackId = trackId
-                                    scope.launch {
-                                        try {
-                                            graph.catalog.rateTrack(trackId, rating)
-                                        } finally {
-                                            ratingTrackId = null
-                                        }
-                                    }
-                                }
-                            },
-                            ratingTrackId = ratingTrackId,
                             onMove = { itemId, toIndex -> orderAction(itemId) { graph.orderActions.move(itemId, toIndex) } },
                             onRemove = { item, atIndex ->
                                 orderAction(item.id) {
@@ -257,6 +248,7 @@ fun HomeRoute(
                     artUrlFor = { url -> station?.artUrl(url) },
                     onRetry = graph.order::retry,
                     onSettings = onSettings,
+                    onTrack = onTrack,
                     handlers = handlers,
                 )
             }
@@ -269,6 +261,7 @@ fun HomeRoute(
                     onLoadMore = graph.history::loadMore,
                     onRetry = graph.history::retry,
                     onSettings = onSettings,
+                    onTrack = onTrack,
                 )
             Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onRetry = graph.schedule::retry, onSettings = onSettings)
         }

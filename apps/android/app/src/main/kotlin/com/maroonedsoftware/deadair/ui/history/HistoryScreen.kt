@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.history
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -59,6 +60,8 @@ fun HistoryScreen(
     onLoadMore: suspend () -> Unit,
     onRetry: () -> Unit,
     onSettings: () -> Unit,
+    /** Open a record's page. Only rows the station could name a record for lead anywhere. */
+    onTrack: (String) -> Unit,
 ) {
     when (state) {
         HistoryState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_history), onSettings)
@@ -69,7 +72,7 @@ fun HistoryScreen(
                 if (state.entries.isEmpty()) {
                     EmptyPlaceholder(stringResource(R.string.history_empty))
                 } else {
-                    Records(state, artUrlFor, nowEpochMs, scope, onLoadMore)
+                    Records(state, artUrlFor, nowEpochMs, scope, onLoadMore, onTrack)
                 }
             }
     }
@@ -87,6 +90,7 @@ private fun Records(
     nowEpochMs: Long,
     scope: CoroutineScope,
     onLoadMore: suspend () -> Unit,
+    onTrack: (String) -> Unit,
 ) {
     // The device's own zone, read once per composition rather than per row: `airedAt` is a real
     // instant, so this is the zone it should be read back in.
@@ -101,7 +105,7 @@ private fun Records(
 
         LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
             itemsIndexed(state.entries, key = { _, entry -> entry.id }) { index, entry ->
-                Record(entry, artUrlFor(entry.artworkUrl), nowEpochMs, zone, stale = state.stale)
+                Record(entry, artUrlFor(entry.artworkUrl), nowEpochMs, zone, stale = state.stale, onOpen = entry.trackId?.let { id -> { onTrack(id) } })
                 // Between rows, not after the last: a rule above the Earlier button was a rule under nothing.
                 if (index < state.entries.lastIndex) HorizontalDivider()
             }
@@ -127,8 +131,9 @@ private fun Records(
 }
 
 @Composable
-private fun Record(entry: HistoryEntry, artworkUrl: String?, nowEpochMs: Long, zone: ZoneId, stale: Boolean) {
+private fun Record(entry: HistoryEntry, artworkUrl: String?, nowEpochMs: Long, zone: ZoneId, stale: Boolean, onOpen: (() -> Unit)?) {
     ListItem(
+        modifier = if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier,
         leadingContent = {
             Box(
                 modifier = Modifier.size(48.dp).clip(RoundedCornerShape(4.dp)),

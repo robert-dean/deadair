@@ -20,7 +20,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -43,7 +42,6 @@ import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.director.OrderState
 import com.maroonedsoftware.deadair.nowplaying.clockOf
-import com.maroonedsoftware.deadair.sdk.models.Rating
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItem
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItemKind
@@ -52,16 +50,11 @@ import com.maroonedsoftware.deadair.ui.ErrorPlaceholder
 import com.maroonedsoftware.deadair.ui.Refreshable
 import com.maroonedsoftware.deadair.ui.SignedOutPlaceholder
 import com.maroonedsoftware.deadair.ui.StaleBanner
-import com.maroonedsoftware.deadair.ui.catalog.RatingControl
 import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 
 /** What an operator can do to a row. `null` for anyone else, and the rows are then only read. */
 data class OrderHandlers(
-    /** Rate the record on a row. Offered on spent rows too: the record that just finished is the one an operator has an opinion about. */
-    val onRate: (trackId: String, Rating) -> Unit,
-    /** Which record's rating is being written, so its control waits rather than looking ignored. */
-    val ratingTrackId: String?,
     /** Move a planned row to a position in the whole order. */
     val onMove: (itemId: String, toIndex: Int) -> Unit,
     /** Drop a planned row. The position is the row's in the whole order at the moment of the tap, which is what an undo puts it back at. */
@@ -84,6 +77,8 @@ fun RunningOrderScreen(
     artUrlFor: (String?) -> String?,
     onRetry: () -> Unit,
     onSettings: () -> Unit,
+    /** Open a record's page. Every record row leads there, which is also where its rating lives. */
+    onTrack: (String) -> Unit,
     handlers: OrderHandlers?,
 ) {
     when (state) {
@@ -95,7 +90,7 @@ fun RunningOrderScreen(
                 if (state.order.items.isEmpty()) {
                     EmptyPlaceholder(stringResource(R.string.order_empty))
                 } else {
-                    Rows(state, artUrlFor, handlers)
+                    Rows(state, artUrlFor, onTrack, handlers)
                 }
             }
     }
@@ -103,7 +98,7 @@ fun RunningOrderScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, handlers: OrderHandlers?) {
+private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, onTrack: (String) -> Unit, handlers: OrderHandlers?) {
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     val ui = RunningOrderUiState(state.order.items, historyOpen)
     val listState = rememberLazyListState()
@@ -117,8 +112,6 @@ private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, hand
         if (at >= 0) listState.scrollToItem(at)
     }
 
-    var rating by remember { mutableStateOf<StationOrderItem?>(null) }
-
     Column(modifier = Modifier.fillMaxSize()) {
         if (state.stale) StaleBanner(state.lastGoodAtMs, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp))
 
@@ -131,13 +124,13 @@ private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, hand
 
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f)) {
             itemsIndexed(ui.shown, key = { _, item -> item.id }) { index, item ->
-                val rateable = handlers != null && item.kind == StationOrderItemKind.TRACK && item.trackId != null
+                val trackId = item.trackId?.takeIf { item.kind == StationOrderItemKind.TRACK }
                 val position = ui.positionOf(index)
                 Row(
                     item = item,
                     artworkUrl = artUrlFor(item.artworkUrl),
                     stale = state.stale,
-                    modifier = if (rateable) Modifier.clickable { rating = item } else Modifier,
+                    modifier = if (trackId != null) Modifier.clickable { onTrack(trackId) } else Modifier,
                     // A menu only on a row the player has not been handed: an affordance that could
                     // only ever answer 422 is worse than none.
                     menu =
@@ -157,40 +150,6 @@ private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, hand
                         },
                 )
                 if (index < ui.shown.lastIndex) HorizontalDivider()
-            }
-        }
-    }
-
-    val sheetFor = rating
-    val trackId = sheetFor?.trackId
-    if (sheetFor != null && trackId != null && handlers != null) {
-        // The row as it is NOW, so the control shows the rating the write just produced rather than
-        // the one the sheet opened on.
-        val current = ui.items.firstOrNull { it.id == sheetFor.id } ?: sheetFor
-        ModalBottomSheet(onDismissRequest = { rating = null }) {
-            Column(modifier = Modifier.padding(horizontal = Gutter).padding(bottom = 32.dp)) {
-                Text(current.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(
-                    current.artists.joinToString(", "),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                RatingControl(
-                    rating = current.rating,
-                    label = current.title,
-                    busy = handlers.ratingTrackId == trackId,
-                    onRate = { handlers.onRate(trackId, it) },
-                    modifier = Modifier.padding(top = 16.dp),
-                )
-                // Said plainly, because it is not a favourite: it is the station's own curation mark.
-                Text(
-                    stringResource(R.string.rating_caption),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 12.dp),
-                )
             }
         }
     }

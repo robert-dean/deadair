@@ -84,6 +84,8 @@ fun NowPlayingScreen(
     /** The operator's controls. `null` for anyone the station does not call its operator. */
     transport: TransportUiState? = null,
     handlers: TransportHandlers? = null,
+    /** Where the cover leads, when the record is known. */
+    onArtwork: (() -> Unit)? = null,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
@@ -98,6 +100,7 @@ fun NowPlayingScreen(
                 Artwork(
                     url = artworkUrl,
                     stale = state.stale,
+                    onOpen = onArtwork,
                     // Bounded by the height as well as the width: a square sized off half a wide
                     // screen is taller than the screen is.
                     modifier = Modifier.weight(1f).widthIn(max = ArtworkMaxWidth).heightIn(max = viewportHeight - 32.dp),
@@ -114,7 +117,7 @@ fun NowPlayingScreen(
             }
         } else {
             CentredColumn {
-                Artwork(url = artworkUrl, stale = state.stale, modifier = Modifier.fillMaxWidth().widthIn(max = ArtworkMaxWidth))
+                Artwork(url = artworkUrl, stale = state.stale, onOpen = onArtwork, modifier = Modifier.fillMaxWidth().widthIn(max = ArtworkMaxWidth))
                 Words(state, modifier = Modifier.padding(top = 32.dp))
                 Controls(state, playhead, onPlay, onStop, onOpenFormat)
                 Operator(transport, handlers, silence)
@@ -244,9 +247,13 @@ private fun Operator(transport: TransportUiState?, handlers: TransportHandlers?,
 }
 
 @Composable
-private fun Artwork(url: String?, stale: Boolean, modifier: Modifier = Modifier) {
+private fun Artwork(url: String?, stale: Boolean, onOpen: (() -> Unit)?, modifier: Modifier = Modifier) {
+    val opens = stringResource(R.string.open_record)
     Box(
-        modifier = modifier.aspectRatio(1f).clip(RoundedCornerShape(12.dp)),
+        modifier =
+            modifier.aspectRatio(1f).clip(RoundedCornerShape(12.dp)).then(
+                if (onOpen != null) Modifier.clickable(role = Role.Button, onClickLabel = opens, onClick = onOpen) else Modifier,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         if (url == null) {

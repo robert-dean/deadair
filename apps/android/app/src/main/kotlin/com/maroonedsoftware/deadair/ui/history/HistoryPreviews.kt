@@ -25,7 +25,7 @@ private val entries =
 private fun Framed(state: HistoryState) {
     DeadairTheme {
         Surface {
-            HistoryScreen(state, artUrlFor = { null }, nowEpochMs = now, scope = rememberCoroutineScope(), onLoadMore = {}, onRetry = {}, onSettings = {})
+            HistoryScreen(state, artUrlFor = { null }, nowEpochMs = now, scope = rememberCoroutineScope(), onLoadMore = {}, onRetry = {}, onSettings = {}, onTrack = {})
         }
     }
 }

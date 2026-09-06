@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.ui.text
 import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
+import com.maroonedsoftware.deadair.ui.catalog.EnrichmentField
 import com.maroonedsoftware.deadair.station.StreamFormat
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -132,6 +133,13 @@ sealed interface Message {
     data object NoAudioYet : Message
 
     data object WillSkip : Message
+
+    // ── A record's page ───────────────────────────────────────────────────────────────────
+    /** The label on one of the enrichment scalars. */
+    data class Field(val field: EnrichmentField) : Message
+
+    /** Who said it and when: "musicbrainz · 3 May · due again". */
+    data class Provenance(val source: com.maroonedsoftware.deadair.ui.catalog.Provenance) : Message
 
     // ── A stale reading ───────────────────────────────────────────────────────────────────
     data object LastSaid : Message

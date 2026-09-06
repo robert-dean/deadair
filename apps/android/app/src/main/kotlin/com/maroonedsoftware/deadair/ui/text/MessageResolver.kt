@@ -11,6 +11,10 @@ import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
+import com.maroonedsoftware.deadair.ui.catalog.EnrichmentField
+import com.maroonedsoftware.deadair.ui.catalog.SourceState
+import java.time.Instant as JavaInstant
+import java.time.format.FormatStyle
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -124,6 +128,32 @@ fun Message.resolve(): String =
                     StationItemState.REMOVED -> R.string.item_removed
                 },
             )
+        is Message.Field ->
+            stringResource(
+                when (field) {
+                    EnrichmentField.RELEASED -> R.string.field_released
+                    EnrichmentField.LABEL -> R.string.field_label
+                    EnrichmentField.BPM -> R.string.field_bpm
+                    EnrichmentField.KEY -> R.string.field_key
+                    EnrichmentField.ISRC -> R.string.field_isrc
+                },
+            )
+        is Message.Provenance -> {
+            val locale = ComposeLocale.current.platformLocale
+            val date =
+                JavaInstant.ofEpochMilli(source.fetchedAt.toEpochMilliseconds())
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
+            val state =
+                when (source.state) {
+                    SourceState.FOUND -> date
+                    SourceState.NOTHING_FOUND -> stringResource(R.string.source_nothing_found)
+                    SourceState.COULD_NOT_ASK -> stringResource(R.string.source_could_not_ask)
+                    SourceState.COULD_NOT_REASK -> stringResource(R.string.source_could_not_reask, date)
+                }
+            val line = stringResource(R.string.source_line, source.provider, state)
+            if (source.stale) stringResource(R.string.source_line, line, stringResource(R.string.source_due_again)) else line
+        }
         Message.NotWrittenYet -> stringResource(R.string.item_not_written_yet)
         Message.NoAudioYet -> stringResource(R.string.item_no_audio_yet)
         Message.WillSkip -> stringResource(R.string.item_will_skip)

@@ -1,0 +1,57 @@
+package com.maroonedsoftware.deadair.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+
+/**
+ * What a tab shows before anybody has signed in.
+ *
+ * An offer rather than a wall, and phrased as one. The station keeps this behind an account because
+ * it is the console's own data, not because a listener is unwelcome — and the tab is reachable
+ * without one precisely so the offer can be seen at all.
+ */
+@Composable
+fun SignedOutPlaceholder(what: String, onSettings: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(what, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Text(
+            "The station keeps this for signed-in listeners. Listening itself needs no account.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        Button(onClick = onSettings, modifier = Modifier.padding(top = 24.dp)) { Text("Sign in") }
+    }
+}
+
+/** The same shape for a tab that has nothing to show yet, so an empty answer is not read as a fault. */
+@Composable
+fun EmptyPlaceholder(what: String) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            what,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}

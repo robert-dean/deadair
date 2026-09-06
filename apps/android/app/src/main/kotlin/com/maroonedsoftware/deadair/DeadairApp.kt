@@ -8,6 +8,7 @@ import com.maroonedsoftware.deadair.auth.SessionStore
 import com.maroonedsoftware.deadair.net.HttpClients
 import com.maroonedsoftware.deadair.net.imageLoaderFactory
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingRepository
+import com.maroonedsoftware.deadair.schedule.ScheduleRepository
 import com.maroonedsoftware.deadair.settings.SettingsStore
 import com.maroonedsoftware.deadair.station.StationProbe
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +60,19 @@ class AppGraph(application: Application) {
             store = session,
             settings = settings.settings,
             sdkFor = HttpClients::sdkFor,
+            scope = scope,
+        )
+
+    /**
+     * What the station is scheduled to do, which only a signed-in listener can be told. Every read
+     * goes through the session, so a signed-out install polls nothing at all.
+     */
+    val schedule: ScheduleRepository =
+        ScheduleRepository(
+            session = sessions.state,
+            readCurrent = { sessions.withSession { it.schedule.readCurrentSlot() } },
+            readSlots = { sessions.withSession { it.schedule.listSchedule().slots } },
+            readPersonas = { sessions.withSession { it.personas.listPersonas().personas } },
             scope = scope,
         )
 

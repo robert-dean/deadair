@@ -148,6 +148,20 @@ repo's dot-notation file rule is for TypeScript and stays there. **Prettier does
 this** — it has no parser for `.kt`, `.kts`, `.toml` or `.properties` — but it does check `.json`
 and `.yml`, so keep configuration out of those two formats here.
 
+**Navigation is Navigation 3, and it arrived with the detail pages rather than before them.**
+Three tabs and a settings flag were an enum and a `when` for as long as that was all there was, and
+a library then would have been a dependency plus a second place for the answer to live. A record
+page reached from a history row, an album behind it and an artist behind that is a back stack
+whether or not anything calls it one. Nav3 is the shape this tree already prefers: the stack is a
+plain list of values that state holds and the display observes, keys are typed and serialisable
+rather than route strings to be parsed, and predictive back comes from `NavDisplay` rather than
+from wiring. Two rules fall out. **Every `Destination` is registered in `NavConfiguration`'s
+polymorphic module**, because the stack is saved as a list of the `NavKey` interface and a
+subclass it cannot name saves fine and fails to restore. And **the tabs are not destinations**: the
+bottom bar is state inside the `Home` entry, so back from a tab returns to Now playing rather than
+unwinding a history of taps, which is what Android guidance asks of a bottom bar. Setup is chosen
+above the stack from `station == null` and is never pushed, so it is not a place back can reach.
+
 Pure logic — URL resolution, mount selection, the playhead projection — stays free of `android.*`
 imports so plain JVM unit tests cover it. There are no instrumented tests and none are wanted.
 

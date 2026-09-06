@@ -134,6 +134,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.datastore.preferences)
+    // The back stack. A state-driven list of serialisable keys rather than route strings, with
+    // predictive back for free; see `ui/nav/Destination.kt` for why it arrived when it did.
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.navigation3.ui)
     implementation(libs.bundles.media3)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)

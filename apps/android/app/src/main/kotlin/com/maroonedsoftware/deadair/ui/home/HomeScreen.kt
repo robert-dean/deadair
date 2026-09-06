@@ -20,11 +20,12 @@ import com.maroonedsoftware.deadair.R
 /**
  * Which of the station's faces is showing.
  *
- * An enum and a `when`, with no navigation library behind it. A handful of destinations, no back
- * stack worth the name, no deep links and no route strings: what a library would add here is a dependency
- * and a second place for the answer to live. Settings is still not one of these — it is a screen
- * over the top of whichever tab is showing, reached from the bar above rather than the one below,
- * because it is a thing you go and do rather than a thing you look at.
+ * The tabs are an enum and a `when`, and they are deliberately not entries on the back stack:
+ * switching between them is not leaving the screen, and back from any of them returns to the first
+ * rather than unwinding a history of taps. The stack proper — a record page, an album behind it,
+ * settings over the top — is `ui/nav/Destination.kt`'s, and `Home` is one entry on it however many
+ * tabs it holds. Settings is reached from the bar above rather than the one below, because it is a
+ * thing you go and do rather than a thing you look at.
  */
 enum class Tab(val label: String, val icon: Int) {
     NOW_PLAYING("Now playing", R.drawable.ic_radio),

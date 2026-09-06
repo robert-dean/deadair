@@ -28,6 +28,7 @@ import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.SessionState
+import com.maroonedsoftware.deadair.ui.text.resolve
 
 /**
  * Signing in, which most listeners never will.
@@ -66,15 +68,12 @@ fun AccountSection(
         when (session) {
             is SessionState.SignedIn -> SignedIn(session, onSignOut)
             SessionState.SignedOut -> {
-                Text(
-                    "Optional. Listening needs no account. Signing in adds what the station has played and what is on next.",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                Text(stringResource(R.string.account_optional), style = MaterialTheme.typography.bodyMedium)
 
                 OutlinedTextField(
                     value = account.email,
                     onValueChange = onEmailChange,
-                    label = { Text("Email") },
+                    label = { Text(stringResource(R.string.email)) },
                     singleLine = true,
                     enabled = !account.busy,
                     isError = account.error != null,
@@ -90,19 +89,19 @@ fun AccountSection(
                 OutlinedTextField(
                     value = account.password,
                     onValueChange = onPasswordChange,
-                    label = { Text("Password") },
+                    label = { Text(stringResource(R.string.password)) },
                     singleLine = true,
                     enabled = !account.busy,
                     isError = account.error != null,
                     // The error sits under the password rather than the email because that is the
                     // field a listener retypes, and it is the one this app clears for them.
-                    supportingText = account.error?.let { { Text(it) } },
+                    supportingText = account.error?.let { { Text(it.resolve()) } },
                     visualTransformation = if (passwordShown) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { passwordShown = !passwordShown }) {
                             Icon(
                                 painterResource(if (passwordShown) R.drawable.ic_visibility_off else R.drawable.ic_visibility),
-                                contentDescription = if (passwordShown) "Hide password" else "Show password",
+                                contentDescription = stringResource(if (passwordShown) R.string.hide_password else R.string.show_password),
                             )
                         }
                     },
@@ -118,7 +117,7 @@ fun AccountSection(
                     if (account.busy) {
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
                     } else {
-                        Text("Sign in")
+                        Text(stringResource(R.string.sign_in))
                     }
                 }
             }
@@ -133,7 +132,7 @@ private fun SignedIn(session: SessionState.SignedIn, onSignOut: () -> Unit) {
         // Which of the two things this account is, because the difference is the difference
         // between a phone that can skip a record and one that can only see it playing.
         supportingContent = {
-            Text(if (session.isOperator) "Signed in as the operator of this station" else "Signed in to this station as a listener")
+            Text(stringResource(if (session.isOperator) R.string.signed_in_operator else R.string.signed_in_listener))
         },
         modifier = Modifier.fillMaxWidth(),
     )
@@ -141,13 +140,13 @@ private fun SignedIn(session: SessionState.SignedIn, onSignOut: () -> Unit) {
     // Asked once. One tap on a full-width button drops the tokens and blanks two tabs, and a thumb
     // scrolling past it is the ordinary way that would happen.
     var confirming by rememberSaveable { mutableStateOf(false) }
-    OutlinedButton(onClick = { confirming = true }, modifier = Modifier.fillMaxWidth()) { Text("Sign out") }
+    OutlinedButton(onClick = { confirming = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out)) }
 
     if (confirming) {
         AlertDialog(
             onDismissRequest = { confirming = false },
-            title = { Text("Sign out?") },
-            text = { Text("What the station has played and what is on next go back behind the sign-in. Listening is not affected.") },
+            title = { Text(stringResource(R.string.sign_out_question)) },
+            text = { Text(stringResource(R.string.sign_out_detail)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -155,10 +154,10 @@ private fun SignedIn(session: SessionState.SignedIn, onSignOut: () -> Unit) {
                         onSignOut()
                     },
                 ) {
-                    Text("Sign out")
+                    Text(stringResource(R.string.sign_out))
                 }
             },
-            dismissButton = { TextButton(onClick = { confirming = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

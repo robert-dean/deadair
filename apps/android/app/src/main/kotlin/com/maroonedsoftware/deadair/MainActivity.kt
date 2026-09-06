@@ -8,7 +8,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,6 +34,7 @@ import com.maroonedsoftware.deadair.ui.settings.SettingsScreen
 import com.maroonedsoftware.deadair.ui.settings.SettingsViewModel
 import com.maroonedsoftware.deadair.ui.settings.availableFormats
 import com.maroonedsoftware.deadair.ui.setup.SetupScreen
+import com.maroonedsoftware.deadair.ui.text.LocalUses24HourClock
 import com.maroonedsoftware.deadair.ui.theme.DeadairTheme
 
 class MainActivity : ComponentActivity() {
@@ -40,8 +43,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val graph = (application as DeadairApp).graph
         setContent {
-            DeadairTheme {
-                Listener(graph)
+            // The phone's own clock preference, read once here so nothing below reaches for
+            // `android.text.format` and everything that writes a time agrees.
+            CompositionLocalProvider(LocalUses24HourClock provides DateFormat.is24HourFormat(this)) {
+                DeadairTheme {
+                    Listener(graph)
+                }
             }
         }
     }

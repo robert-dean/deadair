@@ -1,6 +1,10 @@
 package com.maroonedsoftware.deadair.ui
 
 import com.maroonedsoftware.deadair.ui.history.airedLabel
+import com.maroonedsoftware.deadair.ui.text.AiredLabel
+import com.maroonedsoftware.deadair.ui.text.Clock
+import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import org.junit.Assert.assertEquals
@@ -23,24 +27,24 @@ class HistoryClockTest {
 
     @Test
     fun `today is just the clock`() {
-        assertEquals("21:14", airedLabel(at(2026, 9, 6, 21, 14), now, london))
-        assertEquals("08:05", airedLabel(at(2026, 9, 6, 8, 5), now, london))
+        assertEquals(AiredLabel.Today(Clock(21, 14)), airedLabel(at(2026, 9, 6, 21, 14), now, london))
+        assertEquals(AiredLabel.Today(Clock(8, 5)), airedLabel(at(2026, 9, 6, 8, 5), now, london))
     }
 
     @Test
     fun `yesterday says so`() {
-        assertEquals("Yesterday 23:50", airedLabel(at(2026, 9, 5, 23, 50), now, london))
+        assertEquals(AiredLabel.Yesterday(Clock(23, 50)), airedLabel(at(2026, 9, 5, 23, 50), now, london))
     }
 
     @Test
     fun `inside the week a weekday still identifies the day`() {
         // 2 September 2026 is a Wednesday.
-        assertEquals("Wed 14:00", airedLabel(at(2026, 9, 2, 14, 0), now, london))
+        assertEquals(AiredLabel.Weekday(DayOfWeek.WEDNESDAY, Clock(14, 0)), airedLabel(at(2026, 9, 2, 14, 0), now, london))
     }
 
     @Test
     fun `past a week a weekday stops identifying anything`() {
-        assertEquals("28 Aug", airedLabel(at(2026, 8, 28, 14, 0), now, london))
+        assertEquals(AiredLabel.OnDate(LocalDate.of(2026, 8, 28)), airedLabel(at(2026, 8, 28, 14, 0), now, london))
     }
 
     @Test
@@ -49,7 +53,7 @@ class HistoryClockTest {
         // a point in time, unlike a schedule block's ends.
         val moment = at(2026, 9, 6, 21, 14)
 
-        assertEquals("21:14", airedLabel(moment, now, london))
-        assertEquals("22:14", airedLabel(moment, now, ZoneId.of("Europe/Paris")))
+        assertEquals(AiredLabel.Today(Clock(21, 14)), airedLabel(moment, now, london))
+        assertEquals(AiredLabel.Today(Clock(22, 14)), airedLabel(moment, now, ZoneId.of("Europe/Paris")))
     }
 }

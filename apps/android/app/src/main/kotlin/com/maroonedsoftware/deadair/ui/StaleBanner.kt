@@ -9,9 +9,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.maroonedsoftware.deadair.ui.text.Clock
+import com.maroonedsoftware.deadair.ui.text.Message
+import com.maroonedsoftware.deadair.ui.text.resolve
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /**
  * What a screen says when its reading is no longer current.
@@ -29,13 +31,9 @@ fun StaleBanner(lastGoodAtMs: Long?, modifier: Modifier = Modifier) {
         shape = RoundedCornerShape(8.dp),
         modifier = modifier.fillMaxWidth(),
     ) {
+        val message = if (lastGoodAtMs == null) Message.LastSaid else Message.LastSaidAt(clockOf(lastGoodAtMs))
         Text(
-            text =
-                if (lastGoodAtMs == null) {
-                    "Could not reach the station just now. This is the last it said."
-                } else {
-                    "Could not reach the station just now. Showing what it said at ${clockOf(lastGoodAtMs)}."
-                },
+            text = message.resolve(),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -43,6 +41,4 @@ fun StaleBanner(lastGoodAtMs: Long?, modifier: Modifier = Modifier) {
     }
 }
 
-private fun clockOf(epochMs: Long): String = Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).format(CLOCK)
-
-private val CLOCK: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+private fun clockOf(epochMs: Long): Clock = Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).let { Clock(it.hour, it.minute) }

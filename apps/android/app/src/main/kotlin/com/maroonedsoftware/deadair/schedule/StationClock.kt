@@ -1,5 +1,8 @@
 package com.maroonedsoftware.deadair.schedule
 
+import com.maroonedsoftware.deadair.ui.text.Clock
+import com.maroonedsoftware.deadair.ui.text.Message
+import com.maroonedsoftware.deadair.ui.text.Span
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -40,42 +43,35 @@ fun minutesBetween(from: String, to: String): Long {
  *
  * The unit gets coarser as the number gets bigger, which is the point of it: a block that runs once
  * a week is genuinely six days off, and "161 h" is a true answer nobody can read. Past a day the
- * minutes stop being information.
+ * minutes stop being information. Answered as a value rather than words, so the words can be the
+ * language's.
  */
-fun formatSpan(minutes: Long): String {
-    if (minutes <= 0) return "ending"
-    if (minutes < MINUTES_PER_HOUR) return "$minutes min"
+fun spanOf(minutes: Long): Span {
+    if (minutes <= 0) return Span.Ending
+    if (minutes < MINUTES_PER_HOUR) return Span.Minutes(minutes)
 
-    if (minutes < MINUTES_PER_DAY) {
-        val hours = minutes / MINUTES_PER_HOUR
-        val rest = minutes % MINUTES_PER_HOUR
-        return if (rest == 0L) "$hours h" else "$hours h $rest min"
-    }
+    if (minutes < MINUTES_PER_DAY) return Span.Hours(minutes / MINUTES_PER_HOUR, minutes % MINUTES_PER_HOUR)
 
     val days = Math.round(minutes.toDouble() / MINUTES_PER_DAY)
-    return if (days == 1L) "a day" else "$days days"
+    return if (days == 1L) Span.ADay else Span.Days(days)
 }
 
 /**
  * A block's hours, with the weekday when it is not the one the station is having.
  *
  * The date is dropped rather than shown in full: these sit stacked and the useful difference between
- * them is the hour, not the year.
+ * them is the hour, not the year. `null` for a stamp that cannot be read, which is nothing to show.
  */
-fun formatHours(start: String, end: String, now: String): String {
-    val from = readClock(start)
-    val to = readClock(end)
-    if (from == null || to == null) return ""
+fun hoursOf(start: String, end: String, now: String): Message.BlockHours? {
+    val from = readClock(start) ?: return null
+    val to = readClock(end) ?: return null
 
     val today = readClock(now)?.toLocalDate()
-    val prefix = if (today != null && from.toLocalDate() != today) "${DAY_LABELS[from.dayOfWeek.value % 7]} " else ""
-    return "$prefix${clockOf(from)}–${clockOf(to)}"
+    val day = if (today != null && from.toLocalDate() != today) from.dayOfWeek else null
+    return Message.BlockHours(from = clockOf(from), to = clockOf(to), day = day)
 }
 
-private fun clockOf(at: LocalDateTime): String = "%02d:%02d".format(at.hour, at.minute)
-
-/** Sunday first, matching the API's own day numbering on a slot. */
-private val DAY_LABELS = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+private fun clockOf(at: LocalDateTime): Clock = Clock(at.hour, at.minute)
 
 private const val MINUTES_PER_HOUR = 60L
 private const val MINUTES_PER_DAY = 24L * MINUTES_PER_HOUR

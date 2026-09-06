@@ -1,5 +1,9 @@
 package com.maroonedsoftware.deadair.schedule
 
+import com.maroonedsoftware.deadair.ui.text.Clock
+import com.maroonedsoftware.deadair.ui.text.Message
+import com.maroonedsoftware.deadair.ui.text.Span
+import java.time.DayOfWeek
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -25,7 +29,7 @@ class StationClockTest {
     @Test
     fun `measures backwards as a negative, so a block already over reads as ending`() {
         assertEquals(-15L, minutesBetween("2026-09-06 20:15:00", "2026-09-06 20:00:00"))
-        assertEquals("ending", formatSpan(minutesBetween("2026-09-06 20:15:00", "2026-09-06 20:00:00")))
+        assertEquals(Span.Ending, spanOf(minutesBetween("2026-09-06 20:15:00", "2026-09-06 20:00:00")))
     }
 
     @Test
@@ -44,29 +48,32 @@ class StationClockTest {
     }
 
     @Test
-    fun `says a length the way somebody would say it`() {
-        assertEquals("ending", formatSpan(0))
-        assertEquals("1 min", formatSpan(1))
-        assertEquals("59 min", formatSpan(59))
-        assertEquals("1 h", formatSpan(60))
-        assertEquals("1 h 30 min", formatSpan(90))
-        assertEquals("23 h 59 min", formatSpan(1439))
-        assertEquals("a day", formatSpan(1440))
-        assertEquals("6 days", formatSpan(6 * 24 * 60))
+    fun `measures a length in the unit somebody would say it in`() {
+        assertEquals(Span.Ending, spanOf(0))
+        assertEquals(Span.Minutes(1), spanOf(1))
+        assertEquals(Span.Minutes(59), spanOf(59))
+        assertEquals(Span.Hours(1, 0), spanOf(60))
+        assertEquals(Span.Hours(1, 30), spanOf(90))
+        assertEquals(Span.Hours(23, 59), spanOf(1439))
+        assertEquals(Span.ADay, spanOf(1440))
+        assertEquals(Span.Days(6), spanOf(6 * 24 * 60))
     }
 
     @Test
     fun `gives a block its hours, and its weekday only when it is not today`() {
         val now = "2026-09-06 20:30:00"
 
-        assertEquals("20:00–22:00", formatHours("2026-09-06 20:00:00", "2026-09-06 22:00:00", now))
+        assertEquals(Message.BlockHours(Clock(20, 0), Clock(22, 0), day = null), hoursOf("2026-09-06 20:00:00", "2026-09-06 22:00:00", now))
         // 7 September 2026 is a Monday. Three of these sit stacked and the useful difference
         // between them is the hour, so the date is dropped and the day kept.
-        assertEquals("Mon 09:00–11:00", formatHours("2026-09-07 09:00:00", "2026-09-07 11:00:00", now))
+        assertEquals(
+            Message.BlockHours(Clock(9, 0), Clock(11, 0), day = DayOfWeek.MONDAY),
+            hoursOf("2026-09-07 09:00:00", "2026-09-07 11:00:00", now),
+        )
     }
 
     @Test
     fun `gives no hours at all for a stamp it cannot read`() {
-        assertEquals("", formatHours("soon", "2026-09-06 22:00:00", "2026-09-06 20:30:00"))
+        assertNull(hoursOf("soon", "2026-09-06 22:00:00", "2026-09-06 20:30:00"))
     }
 }

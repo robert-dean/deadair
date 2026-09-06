@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.ui.settings
 
 import com.maroonedsoftware.deadair.station.StationCheck
 import com.maroonedsoftware.deadair.station.StationUrl
+import com.maroonedsoftware.deadair.ui.text.Message
 
 /**
  * The address field, as the setup and settings screens both show it.
@@ -15,7 +16,7 @@ data class StationEntryState(
     val checking: Boolean = false,
     /** Set once an address has answered, so the button can name the station rather than "Save". */
     val confirmedName: String? = null,
-    val error: String? = null,
+    val error: Message? = null,
     /** True when the entered address is plain HTTP, which is ordinary here and worth saying once. */
     val cleartext: Boolean = false,
     /**
@@ -26,12 +27,12 @@ data class StationEntryState(
     val stored: String? = null,
 ) {
     /** What sits under the field: the error if there is one, else the confirmation, else the caution. */
-    val supportingText: String?
+    val supportingText: Message?
         get() =
             when {
                 error != null -> error
-                confirmedName != null -> "Answered as $confirmedName"
-                cleartext -> "Not encrypted. Ordinary on a home network, where the station has no certificate."
+                confirmedName != null -> Message.AnsweredAs(confirmedName)
+                cleartext -> Message.NotEncrypted
                 else -> null
             }
 
@@ -54,7 +55,7 @@ data class StationEntryState(
             StationEntryState(address = address, cleartext = address.trim().startsWith("http://", ignoreCase = true), stored = stored)
 
         /** What is in the field does not parse as an address at all. */
-        fun invalid(address: String, stored: String? = null): StationEntryState = typing(address, stored).copy(error = "That is not an address")
+        fun invalid(address: String, stored: String? = null): StationEntryState = typing(address, stored).copy(error = Message.NotAnAddress)
 
         /** Turn a probe's answer into the state the field shows. */
         fun from(address: String, check: StationCheck, stored: String? = null): StationEntryState {
@@ -62,24 +63,10 @@ data class StationEntryState(
             return when (check) {
                 is StationCheck.Reachable -> base.copy(confirmedName = check.stationName)
                 is StationCheck.Incompatible ->
-                    base.copy(
-                        error =
-                            if (check.missing == null) {
-                                "That is a deadair station, but it answers a shape this app does not know. It may need updating."
-                            } else {
-                                "That is a deadair station running an older API: it does not report `${check.missing}`. Update the station."
-                            },
-                    )
+                    base.copy(error = if (check.missing == null) Message.UnknownShape else Message.OlderApi(check.missing))
                 is StationCheck.NotAStation ->
-                    base.copy(
-                        error =
-                            if (check.status == null) {
-                                "Something answered, but not a station. Check the address."
-                            } else {
-                                "Answered ${check.status}, which is not a station. Check the address."
-                            },
-                    )
-                is StationCheck.Unreachable -> base.copy(error = "Could not reach it. Check the address and that you are on the right network.")
+                    base.copy(error = if (check.status == null) Message.NotAStation else Message.AnsweredStatus(check.status))
+                is StationCheck.Unreachable -> base.copy(error = Message.CouldNotReach)
             }
         }
     }

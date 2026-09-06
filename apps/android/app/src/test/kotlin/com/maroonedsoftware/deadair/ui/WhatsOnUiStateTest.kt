@@ -8,6 +8,9 @@ import com.maroonedsoftware.deadair.sdk.models.ScheduleSlotMode
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlotOnEnd
 import com.maroonedsoftware.deadair.ui.schedule.OnNow
 import com.maroonedsoftware.deadair.ui.schedule.whatsOn
+import com.maroonedsoftware.deadair.ui.text.Clock
+import com.maroonedsoftware.deadair.ui.text.Message
+import com.maroonedsoftware.deadair.ui.text.Span
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -51,9 +54,9 @@ class WhatsOnUiStateTest {
         val state = whatsOn(ScheduleNow(now = now, slotId = "slot-1", airingSlotId = "slot-1", upcoming = listOf(evening, next)), emptyList(), emptyList())
 
         val live = state.onNow as OnNow.Live
-        assertEquals("On air", live.eyebrow)
-        assertEquals("Late Night", live.block.label)
-        assertEquals("1 h 30 min left", live.leftLabel)
+        assertEquals(Message.OnAir, live.eyebrow)
+        assertEquals(Message.Text("Late Night"), live.block.label)
+        assertEquals(Message.Left(Span.Hours(1, 30)), live.leftLabel)
         // Thirty minutes into two hours.
         assertEquals(0.25f, live.progress, 0.001f)
     }
@@ -63,9 +66,9 @@ class WhatsOnUiStateTest {
         val state = whatsOn(ScheduleNow(now = now, upcoming = listOf(next, after)), emptyList(), emptyList())
 
         assertTrue(state.onNow is OnNow.Between)
-        assertEquals(listOf("Up next", "After that"), state.ahead.map { it.eyebrow })
-        assertEquals("Small Hours", state.ahead.first().block.label)
-        assertEquals("in 1 h 30 min", state.ahead.first().startsIn)
+        assertEquals(listOf(Message.UpNext, Message.AfterThat), state.ahead.map { it.eyebrow })
+        assertEquals(Message.Text("Small Hours"), state.ahead.first().block.label)
+        assertEquals(Message.In(Span.Hours(1, 30)), state.ahead.first().startsIn)
     }
 
     @Test
@@ -78,7 +81,7 @@ class WhatsOnUiStateTest {
             )
 
         val live = state.onNow as OnNow.Live
-        assertEquals("Due now", live.eyebrow)
+        assertEquals(Message.DueNow, live.eyebrow)
         assertTrue(live.takenOver)
     }
 
@@ -95,7 +98,7 @@ class WhatsOnUiStateTest {
     fun `a station with no schedule at all is not a takeover`() {
         val state = whatsOn(ScheduleNow(now = now, upcoming = listOf(evening)), emptyList(), emptyList())
 
-        assertEquals("On air", (state.onNow as OnNow.Live).eyebrow)
+        assertEquals(Message.OnAir, (state.onNow as OnNow.Live).eyebrow)
     }
 
     @Test
@@ -103,7 +106,7 @@ class WhatsOnUiStateTest {
         val state = whatsOn(ScheduleNow(now = now, upcoming = listOf(next)), emptyList(), emptyList())
 
         val between = state.onNow as OnNow.Between
-        assertEquals("The station is on its sustaining source for the next 1 h 30 min.", between.detail)
+        assertEquals(Message.SustainingFor(Span.Hours(1, 30)), between.detail)
     }
 
     @Test
@@ -111,7 +114,7 @@ class WhatsOnUiStateTest {
         val state = whatsOn(ScheduleNow(now = now, upcoming = emptyList()), emptyList(), emptyList())
 
         val between = state.onNow as OnNow.Between
-        assertEquals("No block is due from here on, so the station stays on whatever it is set to sustain on.", between.detail)
+        assertEquals(Message.NoBlockDue, between.detail)
         assertTrue(state.ahead.isEmpty())
     }
 
@@ -129,7 +132,7 @@ class WhatsOnUiStateTest {
         val live = state.onNow as OnNow.Live
         assertEquals("Cass", live.block.host)
         assertEquals("slow records", live.block.brief)
-        assertEquals("20:00–22:00", live.block.hours)
+        assertEquals(Message.BlockHours(Clock(20, 0), Clock(22, 0), day = null), live.block.hours)
     }
 
     @Test
@@ -156,7 +159,7 @@ class WhatsOnUiStateTest {
         val unnamed = block("slot-1", "", "2026-09-06 20:00:00", "2026-09-06 22:00:00")
         val state = whatsOn(ScheduleNow(now = now, upcoming = listOf(unnamed)), emptyList(), emptyList())
 
-        assertEquals("Untitled", (state.onNow as OnNow.Live).block.label)
+        assertEquals(Message.Untitled, (state.onNow as OnNow.Live).block.label)
     }
 
     @Test
@@ -169,7 +172,7 @@ class WhatsOnUiStateTest {
             )
 
         assertEquals(2, state.ahead.size)
-        assertEquals(listOf("Small Hours", "Dawn"), state.ahead.map { it.block.label })
+        assertEquals(listOf(Message.Text("Small Hours"), Message.Text("Dawn")), state.ahead.map { it.block.label })
     }
 
     @Test

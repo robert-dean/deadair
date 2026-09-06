@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -43,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 
@@ -77,12 +80,12 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings)) },
                 // A way out that is on the screen. System back always worked; a screen with no
                 // title and no arrow read as somewhere you had been dropped rather than gone.
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = "Back")
+                        Icon(painterResource(R.drawable.ic_arrow_back), contentDescription = stringResource(R.string.back))
                     }
                 },
             )
@@ -98,15 +101,15 @@ fun SettingsScreen(
                 modifier = Modifier.widthIn(max = FormMaxWidth).fillMaxWidth().padding(horizontal = Gutter),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("Station", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+                Text(stringResource(R.string.section_station), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
 
                 OutlinedTextField(
                     value = entry.address,
                     onValueChange = onAddressChange,
-                    label = { Text("Station address") },
+                    label = { Text(stringResource(R.string.station_address)) },
                     singleLine = true,
                     isError = entry.error != null,
-                    supportingText = entry.supportingText?.let { { Text(it) } },
+                    supportingText = entry.supportingText?.let { { Text(it.resolve()) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
                     keyboardActions = KeyboardActions(onGo = { if (entry.showsCheck && entry.address.isNotBlank() && !entry.checking) onCheck() }),
                     modifier = Modifier.fillMaxWidth(),
@@ -118,20 +121,20 @@ fun SettingsScreen(
                 // it, because swapping the button for a spinner moved the layout on every tap.
                 when {
                     entry.confirmedName != null ->
-                        Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth()) { Text("Use ${entry.confirmedName}") }
+                        Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.use_station, entry.confirmedName)) }
                     entry.showsCheck ->
                         Button(onClick = onCheck, enabled = entry.address.isNotBlank() && !entry.checking, modifier = Modifier.fillMaxWidth()) {
                             if (entry.checking) {
                                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
                             } else {
-                                Text("Check")
+                                Text(stringResource(R.string.check))
                             }
                         }
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                Text("Format", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.section_format), style = MaterialTheme.typography.titleMedium)
                 Column(Modifier.selectableGroup()) {
                     StreamFormat.entries.forEach { option ->
                         // Absent from the station's `mounts[]` means the operator has not switched
@@ -140,7 +143,7 @@ fun SettingsScreen(
                         val available = availability[option] ?: true
                         ListItem(
                             headlineContent = { Text(option.label) },
-                            supportingContent = { Text(if (available) describe(option) else "Not published by this station") },
+                            supportingContent = { Text(stringResource(if (available) describe(option) else R.string.format_not_published)) },
                             // The radio draws the state; the row is what is pressed. A radio that
                             // was the only target left the rest of a full-width row dead, and
                             // TalkBack with a control and a label it could not put together.
@@ -154,7 +157,7 @@ fun SettingsScreen(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
-                Text("Account", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.section_account), style = MaterialTheme.typography.titleMedium)
                 AccountSection(
                     session = session,
                     account = account,
@@ -171,11 +174,12 @@ fun SettingsScreen(
 }
 
 /** One line on what choosing each format buys, so the five rows are the same height and the same shape. */
-private fun describe(format: StreamFormat): String =
+@StringRes
+private fun describe(format: StreamFormat): Int =
     when (format) {
-        StreamFormat.MP3 -> "Always available"
-        StreamFormat.HLS -> "Survives moving between wifi and mobile data"
-        StreamFormat.AAC -> "Smaller than MP3 at the same quality"
-        StreamFormat.OPUS -> "Smallest of all, and the newest"
-        StreamFormat.FLAC -> "Lossless. Uses the most data"
+        StreamFormat.MP3 -> R.string.format_mp3
+        StreamFormat.HLS -> R.string.format_hls
+        StreamFormat.AAC -> R.string.format_aac
+        StreamFormat.OPUS -> R.string.format_opus
+        StreamFormat.FLAC -> R.string.format_flac
     }

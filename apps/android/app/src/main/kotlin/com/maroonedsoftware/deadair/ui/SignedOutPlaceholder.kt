@@ -6,8 +6,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.maroonedsoftware.deadair.R
 
 /**
  * What a tab shows before anybody has signed in.
@@ -21,13 +23,13 @@ fun SignedOutPlaceholder(what: String, onSettings: () -> Unit) {
     CentredColumn {
         Text(what, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         Text(
-            "The station keeps this for signed-in listeners. Listening itself needs no account.",
+            stringResource(R.string.signed_out_detail),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
         )
-        Button(onClick = onSettings, modifier = Modifier.padding(top = 24.dp)) { Text("Sign in") }
+        Button(onClick = onSettings, modifier = Modifier.padding(top = 24.dp)) { Text(stringResource(R.string.sign_in)) }
     }
 }
 
@@ -43,13 +45,13 @@ fun ErrorPlaceholder(what: String, onRetry: () -> Unit) {
     CentredColumn {
         Text(what, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
         Text(
-            "Check that you are on the right network. The app keeps trying on its own, more slowly each time.",
+            stringResource(R.string.error_detail),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp),
         )
-        Button(onClick = onRetry, modifier = Modifier.padding(top = 24.dp)) { Text("Try again") }
+        Button(onClick = onRetry, modifier = Modifier.padding(top = 24.dp)) { Text(stringResource(R.string.try_again)) }
     }
 }
 

@@ -30,7 +30,15 @@ sealed interface SignInResult {
     /** The station read the credentials and said no. The listener can fix this by typing again. */
     data object BadCredentials : SignInResult
 
-    /** Anything else: no network, a station that is down, an answer this app cannot use. */
+    /**
+     * The station answered with something this app cannot do. Named rather than worded, so the
+     * words live with the rest of the app's copy and not in a class that has no screen.
+     */
+    data class Unsupported(val reason: Reason) : SignInResult {
+        enum class Reason { SECOND_FACTOR, NO_REFRESH_TOKEN }
+    }
+
+    /** Anything else: no network, a station that is down. Carries the diagnostic, which is never shown. */
     data class Failed(val message: String?) : SignInResult
 }
 
@@ -121,14 +129,14 @@ class SessionManager(
             // The other arm is `mfa_required`. The station's MFA policy always allows today, so
             // this is unreachable rather than unsupported — and saying which is the difference
             // between a listener who tries again and one who goes looking for a setting.
-            return SignInResult.Failed("This station asked for a second factor, which this app cannot answer yet")
+            return SignInResult.Unsupported(SignInResult.Unsupported.Reason.SECOND_FACTOR)
         }
 
         val refreshToken =
             answer.refreshToken
                 // Without one, the session simply ends when the access token does, with nothing to
                 // renew it from and no way to say so at the time. Refusing now is the honest moment.
-                ?: return SignInResult.Failed("The station issued no refresh token")
+                ?: return SignInResult.Unsupported(SignInResult.Unsupported.Reason.NO_REFRESH_TOKEN)
 
         store.save(StoredSession(origin = station.origin, email = email, accessToken = answer.accessToken, refreshToken = refreshToken))
 

@@ -165,6 +165,17 @@ above the stack from `station == null` and is never pushed, so it is not a place
 Pure logic — URL resolution, mount selection, the playhead projection — stays free of `android.*`
 imports so plain JVM unit tests cover it. There are no instrumented tests and none are wanted.
 
+**Words: pure state returns a `Message`, never a sentence.** The state classes that decide what a
+line says (`NowPlayingUiState`, `StationEntryState`, `AccountState`, `WhatsOnUiState`, the two
+clocks) answer with a value from `ui/text/Message.kt` — `Message.OffAir`, `Message.Listeners(n,
+format)`, `Span.Hours(1, 30)`, `AiredLabel.Yesterday(clock)` — and the JVM tests assert on that
+value. The words live in `res/values/strings.xml` and nowhere else, and `Message.resolve()` at the
+Compose edge is where they are looked up, with the plurals and the twelve- or twenty-four-hour clock
+(`LocalUses24HourClock`, provided once at the root from the phone's setting). The resolver's `when`
+is exhaustive, so a message without a string is a compile error rather than an English fallback.
+`Message.Text` carries words the STATION sent — a title, a credit, a block's label — and is never
+used for app copy; the moment it is, that string cannot be translated and nothing will say so.
+
 ```bash
 cd apps/android && ./gradlew :sdk:build :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
 ```

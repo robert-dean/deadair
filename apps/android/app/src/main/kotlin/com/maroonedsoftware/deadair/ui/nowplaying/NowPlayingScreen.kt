@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -39,6 +40,7 @@ import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.nowplaying.Playhead
 import com.maroonedsoftware.deadair.ui.CentredColumn
+import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.ArtworkMaxWidth
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 
@@ -113,7 +115,7 @@ private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            state.title,
+            state.title.resolve(),
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center,
             maxLines = 2,
@@ -121,7 +123,7 @@ private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
         )
         state.subtitle?.let {
             Text(
-                it,
+                it.resolve(),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -158,13 +160,14 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
     // icon is swapped for a spinner, and a name that went with the icon left TalkBack announcing
     // an unlabelled button that was still a live stop control — for as long as a warm-up takes,
     // which on an audience-gated station is every time.
-    val label = if (state.playing) "Stop" else "Play"
+    val label = stringResource(if (state.playing) R.string.stop else R.string.play)
+    val buffering = stringResource(R.string.buffering)
     FilledIconButton(
         onClick = if (state.playing) onStop else onPlay,
         modifier =
             Modifier.padding(top = 32.dp).size(72.dp).semantics {
                 contentDescription = label
-                if (state.buffering) stateDescription = "Buffering"
+                if (state.buffering) stateDescription = buffering
             },
     ) {
         if (state.buffering) {
@@ -179,16 +182,16 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
     }
 
     Text(
-        state.footer,
+        state.footer.resolve(),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
         modifier = Modifier.padding(top = 16.dp),
     )
 
-    if (state.fellBackToMp3) {
+    state.fallbackNote?.let {
         Text(
-            "This station does not publish ${state.format.label}. Playing MP3.",
+            it.resolve(),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center,

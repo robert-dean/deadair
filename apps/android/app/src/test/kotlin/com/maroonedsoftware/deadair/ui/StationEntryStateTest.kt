@@ -2,9 +2,9 @@ package com.maroonedsoftware.deadair.ui
 
 import com.maroonedsoftware.deadair.station.StationCheck
 import com.maroonedsoftware.deadair.ui.settings.StationEntryState
+import com.maroonedsoftware.deadair.ui.text.Message
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,22 +23,21 @@ class StationEntryStateTest {
 
         assertEquals("Static Between Stations", state.confirmedName)
         assertNull(state.error)
-        assertEquals("Answered as Static Between Stations", state.supportingText)
+        assertEquals(Message.AnsweredAs("Static Between Stations"), state.supportingText)
     }
 
     @Test
     fun `names the status when something answered and was not a station`() {
         val state = StationEntryState.from("https://example.com", StationCheck.NotAStation(404))
 
-        assertNotNull(state.error)
-        assertTrue(state.error!!.contains("404"))
+        assertEquals(Message.AnsweredStatus(404), state.error)
     }
 
     @Test
     fun `says something answered even when there was no status to name`() {
         val state = StationEntryState.from("https://example.com", StationCheck.NotAStation(null))
 
-        assertTrue(state.error!!.contains("not a station"))
+        assertEquals(Message.NotAStation, state.error)
     }
 
     @Test
@@ -46,23 +45,21 @@ class StationEntryStateTest {
         // The fix is a deploy, not a different address, so the message has to say so.
         val state = StationEntryState.from("https://radio.example.com", StationCheck.Incompatible("mounts"))
 
-        assertTrue(state.error!!.contains("older API"))
-        assertTrue(state.error!!.contains("mounts"))
-        assertTrue(state.error!!.contains("Update the station"))
+        assertEquals(Message.OlderApi("mounts"), state.error)
     }
 
     @Test
     fun `still explains an unknown shape when it cannot name the field`() {
         val state = StationEntryState.from("https://radio.example.com", StationCheck.Incompatible(null))
 
-        assertTrue(state.error!!.contains("does not know"))
+        assertEquals(Message.UnknownShape, state.error)
     }
 
     @Test
     fun `tells a listener to check the network when nothing answered`() {
         val state = StationEntryState.from("https://nope.invalid", StationCheck.Unreachable("dns"))
 
-        assertTrue(state.error!!.contains("network"))
+        assertEquals(Message.CouldNotReach, state.error)
     }
 
     @Test
@@ -71,7 +68,7 @@ class StationEntryStateTest {
 
         assertTrue(state.cleartext)
         assertNull(state.error)
-        assertTrue(state.supportingText!!.contains("Not encrypted"))
+        assertEquals(Message.NotEncrypted, state.supportingText)
     }
 
     @Test
@@ -126,6 +123,7 @@ class StationEntryStateTest {
 
         assertEquals("https://radio.example.com", refused.stored)
         assertEquals("https://radio.example.com", invalid.stored)
+        assertEquals(Message.NotAnAddress, invalid.error)
         assertTrue(refused.showsCheck)
     }
 

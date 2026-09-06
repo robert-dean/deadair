@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
@@ -34,6 +35,8 @@ import com.maroonedsoftware.deadair.ui.ErrorPlaceholder
 import com.maroonedsoftware.deadair.ui.Refreshable
 import com.maroonedsoftware.deadair.ui.SignedOutPlaceholder
 import com.maroonedsoftware.deadair.ui.StaleBanner
+import com.maroonedsoftware.deadair.ui.text.Message
+import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
@@ -58,13 +61,13 @@ fun HistoryScreen(
     onSettings: () -> Unit,
 ) {
     when (state) {
-        HistoryState.SignedOut -> SignedOutPlaceholder("Recently played", onSettings)
+        HistoryState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_history), onSettings)
         HistoryState.Loading -> Loading()
-        HistoryState.Unreachable -> ErrorPlaceholder("Could not reach the station", onRetry)
+        HistoryState.Unreachable -> ErrorPlaceholder(stringResource(R.string.error_could_not_reach), onRetry)
         is HistoryState.Loaded ->
             Refreshable(state = state, onRefresh = onRetry) {
                 if (state.entries.isEmpty()) {
-                    EmptyPlaceholder("Nothing has aired yet.")
+                    EmptyPlaceholder(stringResource(R.string.history_empty))
                 } else {
                     Records(state, artUrlFor, nowEpochMs, scope, onLoadMore)
                 }
@@ -113,7 +116,7 @@ private fun Records(
                         // day of radio is spending the station's time as well as their own, and a list
                         // that loaded forever on its own would do that without being told to.
                         TextButton(onClick = { scope.launch { onLoadMore() } }, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                            Text("Earlier")
+                            Text(stringResource(R.string.earlier))
                         }
                     }
                 }
@@ -149,7 +152,7 @@ private fun Record(entry: HistoryEntry, artworkUrl: String?, nowEpochMs: Long, z
         supportingContent = { Text(entry.artists, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailingContent = {
             Text(
-                airedLabel(entry.airedAt.toEpochMilliseconds(), nowEpochMs, zone),
+                Message.Aired(airedLabel(entry.airedAt.toEpochMilliseconds(), nowEpochMs, zone)).resolve(),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

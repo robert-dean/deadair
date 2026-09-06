@@ -16,13 +16,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.schedule.ScheduleState
 import com.maroonedsoftware.deadair.ui.ErrorPlaceholder
 import com.maroonedsoftware.deadair.ui.Refreshable
 import com.maroonedsoftware.deadair.ui.SignedOutPlaceholder
 import com.maroonedsoftware.deadair.ui.StaleBanner
+import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 
 /**
@@ -35,7 +38,7 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
 @Composable
 fun WhatsOnScreen(state: ScheduleState, onRetry: () -> Unit, onSettings: () -> Unit) {
     when (state) {
-        ScheduleState.SignedOut -> SignedOutPlaceholder("What's on", onSettings)
+        ScheduleState.SignedOut -> SignedOutPlaceholder(stringResource(R.string.tab_whats_on), onSettings)
         ScheduleState.Loading -> Loading()
         is ScheduleState.Answered ->
             Refreshable(state = state, onRefresh = onRetry) {
@@ -44,7 +47,7 @@ fun WhatsOnScreen(state: ScheduleState, onRetry: () -> Unit, onSettings: () -> U
         is ScheduleState.Unreachable -> {
             val last = state.lastGood
             if (last == null) {
-                ErrorPlaceholder("Could not reach the station", onRetry)
+                ErrorPlaceholder(stringResource(R.string.error_could_not_reach), onRetry)
             } else {
                 // Kept rather than blanked: what is shown was true a moment ago, and a screen that
                 // emptied itself on one failed poll would make every hiccup look like the station
@@ -92,7 +95,7 @@ private fun Blocks(state: WhatsOnUiState, staleSince: Long?, stale: Boolean) {
 private fun LiveCard(live: OnNow.Live) {
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Heading(live.eyebrow, live.leftLabel)
+            Heading(live.eyebrow.resolve(), live.leftLabel.resolve())
             BlockBody(live.block)
             LinearProgressIndicator(progress = { live.progress }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
 
@@ -100,8 +103,7 @@ private fun LiveCard(live: OnNow.Live) {
                 // The word in the eyebrow is the correction; this is why. Without it, a listener is
                 // told a show is on while plainly hearing something else.
                 Text(
-                    "The station is airing something else, which is what happens when it was put on by hand. " +
-                        "It moves back to the schedule when the next block begins.",
+                    stringResource(R.string.schedule_taken_over),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -114,9 +116,9 @@ private fun LiveCard(live: OnNow.Live) {
 private fun BetweenCard(between: OnNow.Between) {
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Heading("Between blocks", "")
-            Text("Nothing scheduled", style = MaterialTheme.typography.titleMedium)
-            Text(between.detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Heading(stringResource(R.string.schedule_between_blocks), "")
+            Text(stringResource(R.string.schedule_nothing_scheduled), style = MaterialTheme.typography.titleMedium)
+            Text(between.detail.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -125,7 +127,7 @@ private fun BetweenCard(between: OnNow.Between) {
 private fun AheadCard(ahead: Ahead) {
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Heading(ahead.eyebrow, ahead.startsIn)
+            Heading(ahead.eyebrow.resolve(), ahead.startsIn.resolve())
             BlockBody(ahead.block)
         }
     }
@@ -147,10 +149,16 @@ private fun Heading(eyebrow: String, trailing: String) {
 
 @Composable
 private fun BlockBody(block: BlockCard) {
-    Text(block.label, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    Text(block.label.resolve(), style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
 
-    val line = if (block.host == null) block.hours else "${block.hours} · ${block.host}"
-    Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val hours = block.hours?.resolve()
+    val line =
+        when {
+            hours == null -> block.host
+            block.host == null -> hours
+            else -> stringResource(R.string.schedule_hours_and_host, hours, block.host)
+        }
+    line?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 
     block.brief?.let {
         Text(

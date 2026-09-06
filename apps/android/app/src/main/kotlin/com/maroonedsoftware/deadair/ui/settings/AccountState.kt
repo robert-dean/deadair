@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.ui.settings
 
 import com.maroonedsoftware.deadair.auth.SignInResult
+import com.maroonedsoftware.deadair.ui.text.Message
 
 /**
  * The sign-in fields, as the settings screen shows them.
@@ -17,7 +18,7 @@ data class AccountState(
     val email: String = "",
     val password: String = "",
     val busy: Boolean = false,
-    val error: String? = null,
+    val error: Message? = null,
 ) {
     /** Enough typed to be worth sending. Not validation: the station decides, and it is the only one that can. */
     val canSubmit: Boolean get() = !busy && email.isNotBlank() && password.isNotEmpty()
@@ -38,14 +39,23 @@ data class AccountState(
         fun from(current: AccountState, result: SignInResult): AccountState =
             when (result) {
                 SignInResult.Ok -> AccountState()
-                SignInResult.BadCredentials -> current.copy(password = "", busy = false, error = "That email and password did not work")
+                SignInResult.BadCredentials -> current.copy(password = "", busy = false, error = Message.BadCredentials)
+                is SignInResult.Unsupported ->
+                    current.copy(
+                        busy = false,
+                        error =
+                            when (result.reason) {
+                                SignInResult.Unsupported.Reason.SECOND_FACTOR -> Message.SecondFactorUnsupported
+                                SignInResult.Unsupported.Reason.NO_REFRESH_TOKEN -> Message.NoRefreshToken
+                            },
+                    )
                 is SignInResult.Failed ->
                     current.copy(
                         busy = false,
                         // The station's own words are not shown. They are an HTTP message or an
                         // exception, written for whoever wrote the station rather than for whoever
                         // is holding the phone, and neither tells a listener what to do next.
-                        error = "Could not reach the station to sign in",
+                        error = Message.CouldNotReachToSignIn,
                     )
             }
     }

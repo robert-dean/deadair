@@ -1,18 +1,20 @@
 package com.maroonedsoftware.deadair.ui.schedule
 
-import com.maroonedsoftware.deadair.schedule.formatHours
-import com.maroonedsoftware.deadair.schedule.formatSpan
+import com.maroonedsoftware.deadair.schedule.hoursOf
 import com.maroonedsoftware.deadair.schedule.minutesBetween
+import com.maroonedsoftware.deadair.schedule.spanOf
 import com.maroonedsoftware.deadair.sdk.models.Persona
 import com.maroonedsoftware.deadair.sdk.models.ScheduleNow
 import com.maroonedsoftware.deadair.sdk.models.ScheduleOccurrence
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlot
+import com.maroonedsoftware.deadair.ui.text.Message
 
 /** A block, as a card shows it. */
 data class BlockCard(
-    val label: String,
-    /** `HH:mm–HH:mm`, with the weekday when it is not the station's own today. */
-    val hours: String,
+    /** The station's own label, or `Untitled` for a slot that has none. */
+    val label: Message,
+    /** The block's hours, with the weekday when it is not the station's own today. Absent for a stamp that cannot be read. */
+    val hours: Message.BlockHours?,
     val host: String?,
     val brief: String?,
 )
@@ -21,18 +23,18 @@ data class BlockCard(
 sealed interface OnNow {
     data class Live(
         val block: BlockCard,
-        /** "On air", or "Due now" while the station is doing something else. */
-        val eyebrow: String,
-        val leftLabel: String,
+        /** `OnAir`, or `DueNow` while the station is doing something else. */
+        val eyebrow: Message,
+        val leftLabel: Message,
         val progress: Float,
         val takenOver: Boolean,
     ) : OnNow
 
-    data class Between(val detail: String) : OnNow
+    data class Between(val detail: Message) : OnNow
 }
 
 /** A block that has not started yet. */
-data class Ahead(val eyebrow: String, val startsIn: String, val block: BlockCard)
+data class Ahead(val eyebrow: Message, val startsIn: Message, val block: BlockCard)
 
 data class WhatsOnUiState(val onNow: OnNow, val ahead: List<Ahead>)
 
@@ -78,20 +80,15 @@ fun whatsOn(current: ScheduleNow, slots: List<ScheduleSlot>, personas: List<Pers
     val onNow =
         if (live == null) {
             OnNow.Between(
-                detail =
-                    if (first == null) {
-                        "No block is due from here on, so the station stays on whatever it is set to sustain on."
-                    } else {
-                        "The station is on its sustaining source for the next ${formatSpan(minutesBetween(current.now, first.start))}."
-                    },
+                detail = if (first == null) Message.NoBlockDue else Message.SustainingFor(spanOf(minutesBetween(current.now, first.start))),
             )
         } else {
             val total = minutesBetween(live.start, live.end)
             val gone = minutesBetween(live.start, current.now)
             OnNow.Live(
                 block = cardFor(live, current.now, slots, personas),
-                eyebrow = if (takenOver) "Due now" else "On air",
-                leftLabel = "${formatSpan(total - gone)} left",
+                eyebrow = if (takenOver) Message.DueNow else Message.OnAir,
+                leftLabel = Message.Left(spanOf(total - gone)),
                 // A block with no length cannot be part-way through one, so it reads as not started
                 // rather than as finished: the bar is the honest shape of "nothing to report".
                 progress = if (total <= 0) 0f else (gone.toFloat() / total.toFloat()).coerceIn(0f, 1f),
@@ -104,8 +101,8 @@ fun whatsOn(current: ScheduleNow, slots: List<ScheduleSlot>, personas: List<Pers
         ahead =
             upcoming.mapIndexed { index, block ->
                 Ahead(
-                    eyebrow = if (index == 0) "Up next" else "After that",
-                    startsIn = "in ${formatSpan(minutesBetween(current.now, block.start))}",
+                    eyebrow = if (index == 0) Message.UpNext else Message.AfterThat,
+                    startsIn = Message.In(spanOf(minutesBetween(current.now, block.start))),
                     block = cardFor(block, current.now, slots, personas),
                 )
             },
@@ -118,8 +115,8 @@ private fun cardFor(block: ScheduleOccurrence, now: String, slots: List<Schedule
 
     return BlockCard(
         // A slot may genuinely be unnamed, and an empty heading is worse than an honest placeholder.
-        label = block.label.ifBlank { "Untitled" },
-        hours = formatHours(block.start, block.end, now),
+        label = block.label.ifBlank { null }?.let(Message::Text) ?: Message.Untitled,
+        hours = hoursOf(block.start, block.end, now),
         // The name they are introduced by, falling back to the one the operator filed them under.
         host = host?.let { it.djName?.takeIf(String::isNotBlank) ?: it.label },
         brief = slot?.brief?.takeIf(String::isNotBlank),

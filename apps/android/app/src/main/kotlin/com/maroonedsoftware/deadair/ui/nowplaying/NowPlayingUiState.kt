@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.ui.nowplaying
 
 import com.maroonedsoftware.deadair.nowplaying.AirState
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.ui.text.Message
 
 /**
  * The screen, as data.
@@ -21,37 +22,34 @@ data class NowPlayingUiState(
     /** Whether what is on screen came from a reading that has since gone stale. */
     val stale: Boolean = false,
 ) {
-    val title: String
+    val title: Message
         get() = when (val state = air) {
-            is AirState.OnAir -> state.track.title
-            AirState.WarmingUp -> "Warming up"
-            AirState.OffAir -> "Off air"
-            AirState.Unreachable -> "Can't reach the station"
+            is AirState.OnAir -> Message.Text(state.track.title)
+            AirState.WarmingUp -> Message.WarmingUp
+            AirState.OffAir -> Message.OffAir
+            AirState.Unreachable -> Message.CantReachStation
         }
 
-    val subtitle: String?
+    val subtitle: Message?
         get() = when (val state = air) {
-            is AirState.OnAir -> state.track.artist.ifBlank { null }
+            is AirState.OnAir -> state.track.artist.ifBlank { null }?.let(Message::Text)
             // An invitation rather than a status. On an audience-gated station this is the normal
             // resting state, and the surprising fact about it is that pressing play is what puts
             // the station on air — a line that read "nobody is listening" over a play button made
             // the button look pointless, when it was the whole answer.
-            AirState.OffAir -> "Quiet until someone tunes in — press play to start it."
-            AirState.WarmingUp -> "The station is coming on air"
-            AirState.Unreachable -> if (stale) "Showing the last thing it said" else null
+            AirState.OffAir -> Message.QuietUntilSomeoneTunesIn
+            AirState.WarmingUp -> Message.ComingOnAir
+            AirState.Unreachable -> if (stale) Message.ShowingLastSaid else null
         }
 
     val album: String?
         get() = (air as? AirState.OnAir)?.track?.album
 
-    /** The line under the controls: who is listening, and how. */
-    val footer: String
-        get() {
-            val people = when (listeners) {
-                0L -> "Nobody listening"
-                1L -> "1 listening"
-                else -> "$listeners listening"
-            }
-            return "$people · ${format.label}"
-        }
+    /** The line under the controls: who is listening, and how. The count is spelled by the language, not here. */
+    val footer: Message
+        get() = Message.Listeners(listeners, format)
+
+    /** Said only when the chosen format was not there to be had. */
+    val fallbackNote: Message?
+        get() = if (fellBackToMp3) Message.FellBackToMp3(format) else null
 }

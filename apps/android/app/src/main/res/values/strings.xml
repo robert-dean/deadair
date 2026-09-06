@@ -1,4 +1,133 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Every word the app says. The Kotlin that decides WHAT to say returns a `Message` and never a
+    sentence, so this file is the only place a sentence lives; see `ui/text/Message.kt`.
+-->
 <resources>
     <string name="app_name">deadair</string>
+
+    <!-- The frame -->
+    <string name="tab_now_playing">Now playing</string>
+    <string name="tab_history">Played</string>
+    <string name="tab_whats_on">What\'s on</string>
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+
+    <!-- Now playing -->
+    <string name="now_warming_up">Warming up</string>
+    <string name="now_off_air">Off air</string>
+    <string name="now_cant_reach">Can\'t reach the station</string>
+    <string name="now_quiet_until_someone_tunes_in">Quiet until someone tunes in — press play to start it.</string>
+    <string name="now_coming_on_air">The station is coming on air</string>
+    <string name="now_showing_last_said">Showing the last thing it said</string>
+    <string name="nobody_listening">Nobody listening</string>
+    <plurals name="listening">
+        <item quantity="one">%1$d listening</item>
+        <item quantity="other">%1$d listening</item>
+    </plurals>
+    <!-- Who is listening, then how: "3 listening · MP3" -->
+    <string name="now_footer">%1$s · %2$s</string>
+    <string name="now_fell_back_to_mp3">This station does not publish %1$s. Playing MP3.</string>
+    <string name="play">Play</string>
+    <string name="stop">Stop</string>
+    <string name="buffering">Buffering</string>
+
+    <!-- First run and the station address -->
+    <string name="setup_intro">The address your station\'s console loads from. The same one carries the stream.</string>
+    <string name="station_address">Station address</string>
+    <string name="station_address_example">https://radio.example.com</string>
+    <string name="check">Check</string>
+    <string name="listen_to">Listen to %1$s</string>
+    <string name="use_station">Use %1$s</string>
+    <string name="station_answered_as">Answered as %1$s</string>
+    <string name="station_not_encrypted">Not encrypted. Ordinary on a home network, where the station has no certificate.</string>
+    <string name="station_not_an_address">That is not an address</string>
+    <string name="station_unknown_shape">That is a deadair station, but it answers a shape this app does not know. It may need updating.</string>
+    <string name="station_older_api">That is a deadair station running an older API: it does not report `%1$s`. Update the station.</string>
+    <string name="station_not_a_station">Something answered, but not a station. Check the address.</string>
+    <string name="station_answered_status">Answered %1$d, which is not a station. Check the address.</string>
+    <string name="station_could_not_reach">Could not reach it. Check the address and that you are on the right network.</string>
+
+    <!-- Settings -->
+    <string name="section_station">Station</string>
+    <string name="section_format">Format</string>
+    <string name="section_account">Account</string>
+    <string name="format_mp3">Always available</string>
+    <string name="format_hls">Survives moving between wifi and mobile data</string>
+    <string name="format_aac">Smaller than MP3 at the same quality</string>
+    <string name="format_opus">Smallest of all, and the newest</string>
+    <string name="format_flac">Lossless. Uses the most data</string>
+    <string name="format_not_published">Not published by this station</string>
+
+    <!-- The account -->
+    <string name="account_optional">Optional. Listening needs no account. Signing in adds what the station has played and what is on next.</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="show_password">Show password</string>
+    <string name="hide_password">Hide password</string>
+    <string name="sign_in">Sign in</string>
+    <string name="sign_out">Sign out</string>
+    <string name="sign_out_question">Sign out?</string>
+    <string name="sign_out_detail">What the station has played and what is on next go back behind the sign-in. Listening is not affected.</string>
+    <string name="cancel">Cancel</string>
+    <string name="signed_in_operator">Signed in as the operator of this station</string>
+    <string name="signed_in_listener">Signed in to this station as a listener</string>
+    <string name="account_bad_credentials">That email and password did not work</string>
+    <string name="account_could_not_reach">Could not reach the station to sign in</string>
+    <string name="account_second_factor_unsupported">This station asked for a second factor, which this app cannot answer yet</string>
+    <string name="account_no_refresh_token">The station issued no refresh token</string>
+
+    <!-- A tab before sign-in, an error, an empty answer, a stale reading -->
+    <string name="signed_out_detail">The station keeps this for signed-in listeners. Listening itself needs no account.</string>
+    <string name="error_could_not_reach">Could not reach the station</string>
+    <string name="error_detail">Check that you are on the right network. The app keeps trying on its own, more slowly each time.</string>
+    <string name="try_again">Try again</string>
+    <string name="stale_last_said">Could not reach the station just now. This is the last it said.</string>
+    <string name="stale_last_said_at">Could not reach the station just now. Showing what it said at %1$s.</string>
+
+    <!-- History -->
+    <string name="history_empty">Nothing has aired yet.</string>
+    <string name="earlier">Earlier</string>
+    <string name="history_yesterday_at">Yesterday %1$s</string>
+    <!-- Weekday, then the time: "Wed 14:00" -->
+    <string name="history_weekday_at">%1$s %2$s</string>
+
+    <!-- The schedule -->
+    <string name="schedule_on_air">On air</string>
+    <string name="schedule_due_now">Due now</string>
+    <string name="schedule_up_next">Up next</string>
+    <string name="schedule_after_that">After that</string>
+    <string name="schedule_between_blocks">Between blocks</string>
+    <string name="schedule_nothing_scheduled">Nothing scheduled</string>
+    <string name="schedule_untitled">Untitled</string>
+    <string name="schedule_left">%1$s left</string>
+    <string name="schedule_in">in %1$s</string>
+    <string name="schedule_sustaining_for">The station is on its sustaining source for the next %1$s.</string>
+    <string name="schedule_no_block_due">No block is due from here on, so the station stays on whatever it is set to sustain on.</string>
+    <string name="schedule_taken_over">The station is airing something else, which is what happens when it was put on by hand. It moves back to the schedule when the next block begins.</string>
+    <!-- "20:00–22:00", and with a weekday when it is not today: "Mon 09:00–11:00" -->
+    <string name="schedule_hours">%1$s–%2$s</string>
+    <string name="schedule_hours_on_day">%1$s %2$s–%3$s</string>
+    <!-- Hours, then who is on: "20:00–22:00 · Cass" -->
+    <string name="schedule_hours_and_host">%1$s · %2$s</string>
+    <string name="span_ending">ending</string>
+    <!-- Plurals even where English does not inflect, because the languages that do inflect "min" and "h" need the slot -->
+    <plurals name="span_minutes">
+        <item quantity="one">%1$d min</item>
+        <item quantity="other">%1$d min</item>
+    </plurals>
+    <plurals name="span_hours">
+        <item quantity="one">%1$d h</item>
+        <item quantity="other">%1$d h</item>
+    </plurals>
+    <!-- Keyed on the hours; the minutes ride along as the second argument -->
+    <plurals name="span_hours_minutes">
+        <item quantity="one">%1$d h %2$d min</item>
+        <item quantity="other">%1$d h %2$d min</item>
+    </plurals>
+    <string name="span_a_day">a day</string>
+    <plurals name="span_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
 </resources>

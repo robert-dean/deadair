@@ -13,9 +13,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.maroonedsoftware.deadair.R
 
@@ -29,10 +32,10 @@ import com.maroonedsoftware.deadair.R
  * tabs it holds. Settings is reached from the bar above rather than the one below, because it is a
  * thing you go and do rather than a thing you look at.
  */
-enum class Tab(val label: String, val icon: Int) {
-    NOW_PLAYING("Now playing", R.drawable.ic_radio),
-    HISTORY("Played", R.drawable.ic_history),
-    WHATS_ON("What's on", R.drawable.ic_schedule),
+enum class Tab(@param:StringRes val label: Int, @param:DrawableRes val icon: Int) {
+    NOW_PLAYING(R.string.tab_now_playing, R.drawable.ic_radio),
+    HISTORY(R.string.tab_history, R.drawable.ic_history),
+    WHATS_ON(R.string.tab_whats_on, R.drawable.ic_schedule),
 }
 
 /**
@@ -64,7 +67,7 @@ fun HomeScreen(
                 scrollBehavior = scrollBehavior,
                 actions = {
                     IconButton(onClick = onSettings) {
-                        Icon(painterResource(R.drawable.ic_settings), contentDescription = "Settings")
+                        Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.settings))
                     }
                 },
             )
@@ -78,8 +81,8 @@ fun HomeScreen(
                         // The label is the description as well: it says the same thing, and a
                         // screen reader announcing something different from what is written under
                         // the icon is worse than one repeating it.
-                        icon = { Icon(painterResource(entry.icon), contentDescription = entry.label) },
-                        label = { Text(entry.label) },
+                        icon = { Icon(painterResource(entry.icon), contentDescription = stringResource(entry.label)) },
+                        label = { Text(stringResource(entry.label)) },
                     )
                 }
             }

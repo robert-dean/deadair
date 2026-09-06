@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.ui
 
 import com.maroonedsoftware.deadair.auth.SignInResult
 import com.maroonedsoftware.deadair.ui.settings.AccountState
+import com.maroonedsoftware.deadair.ui.text.Message
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -32,7 +33,7 @@ class AccountStateTest {
 
     @Test
     fun `typing again clears the last answer`() {
-        val refused = AccountState(email = "operator@example.com", error = "That email and password did not work")
+        val refused = AccountState(email = "operator@example.com", error = Message.BadCredentials)
 
         assertNull(AccountState.typingEmail(refused, "someone@example.com").error)
         assertNull(AccountState.typingPassword(refused, "h").error)
@@ -51,7 +52,7 @@ class AccountStateTest {
         assertEquals("operator@example.com", next.email)
         assertEquals("", next.password)
         assertFalse(next.busy)
-        assertEquals("That email and password did not work", next.error)
+        assertEquals(Message.BadCredentials, next.error)
     }
 
     @Test
@@ -69,6 +70,18 @@ class AccountStateTest {
         // whoever is holding the phone, and it does not say what to do next.
         val next = AccountState.from(typed, SignInResult.Failed("java.net.SocketTimeoutException: timeout"))
 
-        assertEquals("Could not reach the station to sign in", next.error)
+        assertEquals(Message.CouldNotReachToSignIn, next.error)
+    }
+
+    @Test
+    fun `names what the station asked for that this app cannot do`() {
+        assertEquals(
+            Message.SecondFactorUnsupported,
+            AccountState.from(typed, SignInResult.Unsupported(SignInResult.Unsupported.Reason.SECOND_FACTOR)).error,
+        )
+        assertEquals(
+            Message.NoRefreshToken,
+            AccountState.from(typed, SignInResult.Unsupported(SignInResult.Unsupported.Reason.NO_REFRESH_TOKEN)).error,
+        )
     }
 }

@@ -1,8 +1,13 @@
 # The listener
 
 `apps/android` is the app somebody LISTENS to the station on, and `packages/sdk-kotlin` is the
-generated client it talks through. The console is the operator's surface and is a different app
-with different rules; nothing here is a broadcast desk.
+generated client it talks through. It is a listener's app for anyone, and the operator's remote
+when the signed-in account is the station's `admin`: the transport, the running order, the library
+and a way to air something, which are the controls worth having in a pocket. The console is still
+the desk — personas, plugins, settings and everything else that is laptop work stays there, and the
+phone's controls are a SELECTION of the desk's rather than the desk shrunk. The rule that makes that
+safe is below under the session: `manage` controls are drawn for a cached role and the API decides
+every press.
 
 Every paragraph records a measured failure and the fix that was chosen over the obvious one. Read
 the ones covering whatever you are about to change. The always-loaded index is

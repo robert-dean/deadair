@@ -85,7 +85,7 @@ class SessionManager(
      */
     private val sdkFor: (StationUrl, suspend () -> Map<String, String>) -> DeadairSdk,
     scope: CoroutineScope,
-) {
+) : OperatorSession {
     private val refreshLock = Mutex()
 
     /** Guards `ensureRoles`, so two screens coming up together ask the station once. */
@@ -155,7 +155,7 @@ class SessionManager(
      * whatever was cached, because a cache saying `admin` about an account the station has just
      * refused is the one state this method exists to correct.
      */
-    suspend fun refreshRoles() {
+    override suspend fun refreshRoles() {
         val roles =
             try {
                 withSession { it.authenticationSessions.readSession() }.roles.toSet()
@@ -215,7 +215,7 @@ class SessionManager(
      * answering with something empty: "signed out" and "nothing to show" are different screens, and
      * a caller that cannot tell them apart draws the wrong one.
      */
-    suspend fun <T> withSession(block: suspend (DeadairSdk) -> T): T {
+    override suspend fun <T> withSession(block: suspend (DeadairSdk) -> T): T {
         val station = settings.first().station ?: throw NotSignedInException()
         val session = store.stored.first() ?: throw NotSignedInException()
         if (session.origin != station.origin) throw NotSignedInException()

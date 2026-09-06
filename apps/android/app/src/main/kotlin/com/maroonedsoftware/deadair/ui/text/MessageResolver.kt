@@ -8,6 +8,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.intl.Locale as ComposeLocale
 import androidx.compose.ui.res.stringResource
 import com.maroonedsoftware.deadair.R
+import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -88,6 +89,20 @@ fun Message.resolve(): String =
                     SilenceCause.STARVED -> R.string.silence_label_starved
                 },
             )
+        Message.SchedulePutThisOn -> stringResource(R.string.driving_schedule)
+        Message.BetweenBlocks -> stringResource(R.string.driving_sustaining)
+        Message.YouPutThisOn -> stringResource(R.string.driving_operator)
+        Message.ScheduleTakesThisBack -> stringResource(R.string.hold_offered)
+        Message.HeldUntilReleased -> stringResource(R.string.hold_until_released)
+        is Message.HeldUntilAbout -> stringResource(R.string.hold_until_about, clock.resolve())
+        is Message.OperatorNotice ->
+            when (val it = notice) {
+                Notice.NoLongerOperator -> stringResource(R.string.notice_no_longer_operator)
+                Notice.NothingToResume -> stringResource(R.string.notice_nothing_to_resume)
+                Notice.PlaylistEmpty -> stringResource(R.string.notice_playlist_empty)
+                Notice.CouldNotReach -> stringResource(R.string.notice_could_not_reach)
+                is Notice.Failed -> stringResource(R.string.notice_failed, it.status)
+            }
         is Message.SilenceTitle ->
             stringResource(
                 when (cause) {

@@ -3,8 +3,10 @@
 Listening to the station on a phone: background playback, lock-screen controls, what is on air, and
 a choice of how to receive it.
 
-Not an operator's app. The console is that, and it deliberately does not play the mount; this
-deliberately does nothing else.
+Signed in as the station's operator, it is also the remote: skip, stop and start the station, hold
+a broadcast against the schedule, set what puts the station on air, and read why it is or is not on
+air. The console is still the desk, and it deliberately does not play the mount; the phone carries
+the controls worth having in a pocket and nothing that is laptop work.
 
 ## Building it
 
@@ -67,6 +69,12 @@ and does.
 
 Optional, and most installs will not. Listening needs no account: `/nowplaying` and the mounts are
 the station's public face, which is what lets this app be pointed at an address and just work.
+
+Signed in as the `admin`, the Now playing tab gains the transport: Skip, a Stop that arms on the
+first press and fires on the second, Start while the station is stood down, the hold against the
+schedule while you are the one driving, and the air mode. Every one of those is decided by the
+station, not the phone: the roles it draws them from are a cached hint from `GET /auth/session`,
+and a 403 re-reads them and says so.
 
 What an account adds is the station's own account of itself — what it has played, what is on next —
 which sits behind `platform.view` because it is the console's data being read by a phone. The

@@ -9,6 +9,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -52,6 +54,7 @@ fun HomeScreen(
     tab: Tab,
     onTab: (Tab) -> Unit,
     onSettings: () -> Unit,
+    snackbarHost: SnackbarHostState,
     content: @Composable () -> Unit,
 ) {
     // The bar gives way to a list that scrolls under it and comes back on the first pull down,
@@ -61,6 +64,7 @@ fun HomeScreen(
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             TopAppBar(
                 title = { Text(station, maxLines = 1, overflow = TextOverflow.Ellipsis) },

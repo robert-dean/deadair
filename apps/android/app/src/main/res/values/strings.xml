@@ -121,6 +121,28 @@
     <string name="silence_title_not_driving">The mount is not being held</string>
     <string name="silence_title_starved">The mount is airing the local bed</string>
 
+    <!-- The operator's transport. Drawn only for the account the station calls its operator -->
+    <string name="skip">Skip</string>
+    <string name="start">Start</string>
+    <string name="confirm_stop">Confirm stop</string>
+    <string name="driving_schedule">The schedule put this on. It runs until the block ends.</string>
+    <string name="driving_sustaining">Between blocks: nothing is scheduled, so the station is playing what it fills the gaps with.</string>
+    <string name="driving_operator">You put this on. It holds until the next scheduled block begins.</string>
+    <string name="hold_offered">The schedule takes this back at the next block.</string>
+    <string name="hold_until_released">Held until you release it. The schedule will not take this back.</string>
+    <string name="hold_until_about">Held until about %1$s.</string>
+    <string name="keep_on_past_next_block">Keep it on past the next block</string>
+    <string name="keep_on_two_hours">Keep it on for two hours</string>
+    <string name="release">Release</string>
+    <string name="air_mode_heading">On air</string>
+    <string name="air_mode_audience">When someone listens</string>
+    <string name="air_mode_always">Always</string>
+    <string name="notice_no_longer_operator">The station no longer treats this account as its operator.</string>
+    <string name="notice_nothing_to_resume">Nothing to resume: the station has not been put on air yet.</string>
+    <string name="notice_playlist_empty">That playlist has nothing the station can play.</string>
+    <string name="notice_could_not_reach">Could not reach the station to do that.</string>
+    <string name="notice_failed">The station refused that (%1$d).</string>
+
     <!-- History -->
     <string name="history_empty">Nothing has aired yet.</string>
     <string name="earlier">Earlier</string>

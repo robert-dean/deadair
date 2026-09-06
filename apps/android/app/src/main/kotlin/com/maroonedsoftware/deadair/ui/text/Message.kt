@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.text
 
+import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.station.StreamFormat
 import java.time.DayOfWeek
@@ -101,6 +102,22 @@ sealed interface Message {
 
     /** A heading per gate, for the panel. */
     data class SilenceTitle(val cause: SilenceCause) : Message
+
+    // ── The operator's transport ──────────────────────────────────────────────────────────
+    data object SchedulePutThisOn : Message
+
+    data object BetweenBlocks : Message
+
+    data object YouPutThisOn : Message
+
+    data object ScheduleTakesThisBack : Message
+
+    data object HeldUntilReleased : Message
+
+    data class HeldUntilAbout(val clock: Clock) : Message
+
+    /** What an action came back with, for a snackbar. */
+    data class OperatorNotice(val notice: Notice) : Message
 
     // ── A stale reading ───────────────────────────────────────────────────────────────────
     data object LastSaid : Message

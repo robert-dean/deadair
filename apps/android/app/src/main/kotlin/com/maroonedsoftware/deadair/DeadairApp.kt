@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair
 import android.app.Application
 import android.os.SystemClock
 import coil3.SingletonImageLoader
+import com.maroonedsoftware.deadair.auth.OperatorActions
 import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionStore
 import com.maroonedsoftware.deadair.net.HttpClients
@@ -10,6 +11,7 @@ import com.maroonedsoftware.deadair.net.imageLoaderFactory
 import com.maroonedsoftware.deadair.history.HistoryRepository
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingRepository
 import com.maroonedsoftware.deadair.playout.PlayoutRepository
+import com.maroonedsoftware.deadair.playout.Transport
 import com.maroonedsoftware.deadair.schedule.ScheduleRepository
 import com.maroonedsoftware.deadair.settings.SettingsStore
 import com.maroonedsoftware.deadair.station.StationProbe
@@ -98,6 +100,11 @@ class AppGraph(application: Application) {
             readAir = { sessions.withSession { it.director.getStationAir() } },
             scope = scope,
         )
+
+    /** Every `platform.manage` call goes through this one, so a 403 anywhere re-reads the roles and says so once. */
+    val operator: OperatorActions = OperatorActions(sessions)
+
+    val transport: Transport = Transport(operator, playout)
 
     val nowPlaying: NowPlayingRepository =
         NowPlayingRepository(

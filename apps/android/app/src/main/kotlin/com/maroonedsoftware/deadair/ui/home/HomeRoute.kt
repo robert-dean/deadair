@@ -2,13 +2,18 @@ package com.maroonedsoftware.deadair.ui.home
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.maroonedsoftware.deadair.AppGraph
+import com.maroonedsoftware.deadair.auth.Notice
+import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.nowplaying.airState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
@@ -20,10 +25,15 @@ import com.maroonedsoftware.deadair.ui.rememberNowEpochMs
 import com.maroonedsoftware.deadair.ui.history.HistoryScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
+import com.maroonedsoftware.deadair.ui.nowplaying.TransportHandlers
+import com.maroonedsoftware.deadair.ui.nowplaying.TransportUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
 import com.maroonedsoftware.deadair.ui.nowplaying.readSilence
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayhead
 import com.maroonedsoftware.deadair.ui.schedule.WhatsOnScreen
+import com.maroonedsoftware.deadair.ui.text.Message
+import com.maroonedsoftware.deadair.ui.text.resolve
+import kotlinx.coroutines.launch
 
 /**
  * The tabbed screen, wired.
@@ -57,6 +67,21 @@ fun HomeRoute(
     val history by graph.history.state.collectAsStateWithLifecycle()
     val nowEpochMs by rememberNowEpochMs()
     val scope = rememberCoroutineScope()
+    val session by graph.sessions.state.collectAsStateWithLifecycle()
+    val isOperator = (session as? SessionState.SignedIn)?.isOperator == true
+
+    // What an operator action came back with, said once. Collected into state and resolved in
+    // composition, because the words live in resources and a snackbar wants a string.
+    val snackbarHost = remember { SnackbarHostState() }
+    var notice by remember { mutableStateOf<Notice?>(null) }
+    LaunchedEffect(Unit) { graph.operator.notices.collect { notice = it } }
+    notice?.let { current ->
+        val words = Message.OperatorNotice(current).resolve()
+        LaunchedEffect(current) {
+            snackbarHost.showSnackbar(words)
+            if (notice == current) notice = null
+        }
+    }
 
     val station = settings.station
     val reading =
@@ -76,13 +101,42 @@ fun HomeRoute(
         tab = tab,
         onTab = { tab = it },
         onSettings = onSettings,
+        snackbarHost = snackbarHost,
     ) {
         when (tab) {
             Tab.NOW_PLAYING -> {
                 // Collected inside this branch and nowhere else, so the two-second transport poll
                 // runs while this tab is up and stops a few seconds after it is left.
                 val playout by graph.playout.state.collectAsStateWithLifecycle()
-                val silence = (playout as? PlayoutState.Loaded)?.status?.silence?.let(::readSilence)
+                val loaded = playout as? PlayoutState.Loaded
+                val silence = loaded?.status?.silence?.let(::readSilence)
+
+                // One action at a time, so a second press waits for the first rather than queueing
+                // behind it: two skips in flight would take two records off air.
+                var busy by remember { mutableStateOf(false) }
+                fun act(action: suspend () -> Unit) {
+                    if (busy) return
+                    busy = true
+                    scope.launch {
+                        try {
+                            action()
+                        } finally {
+                            busy = false
+                        }
+                    }
+                }
+                val transport = if (isOperator && loaded != null) TransportUiState(status = loaded.status, air = loaded.air, busy = busy) else null
+                val handlers =
+                    remember(graph) {
+                        TransportHandlers(
+                            onSkip = { act { graph.transport.skip() } },
+                            onStop = { act { graph.transport.stop() } },
+                            onStart = { act { graph.transport.start() } },
+                            onHold = { minutes -> act { graph.transport.hold(minutes) } },
+                            onRelease = { act { graph.transport.release() } },
+                            onAirMode = { mode -> act { graph.transport.setAirMode(mode) } },
+                        )
+                    }
                 NowPlayingScreen(
                     state =
                         NowPlayingUiState(
@@ -104,6 +158,8 @@ fun HomeRoute(
                     onStop = connection::stop,
                     onOpenFormat = onSettings,
                     silence = silence,
+                    transport = transport,
+                    handlers = handlers,
                 )
             }
             Tab.HISTORY ->

@@ -81,6 +81,9 @@ fun NowPlayingScreen(
     onOpenFormat: () -> Unit,
     /** Why the station is or is not on air, for a signed-in listener. `null` for anyone else, and before it has answered. */
     silence: SilenceReading? = null,
+    /** The operator's controls. `null` for anyone the station does not call its operator. */
+    transport: TransportUiState? = null,
+    handlers: TransportHandlers? = null,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
@@ -106,7 +109,7 @@ fun NowPlayingScreen(
                 ) {
                     Words(state)
                     Controls(state, playhead, onPlay, onStop, onOpenFormat)
-                    silence?.let { SilencePanel(it, modifier = Modifier.padding(top = 24.dp, bottom = 16.dp)) }
+                    Operator(transport, handlers, silence)
                 }
             }
         } else {
@@ -114,7 +117,7 @@ fun NowPlayingScreen(
                 Artwork(url = artworkUrl, stale = state.stale, modifier = Modifier.fillMaxWidth().widthIn(max = ArtworkMaxWidth))
                 Words(state, modifier = Modifier.padding(top = 32.dp))
                 Controls(state, playhead, onPlay, onStop, onOpenFormat)
-                silence?.let { SilencePanel(it, modifier = Modifier.padding(top = 24.dp, bottom = 16.dp)) }
+                Operator(transport, handlers, silence)
             }
         }
     }
@@ -231,6 +234,13 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
             modifier = Modifier.padding(top = 8.dp).clickable(role = Role.Button, onClick = onOpenFormat).padding(8.dp),
         )
     }
+}
+
+/** The signed-in half of the screen: the operator's controls when there are any, and the reading under them. */
+@Composable
+private fun Operator(transport: TransportUiState?, handlers: TransportHandlers?, silence: SilenceReading?) {
+    if (transport != null && handlers != null) TransportControls(transport, handlers, modifier = Modifier.padding(top = 24.dp))
+    silence?.let { SilencePanel(it, modifier = Modifier.padding(top = if (transport == null) 24.dp else 16.dp, bottom = 16.dp)) }
 }
 
 @Composable

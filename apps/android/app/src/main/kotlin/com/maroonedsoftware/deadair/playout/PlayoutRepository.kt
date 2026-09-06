@@ -55,6 +55,9 @@ class PlayoutRepository(
     /** A status an action just answered with, shown until the poll next answers. */
     private val applied = MutableStateFlow<PlayoutStatus?>(null)
 
+    /** The same, for the air reading. */
+    private val appliedAir = MutableStateFlow<StationAir?>(null)
+
     /** Ask again now and forget the backoff. */
     fun retry() {
         statusKick.kick()
@@ -64,6 +67,10 @@ class PlayoutRepository(
     /** Put an action's answer on screen now rather than in up to two seconds. */
     fun apply(status: PlayoutStatus) {
         applied.value = status
+    }
+
+    fun applyAir(air: StationAir) {
+        appliedAir.value = air
     }
 
     /**
@@ -84,26 +91,27 @@ class PlayoutRepository(
     private val status: Flow<Reading<PlayoutStatus>> =
         session.distinctUntilChanged().flatMapLatest { current ->
             applied.value = null
-            if (current is SessionState.SignedIn) poll(STATUS_POLL_MS, statusKick, readStatus) else flow { emit(Reading(null, stale = false)) }
+            if (current is SessionState.SignedIn) poll(STATUS_POLL_MS, statusKick, readStatus) { applied.value = null } else flow { emit(Reading(null, stale = false)) }
         }
 
     private val air: Flow<Reading<StationAir>> =
         session.distinctUntilChanged().flatMapLatest { current ->
-            if (current is SessionState.SignedIn) poll(AIR_POLL_MS, airKick, readAir) else flow { emit(Reading(null, stale = false)) }
+            appliedAir.value = null
+            if (current is SessionState.SignedIn) poll(AIR_POLL_MS, airKick, readAir) { appliedAir.value = null } else flow { emit(Reading(null, stale = false)) }
         }
 
     val state: StateFlow<PlayoutState> =
-        combine(session.distinctUntilChanged(), status, air, applied) { current, status, air, applied ->
+        combine(session.distinctUntilChanged(), status, air, applied, appliedAir) { current, status, air, applied, appliedAir ->
             val shown = applied ?: status.value
             when {
                 current !is SessionState.SignedIn -> PlayoutState.SignedOut
                 shown == null -> if (status.stale) PlayoutState.Unreachable else PlayoutState.Loading
-                else -> PlayoutState.Loaded(status = shown, air = air.value, stale = status.stale, lastGoodAtMs = status.lastGoodAtMs)
+                else -> PlayoutState.Loaded(status = shown, air = appliedAir ?: air.value, stale = status.stale, lastGoodAtMs = status.lastGoodAtMs)
             }
         }
             .stateIn(scope, SharingStarted.WhileSubscribed(SUBSCRIBER_GRACE_MS), PlayoutState.Loading)
 
-    private fun <T> poll(intervalMs: Long, kick: Kick, read: suspend () -> T): Flow<Reading<T>> = flow {
+    private fun <T> poll(intervalMs: Long, kick: Kick, read: suspend () -> T, onAnswer: () -> Unit): Flow<Reading<T>> = flow {
         var last: T? = null
         var lastGoodAtMs: Long? = null
         var failures = 0
@@ -113,7 +121,7 @@ class PlayoutRepository(
                 lastGoodAtMs = nowEpochMs()
                 failures = 0
                 // A fresh poll supersedes whatever an action put up.
-                applied.value = null
+                onAnswer()
                 emit(Reading(last, stale = false, lastGoodAtMs = lastGoodAtMs))
             } catch (error: Exception) {
                 failures += 1

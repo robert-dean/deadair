@@ -8,6 +8,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.intl.Locale as ComposeLocale
 import androidx.compose.ui.res.stringResource
 import com.maroonedsoftware.deadair.R
+import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -70,6 +71,40 @@ fun Message.resolve(): String =
         is Message.Aired -> label.resolve()
         Message.LastSaid -> stringResource(R.string.stale_last_said)
         is Message.LastSaidAt -> stringResource(R.string.stale_last_said_at, clock.resolve())
+        is Message.SilenceLabel ->
+            stringResource(
+                when (cause) {
+                    SilenceCause.AIRING -> R.string.silence_label_airing
+                    SilenceCause.TRANSPORT_STALLED -> R.string.silence_label_transport_stalled
+                    SilenceCause.CONTROL_DENIED -> R.string.silence_label_control_denied
+                    SilenceCause.STREAM_UNREACHABLE -> R.string.silence_label_stream_unreachable
+                    SilenceCause.CONFIG_NOT_ADOPTED -> R.string.silence_label_config_not_adopted
+                    SilenceCause.STOOD_DOWN -> R.string.silence_label_stood_down
+                    SilenceCause.NO_PROGRAMME -> R.string.silence_label_no_programme
+                    SilenceCause.WARMING_UP -> R.string.silence_label_warming_up
+                    SilenceCause.WAITING_ON_AUDIO -> R.string.silence_label_waiting_on_audio
+                    SilenceCause.NO_AUDIENCE -> R.string.silence_label_no_audience
+                    SilenceCause.NOT_DRIVING -> R.string.silence_label_not_driving
+                    SilenceCause.STARVED -> R.string.silence_label_starved
+                },
+            )
+        is Message.SilenceTitle ->
+            stringResource(
+                when (cause) {
+                    SilenceCause.AIRING -> R.string.silence_title_airing
+                    SilenceCause.TRANSPORT_STALLED -> R.string.silence_title_transport_stalled
+                    SilenceCause.CONTROL_DENIED -> R.string.silence_title_control_denied
+                    SilenceCause.STREAM_UNREACHABLE -> R.string.silence_title_stream_unreachable
+                    SilenceCause.CONFIG_NOT_ADOPTED -> R.string.silence_title_config_not_adopted
+                    SilenceCause.STOOD_DOWN -> R.string.silence_title_stood_down
+                    SilenceCause.NO_PROGRAMME -> R.string.silence_title_no_programme
+                    SilenceCause.WARMING_UP -> R.string.silence_title_warming_up
+                    SilenceCause.WAITING_ON_AUDIO -> R.string.silence_title_waiting_on_audio
+                    SilenceCause.NO_AUDIENCE -> R.string.silence_title_no_audience
+                    SilenceCause.NOT_DRIVING -> R.string.silence_title_not_driving
+                    SilenceCause.STARVED -> R.string.silence_title_starved
+                },
+            )
     }
 
 @Composable

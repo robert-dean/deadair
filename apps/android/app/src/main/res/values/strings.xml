@@ -90,6 +90,37 @@
     <string name="stale_last_said">Could not reach the station just now. This is the last it said.</string>
     <string name="stale_last_said_at">Could not reach the station just now. Showing what it said at %1$s.</string>
 
+    <!-- The transport: why the station is or is not on air. Two words for the lamp, a heading for the panel; the station sends the sentence -->
+    <string name="show_why">Show why</string>
+    <string name="hide_why">Hide why</string>
+    <string name="ruled_out">Ruled out (%1$d)</string>
+    <string name="copy">Copy</string>
+    <string name="copied">Copied</string>
+    <string name="silence_label_airing">On air</string>
+    <string name="silence_label_transport_stalled">Transport stalled</string>
+    <string name="silence_label_control_denied">Stream refusing us</string>
+    <string name="silence_label_stream_unreachable">Stream unreachable</string>
+    <string name="silence_label_config_not_adopted">Config not adopted</string>
+    <string name="silence_label_stood_down">Off air</string>
+    <string name="silence_label_no_programme">Nothing to air</string>
+    <string name="silence_label_warming_up">Warming up</string>
+    <string name="silence_label_waiting_on_audio">Records not here</string>
+    <string name="silence_label_no_audience">Ready</string>
+    <string name="silence_label_not_driving">Not driving</string>
+    <string name="silence_label_starved">Off the running order</string>
+    <string name="silence_title_airing">On air</string>
+    <string name="silence_title_transport_stalled">The transport loop has stopped</string>
+    <string name="silence_title_control_denied">The stream is refusing the bridge secret</string>
+    <string name="silence_title_stream_unreachable">The stream is not reachable</string>
+    <string name="silence_title_config_not_adopted">A container is running config that was replaced</string>
+    <string name="silence_title_stood_down">The station was stood down</string>
+    <string name="silence_title_no_programme">There is nothing left to air</string>
+    <string name="silence_title_warming_up">The station is fetching its first records</string>
+    <string name="silence_title_waiting_on_audio">The records are not here, and nothing is fetching them</string>
+    <string name="silence_title_no_audience">Waiting for a listener</string>
+    <string name="silence_title_not_driving">The mount is not being held</string>
+    <string name="silence_title_starved">The mount is airing the local bed</string>
+
     <!-- History -->
     <string name="history_empty">Nothing has aired yet.</string>
     <string name="earlier">Earlier</string>

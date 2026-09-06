@@ -79,6 +79,8 @@ fun NowPlayingScreen(
     onStop: () -> Unit,
     /** Where the fallback note leads: the format picker, which is where the fact it states can be changed. */
     onOpenFormat: () -> Unit,
+    /** Why the station is or is not on air, for a signed-in listener. `null` for anyone else, and before it has answered. */
+    silence: SilenceReading? = null,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
@@ -104,6 +106,7 @@ fun NowPlayingScreen(
                 ) {
                     Words(state)
                     Controls(state, playhead, onPlay, onStop, onOpenFormat)
+                    silence?.let { SilencePanel(it, modifier = Modifier.padding(top = 24.dp, bottom = 16.dp)) }
                 }
             }
         } else {
@@ -111,6 +114,7 @@ fun NowPlayingScreen(
                 Artwork(url = artworkUrl, stale = state.stale, modifier = Modifier.fillMaxWidth().widthIn(max = ArtworkMaxWidth))
                 Words(state, modifier = Modifier.padding(top = 32.dp))
                 Controls(state, playhead, onPlay, onStop, onOpenFormat)
+                silence?.let { SilencePanel(it, modifier = Modifier.padding(top = 24.dp, bottom = 16.dp)) }
             }
         }
     }

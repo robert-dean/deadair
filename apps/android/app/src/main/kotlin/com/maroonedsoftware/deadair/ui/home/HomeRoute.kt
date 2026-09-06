@@ -14,12 +14,14 @@ import com.maroonedsoftware.deadair.nowplaying.airState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
 import com.maroonedsoftware.deadair.playback.PlayerUiState
 import com.maroonedsoftware.deadair.playback.chooseMount
+import com.maroonedsoftware.deadair.playout.PlayoutState
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.ui.rememberNowEpochMs
 import com.maroonedsoftware.deadair.ui.history.HistoryScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
+import com.maroonedsoftware.deadair.ui.nowplaying.readSilence
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayhead
 import com.maroonedsoftware.deadair.ui.schedule.WhatsOnScreen
 
@@ -76,7 +78,11 @@ fun HomeRoute(
         onSettings = onSettings,
     ) {
         when (tab) {
-            Tab.NOW_PLAYING ->
+            Tab.NOW_PLAYING -> {
+                // Collected inside this branch and nowhere else, so the two-second transport poll
+                // runs while this tab is up and stops a few seconds after it is left.
+                val playout by graph.playout.state.collectAsStateWithLifecycle()
+                val silence = (playout as? PlayoutState.Loaded)?.status?.silence?.let(::readSilence)
                 NowPlayingScreen(
                     state =
                         NowPlayingUiState(
@@ -97,7 +103,9 @@ fun HomeRoute(
                     onPlay = play,
                     onStop = connection::stop,
                     onOpenFormat = onSettings,
+                    silence = silence,
                 )
+            }
             Tab.HISTORY ->
                 HistoryScreen(
                     state = history,

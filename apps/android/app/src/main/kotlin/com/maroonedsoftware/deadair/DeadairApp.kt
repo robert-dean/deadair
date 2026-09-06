@@ -9,6 +9,7 @@ import com.maroonedsoftware.deadair.net.HttpClients
 import com.maroonedsoftware.deadair.net.imageLoaderFactory
 import com.maroonedsoftware.deadair.history.HistoryRepository
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingRepository
+import com.maroonedsoftware.deadair.playout.PlayoutRepository
 import com.maroonedsoftware.deadair.schedule.ScheduleRepository
 import com.maroonedsoftware.deadair.settings.SettingsStore
 import com.maroonedsoftware.deadair.station.StationProbe
@@ -82,6 +83,19 @@ class AppGraph(application: Application) {
             readCurrent = { sessions.withSession { it.schedule.readCurrentSlot() } },
             readSlots = { sessions.withSession { it.schedule.listSchedule().slots } },
             readPersonas = { sessions.withSession { it.personas.listPersonas().personas } },
+            scope = scope,
+        )
+
+    /**
+     * The transport reading, for a signed-in listener looking at Now playing. Polled only while
+     * that tab is up, at the console's cadences, which is two requests a second per phone — fine
+     * for the one or two phones a station has and the reason it is not collected anywhere else.
+     */
+    val playout: PlayoutRepository =
+        PlayoutRepository(
+            session = sessions.state,
+            readStatus = { sessions.withSession { it.playout.getPlayoutStatus() } },
+            readAir = { sessions.withSession { it.director.getStationAir() } },
             scope = scope,
         )
 

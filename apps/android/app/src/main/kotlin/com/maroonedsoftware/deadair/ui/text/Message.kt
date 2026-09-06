@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.text
 
+import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.station.StreamFormat
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -93,6 +94,13 @@ sealed interface Message {
 
     // ── History ───────────────────────────────────────────────────────────────────────────
     data class Aired(val label: AiredLabel) : Message
+
+    // ── The transport ─────────────────────────────────────────────────────────────────────
+    /** Two words per gate, for the lamp's caption. The station supplies the sentence. */
+    data class SilenceLabel(val cause: SilenceCause) : Message
+
+    /** A heading per gate, for the panel. */
+    data class SilenceTitle(val cause: SilenceCause) : Message
 
     // ── A stale reading ───────────────────────────────────────────────────────────────────
     data object LastSaid : Message

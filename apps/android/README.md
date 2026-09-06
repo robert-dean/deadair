@@ -144,6 +144,19 @@ workflow — with a track and a status to choose. It is not on a push trigger on
 upload burns a version code permanently and lands in the console's history, and `versionCode` being
 the commit count would otherwise ship a build for every README typo.
 
+It has two modes.
+
+**publish** builds a signed bundle from the current commit and uploads it. That is the normal one.
+
+**promote** moves a build that is already in Play and rebuilds nothing: it makes a draft live on the
+track it is already on, or carries a build from one track to a wider one. It is handed no signing
+key, because it touches no artifact. Leave `version_code` blank and it takes whatever is on the
+source track, which is nearly always what you mean.
+
+Promote exists because `versionCode` is the commit count. A build is uploadable exactly once, so
+"make yesterday's build live" cannot be done by running publish again — there is no new version code
+to give it. That is a property of the scheme rather than a limitation of the workflow.
+
 It needs five repository secrets. Four come from the key you already have:
 
 ```

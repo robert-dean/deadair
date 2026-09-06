@@ -15,8 +15,15 @@ name: Android release
 on:
     workflow_dispatch:
         inputs:
+            mode:
+                description: Build and upload a new bundle, or move one already in Play
+                type: choice
+                default: publish
+                options:
+                    - publish
+                    - promote
             track:
-                description: Play track to publish to
+                description: Track to publish or promote TO
                 type: choice
                 default: internal
                 options:
@@ -31,6 +38,19 @@ on:
                 options:
                     - completed
                     - draft
+            from_track:
+                description: 'promote only: track to take the build FROM'
+                type: choice
+                default: internal
+                options:
+                    - internal
+                    - alpha
+                    - beta
+                    - production
+            version_code:
+                description: 'promote only: which build. Blank takes whatever is on the source track'
+                type: string
+                default: ''
 
 concurrency:
     group: android-release
@@ -41,6 +61,7 @@ permissions:
 
 jobs:
     publish:
+        if: inputs.mode == 'publish'
         runs-on: ubuntu-latest
         timeout-minutes: 30
 
@@ -127,3 +148,36 @@ jobs:
                   # `tracks`, plural: the singular is deprecated and the action warns on it.
                   tracks: ${{ inputs.track }}
                   status: ${{ inputs.status }}
+
+    # Promotion touches no artifact, so this job is handed no signing key and builds nothing. It
+    # needs the checkout only for the script, and not even a deep one: there is no version code to
+    # derive here, because the build being moved already has one.
+    promote:
+        if: inputs.mode == 'promote'
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Setup Python
+              uses: actions/setup-python@v7
+              with:
+                  python-version: '3.13'
+
+            - name: Install the API client
+              run: pip install --quiet google-auth requests
+
+            - name: Promote
+              env:
+                  PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+              run: |
+                  python3 apps/android/tools/promote-play-release.py \
+                      --package com.maroonedsoftware.deadair \
+                      --from-track '${{ inputs.from_track }}' \
+                      --to-track '${{ inputs.track }}' \
+                      --status '${{ inputs.status }}' \
+                      ${{ inputs.version_code != '' && format('--version-code {0}', inputs.version_code) || '' }}

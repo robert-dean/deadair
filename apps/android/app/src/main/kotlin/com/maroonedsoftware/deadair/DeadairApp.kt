@@ -6,6 +6,8 @@ import coil3.SingletonImageLoader
 import com.maroonedsoftware.deadair.auth.OperatorActions
 import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionStore
+import com.maroonedsoftware.deadair.catalog.CatalogActions
+import com.maroonedsoftware.deadair.director.OrderRepository
 import com.maroonedsoftware.deadair.net.HttpClients
 import com.maroonedsoftware.deadair.net.imageLoaderFactory
 import com.maroonedsoftware.deadair.history.HistoryRepository
@@ -105,6 +107,16 @@ class AppGraph(application: Application) {
     val operator: OperatorActions = OperatorActions(sessions)
 
     val transport: Transport = Transport(operator, playout)
+
+    /** The running order, polled while the Up next tab is up. */
+    val order: OrderRepository =
+        OrderRepository(
+            session = sessions.state,
+            read = { sessions.withSession { it.director.getTheRunningOrder() } },
+            scope = scope,
+        )
+
+    val catalog: CatalogActions = CatalogActions(operator, order)
 
     val nowPlaying: NowPlayingRepository =
         NowPlayingRepository(

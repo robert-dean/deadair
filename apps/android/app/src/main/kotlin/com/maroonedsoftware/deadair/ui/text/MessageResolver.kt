@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
+import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -103,6 +104,29 @@ fun Message.resolve(): String =
                 Notice.CouldNotReach -> stringResource(R.string.notice_could_not_reach)
                 is Notice.Failed -> stringResource(R.string.notice_failed, it.status)
             }
+        is Message.FoldedHistory -> {
+            val clauses =
+                listOfNotNull(
+                    played.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.played_earlier, it, it) },
+                    passed.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.skipped_earlier, it, it) },
+                )
+            if (clauses.isEmpty()) stringResource(R.string.earlier_in_this_broadcast) else clauses.joinToString(stringResource(R.string.clause_separator))
+        }
+        is Message.ItemState ->
+            stringResource(
+                when (state) {
+                    StationItemState.PLANNED -> R.string.item_planned
+                    StationItemState.HANDED -> R.string.item_handed
+                    StationItemState.AIRING -> R.string.item_airing
+                    StationItemState.PLAYED -> R.string.item_played
+                    StationItemState.SKIPPED -> R.string.item_skipped
+                    StationItemState.UNAVAILABLE -> R.string.item_unavailable
+                    StationItemState.REMOVED -> R.string.item_removed
+                },
+            )
+        Message.NotWrittenYet -> stringResource(R.string.item_not_written_yet)
+        Message.NoAudioYet -> stringResource(R.string.item_no_audio_yet)
+        Message.WillSkip -> stringResource(R.string.item_will_skip)
         is Message.SilenceTitle ->
             stringResource(
                 when (cause) {

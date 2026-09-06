@@ -23,6 +23,8 @@ import com.maroonedsoftware.deadair.playout.PlayoutState
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.ui.rememberNowEpochMs
 import com.maroonedsoftware.deadair.ui.history.HistoryScreen
+import com.maroonedsoftware.deadair.ui.order.OrderHandlers
+import com.maroonedsoftware.deadair.ui.order.RunningOrderScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.TransportHandlers
@@ -30,6 +32,7 @@ import com.maroonedsoftware.deadair.ui.nowplaying.TransportUiState
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
 import com.maroonedsoftware.deadair.ui.nowplaying.readSilence
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayhead
+import com.maroonedsoftware.deadair.sdk.models.Rating
 import com.maroonedsoftware.deadair.ui.schedule.WhatsOnScreen
 import com.maroonedsoftware.deadair.ui.text.Message
 import com.maroonedsoftware.deadair.ui.text.resolve
@@ -159,6 +162,37 @@ fun HomeRoute(
                     onOpenFormat = onSettings,
                     silence = silence,
                     transport = transport,
+                    handlers = handlers,
+                )
+            }
+            Tab.UP_NEXT -> {
+                val order by graph.order.state.collectAsStateWithLifecycle()
+                var ratingTrackId by remember { mutableStateOf<String?>(null) }
+                val handlers =
+                    if (!isOperator) {
+                        null
+                    } else {
+                        OrderHandlers(
+                            onRate = { trackId: String, rating: Rating ->
+                                if (ratingTrackId == null) {
+                                    ratingTrackId = trackId
+                                    scope.launch {
+                                        try {
+                                            graph.catalog.rateTrack(trackId, rating)
+                                        } finally {
+                                            ratingTrackId = null
+                                        }
+                                    }
+                                }
+                            },
+                            ratingTrackId = ratingTrackId,
+                        )
+                    }
+                RunningOrderScreen(
+                    state = order,
+                    artUrlFor = { url -> station?.artUrl(url) },
+                    onRetry = graph.order::retry,
+                    onSettings = onSettings,
                     handlers = handlers,
                 )
             }

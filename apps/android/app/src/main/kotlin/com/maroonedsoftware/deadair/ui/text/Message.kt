@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.ui.text
 
 import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
+import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import com.maroonedsoftware.deadair.station.StreamFormat
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -118,6 +119,19 @@ sealed interface Message {
 
     /** What an action came back with, for a snackbar. */
     data class OperatorNotice(val notice: Notice) : Message
+
+    // ── The running order ─────────────────────────────────────────────────────────────────
+    /** "3 played earlier, 1 skipped", each clause only when there is one; neither is "Earlier in this broadcast". */
+    data class FoldedHistory(val played: Int, val passed: Int) : Message
+
+    /** Where a spent item got to, in the console's words. */
+    data class ItemState(val state: StationItemState) : Message
+
+    data object NotWrittenYet : Message
+
+    data object NoAudioYet : Message
+
+    data object WillSkip : Message
 
     // ── A stale reading ───────────────────────────────────────────────────────────────────
     data object LastSaid : Message

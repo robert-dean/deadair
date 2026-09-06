@@ -8,6 +8,7 @@
 
     <!-- The frame -->
     <string name="tab_now_playing">Now playing</string>
+    <string name="tab_up_next">Up next</string>
     <string name="tab_history">Played</string>
     <string name="tab_whats_on">What\'s on</string>
     <string name="settings">Settings</string>
@@ -142,6 +143,37 @@
     <string name="notice_playlist_empty">That playlist has nothing the station can play.</string>
     <string name="notice_could_not_reach">Could not reach the station to do that.</string>
     <string name="notice_failed">The station refused that (%1$d).</string>
+
+    <!-- The running order -->
+    <string name="order_empty">The running order is empty.</string>
+    <plurals name="played_earlier">
+        <item quantity="one">%1$d played earlier</item>
+        <item quantity="other">%1$d played earlier</item>
+    </plurals>
+    <plurals name="skipped_earlier">
+        <item quantity="one">%1$d skipped</item>
+        <item quantity="other">%1$d skipped</item>
+    </plurals>
+    <string name="earlier_in_this_broadcast">Earlier in this broadcast</string>
+    <!-- Between the clauses of a count: "3 played earlier, 1 skipped" -->
+    <string name="clause_separator">", "</string>
+    <string name="item_planned">Planned</string>
+    <!-- Deliberately not "playing": the player runs ahead of the listener, and a handed item may be two records from being heard -->
+    <string name="item_handed">Handed over</string>
+    <string name="item_airing">On air</string>
+    <string name="item_played">Played</string>
+    <string name="item_skipped">Skipped</string>
+    <string name="item_unavailable">Unavailable</string>
+    <string name="item_removed">Removed</string>
+    <string name="item_not_written_yet">Not written yet</string>
+    <string name="item_no_audio_yet">No audio yet</string>
+    <string name="item_will_skip">Will skip</string>
+
+    <!-- Rating: the station's own curation mark, with rotation consequences -->
+    <string name="rating_dislike">Never play %1$s</string>
+    <string name="rating_no_opinion">No opinion about %1$s</string>
+    <string name="rating_like">Play %1$s more often</string>
+    <string name="rating_caption">This is the station\'s mark, not a favourite: it changes how often the station plays this.</string>
 
     <!-- History -->
     <string name="history_empty">Nothing has aired yet.</string>

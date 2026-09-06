@@ -28,6 +28,7 @@ import com.maroonedsoftware.deadair.R
  */
 enum class Tab(val label: String, val icon: Int) {
     NOW_PLAYING("Now playing", R.drawable.ic_radio),
+    HISTORY("Played", R.drawable.ic_history),
     WHATS_ON("What's on", R.drawable.ic_schedule),
 }
 

@@ -7,6 +7,7 @@ import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionStore
 import com.maroonedsoftware.deadair.net.HttpClients
 import com.maroonedsoftware.deadair.net.imageLoaderFactory
+import com.maroonedsoftware.deadair.history.HistoryRepository
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingRepository
 import com.maroonedsoftware.deadair.schedule.ScheduleRepository
 import com.maroonedsoftware.deadair.settings.SettingsStore
@@ -60,6 +61,14 @@ class AppGraph(application: Application) {
             store = session,
             settings = settings.settings,
             sdkFor = HttpClients::sdkFor,
+            scope = scope,
+        )
+
+    /** What the station has played. Behind the session, like the schedule beside it. */
+    val history: HistoryRepository =
+        HistoryRepository(
+            session = sessions.state,
+            fetch = { query -> sessions.withSession { it.history.readHistory(query) } },
             scope = scope,
         )
 

@@ -36,8 +36,15 @@ alone is not enough), and a default against a named `enum` contract came out as 
 rather than the enum member. Expect to find more, and expect them to be reported nowhere near the
 text responsible.
 
-Both are fixed in `@contractkit/plugin-kotlin@0.1.1`, which is the floor this repo pins — 0.1.0
-cannot produce Kotlin that compiles.
+A third turned up the first time the output was DECODED rather than compiled, which is a different
+gate and catches a different class of bug: a contract's `format(output=snake)` never reached a
+`@SerialName`, so `AuthenticationTokenIssued` was emitted with an `accessToken` property against a
+station sending `access_token`, and the first real sign-in failed with a `MissingFieldException`
+naming three fields and nothing about the casing that renamed them. `AuthTokenDecodeTest` is that
+gate, kept.
+
+All three are fixed in `@contractkit/plugin-kotlin@0.1.2`, which is the floor this repo pins — 0.1.0
+cannot produce Kotlin that compiles, and 0.1.1 cannot produce Kotlin that signs in.
 
 **`NowPlayingDecodeTest` is not testing generated code for its own sake.** A generator can be
 perfectly self-consistent and still be wrong about the contract, so those fixtures are the shapes

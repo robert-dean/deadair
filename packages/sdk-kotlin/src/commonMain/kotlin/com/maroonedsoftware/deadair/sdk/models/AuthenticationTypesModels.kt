@@ -97,13 +97,13 @@ enum class OidcProvider {
 @Serializable
 data class AuthenticationToken(
     /** The access token string as issued by the authorization server */
-    val accessToken: String,
+    @SerialName("access_token") val accessToken: String,
     /** A refresh token which applications can use to obtain another access token */
-    val refreshToken: String? = null,
+    @SerialName("refresh_token") val refreshToken: String? = null,
     /** Unix timestamp (seconds) when the access token expires */
-    val expiresIn: Long,
+    @SerialName("expires_in") val expiresIn: Long,
     /** The type of token this is, typically just the string *Bearer* */
-    val tokenType: String,
+    @SerialName("token_type") val tokenType: String,
     /** Space-separated list of scopes granted to this token */
     val scope: String,
 )
@@ -114,13 +114,13 @@ data class AuthenticationTokenIssued(
     /** Discriminator */
     val result: String = "token",
     /** The access token string as issued by the authorization server */
-    val accessToken: String,
+    @SerialName("access_token") val accessToken: String,
     /** A refresh token which applications can use to obtain another access token */
-    val refreshToken: String? = null,
+    @SerialName("refresh_token") val refreshToken: String? = null,
     /** Unix timestamp (seconds) when the access token expires */
-    val expiresIn: Long,
+    @SerialName("expires_in") val expiresIn: Long,
     /** The type of token this is, typically just the string *Bearer* */
-    val tokenType: String,
+    @SerialName("token_type") val tokenType: String,
     /** Space-separated list of scopes granted to this token */
     val scope: String,
 ) : AuthenticationTokenResponse
@@ -292,9 +292,9 @@ data class FactorChallengePhoneStartResponse(
     /** Echo of the chosen delivery channel */
     val transport: String = "sms",
     /** The phone-factor challenge id — echo back on the `code` grant as `challenge_id` */
-    val phoneChallengeId: String,
+    @SerialName("phone_challenge_id") val phoneChallengeId: String,
     /** When the phone challenge expires */
-    val expiresAt: Instant,
+    @SerialName("expires_at") val expiresAt: Instant,
 ) : FactorChallengeStartResponse
 
 /** Response for an email OTP challenge */
@@ -303,11 +303,11 @@ data class FactorChallengeEmailStartResponse(
     /** Discriminator */
     val method: String = "email",
     /** Echo of the chosen delivery channel */
-    val issueMethod: FactorChallengeEmailStartResponseIssueMethod,
+    @SerialName("issue_method") val issueMethod: FactorChallengeEmailStartResponseIssueMethod,
     /** The email-factor challenge id — echo back on the `code` grant as `challenge_id` */
-    val emailChallengeId: String,
+    @SerialName("email_challenge_id") val emailChallengeId: String,
     /** When the email challenge expires */
-    val expiresAt: Instant,
+    @SerialName("expires_at") val expiresAt: Instant,
 ) : FactorChallengeStartResponse
 
 /** A factor satisfied by the session */
@@ -413,7 +413,7 @@ data class MfaChallengeFactor(
     /** The factor method */
     val method: AuthenticationFactorMethod,
     /** The id of the enrolled factor (opaque to the SPA, must be echoed back in the proof for methods that don't bind another way) */
-    val methodId: String,
+    @SerialName("method_id") val methodId: String,
     /** The factor kind (knowledge, possession, biometric) — the SPA filters against step-up `acceptableKinds`/`excludeKinds` hints */
     val kind: AuthenticationFactorKind,
     /** Optional human-readable label (e.g. provider name for OIDC, friendly name for FIDO) */
@@ -689,9 +689,9 @@ data class MfaRequiredResponse(
     /** Discriminator */
     val result: String = "mfa_required",
     /** The MFA challenge identifier — pass back as `mfa_challenge_id` on the proof grant */
-    val challengeId: String,
+    @SerialName("challenge_id") val challengeId: String,
     /** When the MFA challenge expires */
-    val expiresAt: Instant,
+    @SerialName("expires_at") val expiresAt: Instant,
     /** Eligible factors the SPA may use to complete the challenge */
     val factors: List<MfaChallengeFactor>,
 ) : StepUpStartResponse, AuthenticationTokenResponse
@@ -732,11 +732,11 @@ data class FactorChallengeFidoStartResponse(
     /** Discriminator */
     val method: String = "fido",
     /** The FIDO-factor challenge id — echo back on the `fido` grant as `challenge_id` */
-    val fidoChallengeId: String,
+    @SerialName("fido_challenge_id") val fidoChallengeId: String,
     /** WebAuthn assertion options for navigator.credentials.get */
     val assertion: FidoPublicKeyCredentialRequestOptions,
     /** When the FIDO challenge expires */
-    val expiresAt: Instant,
+    @SerialName("expires_at") val expiresAt: Instant,
 ) : FactorChallengeStartResponse
 
 /** The credential the client posts back to complete registration */

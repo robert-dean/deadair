@@ -45,6 +45,16 @@ data class NowPlayingUiState(
     val album: String?
         get() = (air as? AirState.OnAir)?.track?.album
 
+    /**
+     * Whether the subtitle is a credit that may scroll past, or a sentence that has to wrap.
+     *
+     * A long artist line scrolls the way it does on every player a listener has used. App copy
+     * does not: the off-air line is a whole sentence, and a marquee that scrolled it showed a
+     * listener the middle of an instruction with its first word gone.
+     */
+    val subtitleScrolls: Boolean
+        get() = subtitle is Message.Text
+
     /** The line under the controls: who is listening, and how. The count is spelled by the language, not here. */
     val footer: Message
         get() = Message.Listeners(listeners, format)

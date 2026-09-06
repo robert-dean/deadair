@@ -8,6 +8,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.ui.text.Clock
 import com.maroonedsoftware.deadair.ui.text.Message
@@ -29,7 +32,8 @@ fun StaleBanner(lastGoodAtMs: Long?, modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(8.dp),
-        modifier = modifier.fillMaxWidth(),
+        // Spoken when it appears. A screen reader user has no dimmed pictures to notice.
+        modifier = modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
     ) {
         val message = if (lastGoodAtMs == null) Message.LastSaid else Message.LastSaidAt(clockOf(lastGoodAtMs))
         Text(

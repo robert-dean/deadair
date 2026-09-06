@@ -75,6 +75,18 @@ class PlayheadTest {
     }
 
     @Test
+    fun `writes a length the way a clock reads it`() {
+        assertEquals("0:00", clockOf(0))
+        assertEquals("0:07", clockOf(7_400))
+        assertEquals("3:58", clockOf(238_000))
+        assertEquals("10:00", clockOf(600_000))
+        // Past an hour the hours appear and the minutes gain their zero.
+        assertEquals("1:02:10", clockOf(3_730_000))
+        // A negative can only come from a clock that ran backwards, and reads as the start.
+        assertEquals("0:00", clockOf(-5_000))
+    }
+
+    @Test
     fun `has nothing to show for a record of no length`() {
         assertNull(project(track(durationMs = 0), readAtMs = 0, nowMs = 0))
     }

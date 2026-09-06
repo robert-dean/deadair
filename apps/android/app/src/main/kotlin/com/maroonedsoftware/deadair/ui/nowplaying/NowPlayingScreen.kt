@@ -1,6 +1,8 @@
 package com.maroonedsoftware.deadair.ui.nowplaying
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,7 +33,10 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
@@ -39,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.nowplaying.Playhead
+import com.maroonedsoftware.deadair.nowplaying.clockOf
 import com.maroonedsoftware.deadair.ui.CentredColumn
 import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.ArtworkMaxWidth
@@ -70,6 +77,8 @@ fun NowPlayingScreen(
     playhead: Playhead?,
     onPlay: () -> Unit,
     onStop: () -> Unit,
+    /** Where the fallback note leads: the format picker, which is where the fact it states can be changed. */
+    onOpenFormat: () -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val viewportHeight = maxHeight
@@ -94,14 +103,14 @@ fun NowPlayingScreen(
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Words(state)
-                    Controls(state, playhead, onPlay, onStop)
+                    Controls(state, playhead, onPlay, onStop, onOpenFormat)
                 }
             }
         } else {
             CentredColumn {
                 Artwork(url = artworkUrl, stale = state.stale, modifier = Modifier.fillMaxWidth().widthIn(max = ArtworkMaxWidth))
                 Words(state, modifier = Modifier.padding(top = 32.dp))
-                Controls(state, playhead, onPlay, onStop)
+                Controls(state, playhead, onPlay, onStop, onOpenFormat)
             }
         }
     }
@@ -110,7 +119,9 @@ fun NowPlayingScreen(
 @Composable
 private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        // Announced when it changes, without being focused: off air to warming up to a record is
+        // the whole story of pressing play, and it happened in silence for a screen reader.
+        modifier = modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -122,13 +133,17 @@ private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
             overflow = TextOverflow.Ellipsis,
         )
         state.subtitle?.let {
+            // A long credit scrolls past rather than being cut, which is what a now-playing line
+            // does on every player a listener has used. A sentence of the app's own wraps instead:
+            // scrolled, it showed the middle of an instruction with its first word gone.
             Text(
                 it.resolve(),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
+                maxLines = if (state.subtitleScrolls) 1 else 2,
                 overflow = TextOverflow.Ellipsis,
+                modifier = if (state.subtitleScrolls) Modifier.basicMarquee() else Modifier,
             )
         }
         state.album?.let {
@@ -145,15 +160,24 @@ private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit) {
+private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -> Unit, onStop: () -> Unit, onOpenFormat: () -> Unit) {
     // Only when the decoder could say how long is left. A bar that appeared with a guessed
     // position would be worse than no bar.
     if (playhead != null) {
         val progress by animateFloatAsState(playhead.fraction, label = "playhead")
+        val elapsed = clockOf(playhead.elapsedMs)
+        val total = clockOf(playhead.durationMs)
+        val position = stringResource(R.string.playhead_position, elapsed, total)
         LinearProgressIndicator(
             progress = { progress },
-            modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+            // The numbers the bar is drawn from, spoken as well as shown: a bare bar is meaningless
+            // to a screen reader, and less than the data it has to a sighted one.
+            modifier = Modifier.fillMaxWidth().padding(top = 24.dp).semantics { stateDescription = position },
         )
+        Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(elapsed, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(total, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 
     // The name lives on the button, not on the icon inside it. While the station warms up the
@@ -164,6 +188,8 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
     val buffering = stringResource(R.string.buffering)
     FilledIconButton(
         onClick = if (state.playing) onStop else onPlay,
+        // Round, which is what a radio's one button is. The default shape is a rounded square.
+        shape = CircleShape,
         modifier =
             Modifier.padding(top = 32.dp).size(72.dp).semantics {
                 contentDescription = label
@@ -190,12 +216,15 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
     )
 
     state.fallbackNote?.let {
+        // Information, not a fault: the app handled it and the stream is playing. It was in the
+        // error colour, which made a working fallback read as a standing alarm. It leads to the
+        // format picker, because that is where the fact it states can be changed.
         Text(
             it.resolve(),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
+            color = MaterialTheme.colorScheme.tertiary,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = 8.dp).clickable(role = Role.Button, onClick = onOpenFormat).padding(8.dp),
         )
     }
 }

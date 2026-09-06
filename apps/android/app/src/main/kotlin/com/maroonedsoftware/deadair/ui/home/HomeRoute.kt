@@ -15,6 +15,7 @@ import com.maroonedsoftware.deadair.playback.PlayerConnection
 import com.maroonedsoftware.deadair.playback.PlayerUiState
 import com.maroonedsoftware.deadair.playback.chooseMount
 import com.maroonedsoftware.deadair.settings.ListenerSettings
+import com.maroonedsoftware.deadair.ui.rememberNowEpochMs
 import com.maroonedsoftware.deadair.ui.history.HistoryScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
@@ -51,6 +52,7 @@ fun HomeRoute(
     // Collected here so the polls run while their tabs can be seen. They stop on their own when not.
     val schedule by graph.schedule.state.collectAsStateWithLifecycle()
     val history by graph.history.state.collectAsStateWithLifecycle()
+    val nowEpochMs by rememberNowEpochMs()
     val scope = rememberCoroutineScope()
 
     val station = settings.station
@@ -92,14 +94,13 @@ fun HomeRoute(
                     playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }),
                     onPlay = connection::play,
                     onStop = connection::stop,
+                    onOpenFormat = onSettings,
                 )
             Tab.HISTORY ->
                 HistoryScreen(
                     state = history,
                     artUrlFor = { url -> station?.artUrl(url) },
-                    // Read once per recomposition rather than ticked: these are timestamps on
-                    // things that have already happened, so nothing about them moves.
-                    nowEpochMs = System.currentTimeMillis(),
+                    nowEpochMs = nowEpochMs,
                     scope = scope,
                     onLoadMore = graph.history::loadMore,
                     onRetry = graph.history::retry,

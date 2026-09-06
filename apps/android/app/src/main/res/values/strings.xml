@@ -28,6 +28,8 @@
     <!-- Who is listening, then how: "3 listening · MP3" -->
     <string name="now_footer">%1$s · %2$s</string>
     <string name="now_fell_back_to_mp3">This station does not publish %1$s. Playing MP3.</string>
+    <!-- How far through the record, spoken for the progress bar: "1:42 of 3:58" -->
+    <string name="playhead_position">%1$s of %2$s</string>
     <string name="play">Play</string>
     <string name="stop">Stop</string>
     <string name="buffering">Buffering</string>

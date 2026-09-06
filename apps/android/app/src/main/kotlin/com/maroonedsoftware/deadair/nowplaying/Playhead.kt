@@ -8,6 +8,21 @@ data class Playhead(val elapsedMs: Long, val remainingMs: Long, val durationMs: 
 }
 
 /**
+ * A length of a record as a clock reads it: `3:58`, and `1:02:10` past an hour.
+ *
+ * Seconds, because this is the one place in the app that counts them — the bar re-anchors every
+ * few seconds and ticks between, so a label under it can honestly move once a second where a
+ * schedule that re-reads its clock every half minute cannot.
+ */
+fun clockOf(ms: Long): String {
+    val total = (ms / 1_000).coerceAtLeast(0)
+    val hours = total / 3_600
+    val minutes = (total % 3_600) / 60
+    val seconds = total % 60
+    return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds) else "%d:%02d".format(minutes, seconds)
+}
+
+/**
  * The playhead, projected between readings.
  *
  * The station answers with the DECODER's own countdown taken at the moment it was read, and this

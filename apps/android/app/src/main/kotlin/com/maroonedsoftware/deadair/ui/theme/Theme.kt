@@ -45,5 +45,5 @@ fun DeadairTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composabl
             else -> LightScheme
         }
 
-    MaterialTheme(colorScheme = scheme, content = content)
+    MaterialTheme(colorScheme = scheme, typography = AppTypography, content = content)
 }

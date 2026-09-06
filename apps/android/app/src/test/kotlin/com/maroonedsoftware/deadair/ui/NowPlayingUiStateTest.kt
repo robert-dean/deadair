@@ -81,6 +81,14 @@ class NowPlayingUiStateTest {
     }
 
     @Test
+    fun `scrolls a credit and wraps a sentence`() {
+        // The marquee is for a long artist line. Scrolled, the off-air sentence lost its first word.
+        assertEquals(true, state(AirState.OnAir(track)).subtitleScrolls)
+        assertEquals(false, state(AirState.OffAir).subtitleScrolls)
+        assertEquals(false, state(AirState.WarmingUp).subtitleScrolls)
+    }
+
+    @Test
     fun `has no artist line for a record credited to nobody`() {
         val anonymous = NowPlayingTrack(title = "Untitled", artist = "", startedAt = 1)
 

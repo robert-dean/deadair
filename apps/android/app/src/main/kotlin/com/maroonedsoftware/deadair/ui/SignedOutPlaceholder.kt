@@ -21,7 +21,7 @@ import com.maroonedsoftware.deadair.R
 @Composable
 fun SignedOutPlaceholder(what: String, onSettings: () -> Unit) {
     CentredColumn {
-        Text(what, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Text(what, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         Text(
             stringResource(R.string.signed_out_detail),
             style = MaterialTheme.typography.bodyMedium,
@@ -43,7 +43,7 @@ fun SignedOutPlaceholder(what: String, onSettings: () -> Unit) {
 @Composable
 fun ErrorPlaceholder(what: String, onRetry: () -> Unit) {
     CentredColumn {
-        Text(what, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+        Text(what, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         Text(
             stringResource(R.string.error_detail),
             style = MaterialTheme.typography.bodyMedium,

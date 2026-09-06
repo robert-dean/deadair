@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -100,9 +100,10 @@ private fun Records(
         if (state.stale) StaleBanner(state.lastGoodAtMs, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp))
 
         LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            items(state.entries, key = { it.id }) { entry ->
+            itemsIndexed(state.entries, key = { _, entry -> entry.id }) { index, entry ->
                 Record(entry, artUrlFor(entry.artworkUrl), nowEpochMs, zone, stale = state.stale)
-                HorizontalDivider()
+                // Between rows, not after the last: a rule above the Earlier button was a rule under nothing.
+                if (index < state.entries.lastIndex) HorizontalDivider()
             }
 
             if (state.canLoadMore) {

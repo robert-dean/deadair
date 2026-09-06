@@ -78,10 +78,9 @@ fun HomeScreen(
                     NavigationBarItem(
                         selected = entry == tab,
                         onClick = { onTab(entry) },
-                        // The label is the description as well: it says the same thing, and a
-                        // screen reader announcing something different from what is written under
-                        // the icon is worse than one repeating it.
-                        icon = { Icon(painterResource(entry.icon), contentDescription = stringResource(entry.label)) },
+                        // The item merges its icon and label into one node for a screen reader, so
+                        // a description on the icon as well read every tab twice: "Played, Played".
+                        icon = { Icon(painterResource(entry.icon), contentDescription = null) },
                         label = { Text(stringResource(entry.label)) },
                     )
                 }

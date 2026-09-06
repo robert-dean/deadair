@@ -29,7 +29,9 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -95,7 +97,9 @@ fun AccountSection(
                     isError = account.error != null,
                     // The error sits under the password rather than the email because that is the
                     // field a listener retypes, and it is the one this app clears for them.
-                    supportingText = account.error?.let { { Text(it.resolve()) } },
+                    // Announced when it lands, because the field the listener was in has just
+                    // been emptied under them and the reason is the only clue.
+                    supportingText = account.error?.let { { Text(it.resolve(), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) } },
                     visualTransformation = if (passwordShown) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { passwordShown = !passwordShown }) {

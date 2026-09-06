@@ -17,7 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.schedule.ScheduleState
@@ -97,7 +100,10 @@ private fun LiveCard(live: OnNow.Live) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Heading(live.eyebrow.resolve(), live.leftLabel.resolve())
             BlockBody(live.block)
-            LinearProgressIndicator(progress = { live.progress }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            // Silent to a screen reader: the "left" label beside the eyebrow already says how far
+            // through the block it is, and a bar announcing a percentage on top of it said the
+            // same thing twice in two units.
+            LinearProgressIndicator(progress = { live.progress }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp).clearAndSetSemantics {})
 
             if (live.takenOver) {
                 // The word in the eyebrow is the correction; this is why. Without it, a listener is
@@ -136,9 +142,11 @@ private fun AheadCard(ahead: Ahead) {
 @Composable
 private fun Heading(eyebrow: String, trailing: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        // Small, medium weight and spaced, rather than shouted: `uppercase()` used the default
+        // locale (a Turkish i becomes İ) and some screen readers spell a run of capitals out.
         Text(
-            eyebrow.uppercase(),
-            style = MaterialTheme.typography.labelSmall,
+            eyebrow,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium, letterSpacing = 0.08.em),
             color = MaterialTheme.colorScheme.primary,
         )
         if (trailing.isNotEmpty()) {

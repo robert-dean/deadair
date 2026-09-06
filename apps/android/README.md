@@ -63,6 +63,24 @@ HLS is the one to choose on a phone that moves between wifi and mobile data. An 
 single long-lived TCP connection and does not survive the handoff; HLS is a sequence of requests
 and does.
 
+## Signing in
+
+Optional, and most installs will not. Listening needs no account: `/nowplaying` and the mounts are
+the station's public face, which is what lets this app be pointed at an address and just work.
+
+What an account adds is the station's own account of itself — what it has played, what is on next —
+which sits behind `platform.view` because it is the console's data being read by a phone. The
+credentials are the OPERATOR's, the same email and password the console takes. There is no listener
+account to create: `platform.view` is granted by the `listener` and `admin` roles, onboarding writes
+only `admin`, and no route writes the other one. So this is a form for the person who runs the
+station, on their own phone, and the section says as much.
+
+The session is the station's own bearer and refresh token, kept in an app-private DataStore file of
+their own. They are dropped on sign-out and again whenever the app is pointed at a different
+station, because a token is issued by one station and means nothing to another. `PRIVACY.md` says
+this in the words a listener reads; the rules that keep a refresh from being replayed are in
+`SessionManager`.
+
 ## The launcher icon
 
 The station's own mark, the skull the console wears, and it is generated from

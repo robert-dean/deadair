@@ -82,6 +82,33 @@ the five-minute linger, so probing five formats puts a silent station on air and
 window. So the User-Agent is set once and shared by the SDK's client, the image loader and
 ExoPlayer, and two phones behind one NAT count as one listener — known, and accepted.
 
+## The session, and the one rule that is not obvious
+
+**Listening is accountless and stays that way.** A session buys the `platform.view` reads and
+nothing else, which is why sign-in is optional, last on the settings screen, and says so in its own
+copy. The credentials are the operator's: nothing in the API creates a `listener` account, and
+onboarding writes only the `admin` tuple.
+
+**The refresh is single-flight, and that is not tidiness.** The station's refresh tokens are
+single-use and rotating, and presenting a spent one revokes every token descended from that sign-in
+at once. Two pollers meeting the same expiry is the ordinary case with more than one signed-in
+screen, so `SessionManager.refreshed` takes a lock and, inside it, checks whether the token it set
+out to replace is still the current one — if it is not, somebody else already refreshed and their
+answer is the good one. Taking a second turn there is exactly the replay the station treats as
+theft.
+
+**A session ends on a 4xx to the refresh and on nothing else.** Not a network failure, not a 5xx: a
+tunnel reconnecting or a phone changing cell would otherwise sign the operator out several times a
+day, and a station having a bad minute says nothing about whether a session is still good.
+
+**Tokens live in a second DataStore file (`session`), not beside the two settings.** Different
+lifetime — cleared on sign-out and on a station change, never on a format change — and a `clear()`
+there must not be able to take the station address with it. They are not encrypted at rest:
+`security-crypto` is deprecated, the file is app-private, `allowBackup="false"` and
+`data_extraction_rules.xml` keep it off the network, and anything with the reach to read
+app-private storage can read a keystore-wrapped copy too. That is a real limit, and `PRIVACY.md`
+states what is kept rather than implying more.
+
 ## Signing and release
 
 **The upload key is not in this repository and must never be.** It lives at

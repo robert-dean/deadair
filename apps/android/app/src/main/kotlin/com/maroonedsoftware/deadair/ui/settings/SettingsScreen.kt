@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
@@ -23,10 +24,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.station.StreamFormat
 
 /**
  * The address and the format, after first run.
+ *
+ * The account section is last and is optional: listening needs no account, and the station issues
+ * only the operator's own. See `AccountSection`.
  *
  * The format list shows every format the station COULD publish. Which of them it actually does is
  * filled in from `/nowplaying`'s `mounts[]` once a reading has arrived; until then all are offered,
@@ -37,10 +42,17 @@ fun SettingsScreen(
     entry: StationEntryState,
     format: StreamFormat,
     availability: Map<StreamFormat, Boolean>,
+    session: SessionState,
+    account: AccountState,
+    hasStation: Boolean,
     onAddressChange: (String) -> Unit,
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
     onFormat: (StreamFormat) -> Unit,
+    onEmailChange: (String) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onSignIn: () -> Unit,
+    onSignOut: () -> Unit,
 ) {
     Scaffold { padding ->
         Column(
@@ -92,6 +104,21 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+            Text("Account", style = MaterialTheme.typography.titleMedium)
+            AccountSection(
+                session = session,
+                account = account,
+                signedInEnabled = hasStation,
+                onEmailChange = onEmailChange,
+                onPasswordChange = onPasswordChange,
+                onSignIn = onSignIn,
+                onSignOut = onSignOut,
+            )
+
+            Spacer(Modifier.padding(bottom = 24.dp))
         }
     }
 }

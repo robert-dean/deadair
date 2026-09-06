@@ -61,12 +61,15 @@ private fun Listener(graph: AppGraph) {
             factory =
                 object : ViewModelProvider.Factory {
                     @Suppress("UNCHECKED_CAST")
-                    override fun <T : ViewModel> create(modelClass: Class<T>): T = SettingsViewModel(graph.settings, graph.probe) as T
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                        SettingsViewModel(graph.settings, graph.probe, graph.sessions) as T
                 },
         )
 
     val settings by model.settings.collectAsStateWithLifecycle()
     val entry by model.entry.collectAsStateWithLifecycle()
+    val session by model.session.collectAsStateWithLifecycle()
+    val account by model.account.collectAsStateWithLifecycle()
     var showSettings by remember { mutableStateOf(false) }
 
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -110,10 +113,17 @@ private fun Listener(graph: AppGraph) {
                             NowPlayingState.Loading -> null
                         },
                     ),
+                session = session,
+                account = account,
+                hasStation = settings.station != null,
                 onAddressChange = model::onAddressChange,
                 onCheck = model::check,
                 onConfirm = model::confirm,
                 onFormat = model::setFormat,
+                onEmailChange = model::onEmailChange,
+                onPasswordChange = model::onPasswordChange,
+                onSignIn = model::signIn,
+                onSignOut = model::signOut,
             )
         Screen.NOW_PLAYING -> {
             val station = settings.station

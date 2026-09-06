@@ -8,8 +8,11 @@ station, which is server software that its users run themselves.
 ## What the app collects
 
 Nothing. The app has no analytics, no advertising, no crash reporting, and no third-party
-components that gather data. Marooned Software receives no information from it at all, and no
-account is needed to use it.
+components that gather data. Marooned Software receives no information from it at all.
+
+Listening needs no account. The app can optionally sign in to a station, which lets it read more of
+what that station publishes about itself than the public stream carries. That is a sign-in to that
+station alone, never to Marooned Software or to any service of ours.
 
 ## What the app stores on your device
 
@@ -18,7 +21,15 @@ Two settings, and only on the device:
 - the address of the station you chose to listen to
 - which audio format you picked
 
-Both are removed when the app is uninstalled. Neither is transmitted to Marooned Software.
+And, only if you sign in, the session that station issued:
+
+- the email address you signed in with, so the app can show you which account it is using
+- the two tokens the station gave it, which are what later requests to that station are made with
+
+Your password is not stored. It is sent to the station once, in exchange for those tokens, and is
+not kept afterwards. The tokens are removed when you sign out, when you point the app at a
+different station, and when the app is uninstalled. None of it is transmitted to Marooned Software,
+and none of it is included in a cloud backup or in a transfer to a new phone.
 
 ## What the app connects to
 

@@ -2,6 +2,8 @@ package com.maroonedsoftware.deadair.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.maroonedsoftware.deadair.auth.SessionManager
+import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.settings.SettingsStore
 import com.maroonedsoftware.deadair.station.StationProbe
 import com.maroonedsoftware.deadair.station.StreamFormat
@@ -13,13 +15,26 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 
-/** The address field and the format picker, for both the setup screen and the settings screen. */
+/**
+ * The address field, the format picker and the account, for the setup and settings screens.
+ *
+ * The account is here rather than in a model of its own because it belongs to the same screen and
+ * to the same station: signing in is a thing you do to the address in the field above it, and a
+ * second view model would need the first one's station to know where to send the password.
+ */
 class SettingsViewModel(
     private val store: SettingsStore,
     private val probe: StationProbe,
+    private val sessions: SessionManager,
 ) : ViewModel() {
     private val _entry = MutableStateFlow(StationEntryState())
     val entry: StateFlow<StationEntryState> = _entry.asStateFlow()
+
+    private val _account = MutableStateFlow(AccountState())
+    val account: StateFlow<AccountState> = _account.asStateFlow()
+
+    val session: StateFlow<SessionState> =
+        sessions.state.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), SessionState.SignedOut)
 
     val settings: StateFlow<ListenerSettings> =
         store.settings.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), ListenerSettings())
@@ -51,6 +66,38 @@ class SettingsViewModel(
 
     fun setFormat(format: StreamFormat) {
         viewModelScope.launch { store.setFormat(format) }
+    }
+
+    fun onEmailChange(email: String) {
+        _account.value = AccountState.typingEmail(_account.value, email)
+    }
+
+    fun onPasswordChange(password: String) {
+        _account.value = AccountState.typingPassword(_account.value, password)
+    }
+
+    /**
+     * Sign in to the station this app is pointed at.
+     *
+     * The STORED station, not the one in the field: the field may be mid-edit, and a password sent
+     * to a half-typed address is a password sent to whoever happens to own it.
+     */
+    fun signIn() {
+        val station = settings.value.station ?: return
+        val current = _account.value
+        if (!current.canSubmit) return
+
+        _account.value = current.copy(busy = true, error = null)
+        viewModelScope.launch {
+            _account.value = AccountState.from(_account.value, sessions.signIn(station, current.email.trim(), current.password))
+        }
+    }
+
+    fun signOut() {
+        viewModelScope.launch {
+            sessions.signOut()
+            _account.value = AccountState()
+        }
     }
 
     /** Load the stored address into the field, for the settings screen's first frame. */

@@ -67,6 +67,8 @@ fun HomeRoute(
     onSettings: () -> Unit,
     /** Open a record's page. */
     onTrack: (String) -> Unit,
+    /** Open the list of what could be put on air. Offered to the operator only. */
+    onAirSomething: () -> Unit,
 ) {
     // Survives a rotation, which `remember` alone would not, and a trip to Settings and back,
     // which the display's saveable-state decorator sees to.
@@ -143,6 +145,9 @@ fun HomeRoute(
         actions = {
             val loaded = order as? OrderState.Loaded
             if (tab == Tab.UP_NEXT && isOperator && loaded != null) {
+                IconButton(onClick = onAirSomething) {
+                    Icon(painterResource(R.drawable.ic_playlist_play), contentDescription = stringResource(R.string.air_something))
+                }
                 IconButton(
                     onClick = { orderAction { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) } },
                     enabled = !orderBusy,

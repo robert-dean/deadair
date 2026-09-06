@@ -238,6 +238,33 @@
     <string name="enrichment_empty_album">No provider has been asked about this album yet. The enrichment pass picks up what it has not seen, oldest first.</string>
     <string name="enrichment_empty_artist">No provider has been asked about this artist yet. The enrichment pass picks up what it has not seen, oldest first.</string>
 
+    <!-- Airing a playlist or a chart -->
+    <string name="air_something">Air something</string>
+    <string name="air_something_intro">Putting one of these on air replaces the running order and goes out to every listener.</string>
+    <string name="air_nothing_offered">No plugin offers a playlist or a chart.</string>
+    <!-- A plugin that could not be asked: "spotify: token expired" -->
+    <string name="source_error">%1$s: %2$s</string>
+    <string name="charts">Charts</string>
+    <string name="playlist_unavailable">This playlist is unavailable.</string>
+    <string name="playlist_no_tracks">This playlist has no tracks the station can play.</string>
+    <string name="air_this_playlist">Air this playlist</string>
+    <string name="chart_unavailable">This chart is unavailable.</string>
+    <string name="chart_empty">Nothing in this edition.</string>
+    <string name="chart_order_heading">Which way round</string>
+    <string name="chart_order_countdown">Countdown, ending on number one</string>
+    <string name="chart_order_ranked">Number one first</string>
+    <string name="chart_order_unordered">No fixed order</string>
+    <string name="air_this_chart">Air this chart</string>
+    <string name="chart_caveat">Records the library has never held are fetched as they are needed, and air untrimmed until they have been measured.</string>
+    <string name="chart_peak">peak %1$d</string>
+    <plurals name="chart_weeks">
+        <item quantity="one">%1$d week</item>
+        <item quantity="other">%1$d weeks</item>
+    </plurals>
+    <string name="air_confirm_title">Air %1$s to everyone?</string>
+    <string name="air_confirm_detail">This replaces what every listener hears.</string>
+    <string name="air_it">Air it</string>
+
     <!-- Rating: the station's own curation mark, with rotation consequences -->
     <string name="rating_dislike">Never play %1$s</string>
     <string name="rating_no_opinion">No opinion about %1$s</string>

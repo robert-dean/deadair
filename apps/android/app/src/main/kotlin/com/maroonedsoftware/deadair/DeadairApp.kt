@@ -13,6 +13,7 @@ import com.maroonedsoftware.deadair.net.HttpClients
 import com.maroonedsoftware.deadair.net.imageLoaderFactory
 import com.maroonedsoftware.deadair.history.HistoryRepository
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingRepository
+import com.maroonedsoftware.deadair.playout.AirActions
 import com.maroonedsoftware.deadair.playout.PlayoutRepository
 import com.maroonedsoftware.deadair.playout.Transport
 import com.maroonedsoftware.deadair.schedule.ScheduleRepository
@@ -120,6 +121,8 @@ class AppGraph(application: Application) {
     val catalog: CatalogActions = CatalogActions(operator, order)
 
     val orderActions: OrderActions = OrderActions(operator, order)
+
+    val air: AirActions = AirActions(operator, playout, order)
 
     val nowPlaying: NowPlayingRepository =
         NowPlayingRepository(

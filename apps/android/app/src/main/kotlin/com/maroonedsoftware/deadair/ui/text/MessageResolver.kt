@@ -9,6 +9,7 @@ import androidx.compose.ui.text.intl.Locale as ComposeLocale
 import androidx.compose.ui.res.stringResource
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.Notice
+import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInputChartOrder
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import com.maroonedsoftware.deadair.ui.catalog.EnrichmentField
@@ -154,6 +155,14 @@ fun Message.resolve(): String =
             val line = stringResource(R.string.source_line, source.provider, state)
             if (source.stale) stringResource(R.string.source_line, line, stringResource(R.string.source_due_again)) else line
         }
+        is Message.ChartOrder ->
+            stringResource(
+                when (order) {
+                    PlayoutChartInputChartOrder.COUNTDOWN -> R.string.chart_order_countdown
+                    PlayoutChartInputChartOrder.RANKED -> R.string.chart_order_ranked
+                    PlayoutChartInputChartOrder.UNORDERED -> R.string.chart_order_unordered
+                },
+            )
         Message.NotWrittenYet -> stringResource(R.string.item_not_written_yet)
         Message.NoAudioYet -> stringResource(R.string.item_no_audio_yet)
         Message.WillSkip -> stringResource(R.string.item_will_skip)

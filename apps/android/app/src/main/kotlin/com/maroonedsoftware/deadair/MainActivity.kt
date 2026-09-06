@@ -27,6 +27,9 @@ import androidx.navigation3.ui.NavDisplay
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.playback.PlayerConnection
+import com.maroonedsoftware.deadair.ui.air.AirSomethingRoute
+import com.maroonedsoftware.deadair.ui.air.ChartRoute
+import com.maroonedsoftware.deadair.ui.air.PlaylistRoute
 import com.maroonedsoftware.deadair.ui.catalog.AlbumRoute
 import com.maroonedsoftware.deadair.ui.catalog.ArtistRoute
 import com.maroonedsoftware.deadair.ui.catalog.TrackRoute
@@ -140,6 +143,34 @@ private fun Listener(graph: AppGraph) {
                                 backStack.add(Destination.Settings)
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
+                            onAirSomething = { backStack.add(Destination.AirSomething) },
+                        )
+                    }
+                    entry<Destination.AirSomething> {
+                        AirSomethingRoute(
+                            graph = graph,
+                            onBack = { backStack.removeLastOrNull() },
+                            onPlaylist = { pluginId, playlistId -> backStack.add(Destination.Playlist(pluginId, playlistId)) },
+                            onChart = { id -> backStack.add(Destination.Chart(id)) },
+                        )
+                    }
+                    // Airing something ends the errand: the stack unwinds to Home, where the
+                    // transport shows what just happened.
+                    entry<Destination.Playlist> { key ->
+                        PlaylistRoute(
+                            graph = graph,
+                            pluginId = key.pluginId,
+                            playlistId = key.playlistId,
+                            onBack = { backStack.removeLastOrNull() },
+                            onAired = { while (backStack.size > 1) backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<Destination.Chart> { key ->
+                        ChartRoute(
+                            graph = graph,
+                            chartId = key.id,
+                            onBack = { backStack.removeLastOrNull() },
+                            onAired = { while (backStack.size > 1) backStack.removeLastOrNull() },
                         )
                     }
                     entry<Destination.Track> { key ->

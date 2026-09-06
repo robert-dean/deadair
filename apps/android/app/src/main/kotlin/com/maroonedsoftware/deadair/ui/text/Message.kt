@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.ui.text
 
 import com.maroonedsoftware.deadair.auth.Notice
+import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInputChartOrder
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import com.maroonedsoftware.deadair.ui.catalog.EnrichmentField
@@ -140,6 +141,9 @@ sealed interface Message {
 
     /** Who said it and when: "musicbrainz · 3 May · due again". */
     data class Provenance(val source: com.maroonedsoftware.deadair.ui.catalog.Provenance) : Message
+
+    // ── Airing a chart ────────────────────────────────────────────────────────────────────
+    data class ChartOrder(val order: PlayoutChartInputChartOrder) : Message
 
     // ── A stale reading ───────────────────────────────────────────────────────────────────
     data object LastSaid : Message

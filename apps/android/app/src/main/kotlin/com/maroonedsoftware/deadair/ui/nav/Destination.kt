@@ -47,6 +47,16 @@ sealed interface Destination : NavKey {
 
     @Serializable
     data class Artist(val id: String) : Destination
+
+    /** Everything that could be put on air. Operator only; reached from the Up next tab. */
+    @Serializable
+    data object AirSomething : Destination
+
+    @Serializable
+    data class Playlist(val pluginId: String, val playlistId: String) : Destination
+
+    @Serializable
+    data class Chart(val id: String) : Destination
 }
 
 /**
@@ -66,6 +76,9 @@ val NavConfiguration: SavedStateConfiguration =
                     subclass(Destination.Track::class)
                     subclass(Destination.Album::class)
                     subclass(Destination.Artist::class)
+                    subclass(Destination.AirSomething::class)
+                    subclass(Destination.Playlist::class)
+                    subclass(Destination.Chart::class)
                 }
             }
     }

@@ -3,6 +3,7 @@ package com.maroonedsoftware.deadair.settings
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -31,6 +32,7 @@ class SettingsStore(private val context: Context) {
                 stationName = stored[STATION_NAME]?.takeIf { it.isNotBlank() },
                 // Likewise a format this build does not know, which is what a downgrade looks like.
                 format = stored[FORMAT]?.let { name -> StreamFormat.entries.firstOrNull { it.name == name } } ?: StreamFormat.MP3,
+                dynamicColour = stored[DYNAMIC_COLOUR] ?: true,
             )
         }
 
@@ -46,9 +48,14 @@ class SettingsStore(private val context: Context) {
         context.preferences.edit { it[FORMAT] = format.name }
     }
 
+    suspend fun setDynamicColour(on: Boolean) {
+        context.preferences.edit { it[DYNAMIC_COLOUR] = on }
+    }
+
     private companion object {
         val STATION = stringPreferencesKey("station_url")
         val STATION_NAME = stringPreferencesKey("station_name")
         val FORMAT = stringPreferencesKey("stream_format")
+        val DYNAMIC_COLOUR = booleanPreferencesKey("dynamic_colour")
     }
 }

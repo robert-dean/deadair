@@ -15,4 +15,6 @@ data class ListenerSettings(
     val station: StationUrl? = null,
     val stationName: String? = null,
     val format: StreamFormat = StreamFormat.MP3,
+    /** Colours from the wallpaper where the phone offers them, or the station's own. On by default, because a listener's palette is a better default than ours. */
+    val dynamicColour: Boolean = true,
 )

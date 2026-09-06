@@ -43,10 +43,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val graph = (application as DeadairApp).graph
         setContent {
+            // The theme reads the one setting it depends on straight from the store, above the
+            // screens, so it can be applied before there is a screen to apply it to.
+            val settings by graph.settings.settings.collectAsStateWithLifecycle(initialValue = null)
+
             // The phone's own clock preference, read once here so nothing below reaches for
             // `android.text.format` and everything that writes a time agrees.
             CompositionLocalProvider(LocalUses24HourClock provides DateFormat.is24HourFormat(this)) {
-                DeadairTheme {
+                DeadairTheme(dynamicColour = settings?.dynamicColour ?: true) {
                     Listener(graph)
                 }
             }
@@ -151,6 +155,7 @@ private fun Listener(graph: AppGraph) {
                                 ),
                             session = session,
                             account = account,
+                            dynamicColour = loaded.dynamicColour,
                             onBack = { backStack.removeLastOrNull() },
                             onAddressChange = model::onAddressChange,
                             onCheck = model::check,
@@ -161,6 +166,7 @@ private fun Listener(graph: AppGraph) {
                                 backStack.removeLastOrNull()
                             },
                             onFormat = model::setFormat,
+                            onDynamicColour = model::setDynamicColour,
                             onEmailChange = model::onEmailChange,
                             onPasswordChange = model::onPasswordChange,
                             onSignIn = model::signIn,

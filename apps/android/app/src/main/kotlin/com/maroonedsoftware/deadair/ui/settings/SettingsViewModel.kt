@@ -87,6 +87,10 @@ class SettingsViewModel(
         viewModelScope.launch { store.setFormat(format) }
     }
 
+    fun setDynamicColour(on: Boolean) {
+        viewModelScope.launch { store.setDynamicColour(on) }
+    }
+
     fun onEmailChange(email: String) {
         _account.value = AccountState.typingEmail(_account.value, email)
     }

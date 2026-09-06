@@ -31,6 +31,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -48,6 +49,7 @@ import com.maroonedsoftware.deadair.station.StreamFormat
 import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
 import com.maroonedsoftware.deadair.ui.theme.Gutter
+import com.maroonedsoftware.deadair.ui.theme.supportsDynamicColour
 
 /**
  * The address, the format and the account, after first run.
@@ -67,11 +69,13 @@ fun SettingsScreen(
     availability: Map<StreamFormat, Boolean>,
     session: SessionState,
     account: AccountState,
+    dynamicColour: Boolean,
     onBack: () -> Unit,
     onAddressChange: (String) -> Unit,
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
     onFormat: (StreamFormat) -> Unit,
+    onDynamicColour: (Boolean) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onSignIn: () -> Unit,
@@ -153,6 +157,20 @@ fun SettingsScreen(
                                     .selectable(selected = option == format, enabled = available, role = Role.RadioButton, onClick = { onFormat(option) }),
                         )
                     }
+                }
+
+                // Only where there are wallpaper colours to choose between. Below Android 12 the
+                // station's palette is the only one, and a switch that changed nothing would be a lie.
+                if (supportsDynamicColour) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                    Text(stringResource(R.string.section_appearance), style = MaterialTheme.typography.titleMedium)
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.use_wallpaper_colours)) },
+                        supportingContent = { Text(stringResource(R.string.use_wallpaper_colours_detail)) },
+                        trailingContent = { Switch(checked = dynamicColour, onCheckedChange = null) },
+                        modifier = Modifier.fillMaxWidth().selectable(selected = dynamicColour, role = Role.Switch, onClick = { onDynamicColour(!dynamicColour) }),
+                    )
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

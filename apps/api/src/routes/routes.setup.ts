@@ -2,6 +2,7 @@ import { AuthenticationFactorRouter } from './authentication.factor.router.js';
 import { AuthenticationRouter } from './authentication.router.js';
 import { AuthenticationSessionsRouter } from './authentication.sessions.router.js';
 import { ActivityRouter } from './activity.router.js';
+import { HistoryRouter } from './history.router.js';
 import { ArtRouter } from './art.router.js';
 import { CatalogRouter } from './catalog.router.js';
 import { ChartsRouter } from './charts.router.js';
@@ -33,6 +34,7 @@ export const routers = [
     AuthenticationSessionsRouter,
     ArtRouter,
     ActivityRouter,
+    HistoryRouter,
     CatalogRouter,
     ChartsRouter,
     NewsRouter,

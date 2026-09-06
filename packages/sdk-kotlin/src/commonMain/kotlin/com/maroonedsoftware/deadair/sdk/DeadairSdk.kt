@@ -10,6 +10,7 @@ import com.maroonedsoftware.deadair.sdk.clients.CatalogClient
 import com.maroonedsoftware.deadair.sdk.clients.ChartsClient
 import com.maroonedsoftware.deadair.sdk.clients.ClockClient
 import com.maroonedsoftware.deadair.sdk.clients.DirectorClient
+import com.maroonedsoftware.deadair.sdk.clients.HistoryClient
 import com.maroonedsoftware.deadair.sdk.clients.NewsClient
 import com.maroonedsoftware.deadair.sdk.clients.NowplayingClient
 import com.maroonedsoftware.deadair.sdk.clients.OnboardingClient
@@ -47,6 +48,7 @@ class DeadairSdk(config: SdkConfig) : AutoCloseable {
     val charts: ChartsClient = ChartsClient(http)
     val clock: ClockClient = ClockClient(http)
     val director: DirectorClient = DirectorClient(http)
+    val history: HistoryClient = HistoryClient(http)
     val news: NewsClient = NewsClient(http)
     val nowplaying: NowplayingClient = NowplayingClient(http)
     val onboarding: OnboardingClient = OnboardingClient(http)

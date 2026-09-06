@@ -11,7 +11,6 @@ import com.maroonedsoftware.deadair.station.StreamFormat
  * and not as a fault, because on an audience-gated station it is what quiet looks like.
  */
 data class NowPlayingUiState(
-    val station: String,
     val air: AirState,
     val listeners: Long,
     val format: StreamFormat,
@@ -33,9 +32,11 @@ data class NowPlayingUiState(
     val subtitle: String?
         get() = when (val state = air) {
             is AirState.OnAir -> state.track.artist.ifBlank { null }
-            // Said plainly, because on an audience-gated station this is the normal resting state
-            // and a listener should not read it as something being broken.
-            AirState.OffAir -> "Nobody is listening"
+            // An invitation rather than a status. On an audience-gated station this is the normal
+            // resting state, and the surprising fact about it is that pressing play is what puts
+            // the station on air — a line that read "nobody is listening" over a play button made
+            // the button look pointless, when it was the whole answer.
+            AirState.OffAir -> "Quiet until someone tunes in — press play to start it."
             AirState.WarmingUp -> "The station is coming on air"
             AirState.Unreachable -> if (stale) "Showing the last thing it said" else null
         }

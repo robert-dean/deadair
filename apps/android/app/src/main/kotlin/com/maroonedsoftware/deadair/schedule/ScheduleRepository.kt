@@ -1,12 +1,12 @@
 package com.maroonedsoftware.deadair.schedule
 
 import com.maroonedsoftware.deadair.auth.SessionState
+import com.maroonedsoftware.deadair.net.Kick
 import com.maroonedsoftware.deadair.sdk.models.Persona
 import com.maroonedsoftware.deadair.sdk.models.ScheduleNow
 import com.maroonedsoftware.deadair.sdk.models.ScheduleSlot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -49,8 +49,15 @@ class ScheduleRepository(
     private val readCurrent: suspend () -> ScheduleNow,
     private val readSlots: suspend () -> List<ScheduleSlot>,
     private val readPersonas: suspend () -> List<Persona>,
+    /** The wall clock, for saying how old a stale reading is. Injected so the tests can hold it still. */
+    private val nowEpochMs: () -> Long = System::currentTimeMillis,
     scope: CoroutineScope,
 ) {
+    private val kick = Kick()
+
+    /** Ask again now, and forget the backoff. What a Retry button and a pull to refresh mean. */
+    fun retry() = kick.kick()
+
     val state: StateFlow<ScheduleState> =
         session
             .distinctUntilChanged()
@@ -61,6 +68,7 @@ class ScheduleRepository(
 
     private fun poll(): Flow<ScheduleState> = flow {
         var lastGood: ScheduleReading? = null
+        var lastGoodAtMs: Long? = null
         var failures = 0
         var slots: List<ScheduleSlot> = emptyList()
         var personas: List<Persona> = emptyList()
@@ -80,6 +88,7 @@ class ScheduleRepository(
 
                 val reading = ScheduleReading(now = readCurrent(), slots = slots, personas = personas)
                 lastGood = reading
+                lastGoodAtMs = nowEpochMs()
                 failures = 0
                 emit(ScheduleState.Answered(reading))
             } catch (error: Exception) {
@@ -87,11 +96,11 @@ class ScheduleRepository(
                 // poll carries its own: one failed read is ordinary, and blanking the screen would
                 // make every hiccup look like the station losing its schedule.
                 failures += 1
-                emit(ScheduleState.Unreachable(lastGood))
+                emit(ScheduleState.Unreachable(lastGood, lastGoodAtMs))
             }
 
             polls += 1
-            delay(intervalFor(failures))
+            if (kick.awaitOrDelay(intervalFor(failures))) failures = 0
         }
     }
 

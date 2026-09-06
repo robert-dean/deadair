@@ -144,6 +144,30 @@ class ScheduleRepositoryTest {
     }
 
     @Test
+    fun `a retry asks at once and forgets the backoff`() = runTest {
+        val counts = Counts()
+        val session = MutableStateFlow<SessionState>(SessionState.SignedIn("operator@example.com"))
+        var fail = true
+        val repository = repositoryFor(session, counts, backgroundScope) { if (fail) throw IOException("down") else now }
+
+        val job = backgroundScope.launch { repository.state.collect {} }
+        advanceTimeBy(1)
+        advanceTimeBy(ScheduleRepository.POLL_MS * 2 + 1)
+        val before = counts.current
+        assertEquals(2, before)
+
+        fail = false
+        repository.retry()
+        advanceTimeBy(1)
+        assertEquals(before + 1, counts.current)
+        assertTrue(repository.state.value is ScheduleState.Answered)
+
+        advanceTimeBy(ScheduleRepository.POLL_MS + 1)
+        assertEquals(before + 2, counts.current)
+        job.cancel()
+    }
+
+    @Test
     fun `stops polling and says so when the session ends`() = runTest {
         val counts = Counts()
         val session = MutableStateFlow<SessionState>(SessionState.SignedIn("operator@example.com"))

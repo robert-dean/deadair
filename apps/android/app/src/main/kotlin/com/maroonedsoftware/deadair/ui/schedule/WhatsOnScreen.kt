@@ -16,12 +16,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.schedule.ScheduleState
-import com.maroonedsoftware.deadair.ui.EmptyPlaceholder
+import com.maroonedsoftware.deadair.ui.ErrorPlaceholder
+import com.maroonedsoftware.deadair.ui.Refreshable
 import com.maroonedsoftware.deadair.ui.SignedOutPlaceholder
+import com.maroonedsoftware.deadair.ui.StaleBanner
 import com.maroonedsoftware.deadair.ui.theme.Gutter
 
 /**
@@ -32,20 +33,25 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * by this phone, drifting away from the one the station is actually running on.
  */
 @Composable
-fun WhatsOnScreen(state: ScheduleState, onSettings: () -> Unit) {
+fun WhatsOnScreen(state: ScheduleState, onRetry: () -> Unit, onSettings: () -> Unit) {
     when (state) {
         ScheduleState.SignedOut -> SignedOutPlaceholder("What's on", onSettings)
         ScheduleState.Loading -> Loading()
-        is ScheduleState.Answered -> Blocks(whatsOn(state.reading.now, state.reading.slots, state.reading.personas), stale = false)
+        is ScheduleState.Answered ->
+            Refreshable(state = state, onRefresh = onRetry) {
+                Blocks(whatsOn(state.reading.now, state.reading.slots, state.reading.personas), staleSince = null, stale = false)
+            }
         is ScheduleState.Unreachable -> {
             val last = state.lastGood
             if (last == null) {
-                EmptyPlaceholder("Could not reach the station.")
+                ErrorPlaceholder("Could not reach the station", onRetry)
             } else {
-                // Dimmed rather than blanked, and dimmed for the same reason the artwork is: what is
-                // shown was true a moment ago, and a screen that emptied itself on one failed poll
-                // would make every hiccup look like the station losing its schedule.
-                Blocks(whatsOn(last.now, last.slots, last.personas), stale = true)
+                // Kept rather than blanked: what is shown was true a moment ago, and a screen that
+                // emptied itself on one failed poll would make every hiccup look like the station
+                // losing its schedule. The banner says so; the words stay readable.
+                Refreshable(state = state, onRefresh = onRetry) {
+                    Blocks(whatsOn(last.now, last.slots, last.personas), staleSince = state.lastGoodAtMs, stale = true)
+                }
             }
         }
     }
@@ -63,28 +69,21 @@ private fun Loading() {
 }
 
 @Composable
-private fun Blocks(state: WhatsOnUiState, stale: Boolean) {
-    Column(
-        modifier =
-            Modifier.fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Gutter, vertical = 16.dp)
-                .alpha(if (stale) STALE_ALPHA else 1f),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        when (val onNow = state.onNow) {
-            is OnNow.Live -> LiveCard(onNow)
-            is OnNow.Between -> BetweenCard(onNow)
-        }
+private fun Blocks(state: WhatsOnUiState, staleSince: Long?, stale: Boolean) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Above the scrolling part, so it is seen wherever the reader had scrolled to.
+        if (stale) StaleBanner(staleSince, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp))
 
-        state.ahead.forEach { AheadCard(it) }
+        Column(
+            modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Gutter, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            when (val onNow = state.onNow) {
+                is OnNow.Live -> LiveCard(onNow)
+                is OnNow.Between -> BetweenCard(onNow)
+            }
 
-        if (stale) {
-            Text(
-                "Could not reach the station just now. This is the last it said.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            state.ahead.forEach { AheadCard(it) }
         }
     }
 }
@@ -163,6 +162,3 @@ private fun BlockBody(block: BlockCard) {
         )
     }
 }
-
-/** The same dimming the artwork uses for a reading that is no longer current. */
-private const val STALE_ALPHA = 0.4f

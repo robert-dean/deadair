@@ -76,7 +76,6 @@ fun HomeRoute(
                 NowPlayingScreen(
                     state =
                         NowPlayingUiState(
-                            station = reading?.nowPlaying?.station ?: station?.origin.orEmpty(),
                             air = air,
                             listeners = reading?.nowPlaying?.listeners ?: 0,
                             format = settings.format,
@@ -103,9 +102,10 @@ fun HomeRoute(
                     nowEpochMs = System.currentTimeMillis(),
                     scope = scope,
                     onLoadMore = graph.history::loadMore,
+                    onRetry = graph.history::retry,
                     onSettings = onSettings,
                 )
-            Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onSettings = onSettings)
+            Tab.WHATS_ON -> WhatsOnScreen(state = schedule, onRetry = graph.schedule::retry, onSettings = onSettings)
         }
     }
 }

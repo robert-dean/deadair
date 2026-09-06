@@ -198,6 +198,61 @@ class HistoryRepositoryTest {
     }
 
     @Test
+    fun `a retry asks at once and forgets the backoff`() = runTest {
+        // Two failures have the poll waiting a minute. A listener who has just fixed their wifi
+        // presses Retry, and should neither wait the minute out nor find the next failure waiting
+        // two.
+        val seen = Seen()
+        var fail = true
+        val repository = repositoryFor(signedIn(), seen, backgroundScope) { if (fail) throw IOException("down") else page(listOf("a")) }
+
+        val job = backgroundScope.launch { repository.state.collect {} }
+        advanceTimeBy(1)
+        advanceTimeBy(HistoryRepository.POLL_MS * 2 + 1)
+        val before = seen.queries.size
+        assertEquals(2, before)
+
+        fail = false
+        repository.retry()
+        advanceTimeBy(1)
+        assertEquals(before + 1, seen.queries.size)
+        assertTrue(repository.state.value is HistoryState.Loaded)
+
+        // Back on the steady interval, not the one it had backed off to.
+        advanceTimeBy(HistoryRepository.POLL_MS + 1)
+        assertEquals(before + 2, seen.queries.size)
+        job.cancel()
+    }
+
+    @Test
+    fun `a stale list says when it was last good`() = runTest {
+        val seen = Seen()
+        var fail = false
+        var clock = 1_000L
+        val repository =
+            HistoryRepository(
+                session = signedIn(),
+                fetch = { query ->
+                    seen.queries.add(query)
+                    if (fail) throw IOException("down") else page(listOf("a"))
+                },
+                nowEpochMs = { clock },
+                scope = backgroundScope,
+            )
+
+        val job = backgroundScope.launch { repository.state.collect {} }
+        advanceTimeBy(1)
+        clock = 2_000L
+        fail = true
+        advanceTimeBy(HistoryRepository.POLL_MS + 1)
+
+        val loaded = repository.state.value as HistoryState.Loaded
+        assertTrue(loaded.stale)
+        assertEquals(1_000L, loaded.lastGoodAtMs)
+        job.cancel()
+    }
+
+    @Test
     fun `says it cannot reach the station when nothing ever arrived`() = runTest {
         val seen = Seen()
         val repository = repositoryFor(signedIn(), seen, backgroundScope) { throw IOException("down") }

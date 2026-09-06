@@ -54,6 +54,29 @@ class NowPlayingRepositoryTest {
         )
 
     @Test
+    fun `a retry asks at once and forgets the backoff`() = runTest {
+        var calls = 0
+        var fail = true
+        val repository = repository { calls += 1; if (fail) throw IOException("down") else answer(calls.toLong()) }
+
+        val job = backgroundScope.launch { repository.state.collect {} }
+        advanceTimeBy(1)
+        advanceTimeBy(NowPlayingRepository.POLL_MS * 2 + 1)
+        val before = calls
+        assertEquals(2, before)
+
+        fail = false
+        repository.retry()
+        advanceTimeBy(1)
+        assertEquals(before + 1, calls)
+        assertTrue(repository.state.value is NowPlayingState.Answered)
+
+        advanceTimeBy(NowPlayingRepository.POLL_MS + 1)
+        assertEquals(before + 2, calls)
+        job.cancel()
+    }
+
+    @Test
     fun `asks again on the poll interval while something is watching`() = runTest {
         var calls = 0
         val repository = repository { calls += 1; answer(calls.toLong()) }

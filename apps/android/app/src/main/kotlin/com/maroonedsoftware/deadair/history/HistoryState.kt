@@ -24,5 +24,7 @@ sealed interface HistoryState {
         val loadingMore: Boolean,
         /** The head poll is failing. What is listed was true a moment ago. */
         val stale: Boolean,
+        /** When the head last answered, on the wall clock, so a stale list can say how old it is. */
+        val lastGoodAtMs: Long? = null,
     ) : HistoryState
 }

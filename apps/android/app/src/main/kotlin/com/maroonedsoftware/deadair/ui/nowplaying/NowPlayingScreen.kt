@@ -29,6 +29,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -151,16 +154,25 @@ private fun Controls(state: NowPlayingUiState, playhead: Playhead?, onPlay: () -
         )
     }
 
+    // The name lives on the button, not on the icon inside it. While the station warms up the
+    // icon is swapped for a spinner, and a name that went with the icon left TalkBack announcing
+    // an unlabelled button that was still a live stop control — for as long as a warm-up takes,
+    // which on an audience-gated station is every time.
+    val label = if (state.playing) "Stop" else "Play"
     FilledIconButton(
         onClick = if (state.playing) onStop else onPlay,
-        modifier = Modifier.padding(top = 32.dp).size(72.dp),
+        modifier =
+            Modifier.padding(top = 32.dp).size(72.dp).semantics {
+                contentDescription = label
+                if (state.buffering) stateDescription = "Buffering"
+            },
     ) {
         if (state.buffering) {
             CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
         } else {
             Icon(
                 painterResource(if (state.playing) R.drawable.ic_stop else R.drawable.ic_play),
-                contentDescription = if (state.playing) "Stop" else "Play",
+                contentDescription = null,
                 modifier = Modifier.size(32.dp),
             )
         }

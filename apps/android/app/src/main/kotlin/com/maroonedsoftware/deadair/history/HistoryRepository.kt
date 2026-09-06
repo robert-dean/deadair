@@ -1,12 +1,12 @@
 package com.maroonedsoftware.deadair.history
 
 import com.maroonedsoftware.deadair.auth.SessionState
+import com.maroonedsoftware.deadair.net.Kick
 import com.maroonedsoftware.deadair.sdk.models.HistoryEntry
 import com.maroonedsoftware.deadair.sdk.models.HistoryPage
 import com.maroonedsoftware.deadair.sdk.models.HistoryQuery
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -20,7 +20,13 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** The head of the list, as the poll last left it. */
-private data class Head(val entries: List<HistoryEntry>, val nextBefore: String?, val stale: Boolean, val everAnswered: Boolean)
+private data class Head(
+    val entries: List<HistoryEntry>,
+    val nextBefore: String?,
+    val stale: Boolean,
+    val everAnswered: Boolean,
+    val lastGoodAtMs: Long? = null,
+)
 
 /** Pages walked back from the head by hand. */
 private data class Tail(val entries: List<HistoryEntry>, val nextBefore: String?, val loading: Boolean)
@@ -57,8 +63,15 @@ class HistoryRepository(
     session: Flow<SessionState>,
     /** One page. A function rather than the SDK, for the reason every other repository here takes one. */
     private val fetch: suspend (HistoryQuery) -> HistoryPage,
+    /** The wall clock, for saying how old a stale list is. Injected so the tests can hold it still. */
+    private val nowEpochMs: () -> Long = System::currentTimeMillis,
     scope: CoroutineScope,
 ) {
+    private val kick = Kick()
+
+    /** Ask for the head again now, and forget the backoff. What a Retry button and a pull to refresh mean. */
+    fun retry() = kick.kick()
+
     private val tail = MutableStateFlow(Tail(emptyList(), null, loading = false))
 
     /** One `loadMore` at a time: two would both start from the same cursor and fetch the same page. */
@@ -90,6 +103,7 @@ class HistoryRepository(
                     canLoadMore = (if (tail.entries.isEmpty()) head.nextBefore else tail.nextBefore) != null,
                     loadingMore = tail.loading,
                     stale = head.stale,
+                    lastGoodAtMs = head.lastGoodAtMs,
                 )
             }
         }
@@ -128,6 +142,7 @@ class HistoryRepository(
         var entries: List<HistoryEntry> = emptyList()
         var nextBefore: String? = null
         var everAnswered = false
+        var lastGoodAtMs: Long? = null
         var failures = 0
 
         while (true) {
@@ -137,13 +152,14 @@ class HistoryRepository(
                 nextBefore = page.nextBefore
                 headCursor = page.nextBefore
                 everAnswered = true
+                lastGoodAtMs = nowEpochMs()
                 failures = 0
-                emit(Head(entries, nextBefore, stale = false, everAnswered = true))
+                emit(Head(entries, nextBefore, stale = false, everAnswered = true, lastGoodAtMs = lastGoodAtMs))
             } catch (error: Exception) {
                 failures += 1
-                emit(Head(entries, nextBefore, stale = true, everAnswered = everAnswered))
+                emit(Head(entries, nextBefore, stale = true, everAnswered = everAnswered, lastGoodAtMs = lastGoodAtMs))
             }
-            delay(intervalFor(failures))
+            if (kick.awaitOrDelay(intervalFor(failures))) failures = 0
         }
     }
 

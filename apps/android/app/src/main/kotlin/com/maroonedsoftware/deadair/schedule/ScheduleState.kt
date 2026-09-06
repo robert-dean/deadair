@@ -26,6 +26,6 @@ sealed interface ScheduleState {
 
     data class Answered(val reading: ScheduleReading) : ScheduleState
 
-    /** The station stopped answering. The last good reading is kept, and the screen dims rather than blanks. */
-    data class Unreachable(val lastGood: ScheduleReading?) : ScheduleState
+    /** The station stopped answering. The last good reading is kept, with when it was read, and the screen says so rather than blanking. */
+    data class Unreachable(val lastGood: ScheduleReading?, val lastGoodAtMs: Long? = null) : ScheduleState
 }

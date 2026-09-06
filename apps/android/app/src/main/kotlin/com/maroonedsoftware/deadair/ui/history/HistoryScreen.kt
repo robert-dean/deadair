@@ -1,6 +1,5 @@
 package com.maroonedsoftware.deadair.ui.history
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +17,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,7 +30,11 @@ import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.history.HistoryState
 import com.maroonedsoftware.deadair.sdk.models.HistoryEntry
 import com.maroonedsoftware.deadair.ui.EmptyPlaceholder
+import com.maroonedsoftware.deadair.ui.ErrorPlaceholder
+import com.maroonedsoftware.deadair.ui.Refreshable
 import com.maroonedsoftware.deadair.ui.SignedOutPlaceholder
+import com.maroonedsoftware.deadair.ui.StaleBanner
+import com.maroonedsoftware.deadair.ui.theme.Gutter
 import java.time.ZoneId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -52,17 +54,20 @@ fun HistoryScreen(
     nowEpochMs: Long,
     scope: CoroutineScope,
     onLoadMore: suspend () -> Unit,
+    onRetry: () -> Unit,
     onSettings: () -> Unit,
 ) {
     when (state) {
         HistoryState.SignedOut -> SignedOutPlaceholder("Recently played", onSettings)
         HistoryState.Loading -> Loading()
-        HistoryState.Unreachable -> EmptyPlaceholder("Could not reach the station.")
+        HistoryState.Unreachable -> ErrorPlaceholder("Could not reach the station", onRetry)
         is HistoryState.Loaded ->
-            if (state.entries.isEmpty()) {
-                EmptyPlaceholder("Nothing has aired yet.")
-            } else {
-                Records(state, artUrlFor, nowEpochMs, scope, onLoadMore)
+            Refreshable(state = state, onRefresh = onRetry) {
+                if (state.entries.isEmpty()) {
+                    EmptyPlaceholder("Nothing has aired yet.")
+                } else {
+                    Records(state, artUrlFor, nowEpochMs, scope, onLoadMore)
+                }
             }
     }
 }
@@ -84,44 +89,41 @@ private fun Records(
     // instant, so this is the zone it should be read back in.
     val zone = remember { ZoneId.systemDefault() }
 
-    LazyColumn(modifier = Modifier.fillMaxSize().alpha(if (state.stale) STALE_ALPHA else 1f)) {
-        items(state.entries, key = { it.id }) { entry ->
-            Record(entry, artUrlFor(entry.artworkUrl), nowEpochMs, zone)
-            HorizontalDivider()
-        }
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Said once, above the list and at full opacity, rather than by dimming every line below
+        // it. Above the list rather than as its first row, because a row inserted at the top of a
+        // lazy list lands just out of view: the list keeps the row a reader was looking at where
+        // it was, which is right for a feed and wrong for a notice.
+        if (state.stale) StaleBanner(state.lastGoodAtMs, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp))
 
-        if (state.canLoadMore) {
-            item {
-                if (state.loadingMore) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                    }
-                } else {
-                    // Asked for rather than fetched on scroll. A listener walking back through a
-                    // day of radio is spending the station's time as well as their own, and a list
-                    // that loaded forever on its own would do that without being told to.
-                    TextButton(onClick = { scope.launch { onLoadMore() } }, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                        Text("Earlier")
+        LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            items(state.entries, key = { it.id }) { entry ->
+                Record(entry, artUrlFor(entry.artworkUrl), nowEpochMs, zone, stale = state.stale)
+                HorizontalDivider()
+            }
+
+            if (state.canLoadMore) {
+                item {
+                    if (state.loadingMore) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        }
+                    } else {
+                        // Asked for rather than fetched on scroll. A listener walking back through a
+                        // day of radio is spending the station's time as well as their own, and a list
+                        // that loaded forever on its own would do that without being told to.
+                        TextButton(onClick = { scope.launch { onLoadMore() } }, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                            Text("Earlier")
+                        }
                     }
                 }
-            }
-        }
-
-        if (state.stale) {
-            item {
-                Text(
-                    "Could not reach the station just now. This is the last it said.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
-                )
             }
         }
     }
 }
 
 @Composable
-private fun Record(entry: HistoryEntry, artworkUrl: String?, nowEpochMs: Long, zone: ZoneId) {
+private fun Record(entry: HistoryEntry, artworkUrl: String?, nowEpochMs: Long, zone: ZoneId, stale: Boolean) {
     ListItem(
         leadingContent = {
             Box(
@@ -138,7 +140,8 @@ private fun Record(entry: HistoryEntry, artworkUrl: String?, nowEpochMs: Long, z
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
-                    AsyncImage(model = artworkUrl, contentDescription = null, modifier = Modifier.fillMaxSize())
+                    // The picture fades a little when the reading is stale; the words do not.
+                    AsyncImage(model = artworkUrl, contentDescription = null, modifier = Modifier.fillMaxSize().alpha(if (stale) STALE_ALPHA else 1f))
                 }
             }
         },
@@ -154,5 +157,5 @@ private fun Record(entry: HistoryEntry, artworkUrl: String?, nowEpochMs: Long, z
     )
 }
 
-/** The same dimming everything else here uses for a reading that is no longer current. */
+/** How far a picture fades when the reading behind it is no longer current. Pictures only; never text. */
 private const val STALE_ALPHA = 0.4f

@@ -18,7 +18,6 @@ import org.junit.Test
 class NowPlayingUiStateTest {
     private fun state(air: AirState, listeners: Long = 0, stale: Boolean = false, fellBack: Boolean = false) =
         NowPlayingUiState(
-            station = "Static Between Stations",
             air = air,
             listeners = listeners,
             format = StreamFormat.MP3,
@@ -40,11 +39,14 @@ class NowPlayingUiStateTest {
     }
 
     @Test
-    fun `says off air plainly, because that is what quiet looks like here`() {
+    fun `says off air plainly, and says what the play button is for`() {
+        // The surprising fact about an audience-gated station is that pressing play is what puts
+        // it on air. A status line over the play button has to say that, or the button looks
+        // pointless — which is what "nobody is listening" made it look like.
         val ui = state(AirState.OffAir)
 
         assertEquals("Off air", ui.title)
-        assertEquals("Nobody is listening", ui.subtitle)
+        assertEquals("Quiet until someone tunes in — press play to start it.", ui.subtitle)
     }
 
     @Test

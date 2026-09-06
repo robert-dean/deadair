@@ -1,10 +1,11 @@
 package com.maroonedsoftware.deadair.nowplaying
 
+import com.maroonedsoftware.deadair.net.Kick
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.station.StationUrl
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.stateIn
  * That matters more here than it usually would: a request is not just battery, it is a line in the
  * station's log and a listener the station may count.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class NowPlayingRepository(
     settings: Flow<ListenerSettings>,
     /**
@@ -49,6 +51,11 @@ class NowPlayingRepository(
             .flatMapLatest { station -> if (station == null) flow { emit(NowPlayingState.Loading) } else poll(station) }
             .stateIn(scope, SharingStarted.WhileSubscribed(SUBSCRIBER_GRACE_MS), NowPlayingState.Loading)
 
+    private val kick = Kick()
+
+    /** Ask again now, and forget the backoff. What a Retry button means. */
+    fun retry() = kick.kick()
+
     private fun poll(station: StationUrl): Flow<NowPlayingState> = flow {
         var lastGood: Reading? = null
         var failures = 0
@@ -66,7 +73,9 @@ class NowPlayingRepository(
                 failures += 1
                 emit(NowPlayingState.Unreachable(lastGood))
             }
-            delay(intervalFor(failures))
+            // A kick ends the wait early and is a listener saying "try now", so the backoff goes
+            // with it: the next failure starts the doubling again from the steady interval.
+            if (kick.awaitOrDelay(intervalFor(failures))) failures = 0
         }
     }
 

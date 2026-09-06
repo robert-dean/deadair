@@ -348,6 +348,14 @@ contract SessionRevoke: { # Optional metadata supplied to a revoke action
     reason?: string(max=255) | null # Free-form reason recorded with the revoke
 }
 
+# A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads
+contract PlatformRole: enum(admin, listener)
+
+contract AuthSession: { # Who the caller is, as the station sees them
+    actorId: string(max=100) # The actor the session belongs to
+    roles: array(PlatformRole) # Every platform role the caller holds, sorted. Empty for an account nobody has granted one, which today is any account that did not come in through onboarding
+}
+
 contract Login: { # A successful authentication record
     id: readonly bigint # The login event identifier
     actorId: readonly uuid # The actor that authenticated

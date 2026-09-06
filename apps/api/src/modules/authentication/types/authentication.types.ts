@@ -332,8 +332,15 @@ export const SessionRevoke = z.strictObject({
 export type SessionRevoke = z.infer<typeof SessionRevoke>;
 
 /**
+ * A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads
+ * generated from [PlatformRole](../../../../data/contracts/authentication/authentication.types.ck#L352)
+ */
+export const PlatformRole = z.enum(['admin', 'listener']);
+export type PlatformRole = z.infer<typeof PlatformRole>;
+
+/**
  * A successful authentication record
- * generated from [Login](../../../../data/contracts/authentication/authentication.types.ck#L351)
+ * generated from [Login](../../../../data/contracts/authentication/authentication.types.ck#L359)
  */
 export const Login = z.strictObject({
     id: z.preprocess(val => (typeof val === 'string' ? BigInt(val.replace(/n$/, '')) : val), z.bigint()).describe('The login event identifier'),
@@ -357,7 +364,7 @@ export type LoginInput = z.infer<typeof LoginInput>;
 
 /**
  * The current user's display preferences, auto-detected by the SPA from the browser (Intl timezone + navigator.language). Omitted fields are left unchanged (absent = never set).
- * generated from [ActorPreferences](../../../../data/contracts/authentication/authentication.types.ck#L363)
+ * generated from [ActorPreferences](../../../../data/contracts/authentication/authentication.types.ck#L371)
  */
 export const ActorPreferences = z.strictObject({
     locale: z.string().max(32).optional().describe('RFC 5646 locale, e.g. "en-US"'),
@@ -519,6 +526,20 @@ export type Session = z.infer<typeof Session>;
 
 export const SessionInput = z.strictObject({});
 export type SessionInput = z.infer<typeof SessionInput>;
+
+/**
+ * Who the caller is, as the station sees them
+ * generated from [AuthSession](../../../../data/contracts/authentication/authentication.types.ck#L354)
+ */
+export const AuthSession = z.strictObject({
+    actorId: z.string().max(100).describe('The actor the session belongs to'),
+    roles: z
+        .array(PlatformRole)
+        .describe(
+            'Every platform role the caller holds, sorted. Empty for an account nobody has granted one, which today is any account that did not come in through onboarding',
+        ),
+});
+export type AuthSession = z.infer<typeof AuthSession>;
 
 /**
  * Represents an application authentication request

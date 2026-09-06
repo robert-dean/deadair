@@ -4,7 +4,7 @@ import { ErrorCodes } from '@deadair/error-codes';
 import { parseAndValidateArray } from '@maroonedsoftware/zod';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { SessionActivityService } from './session.activity.service.js';
-import { Session } from '#modules/authentication/types/authentication.types.js';
+import { AuthSession, Session } from '#modules/authentication/types/authentication.types.js';
 import { ResponseCookieJar } from './response.cookie.jar.js';
 
 @Injectable()
@@ -64,6 +64,20 @@ export class SessionsService {
             throw httpError(403).withDetails({ code: ErrorCodes.SESSION_NOT_OWNED_BY_CALLER, message: 'session does not belong to caller' });
         }
         await this.activity.revokeSession(sessionToken);
+    }
+
+    /**
+     * Who the caller is, and which platform roles they hold.
+     *
+     * The roles are already on the actor: the authorization middleware loads them from the tuple
+     * store once per request, and nothing else in the process ever needed to hand them to a
+     * client, because the console draws every control and lets the API say 403. A phone would
+     * rather not draw a Skip button it is about to be refused, so this answers the question up
+     * front. Sorted, so two reads of the same account compare equal.
+     */
+    async readCurrentSession(): Promise<AuthSession> {
+        const actor = this.authz.requireUser();
+        return { actorId: actor.actorId, roles: [...actor.platformRoles].sort() };
     }
 
     async revokeMyOtherSessions(): Promise<void> {

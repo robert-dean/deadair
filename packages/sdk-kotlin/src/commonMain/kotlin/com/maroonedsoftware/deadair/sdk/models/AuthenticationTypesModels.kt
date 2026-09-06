@@ -343,6 +343,15 @@ data class SessionRevoke(
     val reason: String? = null,
 )
 
+/** A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads */
+@Serializable
+enum class PlatformRole {
+    @SerialName("admin")
+    ADMIN,
+    @SerialName("listener")
+    LISTENER,
+}
+
 /** A successful authentication record */
 @Serializable
 data class Login(
@@ -521,6 +530,15 @@ data class Session(
 /** An active authentication session */
 @Serializable
 class SessionInput
+
+/** Who the caller is, as the station sees them */
+@Serializable
+data class AuthSession(
+    /** The actor the session belongs to */
+    val actorId: String,
+    /** Every platform role the caller holds, sorted. Empty for an account nobody has granted one, which today is any account that did not come in through onboarding */
+    val roles: List<PlatformRole>,
+)
 
 /** Represents an application authentication request */
 @Serializable

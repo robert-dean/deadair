@@ -1,5 +1,6 @@
-import { ServerKitRouter } from '@maroonedsoftware/koa';
+import { ServerKitRouter, requirePolicy } from '@maroonedsoftware/koa';
 import { SessionsService } from '#src/modules/authentication/sessions.service.js';
+import { AuthSession } from '../modules/authentication/types/authentication.types.js';
 
 /**
  * generated from [authentication.sessions.ck](../../data/contracts/authentication/authentication.sessions.ck)
@@ -16,4 +17,17 @@ AuthenticationSessionsRouter.post('/auth/logout', async ctx => {
     await service.revokeCurrentSession();
 
     ctx.status = 204;
+});
+
+/**
+ * Who the caller is and which platform roles they hold
+ * from [authentication.sessions.ck](../../data/contracts/authentication/authentication.sessions.ck#L31)
+ */
+AuthenticationSessionsRouter.get('/auth/session', requirePolicy({ policy: 'platform.view' }), async ctx => {
+    const service = ctx.container.get(SessionsService);
+    const result: AuthSession = await service.readCurrentSession();
+
+    ctx.status = 200;
+    ctx.type = 'application/json';
+    ctx.body = result;
 });

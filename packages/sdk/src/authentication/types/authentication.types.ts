@@ -421,8 +421,14 @@ export interface SessionRevoke {
 }
 
 /**
+ * A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads
+ * generated from [PlatformRole](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L352)
+ */
+export type PlatformRole = 'admin' | 'listener';
+
+/**
  * A successful authentication record
- * generated from [Login](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L351)
+ * generated from [Login](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L359)
  */
 export interface Login {
     /** The login event identifier */
@@ -456,7 +462,7 @@ export function reviveLogin(raw: Login): Login {
 
 /**
  * The current user's display preferences, auto-detected by the SPA from the browser (Intl timezone + navigator.language). Omitted fields are left unchanged (absent = never set).
- * generated from [ActorPreferences](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L363)
+ * generated from [ActorPreferences](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L371)
  */
 export interface ActorPreferences {
     /** RFC 5646 locale, e.g. "en-US" */
@@ -656,6 +662,17 @@ export function reviveSession(raw: Session): Session {
         }
     }
     return raw;
+}
+
+/**
+ * Who the caller is, as the station sees them
+ * generated from [AuthSession](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L354)
+ */
+export interface AuthSession {
+    /** The actor the session belongs to */
+    actorId: string;
+    /** Every platform role the caller holds, sorted. Empty for an account nobody has granted one, which today is any account that did not come in through onboarding */
+    roles: PlatformRole[];
 }
 
 /**

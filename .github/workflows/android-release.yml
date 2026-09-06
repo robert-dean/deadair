@@ -124,5 +124,6 @@ jobs:
                   releaseFiles: apps/android/app/build/outputs/bundle/release/app-release.aab
                   # R8 renames everything, so without this a crash in the console is unreadable.
                   mappingFile: apps/android/app/build/outputs/mapping/release/mapping.txt
-                  track: ${{ inputs.track }}
+                  # `tracks`, plural: the singular is deprecated and the action warns on it.
+                  tracks: ${{ inputs.track }}
                   status: ${{ inputs.status }}

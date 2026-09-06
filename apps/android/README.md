@@ -136,6 +136,39 @@ host when the station's own metadata points at one rather than at its cached cop
 
 Keep it true if the app ever gains a dependency that phones home.
 
+### Publishing from CI
+
+[`.github/workflows/android-release.yml`](../../.github/workflows/android-release.yml) builds,
+verifies and uploads a signed bundle. It is **manually triggered** — Actions, Android release, Run
+workflow — with a track and a status to choose. It is not on a push trigger on purpose: every
+upload burns a version code permanently and lands in the console's history, and `versionCode` being
+the commit count would otherwise ship a build for every README typo.
+
+It needs five repository secrets. Four come from the key you already have:
+
+```
+gh secret set UPLOAD_KEYSTORE_BASE64 < <(base64 -i ~/keystores/deadair-upload.jks)
+gh secret set UPLOAD_KEYSTORE_PASSWORD
+gh secret set UPLOAD_KEY_ALIAS
+gh secret set UPLOAD_KEY_PASSWORD
+```
+
+The fifth, `PLAY_SERVICE_ACCOUNT_JSON`, is a Google Cloud service account granted access under
+Play Console → Users and permissions, with Release manager on this app. Paste the whole JSON key:
+
+```
+gh secret set PLAY_SERVICE_ACCOUNT_JSON < path/to/service-account.json
+```
+
+**Play has to have seen the app before an API upload works.** The first bundle for a package is
+uploaded by hand in the console; the API cannot create an app. That is not a limitation of this
+workflow.
+
+On putting a signing key in CI at all: the key here is the UPLOAD key, not the app signing key.
+Google holds the one that matters, and if an upload key is ever compromised it can be reset through
+Play support. That is precisely the blast radius Play App Signing exists to shrink, and it is what
+makes this trade sane. Keep the app signing key out of everything, forever.
+
 ### What a reviewer sees
 
 This is a client for a server the reviewer does not have. On internal testing nobody reviews it

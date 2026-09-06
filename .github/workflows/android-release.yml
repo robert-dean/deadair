@@ -1,0 +1,128 @@
+# Publishing the Android listener to Google Play.
+#
+# Deliberately `workflow_dispatch` and NOT a push trigger, which is the one real decision in this
+# file. `release.yml` publishes Docker images on every push to main and that is right for images: a
+# tag is overwritten and nobody downstream is counting them. A Play upload is not like that. Every
+# upload burns a version code permanently, appears in the console's release history for good, and
+# on a track with real testers reaches their phones. `versionCode` is the commit count, so a push
+# trigger would technically work and would also ship a build for every README typo.
+#
+# So this runs when somebody asks for it. Adding `on: push: tags: ['v*']` later is one line, once
+# the manual path has been walked enough times to trust it.
+
+name: Android release
+
+on:
+    workflow_dispatch:
+        inputs:
+            track:
+                description: Play track to publish to
+                type: choice
+                default: internal
+                options:
+                    - internal
+                    - alpha
+                    - beta
+                    - production
+            status:
+                description: Release status on that track
+                type: choice
+                default: completed
+                options:
+                    - completed
+                    - draft
+
+concurrency:
+    group: android-release
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+
+        steps:
+            # `fetch-depth: 0` rather than the shallow default, and it is load-bearing: `versionCode`
+            # is `git rev-list --count HEAD`, and a shallow checkout answers 1. Publishing from one
+            # would upload version code 1 and every later release would be rejected as lower.
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+                  fetch-depth: 0
+
+            - name: Setup Java
+              uses: actions/setup-java@v6
+              with:
+                  distribution: temurin
+                  java-version: 21
+
+            - name: Setup Gradle
+              uses: gradle/actions/setup-gradle@v6
+
+            - name: Accept the SDK licences
+              run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+
+            # The key is written to the runner's own Gradle home rather than passed as `-P` flags,
+            # so no secret ever lands on a command line where `ps` could read it. The build reads
+            # these four exactly as it reads them on a laptop; nothing about the signing config is
+            # CI-specific.
+            - name: Install the upload key
+              env:
+                  KEYSTORE_BASE64: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
+                  KEYSTORE_PASSWORD: ${{ secrets.UPLOAD_KEYSTORE_PASSWORD }}
+                  KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+                  KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+              run: |
+                  if [ -z "$KEYSTORE_BASE64" ]; then
+                      echo "::error::UPLOAD_KEYSTORE_BASE64 is not set. See apps/android/README.md."
+                      exit 1
+                  fi
+                  mkdir -p "$HOME/.gradle" "$HOME/keys"
+                  printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$HOME/keys/upload.jks"
+                  chmod 600 "$HOME/keys/upload.jks"
+                  {
+                      printf 'deadair.upload.keystore=%s\n' "$HOME/keys/upload.jks"
+                      printf 'deadair.upload.keystorePassword=%s\n' "$KEYSTORE_PASSWORD"
+                      printf 'deadair.upload.keyAlias=%s\n' "$KEY_ALIAS"
+                      printf 'deadair.upload.keyPassword=%s\n' "$KEY_PASSWORD"
+                  } >> "$HOME/.gradle/gradle.properties"
+                  chmod 600 "$HOME/.gradle/gradle.properties"
+
+            # The same checks `build.yml` runs, because a build worth publishing is one that passed
+            # them. This workflow does not call that one: it needs a deep checkout and a signing key,
+            # and neither belongs in the job every pull request runs.
+            - name: Test and lint
+              working-directory: apps/android
+              run: ./gradlew --no-daemon :sdk:build :app:testDebugUnitTest :app:lintDebug
+
+            - name: Build the signed bundle
+              working-directory: apps/android
+              run: ./gradlew --no-daemon :app:bundleRelease
+
+            # Refuses to publish an unsigned artifact. Without the key the build SUCCEEDS and emits
+            # an unsigned bundle by design — that is what lets pull requests build the release path
+            # at all — so the check that a key was actually applied has to be explicit here.
+            - name: Verify it is signed
+              working-directory: apps/android
+              run: |
+                  AAB=app/build/outputs/bundle/release/app-release.aab
+                  if ! jarsigner -verify "$AAB" | grep -q 'jar verified'; then
+                      echo "::error::The bundle is not signed. The upload key did not reach the build."
+                      exit 1
+                  fi
+                  echo "Signed. Version code: $(git rev-list --count HEAD)"
+
+            - name: Upload to Play
+              uses: r0adkll/upload-google-play@v1
+              with:
+                  serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+                  packageName: com.maroonedsoftware.deadair
+                  releaseFiles: apps/android/app/build/outputs/bundle/release/app-release.aab
+                  # R8 renames everything, so without this a crash in the console is unreadable.
+                  mappingFile: apps/android/app/build/outputs/mapping/release/mapping.txt
+                  track: ${{ inputs.track }}
+                  status: ${{ inputs.status }}

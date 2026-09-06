@@ -67,7 +67,13 @@ class PlayerConnection(private val context: Context) {
         controller?.play()
     }
 
-    /** Stop, not pause: `LivePlayer` maps one onto the other, and this says which it means. */
+    /**
+     * Stop, not pause: `LivePlayer` maps one onto the other, and this says which it means.
+     *
+     * The state is reset here for the frame before the player's own events arrive; `LivePlayer`
+     * clears `playWhenReady` on stop, so those events agree rather than putting the Stop button
+     * back, which is what they did.
+     */
     fun stop() {
         controller?.stop()
         _state.value = _state.value.copy(requested = false, playing = false, buffering = false)

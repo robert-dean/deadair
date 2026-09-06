@@ -38,6 +38,20 @@ class LivePlayer(player: Player) : ForwardingPlayer(player) {
         super.play()
     }
 
+    /**
+     * Stop, and say so.
+     *
+     * ExoPlayer's `stop()` moves to idle but leaves `playWhenReady` standing, which is right for a
+     * player that might be told to resume and wrong for a radio that was switched off: the screen
+     * reads "what the listener asked for" off `playWhenReady`, so a stopped stream kept drawing a
+     * Stop button until the app was relaunched. `super.setPlayWhenReady`, because this class's own
+     * override maps `false` back onto `stop()`.
+     */
+    override fun stop() {
+        super.stop()
+        super.setPlayWhenReady(false)
+    }
+
     override fun getAvailableCommands(): Player.Commands =
         super.getAvailableCommands().buildUpon().removeAll(*WITHDRAWN).build()
 

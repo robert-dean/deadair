@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
  *
  * Everything here runs on the main looper, because that is where a `Player` must be touched.
  */
-class PlaybackConductor(private val player: Player, private val graph: AppGraph) {
+class PlaybackConductor(private val player: Player, private val graph: AppGraph, private val offAir: String) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
     private val backoff = Backoff()
@@ -97,7 +97,7 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph)
         val wasPlaying = player.playWhenReady
         current = choice
         pushedFor = null
-        player.setMediaItem(MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null)))
+        player.setMediaItem(MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, offAir)))
         if (wasPlaying) {
             player.prepare()
             player.play()
@@ -119,7 +119,7 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph)
         if (startedAt == pushedFor && now?.track != null) return
 
         pushedFor = startedAt
-        player.replaceMediaItem(0, item.buildUpon().setMediaMetadata(MediaItems.metadataFor(where, now)).build())
+        player.replaceMediaItem(0, item.buildUpon().setMediaMetadata(MediaItems.metadataFor(where, now, offAir)).build())
     }
 
     /** Try the stream again after a wait, for as long as that is worth doing. */

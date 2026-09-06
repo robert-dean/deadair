@@ -52,13 +52,19 @@ object MediaItems {
      *
      * The artwork is a URI rather than bytes; the session's own loader fetches it, which means the
      * `/api/art` cache headers are honoured once rather than by every surface separately.
+     *
+     * With nothing on air the station's name takes the title line and `offAir` the artist line,
+     * which is the line the notification shows under the title. Before, an off-air station was a
+     * name over nothing, and a name over nothing looks like a notification that failed to load.
+     * Only once the station has ANSWERED, though: before the first reading nothing is known, and
+     * "Off air" as a guess would be wrong exactly when the listener has just pressed play.
      */
-    fun metadataFor(station: StationUrl, now: NowPlaying?): MediaMetadata {
+    fun metadataFor(station: StationUrl, now: NowPlaying?, offAir: String): MediaMetadata {
         val track = now?.track
         return MediaMetadata.Builder()
             .setStation(now?.station)
             .setTitle(track?.title ?: now?.station)
-            .setArtist(track?.artist)
+            .setArtist(track?.artist ?: offAir.takeIf { now != null })
             .setAlbumTitle(track?.album)
             .setArtworkUri(station.artUrl(track?.artworkUrl)?.toUri())
             .setMediaType(MediaMetadata.MEDIA_TYPE_RADIO_STATION)

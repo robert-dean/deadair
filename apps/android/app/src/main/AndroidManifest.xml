@@ -13,9 +13,10 @@
     -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!--
-        Declared for completeness rather than because the media notification needs it: a
-        notification tied to a MediaSession is exempt from the runtime permission on 33+. The app
-        asks once anyway, because the exemption is easy to lose.
+        A notification tied to a MediaSession is exempt from the runtime permission on 33+, so the
+        player's notification appears without this being granted. The app still asks, at the first
+        press of play rather than at launch, because the exemption is easy to lose to a platform
+        release or a manufacturer's build and one dialog at the moment it makes sense is cheap.
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 

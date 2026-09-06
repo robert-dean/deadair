@@ -19,6 +19,7 @@ import com.maroonedsoftware.deadair.ui.rememberNowEpochMs
 import com.maroonedsoftware.deadair.ui.history.HistoryScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
+import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayWithNotificationsAsked
 import com.maroonedsoftware.deadair.ui.nowplaying.rememberPlayhead
 import com.maroonedsoftware.deadair.ui.schedule.WhatsOnScreen
 
@@ -64,6 +65,7 @@ fun HomeRoute(
         }
     val air = airState(nowPlaying, playback.requested)
     val choice = chooseMount(reading?.nowPlaying?.mounts.orEmpty(), settings.format)
+    val play = rememberPlayWithNotificationsAsked(connection::play)
 
     HomeScreen(
         // What the station calls itself now, else what it called itself when it was kept, else
@@ -92,7 +94,7 @@ fun HomeRoute(
                     // Frozen while the station is unreachable: a bar still sweeping from a reading
                     // minutes old is a moving, confident lie about where the record is.
                     playhead = rememberPlayhead(reading.takeIf { nowPlaying is NowPlayingState.Answered }),
-                    onPlay = connection::play,
+                    onPlay = play,
                     onStop = connection::stop,
                     onOpenFormat = onSettings,
                 )

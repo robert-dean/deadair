@@ -79,8 +79,22 @@ the five-minute linger, so probing five formats puts a silent station on air and
 `GET /nowplaying` carries `mounts[]` for exactly this reason; read that.
 
 **HLS listeners are counted per IP and User-Agent**, from playlist re-fetches inside a 15-second
-window. So the User-Agent is set once and shared by the SDK's client, the image loader and
-ExoPlayer, and two phones behind one NAT count as one listener — known, and accepted.
+window. So there is one agent string (`UserAgent.VALUE`), and it reaches every request from one of
+two places: an interceptor on the shared OkHttp client, which the SDK and the image loader both go
+through, and the one `DefaultHttpDataSource.Factory` the playback service builds for ExoPlayer AND
+for the media session's artwork loader. The interceptor rather than a header merged in by each
+caller, because the image loader was sending `okhttp/4.x` for months and nothing said so; and the
+session's bitmap loader given the same factory, because its default used the platform stack under
+its own agent, which was a second listener for one request every time the record changed. Two
+phones behind one NAT count as one listener — known, and accepted.
+
+**The notification's Stop is a relabelled pause, and Android 13+ ignores the label.** `LivePlayer`
+maps pause onto stop, and `LiveNotificationProvider` gives the notification's play/pause action a
+stop glyph and the word Stop. From Android 13 the system draws its media control from the session's
+playback state, not the notification's actions, so it shows its own pause glyph while playing; that
+glyph stops (measured: the session reads `NONE` afterwards, not `PAUSED`). Withdrawing
+`COMMAND_PLAY_PAUSE` so the system would draw stop instead is the obvious fix and the wrong one: a
+headset's pause key arrives as that same command and would do nothing.
 
 ## The session, and the one rule that is not obvious
 

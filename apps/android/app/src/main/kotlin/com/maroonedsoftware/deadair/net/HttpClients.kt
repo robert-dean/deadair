@@ -15,16 +15,17 @@ import okhttp3.OkHttpClient
  * so choosing one is this app's job, and OkHttp is the choice because the image loader uses it
  * too. That is not tidiness: HLS listeners are counted per IP AND User-Agent inside a 15-second
  * window, so every request this app makes carrying the same agent is what keeps one listener from
- * being counted as several, or as none.
+ * being counted as several, or as none. The agent goes on as an interceptor here, so a caller
+ * cannot forget it.
  *
  * ExoPlayer keeps its own `DefaultHttpDataSource` rather than joining this, because that one sends
  * `Icy-MetaData: 1` and parses the ICY stream itself. It is given the same agent string.
  */
 object HttpClients {
     /** Named after the app and its version, so a station's logs can tell this client apart. */
-    const val USER_AGENT: String = "deadair-android/0.1.0"
+    const val USER_AGENT: String = UserAgent.VALUE
 
-    val okHttp: OkHttpClient by lazy { OkHttpClient.Builder().build() }
+    val okHttp: OkHttpClient by lazy { OkHttpClient.Builder().addInterceptor(UserAgent).build() }
 
     val ktor: HttpClient by lazy {
         HttpClient(OkHttp) {
@@ -43,18 +44,18 @@ object HttpClients {
      * never closes a client it was handed, these can be made per station without leaking a
      * connection pool.
      *
-     * `headers` is the caller's chance to add to the one header this always sends, and it is a
-     * `suspend` lambda because the SDK calls it once per REQUEST rather than once per client. That
-     * is what lets a session attach a bearer that changes underneath a client already in use, and
-     * it is why nothing has to rebuild an SDK to refresh a token. The agent is merged in here
-     * rather than left to callers: an anonymous poll and a signed-in read have to look like one
-     * listener to a station counting them, and forgetting it in one place would make them two.
+     * `headers` is the caller's chance to add to what every request carries, and it is a `suspend`
+     * lambda because the SDK calls it once per REQUEST rather than once per client. That is what
+     * lets a session attach a bearer that changes underneath a client already in use, and it is
+     * why nothing has to rebuild an SDK to refresh a token. The agent is not among them: the
+     * shared client puts it on every request itself, so an anonymous poll and a signed-in read
+     * look like one listener without either having to remember to.
      */
     fun sdkFor(station: StationUrl, headers: suspend () -> Map<String, String> = { emptyMap() }): DeadairSdk =
         DeadairSdk(
             SdkConfig(
                 baseUrl = station.apiBase,
-                headers = { mapOf("User-Agent" to USER_AGENT) + headers() },
+                headers = headers,
                 httpClient = ktor,
             ),
         )

@@ -169,6 +169,18 @@
     <string name="item_no_audio_yet">No audio yet</string>
     <string name="item_will_skip">Will skip</string>
 
+    <!-- The operator's running-order actions -->
+    <string name="extend">Extend</string>
+    <string name="shuffle">Shuffle</string>
+    <string name="refill_asked">Refill asked for. The records land in a few seconds.</string>
+    <string name="row_actions">Actions for %1$s</string>
+    <string name="play_next">Play next</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
+    <string name="drop">Drop</string>
+    <string name="dropped">Dropped “%1$s”.</string>
+    <string name="put_it_back">Put it back</string>
+
     <!-- Rating: the station's own curation mark, with rotation consequences -->
     <string name="rating_dislike">Never play %1$s</string>
     <string name="rating_no_opinion">No opinion about %1$s</string>

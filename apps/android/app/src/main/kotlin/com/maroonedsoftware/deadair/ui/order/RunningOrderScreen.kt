@@ -12,6 +12,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -59,6 +62,12 @@ data class OrderHandlers(
     val onRate: (trackId: String, Rating) -> Unit,
     /** Which record's rating is being written, so its control waits rather than looking ignored. */
     val ratingTrackId: String?,
+    /** Move a planned row to a position in the whole order. */
+    val onMove: (itemId: String, toIndex: Int) -> Unit,
+    /** Drop a planned row. The position is the row's in the whole order at the moment of the tap, which is what an undo puts it back at. */
+    val onRemove: (item: StationOrderItem, atIndex: Int) -> Unit,
+    /** An action on a row is in flight. */
+    val busyItemId: String?,
 )
 
 /**
@@ -123,11 +132,29 @@ private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, hand
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f)) {
             itemsIndexed(ui.shown, key = { _, item -> item.id }) { index, item ->
                 val rateable = handlers != null && item.kind == StationOrderItemKind.TRACK && item.trackId != null
+                val position = ui.positionOf(index)
                 Row(
                     item = item,
                     artworkUrl = artUrlFor(item.artworkUrl),
                     stale = state.stale,
                     modifier = if (rateable) Modifier.clickable { rating = item } else Modifier,
+                    // A menu only on a row the player has not been handed: an affordance that could
+                    // only ever answer 422 is worse than none.
+                    menu =
+                        if (handlers == null || item.isSpent()) {
+                            null
+                        } else {
+                            {
+                                RowMenu(
+                                    item = item,
+                                    position = position,
+                                    ui = ui,
+                                    busy = handlers.busyItemId == item.id,
+                                    onMove = handlers.onMove,
+                                    onRemove = handlers.onRemove,
+                                )
+                            }
+                        },
                 )
                 if (index < ui.shown.lastIndex) HorizontalDivider()
             }
@@ -169,8 +196,68 @@ private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, hand
     }
 }
 
+/**
+ * The three moves and the drop, behind one button on the row.
+ *
+ * Play next moves the row in front of everything the player is not already holding, which is not
+ * necessarily the next thing heard: whatever has been handed over plays first. Each move is offered
+ * only where it lands somewhere, because a menu item whose only effect is nothing teaches an
+ * operator that the menu does nothing.
+ */
 @Composable
-private fun Row(item: StationOrderItem, artworkUrl: String?, stale: Boolean, modifier: Modifier = Modifier) {
+private fun RowMenu(
+    item: StationOrderItem,
+    position: Int,
+    ui: RunningOrderUiState,
+    busy: Boolean,
+    onMove: (String, Int) -> Unit,
+    onRemove: (StationOrderItem, Int) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val moves =
+        Move.entries.mapNotNull { move -> moveTarget(move, position, ui.firstPlannedIndex, ui.items.size)?.let { move to it } }
+
+    Box {
+        if (busy) {
+            CircularProgressIndicator(modifier = Modifier.padding(12.dp).size(24.dp), strokeWidth = 2.dp)
+        } else {
+            IconButton(onClick = { open = true }) {
+                Icon(painterResource(R.drawable.ic_more_vert), contentDescription = stringResource(R.string.row_actions, item.title))
+            }
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            moves.forEach { (move, target) ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            stringResource(
+                                when (move) {
+                                    Move.PLAY_NEXT -> R.string.play_next
+                                    Move.UP -> R.string.move_up
+                                    Move.DOWN -> R.string.move_down
+                                },
+                            ),
+                        )
+                    },
+                    onClick = {
+                        open = false
+                        onMove(item.id, target)
+                    },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.drop), color = MaterialTheme.colorScheme.error) },
+                onClick = {
+                    open = false
+                    onRemove(item, position)
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun Row(item: StationOrderItem, artworkUrl: String?, stale: Boolean, modifier: Modifier = Modifier, menu: (@Composable () -> Unit)? = null) {
     val airing = item.state == StationItemState.AIRING
     ListItem(
         modifier = modifier.alpha(item.opacity()),
@@ -198,9 +285,12 @@ private fun Row(item: StationOrderItem, artworkUrl: String?, stale: Boolean, mod
             if (line.isNotEmpty()) Text(line, maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
         trailingContent = {
-            item.stateLabel()?.let {
+            val label = item.stateLabel()
+            if (menu != null) {
+                menu()
+            } else if (label != null) {
                 Text(
-                    it.resolve(),
+                    label.resolve(),
                     style = MaterialTheme.typography.labelMedium,
                     color = if (airing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )

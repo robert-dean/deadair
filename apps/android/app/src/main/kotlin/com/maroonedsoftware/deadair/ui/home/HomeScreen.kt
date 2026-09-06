@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.ui.home
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,6 +57,8 @@ fun HomeScreen(
     onTab: (Tab) -> Unit,
     onSettings: () -> Unit,
     snackbarHost: SnackbarHostState,
+    /** The tab's own actions, before Settings. Empty for a tab that has none. */
+    actions: @Composable RowScope.() -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     // The bar gives way to a list that scrolls under it and comes back on the first pull down,
@@ -71,6 +74,7 @@ fun HomeScreen(
                 title = { Text(station, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 scrollBehavior = scrollBehavior,
                 actions = {
+                    actions()
                     IconButton(onClick = onSettings) {
                         Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.settings))
                     }

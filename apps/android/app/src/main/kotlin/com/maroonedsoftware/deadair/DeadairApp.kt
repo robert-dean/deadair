@@ -7,6 +7,7 @@ import com.maroonedsoftware.deadair.auth.OperatorActions
 import com.maroonedsoftware.deadair.auth.SessionManager
 import com.maroonedsoftware.deadair.auth.SessionStore
 import com.maroonedsoftware.deadair.catalog.CatalogActions
+import com.maroonedsoftware.deadair.director.OrderActions
 import com.maroonedsoftware.deadair.director.OrderRepository
 import com.maroonedsoftware.deadair.net.HttpClients
 import com.maroonedsoftware.deadair.net.imageLoaderFactory
@@ -117,6 +118,8 @@ class AppGraph(application: Application) {
         )
 
     val catalog: CatalogActions = CatalogActions(operator, order)
+
+    val orderActions: OrderActions = OrderActions(operator, order)
 
     val nowPlaying: NowPlayingRepository =
         NowPlayingRepository(

@@ -2,7 +2,14 @@ package com.maroonedsoftware.deadair.ui.home
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import com.maroonedsoftware.deadair.R
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -24,6 +31,9 @@ import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.ui.rememberNowEpochMs
 import com.maroonedsoftware.deadair.ui.history.HistoryScreen
 import com.maroonedsoftware.deadair.ui.order.OrderHandlers
+import com.maroonedsoftware.deadair.ui.order.RunningOrderUiState
+import com.maroonedsoftware.deadair.director.OrderState
+import com.maroonedsoftware.deadair.sdk.models.StationOrderItemKind
 import com.maroonedsoftware.deadair.ui.order.RunningOrderScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingScreen
 import com.maroonedsoftware.deadair.ui.nowplaying.NowPlayingUiState
@@ -97,6 +107,29 @@ fun HomeRoute(
     val choice = chooseMount(reading?.nowPlaying?.mounts.orEmpty(), settings.format)
     val play = rememberPlayWithNotificationsAsked(connection::play)
 
+    // The order's own state is read here as well as in its tab, because the app bar's Extend and
+    // Shuffle live above the tab and need to know whether there is anything to shuffle. Collected
+    // only while the tab is showing, so the poll still stops when it is left.
+    val order by if (tab == Tab.UP_NEXT) graph.order.state.collectAsStateWithLifecycle() else remember { mutableStateOf<OrderState>(OrderState.Loading) }
+    var orderBusy by remember { mutableStateOf(false) }
+    var busyItemId by remember { mutableStateOf<String?>(null) }
+    fun orderAction(itemId: String? = null, action: suspend () -> Unit) {
+        if (orderBusy) return
+        orderBusy = true
+        busyItemId = itemId
+        scope.launch {
+            try {
+                action()
+            } finally {
+                orderBusy = false
+                busyItemId = null
+            }
+        }
+    }
+    val refillAsked = stringResource(R.string.refill_asked)
+    val dropped = stringResource(R.string.dropped)
+    val putItBack = stringResource(R.string.put_it_back)
+
     HomeScreen(
         // What the station calls itself now, else what it called itself when it was kept, else
         // the address — which a listener should see only in the moments before either exists.
@@ -105,6 +138,24 @@ fun HomeRoute(
         onTab = { tab = it },
         onSettings = onSettings,
         snackbarHost = snackbarHost,
+        actions = {
+            val loaded = order as? OrderState.Loaded
+            if (tab == Tab.UP_NEXT && isOperator && loaded != null) {
+                IconButton(
+                    onClick = { orderAction { if (graph.orderActions.extend()) snackbarHost.showSnackbar(refillAsked) } },
+                    enabled = !orderBusy,
+                ) {
+                    Icon(painterResource(R.drawable.ic_playlist_add), contentDescription = stringResource(R.string.extend))
+                }
+                // Nothing to shuffle with fewer than two rows the player has not been handed.
+                IconButton(
+                    onClick = { orderAction { graph.orderActions.shuffle() } },
+                    enabled = !orderBusy && RunningOrderUiState(loaded.order.items).plannedCount >= 2,
+                ) {
+                    Icon(painterResource(R.drawable.ic_shuffle), contentDescription = stringResource(R.string.shuffle))
+                }
+            }
+        },
     ) {
         when (tab) {
             Tab.NOW_PLAYING -> {
@@ -166,7 +217,6 @@ fun HomeRoute(
                 )
             }
             Tab.UP_NEXT -> {
-                val order by graph.order.state.collectAsStateWithLifecycle()
                 var ratingTrackId by remember { mutableStateOf<String?>(null) }
                 val handlers =
                     if (!isOperator) {
@@ -186,6 +236,20 @@ fun HomeRoute(
                                 }
                             },
                             ratingTrackId = ratingTrackId,
+                            onMove = { itemId, toIndex -> orderAction(itemId) { graph.orderActions.move(itemId, toIndex) } },
+                            onRemove = { item, atIndex ->
+                                orderAction(item.id) {
+                                    if (!graph.orderActions.remove(item.id)) return@orderAction
+                                    // Only a record can be put back: a break is marked removed rather
+                                    // than spliced out, so there is nothing to put back. The index is
+                                    // the one the row held at the tap, and the station may refuse it
+                                    // if the player has passed it since — that comes back as a notice.
+                                    val trackId = item.trackId?.takeIf { item.kind == StationOrderItemKind.TRACK } ?: return@orderAction
+                                    val answer = snackbarHost.showSnackbar(message = dropped.format(item.title), actionLabel = putItBack, duration = SnackbarDuration.Long)
+                                    if (answer == SnackbarResult.ActionPerformed) graph.orderActions.restore(trackId, atIndex)
+                                }
+                            },
+                            busyItemId = busyItemId,
                         )
                     }
                 RunningOrderScreen(

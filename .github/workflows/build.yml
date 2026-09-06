@@ -237,9 +237,17 @@ jobs:
 
             # `:sdk:build` first and by name, so a generator that emitted Kotlin which does not
             # compile fails as itself rather than as a puzzling error inside the app.
+            #
+            # `:app:bundleRelease` is here for R8 and nothing else. Minification is the one part of
+            # this build that can break without a single source file changing — a new dependency
+            # whose reflection nothing keeps, and the serializers vanish — and it fails at DECODE on
+            # a listener's phone rather than at compile. Building the bundle every run is what turns
+            # that into a red check. The artifact is thrown away: this runner holds no signing key,
+            # so it comes out unsigned, and the checkout is shallow so its version code is 1. Both
+            # are fine for something nobody uploads.
             - name: Build, test and lint
               working-directory: apps/android
-              run: ./gradlew --no-daemon :sdk:build :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+              run: ./gradlew --no-daemon :sdk:build :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:bundleRelease
 
     # Whether what is COMMITTED is what the inputs actually produce.
     #

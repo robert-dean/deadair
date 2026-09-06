@@ -5,6 +5,43 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// ── The upload key ────────────────────────────────────────────────────────────────────────
+//
+// Play App Signing holds the key the app is really signed with; this one only proves an upload
+// came from us. It lives OUTSIDE the repo — `~/.gradle/gradle.properties` names the file and
+// carries its passwords — so a checkout contains no secret and cannot leak one.
+//
+// Every property is optional on purpose. CI has no key and must still configure and build, so an
+// absent key leaves the release type unsigned rather than failing the build: `bundleRelease` in
+// CI is there to catch R8 breaking, which it does whether or not the output could be uploaded.
+val uploadKeystore = providers.gradleProperty("deadair.upload.keystore")
+val uploadKeystorePassword = providers.gradleProperty("deadair.upload.keystorePassword")
+val uploadKeyAlias = providers.gradleProperty("deadair.upload.keyAlias")
+val uploadKeyPassword = providers.gradleProperty("deadair.upload.keyPassword")
+val hasUploadKey =
+    uploadKeystore.isPresent && uploadKeystorePassword.isPresent && uploadKeyAlias.isPresent && uploadKeyPassword.isPresent
+
+// ── The version code ──────────────────────────────────────────────────────────────────────
+//
+// Play refuses a version code it has already accepted, and the way that goes wrong is a human
+// forgetting to raise one. This is the commit count: it only ever grows on a branch nobody
+// rewrites, so every commit is uploadable and no release step has to remember anything.
+//
+// `versionName` stays a hand-written marketing string, because that one is a decision rather
+// than a fact about the tree.
+//
+// A checkout with no git history answers 1, which builds and cannot be uploaded twice. That is
+// the right way round: a source tarball still compiles, and nobody ships from one by accident.
+val gitCommitCount =
+    providers
+        .exec {
+            commandLine("git", "rev-list", "--count", "HEAD")
+            isIgnoreExitValue = true
+        }
+        .standardOutput
+        .asText
+        .map { it.trim().toIntOrNull() ?: 1 }
+
 android {
     namespace = "com.maroonedsoftware.deadair"
     // 37 rather than 36 because AndroidX requires it: `core-ktx` 1.19 and the Compose BOM both
@@ -19,7 +56,7 @@ android {
         // notification is one code path rather than two, and `java.time` needs no desugaring.
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
+        versionCode = gitCommitCount.get()
         versionName = "0.1.0"
     }
 
@@ -28,11 +65,29 @@ android {
         buildConfig = true
     }
 
+    signingConfigs {
+        if (hasUploadKey) {
+            create("upload") {
+                storeFile = file(uploadKeystore.get())
+                storePassword = uploadKeystorePassword.get()
+                keyAlias = uploadKeyAlias.get()
+                keyPassword = uploadKeyPassword.get()
+                // Both signature schemes: v1 is what lets a bundle's older-device splits verify,
+                // and v2 is what everything since Nougat actually checks.
+                enableV1Signing = true
+                enableV2Signing = true
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Null when no key is configured, which is a valid assignment and leaves the artifact
+            // unsigned. See the note on the properties above.
+            signingConfig = signingConfigs.findByName("upload")
         }
     }
 

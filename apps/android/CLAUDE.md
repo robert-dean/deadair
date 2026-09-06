@@ -75,6 +75,28 @@ the five-minute linger, so probing five formats puts a silent station on air and
 window. So the User-Agent is set once and shared by the SDK's client, the image loader and
 ExoPlayer, and two phones behind one NAT count as one listener — known, and accepted.
 
+## Signing and release
+
+**The upload key is not in this repository and must never be.** It lives at
+`~/keystores/deadair-upload.jks`, named with its passwords by four `deadair.upload.*` properties in
+`~/.gradle/gradle.properties`; `*.jks` is gitignored so a stray copy cannot be committed. Every one
+of those properties is OPTIONAL in `app/build.gradle.kts`, and that is load-bearing rather than
+tidy: CI holds no key and still has to configure and build, so an absent key leaves the release
+type unsigned instead of failing. Losing the key is unrecoverable — the published app can then only
+be replaced under a new application id, not updated — so it is backed up with the properties file,
+not on its own.
+
+**`versionCode` is `git rev-list --count HEAD` and is not edited by hand.** Play refuses a code it
+has already accepted and the usual way that goes wrong is a human forgetting, so the number is a
+fact about the tree rather than a step in a checklist. `versionName` stays hand-written, being a
+decision. A shallow checkout answers 1, which is why CI's bundle is unsigned AND unuploadable, and
+neither matters for something built only to prove R8 still works.
+
+**CI builds `bundleRelease` for R8's sake alone.** Minification is the one part of this build that
+breaks without a source change — a dependency arrives, nothing keeps its reflection, the
+serializers are stripped — and it fails at DECODE on a phone rather than at compile on a runner.
+The release path is verified on every push for that reason.
+
 ## Conventions
 
 Kotlin official style, 4-space indent, files named PascalCase after the class they hold. The

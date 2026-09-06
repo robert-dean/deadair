@@ -73,3 +73,9 @@ local.properties
 .cxx/
 captures/
 *.hprof
+
+# Signing keys, which live outside the repo and are ignored here anyway as a second line of
+# defence. The upload key is the one artifact this project cannot regenerate: lose it and the
+# published app can never be updated again, only replaced under a new application id.
+*.jks
+*.keystore

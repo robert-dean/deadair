@@ -63,6 +63,54 @@ HLS is the one to choose on a phone that moves between wifi and mobile data. An 
 single long-lived TCP connection and does not survive the handoff; HLS is a sequence of requests
 and does.
 
+## Releasing it
+
+The app ships through Google Play under the Marooned Software account, currently to the **internal
+testing** track: testers are named by email address, review is light, and it installs and updates
+through Play like anything else. A production listing is a separate decision and needs a store
+listing, a content rating, a data safety form and a privacy policy; none of that is required to put
+a build on internal testing.
+
+Play wants an **App Bundle**, not an APK:
+
+```
+./gradlew :app:bundleRelease
+```
+
+The output is `app/build/outputs/bundle/release/app-release.aab`. Upload it under Testing →
+Internal testing → Create new release.
+
+### The upload key
+
+Play App Signing holds the key the app is really signed with. The key here only proves an upload
+came from us, and it lives **outside the repo**: `~/keystores/deadair-upload.jks`, with its path
+and passwords in `~/.gradle/gradle.properties` under four `deadair.upload.*` properties. A checkout
+therefore carries no secret, and `*.jks` is gitignored so one cannot wander in.
+
+Back up that keystore and those four lines together. It is the one artifact in this project that
+cannot be regenerated: without it the published app can never be updated, only replaced under a new
+application id, which means every listener reinstalling by hand.
+
+A build with no key configured still works. It produces an unsigned bundle rather than failing,
+which is what lets CI run `bundleRelease` on every push to catch R8 breaking.
+
+### The version code
+
+Derived from `git rev-list --count HEAD`, so it rises with every commit and no release step has to
+remember to bump anything. Play refuses a code it has already accepted, and forgetting is the usual
+way that goes wrong. `versionName` stays hand-written, because it is a decision rather than a fact
+about the tree.
+
+A shallow checkout answers 1. That is why CI's bundle is not uploadable, and it does not need to
+be.
+
+### What a reviewer sees
+
+This is a client for a server the reviewer does not have. On internal testing nobody reviews it
+that closely, but for production the app opens on a text field asking for an address, with nothing
+to type, and that reads as broken. Play's **App access** section is where to give instructions and
+a reachable station, and it is worth filling in before anyone looks.
+
 ## Where the API types come from
 
 `packages/sdk-kotlin`, generated from the `.ck` contracts by `pnpm build:contracts`. Nothing in

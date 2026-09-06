@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.ui.text
 
 import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInputChartOrder
+import com.maroonedsoftware.deadair.sdk.models.ScriptOutcome
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import com.maroonedsoftware.deadair.ui.catalog.EnrichmentField
@@ -144,6 +145,30 @@ sealed interface Message {
 
     // ── Airing a chart ────────────────────────────────────────────────────────────────────
     data class ChartOrder(val order: PlayoutChartInputChartOrder) : Message
+
+    // ── What it said ──────────────────────────────────────────────────────────────────────
+    data class Outcome(val outcome: ScriptOutcome) : Message
+
+    /** Who wrote a break, by the writer's own name. The two the station ships are named; any other is shown as it comes. */
+    data class Writer(val writer: String) : Message
+
+    data object FactKind : Message
+
+    data object FactHost : Message
+
+    data object FactModel : Message
+
+    data object FactFrom : Message
+
+    data object FactTook : Message
+
+    data object FactTokens : Message
+
+    data object FactAfter : Message
+
+    data object FactBefore : Message
+
+    data object FactNote : Message
 
     // ── A stale reading ───────────────────────────────────────────────────────────────────
     data object LastSaid : Message

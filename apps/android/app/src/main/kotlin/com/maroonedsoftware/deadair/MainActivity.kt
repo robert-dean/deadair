@@ -36,6 +36,7 @@ import com.maroonedsoftware.deadair.ui.catalog.TrackRoute
 import com.maroonedsoftware.deadair.ui.home.HomeRoute
 import com.maroonedsoftware.deadair.ui.nav.Destination
 import com.maroonedsoftware.deadair.ui.nav.NavConfiguration
+import com.maroonedsoftware.deadair.ui.scripts.ScriptsRoute
 import com.maroonedsoftware.deadair.ui.settings.SettingsScreen
 import com.maroonedsoftware.deadair.ui.settings.SettingsViewModel
 import com.maroonedsoftware.deadair.ui.settings.availableFormats
@@ -144,6 +145,18 @@ private fun Listener(graph: AppGraph) {
                             },
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                             onAirSomething = { backStack.add(Destination.AirSomething) },
+                            onScripts = { segmentId -> backStack.add(Destination.Scripts(segmentId)) },
+                        )
+                    }
+                    entry<Destination.Scripts> { key ->
+                        ScriptsRoute(
+                            graph = graph,
+                            segmentId = key.segmentId,
+                            onBack = { backStack.removeLastOrNull() },
+                            onSettings = {
+                                model.editExisting(station.origin)
+                                backStack.add(Destination.Settings)
+                            },
                         )
                     }
                     entry<Destination.AirSomething> {

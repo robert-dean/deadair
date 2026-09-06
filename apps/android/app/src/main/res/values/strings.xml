@@ -265,6 +265,32 @@
     <string name="air_confirm_detail">This replaces what every listener hears.</string>
     <string name="air_it">Air it</string>
 
+    <!-- What it said -->
+    <string name="what_it_said">What it said</string>
+    <string name="one_break">One break</string>
+    <string name="scripts_empty">The station has not said anything yet.</string>
+    <string name="show_details">Show details</string>
+    <string name="hide_details">Hide details</string>
+    <string name="outcome_written">Written</string>
+    <!-- Not a fault: a model that declined and let the floor write is the station working as designed -->
+    <string name="outcome_declined">Declined</string>
+    <string name="outcome_failed">Failed</string>
+    <string name="writer_model">Model</string>
+    <string name="writer_floor">Floor</string>
+    <string name="fact_kind">Kind</string>
+    <string name="fact_host">Host</string>
+    <string name="fact_model">Model</string>
+    <string name="fact_from">From</string>
+    <string name="fact_took">Took</string>
+    <string name="fact_tokens">Tokens</string>
+    <string name="fact_after">After</string>
+    <string name="fact_before">Before</string>
+    <string name="fact_note">Note</string>
+    <!-- Nothing acts on these; they are kept. So no promise about rotation -->
+    <string name="script_dislike">The station should not say things like this</string>
+    <string name="script_no_opinion">Heard it, no opinion</string>
+    <string name="script_like">More like this</string>
+
     <!-- Rating: the station's own curation mark, with rotation consequences -->
     <string name="rating_dislike">Never play %1$s</string>
     <string name="rating_no_opinion">No opinion about %1$s</string>

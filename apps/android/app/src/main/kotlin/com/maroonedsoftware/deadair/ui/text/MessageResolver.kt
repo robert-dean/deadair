@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInputChartOrder
+import com.maroonedsoftware.deadair.sdk.models.ScriptOutcome
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import com.maroonedsoftware.deadair.ui.catalog.EnrichmentField
@@ -163,6 +164,29 @@ fun Message.resolve(): String =
                     PlayoutChartInputChartOrder.UNORDERED -> R.string.chart_order_unordered
                 },
             )
+        is Message.Outcome ->
+            stringResource(
+                when (outcome) {
+                    ScriptOutcome.WRITTEN -> R.string.outcome_written
+                    ScriptOutcome.DECLINED -> R.string.outcome_declined
+                    ScriptOutcome.FAILED -> R.string.outcome_failed
+                },
+            )
+        is Message.Writer ->
+            when (writer) {
+                "model" -> stringResource(R.string.writer_model)
+                "deterministic" -> stringResource(R.string.writer_floor)
+                else -> writer
+            }
+        Message.FactKind -> stringResource(R.string.fact_kind)
+        Message.FactHost -> stringResource(R.string.fact_host)
+        Message.FactModel -> stringResource(R.string.fact_model)
+        Message.FactFrom -> stringResource(R.string.fact_from)
+        Message.FactTook -> stringResource(R.string.fact_took)
+        Message.FactTokens -> stringResource(R.string.fact_tokens)
+        Message.FactAfter -> stringResource(R.string.fact_after)
+        Message.FactBefore -> stringResource(R.string.fact_before)
+        Message.FactNote -> stringResource(R.string.fact_note)
         Message.NotWrittenYet -> stringResource(R.string.item_not_written_yet)
         Message.NoAudioYet -> stringResource(R.string.item_no_audio_yet)
         Message.WillSkip -> stringResource(R.string.item_will_skip)

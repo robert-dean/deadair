@@ -79,6 +79,8 @@ fun RunningOrderScreen(
     onSettings: () -> Unit,
     /** Open a record's page. Every record row leads there, which is also where its rating lives. */
     onTrack: (String) -> Unit,
+    /** Open a break's attempts: what the station said, or tried to, in that slot. */
+    onSegment: (String) -> Unit,
     handlers: OrderHandlers?,
 ) {
     when (state) {
@@ -90,7 +92,7 @@ fun RunningOrderScreen(
                 if (state.order.items.isEmpty()) {
                     EmptyPlaceholder(stringResource(R.string.order_empty))
                 } else {
-                    Rows(state, artUrlFor, onTrack, handlers)
+                    Rows(state, artUrlFor, onTrack, onSegment, handlers)
                 }
             }
     }
@@ -98,7 +100,7 @@ fun RunningOrderScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, onTrack: (String) -> Unit, handlers: OrderHandlers?) {
+private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, onTrack: (String) -> Unit, onSegment: (String) -> Unit, handlers: OrderHandlers?) {
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     val ui = RunningOrderUiState(state.order.items, historyOpen)
     val listState = rememberLazyListState()
@@ -125,12 +127,18 @@ private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, onTr
         LazyColumn(state = listState, modifier = Modifier.fillMaxWidth().weight(1f)) {
             itemsIndexed(ui.shown, key = { _, item -> item.id }) { index, item ->
                 val trackId = item.trackId?.takeIf { item.kind == StationOrderItemKind.TRACK }
+                val segmentId = item.segmentId?.takeIf { item.kind == StationOrderItemKind.SEGMENT }
                 val position = ui.positionOf(index)
                 Row(
                     item = item,
                     artworkUrl = artUrlFor(item.artworkUrl),
                     stale = state.stale,
-                    modifier = if (trackId != null) Modifier.clickable { onTrack(trackId) } else Modifier,
+                    modifier =
+                        when {
+                            trackId != null -> Modifier.clickable { onTrack(trackId) }
+                            segmentId != null -> Modifier.clickable { onSegment(segmentId) }
+                            else -> Modifier
+                        },
                     // A menu only on a row the player has not been handed: an affordance that could
                     // only ever answer 422 is worse than none.
                     menu =

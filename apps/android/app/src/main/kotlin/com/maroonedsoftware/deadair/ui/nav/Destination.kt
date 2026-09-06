@@ -57,6 +57,10 @@ sealed interface Destination : NavKey {
 
     @Serializable
     data class Chart(val id: String) : Destination
+
+    /** What the station said between the records: everything, or one break's attempts. */
+    @Serializable
+    data class Scripts(val segmentId: String? = null) : Destination
 }
 
 /**
@@ -79,6 +83,7 @@ val NavConfiguration: SavedStateConfiguration =
                     subclass(Destination.AirSomething::class)
                     subclass(Destination.Playlist::class)
                     subclass(Destination.Chart::class)
+                    subclass(Destination.Scripts::class)
                 }
             }
     }

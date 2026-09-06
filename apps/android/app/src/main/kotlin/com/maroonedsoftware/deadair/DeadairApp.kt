@@ -17,6 +17,7 @@ import com.maroonedsoftware.deadair.playout.AirActions
 import com.maroonedsoftware.deadair.playout.PlayoutRepository
 import com.maroonedsoftware.deadair.playout.Transport
 import com.maroonedsoftware.deadair.schedule.ScheduleRepository
+import com.maroonedsoftware.deadair.scripts.ScriptActions
 import com.maroonedsoftware.deadair.settings.SettingsStore
 import com.maroonedsoftware.deadair.station.StationProbe
 import kotlinx.coroutines.CoroutineScope
@@ -123,6 +124,8 @@ class AppGraph(application: Application) {
     val orderActions: OrderActions = OrderActions(operator, order)
 
     val air: AirActions = AirActions(operator, playout, order)
+
+    val scripts: ScriptActions = ScriptActions(operator)
 
     val nowPlaying: NowPlayingRepository =
         NowPlayingRepository(

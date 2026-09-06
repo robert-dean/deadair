@@ -3,10 +3,13 @@
 Listening to the station on a phone: background playback, lock-screen controls, what is on air, and
 a choice of how to receive it.
 
-Signed in as the station's operator, it is also the remote: skip, stop and start the station, hold
-a broadcast against the schedule, set what puts the station on air, and read why it is or is not on
-air. The console is still the desk, and it deliberately does not play the mount; the phone carries
-the controls worth having in a pocket and nothing that is laptop work.
+Signed in, it also shows what the station has played, what is coming up, what is on next and what
+the station said between the records, and every record, album and artist has a page. Signed in as
+the station's operator, it is the remote as well: skip, stop and start the station, hold a
+broadcast against the schedule, set what puts the station on air, read why it is or is not on air,
+reorder and drop the running order, mark records, albums, artists and breaks, and put a playlist or
+a chart on air. The console is still the desk, and it deliberately does not play the mount; the
+phone carries the controls worth having in a pocket and nothing that is laptop work.
 
 ## Building it
 

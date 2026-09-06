@@ -69,6 +69,8 @@ fun HomeRoute(
     onTrack: (String) -> Unit,
     /** Open the list of what could be put on air. Offered to the operator only. */
     onAirSomething: () -> Unit,
+    /** Open what the station said: everything, or one break's attempts. */
+    onScripts: (segmentId: String?) -> Unit,
 ) {
     // Survives a rotation, which `remember` alone would not, and a trip to Settings and back,
     // which the display's saveable-state decorator sees to.
@@ -144,6 +146,12 @@ fun HomeRoute(
         snackbarHost = snackbarHost,
         actions = {
             val loaded = order as? OrderState.Loaded
+            // What it said is a read, so any signed-in listener gets it; the rest are the operator's.
+            if (tab == Tab.UP_NEXT && session is SessionState.SignedIn) {
+                IconButton(onClick = { onScripts(null) }) {
+                    Icon(painterResource(R.drawable.ic_record_voice_over), contentDescription = stringResource(R.string.what_it_said))
+                }
+            }
             if (tab == Tab.UP_NEXT && isOperator && loaded != null) {
                 IconButton(onClick = onAirSomething) {
                     Icon(painterResource(R.drawable.ic_playlist_play), contentDescription = stringResource(R.string.air_something))
@@ -254,6 +262,7 @@ fun HomeRoute(
                     onRetry = graph.order::retry,
                     onSettings = onSettings,
                     onTrack = onTrack,
+                    onSegment = { segmentId -> onScripts(segmentId) },
                     handlers = handlers,
                 )
             }

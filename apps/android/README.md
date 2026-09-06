@@ -63,6 +63,28 @@ HLS is the one to choose on a phone that moves between wifi and mobile data. An 
 single long-lived TCP connection and does not survive the handoff; HLS is a sequence of requests
 and does.
 
+## The launcher icon
+
+The station's own mark, the skull the console wears, and it is generated from
+`apps/web/public/logo.png` rather than drawn again — one artwork, two places, no chance of them
+drifting apart. Regenerate after that file changes:
+
+```
+python3 -m venv /tmp/iconvenv && /tmp/iconvenv/bin/pip install Pillow
+/tmp/iconvenv/bin/python apps/android/tools/make-launcher-icon.py
+```
+
+The PNGs it writes into `res/drawable-*` are committed. Pillow is not a project dependency: this
+runs by hand on the rare day the mark changes and no Gradle task calls it.
+
+Two things about the shape of it. The field is the adaptive icon's BACKGROUND layer and the skull
+is the FOREGROUND, so a launcher's mask — circle, squircle, teardrop — cuts the green and never the
+drawing. And the arched "deadair radio" of the full lockup is left off, exactly as
+`station.mark.tsx` leaves it off the console header: at this size it is illegible, and there is no
+wordmark beside a launcher icon to carry the name.
+
+The script's own header says why it is a script rather than an exported crop.
+
 ## Releasing it
 
 The app ships through Google Play under the Marooned Software account, currently to the **internal

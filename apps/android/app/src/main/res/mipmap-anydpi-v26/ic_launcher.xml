@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    The station's own mark, the same one the console wears.
+
+    Two layers rather than one baked disc: the field is the BACKGROUND and the skull is the
+    FOREGROUND, so whatever mask a launcher applies — circle, squircle, teardrop — cuts the green
+    and never the drawing, and the parallax some launchers add moves the skull against its field
+    the way it is meant to.
+
+    The arched "deadair radio" of the full lockup is not here, for the reason `station.mark.tsx`
+    gives for leaving it off the header: at this size it is illegible, and there is no wordmark
+    beside a launcher icon to carry the name anyway.
+
+    The layers are generated from `apps/web/public/logo.png` — see this app's README.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
     <foreground android:drawable="@drawable/ic_launcher_foreground" />
-    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>

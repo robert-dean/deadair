@@ -5,6 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import com.maroonedsoftware.deadair.sdk.models.PlatformRole
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -46,7 +48,17 @@ class SessionStore(private val context: Context) : SessionStorage {
             if (origin == null || email == null || access == null || refresh == null) {
                 null
             } else {
-                StoredSession(origin = origin, email = email, accessToken = access, refreshToken = refresh)
+                StoredSession(
+                    origin = origin,
+                    email = email,
+                    accessToken = access,
+                    refreshToken = refresh,
+                    // Absent means none, never a missing session: the roles arrive one request
+                    // after the tokens do, and a session is a session before they land. A name
+                    // this build does not know is dropped rather than crashing the read, which is
+                    // what a station newer than the app looks like.
+                    roles = saved[ROLES].orEmpty().mapNotNullTo(HashSet()) { name -> PlatformRole.entries.firstOrNull { it.name == name } },
+                )
             }
         }
 
@@ -56,6 +68,7 @@ class SessionStore(private val context: Context) : SessionStorage {
             saved[EMAIL] = session.email
             saved[ACCESS_TOKEN] = session.accessToken
             saved[REFRESH_TOKEN] = session.refreshToken
+            saved[ROLES] = session.roles.mapTo(HashSet()) { it.name }
         }
     }
 
@@ -68,5 +81,6 @@ class SessionStore(private val context: Context) : SessionStorage {
         val EMAIL = stringPreferencesKey("email")
         val ACCESS_TOKEN = stringPreferencesKey("access_token")
         val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
+        val ROLES = stringSetPreferencesKey("roles")
     }
 }

@@ -80,6 +80,10 @@ class SessionManager(
 ) {
     private val refreshLock = Mutex()
 
+    /** Guards `ensureRoles`, so two screens coming up together ask the station once. */
+    private val ensureLock = Mutex()
+    private var rolesEnsuredFor: String? = null
+
     val state: StateFlow<SessionState> =
         combine(settings.map { it.station }.distinctUntilChanged(), store.stored) { station, stored -> sessionFor(stored, station) }
             .stateIn(scope, SharingStarted.WhileSubscribed(SUBSCRIBER_GRACE_MS), SessionState.SignedOut)
@@ -127,7 +131,50 @@ class SessionManager(
                 ?: return SignInResult.Failed("The station issued no refresh token")
 
         store.save(StoredSession(origin = station.origin, email = email, accessToken = answer.accessToken, refreshToken = refreshToken))
+
+        // The roles ride one request behind the tokens. A failure here is not a failed sign-in —
+        // the session is real and the reads will work or 403 on their own — so it is swallowed
+        // and the next start asks again. Until then the account draws as a listener.
+        runCatching { refreshRoles() }
         return SignInResult.Ok
+    }
+
+    /**
+     * Ask the station which platform roles this account holds, and remember the answer.
+     *
+     * A 403 is an answer: the account holds no role at all, which is what any account that did
+     * not come in through onboarding looks like. It is stored as no roles rather than left as
+     * whatever was cached, because a cache saying `admin` about an account the station has just
+     * refused is the one state this method exists to correct.
+     */
+    suspend fun refreshRoles() {
+        val roles =
+            try {
+                withSession { it.authenticationSessions.readSession() }.roles.toSet()
+            } catch (error: SdkError) {
+                if (error.status != FORBIDDEN) throw error
+                emptySet()
+            }
+        val current = store.stored.first() ?: return
+        if (current.roles != roles) store.save(current.copy(roles = roles))
+    }
+
+    /**
+     * Refresh the roles once per process for the session that is signed in.
+     *
+     * Called when the app comes up with a session already on disk, so a role granted or taken
+     * away since the last run is noticed without waiting for a 403. Once per session rather than
+     * once per screen, because the answer changes when an operator edits a tuple by hand and not
+     * otherwise. A failure leaves the cached roles standing and is not remembered as done, so the
+     * next start tries again.
+     */
+    suspend fun ensureRoles() {
+        val current = store.stored.first() ?: return
+        val key = "${current.origin}|${current.email}"
+        ensureLock.withLock {
+            if (rolesEnsuredFor == key) return
+            runCatching { refreshRoles() }.onSuccess { rolesEnsuredFor = key }
+        }
     }
 
     /**
@@ -229,6 +276,7 @@ class SessionManager(
     private companion object {
         const val AUTHORIZATION = "Authorization"
         const val UNAUTHORIZED = 401
+        const val FORBIDDEN = 403
         val CLIENT_ERRORS = 400..499
 
         /** As long as `NowPlayingRepository` holds its poll open for, and for the same reasons. */

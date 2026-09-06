@@ -1,5 +1,7 @@
 package com.maroonedsoftware.deadair.auth
 
+import com.maroonedsoftware.deadair.sdk.models.PlatformRole
+
 /**
  * A signed-in session, as it survives the app being killed.
  *
@@ -16,4 +18,10 @@ data class StoredSession(
     val email: String,
     val accessToken: String,
     val refreshToken: String,
+    /**
+     * What the station said this account may do, as of the last time it was asked. Cached so a
+     * cold start knows what to draw before the first network answer; re-read on every start and
+     * whenever the station answers 403 to something the cache said was allowed.
+     */
+    val roles: Set<PlatformRole> = emptySet(),
 )

@@ -1,7 +1,10 @@
 package com.maroonedsoftware.deadair.auth
 
+import com.maroonedsoftware.deadair.sdk.models.PlatformRole
 import com.maroonedsoftware.deadair.station.StationUrl
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -33,6 +36,23 @@ class SessionStateTest {
         // Not pedantry: a listener who switches an install from http to https has pointed the app
         // at a different origin, and the token they hold was issued to the other one.
         assertEquals(SessionState.SignedOut, sessionFor(session("http://radio.example.com"), station))
+    }
+
+    @Test
+    fun `carries the roles the station reported`() {
+        val stored = session(station.origin).copy(roles = setOf(PlatformRole.ADMIN))
+
+        assertEquals(SessionState.SignedIn("operator@example.com", setOf(PlatformRole.ADMIN)), sessionFor(stored, station))
+    }
+
+    @Test
+    fun `only an admin operates the station`() {
+        // A listener reads. An account with no role at all — which today is any account that did
+        // not come in through onboarding — is a listener as far as the screens are concerned.
+        assertTrue(SessionState.SignedIn("a", setOf(PlatformRole.ADMIN)).isOperator)
+        assertTrue(SessionState.SignedIn("a", setOf(PlatformRole.ADMIN, PlatformRole.LISTENER)).isOperator)
+        assertFalse(SessionState.SignedIn("a", setOf(PlatformRole.LISTENER)).isOperator)
+        assertFalse(SessionState.SignedIn("a").isOperator)
     }
 
     @Test

@@ -16,7 +16,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.saveable.rememberSaveable
+import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.nowplaying.airState
 import com.maroonedsoftware.deadair.nowplaying.AirState
@@ -73,6 +75,12 @@ private fun Listener(graph: AppGraph) {
     val entry by model.entry.collectAsStateWithLifecycle()
     val session by model.session.collectAsStateWithLifecycle()
     val account by model.account.collectAsStateWithLifecycle()
+
+    // Keyed on the session so it fires on a cold start with a session already on disk and again
+    // after a sign-in, and not on a rotation. What it learns is which controls to draw.
+    LaunchedEffect(session) {
+        if (session is SessionState.SignedIn) graph.sessions.ensureRoles()
+    }
     var showSettings by remember { mutableStateOf(false) }
 
     // Survives a rotation, which `remember` alone would not: coming back to Now playing because the

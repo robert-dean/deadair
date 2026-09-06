@@ -1,6 +1,7 @@
 package com.maroonedsoftware.deadair.auth
 
 import com.maroonedsoftware.deadair.sdk.DeadairSdk
+import com.maroonedsoftware.deadair.sdk.models.PlatformRole
 import com.maroonedsoftware.deadair.sdk.runtime.SdkConfig
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.station.StationUrl
@@ -71,6 +72,8 @@ class SessionManagerTest {
         {"result":"token","access_token":"$access"${if (refresh == null) "" else ""","refresh_token":"$refresh""""},
          "expires_in":2592000,"token_type":"Bearer","scope":"platform"}
         """.trimIndent()
+
+    private fun sessionBody(vararg roles: String) = """{"actorId":"u-1","roles":[${roles.joinToString(",") { "\"$it\"" }}]}"""
 
     private fun MockRequestHandleScope.json(body: String, status: HttpStatusCode = HttpStatusCode.OK): HttpResponseData =
         respond(content = body, status = status, headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString()))
@@ -286,20 +289,44 @@ class SessionManagerTest {
     @Test
     fun `signs in with the password grant and remembers where the token came from`() = runTest {
         val store = FakeStore(null)
-        val (manager, engine) = managerOver(store, backgroundScope) { json(tokenBody("access-9", refresh = "refresh-9"), HttpStatusCode.Created) }
+        val (manager, engine) =
+            managerOver(store, backgroundScope) { request ->
+                if (request.url.encodedPath.endsWith("/auth/session")) json(sessionBody("admin"))
+                else json(tokenBody("access-9", refresh = "refresh-9"), HttpStatusCode.Created)
+            }
 
         val result = manager.signIn(station, "operator@example.com", "hunter2")
 
         assertEquals(SignInResult.Ok, result)
         assertEquals(
-            StoredSession(station.origin, "operator@example.com", "access-9", "refresh-9"),
+            StoredSession(station.origin, "operator@example.com", "access-9", "refresh-9", roles = setOf(PlatformRole.ADMIN)),
             store.state.value,
         )
 
+        // The roles ride one request behind the token, carrying the bearer it just issued.
+        val who = engine.requestHistory.last()
+        assertTrue(who.url.encodedPath.endsWith("/auth/session"))
+        assertEquals("Bearer access-9", who.headers[HttpHeaders.Authorization])
+
         // Form-encoded, which is what the token endpoint takes and what the generated client sends.
-        val body = (engine.requestHistory.single().body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+        val body = (engine.requestHistory.first().body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
         assertTrue(body.contains("grant_type=password"))
         assertTrue(body.contains("username=operator%40example.com"))
+    }
+
+    @Test
+    fun `still signs in when the station cannot say what the account may do`() = runTest {
+        // The session is real whether or not the roles read works; the reads will answer or 403
+        // on their own. Until the next start asks again, the account draws as a listener.
+        val store = FakeStore(null)
+        val (manager, _) =
+            managerOver(store, backgroundScope) { request ->
+                if (request.url.encodedPath.endsWith("/auth/session")) respondError(HttpStatusCode.InternalServerError)
+                else json(tokenBody("access-9", refresh = "refresh-9"), HttpStatusCode.Created)
+            }
+
+        assertEquals(SignInResult.Ok, manager.signIn(station, "operator@example.com", "hunter2"))
+        assertEquals(emptySet<PlatformRole>(), store.state.value?.roles)
     }
 
     @Test
@@ -344,6 +371,69 @@ class SessionManagerTest {
         assertTrue(logout.url.encodedPath.endsWith("/auth/logout"))
         assertEquals("Bearer access-1", logout.headers[HttpHeaders.Authorization])
         assertNull(store.state.value)
+    }
+
+    // ── Roles ───────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a refused roles read means no roles, whatever the cache said`() = runTest {
+        // The one state the read exists to correct: a cache saying admin about an account the
+        // station has just refused.
+        val store = FakeStore(signedIn().copy(roles = setOf(PlatformRole.ADMIN)))
+        val (manager, _) = managerOver(store, backgroundScope) { respondError(HttpStatusCode.Forbidden) }
+
+        manager.refreshRoles()
+
+        assertEquals(emptySet<PlatformRole>(), store.state.value?.roles)
+    }
+
+    @Test
+    fun `a roles read that cannot be reached leaves the cache standing`() = runTest {
+        val store = FakeStore(signedIn().copy(roles = setOf(PlatformRole.ADMIN)))
+        val (manager, _) = managerOver(store, backgroundScope) { throw IOException("no route to host") }
+
+        try {
+            manager.refreshRoles()
+        } catch (error: IOException) {
+            // Expected: a tunnel blip is not a statement about the account.
+        }
+
+        assertEquals(setOf(PlatformRole.ADMIN), store.state.value?.roles)
+    }
+
+    @Test
+    fun `ensures the roles once per process, however many screens ask`() = runTest {
+        val store = FakeStore(signedIn())
+        var asked = 0
+        val (manager, _) =
+            managerOver(store, backgroundScope) {
+                asked += 1
+                json(sessionBody("admin"))
+            }
+
+        manager.ensureRoles()
+        manager.ensureRoles()
+
+        assertEquals(1, asked)
+        assertEquals(setOf(PlatformRole.ADMIN), store.state.value?.roles)
+        assertTrue((manager.state.first { it is SessionState.SignedIn } as SessionState.SignedIn).isOperator)
+    }
+
+    @Test
+    fun `a failed ensure is not remembered as done`() = runTest {
+        val store = FakeStore(signedIn())
+        var asked = 0
+        val (manager, _) =
+            managerOver(store, backgroundScope) {
+                asked += 1
+                if (asked == 1) throw IOException("no route to host") else json(sessionBody("listener"))
+            }
+
+        manager.ensureRoles()
+        manager.ensureRoles()
+
+        assertEquals(2, asked)
+        assertEquals(setOf(PlatformRole.LISTENER), store.state.value?.roles)
     }
 
     // ── What the screens read ───────────────────────────────────────────────────────────

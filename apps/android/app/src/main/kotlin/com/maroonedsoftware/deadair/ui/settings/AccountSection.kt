@@ -45,7 +45,12 @@ fun AccountSection(
             is SessionState.SignedIn -> {
                 ListItem(
                     headlineContent = { Text(session.email) },
-                    supportingContent = { Text("Signed in to this station") },
+                    // Which of the two things this account is, because the difference is the
+                    // difference between a phone that can skip a record and one that can only
+                    // see it playing.
+                    supportingContent = {
+                        Text(if (session.isOperator) "Signed in as the operator of this station" else "Signed in to this station as a listener")
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) { Text("Sign out") }

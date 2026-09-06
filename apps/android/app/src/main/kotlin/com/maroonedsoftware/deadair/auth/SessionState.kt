@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.auth
 
+import com.maroonedsoftware.deadair.sdk.models.PlatformRole
 import com.maroonedsoftware.deadair.station.StationUrl
 
 /**
@@ -13,7 +14,17 @@ import com.maroonedsoftware.deadair.station.StationUrl
 sealed interface SessionState {
     data object SignedOut : SessionState
 
-    data class SignedIn(val email: String) : SessionState
+    /**
+     * Signed in, and holding whichever platform roles the station last reported.
+     *
+     * The roles are a HINT about what to draw and never a gate: the API decides every operation
+     * for itself, and a control drawn on the strength of a cached role can still be refused. What
+     * they buy is not drawing a Skip button the station is about to say no to.
+     */
+    data class SignedIn(val email: String, val roles: Set<PlatformRole> = emptySet()) : SessionState {
+        /** Whether the station said this account may operate it. `admin` grants everything; `listener` only reads. */
+        val isOperator: Boolean get() = PlatformRole.ADMIN in roles
+    }
 }
 
 /**
@@ -27,5 +38,5 @@ sealed interface SessionState {
 fun sessionFor(stored: StoredSession?, station: StationUrl?): SessionState {
     if (stored == null || station == null) return SessionState.SignedOut
     if (stored.origin != station.origin) return SessionState.SignedOut
-    return SessionState.SignedIn(stored.email)
+    return SessionState.SignedIn(stored.email, stored.roles)
 }

@@ -101,6 +101,16 @@ theft.
 tunnel reconnecting or a phone changing cell would otherwise sign the operator out several times a
 day, and a station having a bad minute says nothing about whether a session is still good.
 
+**Roles come from `GET /auth/session`, are cached beside the tokens, and are a HINT, never a
+gate.** The JWT carries no roles and the token response's `scope` is empty, so that one read is the
+only way a phone can learn whether to draw an operator control rather than draw it and be told 403.
+`SessionManager.ensureRoles` asks once per process for the session on disk (from a
+`LaunchedEffect(session)` at the root, so it runs on a cold start and after a sign-in and not on a
+rotation), `refreshRoles` is what a 403 on a control calls, and a 403 on the roles read itself is
+stored as NO roles — a cache saying `admin` about an account the station has just refused is the
+one state the read exists to correct. The API decides every operation regardless; a control drawn
+on a cached role can still be refused, and the code that draws it must cope.
+
 **Tokens live in a second DataStore file (`session`), not beside the two settings.** Different
 lifetime — cleared on sign-out and on a station change, never on a format change — and a `clear()`
 there must not be able to take the station address with it. They are not encrypted at rest:

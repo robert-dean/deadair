@@ -828,9 +828,41 @@ const HOSTS = [
         //
         // Four fields are: this one, `quirks`, `background` and `samples`. `one night` came out of
         // here and `that night` out of `background`; the other two still hold theirs, and the quirk
-        // is the one that spells the forbidden word out. Note what is NOT claimed: none of these
-        // words trips the guard, which fires only on `tonight` and the three `this …` phrasings.
-        // They are a prior being fed, and the case against them is that they cost nothing to drop.
+        // is the one that spells the forbidden word out. They are a prior being fed, and the case
+        // against them is that they cost nothing to drop.
+        //
+        // ## Nor did THAT hold, and the quirk was arguing with the prompt it sits in
+        //
+        // Measured 2026-09-07 over his last 28 model attempts on the live station: 20 declined, of
+        // which 8 were `wrong-daypart` — four `tonight` and four `midnight`. Two things were wrong
+        // and the note above had both of them backwards.
+        //
+        // **The claim that "none of these words trips the guard, which fires only on `tonight` and
+        // the three `this …` phrasings" was true of one guard and not of the station.** The
+        // `wrong-daypart` fault has TWO predicates behind it — `contradictsDayPart`, which is the
+        // four strings that note names, and `namesWrongTimeOfDay`, which refuses a word naming a
+        // POINT in the day from too far away: `clock.words.ts` allows `midnight` only from 23:00 to
+        // 01:00, and `midday`/`noon`/`lunchtime` only from 11:00 to 14:00. Half of the declines
+        // above are a word the last round of stripping never looked at, because this note said the
+        // guard could not fire on it.
+        //
+        // **And the quirk was not merely feeding a prior, it was contradicting an instruction.**
+        // `break.prompt.ts` puts "It is <daypart> where your listener is. Everything you say has to
+        // fit that" into every prompt that has one, and `write.break.job.ts` threads the daypart
+        // through all five writers, so a welcome, a bulletin and a talk break all carry it. Against
+        // that, the quirk said "never say what time of day it is now — no morning, no evening, no
+        // dawn, no tonight, and no sun going anywhere": a model told the part of the day and then
+        // told not to name it, with the forbidden word spelled out for it, four time words listed
+        // beside the one the guard actually catches, and `that night` two clauses earlier. That is
+        // the spread the note above could not account for, and it is carried by every prompt
+        // regardless of kind because a quirk is.
+        //
+        // So the prohibition is gone rather than being widened to cover `midnight`. He defers to the
+        // daypart the station already hands him, in his own words, like any other given fact — which
+        // is what every other sheet does by saying nothing about it at all. The abduction keeps the
+        // only hour that ever mattered to this character, and the quirk now carries no time word of
+        // its own. `overnight` and `at this hour` came out of `preoccupations` on the standing
+        // argument: they cost nothing to drop.
         // "grey men" throughout became "grey aliens", and the examination is named rather than
         // implied. An operator's editorial call about their own character: the abduction was the
         // whole of him and the twenty minutes on the table is the part he would actually keep
@@ -933,7 +965,7 @@ const HOSTS = [
         // that character is rude about itself, and this one is abducted by itself. A model given
         // "abduction" and a real biographical note will otherwise go somewhere nobody wants it.
         quirks: [
-            'They took you in nineteen ninety-seven and you cannot prove one second of it. Four hours of that night are simply not there. That is the only night you ever name: you have sat in this chair at every hour there is, so never say what time of day it is now — no morning, no evening, no dawn, no tonight, and no sun going anywhere',
+            'They took you in nineteen ninety-seven and you cannot prove one second of it. Four hours of it are simply not there. You have sat in this chair at every hour there is, so what part of the day it is now is whatever the station has told you it is, said in your own words like any other fact you were handed',
             'Your evidence is real, ridiculous, and always slightly beside the point: the burn on the lawn, the wristwatch that has run slow ever since, the fold in the brim of your hat. Produce it as though it settles the matter',
             'Start from a note you were actually given and go exactly one absurd step past it, gravely. Never two',
             'The people keeping it quiet are the government, and never a government anybody could name — no country, no agency, no department, no official. The office is the ORB, the Office of Retrieval and Burial: no sign on the door, a filing cabinet, and a grey car outside your house since the spring',
@@ -962,14 +994,14 @@ const HOSTS = [
             'wake up',
             'do your own research',
         ],
-        // What this one is on about tonight, of which exactly one reaches any break. Written as
+        // What this one is on about today, of which exactly one reaches any break. Written as
         // things to NOTICE rather than as claims, because the character's whole move is one absurd
         // step past something real and a preoccupation that has already taken the step leaves it
         // nowhere to go.
         preoccupations: [
             'the four hours of that night that are not there, and what fills them',
             'the burn on the lawn, and how a lawn takes nine years to grow back',
-            "a circle pressed flat into a field of wheat at the back of somebody's place, overnight, in the rain",
+            "a circle pressed flat into a field of wheat at the back of somebody's place, between one look and the next, in the rain",
             // Was the sightings from three states, which was a second helping of the same
             // eyewitness material two entries above it and carried a `night` this sheet is trying
             // to stop feeding the model. Says where the probe went, plainly: the joke is a man
@@ -978,7 +1010,7 @@ const HOSTS = [
             // and a preoccupation pointing at it would be the sheet arguing with itself.
             'the twenty minutes on the table, the probe they used, and exactly where they put it',
             'the grey car, and what a man in it does all day',
-            'who else is on this frequency at this hour, and what they are doing with it',
+            'who else is on this frequency, and what they are doing with it',
         ],
         // "the wristwatch you had on that night" named the hour for no gain: the watch is the
         // evidence and the abduction is what it is evidence OF, so saying when it happened is the

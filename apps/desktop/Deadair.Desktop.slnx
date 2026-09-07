@@ -5,6 +5,7 @@
   <Folder Name="/src/">
     <Project Path="src/MaroonedSoftware.Deadair.Desktop.Core/MaroonedSoftware.Deadair.Desktop.Core.csproj" />
     <Project Path="src/MaroonedSoftware.Deadair.Desktop.Player.Mac/MaroonedSoftware.Deadair.Desktop.Player.Mac.csproj" />
+    <Project Path="src/MaroonedSoftware.Deadair.Desktop/MaroonedSoftware.Deadair.Desktop.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MaroonedSoftware.Deadair.Sdk.Tests/MaroonedSoftware.Deadair.Sdk.Tests.csproj" />

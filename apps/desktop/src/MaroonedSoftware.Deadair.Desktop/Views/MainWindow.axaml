@@ -1,0 +1,23 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.MainWindow"
+    x:DataType="vm:ShellViewModel"
+    Title="deadair"
+    Width="880"
+    Height="620"
+    MinWidth="560"
+    MinHeight="480"
+    Background="{DynamicResource DaBgBrush}">
+
+    <Panel>
+        <!-- Setup sits ABOVE the rest rather than being a page you can navigate away from: an app
+             with no station cannot do anything else yet. -->
+        <views:SetupView DataContext="{Binding Setup}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).NeedsStation}" />
+
+        <views:ListenerView DataContext="{Binding Listener}" IsVisible="{Binding !$parent[Window].((vm:ShellViewModel)DataContext).NeedsStation}" />
+    </Panel>
+
+</Window>

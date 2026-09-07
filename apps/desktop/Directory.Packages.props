@@ -13,8 +13,30 @@
         <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
     </PropertyGroup>
 
+    <ItemGroup Label="Avalonia">
+        <!--
+            Every Avalonia package moves together. They are built as a set, and mixing versions inside
+            one build fails at run time rather than at compile time, which is the expensive way to
+            find out.
+        -->
+        <PackageVersion Include="Avalonia" Version="12.1.2" />
+        <PackageVersion Include="Avalonia.Desktop" Version="12.1.2" />
+        <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+        <!--
+            No `Avalonia.Diagnostics`: it has no Avalonia 12 release at all, stopping at 11.3.20,
+            so the developer tools overlay is unavailable on this version. Checked 2026-09-07.
+        -->
+    </ItemGroup>
+
+    <ItemGroup Label="Application">
+        <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+    </ItemGroup>
+
     <ItemGroup Label="Testing">
         <PackageVersion Include="xunit.v3" Version="4.0.0" />
+        <!-- `FakeTimeProvider`, so a test can advance a poller's clock instead of sleeping. -->
+        <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.0.0" />
     </ItemGroup>
 
 </Project>

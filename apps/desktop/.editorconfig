@@ -81,3 +81,10 @@ insert_final_newline = true
 # HERE and nowhere else — a public API with an underscore in it is still wrong.
 [tests/**/*.cs]
 dotnet_diagnostic.CA1707.severity = none
+
+# CA1000 objects to `Reading<T>.Empty` and `Reading<T>.Good(...)`. The alternative it wants is a
+# separate non-generic class whose members cannot be found from the type they build, and the BCL
+# itself writes the shape this rule forbids — `ImmutableArray<T>.Empty` is the same member. Off for
+# the whole tree rather than one file, because the next value type of this shape will hit it too.
+[*.cs]
+dotnet_diagnostic.CA1000.severity = none

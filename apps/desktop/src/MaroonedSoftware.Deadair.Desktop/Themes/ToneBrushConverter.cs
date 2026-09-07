@@ -1,0 +1,60 @@
+using System.Globalization;
+using Avalonia.Data.Converters;
+using Avalonia.Media;
+using Avalonia.Styling;
+using MaroonedSoftware.Deadair.Desktop.Core.Text;
+
+namespace MaroonedSoftware.Deadair.Desktop.Themes;
+
+/// <summary>
+/// The one place a status becomes a colour.
+/// </summary>
+/// <remarks>
+/// Nothing else in the app may name a colour for a state. The failure this closes off is a screen
+/// deciding for itself that "misconfigured" is a bit red — and in a studio red means ON AIR, so a
+/// view that reached for it to mean "broken" would be saying the opposite of what it meant.
+/// </remarks>
+public sealed class ToneBrushConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var key = value is StatusTone tone
+            ? tone switch
+            {
+                StatusTone.Live => "DaToneLiveBrush",
+                StatusTone.Ok => "DaToneOkBrush",
+                StatusTone.Standby => "DaToneStandbyBrush",
+                StatusTone.Fault => "DaToneFaultBrush",
+                _ => "DaToneOffBrush",
+            }
+            : "DaToneOffBrush";
+
+        var application = Avalonia.Application.Current;
+        if (application is not null
+            && application.Resources.TryGetResource(key, application.ActualThemeVariant, out var brush))
+        {
+            return brush;
+        }
+
+        return Brushes.Gray;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>What the one transport button says.</summary>
+/// <remarks>
+/// "Stop" rather than "Pause", and the word is the honest one: there is no pause on a live mount,
+/// because a held connection is still an audience to the station's gate.
+/// </remarks>
+public sealed class PlayLabelConverter : IValueConverter
+{
+    public static PlayLabelConverter Instance { get; } = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? "Stop" : "Listen";
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

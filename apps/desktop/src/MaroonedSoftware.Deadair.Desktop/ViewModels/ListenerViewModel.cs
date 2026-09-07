@@ -24,6 +24,7 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly IStationPlayer _player;
+    private readonly ISystemNowPlaying _systemNowPlaying;
     private readonly ISettingsStore _settings;
     private readonly HttpClient _http;
     private readonly IUiDispatcher _dispatcher;
@@ -35,15 +36,26 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private StationUrl _station;
     private DateTimeOffset? _readAt;
     private string? _artworkShowing;
+    private byte[]? _artworkBytes;
 
-    public ListenerViewModel(IStationPlayer player, ISettingsStore settings, HttpClient http, IUiDispatcher dispatcher)
+    public ListenerViewModel(
+        IStationPlayer player,
+        ISystemNowPlaying systemNowPlaying,
+        ISettingsStore settings,
+        HttpClient http,
+        IUiDispatcher dispatcher)
     {
         _player = player;
+        _systemNowPlaying = systemNowPlaying;
         _settings = settings;
         _http = http;
         _dispatcher = dispatcher;
 
         _player.StatusChanged += OnPlayerStatus;
+
+        // The keyboard's play key and the widget's buttons reach the same commands the on-screen ones
+        // do, so there is one path into the player rather than two that can disagree.
+        _systemNowPlaying.Commanded += command => _dispatcher.Post(() => _ = OnCommandedAsync(command));
 
         // Half a second, counted from the reading rather than from a wall clock, so the playhead
         // moves smoothly between polls and is re-anchored whenever a real answer arrives.
@@ -116,6 +128,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
             Apply();
             await _player.StopAsync().ConfigureAwait(true);
             _ticker.Stop();
+            PublishToSystem();
             return;
         }
 
@@ -142,7 +155,57 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     {
         _conductor.Observed(status);
         Apply();
+        PublishToSystem();
     });
+
+    /// <summary>Raised so the desk can act on a Skip asked for from outside the window.</summary>
+    public event Func<Task>? SkipRequested;
+
+    private async Task OnCommandedAsync(RemoteCommand command)
+    {
+        switch (command)
+        {
+            case RemoteCommand.Play when !Playing:
+            case RemoteCommand.Stop when Playing:
+                await ToggleAsync().ConfigureAwait(true);
+                break;
+
+            case RemoteCommand.Next:
+                // The operator's Skip. It is only offered while the account holds the role, so
+                // reaching here at all means the station should accept it.
+                if (SkipRequested is { } skip)
+                {
+                    await skip().ConfigureAwait(true);
+                }
+
+                break;
+        }
+    }
+
+    /// <summary>Offers the next button, or takes it away. Called when the signed-in role changes.</summary>
+    public void SetCanSkip(bool canSkip) => _systemNowPlaying.SetCanSkip(canSkip);
+
+    private void PublishToSystem()
+    {
+        if (!Playing)
+        {
+            // Cleared rather than left showing a paused record: the app is not playing, and a widget
+            // that still names a track is claiming otherwise to the whole desktop.
+            _systemNowPlaying.Clear();
+            return;
+        }
+
+        var track = _repository?.Current.Value?.Track;
+
+        _systemNowPlaying.Show(new NowPlayingCard(
+            Title ?? StationName,
+            Artist,
+            Album,
+            _artworkBytes,
+            Playhead.Duration(track),
+            Playhead.Position(track, _readAt, DateTimeOffset.UtcNow) ?? TimeSpan.Zero,
+            Playing));
+    }
 
     private void OnReading(Reading<NowPlayingReading> reading)
     {
@@ -165,6 +228,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
         Duration = Playhead.Duration(track)?.TotalSeconds ?? 0;
         Tick();
+        PublishToSystem();
 
         _ = LoadArtworkAsync(track?.ArtworkUrl);
     }
@@ -217,14 +281,26 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
             await stream.CopyToAsync(buffer).ConfigureAwait(false);
             buffer.Position = 0;
 
+            var bytes = buffer.ToArray();
+            buffer.Position = 0;
             var bitmap = new Bitmap(buffer);
-            _dispatcher.Post(() => Artwork = bitmap);
+
+            _dispatcher.Post(() =>
+            {
+                Artwork = bitmap;
+                _artworkBytes = bytes;
+                PublishToSystem();
+            });
         }
         catch (Exception)
         {
             // Art is hotlinked until the station's cache pass runs, so a dead upstream is ordinary
             // rather than a fault. The view falls back to a quiet square.
-            _dispatcher.Post(() => Artwork = null);
+            _dispatcher.Post(() =>
+            {
+                Artwork = null;
+                _artworkBytes = null;
+            });
         }
     }
 
@@ -262,6 +338,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     {
         _player.StatusChanged -= OnPlayerStatus;
         _ticker.Stop();
+        _systemNowPlaying.Clear();
         _lease?.Dispose();
 
         if (_repository is not null)

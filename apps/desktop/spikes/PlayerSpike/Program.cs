@@ -77,62 +77,53 @@ foreach (var format in new[] { NowPlayingMountFormat.Mp3, NowPlayingMountFormat.
     conductor.Requested();
     player.PlayAsync(url).GetAwaiter().GetResult();
 
-    MacRunLoop.Pump(TimeSpan.FromSeconds(seconds));
+    // Exercise the system now-playing path while audio is actually running. The WIDGET only appears
+    // for a bundled app, so what this proves is the marshalling — a byte array, a bool and three
+    // optional strings across the boundary — rather than the display.
+    using (var system = new MacSystemNowPlaying())
+    {
+        system.Commanded += command => Console.WriteLine($"    system asked for {command}");
+        system.SetCanSkip(true);
+        system.Show(new NowPlayingCard(
+            nowPlaying.Track?.Title ?? nowPlaying.Station,
+            nowPlaying.Track?.Artist,
+            nowPlaying.Track?.Album,
+            Artwork: null,
+            Duration: TimeSpan.FromSeconds(200),
+            Position: TimeSpan.FromSeconds(12),
+            Playing: true));
+        Console.WriteLine("    now-playing card accepted");
 
-    Console.WriteLine($"    sockets to the station while playing: {SocketsToStation()}");
+        MacRunLoop.Pump(TimeSpan.FromSeconds(seconds));
+
+        system.Clear();
+    }
+
     Console.WriteLine($"    {clock.Elapsed.TotalSeconds,6:F2}s  stopping");
     conductor.Released();
     player.StopAsync().GetAwaiter().GetResult();
     player.DisposeAsync().AsTask().GetAwaiter().GetResult();
 
-    // Twenty seconds, not three, and the process stays alive throughout. The point is to be able to
-    // watch from outside and tell a connection DROPPED by the stop from one closed by the process
-    // exiting, which a short tail cannot distinguish.
-    MacRunLoop.Pump(TimeSpan.FromSeconds(20));
-    Console.WriteLine($"    sockets to the station after stop:    {SocketsToStation()}");
+    // A short tail, and no socket check. AVFoundation does not hold the audio connection in this
+    // process — `lsof` shows none even at rate 1.0 — and the helper that does hold it is not visible
+    // without elevated privileges. So a socket count is not a witness for whether stopping dropped
+    // the connection, and an earlier version of this printed one that looked like proof while
+    // actually counting the API client. The station's own listener count is the honest witness, and
+    // it lingers five minutes by design.
+    MacRunLoop.Pump(TimeSpan.FromSeconds(3));
     Console.WriteLine();
 }
 
 Console.WriteLine("done");
 
 
-// Whether anything on this machine is still holding a connection to the station's audio.
+// Whether this process is still holding a connection to the station.
 //
-// Two things make this harder to ask than it looks. Icecast's own listener count cannot answer it: an
-// audience lingers for five minutes past the last listener, deliberately, so that a reconnecting
-// player does not cut the broadcast. And the socket is NOT in this process — macOS streams media
-// from a helper daemon, so an `lsof` on our own pid sees only the API client's pooled connection.
+// Icecast's own listener count cannot answer it: an audience lingers for five minutes past the last
+// listener, deliberately, so that a reconnecting player does not cut the broadcast. The socket is the
+// only immediate witness, and it matters because stopping MUST drop the connection rather than pause
+// it — a held connection is still an audience, and would keep an audience-gated station on air with
+// nobody listening.
 //
-// So this counts established connections to the station's address across every process, minus the
-// ones this process holds. It is worth the trouble because stopping MUST drop the connection rather
-// than pause it: a held connection is still an audience, and would keep an audience-gated station on
-// air with nobody listening.
-int SocketsToStation()
-{
-    var address = System.Net.Dns.GetHostAddresses(new Uri(origin).Host).FirstOrDefault();
-    if (address is null)
-    {
-        return -1;
-    }
-
-    using var lsof = Process.Start(new ProcessStartInfo("/usr/sbin/lsof")
-    {
-        ArgumentList = { "-nP", "-i", $"TCP@{address}:443", "-s", "TCP:ESTABLISHED" },
-        RedirectStandardOutput = true,
-        RedirectStandardError = true,
-    });
-
-    if (lsof is null)
-    {
-        return -1;
-    }
-
-    var text = lsof.StandardOutput.ReadToEnd();
-    lsof.WaitForExit();
-
-    var mine = Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-    return text.Split('\n')
-        .Where(line => line.Contains("->", StringComparison.Ordinal))
-        .Count(line => !line.Contains($" {mine} ", StringComparison.Ordinal));
-}
+// Every resolved address is matched, not the first: the station is behind a CDN that answers with
+// several, and the one AVFoundation picked is not reliably the one that resolves first.

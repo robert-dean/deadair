@@ -146,14 +146,22 @@ runs a main loop already, so **the rule that survives into the app is that the p
 driven from the UI thread**, and `MacRunLoop.Pump` is for headless hosts and must never be called
 from a GUI one.
 
-**Stopping really does drop the connection, and neither obvious witness shows it.** Icecast's
-listener count cannot: an audience lingers five minutes past the last listener, on purpose, so a
-reconnecting player does not cut the broadcast. And an `lsof` on our own process shows one connection
-that never moves, which is the API client's keep-alive rather than the audio — **macOS streams media
-from a helper daemon, so the audio socket is not in this process at all.** Counting connections to
-the station from every process except this one is what answers it: one while playing, zero after
-`StopAsync`, with the process still alive. That is the measurement behind the rule, rather than a
-reading of Apple's documentation.
+**Whether stopping drops the connection is NOT established by a socket count, and an earlier version
+of this file claimed it was.** The claim was written from a measurement that was really counting the
+API client's keep-alive. What is actually true: **AVFoundation holds no audio socket in this
+process** — `lsof` on the app's own pid shows none at all while the player reports rate 1.0, proved
+with a standalone Objective-C program that opens no other connection — and the helper that does hold
+it is not visible to `lsof` without elevated privileges. So there is no socket witness available
+here, and the spike no longer prints one.
+
+What the rule rests on instead: `replaceCurrentItemWithPlayerItem:nil` releases the item and its
+loading, which is Apple's documented way to stop a live stream rather than suspend it, and pausing
+demonstrably is not that. The honest end-to-end witness is the station's own listener count, which
+lingers five minutes past the last listener by design — so confirming it means watching that count
+fall six minutes after a stop, on a station nobody else is listening to.
+
+The lesson is the one this file keeps relearning: a diagnostic that prints a plausible number is
+worse than none, because it gets written down as a measurement.
 
 **`AVURLAssetHTTPUserAgentKey` needs a deployment target of macOS 13**, which is why `build.sh`
 passes `-mmacosx-version-min=13.0`. It is the only supported way to set the agent on the connection
@@ -180,6 +188,22 @@ overlay is simply unavailable and asking for it fails the restore rather than de
 an `MSB4018` stack trace out of `Avalonia.BuildServices.targets` with no mention of a sandbox, which
 reads as a broken toolchain. There is no opt-out property in the targets file; the answer is to build
 with the sandbox off, as with NuGet restore.
+
+## The system's own now-playing display
+
+**It only works from a bundled application.** A plain `dotnet run` has no bundle identifier, so macOS
+has nothing to attribute playback to and the widget stays empty. That is a property of how the app was
+launched rather than a fault, and it is one of the reasons `tools/macos/make-app-bundle.sh` exists.
+
+**The next button is a statement about the ACCOUNT, not about the player.** A live mount has no next
+track, so the system offers none by default; turning it on is what puts the operator's Skip on a
+keyboard, and it is enabled only while the signed-in roles say `admin`. Pressing it runs the desk's
+own skip rather than anything on the player, so a keyboard skip and a clicked skip cannot disagree
+about notices or roles. Previous, seek and scrub are permanently disabled: a system that drew them
+would be promising something the station cannot do.
+
+**Pause and stop are the same command here**, and both drop the connection, for the reason `Stop must
+DROP the connection` gives above.
 
 ## What the listener does
 

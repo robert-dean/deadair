@@ -21,6 +21,14 @@
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <AnalysisLevel>latest-recommended</AnalysisLevel>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <!--
+            Declared so that a plain build and a publish for this runtime agree about what the lock
+            file should contain. Without it, publishing rewrites every `packages.lock.json` to name
+            the RID and the next locked restore fails because the projects declare none — and turning
+            the lock off for the publish instead is refused outright (NU1005) once a lock file exists.
+            The app targets Apple Silicon, so saying so is the honest fix rather than a workaround.
+        -->
+        <RuntimeIdentifiers>osx-arm64</RuntimeIdentifiers>
         <Version>0.1.0</Version>
         <Company>Marooned Software</Company>
         <Product>deadair</Product>

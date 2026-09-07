@@ -18,6 +18,8 @@ clang -dynamiclib \
     -fobjc-arc \
     -framework AVFoundation \
     -framework Foundation \
+    -framework MediaPlayer \
+    -framework AppKit \
     -install_name @rpath/libdeadairplayer.dylib \
     -o "$out/libdeadairplayer.dylib" \
     "$here/DeadairPlayer.m"

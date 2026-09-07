@@ -58,6 +58,43 @@ void da_player_set_volume(void *handle, double volume);
 /// Stops, unsubscribes and frees. The handle is invalid afterwards.
 void da_player_destroy(void *handle);
 
+/// What a media key or the system Now Playing widget asked for.
+///
+/// `DA_COMMAND_NEXT` is the OPERATOR's skip rather than a track change: a live mount has no next
+/// track. It is only offered while the account signed in holds the operator role, the same rule the
+/// Android listener applies to a head unit's next button.
+typedef enum {
+    DA_COMMAND_PLAY = 0,
+    DA_COMMAND_STOP = 1,
+    DA_COMMAND_NEXT = 2
+} da_command;
+
+/// Called when the system asks for something, on an arbitrary thread.
+typedef void (*da_command_callback)(void *context, int command);
+
+/// Registers for media keys and the Now Playing widget's buttons.
+///
+/// Pass NULL to stop listening. Only one handler exists at a time.
+void da_remote_set_handler(da_command_callback callback, void *context);
+
+/// Whether to offer a next button at all.
+///
+/// A live stream has no next track, so the system offers none by default. Turning it on is what puts
+/// the operator's Skip on a keyboard and in the widget, and it must be off for anybody who is only
+/// listening — a skip they are not allowed to make would be refused by the station.
+void da_remote_set_can_skip(bool can_skip);
+
+/// Fills the system's Now Playing widget.
+///
+/// `artwork` is image bytes or NULL. Duration and position are seconds; pass a negative duration when
+/// the station could not say, and the widget shows no scrubber rather than a wrong one.
+void da_nowplaying_set(const char *title, const char *artist, const char *album,
+                       const unsigned char *artwork, int artwork_length,
+                       double duration_seconds, double position_seconds, bool playing);
+
+/// Empties the widget, for a station that has stopped.
+void da_nowplaying_clear(void);
+
 /// Runs the calling thread's run loop for `seconds`.
 ///
 /// AVFoundation drives its state machine on a run loop, so a host that has none — a console tool, a

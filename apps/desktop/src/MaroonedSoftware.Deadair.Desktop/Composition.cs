@@ -59,6 +59,10 @@ internal static class Composition
             // of the app can be worked on and looked at anywhere.
             : new NullStationPlayer());
 
+        services.AddSingleton<ISystemNowPlaying>(_ => OperatingSystem.IsMacOS()
+            ? new MacSystemNowPlaying()
+            : new NullSystemNowPlaying());
+
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<TransportViewModel>();

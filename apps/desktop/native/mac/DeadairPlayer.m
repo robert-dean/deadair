@@ -9,7 +9,9 @@
 // and is the same arrangement Avalonia itself uses for `libAvaloniaNative`. The cost is this file.
 
 #import <AVFoundation/AVFoundation.h>
+#import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
+#import <MediaPlayer/MediaPlayer.h>
 
 #include "DeadairPlayer.h"
 
@@ -240,6 +242,134 @@ void da_player_set_volume(void *handle, double volume) {
             return;
         }
         ((__bridge DeadairPlayer *)handle).player.volume = (float)volume;
+    }
+}
+
+#pragma mark - The system's Now Playing widget, and the media keys
+
+static da_command_callback g_command_callback = NULL;
+static void *g_command_context = NULL;
+static BOOL g_commands_registered = NO;
+
+static void da_report_command(da_command command) {
+    if (g_command_callback != NULL) {
+        g_command_callback(g_command_context, (int)command);
+    }
+}
+
+void da_remote_set_handler(da_command_callback callback, void *context) {
+    @autoreleasepool {
+        g_command_callback = callback;
+        g_command_context = context;
+
+        if (callback == NULL) {
+            return;
+        }
+
+        if (g_commands_registered) {
+            return;
+        }
+        g_commands_registered = YES;
+
+        MPRemoteCommandCenter *centre = [MPRemoteCommandCenter sharedCommandCenter];
+
+        [centre.playCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *event) {
+            da_report_command(DA_COMMAND_PLAY);
+            return MPRemoteCommandHandlerStatusSuccess;
+        }];
+
+        // Pause and stop are the same thing here, and both DROP the connection. A live mount cannot
+        // be paused: holding it open is still an audience as far as the station's gate is concerned.
+        [centre.pauseCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *event) {
+            da_report_command(DA_COMMAND_STOP);
+            return MPRemoteCommandHandlerStatusSuccess;
+        }];
+        [centre.stopCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *event) {
+            da_report_command(DA_COMMAND_STOP);
+            return MPRemoteCommandHandlerStatusSuccess;
+        }];
+
+        // The headphone button, which toggles rather than naming a direction.
+        [centre.togglePlayPauseCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *event) {
+            MPNowPlayingInfoCenter *info = [MPNowPlayingInfoCenter defaultCenter];
+            da_report_command(info.playbackState == MPNowPlayingPlaybackStatePlaying ? DA_COMMAND_STOP : DA_COMMAND_PLAY);
+            return MPRemoteCommandHandlerStatusSuccess;
+        }];
+
+        [centre.nextTrackCommand addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *event) {
+            da_report_command(DA_COMMAND_NEXT);
+            return MPRemoteCommandHandlerStatusSuccess;
+        }];
+
+        // Off until somebody signs in as the operator. A live stream has no next track, so this is
+        // the one command whose presence is a statement about the ACCOUNT rather than about the
+        // player.
+        centre.nextTrackCommand.enabled = NO;
+
+        // Never offered: there is no previous on a live mount, and a system that drew the button
+        // would be promising something the station cannot do.
+        centre.previousTrackCommand.enabled = NO;
+        centre.seekForwardCommand.enabled = NO;
+        centre.seekBackwardCommand.enabled = NO;
+        centre.changePlaybackPositionCommand.enabled = NO;
+    }
+}
+
+void da_remote_set_can_skip(bool can_skip) {
+    @autoreleasepool {
+        [MPRemoteCommandCenter sharedCommandCenter].nextTrackCommand.enabled = can_skip ? YES : NO;
+    }
+}
+
+void da_nowplaying_set(const char *title, const char *artist, const char *album,
+                       const unsigned char *artwork, int artwork_length,
+                       double duration_seconds, double position_seconds, bool playing) {
+    @autoreleasepool {
+        MPNowPlayingInfoCenter *centre = [MPNowPlayingInfoCenter defaultCenter];
+        NSMutableDictionary *info = [NSMutableDictionary dictionary];
+
+        if (title != NULL) {
+            info[MPMediaItemPropertyTitle] = [NSString stringWithUTF8String:title];
+        }
+        if (artist != NULL) {
+            info[MPMediaItemPropertyArtist] = [NSString stringWithUTF8String:artist];
+        }
+        if (album != NULL) {
+            info[MPMediaItemPropertyAlbumTitle] = [NSString stringWithUTF8String:album];
+        }
+
+        // A negative duration means the station could not say. Leaving both keys out is what makes
+        // the widget draw no scrubber, rather than one sitting at zero and looking stuck.
+        if (duration_seconds >= 0) {
+            info[MPMediaItemPropertyPlaybackDuration] = @(duration_seconds);
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(position_seconds);
+        }
+
+        info[MPNowPlayingInfoPropertyPlaybackRate] = @(playing ? 1.0 : 0.0);
+        info[MPNowPlayingInfoPropertyIsLiveStream] = @YES;
+
+        if (artwork != NULL && artwork_length > 0) {
+            NSData *data = [NSData dataWithBytes:artwork length:(NSUInteger)artwork_length];
+            NSImage *image = [[NSImage alloc] initWithData:data];
+            if (image != nil) {
+                info[MPMediaItemPropertyArtwork] =
+                    [[MPMediaItemArtwork alloc] initWithBoundsSize:image.size
+                                                    requestHandler:^NSImage *(CGSize size) {
+                                                        return image;
+                                                    }];
+            }
+        }
+
+        centre.nowPlayingInfo = info;
+        centre.playbackState = playing ? MPNowPlayingPlaybackStatePlaying : MPNowPlayingPlaybackStateStopped;
+    }
+}
+
+void da_nowplaying_clear(void) {
+    @autoreleasepool {
+        MPNowPlayingInfoCenter *centre = [MPNowPlayingInfoCenter defaultCenter];
+        centre.nowPlayingInfo = nil;
+        centre.playbackState = MPNowPlayingPlaybackStateStopped;
     }
 }
 

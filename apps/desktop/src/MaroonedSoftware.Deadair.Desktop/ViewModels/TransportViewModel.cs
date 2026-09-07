@@ -119,6 +119,15 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
         ShowSilence = SilenceReading.WorthShowing(status.Silence);
     }
 
+    /// <summary>
+    /// The same skip the on-screen button performs, for a media key pressed outside the window.
+    /// </summary>
+    /// <remarks>
+    /// One path into the station rather than two: a keyboard skip and a clicked skip must not be able
+    /// to disagree about notices, roles or the settling re-reads.
+    /// </remarks>
+    public Task SkipFromSystemAsync() => SkipAsync(CancellationToken.None);
+
     [RelayCommand]
     private async Task SkipAsync(CancellationToken cancellationToken)
     {

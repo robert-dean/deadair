@@ -40,6 +40,10 @@ public sealed partial class ShellViewModel : ObservableObject
         Setup.Connected += (station, name) => _ = AttachAsync(station, name);
         Login.SignedIn += () => ApplySession();
         _session.Changed += _ => ApplySession();
+
+        // A media key's Next is the operator's Skip, so it goes through the desk rather than the
+        // player: the player has no next track to move to.
+        Listener.SkipRequested += Transport.SkipFromSystemAsync;
     }
 
     public SetupViewModel Setup { get; }
@@ -107,6 +111,10 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         SignedOut = _session.State is SessionState.SignedOut;
         Account = _session.State is SessionState.SignedIn signedIn ? signedIn.Email : null;
+
+        // The system's next button is a statement about the ACCOUNT rather than about the player: a
+        // listener has no skip to make, and offering one would promise something the station refuses.
+        Listener.SetCanSkip(_session.State is SessionState.SignedIn { IsOperator: true });
     }
 
     [RelayCommand]

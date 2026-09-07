@@ -22,12 +22,18 @@ app="$out/deadair.app"
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks"
 
+# `RestorePackagesWithLockFile=false` is load-bearing rather than tidy: publishing for a runtime
+# identifier makes NuGet rewrite every `packages.lock.json` to name that RID, and a plain restore
+# afterwards then fails in locked mode because the projects declare no RID of their own. CI restores
+# locked, so one packaging run would break the next build — which is exactly how this was found.
 dotnet publish "$root/src/MaroonedSoftware.Deadair.Desktop" \
     --configuration Release \
     --runtime osx-arm64 \
     --self-contained true \
     -p:PublishTrimmed=false \
     -p:PublishSingleFile=false \
+    -p:RestorePackagesWithLockFile=false \
+    -p:RestoreLockedMode=false \
     --output "$out/publish"
 
 cp -R "$out/publish/." "$app/Contents/MacOS/"

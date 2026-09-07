@@ -318,8 +318,16 @@ To build something that can be double-clicked:
 apps/desktop/tools/macos/make-app-bundle.sh
 ```
 
-About 112MB, self-contained, and unsigned — so the first launch needs a right-click and Open. Two
-publish flags are deliberately absent: `PublishTrimmed`, because the generated SDK reads JSON by
+About 112MB, self-contained, and unsigned — so the first launch needs a right-click and Open.
+
+**Publishing for a runtime identifier rewrites every `packages.lock.json` to name that RID**, and a
+plain restore afterwards then fails in locked mode because no project declares one. CI restores
+locked, so one packaging run breaks the next build — which is how this was found, by running the CI
+sequence rather than by reading it. The bundle script passes
+`-p:RestorePackagesWithLockFile=false -p:RestoreLockedMode=false` for that reason, and if a lock file
+ever grows an `osx-arm64` line, `dotnet restore --force-evaluate` is what takes it back out.
+
+Two publish flags are deliberately absent: `PublishTrimmed`, because the generated SDK reads JSON by
 reflection and the trimmer cannot see it, and `IncludeNativeLibrariesForSelfExtract`, which is
 incompatible with macOS and fails at RUN time with "Failed to create CoreCLR" rather than at
 publish.

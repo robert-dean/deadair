@@ -276,6 +276,31 @@ right, compiles, and fails at XAML load with a message naming the CHILD's type.
 `Notice` have both bitten this tree; the fix each time is a `using` alias rather than a rename, since
 the property names are the ones the views read.
 
+## The library and the voice
+
+**Each tab fetches once, when it is first opened.** None of a catalog, a playlist list or a chart list
+changes while somebody is looking at it, and the station rate-limits at a hundred requests per five
+seconds — so these are reads on demand rather than polls. Only the records tab pages, because only it
+can be long.
+
+**Putting a playlist or a chart on air REPLACES the running order**, and what is on air finishes
+first. It is the most consequential thing on either page, which is why the notice says what happened
+rather than only that it worked. A chart answers with the status BEFORE its changeover and does the
+work as a job, so the notice for one says it takes a moment.
+
+**The voice page is four readings, not the console's eight tabs.** The four are the ones that answer a
+question somebody asks of a RUNNING station: who is presenting, what did it say, what audio does it
+hold, and what is being made. Voices, pronunciations, pads and topics are configuration rather than
+observation and are left for later.
+
+**A script row is one ATTEMPT rather than one segment**, which is the whole point of that endpoint: a
+model that declined and the floor that covered for it are two facts, and collapsing them into one row
+would hide the more interesting of the two.
+
+**A production is cancellable in the states that are still being made, listed positively.** Naming the
+states that CAN be cancelled rather than the ones that cannot means a stage added upstream is not
+silently cancellable by omission.
+
 ## Settings
 
 **The station's half is drawn from what it declares**, so a setting added there appears here with no
@@ -406,6 +431,11 @@ dotnet run --project apps/desktop/src/MaroonedSoftware.Deadair.Desktop
 It keeps its settings in `~/Library/Application Support/deadair/settings.json`, which is a different
 file from anything to do with a session: signing out must not take the station address with it,
 because somebody who signs out is still a listener. The session itself is in the Keychain.
+
+To cut a release, run the `Desktop release` workflow with a version. It runs the same gates as the
+ordinary build, then the bundle script, and archives with `ditto` rather than `zip` — a plain zip
+loses the resource forks and symlinks inside a bundle and produces something macOS unpacks into an
+app that will not launch.
 
 To build something that can be double-clicked:
 

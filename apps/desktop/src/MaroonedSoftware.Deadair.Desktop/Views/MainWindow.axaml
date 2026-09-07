@@ -32,6 +32,8 @@
                                    IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsHistory}" />
                 <views:CheckupView DataContext="{Binding Checkup}"
                                    IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsCheckup}" />
+                <views:VoiceView DataContext="{Binding Voice}"
+                                 IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsVoice}" />
                 <views:SettingsView DataContext="{Binding StationSettings}"
                                     IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsSettings}" />
             </Panel>

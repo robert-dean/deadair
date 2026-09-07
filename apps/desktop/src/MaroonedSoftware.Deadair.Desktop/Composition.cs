@@ -74,6 +74,7 @@ internal static class Composition
         services.AddSingleton<HistoryViewModel>();
         services.AddSingleton<CheckupViewModel>();
         services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<VoiceViewModel>();
         services.AddSingleton<ThemeManager>();
         services.AddSingleton<ListenerViewModel>();
         services.AddSingleton<SetupViewModel>();

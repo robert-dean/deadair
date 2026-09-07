@@ -40,6 +40,7 @@ public sealed partial class ShellViewModel : ObservableObject
         HistoryViewModel history,
         CheckupViewModel checkup,
         SettingsViewModel stationSettings,
+        VoiceViewModel voice,
         ThemeManager themes)
     {
         _settings = settings;
@@ -55,6 +56,7 @@ public sealed partial class ShellViewModel : ObservableObject
         History = history;
         Checkup = checkup;
         StationSettings = stationSettings;
+        Voice = voice;
         _themes = themes;
 
         Setup.Connected += (station, name) => _ = AttachAsync(station, name);
@@ -86,6 +88,9 @@ public sealed partial class ShellViewModel : ObservableObject
                 case Nav.Destination.Settings when StationSettings.Groups.Count == 0:
                     StationSettings.LoadCommand.Execute(null);
                     break;
+                case Nav.Destination.Voice:
+                    Voice.LoadCommand.Execute(null);
+                    break;
             }
         };
     }
@@ -111,6 +116,8 @@ public sealed partial class ShellViewModel : ObservableObject
     public CheckupViewModel Checkup { get; }
 
     public SettingsViewModel StationSettings { get; }
+
+    public VoiceViewModel Voice { get; }
 
     /// <summary>Whether to draw the sign-in panel rather than the account it produced.</summary>
     [ObservableProperty]
@@ -162,6 +169,7 @@ public sealed partial class ShellViewModel : ObservableObject
         History.Attach(station);
         Checkup.Attach(station);
         StationSettings.Attach(station);
+        Voice.Attach(station);
 
         NeedsStation = false;
         ApplySession();

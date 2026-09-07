@@ -29,6 +29,9 @@ public abstract record Destination
     /// <summary>How the station itself is doing.</summary>
     public sealed record Checkup : Destination;
 
+    /// <summary>Who the station is, and what it has said.</summary>
+    public sealed record Voice : Destination;
+
     /// <summary>The station's configuration, and this app's own.</summary>
     public sealed record Settings : Destination;
 }
@@ -51,6 +54,7 @@ public static class Destinations
         new(new Destination.Programme(), "Programme", "P", NeedsOperator: true),
         new(new Destination.Library(), "Library", "L", NeedsOperator: true),
         new(new Destination.History(), "History", "H", NeedsOperator: false),
+        new(new Destination.Voice(), "Voice", "V", NeedsOperator: true),
         new(new Destination.Checkup(), "Check-up", "C", NeedsOperator: true),
 
         // Reachable with no account, because Appearance is this install's own and somebody who only

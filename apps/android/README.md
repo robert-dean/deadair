@@ -79,6 +79,11 @@ schedule while you are the one driving, and the air mode. Every one of those is 
 station, not the phone: the roles it draws them from are a cached hint from `GET /auth/session`,
 and a 403 re-reads them and says so.
 
+In a car, the same session carries what a head unit can do. Pause stops the stream rather than
+pausing it, because a live stream has no pause worth having. The next button is the operator's Skip
+and is offered to nobody else, so a listener's stereo draws no button at all rather than one that
+would be refused. Pressing play on the wheel starts the station even when the app is not running.
+
 What an account adds is the station's own account of itself — what it has played, what is on next —
 which sits behind `platform.view` because it is the console's data being read by a phone. The
 credentials are the OPERATOR's, the same email and password the console takes. There is no listener

@@ -15,6 +15,7 @@ import androidx.media3.session.MediaSessionService
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
 import com.maroonedsoftware.deadair.DeadairApp
+import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.MainActivity
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.net.HttpClients
@@ -23,6 +24,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -36,6 +39,7 @@ import kotlinx.coroutines.launch
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private var conductor: PlaybackConductor? = null
+    private var live: LivePlayer? = null
 
     /** The main looper, because everything here touches a `Player`. Cancelled with the service. */
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -81,7 +85,14 @@ class PlaybackService : MediaSessionService() {
                 .setMediaSourceFactory(DefaultMediaSourceFactory(http))
                 .build()
 
-        val live = LivePlayer(player)
+        val live =
+            LivePlayer(player) {
+                // The same call the on-screen Skip makes, and refused in the same way. A 403
+                // re-reads the roles, which takes the button off the head unit through the
+                // collector below; the notice it also raises is seen only if a screen is up.
+                scope.launch { graph.transport.skip() }
+            }
+        this.live = live
         session =
             MediaSession.Builder(this, live)
                 .setSessionActivity(
@@ -108,6 +119,20 @@ class PlaybackService : MediaSessionService() {
                 .build()
 
         conductor = PlaybackConductor(live, graph, offAir = getString(R.string.now_off_air)).also { it.start() }
+
+        // The next control follows the role rather than the launch, so signing in or out of the
+        // operator's account adds and removes the button without restarting anything.
+        scope.launch {
+            graph.sessions.state
+                .map { it is SessionState.SignedIn && it.isOperator }
+                .distinctUntilChanged()
+                .collect(::allowSkip)
+        }
+    }
+
+    /** Offer or withdraw the head unit's next control. `LivePlayer` announces the change to whatever draws one. */
+    private fun allowSkip(operator: Boolean) {
+        live?.setCanSkip(operator)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
@@ -166,6 +191,7 @@ class PlaybackService : MediaSessionService() {
             release()
         }
         session = null
+        live = null
         super.onDestroy()
     }
 

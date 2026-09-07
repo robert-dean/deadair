@@ -113,6 +113,25 @@ key did nothing at all; after, it starts the process and the stream. What it res
 at position zero, because a live stream has no position and no queue — the easy version of a problem
 most players find hard.
 
+**A head unit's next button is the OPERATOR's Skip, and getting it drawn took two facts that are
+not obvious.** ExoPlayer offers `COMMAND_SEEK_TO_NEXT` only when there is a next ITEM, and a live
+stream is one item for as long as it plays — so the command was never in the set `LivePlayer`
+subtracts from, and withdrawing less from nothing yielded nothing. It has to be ADDED. And
+`ForwardingPlayer` hands its listeners to the wrapped player, which fires
+`onAvailableCommandsChanged` for changes to ITS commands and knows nothing of the subtraction on
+top, so a session told once at construction believed that answer forever; `LivePlayer` keeps its own
+listener list and announces the change. Both were measured against `dumpsys media_session`, whose
+`actions` bitmask is the honest answer to "would a car draw this button" (bit 5 is skip-to-next).
+
+**The button is offered only while the account is the operator, and that is the whole of the
+safety.** A listener's head unit draws nothing rather than a button that would 403, which is the
+same argument every other withdrawn command rests on. What it does NOT solve, and what was accepted
+knowingly: the same physical control means "next track" in every other app, so a passenger reaching
+for it cuts the record for everybody listening, with no second press to think in. The screen's Stop
+arms for that reason and a steering wheel cannot. It is also not gated on there being anything to
+skip — the screen's Skip is, because it has the transport reading in front of it, and the playback
+service deliberately collects none of that.
+
 ## The session, and the one rule that is not obvious
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and

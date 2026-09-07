@@ -1,0 +1,94 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:themes="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsView"
+    x:DataType="vm:SettingsViewModel">
+
+    <DockPanel Margin="24" LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,14">
+            <TextBlock Text="Settings" FontSize="20" FontWeight="SemiBold"
+                       Foreground="{DynamicResource DaTextBrush}" />
+            <TextBlock Text="{Binding Notice}" FontSize="12"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+        </StackPanel>
+
+        <Button DockPanel.Dock="Bottom" Content="Save changes" HorizontalAlignment="Left" Margin="0,14,0,0"
+                Command="{Binding SaveCommand}" IsEnabled="{Binding !Busy}" />
+
+        <ScrollViewer>
+            <StackPanel Spacing="22">
+
+                <!-- Appearance is this install's own and never leaves it, which is why it sits above
+                     the station's settings rather than among them. -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Appearance" FontWeight="SemiBold"
+                               Foreground="{DynamicResource DaTextBrush}" />
+                    <ItemsControl ItemsSource="{Binding Themes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="themes:ThemeChoice">
+                                <RadioButton GroupName="theme" Margin="0,3"
+                                             IsChecked="{Binding IsChosen}"
+                                             Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).ChooseThemeCommand}"
+                                             CommandParameter="{Binding}">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource DaTextBrush}" />
+                                        <TextBlock Text="{Binding Blurb}" FontSize="11"
+                                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Everything below is drawn from what the station declares, so a setting added
+                     there appears here with no code. -->
+                <ItemsControl ItemsSource="{Binding Groups}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SettingGroupViewModel">
+                            <StackPanel Spacing="8" Margin="0,0,0,18">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource DaTextBrush}" />
+                                <ItemsControl ItemsSource="{Binding Fields}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:SettingFieldViewModel">
+                                            <StackPanel Spacing="3" Margin="0,0,0,10">
+                                                <TextBlock Text="{Binding Label}" FontSize="12"
+                                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+
+                                                <CheckBox IsChecked="{Binding Switch}" IsVisible="{Binding IsBoolean}"
+                                                          Content="On" />
+
+                                                <TextBox Text="{Binding Text}" IsVisible="{Binding IsText}"
+                                                         MaxWidth="480" HorizontalAlignment="Left" />
+
+                                                <!-- A secret is reported as a configured-boolean and
+                                                     never as a value, so an empty box means leave it
+                                                     alone rather than clear it. -->
+                                                <TextBlock Text="{Binding SecretState}" FontSize="11"
+                                                           IsVisible="{Binding IsSecret}"
+                                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+
+                                                <TextBlock Text="{Binding Help}" FontSize="11" TextWrapping="Wrap"
+                                                           MaxWidth="560" HorizontalAlignment="Left"
+                                                           IsVisible="{Binding Help, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </DockPanel>
+
+</UserControl>

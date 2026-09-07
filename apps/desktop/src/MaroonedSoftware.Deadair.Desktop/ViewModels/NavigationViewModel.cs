@@ -55,6 +55,8 @@ public sealed partial class NavigationViewModel : ObservableObject
 
     public bool IsCheckup => Current is Destination.Checkup;
 
+    public bool IsSettings => Current is Destination.Settings;
+
     public event Action<Destination>? Navigated;
 
     [RelayCommand]
@@ -78,6 +80,7 @@ public sealed partial class NavigationViewModel : ObservableObject
         OnPropertyChanged(nameof(IsLibrary));
         OnPropertyChanged(nameof(IsHistory));
         OnPropertyChanged(nameof(IsCheckup));
+        OnPropertyChanged(nameof(IsSettings));
 
         Navigated?.Invoke(destination);
     }

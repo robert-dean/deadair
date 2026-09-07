@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
+using MaroonedSoftware.Deadair.Desktop.Themes;
 
 // The `Navigation` property below shadows the namespace of the same name, so the destination types
 // need an alias to be reachable from inside this class.
@@ -23,6 +24,7 @@ public sealed partial class ShellViewModel : ObservableObject
 {
     private readonly ISettingsStore _settings;
     private readonly SessionManager _session;
+    private readonly ThemeManager _themes;
 
     public ShellViewModel(
         ISettingsStore settings,
@@ -36,7 +38,9 @@ public sealed partial class ShellViewModel : ObservableObject
         ProgrammeViewModel programme,
         LibraryViewModel library,
         HistoryViewModel history,
-        CheckupViewModel checkup)
+        CheckupViewModel checkup,
+        SettingsViewModel stationSettings,
+        ThemeManager themes)
     {
         _settings = settings;
         _session = session;
@@ -50,6 +54,8 @@ public sealed partial class ShellViewModel : ObservableObject
         Library = library;
         History = history;
         Checkup = checkup;
+        StationSettings = stationSettings;
+        _themes = themes;
 
         Setup.Connected += (station, name) => _ = AttachAsync(station, name);
         Login.SignedIn += () => ApplySession();
@@ -77,6 +83,9 @@ public sealed partial class ShellViewModel : ObservableObject
                 case Nav.Destination.Checkup:
                     Checkup.LoadCommand.Execute(null);
                     break;
+                case Nav.Destination.Settings when StationSettings.Groups.Count == 0:
+                    StationSettings.LoadCommand.Execute(null);
+                    break;
             }
         };
     }
@@ -101,6 +110,8 @@ public sealed partial class ShellViewModel : ObservableObject
 
     public CheckupViewModel Checkup { get; }
 
+    public SettingsViewModel StationSettings { get; }
+
     /// <summary>Whether to draw the sign-in panel rather than the account it produced.</summary>
     [ObservableProperty]
     private bool _signedOut = true;
@@ -117,6 +128,9 @@ public sealed partial class ShellViewModel : ObservableObject
     public async Task StartAsync()
     {
         await _settings.LoadAsync().ConfigureAwait(true);
+
+        // Before anything is drawn, so the window does not open in carbon and then repaint.
+        _themes.Apply(_settings.Current.Theme);
 
         if (StationUrl.TryParse(_settings.Current.Station, out var station))
         {
@@ -147,6 +161,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Library.Attach(station);
         History.Attach(station);
         Checkup.Attach(station);
+        StationSettings.Attach(station);
 
         NeedsStation = false;
         ApplySession();

@@ -6,6 +6,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.Player.Mac;
+using MaroonedSoftware.Deadair.Desktop.Themes;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -72,6 +73,8 @@ internal static class Composition
         services.AddSingleton<LibraryViewModel>();
         services.AddSingleton<HistoryViewModel>();
         services.AddSingleton<CheckupViewModel>();
+        services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<ThemeManager>();
         services.AddSingleton<ListenerViewModel>();
         services.AddSingleton<SetupViewModel>();
 

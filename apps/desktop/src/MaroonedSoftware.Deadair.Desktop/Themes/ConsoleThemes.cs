@@ -58,4 +58,12 @@ public sealed record ThemeChoice(
     string Name,
     string Blurb,
     string TypeLabel,
-    IReadOnlyList<string> Swatches);
+    IReadOnlyList<string> Swatches)
+{
+    /// <summary>Whether this is the console currently on screen.</summary>
+    /// <remarks>
+    /// Settable rather than derived, because the radio buttons are bound to the choices themselves
+    /// and a derived value would need every choice to know about the one that is current.
+    /// </remarks>
+    public bool IsChosen { get; set; }
+}

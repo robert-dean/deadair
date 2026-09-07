@@ -276,6 +276,30 @@ right, compiles, and fails at XAML load with a message naming the CHILD's type.
 `Notice` have both bitten this tree; the fix each time is a `using` alias rather than a rename, since
 the property names are the ones the views read.
 
+## Settings
+
+**The station's half is drawn from what it declares**, so a setting added there appears here with no
+code: key, label, type, bounds and help all come off `GET /settings`. Nothing in this app knows what
+any particular setting means.
+
+**A setting is a STRING, and the client has to honour that.** Every layer of the station's
+configuration holds text, so a switch travels as the word `true` and a number as its digits. Sending
+a JSON boolean would be sending a shape the station does not store. The reading side matters just as
+much: `true`, `1`, `yes` and `on` are all on, and anything unparseable takes the DECLARED DEFAULT
+rather than falling to off, because a value nobody can read is a value nobody set. That default is a
+small union rather than a string, so it is matched rather than stringified — `ToString` on it gives
+`OfBoolean { Value = True }`, which parses as nothing.
+
+**A secret is never prefilled**, because the station reports it as a configured-boolean and never as
+a value. An empty box means leave it alone; sending an empty string would clear it.
+
+**Only what changed is sent.** The endpoint takes a partial write, and sending everything back would
+overwrite a value somebody else edited while the page was open.
+
+**Appearance is this install's own** and never leaves it, which is why Settings is reachable with no
+account: somebody who only listens should still be able to choose which console they are looking at.
+The stored theme is applied before the window is drawn, so it does not open in carbon and repaint.
+
 ## The check-up
 
 **Three readings, not one.** The check-up endpoint carries only the two signals nothing else exposes

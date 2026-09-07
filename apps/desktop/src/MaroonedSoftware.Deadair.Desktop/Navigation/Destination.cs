@@ -28,6 +28,9 @@ public abstract record Destination
 
     /// <summary>How the station itself is doing.</summary>
     public sealed record Checkup : Destination;
+
+    /// <summary>The station's configuration, and this app's own.</summary>
+    public sealed record Settings : Destination;
 }
 
 /// <param name="Destination">Where it goes.</param>
@@ -49,5 +52,9 @@ public static class Destinations
         new(new Destination.Library(), "Library", "L", NeedsOperator: true),
         new(new Destination.History(), "History", "H", NeedsOperator: false),
         new(new Destination.Checkup(), "Check-up", "C", NeedsOperator: true),
+
+        // Reachable with no account, because Appearance is this install's own and somebody who only
+        // listens should still be able to choose which console they are looking at.
+        new(new Destination.Settings(), "Settings", "S", NeedsOperator: false),
     ];
 }

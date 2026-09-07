@@ -48,7 +48,7 @@ function draw(values: Record<string, unknown>) {
 }
 
 /** What the form actually sent for the list, parsed back out of the string it is stored as. */
-const submitted = (onSubmit: ReturnType<typeof vi.fn>): unknown => JSON.parse((onSubmit.mock.calls.at(-1)?.[0] as Record<string, string>).feeds);
+const submitted = (onSubmit: ReturnType<typeof vi.fn>): unknown => JSON.parse((onSubmit.mock.calls.at(-1)?.[0] as Record<string, string>).feeds!);
 
 describe('reordering a list field', () => {
     it('moves a row up, values and all', async () => {

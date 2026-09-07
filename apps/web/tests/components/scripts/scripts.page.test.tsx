@@ -5,6 +5,7 @@
 
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 import type { ScriptAttempt } from '@deadair/sdk';
 
 import { ScriptsPage } from '../../../src/components/scripts/scripts.page';
@@ -28,7 +29,7 @@ vi.mock('../../../src/api/scripts.queries', () => ({
 
 const attempt = (over: Partial<ScriptAttempt> = {}): ScriptAttempt => ({
     id: 'att-1',
-    at: '2026-08-13T03:14:15.926Z',
+    at: DateTime.fromISO('2026-08-13T03:14:15.926Z'),
     kind: 'talkbreak',
     writer: 'model',
     outcome: 'written',

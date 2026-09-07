@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 import { SdkError } from '@deadair/sdk';
 
 import { PluginsPage } from '../../../src/components/plugins/plugins.page';
@@ -107,7 +108,7 @@ describe('PluginsPage', () => {
     });
 
     it('does not ask again for one the operator has already trusted', async () => {
-        const trusted = pluginSummary({ enabled: false, status: 'disabled', firstEnabledAt: '2026-08-01T12:00:00.000Z' });
+        const trusted = pluginSummary({ enabled: false, status: 'disabled', firstEnabledAt: DateTime.fromISO('2026-08-01T12:00:00.000Z') });
         listPlugins.mockResolvedValue([trusted]);
         enablePlugin.mockResolvedValue({ ...pluginSummary(), config: {} });
 

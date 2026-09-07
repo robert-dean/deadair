@@ -10,7 +10,7 @@ import type { Container } from 'injectkit';
 import type { JobContext } from '@maroonedsoftware/jobbroker';
 
 import { ScheduleTickJob } from '../../../src/modules/schedule/schedule.tick.job.js';
-import type { ScheduleService } from '../../../src/modules/schedule/schedule.service.js';
+import type { ScheduleService, SustainingSource } from '../../../src/modules/schedule/schedule.service.js';
 import { ScheduleNotices } from '../../../src/modules/schedule/schedule.notices.js';
 import type { DirectorConsoleService } from '../../../src/modules/director/director.console.service.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
@@ -41,7 +41,7 @@ interface Options {
     /** What going on air does, for the decline case. */
     putOnAir?: () => Promise<unknown>;
     /** What the station plays between blocks. Absent is a station that has named nothing. */
-    sustaining?: { pluginId?: string; playlistId?: string; brief?: string; era?: { from?: number; to?: number } };
+    sustaining?: SustainingSource;
     /** A hold on the running order, as epoch millis. `Infinity` never lapses; absent is no hold. */
     holdUntil?: number;
 }

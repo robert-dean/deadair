@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SdkError } from '@deadair/sdk';
+import type { ErrorComponentProps } from '@tanstack/react-router';
 
 import { RouteError } from '../../../src/components/shared/route.error';
 import { render, screen, setupUser } from '../../utils/render';
@@ -18,9 +19,9 @@ afterEach(() => {
     invalidate.mockReset();
 });
 
-/** The props TanStack hands an error component. `info` is unused here and typed as such. */
-function props(error: Error, reset = vi.fn()) {
-    return { error, reset, info: undefined, isRoot: false } as never;
+/** The props TanStack hands an error component. `info` is unread by `RouteError`, so it is left off. */
+function props(error: Error, reset = vi.fn()): ErrorComponentProps {
+    return { error, reset };
 }
 
 describe('RouteError', () => {

@@ -6,6 +6,7 @@ import com.maroonedsoftware.deadair.sdk.DeadairSdk
 import com.maroonedsoftware.deadair.sdk.models.AddStationTrackInput
 import com.maroonedsoftware.deadair.sdk.models.ExtendStationInput
 import com.maroonedsoftware.deadair.sdk.models.MoveStationItemInput
+import com.maroonedsoftware.deadair.sdk.models.ReplanStationInput
 import com.maroonedsoftware.deadair.sdk.models.SetStationHostInput
 import com.maroonedsoftware.deadair.sdk.models.StationOrder
 import kotlin.uuid.ExperimentalUuidApi
@@ -43,6 +44,19 @@ class OrderActions(private val actions: OperatorActions, private val order: Orde
     /** Move an item to a position. The station refuses anything below what the player holds rather than clamping it. */
     suspend fun move(itemId: String, toIndex: Int): Boolean =
         applying { it.director.moveARunningOrderItem(itemId, MoveStationItemInput(toIndex = toIndex.toLong())) }
+
+    /**
+     * Programme everything the player is not already holding again.
+     *
+     * Answers 202 and nothing, like Extend and for the same reason: the records are chosen before
+     * the old ones are dropped, so the tail keeps playing while the model works and the new set
+     * swaps in when it exists. Hence the longer follow-up reads rather than an order to apply.
+     */
+    suspend fun replan(input: ReplanStationInput): Boolean {
+        val accepted = actions.run { it.director.replanTheRunningOrder(input) } != null
+        if (accepted) order.refetchSoon(OrderRepository.REFILL_FOLLOW_UP_MS)
+        return accepted
+    }
 
     /**
      * Hand the broadcast to somebody else, or `null` to hand it back to the station's own host.

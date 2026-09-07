@@ -28,6 +28,7 @@ import com.maroonedsoftware.deadair.playback.PlayerUiState
 import com.maroonedsoftware.deadair.playback.chooseMount
 import com.maroonedsoftware.deadair.playout.PlayoutState
 import com.maroonedsoftware.deadair.settings.ListenerSettings
+import com.maroonedsoftware.deadair.ui.ShowOperatorNotices
 import com.maroonedsoftware.deadair.ui.rememberNowEpochMs
 import com.maroonedsoftware.deadair.ui.history.HistoryScreen
 import com.maroonedsoftware.deadair.ui.LoadState
@@ -74,6 +75,8 @@ fun HomeRoute(
     onAirSomething: () -> Unit,
     /** Open what the station said: everything, or one break's attempts. */
     onScripts: (segmentId: String?) -> Unit,
+    /** Change what the station plays. The broadcast rides along, so the form opens on a fixed baseline. */
+    onPlan: (currentBrief: String?, somethingOn: Boolean) -> Unit,
 ) {
     // Survives a rotation, which `remember` alone would not, and a trip to Settings and back,
     // which the display's saveable-state decorator sees to.
@@ -92,18 +95,8 @@ fun HomeRoute(
     val session by graph.sessions.state.collectAsStateWithLifecycle()
     val isOperator = (session as? SessionState.SignedIn)?.isOperator == true
 
-    // What an operator action came back with, said once. Collected into state and resolved in
-    // composition, because the words live in resources and a snackbar wants a string.
     val snackbarHost = remember { SnackbarHostState() }
-    var notice by remember { mutableStateOf<Notice?>(null) }
-    LaunchedEffect(Unit) { graph.operator.notices.collect { notice = it } }
-    notice?.let { current ->
-        val words = Message.OperatorNotice(current).resolve()
-        LaunchedEffect(current) {
-            snackbarHost.showSnackbar(words)
-            if (notice == current) notice = null
-        }
-    }
+    ShowOperatorNotices(graph.operator.notices, snackbarHost)
 
     val station = settings.station
     val reading =
@@ -265,6 +258,7 @@ fun HomeRoute(
                             },
                             busyItemId = busyItemId,
                             onRecast = { personaId -> orderAction { graph.orderActions.recast(personaId) } },
+                            onPlan = { onPlan(loadedOrder?.brief, broadcast?.nothingOn == false) },
                             busy = orderBusy,
                         )
                     }

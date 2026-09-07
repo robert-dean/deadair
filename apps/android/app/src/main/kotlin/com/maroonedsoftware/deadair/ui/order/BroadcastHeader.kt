@@ -2,6 +2,7 @@ package com.maroonedsoftware.deadair.ui.order
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -9,13 +10,16 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
@@ -43,6 +47,8 @@ fun BroadcastHeader(
     onReloadPersonas: () -> Unit,
     /** `null` for anyone the station does not call its operator, which draws the host as a line rather than a control. */
     onRecast: ((String?) -> Unit)?,
+    /** Change what the station plays. Beside the broadcast it changes, rather than a fifth icon in a bar. */
+    onPlan: (() -> Unit)?,
     busy: Boolean,
     modifier: Modifier = Modifier,
 ) {
@@ -52,15 +58,19 @@ fun BroadcastHeader(
         ui.title?.let { Text(it, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis) }
 
         val host = ui.hostMessage.resolve()
-        if (onRecast != null && ui.canRecast) {
-            AssistChip(
-                onClick = { picking = true },
-                enabled = !busy,
-                label = { Text(host, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                leadingIcon = { Icon(painterResource(R.drawable.ic_record_voice_over), contentDescription = null, modifier = Modifier.size(18.dp)) },
-            )
-        } else {
-            Text(host, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (onRecast != null && ui.canRecast) {
+                AssistChip(
+                    onClick = { picking = true },
+                    enabled = !busy,
+                    label = { Text(host, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    leadingIcon = { Icon(painterResource(R.drawable.ic_record_voice_over), contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+            } else {
+                Text(host, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f, fill = false))
+            }
+            onPlan?.let { TextButton(onClick = it, enabled = !busy) { Text(stringResource(R.string.plan)) } }
         }
 
         ui.brief?.let {

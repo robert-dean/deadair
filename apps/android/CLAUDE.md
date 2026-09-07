@@ -220,6 +220,14 @@ bottom bar is state inside the `Home` entry, so back from a tab returns to Now p
 unwinding a history of taps, which is what Android guidance asks of a bottom bar. Setup is chosen
 above the stack from `station == null` and is never pushed, so it is not a place back can reach.
 
+**A notice raised by a pushed screen is lost unless that screen collects it.** `OperatorActions`
+publishes into a `SharedFlow` with no replay, and `NavDisplay` composes only the entry on top, so
+the collector on `Home` is not running while a pushed screen is showing. A refusal raised there was
+posted to nobody: the operator watched a button do nothing. Every screen that can start an operator
+action therefore has its own `SnackbarHost` and calls `ShowOperatorNotices`, and a screen that
+succeeds pops afterwards rather than trying to say so on the way out — a snackbar shown to a Home
+that is not composed yet is the same bug from the other end.
+
 Pure logic — URL resolution, mount selection, the playhead projection — stays free of `android.*`
 imports so plain JVM unit tests cover it. There are no instrumented tests and none are wanted.
 

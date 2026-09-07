@@ -61,6 +61,16 @@ sealed interface Destination : NavKey {
     /** What the station said between the records: everything, or one break's attempts. */
     @Serializable
     data class Scripts(val segmentId: String? = null) : Destination
+
+    /**
+     * Change what the station plays: this show from here on, or a new one.
+     *
+     * The broadcast is carried in the key rather than read again on the way in, so the form opens
+     * on a fixed baseline: the field seeds from it, and "did the operator change the words" is a
+     * comparison against the same string whatever the poll has done since.
+     */
+    @Serializable
+    data class Plan(val currentBrief: String? = null, val somethingOn: Boolean = false) : Destination
 }
 
 /**
@@ -84,6 +94,7 @@ val NavConfiguration: SavedStateConfiguration =
                     subclass(Destination.Playlist::class)
                     subclass(Destination.Chart::class)
                     subclass(Destination.Scripts::class)
+                    subclass(Destination.Plan::class)
                 }
             }
     }

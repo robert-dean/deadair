@@ -5,6 +5,8 @@ import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInputChartOrder
 import com.maroonedsoftware.deadair.sdk.models.ScriptOutcome
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
+import com.maroonedsoftware.deadair.sdk.models.StationMode
+import com.maroonedsoftware.deadair.sdk.models.StationOnEnd
 import com.maroonedsoftware.deadair.ui.catalog.EnrichmentField
 import com.maroonedsoftware.deadair.station.StreamFormat
 import java.time.DayOfWeek
@@ -182,6 +184,17 @@ sealed interface Message {
 
     /** What the operator asked this broadcast to play, in their own words. */
     data class AskedFor(val brief: String) : Message
+
+    // ── Planning the station ──────────────────────────────────────────────────────────────
+    /** How the station picks the records for a broadcast. */
+    data class Mode(val mode: StationMode) : Message
+
+    /** What happens when the running order runs out. */
+    data class OnEnd(val onEnd: StationOnEnd) : Message
+
+    data object EraOutOfRange : Message
+
+    data object EraBackwards : Message
 
     // ── A stale reading ───────────────────────────────────────────────────────────────────
     data object LastSaid : Message

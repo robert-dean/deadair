@@ -65,6 +65,8 @@ data class OrderHandlers(
     val busyItemId: String?,
     /** Hand the broadcast to a persona, or to the station's own host with `null`. */
     val onRecast: (String?) -> Unit,
+    /** Change what the station plays: this show from here on, or a new one. */
+    val onPlan: () -> Unit,
     /** Any operator action is in flight, which is what stops a second one being started. */
     val busy: Boolean,
 )
@@ -109,6 +111,7 @@ fun RunningOrderScreen(
                             personas = personas,
                             onReloadPersonas = onReloadPersonas,
                             onRecast = handlers?.onRecast,
+                            onPlan = handlers?.onPlan,
                             busy = handlers?.busy == true,
                         )
                     }

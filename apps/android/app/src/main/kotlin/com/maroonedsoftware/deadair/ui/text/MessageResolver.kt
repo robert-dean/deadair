@@ -13,6 +13,9 @@ import com.maroonedsoftware.deadair.sdk.models.PlayoutChartInputChartOrder
 import com.maroonedsoftware.deadair.sdk.models.ScriptOutcome
 import com.maroonedsoftware.deadair.sdk.models.SilenceCause
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
+import com.maroonedsoftware.deadair.sdk.models.StationMode
+import com.maroonedsoftware.deadair.sdk.models.StationOnEnd
+import com.maroonedsoftware.deadair.ui.plan.ERA_YEARS
 import com.maroonedsoftware.deadair.ui.catalog.EnrichmentField
 import com.maroonedsoftware.deadair.ui.catalog.SourceState
 import java.time.Instant as JavaInstant
@@ -82,6 +85,24 @@ fun Message.resolve(): String =
         Message.PresentedByStationsHost -> stringResource(R.string.presented_by_stations_host)
         Message.PresentedByNobody -> stringResource(R.string.presented_by_nobody)
         is Message.AskedFor -> stringResource(R.string.asked_for, brief)
+        is Message.Mode ->
+            stringResource(
+                when (mode) {
+                    StationMode.ROTATION -> R.string.mode_rotation
+                    StationMode.SETLIST -> R.string.mode_setlist
+                    StationMode.FEATURE -> R.string.mode_feature
+                },
+            )
+        is Message.OnEnd ->
+            stringResource(
+                when (onEnd) {
+                    StationOnEnd.EXTEND -> R.string.on_end_extend
+                    StationOnEnd.REPEAT -> R.string.on_end_repeat
+                    StationOnEnd.STOP -> R.string.on_end_stop
+                },
+            )
+        Message.EraOutOfRange -> stringResource(R.string.plan_era_out_of_range, ERA_YEARS.first, ERA_YEARS.last)
+        Message.EraBackwards -> stringResource(R.string.plan_era_backwards)
         is Message.LastSaidAt -> stringResource(R.string.stale_last_said_at, clock.resolve())
         is Message.SilenceLabel ->
             stringResource(

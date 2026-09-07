@@ -107,6 +107,17 @@ class OrderActionsTest {
     }
 
     @Test
+    fun `a replan is only asked for, because the station answers it with nothing`() = runTest {
+        val recorded = Recorded()
+        val actions = OrderActions(OperatorActions(FakeSession(recorded, HttpStatusCode.Accepted, "")), repositoryFor(backgroundScope))
+
+        assertTrue(actions.replan(com.maroonedsoftware.deadair.sdk.models.ReplanStationInput(brief = "heavy metal hits")))
+
+        assertEquals("/api/director/air/replan", recorded.path)
+        assertEquals("""{"brief":"heavy metal hits"}""", recorded.body)
+    }
+
+    @Test
     fun `a persona the station no longer has is reported as gone rather than as a number`() = runTest {
         val operator = OperatorActions(FakeSession(Recorded(), HttpStatusCode.NotFound, "{}"))
         val actions = OrderActions(operator, repositoryFor(backgroundScope))

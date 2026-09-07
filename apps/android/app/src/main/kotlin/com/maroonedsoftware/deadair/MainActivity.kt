@@ -36,6 +36,7 @@ import com.maroonedsoftware.deadair.ui.catalog.TrackRoute
 import com.maroonedsoftware.deadair.ui.home.HomeRoute
 import com.maroonedsoftware.deadair.ui.nav.Destination
 import com.maroonedsoftware.deadair.ui.nav.NavConfiguration
+import com.maroonedsoftware.deadair.ui.plan.PlanRoute
 import com.maroonedsoftware.deadair.ui.scripts.ScriptsRoute
 import com.maroonedsoftware.deadair.ui.settings.SettingsScreen
 import com.maroonedsoftware.deadair.ui.settings.SettingsViewModel
@@ -146,6 +147,18 @@ private fun Listener(graph: AppGraph) {
                             onTrack = { id -> backStack.add(Destination.Track(id)) },
                             onAirSomething = { backStack.add(Destination.AirSomething) },
                             onScripts = { segmentId -> backStack.add(Destination.Scripts(segmentId)) },
+                            onPlan = { currentBrief, somethingOn -> backStack.add(Destination.Plan(currentBrief, somethingOn)) },
+                        )
+                    }
+                    entry<Destination.Plan> { key ->
+                        PlanRoute(
+                            graph = graph,
+                            currentBrief = key.currentBrief,
+                            somethingOn = key.somethingOn,
+                            onBack = { backStack.removeLastOrNull() },
+                            // Replanning and going on air both end the errand: the stack unwinds to
+                            // Home, where the tab shows what the station did with it.
+                            onDone = { while (backStack.size > 1) backStack.removeLastOrNull() },
                         )
                     }
                     entry<Destination.Scripts> { key ->

@@ -3,7 +3,7 @@
     Every word the app says. The Kotlin that decides WHAT to say returns a `Message` and never a
     sentence, so this file is the only place a sentence lives; see `ui/text/Message.kt`.
 -->
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">deadair</string>
 
     <!-- The frame -->
@@ -302,6 +302,49 @@
     <string name="script_dislike">The station should not say things like this</string>
     <string name="script_no_opinion">Heard it, no opinion</string>
     <string name="script_like">More like this</string>
+
+    <!-- Planning the station: replanning this show, or starting a new one -->
+    <string name="plan">Plan</string>
+    <string name="plan_keep">Keep this show</string>
+    <string name="plan_new">Start a new show</string>
+    <string name="plan_keep_blurb">Everything still to come is dropped and the station programmes that stretch again. What is playing, and what the player is already holding, keeps going.</string>
+    <string name="plan_new_blurb">The station programmes itself against this, from your own library first and from your providers when the library cannot fill it. A record it does not own yet is fetched and kept. What you like and dislike is taken into account either way.</string>
+    <string name="plan_replacing_warning">This starts a new broadcast: everything still to come is dropped, and what is playing stops.</string>
+    <string name="plan_brief_label">Asked to play</string>
+    <string name="plan_brief_placeholder">warm and unhurried</string>
+    <string name="plan_brief_count">%1$d/%2$d</string>
+    <string name="plan_brief_keep_desc">This steers every refill for the rest of the broadcast, not just these records. Empty it to hand the programming back to the host.</string>
+    <string name="plan_brief_new_desc">In your own words, for the model that chooses records. It keeps steering every refill until the station is put on air again.</string>
+    <string name="plan_keep_note">The host, the period and the shape belong to this show and keep running with it. Changing any of them starts a new one.</string>
+    <string name="plan_hosted_by">Hosted by</string>
+    <string name="plan_host_unset">Whichever persona the station has on air</string>
+    <string name="plan_era_from">From year</string>
+    <string name="plan_era_to">To year</string>
+    <string name="plan_era_from_desc">Empty means no lower bound.</string>
+    <string name="plan_era_to_desc">Empty means no upper bound.</string>
+    <string name="plan_era_note">A record whose release year the catalogue does not know is played whatever the period. Leaving it out is not evidence of the wrong decade, and demanding one would empty the draw on a library nothing has enriched.</string>
+    <!--
+        A range rather than a quantity, so lint's suggestion of a plural is wrong here: neither
+        number counts anything, and no language inflects the word between two years.
+    -->
+    <string name="plan_era_out_of_range" tools:ignore="PluralsCandidate">Between %1$d and %2$d</string>
+    <string name="plan_era_backwards">Earlier than the start</string>
+    <string name="plan_mode">Mode</string>
+    <string name="mode_rotation">Rotation</string>
+    <string name="mode_setlist">Setlist</string>
+    <string name="mode_feature">Feature</string>
+    <string name="plan_on_end">When it runs out</string>
+    <string name="on_end_extend">Keep going</string>
+    <string name="on_end_repeat">Start again</string>
+    <string name="on_end_stop">Stop</string>
+    <string name="plan_shape_note">Starting again replays what this broadcast already aired. It never reaches further than that: a record you disliked stays off the air whether the broadcast is running for the first time or the fifth.</string>
+    <string name="plan_callins">Take calls during this broadcast</string>
+    <string name="plan_callins_desc">A phone-in is written and spoken a turn at a time, so it lands minutes after it is asked for. A setlist or a feature takes none whatever this says.</string>
+    <string name="plan_keep_footer">The records are chosen before the old ones are dropped, so nothing goes quiet. They can take a minute to appear.</string>
+    <string name="plan_new_footer">Choosing records against your words needs a model configured to programme with. Without one the station plays its own rotation, which is the designed answer rather than a failure.</string>
+    <string name="plan_replan">Replan</string>
+    <string name="plan_go_on_air">Go on air</string>
+    <string name="plan_confirm_title">Start a new show?</string>
 
     <!-- Rating: the station's own curation mark, with rotation consequences -->
     <string name="rating_dislike">Never play %1$s</string>

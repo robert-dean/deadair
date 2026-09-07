@@ -233,6 +233,28 @@ what is allowed. A 403 refreshes them rather than being reported as a failure. T
 nothing at all and lets every 403 through to the user, which is a defensible choice for a page that
 is only ever opened by the operator and the wrong one for an app that is also a listener.
 
+## The running order
+
+**The station REFUSES a move rather than clamping it.** A position the player already holds is not
+quietly turned into the nearest legal one, which is right — doing something other than what was asked
+is worse than refusing — and it means the client has to know where the movable region starts, or
+every "send to the top" on a busy order comes back rejected. `MoveTarget` works out that floor: the
+first item still `planned`. The move buttons answer null rather than an index when there is nowhere
+to go, so nothing is sent.
+
+**Undo is offered for a record and not for a segment**, because a dropped record is spliced out and
+can be added back while a dropped segment is marked `removed` and stays that way. Offering it for
+both would be offering something that cannot happen. The contract types the item's own `trackId` as a
+string, since it is absent on a segment and on a record the catalog has never seen, while the
+add-a-record input takes a `uuid` — so undo is offered exactly when that string parses, which is the
+same set the station would take back.
+
+**"Runs dry at" is arithmetic the client does.** The station sends durations, not a time, and an item
+with no duration contributes NOTHING rather than a guess: an order that runs out slightly earlier
+than predicted costs an operator an extra extend, and one that runs out earlier than promised is the
+station going quiet. The twenty-minute warning threshold caught its own test fixture, which was
+fifteen minutes long and therefore already short.
+
 ## What is verified against a real station, and what is not
 
 The listener half is measured against the live station: it plays, it polls, and the phases are in

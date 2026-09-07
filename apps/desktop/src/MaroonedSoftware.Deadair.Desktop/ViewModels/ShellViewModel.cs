@@ -26,7 +26,8 @@ public sealed partial class ShellViewModel : ObservableObject
         SetupViewModel setup,
         ListenerViewModel listener,
         LoginViewModel login,
-        TransportViewModel transport)
+        TransportViewModel transport,
+        RunningOrderViewModel order)
     {
         _settings = settings;
         _session = session;
@@ -34,6 +35,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Listener = listener;
         Login = login;
         Transport = transport;
+        Order = order;
 
         Setup.Connected += (station, name) => _ = AttachAsync(station, name);
         Login.SignedIn += () => ApplySession();
@@ -47,6 +49,8 @@ public sealed partial class ShellViewModel : ObservableObject
     public LoginViewModel Login { get; }
 
     public TransportViewModel Transport { get; }
+
+    public RunningOrderViewModel Order { get; }
 
     /// <summary>Whether to draw the sign-in panel rather than the account it produced.</summary>
     [ObservableProperty]
@@ -89,6 +93,7 @@ public sealed partial class ShellViewModel : ObservableObject
         // restores decide whether the desk is drawn at all.
         await _session.AttachAsync(station).ConfigureAwait(true);
         Transport.Attach(station);
+        Order.Attach(station);
 
         NeedsStation = false;
         ApplySession();

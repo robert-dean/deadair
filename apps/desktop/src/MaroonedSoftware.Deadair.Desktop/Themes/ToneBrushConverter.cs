@@ -58,3 +58,33 @@ public sealed class PlayLabelConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+
+/// <summary>
+/// Draws the "runs dry at" line in a warning colour only once it is close.
+/// </summary>
+/// <remarks>
+/// A separate converter rather than a tone, because this is not the state of a THING: the running
+/// order is fine, and the sentence is about how much of it is left.
+/// </remarks>
+public sealed class ShortOrderBrushConverter : IValueConverter
+{
+    public static ShortOrderBrushConverter Instance { get; } = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var key = value is true ? "DaToneFaultBrush" : "DaTextDimmedBrush";
+        var application = Avalonia.Application.Current;
+
+        if (application is not null
+            && application.Resources.TryGetResource(key, application.ActualThemeVariant, out var brush))
+        {
+            return brush;
+        }
+
+        return Brushes.Gray;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

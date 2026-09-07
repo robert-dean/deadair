@@ -62,7 +62,7 @@
 
         <!-- The desk, and the account that unlocks it. Beside what is on air rather than instead of
              it: the app is a listener that becomes a desk, not two apps sharing a window. -->
-        <Border DockPanel.Dock="Right" Width="300" Padding="20"
+        <Border DockPanel.Dock="Right" Width="380" Padding="20"
                 Background="{DynamicResource DaPanelBrush}"
                 BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1,0,0,0">
             <ScrollViewer>
@@ -79,6 +79,9 @@
                     </StackPanel>
 
                     <views:TransportView DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport}" />
+
+                    <views:RunningOrderView Height="360"
+                                            DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order}" />
                 </StackPanel>
             </ScrollViewer>
         </Border>

@@ -62,6 +62,7 @@ internal static class Composition
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<TransportViewModel>();
+        services.AddSingleton<RunningOrderViewModel>();
         services.AddSingleton<ListenerViewModel>();
         services.AddSingleton<SetupViewModel>();
 

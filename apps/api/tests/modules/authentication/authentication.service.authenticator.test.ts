@@ -32,16 +32,14 @@ const secondaryFactor = { issuedAt: now, authenticatedAt: now, method: 'authenti
 
 const build = (options: { challengeExists?: boolean; eligible?: { method: string; methodId: string }[]; authenticated?: boolean } = {}) => {
     const mfaChallengeService = {
-        peek: vi
-            .fn()
-            .mockResolvedValue(
-                options.challengeExists === false
-                    ? undefined
-                    : {
-                          actor: { kind: 'user', actorId: ACTOR_ID },
-                          eligibleFactors: options.eligible ?? [{ method: 'authenticator', methodId: 'totp-1' }],
-                      },
-            ),
+        peek: vi.fn().mockResolvedValue(
+            options.challengeExists === false
+                ? undefined
+                : {
+                      actor: { kind: 'user', actorId: ACTOR_ID },
+                      eligibleFactors: options.eligible ?? [{ method: 'authenticator', methodId: 'totp-1' }],
+                  },
+        ),
     };
     const mfaOrchestrator = {
         completeMfa: vi.fn().mockResolvedValue({ actor: { kind: 'user', actorId: ACTOR_ID }, primaryFactor, secondaryFactor }),

@@ -12,6 +12,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,6 +49,8 @@ fun ChartScreen(
     busy: Boolean,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    /** This page puts something on air, so it says what the station answered. */
+    snackbarHost: SnackbarHostState,
     onAir: (PlayoutChartInputChartOrder) -> Unit,
 ) {
     var order by rememberSaveable { mutableStateOf(PlayoutChartInputChartOrder.COUNTDOWN) }
@@ -58,6 +61,7 @@ fun ChartScreen(
         state = state,
         onBack = onBack,
         onRetry = onRetry,
+        snackbarHost = snackbarHost,
         failureText = { status -> detailFailure(status, R.string.chart_unavailable) },
     ) { chart ->
         if (chart.records.isEmpty()) {

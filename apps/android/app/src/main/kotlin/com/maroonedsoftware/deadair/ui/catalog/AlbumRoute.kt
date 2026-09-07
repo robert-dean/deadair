@@ -1,8 +1,10 @@
 package com.maroonedsoftware.deadair.ui.catalog
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.maroonedsoftware.deadair.AppGraph
+import com.maroonedsoftware.deadair.ui.ShowOperatorNotices
 import com.maroonedsoftware.deadair.sdk.models.PaginationSort
 import com.maroonedsoftware.deadair.sdk.models.TrackQueryInput
 import com.maroonedsoftware.deadair.sdk.models.TrackSort
@@ -28,6 +30,9 @@ fun AlbumRoute(graph: AppGraph, settings: ListenerSettings, albumId: String, onB
         }
     val rating = rememberRating(graph, detail) { mark -> graph.catalog.rateAlbum(albumId, mark) }
 
+    val snackbarHost = remember { SnackbarHostState() }
+    ShowOperatorNotices(graph.operator.notices, snackbarHost)
+
     AlbumDetailScreen(
         state = detail.state,
         tracks = tracks.state,
@@ -42,5 +47,6 @@ fun AlbumRoute(graph: AppGraph, settings: ListenerSettings, albumId: String, onB
         },
         onArtist = onArtist,
         onTrack = onTrack,
+        snackbarHost = snackbarHost,
     )
 }

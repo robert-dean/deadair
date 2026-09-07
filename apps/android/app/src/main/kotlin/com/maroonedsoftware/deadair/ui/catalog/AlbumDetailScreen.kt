@@ -14,6 +14,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -44,12 +45,15 @@ fun AlbumDetailScreen(
     onRetry: () -> Unit,
     onArtist: (String) -> Unit,
     onTrack: (String) -> Unit,
+    /** This page can rate, so it says what the station answered. */
+    snackbarHost: SnackbarHostState,
 ) {
     DetailScaffold(
         title = stringResource(R.string.album),
         state = state,
         onBack = onBack,
         onRetry = onRetry,
+        snackbarHost = snackbarHost,
         failureText = { status -> detailFailure(status, R.string.album_not_found) },
     ) { album ->
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.Top) {

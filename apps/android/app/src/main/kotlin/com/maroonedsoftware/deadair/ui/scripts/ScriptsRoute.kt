@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.scripts
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,6 +9,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.maroonedsoftware.deadair.AppGraph
+import com.maroonedsoftware.deadair.ui.ShowOperatorNotices
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.scripts.ScriptsRepository
 import kotlinx.coroutines.launch
@@ -53,6 +55,9 @@ fun ScriptsRoute(graph: AppGraph, segmentId: String?, onBack: () -> Unit, onSett
             }
         }
 
+    val snackbarHost = remember { SnackbarHostState() }
+    ShowOperatorNotices(graph.operator.notices, snackbarHost)
+
     ScriptsScreen(
         oneBreak = segmentId != null,
         state = state,
@@ -62,5 +67,6 @@ fun ScriptsRoute(graph: AppGraph, segmentId: String?, onBack: () -> Unit, onSett
         onRetry = repository::retry,
         onSettings = onSettings,
         rating = rating,
+        snackbarHost = snackbarHost,
     )
 }

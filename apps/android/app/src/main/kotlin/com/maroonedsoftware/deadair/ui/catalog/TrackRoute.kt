@@ -1,8 +1,10 @@
 package com.maroonedsoftware.deadair.ui.catalog
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import com.maroonedsoftware.deadair.AppGraph
+import com.maroonedsoftware.deadair.ui.ShowOperatorNotices
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -29,6 +31,9 @@ fun TrackRoute(
 
     val rating = rememberRating(graph, detail) { mark -> graph.catalog.rateTrack(trackId, mark) }
 
+    val snackbarHost = remember { SnackbarHostState() }
+    ShowOperatorNotices(graph.operator.notices, snackbarHost)
+
     TrackDetailScreen(
         state = detail.state,
         enrichment = enrichment.state,
@@ -41,5 +46,6 @@ fun TrackRoute(
         },
         onArtist = onArtist,
         onAlbum = onAlbum,
+        snackbarHost = snackbarHost,
     )
 }

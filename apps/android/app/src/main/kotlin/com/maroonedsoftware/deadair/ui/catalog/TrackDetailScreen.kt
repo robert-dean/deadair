@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,12 +59,15 @@ fun TrackDetailScreen(
     onRetry: () -> Unit,
     onArtist: ((String) -> Unit)? = null,
     onAlbum: ((String) -> Unit)? = null,
+    /** This page can rate, so it says what the station answered. */
+    snackbarHost: SnackbarHostState,
 ) {
     DetailScaffold(
         title = stringResource(R.string.record),
         state = state,
         onBack = onBack,
         onRetry = onRetry,
+        snackbarHost = snackbarHost,
         failureText = { status -> detailFailure(status, R.string.record_not_found) },
     ) { detail ->
         Header(detail, artUrlFor(detail.albumImageUrl), onArtist, onAlbum)

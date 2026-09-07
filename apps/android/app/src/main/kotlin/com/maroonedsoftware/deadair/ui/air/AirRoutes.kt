@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.ui.air
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -7,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.maroonedsoftware.deadair.AppGraph
+import com.maroonedsoftware.deadair.ui.ShowOperatorNotices
 import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.ui.catalog.rememberDetail
 import kotlinx.coroutines.async
@@ -38,6 +40,9 @@ fun PlaylistRoute(graph: AppGraph, pluginId: String, playlistId: String, onBack:
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
 
+    val snackbarHost = remember { SnackbarHostState() }
+    ShowOperatorNotices(graph.operator.notices, snackbarHost)
+
     PlaylistScreen(
         title = (name.state as? LoadState.Loaded)?.value ?: playlistId,
         state = detail.state,
@@ -55,6 +60,7 @@ fun PlaylistRoute(graph: AppGraph, pluginId: String, playlistId: String, onBack:
                 }
             }
         },
+        snackbarHost = snackbarHost,
     )
 }
 
@@ -65,6 +71,9 @@ fun ChartRoute(graph: AppGraph, chartId: String, onBack: () -> Unit, onAired: ()
     val name = rememberDetail("$chartId/name") { graph.sessions.withSession { it.charts.listCharts() }.charts.firstOrNull { it.id == chartId }?.name }
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
+
+    val chartSnackbar = remember { SnackbarHostState() }
+    ShowOperatorNotices(graph.operator.notices, chartSnackbar)
 
     ChartScreen(
         title = (name.state as? LoadState.Loaded)?.value ?: chartId,
@@ -83,5 +92,6 @@ fun ChartRoute(graph: AppGraph, chartId: String, onBack: () -> Unit, onAired: ()
                 }
             }
         },
+        snackbarHost = chartSnackbar,
     )
 }

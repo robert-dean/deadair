@@ -14,6 +14,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -31,6 +33,9 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
 /**
  * The frame every detail page shares: a bar with a back arrow, and the loaded thing in a scrolling
  * column, or the one placeholder for it not having loaded.
+ *
+ * A page that can act on the station passes a `snackbarHost` and collects into it, because a notice
+ * raised here reaches nobody otherwise: see `ShowOperatorNotices`.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,9 +46,12 @@ fun <T> DetailScaffold(
     onRetry: () -> Unit,
     /** What a status means here, for the placeholder: a 404 on a record page is "not in the catalog". */
     failureText: @Composable (Int?) -> String,
+    /** Where this page's own operator notices are shown. Absent on a page that cannot act. */
+    snackbarHost: SnackbarHostState? = null,
     content: @Composable (T) -> Unit,
 ) {
     Scaffold(
+        snackbarHost = { snackbarHost?.let { SnackbarHost(it) } },
         topBar = {
             TopAppBar(
                 title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },

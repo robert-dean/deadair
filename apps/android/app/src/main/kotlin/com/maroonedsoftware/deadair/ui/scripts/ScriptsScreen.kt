@@ -21,6 +21,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -76,8 +78,11 @@ fun ScriptsScreen(
     onRetry: () -> Unit,
     onSettings: () -> Unit,
     rating: ScriptRatingHandler?,
+    /** This page can rate, so it says what the station answered. */
+    snackbarHost: SnackbarHostState,
 ) {
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(if (oneBreak) R.string.one_break else R.string.what_it_said)) },

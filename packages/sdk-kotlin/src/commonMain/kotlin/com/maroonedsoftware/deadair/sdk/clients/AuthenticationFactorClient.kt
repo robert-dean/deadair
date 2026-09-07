@@ -2,6 +2,7 @@
 package com.maroonedsoftware.deadair.sdk.clients
 
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactor
+import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactorMethod
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactorRegistration
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactorRegistrationResponse
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationFactorRegistrationVerification
@@ -72,5 +73,15 @@ class AuthenticationFactorClient(private val http: SdkHttp) {
             jsonBody(body, "application/json")
         }
         return http.decodeJson(response)
+    }
+
+    /**
+     * Remove factor
+     * Remove one of the caller's own factors. Answered only for `authenticator` today, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account.
+     */
+    suspend fun removeFactor(method: AuthenticationFactorMethod, methodId: String) {
+        http.execute(HttpMethod.Delete) {
+            path("auth", "factors", segment(method), segment(methodId))
+        }
     }
 }

@@ -1,8 +1,10 @@
+import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { AuthenticationRegistrationService } from '#src/modules/authentication/authentication.registration.service.js';
 import { AuthenticationService } from '#src/modules/authentication/authentication.service.js';
 import {
     AuthenticationFactor,
+    AuthenticationFactorMethod,
     AuthenticationTokenOutput,
     FactorChallengeStartRequest,
     FactorChallengeStartResponseOutput,
@@ -93,4 +95,23 @@ AuthenticationFactorRouter.post('/auth/mfa/start', requirePolicy({ policy: false
     ctx.status = 200;
     ctx.type = 'application/json';
     ctx.body = result;
+});
+
+/**
+ * Remove one of the caller's own factors. Answered only for `authenticator` today, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account.
+ * from [authentication.factor.ck](../../data/contracts/authentication/authentication.factor.ck#L98)
+ */
+AuthenticationFactorRouter.delete('/auth/factors/:method/:methodId', requirePolicy({ policy: false }), async ctx => {
+    const { method, methodId } = await parseAndValidate(
+        ctx.params,
+        z.strictObject({
+            method: AuthenticationFactorMethod,
+            methodId: z.string().max(255),
+        }),
+    );
+
+    const service = ctx.container.get(AuthenticationRegistrationService);
+    await service.removeFactor(method, methodId);
+
+    ctx.status = 204;
 });

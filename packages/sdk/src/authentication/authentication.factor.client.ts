@@ -1,5 +1,6 @@
 import type {
     AuthenticationFactor,
+    AuthenticationFactorMethod,
     AuthenticationTokenOutput,
     FactorChallengeStartRequest,
     FactorChallengeStartResponseOutput,
@@ -81,5 +82,13 @@ export class AuthenticationFactorsClient {
             body: JSON.stringify(body, bigIntReplacer),
         });
         return reviveStepUpStartResponseOutput(await parseJson<StepUpStartResponseOutput>(result));
+    }
+
+    /**
+     * @name Remove factor
+     * @description Remove one of the caller's own factors. Answered only for `authenticator` today, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account.
+     */
+    async removeFactor(method: AuthenticationFactorMethod, methodId: string): Promise<void> {
+        await this.fetch(`/auth/factors/${encodeURIComponent(method)}/${encodeURIComponent(methodId)}`, { method: 'DELETE' });
     }
 }

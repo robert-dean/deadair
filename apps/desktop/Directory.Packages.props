@@ -1,0 +1,20 @@
+<!--
+    Every package version in this tree, in one place.
+
+    Central package management means a project names a package and never its version, so two projects
+    cannot disagree about one. When Avalonia arrives, every `Avalonia.*` package must move together:
+    the framework's packages are built as a set and mixing versions inside one build fails at run time
+    rather than at compile time, which is the expensive way to find out.
+-->
+<Project>
+
+    <PropertyGroup>
+        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+        <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    </PropertyGroup>
+
+    <ItemGroup Label="Testing">
+        <PackageVersion Include="xunit.v3" Version="4.0.0" />
+    </ItemGroup>
+
+</Project>

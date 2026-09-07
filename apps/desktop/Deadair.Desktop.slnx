@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/sdk/">
+    <Project Path="../../packages/sdk-csharp/DeadairSdk.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MaroonedSoftware.Deadair.Sdk.Tests/MaroonedSoftware.Deadair.Sdk.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -249,6 +249,67 @@ jobs:
               working-directory: apps/android
               run: ./gradlew --no-daemon :sdk:build :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:bundleRelease
 
+    # The desktop listener and desk, which is C# and MSBuild and stands alone for the same reason the
+    # two jobs above do: a .NET solution shares no task graph, no `dist` and no test runner with the
+    # TypeScript tree. No `pnpm install`, no Node.
+    #
+    # It runs on macOS rather than Ubuntu because the app's player is the platform's own — the first
+    # release targets Apple Silicon and the player project builds against AVFoundation, which exists
+    # on no other runner. That costs roughly ten times an Ubuntu minute, which is why this job builds
+    # and tests and does nothing else.
+    #
+    # Like `android`, it is also the only thing that COMPILES its generated SDK. The `generated` job
+    # below regenerates `packages/sdk-csharp` from the contracts and checks it did not move; this
+    # checks it is C# a compiler accepts, which is a different question.
+    desktop:
+        runs-on: macos-latest
+        timeout-minutes: 20
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            # The version is pinned by `apps/desktop/global.json`, which also selects the test runner:
+            # xunit v3 is built on the Microsoft Testing Platform and the .NET 10 SDK dropped the
+            # VSTest path, so `dotnet test` fails outright without that file's `test` section.
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v5
+              with:
+                  global-json-file: apps/desktop/global.json
+                  cache: true
+                  cache-dependency-path: '**/packages.lock.json'
+
+            # Locked, so a transitive dependency cannot move underneath a build that is otherwise
+            # reproducible. It is what makes the committed `packages.lock.json` load-bearing rather
+            # than decorative.
+            - name: Restore
+              working-directory: apps/desktop
+              run: dotnet restore --locked-mode
+
+            # The SDK first and by name, for the reason the Android job builds `:sdk:build` first: a
+            # generator that emitted C# which does not compile should fail as itself rather than as a
+            # puzzling error inside the app. Warnings are errors here as everywhere in this tree, and
+            # the generator promises output that holds to it.
+            - name: Build the generated SDK
+              run: dotnet build packages/sdk-csharp/DeadairSdk.csproj -c Release -warnaserror --no-restore
+
+            - name: Build
+              working-directory: apps/desktop
+              run: dotnet build -c Release -warnaserror --no-restore
+
+            # Compiling is one gate and DECODING is another: these assert the generated models
+            # against the shapes the service really answers with. The Kotlin SDK shipped a wire name
+            # the compiler was happy with and sign-in failed on a phone.
+            - name: Test
+              working-directory: apps/desktop
+              run: dotnet test -c Release --no-build
+
+            - name: Check formatting
+              working-directory: apps/desktop
+              run: dotnet format --verify-no-changes --no-restore
+
     # Whether what is COMMITTED is what the inputs actually produce.
     #
     # The contracts, the permission types and the Kysely types are generated and checked in, and the

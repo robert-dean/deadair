@@ -1,0 +1,23 @@
+<!--
+    Created once by @contractkit/plugin-csharp and hand-owned from then on: it is emitted `ifAbsent`
+    and never regenerated, which is why `scaffold` is off in `apps/api/contractkit.config.json`. It
+    is the one file in this directory anybody may edit. Everything beside it is generated from the
+    `.ck` contracts and is overwritten by `pnpm build:contracts`.
+
+    `TreatWarningsAsErrors` is here rather than inherited: this project sits outside `apps/desktop`
+    and so is not reached by that directory's `Directory.Build.props`. The generator promises output
+    that compiles clean under it, and holding it to that is how a generator bug is found here instead
+    of in a client three phases later.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>MaroonedSoftware.Deadair.Sdk</RootNamespace>
+    <AssemblyName>DeadairSdk</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

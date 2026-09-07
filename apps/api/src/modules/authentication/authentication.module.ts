@@ -67,8 +67,19 @@ import { ResponseCookieJar } from './response.cookie.jar.js';
 import { RequestCookieJar } from './request.cookie.jar.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { readSessionKey } from './session.key.js';
+import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 
 let otpDevBypassEnabled = false;
+
+/**
+ * What the authenticator app calls this station. The station's own name, and the software's when
+ * the operator has cleared it: an issuer of `''` would leave the code unlabelled on the phone,
+ * which is worse than a wrong-but-recognisable label.
+ */
+export function totpIssuer(config: AppConfig): string {
+    const title = String(config.get(STREAM_KEYS.title, STREAM_DEFAULTS.title)).trim();
+    return title.length > 0 ? title : STREAM_DEFAULTS.title;
+}
 
 export const AuthenticationModule: ServerKitModule = {
     name: 'Authentication',
@@ -189,9 +200,14 @@ export const AuthenticationModule: ServerKitModule = {
         registry.register(FidoFactorService).useClass(FidoFactorService).asScoped();
 
         registry.register(AuthenticatorFactorRepository).useClass(DeadairAuthenticatorFactorRepository).asScoped();
+        // The issuer is what the authenticator app shows beside the code, so it is the station's
+        // own name rather than the software's. Read at resolve time, because the factory is
+        // scoped and `deadair.settings` is a live layer of `AppConfig` (no scope needed, see
+        // `apps/api/CLAUDE.md`). A rename relabels only enrollments made after it: the name is
+        // baked into the `otpauth://` URI the phone scanned, and nothing here can reach the phone.
         registry
             .register(AuthenticatorFactorServiceOptions)
-            .useFactory(() => new AuthenticatorFactorServiceOptions('deadair'))
+            .useFactory(() => new AuthenticatorFactorServiceOptions(totpIssuer(config)))
             .asScoped();
         registry.register(AuthenticatorFactorService).useClass(AuthenticatorFactorService).asScoped();
 

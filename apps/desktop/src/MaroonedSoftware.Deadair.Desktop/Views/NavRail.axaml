@@ -1,0 +1,40 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.NavRail"
+    x:DataType="vm:NavigationViewModel">
+
+    <Border Background="{DynamicResource DaPanelBrush}" Padding="8,12"
+            BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,0,1,0">
+        <ItemsControl ItemsSource="{Binding Items}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:NavigationItemViewModel">
+                    <Button Classes="rail"
+                            IsVisible="{Binding IsVisible}"
+                            Command="{Binding $parent[ItemsControl].((vm:NavigationViewModel)DataContext).GoToCommand}"
+                            CommandParameter="{Binding}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            Padding="12,8"
+                            Margin="0,0,0,2"
+                            Background="Transparent"
+                            BorderThickness="0">
+                        <Grid ColumnDefinitions="4,*,Auto" ColumnSpacing="8">
+                            <!-- The active bar, which is the one place the accent marks position
+                                 rather than decorating. -->
+                            <Rectangle Width="3" RadiusX="2" RadiusY="2"
+                                       Fill="{DynamicResource DaPhosphorBrush}"
+                                       IsVisible="{Binding IsCurrent}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource DaTextBrush}" />
+                            <TextBlock Grid.Column="2" Text="{Binding Key}" FontSize="10" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        </Grid>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Border>
+
+</UserControl>

@@ -6,18 +6,32 @@
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.MainWindow"
     x:DataType="vm:ShellViewModel"
     Title="deadair"
-    Width="1080"
-    Height="620"
-    MinWidth="720"
-    MinHeight="480"
+    Width="1180"
+    Height="720"
+    MinWidth="820"
+    MinHeight="520"
     Background="{DynamicResource DaBgBrush}">
 
     <Panel>
         <!-- Setup sits ABOVE the rest rather than being a page you can navigate away from: an app
              with no station cannot do anything else yet. -->
-        <views:SetupView DataContext="{Binding Setup}" IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).NeedsStation}" />
+        <views:SetupView DataContext="{Binding Setup}"
+                         IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).NeedsStation}" />
 
-        <views:ListenerView DataContext="{Binding Listener}" IsVisible="{Binding !$parent[Window].((vm:ShellViewModel)DataContext).NeedsStation}" />
+        <DockPanel IsVisible="{Binding !NeedsStation}" LastChildFill="True">
+            <views:NavRail DockPanel.Dock="Left" Width="150" DataContext="{Binding Navigation}" />
+
+            <Panel>
+                <views:ListenerView DataContext="{Binding Listener}"
+                                    IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsDesk}" />
+                <views:ProgrammeView DataContext="{Binding Programme}"
+                                     IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsProgramme}" />
+                <views:LibraryView DataContext="{Binding Library}"
+                                   IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsLibrary}" />
+                <views:HistoryView DataContext="{Binding History}"
+                                   IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsHistory}" />
+            </Panel>
+        </DockPanel>
     </Panel>
 
 </Window>

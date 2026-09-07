@@ -4,6 +4,10 @@ using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 
+// The `Navigation` property below shadows the namespace of the same name, so the destination types
+// need an alias to be reachable from inside this class.
+using Nav = MaroonedSoftware.Deadair.Desktop.Navigation;
+
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 /// <summary>
@@ -27,7 +31,11 @@ public sealed partial class ShellViewModel : ObservableObject
         ListenerViewModel listener,
         LoginViewModel login,
         TransportViewModel transport,
-        RunningOrderViewModel order)
+        RunningOrderViewModel order,
+        NavigationViewModel navigation,
+        ProgrammeViewModel programme,
+        LibraryViewModel library,
+        HistoryViewModel history)
     {
         _settings = settings;
         _session = session;
@@ -36,6 +44,10 @@ public sealed partial class ShellViewModel : ObservableObject
         Login = login;
         Transport = transport;
         Order = order;
+        Navigation = navigation;
+        Programme = programme;
+        Library = library;
+        History = history;
 
         Setup.Connected += (station, name) => _ = AttachAsync(station, name);
         Login.SignedIn += () => ApplySession();
@@ -44,6 +56,24 @@ public sealed partial class ShellViewModel : ObservableObject
         // A media key's Next is the operator's Skip, so it goes through the desk rather than the
         // player: the player has no next track to move to.
         Listener.SkipRequested += Transport.SkipFromSystemAsync;
+
+        // A page fetches when it is opened rather than on a timer. A catalog does not change while
+        // somebody is looking at it, and the station rate-limits.
+        Navigation.Navigated += destination =>
+        {
+            switch (destination)
+            {
+                case Nav.Destination.Programme:
+                    Programme.LoadCommand.Execute(null);
+                    break;
+                case Nav.Destination.Library when Library.Tracks.Count == 0:
+                    Library.LoadCommand.Execute(null);
+                    break;
+                case Nav.Destination.History:
+                    History.LoadCommand.Execute(null);
+                    break;
+            }
+        };
     }
 
     public SetupViewModel Setup { get; }
@@ -55,6 +85,14 @@ public sealed partial class ShellViewModel : ObservableObject
     public TransportViewModel Transport { get; }
 
     public RunningOrderViewModel Order { get; }
+
+    public NavigationViewModel Navigation { get; }
+
+    public ProgrammeViewModel Programme { get; }
+
+    public LibraryViewModel Library { get; }
+
+    public HistoryViewModel History { get; }
 
     /// <summary>Whether to draw the sign-in panel rather than the account it produced.</summary>
     [ObservableProperty]
@@ -98,6 +136,9 @@ public sealed partial class ShellViewModel : ObservableObject
         await _session.AttachAsync(station).ConfigureAwait(true);
         Transport.Attach(station);
         Order.Attach(station);
+        Programme.Attach(station);
+        Library.Attach(station);
+        History.Attach(station);
 
         NeedsStation = false;
         ApplySession();
@@ -114,7 +155,12 @@ public sealed partial class ShellViewModel : ObservableObject
 
         // The system's next button is a statement about the ACCOUNT rather than about the player: a
         // listener has no skip to make, and offering one would promise something the station refuses.
-        Listener.SetCanSkip(_session.State is SessionState.SignedIn { IsOperator: true });
+        var isOperator = _session.State is SessionState.SignedIn { IsOperator: true };
+        Listener.SetCanSkip(isOperator);
+
+        // The rail hides what this account cannot reach, and sends somebody back to the desk rather
+        // than leaving them on a page that has just become empty.
+        Navigation.ApplyRole(isOperator);
     }
 
     [RelayCommand]

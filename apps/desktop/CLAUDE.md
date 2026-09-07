@@ -257,6 +257,36 @@ what is allowed. A 403 refreshes them rather than being reported as a failure. T
 nothing at all and lets every 403 through to the user, which is a defensible choice for a page that
 is only ever opened by the operator and the wrong one for an app that is also a listener.
 
+## Navigation
+
+**The rail replaces rather than pushes.** A rail is not history, so pressing Desk after Library does
+not leave Library on a stack. Detail pages, when they arrive, will push onto one.
+
+**A destination says whether it needs an account, and the rail hides what an account cannot reach.**
+Desk and History need none, because listening is accountless and somebody who heard a record twenty
+minutes ago should not have to sign in to learn its name. Signing out while on a gated page sends
+them back to the desk rather than leaving them looking at an empty screen with no explanation.
+
+**Setting `DataContext` on a child re-scopes every binding on that element**, including `IsVisible`.
+So a page whose visibility depends on the shell has to name the window's own DataContext explicitly:
+`{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsDesk}`. Inheriting it looks
+right, compiles, and fails at XAML load with a message naming the CHILD's type.
+
+**A name that is both a property and a namespace resolves to the property.** `Navigation` and
+`Notice` have both bitten this tree; the fix each time is a `using` alias rather than a rename, since
+the property names are the ones the views read.
+
+## The programme
+
+**A slot's times are minutes from midnight and its days are a list**, because a slot recurs. Two
+things follow that are easy to draw wrong. An end of 1440 is midnight at the FAR end of the day, and
+formatting it as `00:00` produces a slot that appears to end before it starts. And the slot the
+station is actually airing is not always the one the clock says: a hold keeps a broadcast past its
+slot deliberately, which is why the ON AIR marker follows `airingSlotId` rather than the time.
+
+The timetable is read-only for now. Editing wants dragging and resizing, and a wrong drop reschedules
+a broadcast — the same order the running order's own edits arrived in.
+
 ## The running order
 
 **The station REFUSES a move rather than clamping it.** A position the player already holds is not

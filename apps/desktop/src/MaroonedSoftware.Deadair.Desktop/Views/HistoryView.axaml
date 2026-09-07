@@ -1,0 +1,37 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.HistoryView"
+    x:DataType="vm:HistoryViewModel">
+
+    <DockPanel Margin="24" LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,14">
+            <TextBlock Text="History" FontSize="20" FontWeight="SemiBold"
+                       Foreground="{DynamicResource DaTextBrush}" />
+            <TextBlock Text="What the station has played, newest first." FontSize="12"
+                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+            <TextBlock Text="{Binding Problem}" TextWrapping="Wrap" FontSize="12"
+                       IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+        </StackPanel>
+
+        <ListBox ItemsSource="{Binding Rows}" Background="Transparent" BorderThickness="0">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:HistoryRowViewModel">
+                    <Grid ColumnDefinitions="60,*,220" ColumnSpacing="12" Margin="0,3">
+                        <TextBlock Text="{Binding When}" FontFamily="monospace" FontSize="12"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextBrush}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Artists}" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+    </DockPanel>
+
+</UserControl>

@@ -170,6 +170,19 @@ sealed interface Message {
 
     data object FactNote : Message
 
+    // ── The broadcast ─────────────────────────────────────────────────────────────────────
+    /** Who presents this show, named. The name is the station's own word for one of its characters. */
+    data class PresentedBy(val name: String) : Message
+
+    /** The broadcast named nobody and the station's own host has not been read yet, so there is no name to give. */
+    data object PresentedByStationsHost : Message
+
+    /** The broadcast named nobody and the station has nobody on air either. */
+    data object PresentedByNobody : Message
+
+    /** What the operator asked this broadcast to play, in their own words. */
+    data class AskedFor(val brief: String) : Message
+
     // ── A stale reading ───────────────────────────────────────────────────────────────────
     data object LastSaid : Message
 

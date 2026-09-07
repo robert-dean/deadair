@@ -30,6 +30,9 @@ import com.maroonedsoftware.deadair.playout.PlayoutState
 import com.maroonedsoftware.deadair.settings.ListenerSettings
 import com.maroonedsoftware.deadair.ui.rememberNowEpochMs
 import com.maroonedsoftware.deadair.ui.history.HistoryScreen
+import com.maroonedsoftware.deadair.ui.LoadState
+import com.maroonedsoftware.deadair.ui.catalog.rememberDetail
+import com.maroonedsoftware.deadair.ui.order.BroadcastUiState
 import com.maroonedsoftware.deadair.ui.order.OrderHandlers
 import com.maroonedsoftware.deadair.ui.order.RunningOrderUiState
 import com.maroonedsoftware.deadair.director.OrderState
@@ -235,6 +238,13 @@ fun HomeRoute(
                 )
             }
             Tab.UP_NEXT -> {
+                // One read when the tab opens rather than a poll: the station's characters change
+                // when somebody edits one, not on a clock, and this is a `platform.view` read that
+                // a listener is allowed to make even though only an operator can act on it.
+                val personas = rememberDetail("personas") { graph.sessions.withSession { it.personas.listPersonas().personas } }
+                val loadedOrder = (order as? OrderState.Loaded)?.order
+                val broadcast = loadedOrder?.let { BroadcastUiState(it, (personas.state as? LoadState.Loaded)?.value) }
+
                 val handlers =
                     if (!isOperator) {
                         null
@@ -254,6 +264,8 @@ fun HomeRoute(
                                 }
                             },
                             busyItemId = busyItemId,
+                            onRecast = { personaId -> orderAction { graph.orderActions.recast(personaId) } },
+                            busy = orderBusy,
                         )
                     }
                 RunningOrderScreen(
@@ -263,6 +275,9 @@ fun HomeRoute(
                     onSettings = onSettings,
                     onTrack = onTrack,
                     onSegment = { segmentId -> onScripts(segmentId) },
+                    broadcast = broadcast,
+                    personas = personas.state,
+                    onReloadPersonas = personas::reload,
                     handlers = handlers,
                 )
             }

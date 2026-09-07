@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.director.OrderState
+import com.maroonedsoftware.deadair.sdk.models.Persona
+import com.maroonedsoftware.deadair.ui.LoadState
 import com.maroonedsoftware.deadair.nowplaying.clockOf
 import com.maroonedsoftware.deadair.sdk.models.StationItemState
 import com.maroonedsoftware.deadair.sdk.models.StationOrderItem
@@ -61,6 +63,10 @@ data class OrderHandlers(
     val onRemove: (item: StationOrderItem, atIndex: Int) -> Unit,
     /** An action on a row is in flight. */
     val busyItemId: String?,
+    /** Hand the broadcast to a persona, or to the station's own host with `null`. */
+    val onRecast: (String?) -> Unit,
+    /** Any operator action is in flight, which is what stops a second one being started. */
+    val busy: Boolean,
 )
 
 /**
@@ -81,6 +87,11 @@ fun RunningOrderScreen(
     onTrack: (String) -> Unit,
     /** Open a break's attempts: what the station said, or tried to, in that slot. */
     onSegment: (String) -> Unit,
+    /** The broadcast the order belongs to, for the header. `null` before the order has arrived. */
+    broadcast: BroadcastUiState?,
+    /** The station's characters, for the host picker. Read once when the tab opens. */
+    personas: LoadState<List<Persona>>,
+    onReloadPersonas: () -> Unit,
     handlers: OrderHandlers?,
 ) {
     when (state) {
@@ -89,10 +100,23 @@ fun RunningOrderScreen(
         OrderState.Unreachable -> ErrorPlaceholder(stringResource(R.string.error_could_not_reach), onRetry)
         is OrderState.Loaded ->
             Refreshable(state = state, onRefresh = onRetry) {
-                if (state.order.items.isEmpty()) {
-                    EmptyPlaceholder(stringResource(R.string.order_empty))
-                } else {
-                    Rows(state, artUrlFor, onTrack, onSegment, handlers)
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Drawn even with nothing on: off air it is the only thing on this tab with
+                    // anything to say, and the station's empty order is an ordinary answer.
+                    broadcast?.let {
+                        BroadcastHeader(
+                            ui = it,
+                            personas = personas,
+                            onReloadPersonas = onReloadPersonas,
+                            onRecast = handlers?.onRecast,
+                            busy = handlers?.busy == true,
+                        )
+                    }
+                    if (state.order.items.isEmpty()) {
+                        Box(modifier = Modifier.weight(1f)) { EmptyPlaceholder(stringResource(R.string.order_empty)) }
+                    } else {
+                        Rows(state, artUrlFor, onTrack, onSegment, handlers, modifier = Modifier.weight(1f))
+                    }
                 }
             }
     }
@@ -100,7 +124,14 @@ fun RunningOrderScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, onTrack: (String) -> Unit, onSegment: (String) -> Unit, handlers: OrderHandlers?) {
+private fun Rows(
+    state: OrderState.Loaded,
+    artUrlFor: (String?) -> String?,
+    onTrack: (String) -> Unit,
+    onSegment: (String) -> Unit,
+    handlers: OrderHandlers?,
+    modifier: Modifier = Modifier,
+) {
     var historyOpen by rememberSaveable { mutableStateOf(false) }
     val ui = RunningOrderUiState(state.order.items, historyOpen)
     val listState = rememberLazyListState()
@@ -114,7 +145,7 @@ private fun Rows(state: OrderState.Loaded, artUrlFor: (String?) -> String?, onTr
         if (at >= 0) listState.scrollToItem(at)
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = modifier.fillMaxSize()) {
         if (state.stale) StaleBanner(state.lastGoodAtMs, modifier = Modifier.padding(horizontal = Gutter, vertical = 8.dp))
 
         ui.historyLabel?.let { label ->

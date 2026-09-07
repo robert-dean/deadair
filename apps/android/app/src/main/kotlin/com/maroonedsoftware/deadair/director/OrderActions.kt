@@ -1,10 +1,12 @@
 package com.maroonedsoftware.deadair.director
 
+import com.maroonedsoftware.deadair.auth.Notice
 import com.maroonedsoftware.deadair.auth.OperatorActions
 import com.maroonedsoftware.deadair.sdk.DeadairSdk
 import com.maroonedsoftware.deadair.sdk.models.AddStationTrackInput
 import com.maroonedsoftware.deadair.sdk.models.ExtendStationInput
 import com.maroonedsoftware.deadair.sdk.models.MoveStationItemInput
+import com.maroonedsoftware.deadair.sdk.models.SetStationHostInput
 import com.maroonedsoftware.deadair.sdk.models.StationOrder
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -42,10 +44,25 @@ class OrderActions(private val actions: OperatorActions, private val order: Orde
     suspend fun move(itemId: String, toIndex: Int): Boolean =
         applying { it.director.moveARunningOrderItem(itemId, MoveStationItemInput(toIndex = toIndex.toLong())) }
 
-    private suspend fun applying(action: suspend (DeadairSdk) -> StationOrder): Boolean {
-        val answer = actions.run(action = action) ?: return false
+    /**
+     * Hand the broadcast to somebody else, or `null` to hand it back to the station's own host.
+     *
+     * Breaks already written in the outgoing character are written again in the new one, so this is
+     * a change to what the station will SAY as well as to a name on a card. The air reading is not
+     * re-read: `StationAir` carries no host, and the order this answers with is the one that does.
+     */
+    suspend fun recast(personaId: String?): Boolean =
+        applying(expected = mapOf(NOT_FOUND to Notice.HostGone)) { it.director.recastTheBroadcast(SetStationHostInput(personaId = personaId)) }
+
+    private suspend fun applying(expected: Map<Int, Notice> = emptyMap(), action: suspend (DeadairSdk) -> StationOrder): Boolean {
+        val answer = actions.run(expected = expected, action = action) ?: return false
         order.apply(answer)
         order.refetchSoon()
         return true
+    }
+
+    private companion object {
+        /** The station validates the persona at the door, so an id from a list it has since changed comes back as this. */
+        const val NOT_FOUND = 404
     }
 }

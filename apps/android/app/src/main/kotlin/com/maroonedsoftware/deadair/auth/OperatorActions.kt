@@ -27,6 +27,9 @@ sealed interface Notice {
     /** Airing a playlist with no tracks the station can play. */
     data object PlaylistEmpty : Notice
 
+    /** A persona picked from a list the station has since changed. The list is stale, not the choice. */
+    data object HostGone : Notice
+
     /** The station could not be reached to ask. */
     data object CouldNotReach : Notice
 

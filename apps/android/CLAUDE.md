@@ -79,6 +79,14 @@ the coordinate now (`compileSdkMinor = 2`, for `android-37.2`).
 connecting are WARM-UP rather than a fault — the lease, the first record, the encoder. A client
 shows that as warming up, never as an error and never as a spinner that looks stuck.
 
+**Off air, the running order is a synthesised answer rather than a 404, and what marks it is the
+empty NAME.** `GET /director/air/order` answers `{ name: '', mode: rotation, onEnd: extend, items: []
+}` when nothing is on, because a console draws an empty order and the operator puts something on.
+The trap is the items: a real broadcast that has simply run out of records also has none, and it
+still has a name, a brief and a host, and is still a thing to recast or replan. Keying "nothing on"
+to `items.isEmpty()` alone therefore hid those controls at exactly the moment they were wanted —
+measured, between two programmes. `BroadcastUiState.nothingOn` reads both.
+
 **Never probe the mounts to find out which exist.** A connection, however brief, is an audience for
 the five-minute linger, so probing five formats puts a silent station on air and holds it there.
 `GET /nowplaying` carries `mounts[]` for exactly this reason; read that.

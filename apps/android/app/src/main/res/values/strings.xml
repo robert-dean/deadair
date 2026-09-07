@@ -141,6 +141,7 @@
     <string name="notice_no_longer_operator">The station no longer treats this account as its operator.</string>
     <string name="notice_nothing_to_resume">Nothing to resume: the station has not been put on air yet.</string>
     <string name="notice_playlist_empty">That playlist has nothing the station can play.</string>
+    <string name="notice_host_gone">That persona is no longer on the station.</string>
     <string name="notice_could_not_reach">Could not reach the station to do that.</string>
     <string name="notice_failed">The station refused that (%1$d).</string>
 
@@ -168,6 +169,17 @@
     <string name="item_not_written_yet">Not written yet</string>
     <string name="item_no_audio_yet">No audio yet</string>
     <string name="item_will_skip">Will skip</string>
+
+    <!-- The broadcast at the top of the running order -->
+    <string name="presented_by">Presented by %1$s</string>
+    <string name="presented_by_stations_host">Presented by the station\'s host</string>
+    <string name="presented_by_nobody">Presented by nobody</string>
+    <string name="asked_for">Asked for: %1$s</string>
+    <string name="host_picker_title">Who presents this show</string>
+    <string name="host_picker_note">Changing this re-writes the breaks already written for it, and one that is not ready when its slot comes round is skipped.</string>
+    <string name="stations_host">The station\'s host</string>
+    <!-- A persona and the fact that the station has them on air: "Cass (on air)" -->
+    <string name="host_on_air">%1$s (on air)</string>
 
     <!-- The operator's running-order actions -->
     <string name="extend">Extend</string>

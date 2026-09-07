@@ -78,6 +78,10 @@ fun Message.resolve(): String =
             }
         is Message.Aired -> label.resolve()
         Message.LastSaid -> stringResource(R.string.stale_last_said)
+        is Message.PresentedBy -> stringResource(R.string.presented_by, name)
+        Message.PresentedByStationsHost -> stringResource(R.string.presented_by_stations_host)
+        Message.PresentedByNobody -> stringResource(R.string.presented_by_nobody)
+        is Message.AskedFor -> stringResource(R.string.asked_for, brief)
         is Message.LastSaidAt -> stringResource(R.string.stale_last_said_at, clock.resolve())
         is Message.SilenceLabel ->
             stringResource(
@@ -107,6 +111,7 @@ fun Message.resolve(): String =
                 Notice.NoLongerOperator -> stringResource(R.string.notice_no_longer_operator)
                 Notice.NothingToResume -> stringResource(R.string.notice_nothing_to_resume)
                 Notice.PlaylistEmpty -> stringResource(R.string.notice_playlist_empty)
+                Notice.HostGone -> stringResource(R.string.notice_host_gone)
                 Notice.CouldNotReach -> stringResource(R.string.notice_could_not_reach)
                 is Notice.Failed -> stringResource(R.string.notice_failed, it.status)
             }

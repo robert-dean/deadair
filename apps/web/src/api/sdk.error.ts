@@ -141,3 +141,32 @@ export function isStepUpRequired(error: unknown): boolean {
 export function isInsufficientScope(error: unknown): boolean {
     return sdkError(error)?.status === 403 && authChallenge(error)?.error === 'insufficient_scope';
 }
+
+/** What a step-up denial asks for, as the policy package spells it. */
+export interface StepUpRequirement {
+    /** ISO-8601 duration, e.g. `PT5M`. */
+    within: string;
+    acceptableMethods?: string[];
+    acceptableKinds?: string[];
+    excludeMethods?: string[];
+}
+
+/**
+ * The requirement behind a 403 that asks for a recent strong factor, or undefined for any other
+ * failure.
+ *
+ * Distinct from {@link isStepUpRequired}, which reads the `mfa_required` challenge header the
+ * MFA-satisfied policy sends. This one is the recent-factor policy: `denyStepUp` renders the
+ * requirement into the error body under `details.kind: 'step_up_required'`, and it is the one the
+ * factor routes raise once a strong factor exists, so the console can re-verify and try again.
+ */
+export function stepUpRequirement(error: unknown): StepUpRequirement | undefined {
+    if (sdkError(error)?.status !== 403) {
+        return undefined;
+    }
+    const details = apiErrorBody(error)?.details as { kind?: unknown; stepUp?: unknown } | undefined;
+    if (details?.kind !== 'step_up_required' || typeof details.stepUp !== 'object' || details.stepUp === null) {
+        return undefined;
+    }
+    return details.stepUp as StepUpRequirement;
+}

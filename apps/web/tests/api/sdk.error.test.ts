@@ -10,6 +10,7 @@ import {
     isInvalidToken,
     isStepUpRequired,
     sdkError,
+    stepUpRequirement,
 } from '../../src/api/sdk.error';
 
 function failure(status: number, headers: Record<string, string> = {}, body: unknown = {}): SdkError {
@@ -138,5 +139,32 @@ describe('error envelope', () => {
         expect(apiErrorMessage(new TypeError('offline'), 'fallback')).toBe('fallback');
         // A body carrying neither is the caller's fallback, not an empty tooltip.
         expect(apiErrorMessage(failure(500, {}, { statusCode: 500 }), 'fallback')).toBe('fallback');
+    });
+});
+
+describe('stepUpRequirement', () => {
+    it('reads the requirement off a recent-factor denial', () => {
+        const error = failure(
+            403,
+            {},
+            {
+                statusCode: 403,
+                message: 'Forbidden',
+                details: { kind: 'step_up_required', stepUp: { within: 'PT5M', excludeMethods: ['email', 'password', 'oidc'] } },
+            },
+        );
+
+        expect(stepUpRequirement(error)).toEqual({ within: 'PT5M', excludeMethods: ['email', 'password', 'oidc'] });
+    });
+
+    it('is not fooled by a 403 that is about something else, or by the MFA-satisfied header', () => {
+        expect(
+            stepUpRequirement(failure(403, {}, { statusCode: 403, message: 'Forbidden', details: { kind: 'permission_required' } })),
+        ).toBeUndefined();
+        expect(stepUpRequirement(failure(403, { 'WWW-Authenticate': 'Bearer error="mfa_required"' }))).toBeUndefined();
+        expect(
+            stepUpRequirement(failure(401, {}, { statusCode: 401, message: 'x', details: { kind: 'step_up_required', stepUp: { within: 'PT5M' } } })),
+        ).toBeUndefined();
+        expect(stepUpRequirement(new TypeError('network down'))).toBeUndefined();
     });
 });

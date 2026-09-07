@@ -115,6 +115,31 @@ record at three levels. **Segments**, **Pads**, **Voices** and **Pronunciations*
 own audio and how it says things. **Scripts** is every word the station has ever written, one row per
 attempt. **Activity** is what happened. **Check-up** is what is wrong right now.
 
+**Settings → Security** is how you sign in. Enrol an authenticator app there (Google Authenticator,
+1Password, Aegis, anything that shows six-digit codes) and from then on every sign-in to that
+account asks for the code after the password. Remove it and sign-in goes back to the password
+alone. Either change asks for a fresh code first if the one you signed in with is more than a few
+minutes old.
+
+### If you lose your authenticator
+
+There is no recovery code yet, so a lost phone means nobody can sign in. From the box, against
+the station's database:
+
+```sql
+update deadair.actors_authenticator_factors set active = false;
+```
+
+then clear the sessions, which live in Redis rather than the database:
+
+```bash
+redis-cli FLUSHALL
+```
+
+(`pnpm flush:sessions` in a development checkout.) That turns the challenge off for every account
+on the station, since there is one. Sign in with the password, and enrol the new phone from
+Security.
+
 ## Configuration
 
 Almost none of it is environment variables. `.env` holds boot and infrastructure — where the

@@ -9,6 +9,49 @@ permissions:
     contents: read
 
 jobs:
+    # Which halves of the tree this push actually touched.
+    #
+    # Only the Android jobs are gated, and only because they are the expensive ones: half a runner
+    # hour of Gradle for a push that edited a Koa service is work nothing can consume. Everything
+    # else here is cheap enough that deciding whether to run it costs more than running it.
+    #
+    # It FAILS OPEN. A base commit that cannot be resolved — a new branch, a force push, a shallow
+    # fetch — runs the jobs, because the failure mode of guessing wrong in the other direction is a
+    # broken Android build merged behind a green check.
+    changes:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        outputs:
+            android: ${{ steps.android.outputs.changed }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  # The whole history, because the diff is against a commit this run was handed
+                  # rather than against the tip's parent.
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - name: Work out whether the listener changed
+              id: android
+              env:
+                  BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+              run: |
+                  set -u
+                  if [ -z "${BASE:-}" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+                      echo "No usable base commit, so running the Android jobs."
+                      echo "changed=true" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  # The workflow itself counts: a change to how the listener is built is a change to
+                  # the listener, and skipping it would leave the edit untested.
+                  if git diff --name-only "$BASE" HEAD | grep -qE '^(apps/android/|packages/sdk-kotlin/|\.github/workflows/build\.yml$)'; then
+                      echo "changed=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "changed=false" >> "$GITHUB_OUTPUT"
+                  fi
+
     # Compiling and testing are two jobs now, and they run side by side. `build` is the type check
     # — `apps/api`'s build task IS `tsc` — and it is also the only writer of the task cache. The
     # tests below do not wait on it: they compile what they need themselves, out of the same cache,
@@ -210,7 +253,16 @@ jobs:
     # The runner ships an Android SDK at `/usr/local/lib/android/sdk` and `ANDROID_HOME` already
     # points at it. `images.yml` deletes that directory to make disk room, which is a different
     # workflow on a different runner and does not reach here.
+    #
+    # It is TWO jobs, and the split is the difference between a workflow that finishes in five
+    # minutes and one that finishes in nine. The debug half is the gate — compile, test, lint — and
+    # the release half exists for R8 alone. They share nothing but a Gradle cache, and run one after
+    # the other they were the whole critical path of every push: four and three quarter minutes of
+    # gate followed by three of bundling, measured, while every other job in this workflow had
+    # finished. Side by side neither is the longest thing here any more.
     android:
+        needs: [changes]
+        if: needs.changes.outputs.android == 'true'
         runs-on: ubuntu-latest
         timeout-minutes: 20
 
@@ -229,6 +281,9 @@ jobs:
 
             # Also validates the committed wrapper jar against Gradle's published checksums, which
             # is the one thing about a binary in the tree worth checking on every run.
+            #
+            # This job is the one that WRITES the shared cache; see `android-release` for why only
+            # one of the two may.
             - name: Setup Gradle
               uses: gradle/actions/setup-gradle@v6
 
@@ -238,16 +293,53 @@ jobs:
             # `:sdk:build` first and by name, so a generator that emitted Kotlin which does not
             # compile fails as itself rather than as a puzzling error inside the app.
             #
-            # `:app:bundleRelease` is here for R8 and nothing else. Minification is the one part of
-            # this build that can break without a single source file changing — a new dependency
-            # whose reflection nothing keeps, and the serializers vanish — and it fails at DECODE on
-            # a listener's phone rather than at compile. Building the bundle every run is what turns
-            # that into a red check. The artifact is thrown away: this runner holds no signing key,
-            # so it comes out unsigned, and the checkout is shallow so its version code is 1. Both
-            # are fine for something nobody uploads.
+            # The daemon is left ON. `--no-daemon` was here and buys nothing for a single
+            # invocation: it pays a cold JVM and a fresh configuration every run, and the daemon is
+            # the path Gradle itself tests and the one the configuration cache is built around.
             - name: Build, test and lint
               working-directory: apps/android
-              run: ./gradlew --no-daemon :sdk:build :app:assembleDebug :app:testDebugUnitTest :app:lintDebug :app:bundleRelease
+              run: ./gradlew :sdk:build :app:assembleDebug :app:testDebugUnitTest :app:lintDebug
+
+    # The release bundle, for R8 and nothing else.
+    #
+    # Minification is the one part of this build that can break without a single source file
+    # changing — a new dependency whose reflection nothing keeps, and the serializers vanish — and
+    # it fails at DECODE on a listener's phone rather than at compile. Building the bundle every run
+    # is what turns that into a red check. The artifact is thrown away: this runner holds no signing
+    # key, so it comes out unsigned, and the checkout is shallow so its version code is 1. Both are
+    # fine for something nobody uploads.
+    android-release:
+        needs: [changes]
+        if: needs.changes.outputs.android == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Setup Java
+              uses: actions/setup-java@v6
+              with:
+                  distribution: temurin
+                  java-version: 21
+
+            # Read-only, because the job beside this one is writing the same cache from the same
+            # commit. Both writing raced and logged `ReserveCacheError: another job may be creating
+            # this cache` on every run; the entry either job would have written is the same one.
+            - name: Setup Gradle
+              uses: gradle/actions/setup-gradle@v6
+              with:
+                  cache-read-only: true
+
+            - name: Accept the SDK licences
+              run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+
+            - name: Build the release bundle
+              working-directory: apps/android
+              run: ./gradlew :app:bundleRelease
 
     # The desktop listener and desk, which is C# and MSBuild and stands alone for the same reason the
     # two jobs above do: a .NET solution shares no task graph, no `dist` and no test runner with the

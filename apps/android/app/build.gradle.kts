@@ -98,6 +98,11 @@ android {
 
     lint {
         abortOnError = true
+        // `lintVitalRelease` runs inside `bundleRelease` and is a second opinion on a question
+        // already asked: `lintDebug` runs on every build here and locally, with `abortOnError`, and
+        // is the gate. Leaving both on cost forty seconds of a CI run to analyse the same sources
+        // twice and could never have failed alone.
+        checkReleaseBuilds = false
         // `mipmap-anydpi-v26` draws an `ObsoleteSdkInt` warning saying the qualifier is
         // unnecessary at minSdk 26. It is not: without it AAPT does not resolve
         // `@mipmap/ic_launcher` at all and the build fails at resource linking. Measured, both

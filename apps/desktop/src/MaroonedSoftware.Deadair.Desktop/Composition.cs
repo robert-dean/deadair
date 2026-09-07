@@ -1,4 +1,5 @@
 using Avalonia.Threading;
+using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Net;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
@@ -27,10 +28,28 @@ internal static class Composition
         services.AddSingleton<IUiDispatcher, AvaloniaUiDispatcher>();
         services.AddSingleton<ISettingsStore>(_ => new FileSettingsStore());
 
+        services.AddSingleton<ISecretStore>(_ => OperatingSystem.IsMacOS()
+            ? new MacKeychainSecretStore()
+
+            // Windows and Linux get their own store when they get their own player. Until then a
+            // session lasts as long as the process, which is honest rather than silently unencrypted.
+            : new InMemorySecretStore());
+
         // ONE client for the whole app: API, artwork and — through the agent it is given — the audio
         // as well. The station counts an HLS listener per IP and User-Agent, so a second client is a
         // second listener.
-        services.AddSingleton(_ => StationHttp.Create());
+        //
+        // The session handler is built with a callback rather than the manager itself, because the
+        // manager needs the client and the client needs the handler. The knot is tied here and
+        // nowhere else.
+        services.AddSingleton(provider => StationHttp.Create(
+            new SessionHandler(() => provider.GetRequiredService<SessionManager>())));
+
+        services.AddSingleton(provider => new SessionManager(
+            provider.GetRequiredService<ISecretStore>(),
+            provider.GetRequiredService<HttpClient>()));
+
+        services.AddSingleton(provider => new OperatorActions(provider.GetRequiredService<SessionManager>()));
         services.AddSingleton(provider => new StationProbe(provider.GetRequiredService<HttpClient>()));
 
         services.AddSingleton<IStationPlayer>(_ => OperatingSystem.IsMacOS()
@@ -41,6 +60,8 @@ internal static class Composition
             : new NullStationPlayer());
 
         services.AddSingleton<ShellViewModel>();
+        services.AddSingleton<LoginViewModel>();
+        services.AddSingleton<TransportViewModel>();
         services.AddSingleton<ListenerViewModel>();
         services.AddSingleton<SetupViewModel>();
 

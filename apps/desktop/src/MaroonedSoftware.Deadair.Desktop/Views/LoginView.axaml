@@ -1,0 +1,43 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.LoginView"
+    x:DataType="vm:LoginViewModel">
+
+    <StackPanel Spacing="10">
+
+        <TextBlock Text="Sign in as the operator" FontWeight="SemiBold"
+                   Foreground="{DynamicResource DaTextBrush}" />
+        <TextBlock Text="Listening needs no account. This is for the desk."
+                   FontSize="12" TextWrapping="Wrap"
+                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+
+        <StackPanel Spacing="8" IsVisible="{Binding !NeedsCode}">
+            <TextBox Text="{Binding Email}" PlaceholderText="you@example.com" IsEnabled="{Binding !Busy}" />
+            <TextBox Text="{Binding Password}" PasswordChar="•" PlaceholderText="Password" IsEnabled="{Binding !Busy}" />
+        </StackPanel>
+
+        <!-- The second factor is a 200 rather than an error, so this is a continuation of the same
+             sign-in and keeps the email rather than starting again. -->
+        <StackPanel Spacing="8" IsVisible="{Binding NeedsCode}">
+            <TextBlock Text="Enter the code from your authenticator." FontSize="12" TextWrapping="Wrap"
+                       Foreground="{DynamicResource DaTextSecondaryBrush}" />
+            <TextBox Text="{Binding Code}" PlaceholderText="000000" FontFamily="monospace"
+                     MaxLength="6" IsEnabled="{Binding !Busy}" />
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Button Content="Back" Command="{Binding CancelCommand}" IsVisible="{Binding NeedsCode}"
+                    HorizontalAlignment="Left" />
+            <Button Grid.Column="1" Content="Sign in" Command="{Binding SubmitCommand}"
+                    IsEnabled="{Binding !Busy}" />
+        </Grid>
+
+        <TextBlock Text="{Binding Problem}" TextWrapping="Wrap"
+                   IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Foreground="{DynamicResource DaToneFaultBrush}" />
+
+    </StackPanel>
+
+</UserControl>

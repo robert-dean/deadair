@@ -6,9 +6,9 @@
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.MainWindow"
     x:DataType="vm:ShellViewModel"
     Title="deadair"
-    Width="880"
+    Width="1080"
     Height="620"
-    MinWidth="560"
+    MinWidth="720"
     MinHeight="480"
     Background="{DynamicResource DaBgBrush}">
 

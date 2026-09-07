@@ -211,7 +211,16 @@ manage verbs; it buys nothing about hearing the station.
 the one place the desktop deliberately departs from the Android app, which keeps them in an
 unencrypted DataStore file and says so: a desktop is more likely to be a shared machine, and the
 Keychain is one `LibraryImport` file rather than three native integrations while only macOS is
-supported.
+supported. It uses the `SecKeychain*` family, which is deprecated and still present; the newer
+`SecItem*` one takes a `CFDictionary`, and building one across P/Invoke is more native code than the
+whole store.
+
+**A refresh has THREE outcomes, not a token or nothing.** This was a nullable string until a test
+asked what happens when the station is down during a refresh: the 5xx propagated out of the handler
+and surfaced at whoever had triggered it, so a poll asking for the running order reported a failure
+to exchange a token. "The session is over" and "the station could not be asked" want opposite
+handling — one signs the operator out, the other changes nothing and hands back the caller's own 401
+— and a null cannot tell them apart. `RefreshOutcome` is `Renewed`, `SessionEnded` or `Unavailable`.
 
 **The refresh is single-flight, and that is not tidiness.** Refresh tokens are single-use and
 rotating, and presenting a spent one revokes the whole family — so two pollers hitting 401 together
@@ -223,6 +232,16 @@ a network failure, not a 5xx.
 what is allowed. A 403 refreshes them rather than being reported as a failure. The web console gates
 nothing at all and lets every 403 through to the user, which is a defensible choice for a page that
 is only ever opened by the operator and the wrong one for an app that is also a listener.
+
+## What is verified against a real station, and what is not
+
+The listener half is measured against the live station: it plays, it polls, and the phases are in
+`What AVFoundation did on the first run` above. **The operator half is not.** Signing in needs the
+operator's own credentials, so the session rules — the single-flight refresh, the one replay, the
+exempt token endpoints, a 4xx ending a session where a 5xx does not — are proved against a fake
+station in `SessionHandlerTests` and `SessionManagerTests` rather than against the real one. That is
+a deliberate limit rather than an oversight: the tests can produce two simultaneous 401s and a
+rotation that answers without a new refresh token, and a live station cannot be asked to.
 
 ## Conventions
 

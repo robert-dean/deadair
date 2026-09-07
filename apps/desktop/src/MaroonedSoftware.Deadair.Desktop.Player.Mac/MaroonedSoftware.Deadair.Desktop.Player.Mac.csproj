@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>MaroonedSoftware.Deadair.Desktop.Player.Mac</RootNamespace>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../MaroonedSoftware.Deadair.Desktop.Core/MaroonedSoftware.Deadair.Desktop.Core.csproj" />
+    </ItemGroup>
+
+    <!--
+        The AVFoundation shim, built by `native/mac/build.sh` and copied beside the assembly so a
+        `dotnet run` finds it without an install step. The bundle script puts it in
+        Contents/Frameworks for a packaged app.
+
+        `Condition` rather than a hard reference: the file is gitignored build output, and a checkout
+        that has not run the script yet should fail when the player is CONSTRUCTED, with a message
+        naming the script, rather than at restore with an MSBuild error about a missing item.
+    -->
+    <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)../../native/mac/build/libdeadairplayer.dylib')">
+        <None Include="../../native/mac/build/libdeadairplayer.dylib">
+            <Link>libdeadairplayer.dylib</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
+</Project>

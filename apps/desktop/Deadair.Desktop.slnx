@@ -2,7 +2,15 @@
   <Folder Name="/sdk/">
     <Project Path="../../packages/sdk-csharp/DeadairSdk.csproj" />
   </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/MaroonedSoftware.Deadair.Desktop.Core/MaroonedSoftware.Deadair.Desktop.Core.csproj" />
+    <Project Path="src/MaroonedSoftware.Deadair.Desktop.Player.Mac/MaroonedSoftware.Deadair.Desktop.Player.Mac.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MaroonedSoftware.Deadair.Sdk.Tests/MaroonedSoftware.Deadair.Sdk.Tests.csproj" />
+    <Project Path="tests/MaroonedSoftware.Deadair.Desktop.Core.Tests/MaroonedSoftware.Deadair.Desktop.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="spikes/PlayerSpike/PlayerSpike.csproj" />
   </Folder>
 </Solution>

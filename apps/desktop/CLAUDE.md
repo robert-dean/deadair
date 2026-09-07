@@ -122,6 +122,45 @@ the Next key: it is the OPERATOR's Skip, so it is registered only while the cach
 first `Playing`, then backoff reconnects) so that neither the choice of engine nor the choice of
 platform reaches a view model.
 
+### What AVFoundation did on the first run
+
+Measured against the live station on 2026-09-07 by `spikes/PlayerSpike`, which is why that program
+is kept and is in the solution: it is how this is re-measured after any change to the shim.
+
+**It plays both mounts, and the two are not equally quick.** MP3 reached `Playing` at about five
+seconds, consistently, and HLS at between 0.2 and 1.5 seconds. That gap is worth knowing before
+anybody tunes a spinner: five seconds of silence after pressing play is the ORDINARY case on the
+default mount, not a slow station, and on an audience-gated station it is partly the station itself
+waking up.
+
+**AVFoundation is serviced by the MAIN thread's run loop, and this cost two wrong diagnoses.** In a
+console host the player opened, reported buffering, and then sat there forever with no audio and no
+error — which looks exactly like a broken player and is a host that never let it work. Two things
+have to be true: something must pump the run loop, and it must be the thread the player was built
+on. The first version pumped `[[NSRunLoop currentRunLoop] runUntilDate:]` and returned in a
+hundredth of a second, because **a run loop with no input source attached does not wait**; the
+second attached a timer and waited correctly, on a thread-pool thread, which is not the one that
+matters. The fix in the spike is that nothing in it may `await`: a C# `await` resumes on the thread
+pool, the main thread parks, the main queue is never drained, and the player stalls. An Avalonia app
+runs a main loop already, so **the rule that survives into the app is that the player is built and
+driven from the UI thread**, and `MacRunLoop.Pump` is for headless hosts and must never be called
+from a GUI one.
+
+**Stopping really does drop the connection, and neither obvious witness shows it.** Icecast's
+listener count cannot: an audience lingers five minutes past the last listener, on purpose, so a
+reconnecting player does not cut the broadcast. And an `lsof` on our own process shows one connection
+that never moves, which is the API client's keep-alive rather than the audio — **macOS streams media
+from a helper daemon, so the audio socket is not in this process at all.** Counting connections to
+the station from every process except this one is what answers it: one while playing, zero after
+`StopAsync`, with the process still alive. That is the measurement behind the rule, rather than a
+reading of Apple's documentation.
+
+**`AVURLAssetHTTPUserAgentKey` needs a deployment target of macOS 13**, which is why `build.sh`
+passes `-mmacosx-version-min=13.0`. It is the only supported way to set the agent on the connection
+that carries the audio; the older `AVURLAssetHTTPHeaderFieldsKey` trick applies to range requests
+alone, so the request that actually streams goes out as AppleCoreMedia and is counted as a different
+listener from the rest of the app.
+
 ## The session
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and the
@@ -163,6 +202,22 @@ Android precedent that is a language limitation rather than a decision.
 
 ```bash
 cd apps/desktop && dotnet build -warnaserror && dotnet test
+```
+
+The native shim is not built by MSBuild and has to exist before the player will load:
+
+```bash
+apps/desktop/native/mac/build.sh
+```
+
+Its output is gitignored, so a fresh checkout has none and the player project's `None` item is
+skipped by a `Condition` rather than failing the build — the failure comes when a player is
+constructed, which is where the message can name the script.
+
+To hear the station and watch the phases, against a real one:
+
+```bash
+dotnet run --project apps/desktop/spikes/PlayerSpike -- https://radio.deanhome.app 20
 ```
 
 **In a sandboxed agent session, add `-m:1`.** MSBuild's parallel worker nodes connect over local

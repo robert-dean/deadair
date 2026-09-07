@@ -525,7 +525,13 @@ export class DirectorConsoleService {
         }
 
         const picks = chartPicks(entries, { order: order ?? DEFAULT_CHART_ORDER, ...(bindsAnything(era) ? { era } : {}) });
-        const tracks = await this.resolver.resolve(picks, NO_RULES, { era, preference: [address.pluginId] });
+        // A lookup for every entry, rather than the refill's cap. That cap protects a provider's
+        // rate budget from one background refill starving the next, and there is no next refill
+        // here: this is an operator asking for one document, once, already bounded at
+        // `MAX_CHART_ENTRIES`. Held to it, a hundred-record chart got 32 lookups and aired the
+        // remainder as "not in the catalog" without a provider ever being asked about them, which
+        // reads from the console exactly like a chart service that carried nothing.
+        const tracks = await this.resolver.resolve(picks, NO_RULES, { era, preference: [address.pluginId], discoveries: picks.length });
         if (tracks.length === 0) {
             // Said in the operator's terms rather than the resolver's, and the two cases are named
             // apart because they want opposite fixes. With discovery off this is not a fault at all

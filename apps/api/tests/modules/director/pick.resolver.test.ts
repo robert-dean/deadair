@@ -472,6 +472,29 @@ describe('PickResolver discovering a record at a provider', () => {
         expect(find).toHaveBeenCalledTimes(batch.length);
     });
 
+    it('lets a caller name its own lookup budget, for a batch that is not a refill', async () => {
+        // An operator airing a published chart is the caller: 100 entries the library almost
+        // certainly does not hold, against a refill cap of 32. There is no next refill here whose
+        // rate budget the cap would be protecting, so held to it a chart lost two thirds of the
+        // document somebody chose and reported it only at `info`.
+        const { resolver, find } = build({ byName: {}, atProvider: {} });
+        const chart = Array.from({ length: MAX_DISCOVERIES * 3 }, (_, index) => ({ title: `T${index}`, artist: `A${index}` }));
+
+        await resolver.resolve(chart, OPEN_RULES, { discoveries: chart.length });
+
+        expect(find).toHaveBeenCalledTimes(chart.length);
+    });
+
+    it('takes a caller’s budget of zero as none, rather than falling back to the refill cap', async () => {
+        // `discoveries` is a budget and not a hint, so 0 has to mean 0. Reading it as absent would
+        // make an explicit "look nothing up" quietly perform 32 provider searches.
+        const { resolver, find } = build({ byName: {}, atProvider: {} });
+
+        await resolver.resolve([{ title: 'T', artist: 'A' }], OPEN_RULES, { discoveries: 0 });
+
+        expect(find).not.toHaveBeenCalled();
+    });
+
     it('still gives a small batch room to discover more than it named', async () => {
         // The floor is the other half: a two-pick batch is not held to two lookups, because the
         // ordinary case is a station that owns most of what it names and misses one or two.

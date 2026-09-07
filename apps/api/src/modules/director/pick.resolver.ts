@@ -182,14 +182,34 @@ export class PickResolver {
     async resolve(
         picks: readonly TrackPick[],
         rules: ResolvedRules,
-        options: { preference?: readonly string[]; era?: EraWindow; avoidArtistKeys?: ReadonlySet<string>; seedArtistKey?: string } = {},
+        options: {
+            preference?: readonly string[];
+            era?: EraWindow;
+            avoidArtistKeys?: ReadonlySet<string>;
+            seedArtistKey?: string;
+            /**
+             * How many of these picks may cost a provider lookup, overriding
+             * {@link discoveryCap}.
+             *
+             * For a caller whose batch is not a refill. The cap exists to keep one background
+             * refill from spending a provider's whole rate budget and leaving nothing for the
+             * next one, and that argument does not reach an operator who has just asked for one
+             * specific document: there is no next refill competing for the budget, the ask is a
+             * one-off, and the batch is already bounded by whatever produced it.
+             *
+             * Airing a published chart is that caller. `MAX_CHART_ENTRIES` is 100 and every entry
+             * is a name the library almost certainly does not hold, so the refill cap of 32 threw
+             * away two thirds of the document the operator chose and said so only at `info`.
+             */
+            discoveries?: number;
+        } = {},
     ): Promise<RundownTrack[]> {
         if (picks.length === 0) return [];
 
-        const { preference = [], era, avoidArtistKeys, seedArtistKey } = options;
+        const { preference = [], era, avoidArtistKeys, seedArtistKey, discoveries } = options;
         const policy = advisoryPolicy(this.config);
 
-        const identified = await this.identify(picks);
+        const identified = await this.identify(picks, discoveries);
         if (identified.length === 0) return [];
 
         const eligible = await this.judge(identified, rules, era, avoidArtistKeys);
@@ -420,10 +440,13 @@ export class PickResolver {
      * A pick the catalog misses falls to {@link discover}, which is where the
      * network is, and which is bounded per call.
      */
-    private async identify(picks: readonly TrackPick[]): Promise<Identified[]> {
+    private async identify(picks: readonly TrackPick[], discoveries?: number): Promise<Identified[]> {
         const identified: Identified[] = [];
         const mayDiscover = this.mayDiscover();
-        const cap = discoveryCap(picks.length);
+        // A caller that named its own budget is not a refill and is not held to the refill's
+        // bound; see `discoveries` on {@link resolve}. Still floored at zero, so a caller cannot
+        // ask for a negative one and get the `attempted < cap` test backwards.
+        const cap = discoveries === undefined ? discoveryCap(picks.length) : Math.max(discoveries, 0);
         let attempted = 0;
         let overCap = 0;
 
@@ -468,7 +491,9 @@ export class PickResolver {
             // Said out loud rather than absorbed. A cap that silently truncates reads exactly like a
             // provider that had nothing, and the two want opposite fixes: raise the bound, or look
             // at why a whole batch is naming records nothing carries.
-            this.logger.info('director: stopped looking records up at the per-refill cap', { cap, notLookedUp: overCap });
+            // Not "the per-refill cap" any more: a caller may name its own budget, and a chart
+            // truncated at 32 would otherwise report itself as a refill that ran out of lookups.
+            this.logger.info('director: stopped looking records up at the lookup cap', { cap, notLookedUp: overCap });
         }
         return identified;
     }

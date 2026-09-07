@@ -25,6 +25,9 @@ public abstract record Destination
 
     /// <summary>What has already played.</summary>
     public sealed record History : Destination;
+
+    /// <summary>How the station itself is doing.</summary>
+    public sealed record Checkup : Destination;
 }
 
 /// <param name="Destination">Where it goes.</param>
@@ -45,5 +48,6 @@ public static class Destinations
         new(new Destination.Programme(), "Programme", "P", NeedsOperator: true),
         new(new Destination.Library(), "Library", "L", NeedsOperator: true),
         new(new Destination.History(), "History", "H", NeedsOperator: false),
+        new(new Destination.Checkup(), "Check-up", "C", NeedsOperator: true),
     ];
 }

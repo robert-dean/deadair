@@ -30,6 +30,8 @@
                                    IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsLibrary}" />
                 <views:HistoryView DataContext="{Binding History}"
                                    IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsHistory}" />
+                <views:CheckupView DataContext="{Binding Checkup}"
+                                   IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsCheckup}" />
             </Panel>
         </DockPanel>
     </Panel>

@@ -1,0 +1,101 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.CheckupView"
+    x:DataType="vm:CheckupViewModel">
+
+    <DockPanel Margin="24" LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,14">
+            <TextBlock Text="Check-up" FontSize="20" FontWeight="SemiBold"
+                       Foreground="{DynamicResource DaTextBrush}" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <!-- Stamped, so a page left open overnight cannot pass itself off as now. -->
+                <TextBlock Text="{Binding ReadAt}" FontSize="11"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                <TextBlock Text="{Binding Revision}" FontSize="11"
+                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+            </StackPanel>
+        </StackPanel>
+
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="20">
+
+            <StackPanel Spacing="16">
+
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Needs you" FontWeight="SemiBold"
+                               Foreground="{DynamicResource DaTextBrush}" />
+                    <TextBlock Text="Nothing needs you." FontSize="12" IsVisible="{Binding NothingNeedsYou}"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <ItemsControl ItemsSource="{Binding Attention}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AttentionViewModel">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="0,4">
+                                    <Ellipse Width="7" Height="7" VerticalAlignment="Top" Margin="0,5,0,0"
+                                             Fill="{Binding Severity, Converter={x:Static conv:SeverityBrushConverter.Instance}}" />
+                                    <StackPanel Grid.Column="1" Spacing="2">
+                                        <!-- The station writes both lines; this draws them. -->
+                                        <TextBlock Text="{Binding Title}" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource DaTextBrush}" />
+                                        <TextBlock Text="{Binding Detail}" FontSize="11" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Machinery" FontWeight="SemiBold"
+                               Foreground="{DynamicResource DaTextBrush}" />
+                    <!-- Two timestamps and no verdict: a five-second reconcile and a nightly sweep
+                         are both healthy, and no single threshold describes both. -->
+                    <ItemsControl ItemsSource="{Binding Loops}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LoopViewModel">
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                                    <TextBlock Text="{Binding Name}" FontSize="12"
+                                               Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding LastBeat}" FontSize="11"
+                                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="{Binding Backlog}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                </StackPanel>
+
+            </StackPanel>
+
+            <DockPanel Grid.Column="1" LastChildFill="True">
+                <TextBlock DockPanel.Dock="Top" Text="Activity" FontWeight="SemiBold" Margin="0,0,0,6"
+                           Foreground="{DynamicResource DaTextBrush}" />
+                <ListBox ItemsSource="{Binding Activity}" Background="Transparent" BorderThickness="0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ActivityViewModel">
+                            <Grid ColumnDefinitions="Auto,64,80,*" ColumnSpacing="8" Margin="0,2">
+                                <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                         Fill="{Binding Severity, Converter={x:Static conv:SeverityBrushConverter.Instance}}" />
+                                <TextBlock Grid.Column="1" Text="{Binding When}" FontFamily="monospace" FontSize="11"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                <TextBlock Grid.Column="2" Text="{Binding Module}" FontSize="11"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                <TextBlock Grid.Column="3" Text="{Binding Detail}" FontSize="12"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
+        </Grid>
+
+    </DockPanel>
+
+</UserControl>

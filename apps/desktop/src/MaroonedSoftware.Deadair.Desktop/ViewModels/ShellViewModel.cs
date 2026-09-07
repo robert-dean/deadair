@@ -35,7 +35,8 @@ public sealed partial class ShellViewModel : ObservableObject
         NavigationViewModel navigation,
         ProgrammeViewModel programme,
         LibraryViewModel library,
-        HistoryViewModel history)
+        HistoryViewModel history,
+        CheckupViewModel checkup)
     {
         _settings = settings;
         _session = session;
@@ -48,6 +49,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Programme = programme;
         Library = library;
         History = history;
+        Checkup = checkup;
 
         Setup.Connected += (station, name) => _ = AttachAsync(station, name);
         Login.SignedIn += () => ApplySession();
@@ -72,6 +74,9 @@ public sealed partial class ShellViewModel : ObservableObject
                 case Nav.Destination.History:
                     History.LoadCommand.Execute(null);
                     break;
+                case Nav.Destination.Checkup:
+                    Checkup.LoadCommand.Execute(null);
+                    break;
             }
         };
     }
@@ -93,6 +98,8 @@ public sealed partial class ShellViewModel : ObservableObject
     public LibraryViewModel Library { get; }
 
     public HistoryViewModel History { get; }
+
+    public CheckupViewModel Checkup { get; }
 
     /// <summary>Whether to draw the sign-in panel rather than the account it produced.</summary>
     [ObservableProperty]
@@ -139,6 +146,7 @@ public sealed partial class ShellViewModel : ObservableObject
         Programme.Attach(station);
         Library.Attach(station);
         History.Attach(station);
+        Checkup.Attach(station);
 
         NeedsStation = false;
         ApplySession();

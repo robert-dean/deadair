@@ -276,6 +276,23 @@ right, compiles, and fails at XAML load with a message naming the CHILD's type.
 `Notice` have both bitten this tree; the fix each time is a `using` alias rather than a rename, since
 the property names are the ones the views read.
 
+## The check-up
+
+**Three readings, not one.** The check-up endpoint carries only the two signals nothing else exposes
+— the loops and the catalog backlog — because everything else a health page shows is already on a
+reading somebody is polling. So the page reads the check-up, the attention list and the activity feed
+separately rather than asking the station to compose a verdict it has no business composing.
+
+**A loop reports two timestamps and no verdict**, and the client must not invent one: a five-second
+reconcile and a nightly sweep are both healthy, and no single threshold describes both.
+
+**The feed and the attention list use different words for the same idea** — `info`/`warn`/`fault`
+against `notice`/`warning`/`failure` — so the mapping to a severity is written out rather than
+assumed to line up by name.
+
+**A missing revision is not a failed read.** It means nothing stamped the build, which a development
+tree and a hand-built image both are.
+
 ## The programme
 
 **A slot's times are minutes from midnight and its days are a list**, because a slot recurs. Two

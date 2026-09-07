@@ -88,3 +88,42 @@ public sealed class ShortOrderBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+
+/// <summary>
+/// A severity as a colour, which is a different question from a status tone.
+/// </summary>
+/// <remarks>
+/// The two vocabularies cannot be one because they disagree about red: a lamp's red means ON AIR,
+/// while a failure's red means the hard failure. `notice` is the arm that is not a failure at all —
+/// something nobody has set up yet — and it exists because a list that draws "you have not done this"
+/// in the same colour as "this broke" is one people learn to skim.
+/// </remarks>
+public sealed class SeverityBrushConverter : IValueConverter
+{
+    public static SeverityBrushConverter Instance { get; } = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var key = value is Severity severity
+            ? severity switch
+            {
+                Severity.Failure => "DaToneLiveBrush",
+                Severity.Warning => "DaToneFaultBrush",
+                _ => "DaToneStandbyBrush",
+            }
+            : "DaTextDimmedBrush";
+
+        var application = Avalonia.Application.Current;
+        if (application is not null
+            && application.Resources.TryGetResource(key, application.ActualThemeVariant, out var brush))
+        {
+            return brush;
+        }
+
+        return Brushes.Gray;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

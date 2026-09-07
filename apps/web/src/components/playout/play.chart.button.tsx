@@ -41,6 +41,19 @@ const ORDERS: { value: ChartOrder; label: string }[] = [
  * the station look each entry up at a provider and ingest it, and those arrive unmeasured — they
  * air untrimmed until the analysis pass reaches them. That is said under the button rather than
  * left to be heard, because it is the one surprise in pressing it.
+ *
+ * ## The press is an ASK, and the copy says so
+ *
+ * Those lookups are why: a chart is up to a hundred records and each miss is a search across every
+ * provider, so the API queues the work and answers immediately rather than holding the request open
+ * for minutes. The station changes over when the job has an order, which the transport bar picks up
+ * on its own poll — there is nothing for this component to wait on.
+ *
+ * So a green press means "asked", not "on air", and the second line says which. The failures an
+ * operator can act on are still raised here, because the API refuses them at the door before it
+ * queues anything: an id naming no chart, and a chart nothing could read. The third one — nothing
+ * on it can be played — cannot be known without the lookups, so it lands on the activity feed and
+ * is deliberately NOT faked into a button state that would have to lie about when it knew.
  */
 export function PlayChartButton({ chartId, playable = true }: PlayChartButtonProps) {
     const play = usePlayChart();
@@ -81,7 +94,8 @@ export function PlayChartButton({ chartId, playable = true }: PlayChartButtonPro
                 </Tooltip>
             </Group>
             <Text size="xs" c="dimmed">
-                Records the library has never held are fetched as they are needed, and air untrimmed until they have been measured.
+                Records the library has never held are fetched as they are needed, and air untrimmed until they have been measured. Looking a whole
+                chart up takes a few minutes, so the station changes over once it has, and the feed says how it went.
             </Text>
         </Stack>
     );

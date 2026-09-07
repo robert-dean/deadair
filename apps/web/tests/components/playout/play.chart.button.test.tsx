@@ -70,4 +70,13 @@ describe('PlayChartButton', () => {
 
         expect(screen.getByText(/air untrimmed until they have been measured/)).toBeVisible();
     });
+
+    it('says the press is an ask rather than a changeover', async () => {
+        // The API queues the lookups instead of holding the request open for them, so a press that
+        // succeeded means "asked". Saying so here is what keeps an operator from reading the
+        // transport bar's unchanged programme as a button that did nothing.
+        render(<PlayChartButton chartId="deadair.lastfm:top-100" />);
+
+        expect(screen.getByText(/the station changes over once it has, and the feed says how it went/)).toBeVisible();
+    });
 });

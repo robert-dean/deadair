@@ -1017,6 +1017,47 @@ describe('DirectorConsoleService building a running order from a chart', () => {
         { rank: 3, title: 'Teardrop', artist: 'Massive Attack' },
     ];
 
+    describe('taking the ask, which is all airChart answers', () => {
+        // Queued rather than done inline, because a chart is up to `MAX_CHART_ENTRIES` records and
+        // each miss is a search across every provider. What is pinned here is the split: the two
+        // refusals an operator can act on stay at the door, and nothing else does.
+
+        it('queues the work and posts nothing itself', async () => {
+            const { service, jobs, posted } = build({ chart: TOP_THREE });
+
+            await service.airChart({ chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked' });
+
+            expect(jobs.send).toHaveBeenCalledWith('director.air_chart', { chartId: 'deadair.lastfm:top-100', chartOrder: 'ranked' });
+            // The station is not put on air by the ask. The job does that, minutes later.
+            expect(posted()).toEqual([]);
+        });
+
+        it('records the ask with the operator on it, since the outcome will carry nobody', async () => {
+            const { service, activity } = build({ chart: TOP_THREE });
+
+            await service.airChart({ chartId: 'deadair.lastfm:top-100' });
+
+            expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ module: 'director', kind: 'air.chartRequested' }));
+        });
+
+        it('refuses an id that names no chart before queuing anything', async () => {
+            const { service, jobs } = build({ chart: TOP_THREE });
+
+            expect(await statusOf(service.airChart({ chartId: 'not-a-qualified-id' }))).toBe(422);
+            expect(jobs.send).not.toHaveBeenCalled();
+        });
+
+        it('refuses a chart nothing could read before queuing anything', async () => {
+            // `ChartsService` flattens every upstream failure to an empty list, so this is also a
+            // plugin that is gone and one whose service refused. Cheap to know, so it stays at the
+            // door rather than becoming a job that fails minutes later with nobody watching.
+            const { service, jobs } = build({});
+
+            expect(await statusOf(service.airChart({ chartId: 'deadair.lastfm:top-100' }))).toBe(422);
+            expect(jobs.send).not.toHaveBeenCalled();
+        });
+    });
+
     it('ends the broadcast on number one, because a countdown is what a chart show is', async () => {
         const { service, posted } = build({ chart: TOP_THREE });
 

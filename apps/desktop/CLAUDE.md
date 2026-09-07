@@ -310,7 +310,19 @@ dotnet run --project apps/desktop/src/MaroonedSoftware.Deadair.Desktop
 
 It keeps its settings in `~/Library/Application Support/deadair/settings.json`, which is a different
 file from anything to do with a session: signing out must not take the station address with it,
-because somebody who signs out is still a listener.
+because somebody who signs out is still a listener. The session itself is in the Keychain.
+
+To build something that can be double-clicked:
+
+```bash
+apps/desktop/tools/macos/make-app-bundle.sh
+```
+
+About 112MB, self-contained, and unsigned — so the first launch needs a right-click and Open. Two
+publish flags are deliberately absent: `PublishTrimmed`, because the generated SDK reads JSON by
+reflection and the trimmer cannot see it, and `IncludeNativeLibrariesForSelfExtract`, which is
+incompatible with macOS and fails at RUN time with "Failed to create CoreCLR" rather than at
+publish.
 
 **In a sandboxed agent session, add `-m:1`.** MSBuild's parallel worker nodes connect over local
 sockets, the sandbox refuses them, and the build hangs for exactly five minutes and then reports

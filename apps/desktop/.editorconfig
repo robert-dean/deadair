@@ -60,6 +60,15 @@ dotnet_naming_symbols.private_static_readonly_fields.applicable_accessibilities 
 dotnet_naming_symbols.private_static_readonly_fields.required_modifiers = static,readonly
 dotnet_naming_style.pascal_case.capitalization = pascal_case
 
+# A const is PascalCase for the same reason. `required_modifiers` means ALL of the listed modifiers,
+# so this cannot be folded into the rule above and has to be its own.
+dotnet_naming_rule.private_const_fields_are_pascal.severity = error
+dotnet_naming_rule.private_const_fields_are_pascal.symbols = private_const_fields
+dotnet_naming_rule.private_const_fields_are_pascal.style = pascal_case
+dotnet_naming_symbols.private_const_fields.applicable_kinds = field
+dotnet_naming_symbols.private_const_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_const_fields.required_modifiers = const
+
 dotnet_naming_rule.private_fields_underscored.severity = error
 dotnet_naming_rule.private_fields_underscored.symbols = private_fields
 dotnet_naming_rule.private_fields_underscored.style = underscored_camel_case

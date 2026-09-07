@@ -161,6 +161,47 @@ that carries the audio; the older `AVURLAssetHTTPHeaderFieldsKey` trick applies 
 alone, so the request that actually streams goes out as AppleCoreMedia and is counted as a different
 listener from the rest of the app.
 
+## Avalonia 12, and four things that are not in any migration guide
+
+**A custom `ThemeVariant` cannot be named as a string in XAML.** `RequestedThemeVariant="Carbon"` and
+`<ResourceDictionary x:Key="Carbon">` both compile and then throw at startup — the type converter
+knows the built-in light and dark pair and nothing else. Both have to be `{x:Static
+themes:ConsoleThemes.Carbon}`. This costs two runs to find, because the second failure looks like the
+first one coming back.
+
+**`Avalonia.Diagnostics` has no Avalonia 12 release.** It stops at 11.3.20, so the developer tools
+overlay is simply unavailable and asking for it fails the restore rather than degrading. Checked
+2026-09-07.
+
+**A `ResourceInclude` goes inside `ResourceDictionary.MergedDictionaries`**, not directly under
+`Application.Resources`, and `TextBox.Watermark` is obsolete in favour of `PlaceholderText`.
+
+**Avalonia's build-time telemetry task writes a file, and a sandboxed session cannot.** It fails as
+an `MSB4018` stack trace out of `Avalonia.BuildServices.targets` with no mention of a sandbox, which
+reads as a broken toolchain. There is no opt-out property in the targets file; the answer is to build
+with the sandbox off, as with NuGet restore.
+
+## What the listener does
+
+**The playhead refuses to guess.** `remainingMs` is absent whenever the station's decoder cannot say,
+and the obvious fallback — the clock minus `startedAt` — measures when the station STARTED the record.
+That leads what a listener is actually hearing by the encoder and client buffers, and drifts further
+the worse their connection is. So `Playhead.Position` answers null and the bar draws nothing, because
+a progress bar that is confidently wrong is worse than one that is absent.
+
+**A failed poll keeps the last good reading and marks it stale.** Blanking a screen because one
+request timed out throws away something true and still useful. It is the station's own rule read from
+the other side: a failed reading of the listener count is "could not say", never zero.
+
+**Settings are tolerant of a bad file, and that hid a real bug once.** `FileSettingsStore` treats an
+unreadable file as an install with no preferences, which is right — the worst case is retyping a
+station address, and refusing to start is worse. But `ThemeId` had no string converter, so a
+hand-written file naming `"Carbon"` failed to parse, the tolerance swallowed it, and the app started
+as though it had never been configured, taking the station address with it. Found by RUNNING the app
+and noticing it opened no connection. The converter is on the enum now and a test asserts the file
+reads as names; the lesson is that a deliberate catch needs a test proving the ordinary path through
+it works.
+
 ## The session
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and the
@@ -219,6 +260,16 @@ To hear the station and watch the phases, against a real one:
 ```bash
 dotnet run --project apps/desktop/spikes/PlayerSpike -- https://radio.deanhome.app 20
 ```
+
+And the app itself:
+
+```bash
+dotnet run --project apps/desktop/src/MaroonedSoftware.Deadair.Desktop
+```
+
+It keeps its settings in `~/Library/Application Support/deadair/settings.json`, which is a different
+file from anything to do with a session: signing out must not take the station address with it,
+because somebody who signs out is still a listener.
 
 **In a sandboxed agent session, add `-m:1`.** MSBuild's parallel worker nodes connect over local
 sockets, the sandbox refuses them, and the build hangs for exactly five minutes and then reports

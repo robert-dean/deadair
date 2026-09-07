@@ -4,6 +4,13 @@ using MaroonedSoftware.Deadair.Sdk.Models;
 namespace MaroonedSoftware.Deadair.Desktop.Core.Settings;
 
 /// <summary>Which console this console is. Chosen per install, remembered locally.</summary>
+/// <remarks>
+/// Written as a NAME rather than a number. Without the converter this file is a settings file whose
+/// theme reads `2`, and — the way this was actually found — a hand-written or hand-edited file fails
+/// to parse at all, is swallowed by the store's deliberate tolerance of a bad file, and the app
+/// starts as though nobody had ever configured it.
+/// </remarks>
+[JsonConverter(typeof(JsonStringEnumConverter<ThemeId>))]
 public enum ThemeId
 {
     /// <summary>The studio at night. Phosphor green on carbon. What an install with no preference gets.</summary>

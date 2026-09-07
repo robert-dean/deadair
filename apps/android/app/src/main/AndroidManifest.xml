@@ -42,6 +42,20 @@
         </activity>
 
         <!--
+            What a media button reaches when the service is not running: a Bluetooth play button
+            pressed on getting into a car, or the play button Android keeps in its media carousel
+            after a reboot. It starts the service, which then answers with the mount to resume on.
+            Without it both of those press nothing at all.
+        -->
+        <receiver
+            android:name="androidx.media3.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
+        <!--
             Exported, and it has to be: the session is how the lock screen, a Bluetooth head unit
             and Android's own media controls reach this app, and none of them are this app.
         -->

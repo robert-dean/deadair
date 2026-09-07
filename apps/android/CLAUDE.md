@@ -101,6 +101,18 @@ glyph stops (measured: the session reads `NONE` afterwards, not `PAUSED`). Withd
 `COMMAND_PLAY_PAUSE` so the system would draw stop instead is the obvious fix and the wrong one: a
 headset's pause key arrives as that same command and would do nothing.
 
+**A media button pressed while the app is NOT running needs two pieces, and one of them is in the
+manifest.** Getting into a car and pressing play on the wheel is the moment somebody most wants a
+radio, and it is exactly when this app is least likely to be running: `onTaskRemoved` stops the
+service when nothing is coming out of it, so a swipe leaves nothing to press. `MediaButtonReceiver`
+in the manifest is what wakes the service, and `MediaSession.Callback.onPlaybackResumption` is what
+answers it with something to play. Both, or neither works — the receiver alone starts a service with
+no items and the callback alone is never reached. Measured with the process genuinely gone (`am
+kill-all` after swiping the task away, because a foreground service survives `am kill`): before, the
+key did nothing at all; after, it starts the process and the stream. What it resumes ON is one item
+at position zero, because a live stream has no position and no queue — the easy version of a problem
+most players find hard.
+
 ## The session, and the one rule that is not obvious
 
 **Listening is accountless and stays that way.** A session buys the `platform.view` reads and

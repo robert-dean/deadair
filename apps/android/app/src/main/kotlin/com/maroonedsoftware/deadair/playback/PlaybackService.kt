@@ -12,11 +12,18 @@ import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.SettableFuture
 import com.maroonedsoftware.deadair.DeadairApp
 import com.maroonedsoftware.deadair.MainActivity
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.net.HttpClients
 import android.app.PendingIntent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * The station, playing, with the app in the background.
@@ -29,6 +36,9 @@ import android.app.PendingIntent
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private var conductor: PlaybackConductor? = null
+
+    /** The main looper, because everything here touches a `Player`. Cancelled with the service. */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onCreate() {
         super.onCreate()
@@ -82,6 +92,7 @@ class PlaybackService : MediaSessionService() {
                         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
                     ),
                 )
+                .setCallback(Resumption())
                 // Cached, because the session asks for the same picture every time the metadata
                 // is pushed, and the metadata is pushed every time the record changes. Bounded,
                 // because a cover is decoded into a bitmap in this process and `/api/art` can
@@ -102,6 +113,38 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
     /**
+     * What a media button reaches when nothing is playing and the app is not running.
+     *
+     * Getting into a car and pressing play on the wheel is the moment somebody most wants a radio,
+     * and it is exactly when this app is least likely to be running: the service stops itself when
+     * the task is swiped away and nothing is coming out of it. Without this the press reached a
+     * dead session and the listener had to unlock the phone and open the app, which is the opposite
+     * of what a background player is for.
+     *
+     * There is no position and no queue to restore, which makes this the easy version of a problem
+     * most players find hard: the answer is the mount, at zero.
+     */
+    private inner class Resumption : MediaSession.Callback {
+        override fun onPlaybackResumption(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            val answer = SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
+            scope.launch {
+                val item = conductor?.resumptionItem()
+                if (item == null) {
+                    // No station has ever been kept, so there is nothing this app could play.
+                    // Refusing leaves the button alone rather than starting a silent service.
+                    answer.setException(UnsupportedOperationException("This install has no station"))
+                } else {
+                    answer.set(MediaSession.MediaItemsWithStartPosition(listOf(item), 0, 0L))
+                }
+            }
+            return answer
+        }
+    }
+
+    /**
      * Swiping the app away stops the station unless it is actually playing.
      *
      * A service left running with nothing coming out of it is a notification the listener cannot
@@ -115,6 +158,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        scope.cancel()
         conductor?.stop()
         conductor = null
         session?.run {

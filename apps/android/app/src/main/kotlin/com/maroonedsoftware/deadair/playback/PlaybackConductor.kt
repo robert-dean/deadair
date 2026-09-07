@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -73,6 +74,31 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
         player.removeListener(listener)
         handler.removeCallbacksAndMessages(null)
         scope.cancel()
+    }
+
+    /**
+     * The item a media button should resume on.
+     *
+     * Pressed from a steering wheel with the app long since swiped away, so nothing here may wait
+     * on the poll: the station has not been asked anything yet and the answer is wanted now. What
+     * a live stream needs is one item at position zero, and `chooseMount` already knows what to do
+     * with no mounts — it answers the station's default and says it fell back. If the poll then
+     * names a different path the collector above moves to it a moment later, which is why `current`
+     * is recorded here: so that move does NOT happen when the guess was right, and the stream is
+     * not restarted a second after it started.
+     *
+     * `null` when no station has ever been kept, which is an install that has nothing to play.
+     */
+    suspend fun resumptionItem(): MediaItem? {
+        val settings = graph.settings.settings.first()
+        val where = settings.station ?: return null
+
+        station = where
+        format = settings.format
+        val choice = chooseMount(mounts, settings.format)
+        current = choice
+        pushedFor = null
+        return MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, offAir))
     }
 
     private fun NowPlayingState.nowPlaying(): NowPlaying? =

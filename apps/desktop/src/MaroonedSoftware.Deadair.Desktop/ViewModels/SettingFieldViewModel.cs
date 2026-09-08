@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
+using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Sdk.Models;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
@@ -25,18 +26,81 @@ public sealed partial class SettingFieldViewModel : ObservableObject
     private readonly string? _original;
 
     public SettingFieldViewModel(StationSettingDescriptor descriptor, JsonElement? value, bool configured)
+        : this(
+            descriptor.Key,
+            descriptor.Label,
+            descriptor.Help,
+            descriptor.Group.ToString(),
+            isSecret: descriptor.Type == ConfigFieldType.Secret,
+            isBoolean: descriptor.Type == ConfigFieldType.Boolean,
+            isMultiline: descriptor.Type == ConfigFieldType.Text,
+            original: Read(value),
+            configured,
+            // The station's default is a small union rather than a string, so it is matched rather
+            // than stringified: `ToString` on the record gives `OfBoolean { Value = True }`, which
+            // parses as nothing.
+            defaultIsOn: () => descriptor.Default switch
+            {
+                ConfigFieldDescriptorDefault.OfBoolean boolean => boolean.Value,
+                ConfigFieldDescriptorDefault.OfString text =>
+                    text.Value.Trim().ToLowerInvariant() is "true" or "1" or "yes" or "on",
+                ConfigFieldDescriptorDefault.OfNumber number => number.Value != 0,
+                _ => false,
+            })
     {
         ArgumentNullException.ThrowIfNull(descriptor);
 
         Descriptor = descriptor;
-        Key = descriptor.Key;
-        Label = descriptor.Label;
-        Help = descriptor.Help;
-        Group = descriptor.Group.ToString();
-        IsSecret = descriptor.Type == ConfigFieldType.Secret;
-        IsBoolean = descriptor.Type == ConfigFieldType.Boolean;
+    }
 
-        _original = Read(value);
+    /// <summary>
+    /// The same field, for a PLUGIN rather than for the station.
+    /// </summary>
+    /// <remarks>
+    /// A plugin declares its settings in the same shape the station declares its own — a key, a
+    /// label, a type, a sentence of help — so it gets the same form rather than one written again
+    /// for it. What differs is only where the declaration came from, which is why this is another
+    /// way in and not another view model.
+    /// </remarks>
+    public static SettingFieldViewModel ForPlugin(FieldSpec spec, string? value)
+    {
+        ArgumentNullException.ThrowIfNull(spec);
+
+        return new SettingFieldViewModel(
+            spec.Key,
+            spec.Label,
+            spec.Help,
+            group: string.Empty,
+            isSecret: false,
+            isBoolean: spec.Kind == FieldKind.Boolean,
+            isMultiline: spec.Kind == FieldKind.Text,
+            original: value ?? spec.Default,
+            configured: false,
+            defaultIsOn: () => IsOnText(spec.Default));
+    }
+
+    private SettingFieldViewModel(
+        string key,
+        string label,
+        string? help,
+        string group,
+        bool isSecret,
+        bool isBoolean,
+        bool isMultiline,
+        string? original,
+        bool configured,
+        Func<bool> defaultIsOn)
+    {
+        Key = key;
+        Label = label;
+        Help = help;
+        Group = group;
+        IsSecret = isSecret;
+        IsBoolean = isBoolean;
+        IsMultiline = isMultiline;
+        _defaultIsOn = defaultIsOn;
+
+        _original = original;
 
         if (IsSecret)
         {
@@ -53,7 +117,10 @@ public sealed partial class SettingFieldViewModel : ObservableObject
         Switch = IsOn(_original);
     }
 
-    public StationSettingDescriptor Descriptor { get; }
+    private readonly Func<bool> _defaultIsOn;
+
+    /// <summary>What the station said about this setting, when it came from the station.</summary>
+    public StationSettingDescriptor? Descriptor { get; }
 
     public string Key { get; }
 
@@ -68,6 +135,16 @@ public sealed partial class SettingFieldViewModel : ObservableObject
     public bool IsBoolean { get; }
 
     public bool IsText => !IsBoolean;
+
+    /// <summary>
+    /// Whether a second line is something this field can hold.
+    /// </summary>
+    /// <remarks>
+    /// A box that refuses the return key is a box whose own help text can be a lie: the BluOS
+    /// plugin's list of players says "one per line", and until this existed there was no way to
+    /// type the second one.
+    /// </remarks>
+    public bool IsMultiline { get; }
 
     public string? SecretState { get; }
 
@@ -121,27 +198,17 @@ public sealed partial class SettingFieldViewModel : ObservableObject
     {
         if (value is null)
         {
-            return DefaultIsOn();
+            return _defaultIsOn();
         }
 
         return value.Trim().ToLowerInvariant() switch
         {
             "true" or "1" or "yes" or "on" => true,
             "false" or "0" or "no" or "off" => false,
-            _ => DefaultIsOn(),
+            _ => _defaultIsOn(),
         };
     }
 
-    /// <remarks>
-    /// The default is a small union rather than a string, so it is matched rather than stringified:
-    /// `ToString` on the record gives `OfBoolean { Value = True }`, which parses as nothing.
-    /// </remarks>
-    private bool DefaultIsOn() => Descriptor.Default switch
-    {
-        ConfigFieldDescriptorDefault.OfBoolean boolean => boolean.Value,
-        ConfigFieldDescriptorDefault.OfString text =>
-            text.Value.Trim().ToLowerInvariant() is "true" or "1" or "yes" or "on",
-        ConfigFieldDescriptorDefault.OfNumber number => number.Value != 0,
-        _ => false,
-    };
+    private static bool IsOnText(string? text) =>
+        text?.Trim().ToLowerInvariant() is "true" or "1" or "yes" or "on";
 }

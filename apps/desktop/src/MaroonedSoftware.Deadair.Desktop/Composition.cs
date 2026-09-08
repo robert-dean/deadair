@@ -91,6 +91,11 @@ internal static class Composition
         // Where the station can come out. The catalog is the app's own list; the source behind it is
         // whichever plugins declared they know about somewhere to play.
         services.AddSingleton<IOutputSource>(provider => new PluginOutputSource(provider.GetRequiredService<PluginManager>()));
+        services.AddSingleton<IPluginCatalog>(provider => new RegistryPluginCatalog(
+            provider.GetRequiredService<PluginManager>(),
+            provider.GetRequiredService<OutputCatalog>(),
+            provider.GetRequiredService<ISettingsStore>()));
+
         services.AddSingleton(provider => new OutputCatalog(
             provider.GetRequiredService<IOutputSource>(),
             provider.GetRequiredService<OutputSwitch>(),

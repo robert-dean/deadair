@@ -6,6 +6,37 @@
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsView"
     x:DataType="vm:SettingsViewModel">
 
+    <UserControl.Resources>
+        <!-- One field, whoever declared it. The station's settings and a plugin's arrive in the same
+             shape and are drawn the same way; a second copy of this would be a second place for the
+             two to drift apart. -->
+        <DataTemplate x:Key="SettingField" x:DataType="vm:SettingFieldViewModel">
+            <StackPanel Spacing="3" Margin="0,0,0,10">
+                <TextBlock Text="{Binding Label}" FontSize="12" Classes="secondary" />
+
+                <CheckBox IsChecked="{Binding Switch}" IsVisible="{Binding IsBoolean}" Content="On" />
+
+                <!-- A minimum as well as a maximum. Left to size itself, an empty box is the width
+                     of nothing, which is what an unset setting looks like and is impossible to aim
+                     at; stretched, it centres itself in the card and stops lining up with its own
+                     label. -->
+                <TextBox Text="{Binding Text}" IsVisible="{Binding IsText}"
+                         AcceptsReturn="{Binding IsMultiline}"
+                         MinHeight="{Binding IsMultiline, Converter={x:Static conv:BoolToLines.Instance}}"
+                         MinWidth="320" MaxWidth="480" HorizontalAlignment="Left" />
+
+                <!-- A secret is reported as a configured-boolean and never as a value, so an empty
+                     box means leave it alone rather than clear it. -->
+                <TextBlock Text="{Binding SecretState}" Classes="dimmed" FontSize="11"
+                           IsVisible="{Binding IsSecret}" />
+
+                <TextBlock Text="{Binding Help}" Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                           MaxWidth="560" HorizontalAlignment="Left"
+                           IsVisible="{Binding Help, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            </StackPanel>
+        </DataTemplate>
+    </UserControl.Resources>
+
     <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True">
 
         <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,14">
@@ -97,6 +128,74 @@
                     </StackPanel>
                 </Border>
 
+                <!-- What this install has been given beyond what it shipped with. Above the
+                     station's settings for the same reason the appearance is: it is this machine's
+                     own, it never leaves it, and it is the half somebody who only listens can
+                     change. -->
+                <Border Classes="card" MaxWidth="900" HorizontalAlignment="Stretch" Margin="0,0,0,16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Classes="h3" Text="Extensions" />
+
+                        <TextBlock Classes="dimmed" FontSize="11" TextWrapping="Wrap"
+                                   IsVisible="{Binding !HasPlugins}"
+                                   Text="{x:Static vm:SettingsViewModel.PluginsFolder}" />
+
+                        <ItemsControl ItemsSource="{Binding Plugins}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PluginRowViewModel">
+                                    <StackPanel Spacing="6" Margin="0,0,0,18">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                            <StackPanel Spacing="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                <TextBlock Classes="dimmed" FontSize="11" Text="{Binding Origin}" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1" Classes="mono dimmed" FontSize="11"
+                                                       VerticalAlignment="Center" Text="{Binding Version}" />
+
+                                            <ToggleSwitch Grid.Column="2" IsChecked="{Binding Enabled}"
+                                                          OnContent="" OffContent="" VerticalAlignment="Center" />
+                                        </Grid>
+
+                                        <!-- Why it is not working: the plugin's own words, or the
+                                             loader's about it, and the only thing anybody has to go
+                                             on. -->
+                                        <TextBlock TextWrapping="Wrap" FontSize="11" MaxWidth="560"
+                                                   HorizontalAlignment="Left"
+                                                   IsVisible="{Binding HasProblem}"
+                                                   Text="{Binding Problem}"
+                                                   Foreground="{DynamicResource DaToneFaultBrush}" />
+
+                                        <ItemsControl ItemsSource="{Binding Fields}"
+                                                      ItemTemplate="{StaticResource SettingField}"
+                                                      IsVisible="{Binding HasFields}" />
+
+                                        <!-- The last few things it said. "Why can it not see my
+                                             speaker" is the whole diagnosis story for a device
+                                             plugin, and no status word answers it. -->
+                                        <ItemsControl ItemsSource="{Binding Log}" IsVisible="{Binding HasLog}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="x:String">
+                                                    <TextBlock Classes="mono dimmed" FontSize="10"
+                                                               TextWrapping="Wrap" Text="{Binding}" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="10"
+                                                    IsVisible="{Binding HasFields}">
+                                            <Button Classes="ghost" Content="Save"
+                                                    Command="{Binding SaveCommand}" />
+                                            <TextBlock Classes="dimmed" FontSize="11" VerticalAlignment="Center"
+                                                       Text="{Binding Notice}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
                 <!-- Everything below is drawn from what the station declares, so a setting added
                      there appears here with no code. -->
                 <ItemsControl ItemsSource="{Binding Groups}">
@@ -105,33 +204,8 @@
                             <Border Classes="card" MaxWidth="900" HorizontalAlignment="Stretch" Margin="0,0,0,16">
                             <StackPanel Spacing="8">
                                 <TextBlock Classes="h3" Text="{Binding Name}" />
-                                <ItemsControl ItemsSource="{Binding Fields}">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:SettingFieldViewModel">
-                                            <StackPanel Spacing="3" Margin="0,0,0,10">
-                                                <TextBlock Text="{Binding Label}" FontSize="12"
-                                                           Classes="secondary" />
-
-                                                <CheckBox IsChecked="{Binding Switch}" IsVisible="{Binding IsBoolean}"
-                                                          Content="On" />
-
-                                                <TextBox Text="{Binding Text}" IsVisible="{Binding IsText}"
-                                                         MaxWidth="480" HorizontalAlignment="Left" />
-
-                                                <!-- A secret is reported as a configured-boolean and
-                                                     never as a value, so an empty box means leave it
-                                                     alone rather than clear it. -->
-                                                <TextBlock Text="{Binding SecretState}" Classes="dimmed"
-                                                           FontSize="11" IsVisible="{Binding IsSecret}" />
-
-                                                <TextBlock Text="{Binding Help}" Classes="dimmed" FontSize="11"
-                                                           TextWrapping="Wrap"
-                                                           MaxWidth="560" HorizontalAlignment="Left"
-                                                           IsVisible="{Binding Help, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
+                                <ItemsControl ItemsSource="{Binding Fields}"
+                                              ItemTemplate="{StaticResource SettingField}" />
                             </StackPanel>
                             </Border>
                         </DataTemplate>

@@ -3,6 +3,7 @@ using System.Text.Json;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
+using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
@@ -57,7 +58,7 @@ internal static class Fakes
             new LibraryViewModel(actions, http),
             new HistoryViewModel(actions, http),
             new CheckupViewModel(actions, http),
-            new SettingsViewModel(actions, http, settings, new ThemeManager()),
+            new SettingsViewModel(actions, http, settings, new ThemeManager(), PosedPlugins()),
             new VoiceViewModel(actions, http),
             new ThemeManager())
         {
@@ -422,6 +423,48 @@ internal static class Fakes
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
     }
+
+    /// <summary>
+    /// Two plugins that are not installed: one working with settings to fill in, one that could not
+    /// be loaded at all.
+    /// </summary>
+    /// <remarks>
+    /// The broken one is the point. A row that could not be drawn is exactly the row somebody is
+    /// looking at the page for, and a card posed with two happy plugins would never show whether
+    /// there is room for the sentence that says what went wrong.
+    /// </remarks>
+    private static NoPluginCatalog PosedPlugins() => new(
+    [
+        new PluginInfo(
+            "deadair.bluos",
+            "BluOS players",
+            "0.1.0",
+            "Bundled",
+            Enabled: true,
+            [
+                new FieldSpec("discover", "Find players on the network", "Asks for players with a broadcast on UDP port 11430, which is how BluOS itself finds them.", FieldKind.Boolean, "true"),
+                new FieldSpec("players", "Players", "Addresses to use whether or not they were found, one per line. Port 11000 is assumed.", FieldKind.Text, null),
+                new FieldSpec("caption", "Caption on the player", "Shown as the first line on the player's own display.", FieldKind.Line, null),
+            ],
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["discover"] = "true",
+                ["players"] = "10.0.1.40",
+            },
+            Problem: null,
+            ["12:34  offering 2 player(s)", "12:34  looking for players on the network, plus 1 address written down"]),
+
+        new PluginInfo(
+            "somebody.sonos",
+            "somebody.sonos",
+            string.Empty,
+            "Installed",
+            Enabled: false,
+            [],
+            new Dictionary<string, string>(StringComparer.Ordinal),
+            Problem: "MaroonedSoftware.Sonos.dll is not in the plugin's folder; it may not have been built.",
+            []),
+    ]);
 
     /// <summary>Two speakers that are not there, so the picker has something to draw.</summary>
     private sealed class PosedOutputs : IOutputSource

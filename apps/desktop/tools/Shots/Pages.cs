@@ -37,6 +37,9 @@ internal static class Pages
         yield return ("shell-history", Page(new Destination.History(), operatorSignedIn: false), 1180, 720);
         yield return ("shell-library", Page(new Destination.Library(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-settings", Page(new Destination.Settings(), operatorSignedIn: true), 1180, 720);
+        // Taller than the app's own window, deliberately: the card is two plugins long and the
+        // second is the broken one, which is the row somebody opens this page to read.
+        yield return ("shell-settings-extensions", Extensions(), 1180, 1000);
         yield return ("shell-programme", Page(new Destination.Programme(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-checkup", Page(new Destination.Checkup(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-voice", Page(new Destination.Voice(), operatorSignedIn: true), 1180, 720);
@@ -132,6 +135,26 @@ internal static class Pages
     }
 
     /// <summary>The bar on its own, at the width it really gets, so its columns can be looked at.</summary>
+    /// <summary>
+    /// The settings page scrolled to what this install has been given.
+    /// </summary>
+    /// <remarks>
+    /// Posed with one plugin that works and one that could not be loaded, because the broken row is
+    /// the one somebody opens this page to read.
+    /// </remarks>
+    private static MainWindowContent Extensions()
+    {
+        var destination = new Destination.Settings();
+        var shell = Fakes.Shell(operatorSignedIn: true);
+
+        Fakes.PutOnAir(shell.Listener);
+        Fakes.Fill(shell, destination);
+        shell.StationSettings.AttachPlugins();
+        shell.Navigation.Show(destination);
+
+        return new MainWindowContent { Shell = shell };
+    }
+
     private static PlayerBar Bar(Action<ListenerViewModel>? pose = null)
     {
         var shell = Fakes.Shell(operatorSignedIn: false);

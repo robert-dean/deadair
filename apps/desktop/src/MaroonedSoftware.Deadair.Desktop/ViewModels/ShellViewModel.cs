@@ -156,6 +156,8 @@ public sealed partial class ShellViewModel : ObservableObject
             await _plugins.StartAsync().ConfigureAwait(true);
         }
 
+        StationSettings.AttachPlugins();
+
         // Before anything is drawn, so the window does not open in the wrong appearance and then
         // repaint. Applying System is applying nothing, which is what makes the system's own choice
         // land on the first frame.

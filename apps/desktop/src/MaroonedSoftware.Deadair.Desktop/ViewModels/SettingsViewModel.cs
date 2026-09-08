@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
+using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Themes;
@@ -60,11 +61,25 @@ public sealed partial class SettingsViewModel(
     OperatorActions actions,
     HttpClient http,
     ISettingsStore settings,
-    ThemeManager themes) : ObservableObject
+    ThemeManager themes,
+    IPluginCatalog? plugins = null) : ObservableObject
 {
     private StationUrl _station;
 
     public ObservableCollection<SettingGroupViewModel> Groups { get; } = [];
+
+    /// <summary>What this install has been given beyond what it shipped with.</summary>
+    public ObservableCollection<PluginRowViewModel> Plugins { get; } = [];
+
+    public bool HasPlugins => Plugins.Count > 0;
+
+    /// <summary>Where to put one, said only when there are none to list.</summary>
+    /// <remarks>
+    /// The path rather than a sentence about plugins in general: somebody reading this has already
+    /// decided they want one, and what they do not have is the folder.
+    /// </remarks>
+    public static string PluginsFolder { get; } =
+        $"None installed. Put one in {PluginDirectories.Default().User} and start the app again.";
 
     /// <summary>What this install looks like: the system's choice, or one made here.</summary>
     /// <remarks>
@@ -90,6 +105,39 @@ public sealed partial class SettingsViewModel(
         new(NowPlayingMountFormat.Flac, MountLabel.Name(NowPlayingMountFormat.Flac)),
         new(NowPlayingMountFormat.Hls, MountLabel.Name(NowPlayingMountFormat.Hls)),
     ];
+
+    /// <summary>Fills the extensions card, and follows the plugins as they start and stop.</summary>
+    public void AttachPlugins()
+    {
+        if (plugins is null)
+        {
+            return;
+        }
+
+        plugins.Changed += RefreshPlugins;
+        RefreshPlugins();
+    }
+
+    private void RefreshPlugins()
+    {
+        if (plugins is null)
+        {
+            return;
+        }
+
+        // Rebuilt rather than updated in place. A plugin's row is small, the list changes only when
+        // somebody presses something, and a row is the thing that carries whether its own fields
+        // have been edited — reconciling that against a fresh reading would be more code than this
+        // page has any use for.
+        Plugins.Clear();
+
+        foreach (var plugin in plugins.Plugins)
+        {
+            Plugins.Add(new PluginRowViewModel(plugin, plugins));
+        }
+
+        OnPropertyChanged(nameof(HasPlugins));
+    }
 
     public void Attach(StationUrl station)
     {

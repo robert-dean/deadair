@@ -200,6 +200,10 @@ public sealed partial class ShellViewModel : ObservableObject
         Navigation.ApplyRole(isOperator);
     }
 
+    /// <summary>Back to what is on air, from the player bar on any other page.</summary>
+    [RelayCommand]
+    private void ShowDesk() => Navigation.Show(new Nav.Destination.Desk());
+
     [RelayCommand]
     private async Task SignOutAsync(CancellationToken cancellationToken)
     {

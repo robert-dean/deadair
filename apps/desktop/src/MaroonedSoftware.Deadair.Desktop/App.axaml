@@ -6,8 +6,19 @@
 
     <Application.Styles>
         <!-- Compact, because a desk is dense: the app's density argument lives in spacing and row
-             height rather than in a smaller type scale. -->
-        <FluentTheme DensityStyle="Compact" />
+             height rather than in a smaller type scale.
+
+             The palettes are Fluent's own accent, repointed at this app's. Without them a stock
+             control draws Avalonia's blue beside the app's green — the volume thumb was the one
+             that showed it, and it is unreachable from a style: three selectors were tried against
+             it with a garish test colour and none matched, because Fluent gives the thumb a control
+             theme carrying its own brush. This is the supported lever. -->
+        <FluentTheme DensityStyle="Compact">
+            <FluentTheme.Palettes>
+                <ColorPaletteResources x:Key="Dark" Accent="#2fd98c" RegionColor="#0c0e0d" />
+                <ColorPaletteResources x:Key="Light" Accent="#0e7247" RegionColor="#f5f5f4" />
+            </FluentTheme.Palettes>
+        </FluentTheme>
         <!-- After Fluent, so a class here wins over the control theme it is narrowing. -->
         <StyleInclude Source="avares://deadair/Themes/Styles.axaml" />
     </Application.Styles>

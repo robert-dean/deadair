@@ -326,6 +326,22 @@
         <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
     </Style>
 
+    <!-- Volume. Avalonia 12's slider takes the filled half from the control's own Foreground and
+         the rest from its Background, with no named resources in between — so these two setters are
+         the whole of it, and the `/template/` selectors that looked like the answer matched nothing.
+         The colour is ink rather than the accent: the accent is for the one thing you press. -->
+    <Style Selector="Slider">
+        <Setter Property="Foreground" Value="{DynamicResource DaTextSecondaryBrush}" />
+        <Setter Property="Background" Value="{DynamicResource DaBorderBrush}" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <!-- The thumb is NOT reachable from here. Three selectors were tried against it — the Thumb
+         itself and both plausible parts of its template — and a garish test colour showed none of
+         them matching, because Fluent gives the thumb a control theme whose brush is its own. What
+         does reach it is `ColorPaletteResources` in `App.axaml`, which is Avalonia's own lever for
+         recolouring Fluent. -->
+
     <Style Selector="PathIcon">
         <Setter Property="Width" Value="16" />
         <Setter Property="Height" Value="16" />

@@ -1,0 +1,86 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:chrome="using:Avalonia.Controls.Chrome"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.Sidebar"
+    x:DataType="vm:ShellViewModel">
+
+    <!-- Bound to the SHELL rather than to the navigation, so the account entry below can reach the
+         session without a `$parent[Window]` hop. Setting DataContext on a child re-scopes every
+         binding on it, so a control that needs two view models is better given the one that owns
+         both. -->
+    <DockPanel Background="{DynamicResource DaPanelBrush}">
+        <Border DockPanel.Dock="Right" Width="1" Background="{DynamicResource DaBorderBrush}" />
+
+        <!-- The window's client area runs under the title bar, so this strip is where the traffic
+             lights sit and is the region the window is dragged by. 80px of padding is the room they
+             need; `WindowDecorationMargin` could say so exactly, but it reads as zero in a headless
+             render and the layout must not differ between what is drawn and what is looked at. -->
+        <Border DockPanel.Dock="Top" Height="38" Padding="80,0,12,0"
+                chrome:WindowDecorationProperties.ElementRole="TitleBar">
+            <TextBlock Text="deadair" FontSize="15" FontWeight="Bold" LetterSpacing="1.4"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource DaAccentBrush}" />
+        </Border>
+
+        <!-- The account. Filled in the next phase; the border is here so the sidebar's shape does
+             not change when it arrives. -->
+        <Border DockPanel.Dock="Bottom" Padding="16,12" MinHeight="56"
+                BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,1,0,0">
+            <StackPanel Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Account, FallbackValue='Not signed in'}"
+                           IsVisible="{Binding !SignedOut}" FontSize="12"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource DaTextBrush}" />
+                <TextBlock Classes="eyebrow" Text="OPERATOR" IsVisible="{Binding !SignedOut}"
+                           Foreground="{DynamicResource DaAccentBrush}" />
+                <TextBlock Classes="dimmed" Text="Sign in on the desk" IsVisible="{Binding SignedOut}" />
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Navigation.Sections}" Margin="0,6,0,0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:NavigationSectionViewModel">
+                        <StackPanel IsVisible="{Binding IsVisible}" Margin="0,10,0,0">
+                            <TextBlock Classes="eyebrow" Text="{Binding Label}" Margin="20,0,0,6" />
+
+                            <ItemsControl ItemsSource="{Binding Items}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:NavigationItemViewModel">
+                                        <Button Classes="nav" Classes.active="{Binding IsCurrent}"
+                                                IsVisible="{Binding IsVisible}"
+                                                Margin="8,0,8,2"
+                                                Command="{Binding $parent[views:Sidebar].((vm:ShellViewModel)DataContext).Navigation.GoToCommand}"
+                                                CommandParameter="{Binding}">
+                                            <!-- Fixed columns rather than Auto: every row is its own
+                                                 Grid, so an Auto column sizes to that row alone and
+                                                 the labels would start at different x positions
+                                                 depending on whether the accent bar is drawn. -->
+                                            <Grid ColumnDefinitions="3,16,*,14" ColumnSpacing="10">
+                                                <Rectangle Width="3" Height="16" RadiusX="2" RadiusY="2"
+                                                           Fill="{DynamicResource DaAccentBrush}"
+                                                           IsVisible="{Binding IsCurrent}" />
+                                                <PathIcon Grid.Column="1"
+                                                          Data="{Binding Icon, Converter={x:Static conv:IconConverter.Instance}}" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Label}"
+                                                           VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="3" Classes="mono" Text="{Binding Key}"
+                                                           FontSize="10" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+
+</UserControl>

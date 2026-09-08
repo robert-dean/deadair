@@ -10,6 +10,8 @@
     Height="720"
     MinWidth="820"
     MinHeight="520"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaTitleBarHeightHint="38"
     Background="{DynamicResource DaBgBrush}">
 
     <Panel>
@@ -18,26 +20,21 @@
         <views:SetupView DataContext="{Binding Setup}"
                          IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).NeedsStation}" />
 
-        <DockPanel IsVisible="{Binding !NeedsStation}" LastChildFill="True">
-            <views:NavRail DockPanel.Dock="Left" Width="150" DataContext="{Binding Navigation}" />
+        <Grid IsVisible="{Binding !NeedsStation}" RowDefinitions="*,Auto">
+            <Grid ColumnDefinitions="220,*">
+                <!-- Given the shell rather than the navigation: the sidebar draws the account too,
+                     and a control that needs two view models is better handed the one that owns
+                     both than made to hop back up through the window for the second. -->
+                <views:Sidebar DataContext="{Binding}" />
 
-            <Panel>
-                <views:ListenerView DataContext="{Binding Listener}"
-                                    IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsDesk}" />
-                <views:ProgrammeView DataContext="{Binding Programme}"
-                                     IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsProgramme}" />
-                <views:LibraryView DataContext="{Binding Library}"
-                                   IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsLibrary}" />
-                <views:HistoryView DataContext="{Binding History}"
-                                   IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsHistory}" />
-                <views:CheckupView DataContext="{Binding Checkup}"
-                                   IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsCheckup}" />
-                <views:VoiceView DataContext="{Binding Voice}"
-                                 IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsVoice}" />
-                <views:SettingsView DataContext="{Binding StationSettings}"
-                                    IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsSettings}" />
-            </Panel>
-        </DockPanel>
+                <!-- The pages, one at a time. Each is built once and keeps its own DataContext, so
+                     nothing inside a page has to reach the window to find its own view model. -->
+                <views:PageHost Grid.Column="1" Shell="{Binding}" />
+            </Grid>
+
+            <!-- On every page, because what is playing is not a page. -->
+            <views:PlayerBar Grid.Row="1" DataContext="{Binding Listener}" />
+        </Grid>
     </Panel>
 
 </Window>

@@ -27,7 +27,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.KeyModifiers != KeyModifiers.None || FocusManager?.GetFocusedElement() is TextBox)
+        // A Slider is not a TextBox and takes no letters, but it does take focus — so with the
+        // volume slider focused, pressing "d" would navigate to the desk mid-drag.
+        if (e.KeyModifiers != KeyModifiers.None || FocusManager?.GetFocusedElement() is TextBox or Slider)
         {
             return;
         }

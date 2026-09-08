@@ -32,34 +32,6 @@
             </Grid>
         </Border>
 
-        <!-- The transport, at the bottom where a player's controls belong. -->
-        <Border DockPanel.Dock="Bottom" Background="{DynamicResource DaPanelBrush}" Padding="20,16"
-                BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,1,0,0">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="18">
-                <Button Command="{Binding ToggleCommand}" Width="108" Padding="0,10"
-                        HorizontalContentAlignment="Center">
-                    <TextBlock Text="{Binding Playing, Converter={x:Static conv:PlayLabelConverter.Instance}}" />
-                </Button>
-
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <TextBlock Classes="mono" Text="{Binding Elapsed}" FontSize="12"
-                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
-                        <TextBlock Classes="mono" Grid.Column="2" Text="{Binding Remaining}" FontSize="12"
-                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
-                    </Grid>
-                    <!-- Sits at zero when the station could not say where the record is up to, rather
-                         than guessing from when it started. -->
-                    <ProgressBar Minimum="0" Maximum="{Binding Duration}" Value="{Binding Position}"
-                                 Height="4" Foreground="{DynamicResource DaAccentBrush}"
-                                 Background="{DynamicResource DaBorderBrush}" />
-                </StackPanel>
-
-                <TextBlock Grid.Column="2" Text="{Binding ListeningLabel}" VerticalAlignment="Center"
-                           Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
-            </Grid>
-        </Border>
-
         <!-- The desk, and the account that unlocks it. Beside what is on air rather than instead of
              it: the app is a listener that becomes a desk, not two apps sharing a window. -->
         <Border DockPanel.Dock="Right" Width="380" Padding="20"

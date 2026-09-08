@@ -60,6 +60,32 @@ public sealed class PlayLabelConverter : IValueConverter
 }
 
 
+/// <summary>What the one transport button shows.</summary>
+/// <remarks>
+/// The glyph beside <see cref="PlayLabelConverter"/>, which answers the same question in words for
+/// the system's own now-playing widget. Stop is a square rather than two bars: pausing is not what
+/// this button does, and a pause glyph would promise that it is.
+/// </remarks>
+public sealed class PlayIconConverter : IValueConverter
+{
+    public static PlayIconConverter Instance { get; } = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var key = value is true ? "DaIconStop" : "DaIconPlay";
+        var application = Avalonia.Application.Current;
+
+        return application is not null
+            && application.Resources.TryGetResource(key, application.ActualThemeVariant, out var geometry)
+                ? geometry as Geometry
+                : null;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+
 /// <summary>
 /// Draws the "runs dry at" line in a warning colour only once it is close.
 /// </summary>

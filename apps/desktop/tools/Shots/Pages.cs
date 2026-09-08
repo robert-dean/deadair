@@ -1,6 +1,9 @@
 using System.Net;
 using Avalonia.Controls;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
+using MaroonedSoftware.Deadair.Desktop.Core.Playback;
+using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
@@ -21,12 +24,32 @@ internal static class Pages
 {
     public static IEnumerable<(string Name, Control Page)> All()
     {
+        yield return ("player-bar", Bar());
+        yield return ("sidebar", Rail());
         yield return ("voice-characters", Voice(VoiceTab.Characters));
         yield return ("voice-said", Voice(VoiceTab.Said));
         yield return ("voice-segments", Voice(VoiceTab.Segments));
         yield return ("voice-productions", Voice(VoiceTab.Productions));
         yield return ("checkup", Checkup());
         yield return ("running-order", Order());
+    }
+
+    /// <summary>The sidebar, signed in, so every section and both states of an entry are in frame.</summary>
+    private static Border Rail() =>
+        new()
+        {
+            Width = 220,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+            Child = new Sidebar { DataContext = Fakes.Shell(operatorSignedIn: true) },
+        };
+
+    /// <summary>The bar on its own, at the width it really gets, so its columns can be looked at.</summary>
+    private static PlayerBar Bar()
+    {
+        var shell = Fakes.Shell(operatorSignedIn: false);
+        Fakes.PutOnAir(shell.Listener);
+
+        return new PlayerBar { DataContext = shell.Listener };
     }
 
     private static VoiceView Voice(VoiceTab tab)

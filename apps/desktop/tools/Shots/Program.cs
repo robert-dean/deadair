@@ -64,15 +64,17 @@ internal static class Program
         }
     }
 
-    private static void Save(string path, Control page)
+    private static void Save(string path, Control page) => Save(path, page, 1180, 720);
+
+    private static void Save(string path, Control page, int width, int height)
     {
         // The app's own window paints this; a shot taken without it shows every page on the
         // platform default, which is white — so a dark theme's page looked like it had a white
         // margin around it and the light theme looked whiter than it is.
         var window = new Window
         {
-            Width = 1180,
-            Height = 720,
+            Width = width,
+            Height = height,
             WindowDecorations = WindowDecorations.None,
             Content = page,
             [!TemplatedControl.BackgroundProperty] = new DynamicResourceExtension("DaBgBrush"),

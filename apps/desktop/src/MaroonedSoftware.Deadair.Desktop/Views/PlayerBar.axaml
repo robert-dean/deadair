@@ -1,0 +1,118 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.PlayerBar"
+    x:DataType="vm:ListenerViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <!--
+        The player, on every page.
+
+        It used to be the bottom of the desk, which meant that opening the Library took the transport,
+        the playhead and the lamp off the screen while the station kept playing. Every player people
+        actually use keeps this bar wherever they are, and the reason is the same one that applies
+        here: what is playing is not a page.
+    -->
+    <Border Height="84" Background="{DynamicResource DaPanelBrush}"
+            BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,1,0,0">
+        <Grid ColumnDefinitions="260,*,Auto" ColumnSpacing="24" Margin="16,0">
+
+            <!-- What is playing. -->
+            <Grid ColumnDefinitions="56,*" ColumnSpacing="12" VerticalAlignment="Center">
+                <Border Classes="art" Width="56" Height="56"
+                        BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1">
+                    <Panel>
+                        <TextBlock Text="{Binding Initial}" FontSize="22" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <Image Source="{Binding Artwork}" Stretch="UniformToFill" />
+                    </Panel>
+                </Border>
+
+                <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title, FallbackValue='Nothing on air'}" FontSize="14"
+                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource DaTextBrush}" />
+                    <TextBlock Text="{Binding Artist}" Classes="secondary" FontSize="12"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
+
+            <!-- The one control a listener has. -->
+            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="14"
+                  MaxWidth="560" VerticalAlignment="Center">
+                <!-- Stop rather than Pause, and the word is the honest one: there is no pause on a
+                     live mount, because a held connection is still an audience to the station's
+                     gate. -->
+                <Button Classes="play" Command="{Binding ToggleCommand}">
+                    <PathIcon Width="18" Height="18"
+                              Data="{Binding Playing, Converter={x:Static conv:PlayIconConverter.Instance}}" />
+                </Button>
+
+                <Panel Grid.Column="1">
+                    <!-- A playhead when the station could say where the record is up to. -->
+                    <Grid ColumnDefinitions="44,*,44" ColumnSpacing="10" IsVisible="{Binding HasPlayhead}">
+                        <TextBlock Classes="mono" Text="{Binding Elapsed}" FontSize="11"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <ProgressBar Grid.Column="1" Minimum="0" Maximum="{Binding Duration}"
+                                     Value="{Binding Position}" Height="4"
+                                     Foreground="{DynamicResource DaAccentBrush}"
+                                     Background="{DynamicResource DaBorderBrush}" />
+                        <TextBlock Grid.Column="2" Classes="mono" Text="{Binding Remaining}" FontSize="11"
+                                   VerticalAlignment="Center" HorizontalAlignment="Right"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    </Grid>
+
+                    <!-- And the word LIVE when it could not. A bar sitting at zero would read as a
+                         record that has not started rather than as a station that cannot say. -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" IsVisible="{Binding !HasPlayhead}">
+                        <TextBlock Classes="eyebrow" Text="LIVE"
+                                   Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                        <Rectangle Grid.Column="1" Height="1" VerticalAlignment="Center"
+                                   Fill="{DynamicResource DaBorderStrongBrush}" />
+                    </Grid>
+                </Panel>
+            </Grid>
+
+            <!-- Where the station is, and how loud. -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="14"
+                        HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Ellipse Classes="lamp" Classes.live="{Binding IsLive}" Width="8" Height="8"
+                             VerticalAlignment="Center"
+                             Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                    <TextBlock Text="{Binding ListeningLabel}" FontSize="12" VerticalAlignment="Center"
+                               Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                </StackPanel>
+
+                <!-- The mount, named from `mounts[]` and never by asking a mount anything. -->
+                <Border Classes="pill">
+                    <TextBlock Classes="mono" Text="{Binding FormatLabel}" FontSize="11"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                </Border>
+
+                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <PathIcon Data="{DynamicResource DaIconVolume}"
+                              Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <Slider Width="84" Minimum="0" Maximum="1" Value="{Binding Volume, Mode=TwoWay}"
+                            VerticalAlignment="Center" />
+                </StackPanel>
+
+                <Button Classes="icon" IsVisible="{Binding !$parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsDesk}"
+                        Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ShowDeskCommand}">
+                    <PathIcon Data="{DynamicResource DaIconExpand}" />
+                </Button>
+            </StackPanel>
+
+        </Grid>
+    </Border>
+
+</UserControl>

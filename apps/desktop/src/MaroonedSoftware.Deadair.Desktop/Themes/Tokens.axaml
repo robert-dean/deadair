@@ -54,6 +54,7 @@
             <Color x:Key="DaSeverityWarning">#ffb224</Color>
             <Color x:Key="DaSeverityNotice">#4c8dff</Color>
 
+
             <BoxShadows x:Key="DaHeroShadow">0 16 48 0 #8C000000</BoxShadows>
         </ResourceDictionary>
 
@@ -81,6 +82,7 @@
             <Color x:Key="DaSeverityFailure">#c81f22</Color>
             <Color x:Key="DaSeverityWarning">#97640a</Color>
             <Color x:Key="DaSeverityNotice">#1a5cba</Color>
+
 
             <BoxShadows x:Key="DaHeroShadow">0 12 32 0 #2E000000</BoxShadows>
         </ResourceDictionary>

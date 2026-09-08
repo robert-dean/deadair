@@ -20,7 +20,7 @@ app="$out/deadair.app"
 "$root/native/mac/build.sh"
 
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Frameworks" "$app/Contents/Resources"
 
 # The projects declare `osx-arm64` in Directory.Build.props, so this publish and an ordinary build
 # agree about what the lock files hold and a packaging run cannot break the next build.
@@ -38,6 +38,11 @@ cp -R "$out/publish/." "$app/Contents/MacOS/"
 # includes it, and a .app with dylibs loose in MacOS is one that fails notarisation later.
 mkdir -p "$app/Contents/Frameworks"
 cp "$root/native/mac/build/libdeadairplayer.dylib" "$app/Contents/MacOS/"
+
+# The icon is a committed .icns rather than one built here: `make-app-icon.py` needs Pillow, and a
+# packaging run should not need a Python environment to produce the same bytes every time. Rebuild it
+# by hand when the mark changes.
+cp "$here/deadair.icns" "$app/Contents/Resources/"
 
 sed "s/__VERSION__/$version/g" "$here/Info.plist.in" > "$app/Contents/Info.plist"
 

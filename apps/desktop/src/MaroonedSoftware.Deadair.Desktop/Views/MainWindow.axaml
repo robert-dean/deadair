@@ -6,6 +6,7 @@
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.MainWindow"
     x:DataType="vm:ShellViewModel"
     Title="deadair"
+    Icon="avares://deadair/Assets/logo-mark.png"
     Width="1180"
     Height="720"
     MinWidth="820"

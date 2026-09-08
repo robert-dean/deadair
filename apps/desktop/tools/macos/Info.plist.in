@@ -16,6 +16,10 @@
     <string>deadair</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <!-- Contents/Resources/deadair.icns, named without its extension because that is the key's own
+         convention. Get it wrong and macOS shows the blank document icon rather than complaining. -->
+    <key>CFBundleIconFile</key>
+    <string>deadair</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>

@@ -12,19 +12,44 @@
 
     <StackPanel Spacing="12" IsVisible="{Binding IsOperator}">
 
-        <TextBlock Text="The desk" FontWeight="SemiBold" Foreground="{DynamicResource DaTextBrush}" />
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Classes="h3" Text="The desk" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Classes="dimmed" VerticalAlignment="Center">
+                <Run Text="{Binding Queued}" />
+                <Run Text="queued" />
+            </TextBlock>
+        </Grid>
 
         <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Content="Skip" Command="{Binding SkipCommand}" IsEnabled="{Binding StreamUp}" />
-            <!-- Two presses. Stop takes the station off air, there is no undo, and it sits beside
-                 Skip. -->
-            <Button Content="{Binding StopLabel}" Command="{Binding StopCommand}" IsVisible="{Binding OnAir}" />
-            <Button Content="Start" Command="{Binding StartCommand}" IsVisible="{Binding !OnAir}" />
+            <Button Classes="ghost" Command="{Binding SkipCommand}" IsEnabled="{Binding StreamUp}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconSkip}" />
+                    <TextBlock Text="Skip" />
+                </StackPanel>
+            </Button>
+
+            <!-- Two presses, and the second is asked for in the tally colour as well as in the word:
+                 Stop takes the station off air and there is no undo. -->
+            <Button Classes="ghost" Classes.armed="{Binding IsArmed}" Command="{Binding StopCommand}"
+                    IsVisible="{Binding OnAir}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconStop}" />
+                    <TextBlock Text="{Binding StopLabel}" />
+                </StackPanel>
+            </Button>
+
+            <Button Classes="ghost" Command="{Binding StartCommand}" IsVisible="{Binding !OnAir}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconPlay}" />
+                    <TextBlock Text="Start" />
+                </StackPanel>
+            </Button>
         </StackPanel>
 
         <!-- The station's own account of why it is quiet, in the station's own words. The client
              chooses a colour and changes nothing else. -->
-        <Border IsVisible="{Binding ShowSilence}" Padding="12" CornerRadius="3"
+        <Border IsVisible="{Binding ShowSilence}" Padding="12"
+                CornerRadius="{DynamicResource DaCorner}"
                 Background="{DynamicResource DaRaisedBrush}"
                 BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1">
             <StackPanel Spacing="6">
@@ -43,11 +68,6 @@
         <TextBlock Text="{Binding NoticeText}" TextWrapping="Wrap" FontSize="12"
                    IsVisible="{Binding NoticeText, Converter={x:Static ObjectConverters.IsNotNull}}"
                    Foreground="{DynamicResource DaToneFaultBrush}" />
-
-        <TextBlock FontSize="12" Foreground="{DynamicResource DaTextDimmedBrush}">
-            <Run Text="{Binding Queued}" />
-            <Run Text="items queued" />
-        </TextBlock>
 
     </StackPanel>
 

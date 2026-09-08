@@ -58,13 +58,11 @@ internal static class Program
                 : ThemeVariant.Dark;
         }
 
-        foreach (var (name, page) in Pages.All())
+        foreach (var (name, page, width, height) in Pages.All())
         {
-            Save(Path.Combine(into, $"{name}-{appearance.ToString().ToLowerInvariant()}.png"), page);
+            Save(Path.Combine(into, $"{name}-{appearance.ToString().ToLowerInvariant()}.png"), page, width, height);
         }
     }
-
-    private static void Save(string path, Control page) => Save(path, page, 1180, 720);
 
     private static void Save(string path, Control page, int width, int height)
     {
@@ -80,10 +78,24 @@ internal static class Program
             [!TemplatedControl.BackgroundProperty] = new DynamicResourceExtension("DaBgBrush"),
         };
 
+        // The desk's operator column names the WINDOW's DataContext, deliberately: setting one on a
+        // child re-scopes every binding on it. So a shell frame has to put the shell on the window
+        // too, or those bindings silently fail and every `IsVisible` bound through them defaults to
+        // true — which is a frame showing Skip, Stop and Start at once and an empty card on a page
+        // with no operator.
+        if (page is MainWindowContent shell)
+        {
+            window.DataContext = shell.DataContext;
+        }
+
         window.Show();
 
-        // Twice, deliberately. The first pass measures and arranges; a frame captured before the
-        // second is a half-laid-out page, which looks like a bug in the page rather than in this.
+        // Three times, deliberately. The first pass measures and arranges; a frame captured before
+        // the second is a half-laid-out page, which looks like a bug in the page rather than in
+        // this. The third is for the desk, whose cover is sized in code from the room the page
+        // turned out to have — that answer only exists once a pass has run, and setting it asks for
+        // another. On screen the same settling happens across frames and is invisible.
+        Dispatcher.UIThread.RunJobs();
         Dispatcher.UIThread.RunJobs();
         Dispatcher.UIThread.RunJobs();
 

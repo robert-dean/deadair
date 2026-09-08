@@ -22,18 +22,44 @@ namespace Shots;
 /// </remarks>
 internal static class Pages
 {
-    public static IEnumerable<(string Name, Control Page)> All()
+    /// <param name="Width">The window this frame is drawn in. The default is the app's own; the
+    /// minimum is what the window may be dragged down to, which is where a layout clips.</param>
+    public static IEnumerable<(string Name, Control Page, int Width, int Height)> All()
     {
-        yield return ("player-bar", Bar());
-        yield return ("sidebar", Rail(operatorSignedIn: true));
-        yield return ("sidebar-signed-out", Rail(operatorSignedIn: false));
-        yield return ("login", SignIn());
-        yield return ("voice-characters", Voice(VoiceTab.Characters));
-        yield return ("voice-said", Voice(VoiceTab.Said));
-        yield return ("voice-segments", Voice(VoiceTab.Segments));
-        yield return ("voice-productions", Voice(VoiceTab.Productions));
-        yield return ("checkup", Checkup());
-        yield return ("running-order", Order());
+        yield return ("shell-desk", Shell(operatorSignedIn: false), 1180, 720);
+        yield return ("shell-desk-operator", Shell(operatorSignedIn: true), 1180, 720);
+        yield return ("shell-min", Shell(operatorSignedIn: true), 820, 520);
+        yield return ("player-bar", Bar(), 1180, 720);
+        yield return ("sidebar", Rail(operatorSignedIn: true), 1180, 720);
+        yield return ("sidebar-signed-out", Rail(operatorSignedIn: false), 1180, 720);
+        yield return ("login", SignIn(), 1180, 720);
+        yield return ("voice-characters", Voice(VoiceTab.Characters), 1180, 720);
+        yield return ("voice-said", Voice(VoiceTab.Said), 1180, 720);
+        yield return ("voice-segments", Voice(VoiceTab.Segments), 1180, 720);
+        yield return ("voice-productions", Voice(VoiceTab.Productions), 1180, 720);
+        yield return ("checkup", Checkup(), 1180, 720);
+        yield return ("running-order", Order(), 1180, 720);
+    }
+
+    /// <summary>
+    /// The whole window: sidebar, page and bar.
+    /// </summary>
+    /// <remarks>
+    /// The only frame that shows what this app now IS, and the only one that catches the things that
+    /// go wrong between three controls rather than inside one — a bar overflowing its column, a hero
+    /// clipping beside the operator card.
+    /// </remarks>
+    private static MainWindowContent Shell(bool operatorSignedIn)
+    {
+        var shell = Fakes.Shell(operatorSignedIn);
+        Fakes.PutOnAir(shell.Listener);
+
+        if (operatorSignedIn)
+        {
+            Fakes.PutTheDeskOnAir(shell);
+        }
+
+        return new MainWindowContent { Shell = shell };
     }
 
     /// <summary>The sidebar, signed in, so every section and both states of an entry are in frame.</summary>

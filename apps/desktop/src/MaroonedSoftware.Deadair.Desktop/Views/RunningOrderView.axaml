@@ -13,12 +13,11 @@
     <DockPanel IsVisible="{Binding IsOperator}" LastChildFill="True">
 
         <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
-            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15"
-                       Foreground="{DynamicResource DaTextBrush}" />
+<TextBlock Classes="h3" Text="{Binding Name}" />
 
             <!-- What the operator asked for, in their own words. It keeps steering every refill, so
                  it is shown rather than only accepted. -->
-            <TextBlock Text="{Binding Brief}" FontSize="12" TextWrapping="Wrap"
+            <TextBlock Text="{Binding Brief}" Classes="secondary" FontSize="12" TextWrapping="Wrap"
                        IsVisible="{Binding Brief, Converter={x:Static ObjectConverters.IsNotNull}}"
                        Foreground="{DynamicResource DaTextSecondaryBrush}" />
             <TextBlock Text="{Binding Host, StringFormat='Hosted by {0}'}" FontSize="12"
@@ -26,13 +25,13 @@
                        Foreground="{DynamicResource DaTextDimmedBrush}" />
 
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="Shuffle" Command="{Binding ShuffleCommand}" />
-                <Button Content="Extend now" Command="{Binding ExtendCommand}" />
+                <Button Classes="ghost" Content="Shuffle" Command="{Binding ShuffleCommand}" />
+                <Button Classes="ghost" Content="Extend now" Command="{Binding ExtendCommand}" />
             </StackPanel>
 
             <!-- Undo is offered only for a record. A segment is marked removed by the station and
                  cannot come back, so offering it would be offering something that cannot happen. -->
-            <Button Content="{Binding UndoLabel}" Command="{Binding UndoDropCommand}"
+            <Button Classes="ghost" Content="{Binding UndoLabel}" Command="{Binding UndoDropCommand}"
                     IsVisible="{Binding CanUndo}" HorizontalAlignment="Left" />
 
             <TextBlock Text="{Binding RunsDryLabel}" FontSize="12"
@@ -41,14 +40,14 @@
 
         <!-- A virtualising list rather than a grid: Avalonia 12 deprecates DataGrid, and an order can
              run to hundreds of rows. -->
-        <ListBox ItemsSource="{Binding Items}" Background="Transparent" BorderThickness="0">
+        <ListBox Classes="rows" ItemsSource="{Binding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:OrderItemViewModel">
                     <!-- Fixed widths on the last two columns. Every row is its own Grid, so an
                          `Auto` column sizes to that row alone: a row whose move buttons are hidden
                          gave its duration a different x from the row above, and the times marched
                          about down the list. -->
-                    <Grid ColumnDefinitions="Auto,*,52,108" ColumnSpacing="10" Margin="0,3">
+                    <Grid ColumnDefinitions="14,*,44,92" ColumnSpacing="8">
                         <Ellipse Width="7" Height="7" VerticalAlignment="Center"
                                  Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
 
@@ -67,17 +66,27 @@
                                    VerticalAlignment="Center" HorizontalAlignment="Right"
                                    Foreground="{DynamicResource DaTextDimmedBrush}" />
 
+                        <!-- Opacity rather than visibility, and a column that is always 92 wide:
+                             every row is its own Grid, so a column that collapsed when its buttons
+                             were hidden would move the duration on that row alone. -->
                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2"
-                                    HorizontalAlignment="Right" IsVisible="{Binding CanMove}">
-                            <Button Content="↑" FontSize="11" Padding="6,2"
+                                    HorizontalAlignment="Right" Opacity="{Binding CanMove, Converter={x:Static conv:MovableOpacityConverter.Instance}}"
+                                    IsHitTestVisible="{Binding CanMove}">
+                            <Button Classes="icon small"
                                     Command="{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).MoveUpCommand}"
-                                    CommandParameter="{Binding}" />
-                            <Button Content="↓" FontSize="11" Padding="6,2"
+                                    CommandParameter="{Binding}">
+                                <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconChevronUp}" />
+                            </Button>
+                            <Button Classes="icon small"
                                     Command="{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).MoveDownCommand}"
-                                    CommandParameter="{Binding}" />
-                            <Button Content="✕" FontSize="11" Padding="6,2"
+                                    CommandParameter="{Binding}">
+                                <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconChevronDown}" />
+                            </Button>
+                            <Button Classes="icon small"
                                     Command="{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).DropCommand}"
-                                    CommandParameter="{Binding}" />
+                                    CommandParameter="{Binding}">
+                                <PathIcon Width="13" Height="13" Data="{DynamicResource DaIconClose}" />
+                            </Button>
                         </StackPanel>
                     </Grid>
                 </DataTemplate>

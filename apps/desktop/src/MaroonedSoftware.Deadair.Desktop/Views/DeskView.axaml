@@ -1,0 +1,101 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.DeskView"
+    x:DataType="vm:ListenerViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <!--
+        What is on air, given the room.
+
+        The old desk gave the record a 220px thumbnail beside a 380px column of operator controls,
+        with the transport underneath, and spent about half the window on nothing. The record is the
+        thing this app is for, so it is the thing the page is: the cover at the size the window can
+        spare, the title at display size, and the desk's own controls in a card beside it when there
+        is an account to draw them for.
+
+        There is no Listen button here. The bar has the only one, on every page.
+    -->
+    <Grid ColumnDefinitions="*,Auto" Margin="{DynamicResource DaPageGutter}">
+
+        <!-- The area is stretched so its width is the COLUMN's rather than its content's, which is
+             what makes it safe to size the cover from. The hero inside is centred, so with no
+             operator card the record sits in the middle of the window rather than hard left. -->
+        <Panel x:Name="HeroArea">
+        <!-- Stretched, not centred. A Grid does not clip its children, so a centred one keeps its
+             DESIRED width and draws over whatever is beside it — which at the window's minimum was
+             the cover disappearing behind the operator card. Stretched, the words are given a real
+             width and trim into it; `MaxWidth` still centres the group when there is room to spare. -->
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="36" MaxWidth="900"
+              HorizontalAlignment="Stretch" VerticalAlignment="Center">
+
+            <!-- Square, and never rounded: a rounded cover is this app's frame around somebody
+                 else's picture. The initial shows through until the art arrives, and stays when
+                 there is none — art is hotlinked until the station caches it, so a dead upstream is
+                 ordinary rather than a fault. -->
+            <Border x:Name="Cover" Classes="art" Width="320" Height="320"
+                    BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1"
+                    BoxShadow="{DynamicResource DaHeroShadow}">
+                <Panel>
+                    <TextBlock Text="{Binding Initial}" FontSize="96" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <Image Source="{Binding Artwork}" Stretch="UniformToFill" />
+                </Panel>
+            </Border>
+
+            <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Center">
+                <!-- Wraps rather than clips: beside the operator card this row has about half the
+                     width, and three eyebrows and a lamp do not fit on one line there. -->
+                <WrapPanel ItemSpacing="10" LineSpacing="4">
+                    <Ellipse Classes="lamp" Classes.live="{Binding OnAir}" Width="8" Height="8"
+                             VerticalAlignment="Center"
+                             Fill="{Binding AirTone, Converter={StaticResource ToneBrush}}" />
+                    <TextBlock Classes="eyebrow" Text="ON AIR NOW" IsVisible="{Binding OnAir}"
+                               Foreground="{DynamicResource DaToneLiveBrush}" />
+                    <TextBlock Classes="eyebrow" Text="OFF AIR" IsVisible="{Binding !OnAir}" />
+                    <TextBlock Classes="eyebrow" Text="{Binding StationName}" />
+                    <TextBlock Classes="eyebrow" Text="{Binding ListenersLabel}" />
+                </WrapPanel>
+
+                <TextBlock Classes="display" Text="{Binding Title, FallbackValue='Nothing on air'}"
+                           TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Artist}" Classes="secondary" FontSize="17"
+                           TextWrapping="Wrap" MaxLines="2" />
+                <TextBlock Text="{Binding Album}" Classes="dimmed" TextTrimming="CharacterEllipsis" />
+
+                <!-- Off air is the ordinary resting state of an audience-gated station, so it gets a
+                     sentence saying what to do about it rather than a warning colour. -->
+                <TextBlock Classes="dimmed" TextWrapping="Wrap" IsVisible="{Binding !OnAir}"
+                           Text="The station is quiet. Press Listen and it wakes up." />
+
+                <!-- A failed poll keeps the last good answer and says it is old, rather than
+                     blanking a screen that still holds something true. -->
+                <TextBlock Text="Not answering. Showing the last reading." IsVisible="{Binding Stale}"
+                           Foreground="{DynamicResource DaToneFaultBrush}" />
+            </StackPanel>
+        </Grid>
+        </Panel>
+
+        <!-- The desk. Both the visibility and the context name the window's own DataContext, because
+             setting DataContext on a child re-scopes every binding on it — inheriting it here looks
+             right, compiles, and fails at load naming the child's type. -->
+        <Border Grid.Column="1" Classes="card" Width="360" Margin="24,0,0,0" Padding="18"
+                IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport.IsOperator}">
+            <DockPanel LastChildFill="True">
+                <views:TransportView DockPanel.Dock="Top"
+                                     DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport}" />
+                <views:RunningOrderView Margin="0,16,0,0"
+                                        DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order}" />
+            </DockPanel>
+        </Border>
+
+    </Grid>
+
+</UserControl>

@@ -7,6 +7,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.Themes;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
+using MaroonedSoftware.Deadair.Sdk.Models;
 
 namespace Shots;
 
@@ -79,6 +80,44 @@ internal static class Fakes
         listener.FormatLabel = "MP3 128 kb/s";
         listener.Volume = 0.7;
     }
+
+    /// <summary>The operator's half, posed: a running order with every state in it.</summary>
+    public static void PutTheDeskOnAir(ShellViewModel shell)
+    {
+        shell.Transport.IsOperator = true;
+        shell.Transport.OnAir = true;
+        shell.Transport.StreamUp = true;
+        shell.Transport.Queued = 6;
+
+        shell.Order.IsOperator = true;
+        shell.Order.Name = "Wednesday mornings";
+        shell.Order.Brief = "Something with guitars, nothing after 1999.";
+        shell.Order.Host = "Marla Vance";
+        shell.Order.RunsDryLabel = "Runs dry at about 13:20";
+        shell.Order.CanUndo = true;
+        shell.Order.UndoLabel = "Dropped Jeremy";
+
+        shell.Order.Items.Add(Row("Alive", "Pearl Jam", StationItemState.Airing, canMove: false));
+        shell.Order.Items.Add(Row("Talk break: Alive into Black", "", StationItemState.Handed, canMove: false, segment: true));
+        shell.Order.Items.Add(Row("Black", "Pearl Jam", StationItemState.Planned, canMove: true));
+        shell.Order.Items.Add(Row("Would?", "Alice In Chains", StationItemState.Planned, canMove: true));
+        shell.Order.Items.Add(Row("Rooster", "Alice In Chains", StationItemState.Unavailable, canMove: true));
+        shell.Order.Items.Add(Row("Nutshell", "Alice In Chains", StationItemState.Planned, canMove: true));
+    }
+
+    private static OrderItemViewModel Row(string title, string artist, StationItemState state, bool canMove, bool segment = false) =>
+        new(
+            new StationOrderItem
+            {
+                Id = Guid.NewGuid().ToString(),
+                Kind = segment ? StationOrderItemKind.Segment : StationOrderItemKind.Track,
+                State = state,
+                Title = title,
+                Artists = artist.Length == 0 ? [] : [artist],
+                DurationMs = 214_000,
+                TrackId = segment ? null : Guid.NewGuid().ToString(),
+            },
+            canMove);
 
     public static HttpClient Http() => new(new Refuses());
 

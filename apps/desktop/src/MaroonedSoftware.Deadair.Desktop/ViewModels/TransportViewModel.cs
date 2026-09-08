@@ -70,6 +70,17 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
     [ObservableProperty]
     private string _stopLabel = "Stop";
 
+    /// <summary>
+    /// Whether Stop is waiting for its second press.
+    /// </summary>
+    /// <remarks>
+    /// Beside the label rather than derived from it: a view asking "is this string 'Press again'"
+    /// would be a view that breaks when the words change, and the words are the kind of thing that
+    /// changes.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _isArmed;
+
     [ObservableProperty]
     private string? _noticeText;
 
@@ -157,10 +168,12 @@ public sealed partial class TransportViewModel : ObservableObject, IAsyncDisposa
         if (!_stop.Press())
         {
             StopLabel = "Press again";
+            IsArmed = true;
             return;
         }
 
         StopLabel = "Stop";
+        IsArmed = false;
         Busy = true;
         try
         {

@@ -153,3 +153,21 @@ public sealed class SeverityBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+
+/// <summary>Whether a running-order row's move buttons are drawn at all.</summary>
+/// <remarks>
+/// Opacity rather than visibility. Every row in a list is its own Grid, so a column that collapses
+/// when its content is hidden sizes to that row alone, and the durations march about down the page
+/// depending on which rows happen to be movable. The column stays; only the ink goes.
+/// </remarks>
+public sealed class MovableOpacityConverter : IValueConverter
+{
+    public static MovableOpacityConverter Instance { get; } = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? 1d : 0d;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

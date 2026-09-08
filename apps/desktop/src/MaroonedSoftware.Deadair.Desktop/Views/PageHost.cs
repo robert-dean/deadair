@@ -83,7 +83,7 @@ public sealed class PageHost : TransitioningContentControl
             Nav.Destination.Checkup => Page(() => new CheckupView(), shell.Checkup),
             Nav.Destination.Voice => Page(() => new VoiceView(), shell.Voice),
             Nav.Destination.Settings => Page(() => new SettingsView(), shell.StationSettings),
-            _ => Page(() => new ListenerView(), shell.Listener),
+            _ => Page(() => new DeskView(), shell.Listener),
         };
 
         // Setting the same content again would run the cross-fade over itself, which reads as a

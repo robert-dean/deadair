@@ -44,7 +44,8 @@ internal static class Pages
         yield return ("player-bar", Bar(), 1180, 720);
         yield return ("sidebar", Rail(operatorSignedIn: true), 1180, 720);
         yield return ("sidebar-signed-out", Rail(operatorSignedIn: false), 1180, 720);
-        yield return ("login", SignIn(), 1180, 720);
+        yield return ("login", SignIn(revealed: false), 1180, 720);
+        yield return ("login-revealed", SignIn(revealed: true), 1180, 720);
     }
 
     /// <summary>
@@ -95,15 +96,33 @@ internal static class Pages
         };
 
     /// <summary>The sign-in panel at the width the sidebar's flyout gives it.</summary>
-    private static Border SignIn() =>
-        new()
+    private static Border SignIn(bool revealed)
+    {
+        var login = Fakes.Shell(operatorSignedIn: false).Login;
+        login.Email = "marla@deanhome.app";
+
+        // A real one's length, so the box is shown holding what somebody actually pasted into it.
+        login.Password = "correct-horse-battery-staple";
+
+        var view = new LoginView { DataContext = login };
+
+        // After attach, not before. The panel deliberately turns the reveal off every time it is
+        // shown, so a pose set at construction is undone by the time the frame is captured — which
+        // is the tool proving the app's own rule rather than working around it.
+        if (revealed)
+        {
+            view.AttachedToVisualTree += (_, _) => view.Reveal(revealed: true);
+        }
+
+        return new Border
         {
             Width = 320,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
             Background = null,
-            Child = new LoginView { DataContext = Fakes.Shell(operatorSignedIn: false).Login },
+            Child = view,
         };
+    }
 
     /// <summary>The bar on its own, at the width it really gets, so its columns can be looked at.</summary>
     private static PlayerBar Bar()

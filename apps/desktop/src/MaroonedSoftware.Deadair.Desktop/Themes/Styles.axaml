@@ -133,7 +133,9 @@
         <Setter Property="BorderBrush" Value="{DynamicResource DaToneLiveBrush}" />
     </Style>
 
-    <Style Selector="Button.icon">
+    <!-- `:is(Button)` rather than `Button`, because an Avalonia type selector matches the exact
+         type and the reveal toggle in the password box is a ToggleButton. -->
+    <Style Selector=":is(Button).icon">
         <Setter Property="Width" Value="32" />
         <Setter Property="Height" Value="32" />
         <Setter Property="Padding" Value="0" />
@@ -143,16 +145,22 @@
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
-    <Style Selector="Button.icon /template/ ContentPresenter#PART_ContentPresenter">
+    <Style Selector=":is(Button).icon /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="Transparent" />
     </Style>
-    <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Style Selector=":is(Button).icon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
         <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
     </Style>
-    <Style Selector="Button.icon.small">
+    <Style Selector=":is(Button).icon.small">
         <Setter Property="Width" Value="26" />
         <Setter Property="Height" Value="26" />
+    </Style>
+
+    <!-- A pressed reveal keeps the raised background, so the eye reads as on rather than as hovered. -->
+    <Style Selector="ToggleButton.icon:checked /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
     </Style>
 
     <!-- The one Listen/Stop. A filled circle, as every player has, and the only control on the bar

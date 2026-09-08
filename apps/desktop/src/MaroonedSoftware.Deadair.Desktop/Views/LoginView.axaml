@@ -2,6 +2,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.LoginView"
     x:DataType="vm:LoginViewModel">
 
@@ -13,7 +14,25 @@
 
         <StackPanel Spacing="8" IsVisible="{Binding !NeedsCode}">
             <TextBox Text="{Binding Email}" PlaceholderText="you@example.com" IsEnabled="{Binding !Busy}" />
-            <TextBox Text="{Binding Password}" PasswordChar="•" PlaceholderText="Password" IsEnabled="{Binding !Busy}" />
+            <!--
+                The reveal is here because a password almost never gets TYPED into this box. No
+                password manager can fill it: the app exposes no text field to the accessibility
+                API that 1Password's autofill looks through, so the way one arrives is a paste —
+                and a pasted secret you cannot read is one you cannot check before pressing Sign in.
+
+                Copy out of a masked box is blocked by Avalonia and paste into one is not, which is
+                exactly the right way round and is why this is the whole fix rather than half of it.
+            -->
+            <TextBox x:Name="PasswordBox" Text="{Binding Password}" PasswordChar="•"
+                     PlaceholderText="Password" IsEnabled="{Binding !Busy}">
+                <TextBox.InnerRightContent>
+                    <ToggleButton x:Name="RevealToggle" Classes="icon small" Margin="0,0,4,0"
+                                  ToolTip.Tip="Show the password">
+                        <PathIcon Width="15" Height="15"
+                                  Data="{Binding #RevealToggle.IsChecked, Converter={x:Static conv:RevealIconConverter.Instance}}" />
+                    </ToggleButton>
+                </TextBox.InnerRightContent>
+            </TextBox>
         </StackPanel>
 
         <!-- The second factor is a 200 rather than an error, so this is a continuation of the same

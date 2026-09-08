@@ -197,3 +197,29 @@ public sealed class AiringBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+
+/// <summary>Which eye the reveal toggle is showing.</summary>
+/// <remarks>
+/// The icon says what pressing it does rather than what the box is currently doing, which is the way
+/// round every password field draws it: an open eye on a masked box means "show me", and a struck-out
+/// one on a revealed box means "hide it again".
+/// </remarks>
+public sealed class RevealIconConverter : IValueConverter
+{
+    public static RevealIconConverter Instance { get; } = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var key = value is true ? "DaIconEyeOff" : "DaIconEye";
+        var application = Avalonia.Application.Current;
+
+        return application is not null
+            && application.Resources.TryGetResource(key, application.ActualThemeVariant, out var geometry)
+                ? geometry as Geometry
+                : null;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

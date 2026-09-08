@@ -14,6 +14,15 @@ three phases below are kept only so the reasoning survives; do not build them. W
 changed is WHICH fact closes it — the original guess was wrong about the blocker and right about the
 outcome.
 
+**Still closed, and the desktop app now drives one anyway, 2026-09-08.** `apps/desktop` grew a
+plugin system whose only capability is an output target, and its first plugin plays the station on a
+BluOS player. Nothing in this file reopens: the plugin routes the AUDIO and the player still shows
+one line of ICY text. What it settles, measured on the same M10 on 4.16.22, is the one question this
+file left open about the `/Play` slots — the caption and the image are offered as settings, off by
+default, and documented as one-shot exactly as the probe found them. The measurements are in
+`apps/desktop/CLAUDE.md` under `Plugins: BluOS`, including the correction that a player handed a
+mount DOES report it as its `streamUrl`, which this file had never seen.
+
 **Still closed for a HARDWARE player, and routed around for a phone, 2026-09-05.** `apps/android`
 shows cover art and split title/artist/album fields, and gets none of it from the mount: it reads
 `GET /nowplaying` beside the audio and pushes the result into a `MediaSession`, so the lock screen

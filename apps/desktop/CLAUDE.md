@@ -197,6 +197,68 @@ an `MSB4018` stack trace out of `Avalonia.BuildServices.targets` with no mention
 reads as a broken toolchain. There is no opt-out property in the targets file; the answer is to build
 with the sandbox off, as with NuGet restore.
 
+## Plugins
+
+**The app loads plugins, and the only thing one can be is somewhere else to play the station.** A
+plugin finds devices and hands back an `IStationPlayer` per device; it contributes no UI, references
+no Avalonia, and never learns what a phase means. `apps/desktop/plugins/bluos` is the first and the
+worked example, and its own measurements are in `Plugins: BluOS` below.
+
+**Bundled plugins load through the same path a third-party one does, and that is the point of the
+`BundledPlugin` item in `Directory.Build.targets`.** It becomes a project reference that is built and
+never compiled against, plus a copy of the plugin's whole output under `plugins/<id>/`. If the app
+could name a type from a plugin it ships, the bundled one would work through a path nothing else uses
+and the third-party path would rot unnoticed. The PUBLISH copy is a second target on purpose: publish
+assembles its own directory and carries nothing the build put in the output one, so without it the
+app bundle ships with no plugins at all — which a successful build does not reveal.
+
+**A plugin csproj needs two properties that look like boilerplate and are not.**
+`EnableDynamicLoading` is the SDK's own switch for a library that is loaded rather than referenced:
+without it a class library leaves its packages behind and writes no `deps.json`, which is the file
+the loader's resolver reads. `IsRidAgnostic` is needed because `Directory.Build.props` declares
+`RuntimeIdentifiers` for the whole tree, which stops the SDK treating any project as
+runtime-agnostic — and the app's self-contained publish then pushes its `RuntimeIdentifier` and
+`SelfContained` down into every plugin and copies an entire runtime pack into each one's folder.
+With both, the BluOS plugin's folder in the bundle is 108KB.
+
+**The contract reference is `Private="false"`, and the loader has a shared-assembly list, and the two
+are guarding the same thing.** A type is identified by its assembly AND the context that loaded it,
+so a plugin holding its own copy of the contract implements an `IOutputTargetProvider` that is not
+the one the app asks for. What that failure looks like is a message saying a type does not implement
+an interface it visibly implements, with nothing wrong in any line of code involved. `PluginLoadContext`
+answers `null` for the contract before consulting its resolver, which sends the runtime to the app's
+own copy. `PluginLoaderTests` proves it by putting a copy of the contract beside the plugin on purpose.
+
+**Load contexts are not collectible, deliberately.** An unload takes effect only once nothing anywhere
+holds a reference, and a device player is exactly what a subscription or a pending request keeps
+alive, so a collectible context would usually fail to unload while reporting nothing. Reconfiguring a
+plugin disposes the instance and builds another from the same context, which is what an operator
+needs; replacing the plugin's CODE means restarting the app.
+
+**The manifest is a `plugin.json` beside the assembly rather than an attribute, and the ordering is
+why.** The compatibility check has to happen BEFORE the assembly is opened or it can be defeated by
+exactly the assembly it exists to keep out, and a disabled plugin's name and settings have to be
+drawable with nothing executed.
+
+**Bundled plugins are on unless somebody turns them off; plugins in
+`~/Library/Application Support/deadair/plugins` are off until somebody turns them on.** Shipping one
+is the decision to have it. That default produced the one real bug of the whole exercise: an absent
+entry in the settings file is "nobody has said", not "disabled", and reading it as the latter meant
+that saving a bundled plugin's configuration wrote `enabled: false` and switched it off in the same
+breath as a change the operator did mean.
+
+**A plugin gets its own `HttpClient` and never the station's.** The one-client rule this app is
+otherwise strict about exists to be counted as a single LISTENER; a plugin talks to a box on the
+local network, which is a different listener by design and must never be handed the station's bearer
+token. Its timeout is infinite and every plugin request carries its own deadline, because a client's
+timeout cannot be changed after its first request and no single number serves both a long poll and a
+quick command.
+
+**There is no `secret` config field type.** A secret must not go in the settings file, which means a
+text-keyed credential store and a Keychain that can hold something other than a session: real work
+for a plugin that does not exist. A plugin declaring one is refused with the type named, which is
+honest; drawing it as a text box would put a password in a JSON file in somebody's home directory.
+
 ## Plugins: BluOS
 
 **Measured against the Office M10 V2 on BluOS 4.16.22, 2026-09-08**, by
@@ -260,6 +322,64 @@ controller app on the same Mac.
 air, and it is what the amp does daily anyway. The spike always stops what it started: a player left
 streaming is a listener the station keeps counting with nothing left to stop it, which is the failure
 the plugin's own dispose exists to avoid.
+
+## Somewhere other than this Mac
+
+**Changing output is a TRANSFER and never an addition.** A network player fetching the mount is a
+listener to the station in its own right, anonymous and counted, so a moment with both playing is a
+moment the station serves two audiences for one person — and on an audience-gated station it then
+holds the mount open for five minutes for somebody who has walked away. `OutputSwitch` detaches,
+stops and drops the old target before the new one is asked for anything.
+
+**Detaching a handler is not enough by itself.** A player reports on whatever thread it likes, so an
+event can already be on its way when the handover happens, and it would arrive telling the conductor
+that the player it is now watching had stopped: a reconnect, of the wrong device, in the middle of a
+deliberate move. Each subscription knows which target it belongs to and goes quiet once that is no
+longer the current one.
+
+**A handover is warm-up, not a stall.** The conductor is handed a player that has heard nothing, so
+`TargetChanged` resets it; drawing the gap as a reconnection would describe a fault where somebody
+asked for a move.
+
+**`DesktopSettings.Volume` is THIS MACHINE's volume and nothing else.** A speaker's belongs to the
+speaker: it is shared with whoever else plays to it and a hand on its front panel moves it, so
+remembering it here would bring this Mac back at whatever the kitchen was set to. The slider writes
+through to whatever is current and writes to the file only while the output is local, and it is drawn
+DISABLED until a device has said how loud it is — one sitting at zero reads as silence rather than as
+a question nobody has answered.
+
+**Nothing ever moves playback on its own.** A device that stops answering is reported by its own
+player, which the conductor already knows what to do with. Quietly falling back to this machine would
+start the Mac's speakers unasked, in a room somebody may have left, and add a second listener while
+the first was still being counted. A device missing from a scan is drawn as missing and left playing.
+
+**A remembered device that is not there is reported and KEPT.** A speaker switched off tonight is on
+again tomorrow, and forgetting would make the app's memory depend on whether anybody happened to open
+it during the evening. It is matched by id first and address second, because a player given a new
+lease is the same speaker.
+
+**A device is never handed a station at `localhost`.** A speaker resolves an address for itself, so
+that one means nothing to it, and what the operator gets is a device playing silence — the hardest
+fault there is to read. `OutputReach` asks first and turns it into a sentence.
+
+**Discovery runs at launch, on opening the picker, and on asking it to look again. Never on a timer.**
+A scan is a broadcast plus a request to every device the operator wrote down, and between opens nobody
+is looking at the answer.
+
+**Switching a plugin off, or saving its settings, releases its device first**, so the speaker is
+stopped by the plugin that owns it while that plugin is still there to stop it. The remembered choice
+survives: the app took the plugin away for a moment, the operator did not change their mind.
+
+**The bar shows the speaker as an ICON and not a name.** The first version drew the name, capped at
+96px, and the 820px frame settled it: the bar is already full at its minimum width and the caption
+pushed the expand button off the end. The icon takes the accent when the station is playing
+elsewhere, which is the one fact somebody sitting at this machine cannot get by listening; which
+speaker is a tooltip away and a click away.
+
+**The system's now-playing widget is unchanged, and `Pause == Stop` now reads "or tell the device to
+drop it".** Two things here are unmeasured: whether macOS keeps a Now Playing entry for an app that
+is producing no audio itself, and whether Avalonia's headless renderer can capture a flyout at all
+(the picker is rendered as a control on its own on the assumption that it cannot).
 
 ## The system's own now-playing display
 
@@ -664,12 +784,13 @@ apps/desktop/tools/macos/make-app-bundle.sh
 
 About 112MB, self-contained, and unsigned — so the first launch needs a right-click and Open.
 
-**Publishing for a runtime identifier rewrites every `packages.lock.json` to name that RID**, and a
-plain restore afterwards then fails in locked mode because no project declares one. CI restores
-locked, so one packaging run breaks the next build — which is how this was found, by running the CI
-sequence rather than by reading it. The bundle script passes
-`-p:RestorePackagesWithLockFile=false -p:RestoreLockedMode=false` for that reason, and if a lock file
-ever grows an `osx-arm64` line, `dotnet restore --force-evaluate` is what takes it back out.
+**Publishing for a runtime identifier used to rewrite every `packages.lock.json` to name that RID**,
+after which a plain restore failed in locked mode because no project declared one — one packaging run
+breaking the next build, found by running the CI sequence rather than by reading it. What fixed it is
+the `RuntimeIdentifiers` line in `Directory.Build.props`: every lock file now names `osx-arm64` from
+the start, a publish changes none of them, and the bundle script needs no flags of its own. Re-checked
+2026-09-08 with the plugin projects added. If one ever does move, `dotnet restore --force-evaluate` is
+what settles it.
 
 Two publish flags are deliberately absent: `PublishTrimmed`, because the generated SDK reads JSON by
 reflection and the trimmer cannot see it, and `IncludeNativeLibrariesForSelfExtract`, which is

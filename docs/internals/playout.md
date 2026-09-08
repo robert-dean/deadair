@@ -170,6 +170,17 @@ playlist re-fetches keyed on IP and User-Agent, so a client should send ONE stab
 its requests — audio, API and artwork — or it will be counted as several listeners, or as none.
 `apps/android` is the worked example.
 
+**A client that hands playback to a network player is producing a SECOND listener, and must transfer
+rather than add.** `apps/desktop` can send the station to a BluOS speaker, and from this side that
+speaker is an ordinary anonymous listener with its own address and its own agent — so a moment with
+both the app and the speaker connected is the station serving two audiences for one person, and on an
+audience-gated station it then holds the mount for the full linger after the one nobody is at.
+The rule the desktop app enforces is that the local player stops and drops its connection BEFORE the
+device is asked to play, and that a device is really stopped when the app stops or quits: a speaker
+left streaming is a listener this station keeps counting with nothing left to end it. On HLS it is
+also the two-agents-one-client double count measured above, arriving deliberately rather than by
+accident.
+
 ## Why it is quiet
 
 **Every gate that can silence the station says so, in ONE ordered answer.** `silence.diagnosis.ts` is eleven

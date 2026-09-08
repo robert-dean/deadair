@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>MaroonedSoftware.Deadair.Desktop.PluginSdk.Fixture</RootNamespace>
+        <IsPackable>false</IsPackable>
+
+        <!--
+            The SDK's own switch for a library that is LOADED rather than referenced: without it a
+            class library leaves its packages behind and writes no deps.json, which is exactly the
+            file the loader's resolver reads to find them.
+        -->
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+
+        <!--
+            Directory.Build.props declares RuntimeIdentifiers for the whole tree, which stops the SDK
+            treating a project as runtime-agnostic. Without this line the app's self-contained
+            publish pushes its RuntimeIdentifier and SelfContained down into every plugin it
+            references and copies an entire runtime pack into each plugin's folder.
+        -->
+        <IsRidAgnostic>true</IsRidAgnostic>
+
+        <!--
+            A test name is a sentence, and these plugins exist to be named in one.
+        -->
+        <NoWarn>$(NoWarn);CA1707</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            Private false: at run time the contract is the HOST's copy, served from the app's own
+            load context so that one interface has one identity. A copy beside the plugin would be a
+            second identity waiting to be loaded by accident.
+        -->
+        <ProjectReference Include="../../src/MaroonedSoftware.Deadair.Desktop.PluginSdk/MaroonedSoftware.Deadair.Desktop.PluginSdk.csproj" Private="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+</Project>

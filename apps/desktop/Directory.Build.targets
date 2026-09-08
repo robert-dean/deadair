@@ -1,0 +1,68 @@
+<!--
+    Imported after every project under apps/desktop, which is what lets a project declare a
+    `BundledPlugin` item and have it turned into a reference plus a copy below.
+
+    Note for anyone editing: an XML comment may not contain a double hyphen, and MSBuild reports one
+    as `MSB4024 ... could not be loaded` from every project that imports the file, naming the file
+    and not the reason. Name command-line flags in prose here.
+-->
+<Project>
+
+    <!--
+        A plugin that ships inside the app.
+
+        `ReferenceOutputAssembly` false is the point of the whole arrangement: the plugin is built
+        first, but nothing in the referencing project can name a type from it, so a plugin that comes
+        with the app walks exactly the discovery, load and activation path a plugin somebody dropped
+        in later does. A compile reference would let the bundled one work while the third-party path
+        rotted unnoticed.
+
+        `Private` false keeps the plugin's assemblies out of the app's own output directory; they
+        belong under plugins/id, which the copies below do.
+    -->
+    <ItemGroup Condition="'@(BundledPlugin)' != ''">
+        <ProjectReference Include="@(BundledPlugin)"
+                          ReferenceOutputAssembly="false"
+                          Private="false"
+                          OutputItemType="BundledPluginAssembly" />
+    </ItemGroup>
+
+    <Target Name="CollectBundledPluginFiles"
+            DependsOnTargets="ResolveProjectReferences"
+            Condition="'@(BundledPlugin)' != ''">
+        <ItemGroup>
+            <!--
+                Everything the plugin's own build produced: its assembly, its deps.json naming the
+                packages it brought, those packages, and its plugin.json. The loader reads all of it.
+            -->
+            <_BundledPluginFile Include="%(BundledPluginAssembly.RootDir)%(BundledPluginAssembly.Directory)**/*"
+                                PluginId="%(BundledPluginAssembly.PluginId)" />
+        </ItemGroup>
+    </Target>
+
+    <Target Name="CopyBundledPluginsToOutput"
+            AfterTargets="CopyFilesToOutputDirectory"
+            DependsOnTargets="CollectBundledPluginFiles"
+            Condition="'@(BundledPlugin)' != ''">
+        <Copy SourceFiles="@(_BundledPluginFile)"
+              DestinationFiles="@(_BundledPluginFile->'$(OutDir)plugins/%(PluginId)/%(RecursiveDir)%(Filename)%(Extension)')"
+              SkipUnchangedFiles="true">
+            <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+        </Copy>
+    </Target>
+
+    <!--
+        The publish copy is separate rather than inherited: publish assembles its own directory and
+        does not carry anything the build put in the output one. Without this the app bundle ships
+        with no plugins at all, which is a failure nothing about a successful build would reveal.
+    -->
+    <Target Name="CopyBundledPluginsToPublish"
+            AfterTargets="Publish"
+            DependsOnTargets="CollectBundledPluginFiles"
+            Condition="'@(BundledPlugin)' != ''">
+        <Copy SourceFiles="@(_BundledPluginFile)"
+              DestinationFiles="@(_BundledPluginFile->'$(PublishDir)plugins/%(PluginId)/%(RecursiveDir)%(Filename)%(Extension)')"
+              SkipUnchangedFiles="true" />
+    </Target>
+
+</Project>

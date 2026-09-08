@@ -1,0 +1,16 @@
+{
+    "id": "deadair.fixture",
+    "name": "A plugin that exists to be loaded",
+    "version": "0.1.0",
+    "apiVersion": "^1.0.0",
+    "description": "Stands in for a real plugin so the loader can be tested against a real assembly.",
+    "capabilities": ["output-target"],
+    "entry": {
+        "assembly": "MaroonedSoftware.Deadair.Desktop.PluginSdk.Fixture.dll",
+        "type": "MaroonedSoftware.Deadair.Desktop.PluginSdk.Fixture.GoodPlugin"
+    },
+    "configFields": [
+        { "key": "greeting", "label": "Greeting", "type": "string", "default": "hello" },
+        { "key": "loud", "label": "Loud", "type": "boolean", "default": "false" }
+    ]
+}

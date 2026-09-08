@@ -484,18 +484,49 @@ key's own convention and shows the blank document icon rather than an error when
 `Assets/logo-mark.png` is the mark inside the app, which `Window.Icon` and the sidebar's title strip
 both read.
 
-Two things about the icns are not obvious and both are in the script's docstring at length. The disc
-is INSET to 858 of 1024 rather than run to the edge, because macOS draws every icon inside a shared
-grid and a mark that fills its canvas looms a size bigger than everything beside it in the dock. And
-the SOURCE IS THE MARK AT EVERY SIZE, never the `logo.png` lockup. The first version drew the lockup
-above 128px and the mark below, on the argument that a large icon has room for the arched type; what
-that actually produces is two icons wearing one name, and it trades the sizes an icon is really seen
-at — dock, switcher, menu bar — for the one nobody looks at. The mark is what survives being small,
-so it is what gets drawn. Its 192px source means every canvas from 256 up is an upscale, which holds
-because the artwork is flat colour and heavy line and because the skull fills far more of the disc
-here than it does inside the lockup. `Window.Icon` does nothing on macOS — the bundle is where a Mac
-looks — and is set because it is one line and the alternative on the platforms after this one is the
-toolkit's placeholder.
+**The icns is a full-bleed SQUARE, and the circular badge is not what a Mac draws.** macOS 26 makes
+every app icon one rounded square and supplies the mask itself; artwork that does not fill its canvas
+is set on the system's own light grey plate. So the icon is the skull lifted off the mark onto a
+field of the mark's green, edge to edge, at 72% of the canvas — wider than Apple's own proportions
+because this is one heavy silhouette rather than a detailed drawing, and at 32px in a dock the extra
+10% is the difference between a skull and a smudge. `Assets/logo-mark.png` and everything inside the
+window keep the disc, which is the right shape beside a wordmark.
+
+**Two earlier versions of this icon were wrong in the same way, and neither was visible in the
+file.** The first drew `logo.png` above 128px and the mark below, which is two icons wearing one
+name and spends the sizes an icon is actually seen at on the one nobody looks at. The second inset
+the disc to 858 of 1024, which was correct for the pre-26 grid and is now a smaller picture inside a
+grey plate. **Both looked right in the .icns and wrong on screen**, so check an icon the only way
+that answers the question: build the bundle and ask macOS what it draws for it.
+
+```bash
+swift -e 'import AppKit
+let i = NSWorkspace.shared.icon(forFile: CommandLine.arguments[1])
+let s = NSSize(width: 512, height: 512); let m = NSImage(size: s)
+m.lockFocus(); i.draw(in: NSRect(origin: .zero, size: s)); m.unlockFocus()
+try! NSBitmapImageRep(data: m.tiffRepresentation!)!.representation(using: .png, properties: [:])!
+    .write(to: URL(fileURLWithPath: CommandLine.arguments[2]))' \
+    apps/desktop/artifacts/deadair.app /tmp/icon.png
+```
+
+That renders what Finder and the Dock render, plate and mask and shadow included. `qlmanage -t` is
+the obvious alternative and hangs in a sandboxed session.
+
+**A rebuilt bundle at a path LaunchServices has already seen comes back as the blank DOCUMENT icon**,
+which looks exactly like a missing `CFBundleIconFile` and is a stale registration. Re-register it and
+the icon is there:
+
+```bash
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+    -f apps/desktop/artifacts/deadair.app
+```
+
+The grid numbers are gone from the script and are worth keeping here anyway, for anything that has to
+draw its own shape on a Mac: on a 1024 canvas the grid's square is 824 across and its circle 858,
+larger, because a circle of the square's width reads smaller than it is.
+
+`Window.Icon` does nothing on macOS — the bundle is where a Mac looks — and is set because it is one
+line and the alternative on the platforms after this one is the toolkit's placeholder.
 
 **Icons are `StreamGeometry` in `Themes/Icons.axaml`, keyed by name.** Fluent's Regular 20 set, pasted
 as path data rather than pulled in as a package, because this app draws about twenty icons and a

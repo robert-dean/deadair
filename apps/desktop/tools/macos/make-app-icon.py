@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the desktop app's icon from the console's logo.
+"""Build the desktop app's icon from the console's mark.
 
 Run after `apps/web/public/logo-mark.png` changes, from anywhere:
 
@@ -14,24 +14,26 @@ Python nor Pillow and CI packages the app without either.
 Why a script rather than a note saying "export it". Three things have to happen and each is easy to
 get subtly wrong by hand:
 
-  * The disc is INSET rather than run to the edge of the canvas. macOS draws every app icon inside
-    a shared grid so a dock of them reads as one row: for a 1024 canvas the grid's square is 824
-    across and its circle is 858, larger, because a circle of the square's width reads smaller than
-    it is. This mark is a circle, so 858 is its size and the 83 pixels of transparency around it are
-    not wasted margin — they are what stops it looming a size bigger than everything beside it.
-  * The source is `logo-mark.png`, the badge with the skull alone, at EVERY size — not the lockup
-    for the large entries and the mark for the small. An app icon is looked at in a dock, a
-    switcher and a menu bar rather than read, so the version that survives being small is the one
-    to draw at all sizes; and an icon that changed which artwork it was halfway down the scale is
-    two icons. The lockup's arched "deadair radio" is mush below about 64px anyway, which is the
-    same reason the console header and the Android launcher already drop it.
-  * That source is 192px, so every canvas from 256 up is an upscale. It holds because the mark is
-    flat colour and heavy line rather than photography, and because the skull fills far more of the
-    disc than it does inside the lockup — the drawing is bigger here before any resampling. LANCZOS
-    from 192 still beats handing macOS a smaller entry and letting it scale that.
+  * The icon is a FULL-BLEED SQUARE and not the circular badge. macOS 26 draws every app icon as one
+    rounded square and supplies that mask itself; artwork that does not fill its canvas is set on the
+    system's own light grey plate instead. That is what the first version of this icon did — a green
+    disc floating on grey, inset and washed out beside everything else in the dock — and it was
+    written here as a virtue, because the pre-26 grid really did work that way. Asking `NSWorkspace`
+    what it draws for a BUILT BUNDLE is how it was caught, and it is the only honest check: what the
+    .icns holds and what a Mac shows are two different pictures.
+  * So the skull is LIFTED off the mark and set on a field of the mark's own green, which the system
+    then cuts to its rounded square. Lifted rather than cropped, because the badge's ring of green
+    and the square's corners are the same colour and a crop would leave the disc's edge inside the
+    art. Same keying as the Android launcher, down to the sampled green and the tolerance.
+  * It sits at 72% of the canvas. Apple's own proportions are nearer 62 and that is what most icons
+    use, including the ones this was compared against; this one is a single heavy silhouette rather
+    than a detailed drawing, and at 32px in a dock the extra 10% is the difference between a skull
+    and a smudge. The headphones still clear the mask. Both were rendered through the real mask and
+    looked at before choosing, which is the only way this question can be answered.
 
 It also copies the mark into the app's `Assets/`, where `Window.Icon` and the sidebar's title strip
-read it from. That is a second copy of a file the console already has, which is the same trade
+read it — those keep the circular badge, which is the right shape inside a window and beside a
+wordmark. That is a second copy of a file the console already has, which is the same trade
 `apps/android` makes: the alternative is a build step reaching across the tree into a directory this
 solution deliberately does not know about.
 """
@@ -48,7 +50,9 @@ MARK = os.path.join(ROOT, 'apps/web/public/logo-mark.png')
 ICNS = os.path.join(ROOT, 'apps/desktop/tools/macos/deadair.icns')
 ASSETS = os.path.join(ROOT, 'apps/desktop/src/MaroonedSoftware.Deadair.Desktop/Assets')
 
-DISC = 858 / 1024  # the icon grid's circle, as a fraction of the canvas
+GREEN = (47, 217, 140)  # the mark's field, sampled rather than chosen. The launcher's own value.
+FIELD_TOLERANCE = 60    # colour distance beyond which a pixel is not the field
+SKULL_WIDTH = 0.72      # of the canvas
 
 # The names iconutil expects. A size appears twice when it is both a 2x of one point size and the 1x
 # of the next; the file is written twice and is identical, which is what the format wants.
@@ -66,24 +70,37 @@ ENTRIES = [
 ]
 
 
-def render(mark, canvas):
-    """The disc at the grid's size, centred on a transparent canvas of `canvas` pixels."""
-    diameter = round(canvas * DISC)
-    disc = mark.resize((diameter, diameter), Image.LANCZOS)
-    out = Image.new('RGBA', (canvas, canvas), (0, 0, 0, 0))
-    offset = (canvas - diameter) // 2
-    out.paste(disc, (offset, offset))
+def lift_skull(mark):
+    """The drawing alone: everything in the badge that is not its field, at its own bounds."""
+    width, height = mark.size
+    px = mark.load()
+    xs, ys = [], []
+    for y in range(height):
+        for x in range(width):
+            r, g, b, a = px[x, y]
+            if a >= 40 and abs(r - GREEN[0]) + abs(g - GREEN[1]) + abs(b - GREEN[2]) > FIELD_TOLERANCE:
+                xs.append(x)
+                ys.append(y)
+    return mark.crop((min(xs), min(ys), max(xs) + 1, max(ys) + 1))
+
+
+def render(skull, canvas):
+    """The skull centred on a field of the mark's green, filling the canvas edge to edge."""
+    out = Image.new('RGBA', (canvas, canvas), GREEN + (255,))
+    width = round(canvas * SKULL_WIDTH)
+    height = max(1, round(skull.size[1] * width / skull.size[0]))
+    out.alpha_composite(skull.resize((width, height), Image.LANCZOS), ((canvas - width) // 2, (canvas - height) // 2))
     return out
 
 
 def main():
-    mark = Image.open(MARK).convert('RGBA')
+    skull = lift_skull(Image.open(MARK).convert('RGBA'))
 
     with tempfile.TemporaryDirectory() as tmp:
         iconset = os.path.join(tmp, 'deadair.iconset')
         os.mkdir(iconset)
         for name, size in ENTRIES:
-            render(mark, size).save(os.path.join(iconset, name))
+            render(skull, size).save(os.path.join(iconset, name))
         subprocess.run(['iconutil', '--convert', 'icns', '--output', ICNS, iconset], check=True)
     print(f'wrote {ICNS}')
 

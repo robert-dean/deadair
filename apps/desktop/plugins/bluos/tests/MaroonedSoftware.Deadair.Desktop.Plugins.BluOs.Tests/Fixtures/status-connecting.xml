@@ -1,0 +1,17 @@
+<!--
+    The seconds after a /Play with a url, from the same probe's AFTER reading: secs back to zero,
+    state connecting, and the station re-filed from TuneIn to a raw https stream.
+
+    UNMEASURED, and the spike is what settles it: whether streamUrl is present at all on this path.
+    The probe recorded it only for the hand-added station. It is absent here, which is the guess the
+    phase table's `Absent` row is written against; if the real player sends the bare URL, this file
+    and that row both change.
+-->
+<status etag="9a3d0011">
+    <image>https://radio.robertdean.dev/art.jpg</image>
+    <service>https</service>
+    <title1>Deadair</title1>
+    <secs>0</secs>
+    <state>connecting</state>
+    <volume>18</volume>
+</status>

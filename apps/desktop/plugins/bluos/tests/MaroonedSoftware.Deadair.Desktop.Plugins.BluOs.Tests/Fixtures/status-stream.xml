@@ -1,0 +1,19 @@
+<!--
+    The M10 V2 playing the station, built from the reading quoted in
+    docs/todo/now-playing-displays.md: the station added by hand as a custom URL, which BluOS files
+    under TuneIn, with the whole flattened ICY line in title2.
+-->
+<status etag="4e8b1a2c">
+    <image>http://cdn-radiotime-logos.tunein.com/s0q.png</image>
+    <service>TuneIn</service>
+    <serviceType>RadioService</serviceType>
+    <stationImage>http://cdn-radiotime-logos.tunein.com/s0q.png</stationImage>
+    <streamFormat>MP3 128 kb/s</streamFormat>
+    <streamUrl>TuneIn:https://radio.deanhome.app/live.mp3</streamUrl>
+    <title1>Deadair</title1>
+    <title2>Warren G, Nate Dogg - Regulate</title2>
+    <secs>692</secs>
+    <state>stream</state>
+    <volume>18</volume>
+    <syncStat>5</syncStat>
+</status>

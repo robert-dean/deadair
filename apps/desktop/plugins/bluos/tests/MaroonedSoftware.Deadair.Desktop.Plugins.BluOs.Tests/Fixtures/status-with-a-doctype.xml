@@ -1,0 +1,4 @@
+<!DOCTYPE status [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>
+<status etag="1">
+    <state>&xxe;</state>
+</status>

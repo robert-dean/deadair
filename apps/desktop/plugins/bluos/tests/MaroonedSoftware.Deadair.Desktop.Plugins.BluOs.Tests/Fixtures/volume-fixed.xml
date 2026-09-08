@@ -1,0 +1,5 @@
+<!--
+    A player whose volume is not ours to set, on a fixed-output input. -1 means "there is no volume
+    here", which is a different fact from zero and must not be drawn as silence.
+-->
+<volume db="0" mute="0" offsetDb="0" etag="7">-1</volume>

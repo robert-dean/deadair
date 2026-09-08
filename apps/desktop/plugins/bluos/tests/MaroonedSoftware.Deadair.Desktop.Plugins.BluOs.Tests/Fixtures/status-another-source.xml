@@ -1,0 +1,14 @@
+<!--
+    Somebody put a record on through the BluOS app. From our seat the player is not ours, whatever
+    it says it is doing. The spec's own §2.1 example, which is a Deezer track, paused.
+-->
+<status etag="14">
+    <album>Sky Blue Sky</album>
+    <artist>Wilco</artist>
+    <name>Impossible Germany</name>
+    <service>Deezer</service>
+    <streamUrl>Deezer:142986206</streamUrl>
+    <secs>31</secs>
+    <state>pause</state>
+    <volume>4</volume>
+</status>

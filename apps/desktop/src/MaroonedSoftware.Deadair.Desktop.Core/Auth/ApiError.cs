@@ -49,6 +49,51 @@ public static class ApiError
         return null;
     }
 
+    /// <summary>
+    /// The station's own name for what went wrong, out of `WWW-Authenticate`.
+    /// </summary>
+    /// <remarks>
+    /// The station distinguishes several rejections that all arrive as a 401 — `invalid_grant`,
+    /// `invalid_challenge`, `invalid_factor` — and the status alone cannot tell them apart. Reading
+    /// this is the difference between telling somebody their code was wrong and telling them their
+    /// sign-in has expired, which are different things to do next.
+    /// </remarks>
+    public static string? AuthError(SdkException failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+
+        var challenge = failure.ResponseHeaders?.WwwAuthenticate;
+        if (challenge is null)
+        {
+            return null;
+        }
+
+        foreach (var value in challenge)
+        {
+            var parameter = value.Parameter;
+            if (parameter is null)
+            {
+                continue;
+            }
+
+            const string Marker = "error=\"";
+            var start = parameter.IndexOf(Marker, StringComparison.Ordinal);
+            if (start < 0)
+            {
+                continue;
+            }
+
+            start += Marker.Length;
+            var end = parameter.IndexOf('"', start);
+            if (end > start)
+            {
+                return parameter[start..end];
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Whether the token is gone or invalid, which is the one thing a refresh can fix.</summary>
     public static bool IsInvalidToken(SdkException failure)
     {
@@ -83,21 +128,7 @@ public static class ApiError
 
         // The other spelling of the same thing, from the `WWW-Authenticate` header the API exposes
         // through CORS for the browser's benefit and sends to everybody.
-        var challenge = failure.ResponseHeaders?.WwwAuthenticate;
-        if (challenge is null)
-        {
-            return false;
-        }
-
-        foreach (var value in challenge)
-        {
-            if (value.Parameter?.Contains("error=\"mfa_required\"", StringComparison.Ordinal) == true)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return AuthError(failure) == "mfa_required";
     }
 
     /// <summary>Whether the account simply does not hold the permission.</summary>

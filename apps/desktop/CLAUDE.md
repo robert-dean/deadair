@@ -375,6 +375,23 @@ than predicted costs an operator an extra extend, and one that runs out earlier 
 station going quiet. The twenty-minute warning threshold caught its own test fixture, which was
 fifteen minutes long and therefore already short.
 
+## The second factor, and the bug that taught it
+
+**A challenge lists EVERY enrolled factor, in enrolment order, and only the authenticator can be
+answered here.** Taking the first entry works right up until an account has an email or phone factor
+enrolled before its authenticator, at which point the station refuses the code as `invalid_factor` —
+and it refuses every code, forever, for that account. Filter by method, as the web console does.
+
+**Three rejections arrive as one status, and the station names them in `WWW-Authenticate`.**
+`invalid_grant` is a wrong code, `invalid_challenge` is a sign-in that has expired, and
+`invalid_factor` is the client sending the wrong method id. Reporting all three as "that code was not
+accepted" is what made the bug above so hard to see: the only message the operator could get was the
+one that ruled out the actual cause, and it invited them to keep retyping a code that was correct.
+
+**The lesson is about the message rather than the filter.** The filter was one line and the wrong
+sentence cost the diagnosis. A client that cannot distinguish its own failure modes hands the person
+in front of it a false lead.
+
 ## What is verified against a real station, and what is not
 
 The listener half is measured against the live station: it plays, it polls, and the phases are in

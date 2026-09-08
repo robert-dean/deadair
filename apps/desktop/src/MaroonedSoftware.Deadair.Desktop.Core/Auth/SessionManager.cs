@@ -116,7 +116,15 @@ public sealed class SessionManager : IDisposable
         }
         catch (SdkException failure) when (failure.Status is 400 or 401)
         {
-            return new SignInResult.BadCredentials();
+            // Three rejections arrive as one status, and the station names them in
+            // `WWW-Authenticate`. Collapsing them into "not accepted" is what made a wrong method id
+            // look exactly like a mistyped code.
+            return ApiError.AuthError(failure) switch
+            {
+                "invalid_challenge" => new SignInResult.ChallengeExpired(),
+                "invalid_factor" => new SignInResult.FactorRefused(),
+                _ => new SignInResult.BadCredentials(),
+            };
         }
         catch (SdkException failure)
         {

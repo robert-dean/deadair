@@ -31,8 +31,27 @@ public sealed class FakeTransport : HttpMessageHandler
     /// <summary>Makes sign-in answer the second-factor arm, which is a 200.</summary>
     public bool RequiresSecondFactor { get; set; }
 
+    /// <summary>
+    /// The factors that challenge lists, so a test can put a non-authenticator first.
+    /// </summary>
+    /// <remarks>
+    /// The order is the account's ENROLMENT order on a real station, which is why it is worth being
+    /// able to set: the app must pick by method rather than by position.
+    /// </remarks>
+    public string ChallengeFactorsJson { get; set; } =
+        """[{ "method": "authenticator", "method_id": "totp-1", "kind": "knowledge" }]""";
+
     /// <summary>Makes `GET /auth/session` refuse, as it does for an account holding no role.</summary>
     public bool SessionIsForbidden { get; set; }
+
+    /// <summary>
+    /// Makes the token endpoint refuse with one of the station's named errors.
+    /// </summary>
+    /// <remarks>
+    /// The name goes in `WWW-Authenticate`, which is where the station puts it and the only place the
+    /// three 401s can be told apart.
+    /// </remarks>
+    public (string Error, HttpStatusCode Status)? TokenRefusal { get; set; }
 
     /// <summary>How many token exchanges have happened.</summary>
     public int Exchanges => _exchanges;
@@ -78,19 +97,24 @@ public sealed class FakeTransport : HttpMessageHandler
 
     private HttpResponseMessage Token(string? body)
     {
+        if (TokenRefusal is { } refusal)
+        {
+            var refused = new HttpResponseMessage(refusal.Status) { Content = new StringContent("{}") };
+            refused.Headers.TryAddWithoutValidation("WWW-Authenticate", $"Bearer error=\"{refusal.Error}\"");
+            return refused;
+        }
+
         var isRefresh = body?.Contains("grant_type=refresh_token", StringComparison.Ordinal) == true;
         var isPassword = body?.Contains("grant_type=password", StringComparison.Ordinal) == true;
 
         if (RequiresSecondFactor && isPassword)
         {
-            return Json("""
+            return Json($$"""
                 {
                   "result": "mfa_required",
                   "challenge_id": "c_0193f2a1",
                   "expires_at": "2026-09-07T18:41:00.000Z",
-                  "factors": [
-                    { "method": "authenticator", "method_id": "f_1", "kind": "knowledge" }
-                  ]
+                  "factors": {{ChallengeFactorsJson}}
                 }
                 """);
         }

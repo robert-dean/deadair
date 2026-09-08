@@ -15,7 +15,17 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 public sealed partial class LoginViewModel(SessionManager session) : ObservableObject
 {
     private string? _challengeId;
-    private IReadOnlyList<MfaChallengeFactor> _factors = [];
+
+    /// <summary>
+    /// The factor the code will be sent against.
+    /// </summary>
+    /// <remarks>
+    /// The AUTHENTICATOR, chosen out of the challenge rather than taken as its first entry. A
+    /// challenge lists every enrolled factor in enrolment order, and sending a code with another
+    /// one's method id is refused as `invalid_factor` — which at the keyboard is indistinguishable
+    /// from a mistyped code, and was.
+    /// </remarks>
+    private MfaChallengeFactor? _factor;
 
     [ObservableProperty]
     private string _email = string.Empty;
@@ -48,7 +58,7 @@ public sealed partial class LoginViewModel(SessionManager session) : ObservableO
         {
             var result = NeedsCode
                 ? await session.CompleteSecondFactorAsync(
-                    Email, _challengeId!, _factors[0].MethodId, Code, cancellationToken).ConfigureAwait(true)
+                    Email, _challengeId!, _factor!.MethodId, Code, cancellationToken).ConfigureAwait(true)
                 : await session.SignInAsync(Email, Password, cancellationToken).ConfigureAwait(true);
 
             switch (result)
@@ -63,16 +73,45 @@ public sealed partial class LoginViewModel(SessionManager session) : ObservableO
                 case SignInResult.SecondFactorNeeded challenge:
                     // A 200 rather than an error. The password step is done and the panel becomes a
                     // code box, keeping the email so nobody retypes it.
+                    var usable = ChallengeFactors.Authenticators(challenge.Factors);
+                    if (usable.Count == 0)
+                    {
+                        // The account's second factor is something this app cannot answer. Saying so
+                        // beats a code box that would refuse every code.
+                        Problem = "This account's second factor is not one this app can complete yet. "
+                            + "Sign in on the web console.";
+                        break;
+                    }
+
                     _challengeId = challenge.ChallengeId;
-                    _factors = challenge.Factors;
+                    _factor = usable[0];
                     Password = string.Empty;
                     NeedsCode = true;
                     break;
 
                 case SignInResult.BadCredentials:
                     Problem = NeedsCode
-                        ? "That code was not accepted."
+                        ? "That code was not accepted. Check your authenticator and try the next one."
                         : "That email and password were not accepted.";
+                    break;
+
+                case SignInResult.ChallengeExpired:
+                    // Not a wrong code: there is nothing left to answer, so the code box goes away
+                    // rather than inviting another attempt that cannot work.
+                    Problem = "That sign-in took too long and has expired. Start again.";
+                    NeedsCode = false;
+                    Code = string.Empty;
+                    _challengeId = null;
+                    _factor = null;
+                    break;
+
+                case SignInResult.FactorRefused:
+                    Problem = "The station would not accept that authenticator for this sign-in. "
+                        + "Start again, and tell Robert if it keeps happening.";
+                    NeedsCode = false;
+                    Code = string.Empty;
+                    _challengeId = null;
+                    _factor = null;
                     break;
 
                 case SignInResult.Unsupported unsupported:
@@ -98,5 +137,6 @@ public sealed partial class LoginViewModel(SessionManager session) : ObservableO
         Code = string.Empty;
         Problem = null;
         _challengeId = null;
+        _factor = null;
     }
 }

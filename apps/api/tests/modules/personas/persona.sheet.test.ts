@@ -236,6 +236,43 @@ describe('matchesDictionMarker', () => {
         });
     });
 
+    // The boundary excludes `'` from a word, which is what stops a bare "you" matching inside
+    // "you're" — and it also stopped `lawn` matching "my lawn's scar" on the live station, refusing a
+    // break for carrying none of the vocabulary it had just used. The record-name half of the same
+    // bug is what `saysName` carries.
+    describe('a marker in the possessive', () => {
+        it('counts the singular possessive', () => {
+            expect(matchesDictionMarker('lawn', "I hear a memory of my lawn's scar")).toBe(true);
+        });
+
+        it('counts the plural possessive after an inflection', () => {
+            expect(matchesDictionMarker('grey', "the greys' own paperwork")).toBe(true);
+        });
+
+        it('counts a curly possessive, which is what a model actually writes', () => {
+            expect(matchesDictionMarker('lawn', 'the lawn\u2019s scar is still there')).toBe(true);
+        });
+
+        it('still refuses a different word that merely starts the same way', () => {
+            expect(matchesDictionMarker('you', "Young bands' records do this")).toBe(false);
+            expect(matchesDictionMarker('aye', "The player's set was cut short")).toBe(false);
+        });
+    });
+
+    // A sheet is typed with a hyphen-minus and a model reaches for U+2011 or an en dash. Measured on
+    // the live station: `conspiracy` wrote `nineteen ninety\u2011seven` and was refused for carrying
+    // none of its own vocabulary, against a marker list holding that exact phrase.
+    describe('a typographic dash', () => {
+        it('matches a marker the sheet typed with a plain hyphen', () => {
+            expect(matchesDictionMarker('nineteen ninety-seven', 'the echoes of nineteen ninety\u2011seven')).toBe(true);
+            expect(matchesDictionMarker('nineteen ninety-seven', 'the echoes of nineteen ninety\u2013seven')).toBe(true);
+        });
+
+        it('matches the other way round, for a sheet typed with one', () => {
+            expect(matchesDictionMarker('nineteen ninety\u2011seven', 'the echoes of nineteen ninety-seven')).toBe(true);
+        });
+    });
+
     it('ignores a blank marker rather than matching everything', () => {
         expect(matchesDictionMarker('   ', 'anything at all')).toBe(false);
     });

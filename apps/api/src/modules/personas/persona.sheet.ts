@@ -734,6 +734,26 @@ const CURLY_APOSTROPHES = /[‘’ʼ′]/g;
 const straightenApostrophes = (text: string): string => text.replace(CURLY_APOSTROPHES, "'");
 
 /**
+ * Every character a writer might use where the sheet wrote a plain `-`.
+ *
+ * {@link CURLY_APOSTROPHES}' problem in the other punctuation mark, and it bites the same way round: a
+ * sheet is typed by hand with a hyphen-minus and a model reaches for a non-breaking hyphen or an en
+ * dash. Measured on the live station, `conspiracy` wrote `nineteen ninety‑seven` with U+2011 and had
+ * the break refused for carrying none of its own vocabulary, twice in three days, against a marker
+ * list whose fifth entry is that exact phrase.
+ */
+const TYPOGRAPHIC_DASHES = /[‐‑‒–—−]/g;
+
+/**
+ * A text with both punctuation marks put back to what a sheet is typed with.
+ *
+ * One helper rather than three call sites, so a mark handled for the markers cannot be missed for the
+ * catchphrases and the forbidden wording: all three compare a hand-typed list against a model's
+ * output, and all three had the same exposure.
+ */
+const asTyped = (text: string): string => straightenApostrophes(text).replace(TYPOGRAPHIC_DASHES, '-');
+
+/**
  * Endings a marker may pick up and still be the same word.
  *
  * Whole-word matching refused `ambitiously` under a sheet whose marker is `ambitious`, which is the
@@ -749,6 +769,21 @@ const straightenApostrophes = (text: string): string => text.replace(CURLY_APOST
 const MARKER_INFLECTIONS = ['ing', 'es', 'ed', 'ly', 'er', 's', 'd'] as const;
 
 /**
+ * The possessive a marker may pick up and still be the same word.
+ *
+ * The boundary below excludes `'` from a word, which is what stops a bare "you" matching inside
+ * "you're" — and it also stopped `lawn` matching "my lawn's scar", so a break naming the one thing
+ * this character never stops naming was refused for carrying none of its vocabulary. It is the same
+ * bug `saysName` carries the record-name half of, where 27 of 43 breaks refused for naming nothing
+ * had named a record in the possessive.
+ *
+ * Both endings, because English has two: `'s` for the singular and a bare `'` after a plural. It goes
+ * AFTER the inflection rather than instead of it, so "the greys'" is the marker plus a plural plus a
+ * possessive and still counts.
+ */
+const POSSESSIVE = "(?:'s|')";
+
+/**
  * Whether a marker appears in `text`, case-insensitively.
  *
  * A marker ending in an apostrophe ("in'") matches as a word SUFFIX, so every dropped-g verb counts
@@ -759,15 +794,17 @@ const MARKER_INFLECTIONS = ['ing', 'es', 'ed', 'ly', 'er', 's', 'd'] as const;
  * Both sides are straightened first, because a curly apostrophe is the same word said the same way.
  */
 export function matchesDictionMarker(marker: string, text: string): boolean {
-    const needle = straightenApostrophes(marker.trim().toLowerCase());
+    const needle = asTyped(marker.trim().toLowerCase());
     if (needle.length === 0) return false;
 
     const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     // An apostrophe is a word character to no regex engine, so a trailing one needs its own
     // boundary: preceded by letters, followed by a non-letter. A marker that already carries one is
     // a suffix rule of its own and takes no inflection on top.
-    const pattern = needle.endsWith("'") ? `[a-z]${escaped}(?![a-z])` : `(?<![a-z'])${escaped}(?:${MARKER_INFLECTIONS.join('|')})?(?![a-z'])`;
-    return new RegExp(pattern).test(straightenApostrophes(text.toLowerCase()));
+    const pattern = needle.endsWith("'")
+        ? `[a-z]${escaped}(?![a-z])`
+        : `(?<![a-z'])${escaped}(?:${MARKER_INFLECTIONS.join('|')})?${POSSESSIVE}?(?![a-z'])`;
+    return new RegExp(pattern).test(asTyped(text.toLowerCase()));
 }
 
 /**
@@ -778,10 +815,8 @@ export function matchesDictionMarker(marker: string, text: string): boolean {
  * are in {@link matchesDictionMarker}.
  */
 export function catchphrasesIn(catchphrases: readonly string[] | undefined, script: string): string[] {
-    const text = straightenApostrophes(script.toLowerCase());
-    return cleanList(catchphrases, PERSONA_SHEET_LIMITS.catchphrases).filter(phrase =>
-        text.includes(straightenApostrophes(phrase.trim().toLowerCase())),
-    );
+    const text = asTyped(script.toLowerCase());
+    return cleanList(catchphrases, PERSONA_SHEET_LIMITS.catchphrases).filter(phrase => text.includes(asTyped(phrase.trim().toLowerCase())));
 }
 
 /** The distinct markers a script carries. Its length is what a caller judges. */
@@ -857,11 +892,11 @@ export function keepsCharacter(sheet: PersonaSheet, script: string): boolean {
  * that wrote "buckle up" still catches "buckle  up" across a line break.
  */
 function containsPhrase(phrase: string, text: string): boolean {
-    const needle = straightenApostrophes(phrase.trim().toLowerCase());
+    const needle = asTyped(phrase.trim().toLowerCase());
     if (needle.length === 0) return false;
 
     const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-    return new RegExp(`(?<![a-z'])${escaped}(?![a-z'])`).test(straightenApostrophes(text.toLowerCase()));
+    return new RegExp(`(?<![a-z'])${escaped}(?![a-z'])`).test(asTyped(text.toLowerCase()));
 }
 
 /**

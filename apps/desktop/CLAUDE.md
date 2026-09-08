@@ -197,6 +197,70 @@ an `MSB4018` stack trace out of `Avalonia.BuildServices.targets` with no mention
 reads as a broken toolchain. There is no opt-out property in the targets file; the answer is to build
 with the sandbox off, as with NuGet restore.
 
+## Plugins: BluOS
+
+**Measured against the Office M10 V2 on BluOS 4.16.22, 2026-09-08**, by
+`plugins/bluos/spikes/BluOsSpike`, which is kept in the solution for the reason `PlayerSpike` is:
+it is how this is re-measured, and half of what it tells you comes from a firmware that moves under
+everybody. Read [`docs/todo/now-playing-displays.md`](../../docs/todo/now-playing-displays.md)
+first; it is the earlier probe of the same amp and it closed the DISPLAY half of this permanently.
+
+```bash
+dotnet run --project apps/desktop/plugins/bluos/spikes/BluOsSpike -- https://radio.deanhome.app
+```
+
+**A player handed a mount reports that mount, and this corrects the earlier probe's biggest gap.**
+`/Play?url=` produces `service=https` and `streamUrl=https://radio.deanhome.app/live.mp3`, the bare
+URL, from the moment it is asked rather than from the moment it plays. The probe had only ever seen
+a `streamUrl` for a station added through the controller app, where it arrives prefixed
+(`TuneIn:https://…`), so `BluOsPhase.Match` looks for the mount INSIDE the value and both readings
+answer `Ours`. The phase table's "did not say" row survives as a defensive one: reading silence as
+"not ours" would report a player that IS playing the station as stopped.
+
+**`pause` does not mean somebody pressed pause.** When the station's stream stopped arriving the
+M10 went to `pause` with `secs` frozen, not to `stop` — so the word covers a hand on a remote and a
+stream that died, and nothing on this side can tell them apart. Both are `Stopped` here, which is
+right for both: the conductor's answer to a stop nobody asked for is to try again, which is what the
+second case wants and is harmless in the first.
+
+**Warm-up is about seven seconds and it is all `connecting`.** Six seconds of `connecting`, one
+`stream` with `secs=0`, then `secs` climbing. On an audience-gated station those seconds ARE the
+station — the lease, the first record, the encoder — which is why the plugin reports `Opening` and
+`Buffering` through them and never a failure.
+
+**A long poll returns at its timeout with the same etag, and `secs` is not part of the etag.** Sixty
+seconds in, the position had gone from 12 to 73 and the tag had not moved. So a long poll that
+answers nothing new is the ordinary case, not a fault, and the warm-up stretch has to be polled
+plainly: the transition that matters there is `secs` leaving zero, which by construction will not
+wake a long poll.
+
+**`/Play` against the URL already playing really is inert**, as the probe found: `secs` kept
+climbing 75 → 78 with no reconnect. That is why `BluOsPlayPlan.StopFirst` exists, and why it is a
+CONDITION rather than an unconditional stop — the host re-calls `PlayAsync` after a poll failure
+too, and a player streaming perfectly well while a status request timed out must not be interrupted
+to prove it.
+
+**`/Volume?level=` answers with the new level**, so the setter needs no read-back.
+
+**The status lags the command.** `/Stop` answered `stop` and the `/Status` immediately after it still
+said `stream`. A watcher that read the next status as the truth would report a stop as having
+failed; the player reports `Stopped` from the command itself.
+
+**The same player writes its own address in two cases.** `/SyncStatus` gives `90:56:82:00:BC:99` and
+the LSDP announcement gives `90:56:82:00:bc:99`. Nothing compares them today, and anything that ever
+does has to fold the case first. The device's id comes from LSDP, which is also where the port comes
+from — every player is on 11000 except a CI580, whose four zones are on 11000, 11010, 11020 and
+11030.
+
+**UDP 11430 bound with `ReuseAddress` on the first try**, so the fallback to an ephemeral port and a
+unicast-reply query is written and UNMEASURED. What would exercise it is running the BluOS
+controller app on the same Mac.
+
+**Connecting the amp is a listener arriving**, which on an audience-gated station is what puts it on
+air, and it is what the amp does daily anyway. The spike always stops what it started: a player left
+streaming is a listener the station keeps counting with nothing left to stop it, which is the failure
+the plugin's own dispose exists to avoid.
+
 ## The system's own now-playing display
 
 **It only works from a bundled application.** A plain `dotnet run` has no bundle identifier, so macOS

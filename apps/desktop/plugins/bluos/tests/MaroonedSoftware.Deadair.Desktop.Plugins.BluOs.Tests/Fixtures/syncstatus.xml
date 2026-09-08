@@ -1,9 +1,10 @@
 <!--
-    The spec's §2.2 shape, filled in for the player this was written against.
+    MEASURED: the Office M10 V2 on BluOS 4.16.22, 2026-09-08.
 
-    UNMEASURED: brand, model and modelName are what the M10 V2 is EXPECTED to answer, and the spike
-    prints the real ones. The names of the attributes are spec-backed; their values here are not.
+    Note the two cases of the same address. SyncStatus writes the mac in upper case and LSDP
+    announces the node id in lower, so anything that ever compared the two would have to fold the
+    case first. The device's id comes from LSDP, which is the one that is stable across a reboot.
 -->
-<SyncStatus icon="/images/players/M10V2_nt.png" volume="18" modelName="M10 V2" model="M10V2"
-            brand="NAD" name="Living Room" mac="90:56:82:0e:1b:00" id="10.0.1.36:11000"
+<SyncStatus icon="/images/players/M10V2_nt.png" volume="20" modelName="M10 V2" model="M10v2"
+            brand="NAD" name="Office" mac="90:56:82:00:BC:99" id="192.168.1.234:11000"
             initialized="true" etag="23" />

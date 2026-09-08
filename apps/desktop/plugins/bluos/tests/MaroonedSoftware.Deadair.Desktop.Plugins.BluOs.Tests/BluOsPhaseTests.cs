@@ -61,6 +61,12 @@ public sealed class BluOsPhaseTests
     /// <summary>
     /// There is no Paused phase, and this is where its absence is felt. A paused player still holds
     /// the connection and is still an audience, so the honest report is that we are not listening.
+    ///
+    /// Measured on the M10: when the station's stream stopped arriving the player went to `pause`
+    /// with its position frozen rather than to `stop`, so this word covers a hand on a remote and a
+    /// stream that died, and nothing here can tell them apart. Stopped is right for both, and the
+    /// conductor's answer to a stop nobody asked for is to try again, which is what the second case
+    /// wants.
     /// </summary>
     [Fact]
     public void PausedIsStoppedBecauseThereIsNoPauseOnALiveMount()
@@ -68,13 +74,14 @@ public sealed class BluOsPhaseTests
         var status = BluOsPhase.From("pause", 40, StreamMatch.Ours);
 
         Assert.Equal(PlayerPhase.Stopped, status.Phase);
-        Assert.Contains("paused", status.Detail, StringComparison.Ordinal);
+        Assert.Contains("not playing it", status.Detail, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// The guess this plugin is most exposed on, and the spike is what settles it: the probe never
-    /// recorded a streamUrl after a /Play with a URL. Until it does, an absent one is taken as ours,
-    /// because the alternative would report a player that IS playing the station as stopped.
+    /// Settled by the spike on 2026-09-08, in the reassuring direction: the M10 reports the bare
+    /// mount as its streamUrl after a /Play with a url, so this row is now defensive rather than the
+    /// expected case. It stays because the alternative reading, that a player which did not say is
+    /// not ours, would report a player that IS playing the station as stopped.
     /// </summary>
     [Fact]
     public void APlayerThatDidNotSayWhatItIsPlayingIsTakenAtItsWord()

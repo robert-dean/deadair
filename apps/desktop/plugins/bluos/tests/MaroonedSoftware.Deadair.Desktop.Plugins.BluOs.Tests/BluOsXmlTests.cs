@@ -38,7 +38,10 @@ public sealed class BluOsXmlTests
 
         Assert.Equal("connecting", status.State);
         Assert.Equal(0, status.Secs);
-        Assert.Null(status.StreamUrl);
+
+        // Present here, which the earlier probe had never seen and the spike measured: the player
+        // names the mount from the moment it is asked for it, not from the moment it plays it.
+        Assert.Equal("https://radio.deanhome.app/live.mp3", status.StreamUrl);
     }
 
     [Fact]
@@ -71,12 +74,15 @@ public sealed class BluOsXmlTests
     {
         var sync = BluOsXml.ParseSyncStatus(Fixture("syncstatus.xml"));
 
-        Assert.Equal("Living Room", sync.Name);
+        Assert.Equal("Office", sync.Name);
         Assert.Equal("NAD", sync.Brand);
-        Assert.Equal("M10V2", sync.Model);
+        Assert.Equal("M10v2", sync.Model);
         Assert.Equal("M10 V2", sync.ModelName);
-        Assert.Equal("90:56:82:0e:1b:00", sync.Mac);
-        Assert.Equal(18, sync.Volume);
+        Assert.Equal(20, sync.Volume);
+
+        // Upper case here and lower in the LSDP announcement, from the same player. Anything that
+        // ever compared the two would have to fold the case first; the device's id comes from LSDP.
+        Assert.Equal("90:56:82:00:BC:99", sync.Mac);
     }
 
     [Fact]
@@ -119,6 +125,22 @@ public sealed class BluOsXmlTests
     public void SomethingThatIsNotXmlAtAllThrowsRatherThanAnswersNonsense()
     {
         Assert.Throws<XmlException>(() => BluOsXml.ParseStatus("<status"));
+    }
+
+    /// <summary>
+    /// The same player reached the other way. Handed a mount by this plugin it answers with the bare
+    /// URL and a service of `https`; added through the controller app it answers with a TuneIn
+    /// prefix. Both have to read as the station.
+    /// </summary>
+    [Fact]
+    public void ReadsAPlayerThisPluginStartedRatherThanTheControllerApp()
+    {
+        var status = BluOsXml.ParseStatus(Fixture("status-stream-measured.xml"));
+
+        Assert.Equal("stream", status.State);
+        Assert.Equal("https", status.Service);
+        Assert.Equal("https://radio.deanhome.app/live.mp3", status.StreamUrl);
+        Assert.Equal(7, status.Secs);
     }
 
     private static string Fixture(string name) =>

@@ -87,7 +87,12 @@ public static class BluOsPhase
             // paused player still holds the connection and is still an audience, so the honest
             // report is that we are not listening; the conductor's answer to a stop it did not ask
             // for is to start again, which is what somebody who pressed play wants.
-            "pause" => new PlayerStatus(PlayerPhase.Stopped, "the player is paused"),
+            //
+            // The detail does not say somebody paused it, because measurement says that is often
+            // not what happened: when the station's stream died under the M10 it went to `pause`
+            // with its position frozen, not to `stop`. So `pause` covers both a hand on a remote and
+            // a stream that stopped arriving, and the two are indistinguishable from here.
+            "pause" => new PlayerStatus(PlayerPhase.Stopped, "the player is not playing it (paused, or the stream stopped arriving)"),
 
             "connecting" => new PlayerStatus(PlayerPhase.Opening),
 

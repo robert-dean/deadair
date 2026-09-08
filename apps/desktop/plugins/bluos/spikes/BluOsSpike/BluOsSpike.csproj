@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>BluOsSpike</RootNamespace>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            The plugin, and Core for the phase policy and the mount rules. A spike is not a plugin
+            and does not pretend to be one: it is the app's side of the seam, run by hand against a
+            real player.
+        -->
+        <ProjectReference Include="../../src/MaroonedSoftware.Deadair.Desktop.Plugins.BluOs/MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.csproj" />
+        <ProjectReference Include="../../../../src/MaroonedSoftware.Deadair.Desktop.Core/MaroonedSoftware.Deadair.Desktop.Core.csproj" />
+    </ItemGroup>
+
+</Project>

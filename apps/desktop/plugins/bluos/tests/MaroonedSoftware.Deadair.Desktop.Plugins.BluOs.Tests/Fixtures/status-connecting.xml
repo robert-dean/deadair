@@ -1,17 +1,18 @@
 <!--
-    The seconds after a /Play with a url, from the same probe's AFTER reading: secs back to zero,
-    state connecting, and the station re-filed from TuneIn to a raw https stream.
+    The seconds after a /Play with a url. MEASURED against the Office M10 V2 on BluOS 4.16.22,
+    2026-09-08: connecting, secs zero, and the station re-filed from TuneIn to a raw https stream.
 
-    UNMEASURED, and the spike is what settles it: whether streamUrl is present at all on this path.
-    The probe recorded it only for the hand-added station. It is absent here, which is the guess the
-    phase table's `Absent` row is written against; if the real player sends the bare URL, this file
-    and that row both change.
+    It carries a streamUrl, and that settles the guess this file used to be written on. The earlier
+    probe had only ever seen one for a station added through the controller app, so the phase table
+    was written to treat an absent streamUrl as ours; the player reports the bare URL on this path
+    too, so that row is now defensive rather than expected. It stayed at `connecting` for six
+    seconds against a station that had to wake up.
 -->
-<status etag="9a3d0011">
-    <image>https://radio.robertdean.dev/art.jpg</image>
+<status etag="85acf97831f85c80aec3b20377a4012e">
     <service>https</service>
+    <streamUrl>https://radio.deanhome.app/live.mp3</streamUrl>
     <title1>Deadair</title1>
     <secs>0</secs>
     <state>connecting</state>
-    <volume>18</volume>
+    <volume>20</volume>
 </status>

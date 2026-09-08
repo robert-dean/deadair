@@ -1,0 +1,16 @@
+<!--
+    MEASURED: the Office M10 V2 playing the station through a /Play with a url, 2026-09-08.
+
+    The difference from status-stream.xml, which is the same player reached through the controller
+    app's own TuneIn entry: service is `https` rather than `TuneIn`, and streamUrl is the bare mount
+    rather than a prefixed one. Both have to read as ours.
+-->
+<status etag="271d74c59070bc27c74c067970cfdfc0">
+    <service>https</service>
+    <streamUrl>https://radio.deanhome.app/live.mp3</streamUrl>
+    <title1>Deadair</title1>
+    <title2>Aerosmith - Dream On</title2>
+    <secs>7</secs>
+    <state>stream</state>
+    <volume>20</volume>
+</status>

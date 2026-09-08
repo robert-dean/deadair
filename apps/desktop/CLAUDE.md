@@ -481,16 +481,21 @@ the mark changes, and what it writes is committed — so `make-app-bundle.sh` ne
 packages the app without one. It writes two things. `tools/macos/deadair.icns` is the bundle's icon,
 copied into `Contents/Resources` and named by `CFBundleIconFile` WITHOUT its extension, which is that
 key's own convention and shows the blank document icon rather than an error when it is wrong. And
-`Assets/logo-mark.png` is the mark inside the app, which `Window.Icon` and the sidebar's title strip
-both read.
+`Assets/logo-mark.png` is the mark inside the app, which `Window.Icon` reads.
 
 **The icns is a full-bleed SQUARE, and the circular badge is not what a Mac draws.** macOS 26 makes
 every app icon one rounded square and supplies the mask itself; artwork that does not fill its canvas
 is set on the system's own light grey plate. So the icon is the skull lifted off the mark onto a
 field of the mark's green, edge to edge, at 72% of the canvas — wider than Apple's own proportions
 because this is one heavy silhouette rather than a detailed drawing, and at 32px in a dock the extra
-10% is the difference between a skull and a smudge. `Assets/logo-mark.png` and everything inside the
-window keep the disc, which is the right shape beside a wordmark.
+10% is the difference between a skull and a smudge. `Assets/logo-mark.png` keeps the disc, which is
+the shape the mark was drawn as.
+
+**The sidebar's title strip is the WORDMARK alone, and the mark was tried there and taken out.** The
+console's header carries both and this app is the same app, so the pairing looked obviously right;
+on a 38px strip beside the traffic lights it reads as clutter rather than as identity, because the
+strip is already crowded by the 80px the window's buttons need. The icon says which app this is
+before the window is even open.
 
 **Two earlier versions of this icon were wrong in the same way, and neither was visible in the
 file.** The first drew `logo.png` above 128px and the mark below, which is two icons wearing one
@@ -527,6 +532,40 @@ larger, because a circle of the square's width reads smaller than it is.
 
 `Window.Icon` does nothing on macOS — the bundle is where a Mac looks — and is set because it is one
 line and the alternative on the platforms after this one is the toolkit's placeholder.
+
+**The macOS menu bar said "Avalonia Application", and the fix is two separate levers.**
+`Name="deadair"` on the `Application` in `App.axaml` is the app name for every platform-specific
+purpose, and it is what renames the menu itself and the Hide item; nothing else reaches them, and
+`CFBundleName` in the Info.plist does NOT — it was already correct while the menu still said
+Avalonia. That leaves "About Avalonia", which Avalonia puts in the app menu when nothing else claims
+it, and the second lever is a `NativeMenu.Menu` on the Application: an item there REPLACES the
+built-in About rather than sitting beside it. The system's Services, Hide, Show All and Quit are
+appended below whatever is there and are not ours to write.
+
+The one item in it is Settings, on ⌘, because that is the only place macOS users look for it. A
+`NativeMenu` has no visual parent to inherit a DataContext from, so `App.OnFrameworkInitializationCompleted`
+sets the Application's to the shell for that binding and nothing else — every window still sets its
+own. An unbound `Command` leaves a native item DISABLED rather than failing, so a menu item that is
+greyed out is a binding that did not resolve.
+
+**There is still no Edit or Window menu, and that is a known gap rather than an oversight.** ⌘C/⌘V
+work anyway, because Avalonia's own `PlatformHotkeyConfiguration` handles them inside its text
+controls rather than through AppKit's menu key equivalents — which also means an Edit menu carrying
+those gestures would TAKE them first, so adding one is a change that can break working paste and
+needs testing rather than a quick win. Avalonia 12 has no menu-role API, so every item would be
+hand-wired to `TextBox.Cut/Copy/Paste/SelectAll` against the focused element.
+
+**Check the menu bar by asking macOS, not by reading the XAML.** The app has to be RUNNING and the
+answers come out of the accessibility API, which needs Accessibility permission for the terminal:
+
+```bash
+osascript -e 'tell application "System Events" to tell process "deadair" \
+    to get name of every menu item of menu 1 of menu bar item 2 of menu bar 1'
+```
+
+`menu bar item 1` is Apple's. Add `value of attribute "AXMenuItemCmdChar"` for an item's key
+equivalent and `enabled of menu item` to prove a Command bound. This works against a plain
+`dotnet run`, which is a far faster loop than rebuilding the bundle.
 
 **Icons are `StreamGeometry` in `Themes/Icons.axaml`, keyed by name.** Fluent's Regular 20 set, pasted
 as path data rather than pulled in as a package, because this app draws about twenty icons and a

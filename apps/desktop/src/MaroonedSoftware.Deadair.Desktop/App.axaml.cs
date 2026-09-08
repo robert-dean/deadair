@@ -28,6 +28,11 @@ public partial class App : Application
 
             desktop.MainWindow = new MainWindow { DataContext = shell };
 
+            // For the native menu in App.axaml and nothing else. A NativeMenu has no visual parent,
+            // so it cannot inherit the window's; windows still set their own and none of them read
+            // this.
+            DataContext = shell;
+
             // Everything that needs the station address, a settings file or a first reading happens
             // here rather than in a constructor, so the window is on screen while it happens.
             _ = shell.StartAsync();

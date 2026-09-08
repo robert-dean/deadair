@@ -105,6 +105,12 @@ public sealed partial class NavigationViewModel : ObservableObject
         Show(item.Entry.Destination);
     }
 
+    /// <summary>
+    /// Settings, for the macOS app menu, which cannot pass a sidebar item to <see cref="GoTo"/>.
+    /// </summary>
+    [RelayCommand]
+    public void ShowSettings() => Show(new Destination.Settings());
+
     public void Show(Destination destination)
     {
         Current = destination;

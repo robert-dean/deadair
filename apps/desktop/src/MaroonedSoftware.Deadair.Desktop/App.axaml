@@ -1,7 +1,9 @@
 <Application
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
     x:Class="MaroonedSoftware.Deadair.Desktop.App"
+    Name="deadair"
     RequestedThemeVariant="Default">
 
     <Application.Styles>
@@ -22,6 +24,27 @@
         <!-- After Fluent, so a class here wins over the control theme it is narrowing. -->
         <StyleInclude Source="avares://deadair/Themes/Styles.axaml" />
     </Application.Styles>
+
+    <!--
+        The macOS application menu.
+
+        `Name` above is what stops the menu bar, the Hide item and the Dock saying "Avalonia
+        Application": it is the app name for every platform-specific purpose and there is no other
+        lever for it. Supplying a NativeMenu here is the second half — Avalonia puts its own "About
+        Avalonia" in this menu when nothing else claims it, and an item here REPLACES that rather
+        than sitting beside it. The system's Services, Hide, Show All and Quit are added below
+        whatever is here and are not ours to write.
+
+        Settings is the one item macOS users reach for by muscle memory, and ⌘, is the only place it
+        can be. It binds through the App's DataContext, which `App.OnFrameworkInitializationCompleted`
+        sets to the shell for exactly this: a native menu has no visual parent to inherit one from.
+    -->
+    <NativeMenu.Menu>
+        <NativeMenu x:DataType="vm:ShellViewModel">
+            <NativeMenuItem Header="Settings…" Gesture="Cmd+OemComma"
+                            Command="{Binding Navigation.ShowSettingsCommand}" />
+        </NativeMenu>
+    </NativeMenu.Menu>
 
     <Application.Resources>
         <ResourceDictionary>

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Themes;
@@ -26,6 +27,12 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly SessionManager _session;
     private readonly ThemeManager _themes;
 
+    /// <summary>
+    /// Optional so that a shot can build a shell without one. Nothing about a rendered page needs
+    /// plugins, and a shot that started them would go looking for speakers on somebody's network.
+    /// </summary>
+    private readonly PluginManager? _plugins;
+
     public ShellViewModel(
         ISettingsStore settings,
         SessionManager session,
@@ -41,7 +48,8 @@ public sealed partial class ShellViewModel : ObservableObject
         CheckupViewModel checkup,
         SettingsViewModel stationSettings,
         VoiceViewModel voice,
-        ThemeManager themes)
+        ThemeManager themes,
+        PluginManager? plugins = null)
     {
         _settings = settings;
         _session = session;
@@ -58,6 +66,7 @@ public sealed partial class ShellViewModel : ObservableObject
         StationSettings = stationSettings;
         Voice = voice;
         _themes = themes;
+        _plugins = plugins;
 
         Setup.Connected += (station, name) => _ = AttachAsync(station, name);
         Login.SignedIn += () => ApplySession();
@@ -139,6 +148,13 @@ public sealed partial class ShellViewModel : ObservableObject
     public async Task StartAsync()
     {
         await _settings.LoadAsync().ConfigureAwait(true);
+
+        // After the settings and before anything asks a plugin for anything: which plugins run is a
+        // decision kept in that file, so starting them first would start the wrong ones.
+        if (_plugins is not null)
+        {
+            await _plugins.StartAsync().ConfigureAwait(true);
+        }
 
         // Before anything is drawn, so the window does not open in the wrong appearance and then
         // repaint. Applying System is applying nothing, which is what makes the system's own choice

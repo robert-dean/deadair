@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>MaroonedSoftware.Deadair.Desktop.Plugins.BluOs</RootNamespace>
+
+        <!--
+            The SDK's own switch for a library that is LOADED rather than referenced: without it a
+            class library leaves its packages behind and writes no deps.json, which is the file the
+            host's resolver reads to find them.
+        -->
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+
+        <!--
+            Directory.Build.props declares RuntimeIdentifiers for the whole tree, which stops the SDK
+            treating a project as runtime-agnostic. Without this line the app's self-contained
+            publish pushes its RuntimeIdentifier and SelfContained down into this build and copies an
+            entire runtime pack into the plugin's folder.
+        -->
+        <IsRidAgnostic>true</IsRidAgnostic>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--
+            The contract, and nothing else. No Core, no generated SDK, no Avalonia: a plugin that
+            reached into the app would be a plugin nobody else could write.
+
+            Private false: at run time the contract is the HOST's copy, served from the app's own
+            load context so one interface has one identity. A copy beside this assembly would be a
+            second identity waiting to be loaded by mistake.
+        -->
+        <ProjectReference Include="../../../../src/MaroonedSoftware.Deadair.Desktop.PluginSdk/MaroonedSoftware.Deadair.Desktop.PluginSdk.csproj" Private="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+</Project>

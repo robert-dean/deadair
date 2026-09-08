@@ -1,0 +1,40 @@
+{
+    "id": "deadair.bluos",
+    "name": "BluOS players",
+    "version": "0.1.0",
+    "apiVersion": "^1.0.0",
+    "description": "Plays the station on a Bluesound, NAD or Dali player on this network.",
+    "capabilities": ["output-target"],
+    "entry": {
+        "assembly": "MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.dll",
+        "type": "MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.BluOsPlugin"
+    },
+    "configFields": [
+        {
+            "key": "discover",
+            "label": "Find players on the network",
+            "type": "boolean",
+            "default": "true",
+            "help": "Asks for players with a broadcast on UDP port 11430, which is how BluOS itself finds them. Turn it off on a network that blocks broadcasts and list the players below instead."
+        },
+        {
+            "key": "players",
+            "label": "Players",
+            "type": "text",
+            "placeholder": "10.0.1.36\nkitchen.local:11000",
+            "help": "Addresses to use whether or not they were found, one per line. Port 11000 is assumed."
+        },
+        {
+            "key": "caption",
+            "label": "Caption on the player",
+            "type": "string",
+            "help": "Shown as the first line on the player's own display. It is set once when playback starts and then stays, so it should say something that is true all evening: the station's name rather than anything about a record."
+        },
+        {
+            "key": "logo",
+            "label": "Logo on the player",
+            "type": "url",
+            "help": "An absolute image address the player can reach, shown beside the caption. Set once with the caption, and left alone after that."
+        }
+    ]
+}

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <RootNamespace>MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.Tests</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../src/MaroonedSoftware.Deadair.Desktop.Plugins.BluOs/MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            Answers a real player gave, kept as files rather than as strings in a test. A generator
+            can be perfectly happy about a wire name that is wrong, and the only thing that settles
+            what a device really sends is what it really sent.
+        -->
+        <None Include="Fixtures/*.xml" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
+</Project>

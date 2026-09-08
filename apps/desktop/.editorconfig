@@ -88,7 +88,11 @@ insert_final_newline = true
 # CA1707 wants those underscores gone, which would leave one unreadable run-on per test. The Kotlin
 # listener has the same names with backticks around them, which C# does not offer, so the rule is off
 # HERE and nowhere else — a public API with an underscore in it is still wrong.
-[tests/**/*.cs]
+#
+# Both patterns, because a plugin keeps its tests beside itself rather than in the tree's own tests
+# folder: `plugins/bluos/tests` is as much a test project as `tests` is, and a rule that reached one
+# and not the other would be about where a file sits rather than about what is in it.
+[{tests,**/tests}/**/*.cs]
 dotnet_diagnostic.CA1707.severity = none
 
 # CA1000 objects to `Reading<T>.Empty` and `Reading<T>.Good(...)`. The alternative it wants is a

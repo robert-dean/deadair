@@ -1845,10 +1845,12 @@ const cuesWrongly = (script: string, guard: AnswerGuard): boolean => guard.cues 
  * ## It answers the WORD, and that is the whole of why it is not a boolean
  *
  * Both checks already know which word they caught, and this threw it away for as long as it returned
- * `true`. What that cost is a question nobody could answer from the record: `contradictsDayPart` can
- * only ever fire on four strings — `tonight`, `this morning`, `this afternoon`, `this evening` — and
- * "which of the four, how often" is the difference between a sheet with one habit and a model with a
- * general problem. On the live station `conspiracy` sent a third of its breaks to the floor for
+ * `true`. What that cost is a question nobody could answer from the record: `contradictsDayPart`
+ * fires on one of four dayparts, and "which one, how often" is the difference between a sheet with
+ * one habit and a model with a general problem. It answers the wording the SCRIPT used rather than
+ * the table's, which is a second reason the word has to travel: since `DAYPART_CLAIMS`, "the
+ * morning" and "good evening" are both things it can catch and neither is a phrase the table
+ * carries. On the live station `conspiracy` sent a third of its breaks to the floor for
  * months with this fault among the leaders, and finding out which word did it meant reading raw
  * answers by hand, one at a time, only while `llm.captureWrites` happened to be on.
  *

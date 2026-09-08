@@ -248,6 +248,39 @@ describe('contradictsDayPart', () => {
     it('refuses a morning called the afternoon, which is the same crossing the other way', () => {
         expect(contradictsDayPart('Settling into this afternoon nicely.', morning)).toBe('this afternoon');
     });
+
+    // What the table's phrasing could not see. The bulletin that aired opened "Breaking the morning
+    // air" at 17:33 with `airs_at` set, so this is not the never-told bargain: `saysTime` is
+    // `includes`, the table carries "this morning", and no search for the one finds the other.
+    describe('on a daypart the script named without the table’s determiner', () => {
+        it('refuses the afternoon called the morning, which is the bulletin that went out', () => {
+            expect(contradictsDayPart('Breaking the morning air on Deadair with new information.', afternoon)).toBe('the morning');
+        });
+
+        it('refuses a morning greeted as the evening', () => {
+            expect(contradictsDayPart('Good evening, my friends.', morning)).toBe('good evening');
+        });
+
+        it('answers the words the script used, not the table’s, so an operator reads what was written', () => {
+            // The row says `it said "the morning"`, which is the phrase to go and look for. The
+            // table's "this morning" would send them hunting for something the model never wrote.
+            expect(contradictsDayPart('That morning feeling, on Deadair.', afternoon)).toBe('that morning');
+        });
+
+        it('still permits the stretch it was told, however the script phrased it', () => {
+            expect(contradictsDayPart('The morning air, on Deadair.', morning)).toBeUndefined();
+        });
+
+        it('asks nothing of a daypart noun with no determiner in front of it', () => {
+            // A passing mention rather than a claim about now: the break is not telling anybody what
+            // time it is, and refusing it would cost a good sentence for a word it did not mean.
+            expect(contradictsDayPart('They recorded the whole thing in one morning.', afternoon)).toBeUndefined();
+        });
+
+        it('leaves tonight matching bare, which is the word with no determiner to take', () => {
+            expect(contradictsDayPart('Tonight we are back to back.', morning)).toBe('tonight');
+        });
+    });
 });
 
 describe('timeClaimIn', () => {

@@ -840,7 +840,9 @@ const HOSTS = [
         // **The claim that "none of these words trips the guard, which fires only on `tonight` and
         // the three `this …` phrasings" was true of one guard and not of the station.** The
         // `wrong-daypart` fault has TWO predicates behind it — `contradictsDayPart`, which is the
-        // four strings that note names, and `namesWrongTimeOfDay`, which refuses a word naming a
+        // four dayparts that note names, now matched by their NOUN with a determiner in front
+        // (`the morning`, `good evening`) rather than only as the table's phrasings, and
+        // `namesWrongTimeOfDay`, which refuses a word naming a
         // POINT in the day from too far away: `clock.words.ts` allows `midnight` only from 23:00 to
         // 01:00, and `midday`/`noon`/`lunchtime` only from 11:00 to 14:00. Half of the declines
         // above are a word the last round of stripping never looked at, because this note said the

@@ -130,10 +130,18 @@ export function contradictsDayPart(script: string, part: RoughTime | undefined):
     const told = stretchOf(part.words);
     if (told === undefined) return undefined;
 
-    // Every daypart word naming a different stretch. Matched with `saysTime`'s own
-    // case-insensitivity, which exists because a model capitalises the first word of a sentence and
-    // a station whose break said "Tonight" had its claim silently dropped for the capital T.
-    return DAYPART_WORDS.find(words => stretchOf(words) !== told && saysTime(script, { ...part, words }));
+    // Every daypart naming a different stretch, and the WORDS the script used for it. Matched
+    // case-insensitively, which exists because a model capitalises the first word of a sentence and
+    // a station whose break said "Tonight" had its claim silently dropped for the capital T. See
+    // `DAYPART_CLAIMS` for why this is not `saysTime`.
+    for (const words of DAYPART_WORDS) {
+        if (stretchOf(words) === told) continue;
+
+        const said = claimedDayPartIn(script, words);
+        if (said !== undefined) return said;
+    }
+
+    return undefined;
 }
 
 /**
@@ -427,6 +435,55 @@ const stretchOf = (words: string): DayStretch | undefined => DAYPARTS_ROUND_THE_
 
 /** Every daypart the station has a word for, once each. */
 const DAYPART_WORDS: readonly string[] = [...new Set(DAYPARTS_ROUND_THE_CLOCK.map(daypart => daypart.words))];
+
+/**
+ * What may stand in front of a daypart noun and still be the script saying what time it is now.
+ *
+ * A determiner or a greeting, which is how a presenter states the moment: "this morning", "the
+ * morning air", "good evening". What is deliberately NOT here is the article a passing mention takes
+ * — "recorded in one morning", "every evening that summer" — because those say nothing about when
+ * the break is airing and refusing them would cost a good script for a word it did not mean.
+ *
+ * The line is not perfectly drawn and cannot be: "the morning after" is a passing mention wearing a
+ * determiner, and it is refused. That is the survivable direction, being one sentence lost to the
+ * floor rather than a listener told it is the wrong half of the day.
+ */
+const DAYPART_LEADS = ['this', 'that', 'the', 'good'] as const;
+
+/**
+ * How each daypart is recognised in a script, as opposed to how it is offered to a writer.
+ *
+ * {@link saysTime} is `includes` of the whole phrasing, which is right for {@link timeClaimIn} —
+ * a script is held to the window of the words it actually used — and was measurably too narrow here.
+ * A bulletin opened **"Breaking the morning air"** at half past five in the afternoon and passed both
+ * checks: the table carries "this morning", the script said "the morning", and no `includes` of the
+ * one finds the other. {@link TIMES_OF_DAY} did not cover it either, being points in the day rather
+ * than the stretches.
+ *
+ * So the noun is what is matched, with {@link DAYPART_LEADS} in front of it. "Tonight" has no
+ * determiner and keeps matching bare, exactly as it did.
+ *
+ * Bounded on letters for {@link saysWholeWord}'s reason and built once rather than per call, since
+ * the four are fixed at module load.
+ */
+const DAYPART_CLAIMS: ReadonlyMap<string, RegExp> = new Map(
+    DAYPART_WORDS.map(words => {
+        const noun = words.replace(/^this\s+/, '');
+        const lead = noun === words ? '' : `(?:${DAYPART_LEADS.join('|')})\\s+`;
+
+        return [words, new RegExp(`(?<![a-z])${lead}${noun}(?![a-z])`)];
+    }),
+);
+
+/**
+ * The wording a script used to claim one daypart, or `undefined` when it did not claim it.
+ *
+ * Answers the words it FOUND rather than the table's phrasing, because the two are no longer the
+ * same string and the found one is the useful one: "it said \"the morning\"" tells an operator what
+ * to go and read, where the table's "this morning" would send them looking for a phrase the model
+ * never wrote. Lower-case because the script is matched that way, for {@link saysTime}'s reason.
+ */
+const claimedDayPartIn = (script: string, words: string): string | undefined => DAYPART_CLAIMS.get(words)?.exec(script.toLowerCase())?.[0];
 
 /**
  * A daypart as words with the window they hold in, given the hour it was found at.

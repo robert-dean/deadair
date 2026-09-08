@@ -40,7 +40,7 @@ internal static class Fakes
             settings,
             session,
             new SetupViewModel(settings, new StationProbe(http)),
-            new ListenerViewModel(new NullStationPlayer(), new NullSystemNowPlaying(), settings, http, dispatcher),
+            new ListenerViewModel(new OutputSwitch(new NullStationPlayer()), new NullSystemNowPlaying(), settings, http, dispatcher),
             new LoginViewModel(session),
             new TransportViewModel(session, actions, http, dispatcher),
             new RunningOrderViewModel(session, actions, http, dispatcher),

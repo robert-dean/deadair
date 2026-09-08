@@ -56,12 +56,18 @@ internal static class Composition
         services.AddSingleton(provider => new OperatorActions(provider.GetRequiredService<SessionManager>()));
         services.AddSingleton(provider => new StationProbe(provider.GetRequiredService<HttpClient>()));
 
-        services.AddSingleton<IStationPlayer>(_ => OperatingSystem.IsMacOS()
+        // The platform's own player, wrapped in the switch that can hand the station to a speaker
+        // somewhere else. Everything above resolves IStationPlayer and never learns there is more
+        // than one place to play; the switch is registered under its own type as well, for the two
+        // things that DO need to know — the picker, and the listener's warm-up on a handover.
+        services.AddSingleton(_ => new OutputSwitch(OperatingSystem.IsMacOS()
             ? new MacStationPlayer(UserAgent.Value)
 
             // Windows and Linux are later phases. A silent player rather than a crash means the rest
             // of the app can be worked on and looked at anywhere.
-            : new NullStationPlayer());
+            : new NullStationPlayer()));
+
+        services.AddSingleton<IStationPlayer>(provider => provider.GetRequiredService<OutputSwitch>());
 
         services.AddSingleton<ISystemNowPlaying>(_ => OperatingSystem.IsMacOS()
             ? new MacSystemNowPlaying()

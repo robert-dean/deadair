@@ -26,7 +26,7 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 /// </remarks>
 public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposable
 {
-    private readonly IStationPlayer _player;
+    private readonly OutputSwitch _player;
     private readonly ISystemNowPlaying _systemNowPlaying;
     private readonly ISettingsStore _settings;
     private readonly HttpClient _http;
@@ -52,7 +52,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private byte[]? _artworkBytes;
 
     public ListenerViewModel(
-        IStationPlayer player,
+        OutputSwitch player,
         ISystemNowPlaying systemNowPlaying,
         ISettingsStore settings,
         HttpClient http,
@@ -65,6 +65,12 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _dispatcher = dispatcher;
 
         _player.StatusChanged += OnPlayerStatus;
+
+        // A handover is not a stall. The old target has been stopped and the new one has not started
+        // yet, so the seconds after it are exactly the seconds after pressing play — including the
+        // station waking up again if it went quiet in between.
+        _player.TargetChanged += OnTargetChanged;
+        _player.VolumeChanged += OnDeviceVolumeChanged;
 
         // The keyboard's play key and the widget's buttons reach the same commands the on-screen ones
         // do, so there is one path into the player rather than two that can disagree.
@@ -167,8 +173,10 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     /// <summary>0.0 to 1.0.</summary>
     /// <remarks>
-    /// Settings has held a volume since the app could play at all and nothing has ever let anybody
-    /// change it. The player hears a change immediately; the file hears it once the hand stops.
+    /// The player hears a change immediately; the file hears it once the hand stops, and only while
+    /// the sound is coming out of this machine. A speaker's volume belongs to the speaker: it is
+    /// shared with whoever else plays to it and a hand on its front panel moves it, so writing it
+    /// here would make this Mac come back at whatever the kitchen was set to.
     /// </remarks>
     public double Volume
     {
@@ -185,6 +193,11 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
             _player.Volume = value;
 
+            if (!_player.IsLocal)
+            {
+                return;
+            }
+
             _volumeSettles.Stop();
             _volumeSettles.Start();
         }
@@ -192,10 +205,72 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     private double _volume = 0.8;
 
+    /// <summary>Whether the current output has said how loud it is.</summary>
+    /// <remarks>
+    /// A speaker has not until it has been asked, and the slider is drawn disabled until then: one
+    /// sitting at zero would read as silence rather than as a question nobody has answered yet.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _volumeKnown = true;
+
+    /// <summary>What the picker's button says it is playing on.</summary>
+    [ObservableProperty]
+    private string _outputName = Output.ThisMac.Name;
+
+    /// <summary>Whether that is somewhere other than this machine.</summary>
+    [ObservableProperty]
+    private bool _onDevice;
+
     private void SaveVolume()
     {
         _volumeSettles.Stop();
+
+        if (!_player.IsLocal)
+        {
+            return;
+        }
+
         _ = _settings.UpdateAsync(settings => settings with { Volume = _volume });
+    }
+
+    private void OnTargetChanged(Output output) => _dispatcher.Post(() =>
+    {
+        OutputName = output.Name;
+        OnDevice = !output.IsLocal;
+
+        ReadVolumeFromPlayer();
+
+        if (Playing)
+        {
+            // Warm-up again, deliberately. The conductor has just been handed a different player
+            // which has heard nothing yet, and reporting the gap as a reconnection would describe a
+            // fault where the operator asked for a move.
+            _conductor.Requested();
+            Apply();
+        }
+    });
+
+    private void OnDeviceVolumeChanged() => _dispatcher.Post(ReadVolumeFromPlayer);
+
+    /// <summary>
+    /// Takes the volume from whatever is playing, without writing anything back.
+    /// </summary>
+    /// <remarks>
+    /// Set through the field rather than the property, because the property is the SLIDER's way in:
+    /// going through it would push this value back at the player it just came from and, on this
+    /// machine, save it to the file.
+    /// </remarks>
+    private void ReadVolumeFromPlayer()
+    {
+        VolumeKnown = _player.VolumeKnown;
+
+        if (!VolumeKnown)
+        {
+            return;
+        }
+
+        _volume = _player.Volume;
+        OnPropertyChanged(nameof(Volume));
     }
 
     private static string First(string value) =>
@@ -206,8 +281,11 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _station = station;
         StationName = name ?? station.Origin.Host;
 
-        _volume = _settings.Current.Volume;
-        OnPropertyChanged(nameof(Volume));
+        if (_player.IsLocal)
+        {
+            _volume = _settings.Current.Volume;
+            OnPropertyChanged(nameof(Volume));
+        }
 
         _repository = new NowPlayingRepository(station, _http, _dispatcher);
         _repository.Changed += OnReading;
@@ -241,7 +319,13 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _conductor.Requested();
         Apply();
 
-        _player.Volume = Volume;
+        // Pushed only for this machine. A speaker already has a volume, which is shared with
+        // whoever else plays to it, and starting the station on it is no reason to change it.
+        if (_player.IsLocal)
+        {
+            _player.Volume = Volume;
+        }
+
         await _player.PlayAsync(_station.MountUrl(choice.Path)).ConfigureAwait(true);
         _ticker.Start();
     }
@@ -457,6 +541,8 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     public async ValueTask DisposeAsync()
     {
         _player.StatusChanged -= OnPlayerStatus;
+        _player.TargetChanged -= OnTargetChanged;
+        _player.VolumeChanged -= OnDeviceVolumeChanged;
         _ticker.Stop();
         _volumeSettles.Stop();
         _systemNowPlaying.Clear();

@@ -152,6 +152,14 @@
         <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
     </Style>
+    <!-- An icon button that is doing something rather than merely offering to. The output picker
+         is the only one so far: the station coming out of a speaker in another room is worth a
+         colour, because it is the one state of this app that cannot be checked by listening at the
+         machine it is running on. -->
+    <Style Selector=":is(Button).icon.active">
+        <Setter Property="Foreground" Value="{DynamicResource DaAccentBrush}" />
+    </Style>
+
     <Style Selector=":is(Button).icon.small">
         <Setter Property="Width" Value="26" />
         <Setter Property="Height" Value="26" />

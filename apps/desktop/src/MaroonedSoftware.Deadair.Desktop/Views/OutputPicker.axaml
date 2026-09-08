@@ -1,0 +1,60 @@
+<!--
+    Where the sound comes out.
+
+    Its own control rather than a lump of XAML inside the bar, for the reason `LoginView` is: a
+    flyout is a separate top level, so a headless render of the window captures nothing of it, and a
+    control can at least be looked at on its own.
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+             xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+             x:Class="MaroonedSoftware.Deadair.Desktop.Views.OutputPicker"
+             x:DataType="vm:OutputsViewModel">
+
+    <StackPanel Spacing="2" Margin="4,6">
+        <TextBlock Classes="eyebrow" Text="PLAY ON" Margin="10,0,10,6" />
+
+        <ItemsControl ItemsSource="{Binding Choices}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:OutputChoiceViewModel">
+                    <!-- The rail's own row, so a place to play and a page to open look like the
+                         same kind of thing to choose. The tick column is a fixed width whether or
+                         not it holds a tick: an `Auto` one would size to its own row and the names
+                         would start at two different places down the list. -->
+                    <Button Classes="nav" Classes.active="{Binding IsActive}"
+                            Height="42"
+                            IsEnabled="{Binding !IsMissing}"
+                            Command="{Binding $parent[ItemsControl].((vm:OutputsViewModel)DataContext).ChooseCommand}"
+                            CommandParameter="{Binding}">
+                        <Grid ColumnDefinitions="16,*" ColumnSpacing="10">
+                            <PathIcon Width="13" Height="13" VerticalAlignment="Center"
+                                      Data="{DynamicResource DaIconCheck}"
+                                      Opacity="{Binding IsActive, Converter={x:Static conv:BoolToOpacity.Instance}}" />
+
+                            <StackPanel Grid.Column="1" Spacing="0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Classes="secondary" FontSize="11" Text="{Binding Detail}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- What went wrong, or what is worth knowing: a speaker that is not on the network, or a
+             station address a speaker could never reach. -->
+        <TextBlock Classes="secondary" FontSize="11" Margin="10,6,10,2" TextWrapping="Wrap"
+                   Text="{Binding Notice}"
+                   IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <Rectangle Height="1" Margin="0,6,0,2" Fill="{DynamicResource DaBorderBrush}" />
+
+        <Button Classes="ghost" HorizontalAlignment="Left" Margin="6,0,6,0"
+                Content="{Binding RescanLabel}"
+                IsEnabled="{Binding !Scanning}"
+                Command="{Binding RescanCommand}" />
+    </StackPanel>
+
+</UserControl>

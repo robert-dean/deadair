@@ -55,6 +55,21 @@ public class NavigationTests
         }
     }
 
+    /// <summary>
+    /// The same trap one step outside the rail: an icon named in a view is a resource key too, and
+    /// the player bar's two are as invisible when they are wrong as a rail entry's would be.
+    /// </summary>
+    [Theory]
+    [InlineData("DaIconSpeaker")]
+    [InlineData("DaIconCheck")]
+    public void ThePickersIconsAreReallyThere(string key)
+    {
+        var icons = File.ReadAllText(
+            Path.Combine(Repository(), "src", "MaroonedSoftware.Deadair.Desktop", "Themes", "Icons.axaml"));
+
+        Assert.Contains($"x:Key=\"{key}\"", icons, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void TheSectionsAgreeWithTheAccountRuleRatherThanRestatingIt()
     {

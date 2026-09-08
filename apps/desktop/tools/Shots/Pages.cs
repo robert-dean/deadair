@@ -42,6 +42,13 @@ internal static class Pages
         yield return ("shell-voice", Page(new Destination.Voice(), operatorSignedIn: true), 1180, 720);
         yield return ("shell-voice-said", Page(new Destination.Voice(), operatorSignedIn: true, VoiceTab.Said), 1180, 720);
         yield return ("player-bar", Bar(), 1180, 720);
+        yield return ("player-bar-on-device", Bar(Fakes.OnASpeaker), 1180, 720);
+
+        // The minimum window with the longest speaker name, which is what decides whether the
+        // caption beside the picker keeps its cap or loses it.
+        yield return ("shell-min-on-device", Shell(operatorSignedIn: true, Fakes.OnASpeaker), 820, 520);
+        yield return ("output-picker", Picker(onASpeaker: true), 1180, 720);
+        yield return ("output-picker-here", Picker(onASpeaker: false), 1180, 720);
         yield return ("sidebar", Rail(operatorSignedIn: true), 1180, 720);
         yield return ("sidebar-signed-out", Rail(operatorSignedIn: false), 1180, 720);
         yield return ("login", SignIn(revealed: false), 1180, 720);
@@ -125,12 +132,35 @@ internal static class Pages
     }
 
     /// <summary>The bar on its own, at the width it really gets, so its columns can be looked at.</summary>
-    private static PlayerBar Bar()
+    private static PlayerBar Bar(Action<ListenerViewModel>? pose = null)
     {
         var shell = Fakes.Shell(operatorSignedIn: false);
-        Fakes.PutOnAir(shell.Listener);
+        (pose ?? Fakes.PutOnAir)(shell.Listener);
 
         return new PlayerBar { DataContext = shell.Listener };
+    }
+
+    /// <summary>
+    /// The output picker, on its own.
+    /// </summary>
+    /// <remarks>
+    /// A flyout is a separate top level and a headless render captures the window, so the picker
+    /// cannot be caught inside the bar it belongs to. Drawn alone, the way sign-in is.
+    /// </remarks>
+    private static Border Picker(bool onASpeaker)
+    {
+        var shell = Fakes.Shell(operatorSignedIn: false);
+        var outputs = shell.Listener.Outputs!;
+
+        Fakes.ShowOutputsAsync(outputs, onASpeaker).GetAwaiter().GetResult();
+
+        return new Border
+        {
+            Width = 268,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            Child = new OutputPicker { DataContext = outputs },
+        };
     }
 
 }

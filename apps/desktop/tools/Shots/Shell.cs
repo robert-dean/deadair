@@ -7,6 +7,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
+using MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
 using MaroonedSoftware.Deadair.Desktop.Themes;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using MaroonedSoftware.Deadair.Sdk.Models;
@@ -36,11 +37,18 @@ internal static class Fakes
         var dispatcher = ImmediateUiDispatcher.Instance;
         var navigation = new NavigationViewModel();
 
+        // The picker, over a catalog whose plugins are two speakers that do not exist. A shot must
+        // not go looking for real ones: a broadcast on somebody's network is not a thing to do to
+        // draw a picture.
+        var outputs = new OutputsViewModel(
+            new OutputCatalog(new PosedOutputs(), new OutputSwitch(new NullStationPlayer()), settings),
+            dispatcher);
+
         var shell = new ShellViewModel(
             settings,
             session,
             new SetupViewModel(settings, new StationProbe(http)),
-            new ListenerViewModel(new OutputSwitch(new NullStationPlayer()), new NullSystemNowPlaying(), settings, http, dispatcher),
+            new ListenerViewModel(new OutputSwitch(new NullStationPlayer()), new NullSystemNowPlaying(), settings, http, dispatcher, outputs),
             new LoginViewModel(session),
             new TransportViewModel(session, actions, http, dispatcher),
             new RunningOrderViewModel(session, actions, http, dispatcher),
@@ -102,6 +110,38 @@ internal static class Fakes
         listener.Remaining = "-3:53";
         listener.FormatLabel = "MP3 128 kb/s";
         listener.Volume = 0.7;
+    }
+
+    /// <summary>The station coming out of a speaker in another room.</summary>
+    public static void OnASpeaker(ListenerViewModel listener)
+    {
+        PutOnAir(listener);
+        listener.OutputName = "Living Room NAD M10 V2";
+        listener.OnDevice = true;
+    }
+
+    /// <summary>Fills the picker, and marks the speaker the station is on.</summary>
+    public static async Task ShowOutputsAsync(OutputsViewModel outputs, bool onASpeaker)
+    {
+        // Attached first. The picker fills itself from the catalog's own notification, and without
+        // a station it is never subscribed to one — which is exactly how the first render of this
+        // frame came out as a heading and a button with nothing between them.
+        if (StationUrl.TryParse("https://radio.example.com", out var station))
+        {
+            outputs.Attach(station);
+        }
+
+        await outputs.RescanAsync();
+
+        if (!onASpeaker)
+        {
+            return;
+        }
+
+        foreach (var choice in outputs.Choices)
+        {
+            choice.IsActive = choice.Name.StartsWith("Living Room", StringComparison.Ordinal);
+        }
     }
 
     /// <summary>The station cannot say where the record is up to, which is ordinary.</summary>
@@ -381,6 +421,22 @@ internal static class Fakes
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+    }
+
+    /// <summary>Two speakers that are not there, so the picker has something to draw.</summary>
+    private sealed class PosedOutputs : IOutputSource
+    {
+        public Task<IReadOnlyList<Output>> DiscoverAsync(CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Output>>(
+            [
+                new Output("deadair.bluos", "90:56:82:00:bc:99", "Kitchen", "Bluesound Pulse Mini 2i", "10.0.1.36:11000"),
+
+                // A long one on purpose. A name that fits proves nothing about a bar at its minimum
+                // width, and this is the frame that decides whether the caption's cap is right.
+                new Output("deadair.bluos", "90:56:82:00:bc:aa", "Living Room NAD M10 V2", "M10 V2", "10.0.1.40:11000"),
+            ]);
+
+        public IStationPlayer? Open(Output output) => new NullStationPlayer();
     }
 
     /// <summary>Settings in a variable. A shot must not read or write somebody's real preferences.</summary>

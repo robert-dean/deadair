@@ -74,9 +74,34 @@
                 <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <PathIcon Data="{DynamicResource DaIconVolume}"
                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <!-- Disabled rather than hidden until a device has said how loud it is: a
+                         slider sitting at zero reads as silence rather than as a question nobody
+                         has answered. -->
                     <Slider Width="84" Minimum="0" Maximum="1" Value="{Binding Volume, Mode=TwoWay}"
+                            IsEnabled="{Binding VolumeKnown}"
                             VerticalAlignment="Center" />
                 </StackPanel>
+
+                <!-- Where the sound comes out.
+
+                     The icon alone, and the speaker's NAME is deliberately not beside it. A first
+                     version drew it, capped at 96px, and the 820px frame settled it: the bar is
+                     already full at its minimum width, and the caption pushed the expand button off
+                     the end of it. The icon takes the accent when the station is playing somewhere
+                     else, which is the fact somebody sitting at this machine cannot get by
+                     listening; which speaker is a tooltip away and a click away, on a picker that
+                     has all the room it needs. -->
+                <Button x:Name="OutputButton" Classes="icon"
+                        Classes.active="{Binding OnDevice}"
+                        ToolTip.Tip="{Binding OutputName}"
+                        IsVisible="{Binding Outputs, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <PathIcon Data="{DynamicResource DaIconSpeaker}" />
+                    <Button.Flyout>
+                        <Flyout Placement="Top" ShowMode="Standard">
+                            <views:OutputPicker Width="268" DataContext="{Binding Outputs}" />
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
 
                 <Button Classes="icon" IsVisible="{Binding !$parent[Window].((vm:ShellViewModel)DataContext).Navigation.IsDesk}"
                         Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).ShowDeskCommand}">

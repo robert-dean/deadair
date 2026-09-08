@@ -278,6 +278,41 @@ public sealed class PluginLoaderTests : IDisposable
         Assert.Equal(PluginStatus.Discovered, records[2].Status);
     }
 
+    /// <summary>
+    /// The plugin the app actually ships, loaded the way the app will load it.
+    ///
+    /// Everything else here runs against a fixture written to be loaded, which cannot fail in the
+    /// ways a real plugin can: a manifest naming a class that moved, a capability the class does not
+    /// implement, an entry assembly whose own dependencies do not resolve. Nothing in this project
+    /// references it, so what is under test is the file on disk.
+    /// </summary>
+    [Fact]
+    public void ThePluginTheAppShipsLoadsAndCanBeAskedForDevices()
+    {
+        var source = Path.Combine(AppContext.BaseDirectory, "plugins", "deadair.bluos");
+        Assert.True(Directory.Exists(source), $"the BluOS plugin was not built into {source}");
+
+        var directory = Path.Combine(_root, "bundled", "deadair.bluos");
+        Directory.CreateDirectory(directory);
+
+        foreach (var file in Directory.GetFiles(source))
+        {
+            File.Copy(file, Path.Combine(directory, Path.GetFileName(file)), overwrite: true);
+        }
+
+        var loader = new PluginLoader(Directories());
+        var record = loader.Activate(Assert.Single(loader.Discover()));
+
+        Assert.Equal(PluginStatus.Active, record.Status);
+        Assert.Null(record.Error);
+        Assert.Equal("BluOS players", record.DisplayName);
+        Assert.IsAssignableFrom<IOutputTargetProvider>(record.Instance);
+
+        // Its own assembly, in its own context, implementing the app's interface. All three at once
+        // is the arrangement the whole loader exists to produce.
+        Assert.NotEqual(AssemblyLoadContext.Default, AssemblyLoadContext.GetLoadContext(record.Instance!.GetType().Assembly));
+    }
+
     private PluginDirectories Directories() =>
         new(Path.Combine(_root, "bundled"), Path.Combine(_root, "user"));
 

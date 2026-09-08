@@ -24,6 +24,18 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+            The bundled plugins. `BundledPlugin` is this tree's own item, defined in
+            Directory.Build.targets: each one is built before the app and copied whole into
+            plugins/<id>/ beside it, and the app never compiles against any of them. That is
+            deliberate. If the app could name a type from a plugin it ships, the bundled one would
+            work through a path nothing else uses and the third-party path would rot unnoticed.
+        -->
+        <BundledPlugin Include="../../plugins/bluos/src/MaroonedSoftware.Deadair.Desktop.Plugins.BluOs/MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.csproj"
+                       PluginId="deadair.bluos" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="../MaroonedSoftware.Deadair.Desktop.Core/MaroonedSoftware.Deadair.Desktop.Core.csproj" />
         <ProjectReference Include="../MaroonedSoftware.Deadair.Desktop.Player.Mac/MaroonedSoftware.Deadair.Desktop.Player.Mac.csproj" />
     </ItemGroup>

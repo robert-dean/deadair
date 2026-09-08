@@ -31,6 +31,14 @@
             assembly the runtime had already loaded for it.
         -->
         <BundledPlugin Include="../MaroonedSoftware.Deadair.Desktop.PluginSdk.Fixture/MaroonedSoftware.Deadair.Desktop.PluginSdk.Fixture.csproj" PluginId="deadair.fixture" />
+
+        <!--
+            And the real plugin the app ships, bundled here the same way. A fixture proves the loader
+            works on something written to be loaded; this proves it works on the one that was written
+            to play music, through its own manifest and its own entry type, with no reference to it
+            from anything here.
+        -->
+        <BundledPlugin Include="../../plugins/bluos/src/MaroonedSoftware.Deadair.Desktop.Plugins.BluOs/MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.csproj" PluginId="deadair.bluos" />
     </ItemGroup>
 
 </Project>

@@ -1,0 +1,18 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Controls.Artwork">
+
+    <!-- Square, and never rounded. The initial is drawn first and stays visible until a cover
+         arrives over it, so a row never flashes an empty box on its way to having one. -->
+    <Border x:Name="Frame" Classes="art"
+            BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1">
+        <Panel>
+            <TextBlock x:Name="Letter" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+            <Image x:Name="Cover" Stretch="UniformToFill" />
+        </Panel>
+    </Border>
+
+</UserControl>

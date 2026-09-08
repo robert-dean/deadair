@@ -2,99 +2,128 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.LibraryView"
     x:DataType="vm:LibraryViewModel">
 
-    <DockPanel Margin="24" LastChildFill="True">
+    <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True">
 
         <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,14">
-            <TextBlock Text="Library" FontSize="20" FontWeight="SemiBold"
-                       Foreground="{DynamicResource DaTextBrush}" />
-
-            <StackPanel Orientation="Horizontal" Spacing="6">
-                <Button Content="Records" Command="{Binding ShowTabCommand}" CommandParameter="Tracks" />
-                <Button Content="Acts" Command="{Binding ShowTabCommand}" CommandParameter="Artists" />
-                <Button Content="Releases" Command="{Binding ShowTabCommand}" CommandParameter="Albums" />
-                <Button Content="Playlists" Command="{Binding ShowTabCommand}" CommandParameter="Playlists" />
-                <Button Content="Charts" Command="{Binding ShowTabCommand}" CommandParameter="Charts" />
-                <Button Content="News" Command="{Binding ShowTabCommand}" CommandParameter="News" />
-            </StackPanel>
-
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsTracks}">
-                <TextBox Text="{Binding Search}" PlaceholderText="Search records" IsEnabled="{Binding !Busy}" />
-                <Button Grid.Column="1" Content="Search" Command="{Binding SearchTracksCommand}" />
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="h1" Text="Library" />
+                <TextBlock Grid.Column="1" Classes="dimmed" Text="{Binding Summary}"
+                           VerticalAlignment="Bottom" IsVisible="{Binding ShowsPaging}" />
             </Grid>
 
-            <TextBlock Text="{Binding Notice}" FontSize="12" TextWrapping="Wrap"
-                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}"
-                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+            <!-- The same tab strip Voice has, which is the whole reason it is a class: this page had
+                 six identical buttons and nothing said which one you were on. -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Classes="tab" Classes.active="{Binding IsTracks}" Content="Records"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Tracks" />
+                <Button Classes="tab" Classes.active="{Binding IsArtists}" Content="Acts"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Artists" />
+                <Button Classes="tab" Classes.active="{Binding IsAlbums}" Content="Releases"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Albums" />
+                <Button Classes="tab" Classes.active="{Binding IsPlaylists}" Content="Playlists"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Playlists" />
+                <Button Classes="tab" Classes.active="{Binding IsCharts}" Content="Charts"
+                        Command="{Binding ShowTabCommand}" CommandParameter="Charts" />
+                <Button Classes="tab" Classes.active="{Binding IsNews}" Content="News"
+                        Command="{Binding ShowTabCommand}" CommandParameter="News" />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding IsTracks}"
+                  MaxWidth="520" HorizontalAlignment="Left">
+                <Grid ColumnDefinitions="Auto,*">
+                    <PathIcon Data="{DynamicResource DaIconSearch}" Width="14" Height="14"
+                              Margin="10,0,0,0" VerticalAlignment="Center"
+                              Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <TextBox Grid.ColumnSpan="2" Text="{Binding Search}" PlaceholderText="Search records"
+                             Padding="32,5,10,5" IsEnabled="{Binding !Busy}" />
+                </Grid>
+                <Button Grid.Column="1" Classes="ghost" Content="Search" Command="{Binding SearchTracksCommand}" />
+            </Grid>
+
+            <TextBlock Text="{Binding Notice}" Classes="dimmed" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </StackPanel>
 
-        <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,12,0,0"
-              IsVisible="{Binding ShowsPaging}">
-            <Button Content="Previous" Command="{Binding PreviousPageCommand}" IsEnabled="{Binding CanGoBack}" />
-            <TextBlock Grid.Column="1" Text="{Binding Summary}" VerticalAlignment="Center"
-                       HorizontalAlignment="Center" FontSize="12"
-                       Foreground="{DynamicResource DaTextDimmedBrush}" />
-            <Button Grid.Column="2" Content="Next" Command="{Binding NextPageCommand}" IsEnabled="{Binding CanGoForward}" />
-        </Grid>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,14,0,0"
+                    IsVisible="{Binding ShowsPaging}">
+            <Button Classes="ghost" Content="Previous" Command="{Binding PreviousPageCommand}"
+                    IsEnabled="{Binding CanGoBack}" />
+            <Button Classes="ghost" Content="Next" Command="{Binding NextPageCommand}"
+                    IsEnabled="{Binding CanGoForward}" />
+        </StackPanel>
 
         <Panel>
 
-            <ListBox ItemsSource="{Binding Tracks}" IsVisible="{Binding IsTracks}"
-                     Background="Transparent" BorderThickness="0">
+            <ListBox Classes="rows" ItemsSource="{Binding Tracks}" IsVisible="{Binding IsTracks}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:TrackRowViewModel">
-                        <Grid ColumnDefinitions="*,180,60,50" ColumnSpacing="12" Margin="0,3">
-                            <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
+                        <Grid ColumnDefinitions="36,*,200,52,52" ColumnSpacing="12">
+                            <controls:Artwork Size="36" Source="{Binding ArtworkUrl}"
+                                              Initial="{Binding Initial}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource DaTextBrush}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Artists}" TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource DaTextSecondaryBrush}" />
-                            <TextBlock Classes="mono" Grid.Column="2" Text="{Binding Year}" FontSize="11"
+                            <TextBlock Grid.Column="2" Text="{Binding Artists}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" Classes="secondary" />
+                            <TextBlock Classes="mono" Grid.Column="3" Text="{Binding Year}" FontSize="11"
+                                       VerticalAlignment="Center"
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />
-                            <TextBlock Classes="mono" Grid.Column="3" Text="{Binding Length}" FontSize="11"
+                            <TextBlock Classes="mono" Grid.Column="4" Text="{Binding Length}" FontSize="11"
+                                       VerticalAlignment="Center"
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <ListBox ItemsSource="{Binding Artists}" IsVisible="{Binding IsArtists}"
-                     Background="Transparent" BorderThickness="0">
+            <ListBox Classes="rows" ItemsSource="{Binding Artists}" IsVisible="{Binding IsArtists}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:ArtistRowViewModel">
-                        <TextBlock Text="{Binding Name}" Margin="0,3" TextTrimming="CharacterEllipsis"
+                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
                                    Foreground="{DynamicResource DaTextBrush}" />
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <ListBox ItemsSource="{Binding Albums}" IsVisible="{Binding IsAlbums}"
-                     Background="Transparent" BorderThickness="0">
+            <ListBox Classes="rows" ItemsSource="{Binding Albums}" IsVisible="{Binding IsAlbums}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:AlbumRowViewModel">
-                        <Grid ColumnDefinitions="*,220" ColumnSpacing="12" Margin="0,3">
-                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"
+                        <Grid ColumnDefinitions="36,*,220" ColumnSpacing="12">
+                            <controls:Artwork Size="36" Source="{Binding ArtworkUrl}"
+                                              Initial="{Binding Initial}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource DaTextBrush}" />
-                            <TextBlock Grid.Column="1" Text="{Binding ArtistName}" TextTrimming="CharacterEllipsis"
-                                       Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                            <TextBlock Grid.Column="2" Text="{Binding ArtistName}" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" Classes="secondary" />
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
 
             <!-- Putting the station on air from one of these REPLACES the running order. -->
-            <ListBox ItemsSource="{Binding Playlists}" IsVisible="{Binding IsPlaylists}"
-                     Background="Transparent" BorderThickness="0">
+            <ListBox Classes="rows" ItemsSource="{Binding Playlists}" IsVisible="{Binding IsPlaylists}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:PlaylistRowViewModel">
-                        <Grid ColumnDefinitions="*,120,Auto" ColumnSpacing="12" Margin="0,3">
-                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                        <!-- The action column is always 96 wide whether or not the pointer is here.
+                             Every row is its own Grid, so a column that appeared on hover would
+                             re-lay the row under the cursor. -->
+                        <Grid ColumnDefinitions="36,*,140,96" ColumnSpacing="12">
+                            <controls:Artwork Size="36" Source="{Binding ArtworkUrl}"
+                                              Initial="{Binding Initial}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource DaTextBrush}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Source}" VerticalAlignment="Center" FontSize="11"
-                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
-                            <Button Grid.Column="2" Content="Put on air" FontSize="11" Padding="8,3"
+                            <TextBlock Grid.Column="2" Text="{Binding Source}" VerticalAlignment="Center"
+                                       Classes="dimmed" TextTrimming="CharacterEllipsis" />
+                            <Button Grid.Column="3" Classes="reveal ghost" Content="Put on air"
+                                    FontSize="11" Padding="8,3" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
                                     Command="{Binding $parent[ListBox].((vm:LibraryViewModel)DataContext).PlayPlaylistCommand}"
                                     CommandParameter="{Binding}" />
                         </Grid>
@@ -102,17 +131,19 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <ListBox ItemsSource="{Binding Charts}" IsVisible="{Binding IsCharts}"
-                     Background="Transparent" BorderThickness="0">
+            <ListBox Classes="rows" ItemsSource="{Binding Charts}" IsVisible="{Binding IsCharts}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:ChartRowViewModel">
-                        <Grid ColumnDefinitions="*,120,Auto" ColumnSpacing="12" Margin="0,3">
-                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                        <Grid ColumnDefinitions="36,*,140,96" ColumnSpacing="12">
+                            <controls:Artwork Size="36" Initial="{Binding Initial}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource DaTextBrush}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Source}" VerticalAlignment="Center" FontSize="11"
-                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
-                            <Button Grid.Column="2" Content="Put on air" FontSize="11" Padding="8,3"
+                            <TextBlock Grid.Column="2" Text="{Binding Source}" VerticalAlignment="Center"
+                                       Classes="dimmed" TextTrimming="CharacterEllipsis" />
+                            <Button Grid.Column="3" Classes="reveal ghost" Content="Put on air"
+                                    FontSize="11" Padding="8,3" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
                                     Command="{Binding $parent[ListBox].((vm:LibraryViewModel)DataContext).PlayChartCommand}"
                                     CommandParameter="{Binding}" />
                         </Grid>
@@ -120,8 +151,7 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <ListBox ItemsSource="{Binding Stories}" IsVisible="{Binding IsNews}"
-                     Background="Transparent" BorderThickness="0">
+            <ListBox Classes="rows" ItemsSource="{Binding Stories}" IsVisible="{Binding IsNews}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:StoryRowViewModel">
                         <StackPanel Spacing="2" Margin="0,4">

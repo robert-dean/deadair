@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using MaroonedSoftware.Deadair.Desktop.Services;
 using MaroonedSoftware.Deadair.Desktop.ViewModels;
 using MaroonedSoftware.Deadair.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,10 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             _services = Composition.Build();
+
+            // Where the controls find it. A control is built by XAML and can be handed nothing, so
+            // this is the one thing the app reaches for statically, set once from the container.
+            ArtworkLoader.Shared = _services.GetRequiredService<ArtworkLoader>();
 
             var shell = _services.GetRequiredService<ShellViewModel>();
 

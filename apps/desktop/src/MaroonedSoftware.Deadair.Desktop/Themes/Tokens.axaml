@@ -143,6 +143,11 @@
     <x:Double x:Key="DaSpace7">30</x:Double>
     <Thickness x:Key="DaPageGutter">28</Thickness>
 
+    <!-- A Thickness rather than the `DaSpace5` double beside it, because a Padding IS one and
+         Avalonia will not widen a double into it: a style that tried threw on the first card that
+         did not override the padding itself, which was every card except the desk's. -->
+    <Thickness x:Key="DaCardPadding">16</Thickness>
+
     <x:Double x:Key="DaFontSizeCaption">11</x:Double>
     <x:Double x:Key="DaFontSizeBody">13</x:Double>
     <x:Double x:Key="DaFontSizeSubhead">15</x:Double>

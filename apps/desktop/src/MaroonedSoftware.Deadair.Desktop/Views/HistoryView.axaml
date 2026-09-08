@@ -2,19 +2,17 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:controls="using:MaroonedSoftware.Deadair.Desktop.Controls"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.HistoryView"
     x:DataType="vm:HistoryViewModel">
 
-    <DockPanel Margin="24" LastChildFill="True">
+    <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True">
 
         <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,14">
-            <TextBlock Text="History" FontSize="20" FontWeight="SemiBold"
-                       Foreground="{DynamicResource DaTextBrush}" />
-            <TextBlock Text="What the station has played, newest first." FontSize="12"
-                       Foreground="{DynamicResource DaTextDimmedBrush}" />
-            <TextBlock Text="{Binding Problem}" TextWrapping="Wrap" FontSize="12"
-                       IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}"
-                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+            <TextBlock Classes="h1" Text="History" />
+            <TextBlock Classes="dimmed" Text="What the station has played, newest first." />
+            <TextBlock Classes="dimmed" Text="{Binding Problem}" TextWrapping="Wrap"
+                       IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </StackPanel>
 
         <!-- One list per day, under the day's own heading. Phase 7 gives the rows their artwork. -->
@@ -27,12 +25,18 @@
                             <ListBox Classes="rows" ItemsSource="{Binding Rows}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="vm:HistoryRowViewModel">
-                                        <Grid ColumnDefinitions="60,*,220" ColumnSpacing="12">
-                                            <TextBlock Classes="mono dimmed" Text="{Binding When}" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Title}"
+                                        <Grid ColumnDefinitions="48,36,*,220" ColumnSpacing="12">
+                                            <TextBlock Classes="mono dimmed" Text="{Binding When}"
+                                                       VerticalAlignment="Center" />
+                                            <controls:Artwork Grid.Column="1" Size="36"
+                                                              Source="{Binding ArtworkUrl}"
+                                                              Initial="{Binding Initial}" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Title}"
+                                                       VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource DaTextBrush}" />
-                                            <TextBlock Grid.Column="2" Text="{Binding Artists}"
+                                            <TextBlock Grid.Column="3" Text="{Binding Artists}"
+                                                       VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"
                                                        Classes="secondary" />
                                         </Grid>

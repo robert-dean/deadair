@@ -40,7 +40,11 @@ public sealed record PlaylistRowViewModel(string PluginId, string Id, string Nam
 }
 
 /// <summary>A published chart the station can be put on air from.</summary>
-public sealed record ChartRowViewModel(string Id, string Name, string Source);
+public sealed record ChartRowViewModel(string Id, string Name, string Source)
+{
+    /// <summary>A chart is a list the station builds, so there is no cover: the square is a letter.</summary>
+    public string Initial => Name.Length == 0 ? "?" : char.ToUpperInvariant(Name[0]).ToString();
+}
 
 /// <summary>One story the station could talk about.</summary>
 public sealed record StoryRowViewModel(string Feed, string Title, string When);

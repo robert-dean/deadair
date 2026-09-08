@@ -236,7 +236,7 @@
         <Setter Property="BorderBrush" Value="{DynamicResource DaBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
-        <Setter Property="Padding" Value="{DynamicResource DaSpace5}" />
+        <Setter Property="Padding" Value="{DynamicResource DaCardPadding}" />
     </Style>
 
     <Style Selector="Border.pill">

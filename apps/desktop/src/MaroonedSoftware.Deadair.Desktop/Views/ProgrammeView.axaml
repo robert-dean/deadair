@@ -2,53 +2,65 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.ProgrammeView"
     x:DataType="vm:ProgrammeViewModel">
 
-    <DockPanel Margin="24" LastChildFill="True">
+    <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True">
 
         <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,14">
-            <TextBlock Text="Programme" FontSize="20" FontWeight="SemiBold"
-                       Foreground="{DynamicResource DaTextBrush}" />
+            <TextBlock Classes="h1" Text="Programme" />
 
-            <Border Padding="14" CornerRadius="3" Background="{DynamicResource DaPanelBrush}"
-                    BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1">
+            <Border Classes="card" MaxWidth="620" HorizontalAlignment="Left">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="On now" FontSize="11"
-                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <TextBlock Classes="eyebrow" Text="ON NOW" />
                     <TextBlock Text="{Binding OnNow}" TextWrapping="Wrap"
                                Foreground="{DynamicResource DaTextBrush}" />
                 </StackPanel>
             </Border>
 
-            <TextBlock Text="{Binding Problem}" TextWrapping="Wrap" FontSize="12"
-                       IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}"
-                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+            <TextBlock Classes="dimmed" Text="{Binding Problem}" TextWrapping="Wrap"
+                       IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </StackPanel>
 
         <!-- Read-only. Editing a timetable wants dragging, and a wrong drop reschedules a broadcast. -->
-        <ListBox ItemsSource="{Binding Slots}" Background="Transparent" BorderThickness="0">
+        <!-- A timetable rather than a table: the rule down the middle is what makes a list of times
+             read as a day, and the dot on it is where the station actually is. -->
+        <ListBox Classes="rows" ItemsSource="{Binding Slots}">
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:SlotViewModel">
-                    <Grid ColumnDefinitions="120,110,*" ColumnSpacing="12" Margin="0,4">
-                        <TextBlock Text="{Binding Days}" FontSize="12" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
-                        <TextBlock Classes="mono" Grid.Column="1" Text="{Binding Window}" FontSize="12"
+                    <Grid ColumnDefinitions="110,20,*" ColumnSpacing="12">
+                        <TextBlock Classes="mono" Grid.Column="0" Text="{Binding Window}" FontSize="12"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource DaTextSecondaryBrush}" />
-                        <StackPanel Grid.Column="2" Spacing="2">
+
+                        <Panel Grid.Column="1">
+                            <!-- Negative by exactly the row's own vertical padding, so the rule
+                                 joins up between rows instead of drawing as a column of dashes. -->
+                            <Rectangle Width="2" HorizontalAlignment="Center" Margin="0,-6"
+                                       Fill="{DynamicResource DaBorderBrush}" />
+                            <Ellipse Classes="lamp" Classes.live="{Binding IsAiring}" Width="7" Height="7"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                                     Fill="{Binding IsAiring, Converter={x:Static conv:AiringBrushConverter.Instance}}" />
+                        </Panel>
+
+                        <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{Binding Label}" Foreground="{DynamicResource DaTextBrush}" />
+                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DaTextBrush}" />
                                 <!-- The slot actually airing, which is not always the one the clock
                                      says: a hold keeps a broadcast past its slot on purpose. -->
-                                <Border IsVisible="{Binding IsAiring}" CornerRadius="2" Padding="5,1"
+                                <Border Classes="pill" IsVisible="{Binding IsAiring}" Height="20"
+                                        Padding="8,0" BorderThickness="0"
                                         Background="{DynamicResource DaToneLiveBrush}">
-                                    <TextBlock Text="ON AIR" FontSize="9" Foreground="White" />
+                                    <TextBlock Classes="eyebrow" Text="ON AIR"
+                                               Foreground="{DynamicResource DaBgBrush}" />
                                 </Border>
                             </StackPanel>
-                            <TextBlock Text="{Binding Brief}" FontSize="11" TextTrimming="CharacterEllipsis"
-                                       IsVisible="{Binding Brief, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+                            <TextBlock Text="{Binding Days}" Classes="dimmed" FontSize="11" />
+                            <TextBlock Text="{Binding Brief}" Classes="dimmed" FontSize="11"
+                                       TextTrimming="CharacterEllipsis"
+                                       IsVisible="{Binding Brief, Converter={x:Static ObjectConverters.IsNotNull}}" />
                         </StackPanel>
                     </Grid>
                 </DataTemplate>

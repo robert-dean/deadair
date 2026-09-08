@@ -171,3 +171,29 @@ public sealed class MovableOpacityConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+
+/// <summary>The dot on the timetable's rule: the slot the station is actually airing.</summary>
+/// <remarks>
+/// A converter rather than two `IsVisible` ellipses, so the dot keeps one position on the rule
+/// whichever it is. Red is ON AIR here as everywhere: the timetable is the one page where a slot's
+/// time and the slot on air can disagree, because a hold keeps a broadcast past its window.
+/// </remarks>
+public sealed class AiringBrushConverter : IValueConverter
+{
+    public static AiringBrushConverter Instance { get; } = new();
+
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var key = value is true ? "DaToneLiveBrush" : "DaBorderStrongBrush";
+        var application = Avalonia.Application.Current;
+
+        return application is not null
+            && application.Resources.TryGetResource(key, application.ActualThemeVariant, out var brush)
+                ? brush
+                : Brushes.Gray;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

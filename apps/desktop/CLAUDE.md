@@ -276,6 +276,43 @@ right, compiles, and fails at XAML load with a message naming the CHILD's type.
 `Notice` have both bitten this tree; the fix each time is a `using` alias rather than a rename, since
 the property names are the ones the views read.
 
+## Looking at a page without a screen
+
+**`tools/Shots` renders a page to a PNG.** Avalonia's headless platform with real Skia drawing, a
+window, two dispatcher passes and a captured frame. It exists because everything about this app
+except how it LOOKS can be checked by running it, and a sandboxed session has no Screen Recording
+permission — so a layout was the one thing going unverified.
+
+```bash
+dotnet run --project apps/desktop/tools/Shots -- artifacts/shots carbon
+```
+
+It asserts nothing and cannot fail meaningfully. A layout is judged by looking at it, which is the
+thing an assertion cannot do; the value is entirely in the picture.
+
+**Two dispatcher passes, not one.** The first measures and arranges; a frame captured before the
+second is a half-laid-out page, which reads as a bug in the page rather than in the tool.
+
+**The window has to carry the theme's own background.** Without it every page renders on the platform
+default, so a dark theme appears to have a white margin and the light one looks whiter than it is.
+
+**The data matters as much as the layout.** Rows of one-word values look fine and prove nothing. The
+fixtures use a long persona style, a wrapped talk break and a module name that runs past its column,
+because that is where a layout actually goes wrong.
+
+### What it found the first time it was pointed at a page
+
+**In a list, an `Auto` column cannot line up down the page.** Every row is its own Grid, so `Auto`
+sizes to that row alone — and a column whose content is sometimes hidden collapses to nothing on
+those rows. The persona names started at two different x positions depending on whether that persona
+was on air; the running order's durations marched about depending on whether a row's move buttons
+were drawn; a production's metadata sat a foot from its title. **Fixed widths for any column that
+must align, and a reserved width for any column holding something conditional.** `*` is safe, since
+it resolves against the same available width on every row.
+
+**Nothing said which tab you were on.** Four identical buttons, and the page beneath them was the
+only clue. `Classes.active` bound to the same boolean the page switches on.
+
 ## The library and the voice
 
 **Each tab fetches once, when it is first opened.** None of a catalog, a playlist list or a chart list

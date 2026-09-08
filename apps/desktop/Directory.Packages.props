@@ -28,6 +28,15 @@
         -->
     </ItemGroup>
 
+    <ItemGroup Label="Rendering pages without a screen">
+        <!--
+            Used only by `tools/Shots`, which renders a page to a PNG so it can be LOOKED at without a
+            display. Not referenced by the app.
+        -->
+        <PackageVersion Include="Avalonia.Headless" Version="12.1.2" />
+        <PackageVersion Include="Avalonia.Skia" Version="12.1.2" />
+    </ItemGroup>
+
     <ItemGroup Label="Application">
         <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />

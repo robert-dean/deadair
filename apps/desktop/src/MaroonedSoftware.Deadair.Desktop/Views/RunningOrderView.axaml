@@ -44,7 +44,11 @@
         <ListBox ItemsSource="{Binding Items}" Background="Transparent" BorderThickness="0">
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:OrderItemViewModel">
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10" Margin="0,3">
+                    <!-- Fixed widths on the last two columns. Every row is its own Grid, so an
+                         `Auto` column sizes to that row alone: a row whose move buttons are hidden
+                         gave its duration a different x from the row above, and the times marched
+                         about down the list. -->
+                    <Grid ColumnDefinitions="Auto,*,52,108" ColumnSpacing="10" Margin="0,3">
                         <Ellipse Width="7" Height="7" VerticalAlignment="Center"
                                  Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
 
@@ -60,10 +64,11 @@
                         </StackPanel>
 
                         <TextBlock Grid.Column="2" Text="{Binding Length}" FontFamily="monospace" FontSize="11"
-                                   VerticalAlignment="Center" Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                   VerticalAlignment="Center" HorizontalAlignment="Right"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
 
                         <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2"
-                                    IsVisible="{Binding CanMove}">
+                                    HorizontalAlignment="Right" IsVisible="{Binding CanMove}">
                             <Button Content="↑" FontSize="11" Padding="6,2"
                                     Command="{Binding $parent[ListBox].((vm:RunningOrderViewModel)DataContext).MoveUpCommand}"
                                     CommandParameter="{Binding}" />

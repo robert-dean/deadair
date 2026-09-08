@@ -68,20 +68,6 @@
         "resolved": "12.1.2",
         "contentHash": "DdLTe9xKXxxfRcXmUw1trXZpBpz1YiZYWXx0DfMVPFAnkCszKsHLi67kaZfGJqtfQq2EySKd2qgRYX2QYkSxcg=="
       },
-      "Avalonia.Skia": {
-        "type": "Transitive",
-        "resolved": "12.1.2",
-        "contentHash": "x0TDDdZgNepbxRd6gSQyv3A/hHoVJk3kYqjRa1baI43XPGPuO87lArf4DRKAERgWUxUp1ad28aTvVsE3x0JM0g==",
-        "dependencies": {
-          "Avalonia": "12.1.2",
-          "HarfBuzzSharp": "8.3.1.3",
-          "HarfBuzzSharp.NativeAssets.Linux": "8.3.1.3",
-          "HarfBuzzSharp.NativeAssets.WebAssembly": "8.3.1.3",
-          "SkiaSharp": "3.119.4",
-          "SkiaSharp.NativeAssets.Linux": "3.119.4",
-          "SkiaSharp.NativeAssets.WebAssembly": "3.119.4"
-        }
-      },
       "Avalonia.Win32": {
         "type": "Transitive",
         "resolved": "12.1.2",
@@ -343,6 +329,21 @@
           "Avalonia.Skia": "12.1.2",
           "Avalonia.Win32": "12.1.2",
           "Avalonia.X11": "12.1.2"
+        }
+      },
+      "Avalonia.Skia": {
+        "type": "CentralTransitive",
+        "requested": "[12.1.2, )",
+        "resolved": "12.1.2",
+        "contentHash": "x0TDDdZgNepbxRd6gSQyv3A/hHoVJk3kYqjRa1baI43XPGPuO87lArf4DRKAERgWUxUp1ad28aTvVsE3x0JM0g==",
+        "dependencies": {
+          "Avalonia": "12.1.2",
+          "HarfBuzzSharp": "8.3.1.3",
+          "HarfBuzzSharp.NativeAssets.Linux": "8.3.1.3",
+          "HarfBuzzSharp.NativeAssets.WebAssembly": "8.3.1.3",
+          "SkiaSharp": "3.119.4",
+          "SkiaSharp.NativeAssets.Linux": "3.119.4",
+          "SkiaSharp.NativeAssets.WebAssembly": "3.119.4"
         }
       },
       "Avalonia.Themes.Fluent": {

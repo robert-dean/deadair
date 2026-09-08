@@ -8,13 +8,13 @@ const _ZodDatetime = z.preprocess(
 
 /**
  * Lifecycle state of a plugin the host knows about
- * generated from [PluginStatus](file://./../../../../data/contracts/plugins/plugins.types.ck#L7)
+ * generated from [PluginStatus](../../../../data/contracts/plugins/plugins.types.ck#L7)
  */
 export const PluginStatus = z.enum(['discovered', 'disabled', 'misconfigured', 'active', 'failed']);
 export type PluginStatus = z.infer<typeof PluginStatus>;
 
 /**
- * generated from [ConfigFieldType](file://./../../../../data/contracts/plugins/plugins.types.ck#L9)
+ * generated from [ConfigFieldType](../../../../data/contracts/plugins/plugins.types.ck#L9)
  */
 export const ConfigFieldType = z.enum(['string', 'text', 'url', 'secret', 'number', 'boolean', 'select', 'multiselect', 'list', 'note']);
 export type ConfigFieldType = z.infer<typeof ConfigFieldType>;
@@ -23,7 +23,7 @@ export type ConfigFieldType = z.infer<typeof ConfigFieldType>;
  * What a `number` field's value is measured in. The stored value is always in this unit; only the
  * control the operator touches changes, so a byte count stays a byte count everywhere it is read and
  * a `fraction` stays the share between 0 and 1 that the code multiplying by it wants
- * generated from [ConfigFieldUnit](file://./../../../../data/contracts/plugins/plugins.types.ck#L14)
+ * generated from [ConfigFieldUnit](../../../../data/contracts/plugins/plugins.types.ck#L14)
  */
 export const ConfigFieldUnit = z.enum(['bytes', 'fraction']);
 export type ConfigFieldUnit = z.infer<typeof ConfigFieldUnit>;
@@ -33,14 +33,14 @@ export type ConfigFieldUnit = z.infer<typeof ConfigFieldUnit>;
  * per field rather than inferred, because a slider is right for a value you feel for and wrong for
  * one you have to hit exactly, and `tags` is right for a comma-separated line that is really a SET
  * and wrong for one that is prose. Nothing about the stored value changes either way
- * generated from [ConfigFieldControl](file://./../../../../data/contracts/plugins/plugins.types.ck#L20)
+ * generated from [ConfigFieldControl](../../../../data/contracts/plugins/plugins.types.ck#L20)
  */
 export const ConfigFieldControl = z.enum(['slider', 'tags']);
 export type ConfigFieldControl = z.infer<typeof ConfigFieldControl>;
 
 /**
  * One choice of a `select` config field
- * generated from [ConfigFieldOption](file://./../../../../data/contracts/plugins/plugins.types.ck#L23)
+ * generated from [ConfigFieldOption](../../../../data/contracts/plugins/plugins.types.ck#L23)
  */
 export const ConfigFieldOption = z.strictObject({
     value: z.string().min(1).max(200),
@@ -52,7 +52,7 @@ export type ConfigFieldOption = z.infer<typeof ConfigFieldOption>;
  * Where a field's or a column's choices come from when only the console can enumerate them: the
  * station's own tables, the platform's zone list, the enabled plugins that can do one of four jobs,
  * or the models the selected model plugin currently offers. Resolved by the console either way
- * generated from [ConfigFieldOptionSource](file://./../../../../data/contracts/plugins/plugins.types.ck#L31)
+ * generated from [ConfigFieldOptionSource](../../../../data/contracts/plugins/plugins.types.ck#L31)
  */
 export const ConfigFieldOptionSource = z.enum([
     'station.newsCategories',
@@ -67,14 +67,14 @@ export const ConfigFieldOptionSource = z.enum([
 export type ConfigFieldOptionSource = z.infer<typeof ConfigFieldOptionSource>;
 
 /**
- * generated from [PluginLogLevel](file://./../../../../data/contracts/plugins/plugins.types.ck#L81)
+ * generated from [PluginLogLevel](../../../../data/contracts/plugins/plugins.types.ck#L81)
  */
 export const PluginLogLevel = z.enum(['debug', 'info', 'warn', 'error']);
 export type PluginLogLevel = z.infer<typeof PluginLogLevel>;
 
 /**
  * A submitted settings form. Secret values arrive in here and are never echoed back
- * generated from [PluginConfigInput](file://./../../../../data/contracts/plugins/plugins.types.ck#L113)
+ * generated from [PluginConfigInput](../../../../data/contracts/plugins/plugins.types.ck#L113)
  */
 export const PluginConfigInput = z.strictObject({
     config: z.record(z.string(), z.unknown()),
@@ -84,14 +84,14 @@ export type PluginConfigInput = z.infer<typeof PluginConfigInput>;
 /**
  * What a plugin may do with a capability it asked for. Denied is the default and needs no row: a
  * capability is refused until somebody allows it, so "never answered" and "refused" are one state
- * generated from [GrantDecision](file://./../../../../data/contracts/plugins/plugins.types.ck#L119)
+ * generated from [GrantDecision](../../../../data/contracts/plugins/plugins.types.ck#L119)
  */
 export const GrantDecision = z.enum(['allowed', 'denied']);
 export type GrantDecision = z.infer<typeof GrantDecision>;
 
 /**
  * Outcome of the plugin's own `testConnection()`
- * generated from [PluginTestResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L143)
+ * generated from [PluginTestResult](../../../../data/contracts/plugins/plugins.types.ck#L143)
  */
 export const PluginTestResult = z.strictObject({
     ok: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
@@ -102,7 +102,7 @@ export type PluginTestResult = z.infer<typeof PluginTestResult>;
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](file://./../../../../data/contracts/plugins/plugins.types.ck#L161)
+ * generated from [PluginOAuthStart](../../../../data/contracts/plugins/plugins.types.ck#L161)
  */
 export const PluginOAuthStart = z.strictObject({
     url: z.url(),
@@ -111,7 +111,7 @@ export type PluginOAuthStart = z.infer<typeof PluginOAuthStart>;
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](file://./../../../../data/contracts/plugins/plugins.types.ck#L166)
+ * generated from [PluginOAuthResult](../../../../data/contracts/plugins/plugins.types.ck#L166)
  */
 export const PluginOAuthResult = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -121,7 +121,7 @@ export const PluginOAuthResult = z.strictObject({
 export type PluginOAuthResult = z.infer<typeof PluginOAuthResult>;
 
 /**
- * generated from [PluginOAuthCallbackQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L172)
+ * generated from [PluginOAuthCallbackQuery](../../../../data/contracts/plugins/plugins.types.ck#L172)
  */
 export const PluginOAuthCallbackQuery = z.object({
     code: z.string().max(2048).optional(),
@@ -142,7 +142,7 @@ export type PluginOAuthCallbackQuery = z.infer<typeof PluginOAuthCallbackQuery>;
  * Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
  * `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
  * was written, where these are whatever the operator's own server currently says
- * generated from [PluginFieldSuggestions](file://./../../../../data/contracts/plugins/plugins.types.ck#L151)
+ * generated from [PluginFieldSuggestions](../../../../data/contracts/plugins/plugins.types.ck#L151)
  */
 export const PluginFieldSuggestions = z.strictObject({
     fields: z
@@ -159,7 +159,7 @@ export type PluginFieldSuggestions = z.infer<typeof PluginFieldSuggestions>;
 /**
  * One column of a `list` field. Every ordinary cell is stored as a string in the row, so this describes the
  * control rather than the value; a `secret` cell is encrypted on its own and is never in the row at all
- * generated from [ConfigFieldColumn](file://./../../../../data/contracts/plugins/plugins.types.ck#L35)
+ * generated from [ConfigFieldColumn](../../../../data/contracts/plugins/plugins.types.ck#L35)
  */
 export const ConfigFieldColumn = z.strictObject({
     key: z.string().min(1).max(200),
@@ -173,7 +173,7 @@ export const ConfigFieldColumn = z.strictObject({
 export type ConfigFieldColumn = z.infer<typeof ConfigFieldColumn>;
 
 /**
- * generated from [PluginLogEntry](file://./../../../../data/contracts/plugins/plugins.types.ck#L83)
+ * generated from [PluginLogEntry](../../../../data/contracts/plugins/plugins.types.ck#L83)
  */
 export const PluginLogEntry = z.strictObject({
     ts: z.string().max(40),
@@ -183,16 +183,16 @@ export const PluginLogEntry = z.strictObject({
 export type PluginLogEntry = z.infer<typeof PluginLogEntry>;
 
 /**
- * generated from [PluginLogQuery](file://./../../../../data/contracts/plugins/plugins.types.ck#L95)
+ * generated from [PluginLogQuery](../../../../data/contracts/plugins/plugins.types.ck#L95)
  */
 export const PluginLogQuery = z.strictObject({
-    limit: z.coerce.number().int().min(1).max(2000).optional(),
+    limit: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(2000)).optional(),
     level: PluginLogLevel.optional(),
 });
 export type PluginLogQuery = z.infer<typeof PluginLogQuery>;
 
 /**
- * generated from [PluginLogLevelInput](file://./../../../../data/contracts/plugins/plugins.types.ck#L100)
+ * generated from [PluginLogLevelInput](../../../../data/contracts/plugins/plugins.types.ck#L100)
  */
 export const PluginLogLevelInput = z.strictObject({
     level: PluginLogLevel,
@@ -202,7 +202,7 @@ export type PluginLogLevelInput = z.infer<typeof PluginLogLevelInput>;
 /**
  * One capability a plugin asked for, with the station's answer. The ask is the plugin's manifest and
  * the answer is a row, so a plugin that stops asking stops appearing here whatever was stored
- * generated from [PluginGrant](file://./../../../../data/contracts/plugins/plugins.types.ck#L123)
+ * generated from [PluginGrant](../../../../data/contracts/plugins/plugins.types.ck#L123)
  */
 export const PluginGrant = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -216,7 +216,7 @@ export const PluginGrant = z.strictObject({
 export type PluginGrant = z.infer<typeof PluginGrant>;
 
 /**
- * generated from [PluginGrantInput](file://./../../../../data/contracts/plugins/plugins.types.ck#L137)
+ * generated from [PluginGrantInput](../../../../data/contracts/plugins/plugins.types.ck#L137)
  */
 export const PluginGrantInput = z.strictObject({
     capability: z.string().min(1).max(100),
@@ -226,21 +226,36 @@ export type PluginGrantInput = z.infer<typeof PluginGrantInput>;
 
 /**
  * Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code
- * generated from [ConfigFieldDescriptor](file://./../../../../data/contracts/plugins/plugins.types.ck#L46)
+ * generated from [ConfigFieldDescriptor](../../../../data/contracts/plugins/plugins.types.ck#L46)
  */
 export const ConfigFieldDescriptor = z.strictObject({
     key: z.string().min(1).max(200),
     label: z.string().min(1).max(200),
     type: ConfigFieldType,
     required: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).optional(),
-    default: z.union([z.string(), z.coerce.number(), z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())]).optional(),
+    default: z
+        .union([
+            z.string(),
+            z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number()),
+            z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
+        ])
+        .optional(),
     unit: ConfigFieldUnit.optional().describe('`number` only, and ignored elsewhere'),
     control: ConfigFieldControl.optional().describe(
         '`slider` for a `number` with both `min` and `max`, `tags` for a `string` holding a comma-separated set',
     ),
-    step: z.coerce.number().optional().describe("How coarsely a `control` moves, in the field's own unit. Ignored without one, and defaults to 1"),
-    min: z.coerce.number().optional().describe('`number` only: the smallest value that will be accepted, inclusive'),
-    max: z.coerce.number().optional().describe('`number` only: the largest value that will be accepted, inclusive'),
+    step: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number())
+        .optional()
+        .describe("How coarsely a `control` moves, in the field's own unit. Ignored without one, and defaults to 1"),
+    min: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number())
+        .optional()
+        .describe('`number` only: the smallest value that will be accepted, inclusive'),
+    max: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number())
+        .optional()
+        .describe('`number` only: the largest value that will be accepted, inclusive'),
     placeholder: z.string().max(400).optional(),
     help: z.string().max(2000).optional(),
     options: z.array(ConfigFieldOption).optional(),
@@ -261,7 +276,7 @@ export const ConfigFieldDescriptor = z.strictObject({
 export type ConfigFieldDescriptor = z.infer<typeof ConfigFieldDescriptor>;
 
 /**
- * generated from [PluginLogPage](file://./../../../../data/contracts/plugins/plugins.types.ck#L89)
+ * generated from [PluginLogPage](../../../../data/contracts/plugins/plugins.types.ck#L89)
  */
 export const PluginLogPage = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -273,7 +288,7 @@ export const PluginLogPage = z.strictObject({
 export type PluginLogPage = z.infer<typeof PluginLogPage>;
 
 /**
- * generated from [PluginGrantList](file://./../../../../data/contracts/plugins/plugins.types.ck#L133)
+ * generated from [PluginGrantList](../../../../data/contracts/plugins/plugins.types.ck#L133)
  */
 export const PluginGrantList = z.strictObject({
     grants: z.array(PluginGrant).describe('Every capability every installed plugin is asking for, refused ones included'),
@@ -282,7 +297,7 @@ export type PluginGrantList = z.infer<typeof PluginGrantList>;
 
 /**
  * A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set
- * generated from [PluginSummary](file://./../../../../data/contracts/plugins/plugins.types.ck#L67)
+ * generated from [PluginSummary](../../../../data/contracts/plugins/plugins.types.ck#L67)
  */
 export const PluginSummary = z.strictObject({
     id: z.string().min(1).max(200),
@@ -331,7 +346,7 @@ export type PluginSummaryInput = z.infer<typeof PluginSummaryInput>;
 
 /**
  * A summary plus the stored NON-SECRET configuration and the last recorded failure
- * generated from [PluginDetail](file://./../../../../data/contracts/plugins/plugins.types.ck#L105)
+ * generated from [PluginDetail](../../../../data/contracts/plugins/plugins.types.ck#L105)
  */
 export const PluginDetail = PluginSummary.extend({
     config: z.record(z.string(), z.unknown()),

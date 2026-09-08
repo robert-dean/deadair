@@ -23,6 +23,16 @@
                     "clients": "src/{area}/{filename}.client.ts"
                 }
             }
+        },
+        "@contractkit/plugin-kotlin": {
+            "baseDir": "packages/sdk-kotlin/",
+            "packageName": "com.maroonedsoftware.deadair.sdk",
+            "sdkName": "DeadairSdk"
+        },
+        "@contractkit/plugin-csharp": {
+            "baseDir": "packages/sdk-csharp/",
+            "namespace": "MaroonedSoftware.Deadair.Sdk",
+            "sdkName": "DeadairSdk"
         }
     }
 }

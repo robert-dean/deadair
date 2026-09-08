@@ -5,13 +5,13 @@ import { CatalogPlaylistPage, CatalogPlaylistTracks } from '../modules/playlists
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
- * generated from [playlists.ck](file://./../../data/contracts/playlists/playlists.ck)
+ * generated from [playlists.ck](../../data/contracts/playlists/playlists.ck)
  */
 export const PlaylistsRouter = ServerKitRouter();
 
 /**
  * Fans out across every installed plugin that declares AND implements the `catalog` capability
- * from [playlists.ck](file://./../../data/contracts/playlists/playlists.ck#L17)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L17)
  */
 PlaylistsRouter.get('/playlists', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(PlaylistsService);
@@ -24,7 +24,7 @@ PlaylistsRouter.get('/playlists', requirePolicy({ policy: 'platform.view' }), as
 
 /**
  * One playlist's tracks from one plugin
- * from [playlists.ck](file://./../../data/contracts/playlists/playlists.ck#L33)
+ * from [playlists.ck](../../data/contracts/playlists/playlists.ck#L33)
  */
 PlaylistsRouter.get('/playlists/:pluginId/:playlistId/tracks', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { pluginId, playlistId } = await parseAndValidate(

@@ -845,10 +845,21 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
     );
     if (unknown.length > 0) {
         parts.push(
-            `The station knows nothing about ${unknown.map(track => `"${track.title}"`).join(' or ')} beyond the title and who it is by. ` +
-                'Say nothing else about it as fact — no dates, no labels, no pressings or catalogue numbers, no studios, no sessions, ' +
-                'no chart placings, no connection to any other record. What you think of it is yours to say. What happened to it is not, ' +
-                'unless you were told.',
+            // "Beyond the title and who it is by" was true when those were the only two fields a
+            // record arrived with, and stopped being true the moment `BreakTrack` started carrying
+            // the year, the album and the length. Left as it was, this paragraph forbade dates on
+            // the same screen that printed one, which is a prompt arguing with itself and a model
+            // resolving it whichever way it likes. It now names the listing rather than enumerating
+            // what the listing contains, so a field added later cannot make it a lie again.
+            //
+            // Dates keep their clause rather than losing it, narrowed to what is actually shown:
+            // with no year listed "beyond any year listed above" forbids every date, which is the
+            // old rule unchanged, and with one it forbids the pressing dates and session dates the
+            // rest of the sentence is about.
+            `The station knows nothing about ${unknown.map(track => `"${track.title}"`).join(' or ')} beyond what is listed above. ` +
+                'Say nothing else about it as fact — no dates beyond any year listed above, no labels, no pressings or catalogue numbers, ' +
+                'no studios, no sessions, no chart placings, no connection to any other record. What you think of it is yours to say. ' +
+                'What happened to it is not, unless you were told.',
         );
     }
 
@@ -1064,8 +1075,48 @@ function userPrompt(request: BreakWriteRequest, settings: PromptSettings, shape:
  */
 function describe(track: BreakTrack, withFacts: boolean): string {
     const lines = [`- Title: ${track.title}`, `- Artist: ${track.artist}`];
+    // Behind `withFacts` with the notes, and for that flag's own argument rather than because these
+    // are facts in the enrichment sense: they are MATERIAL, and "a model handed a list of material
+    // will find a way to read the material out" is exactly as true of a year as of a discography
+    // note. A bulletin's job is the stories.
+    //
+    // Each one absent rather than blank when the order does not know it. See `BreakTrack`, and the
+    // weather describer below, which states the rule this follows: a model given "Wind: —" fills
+    // it in.
+    //
+    // Tested for EMPTINESS and not merely for `undefined`, which is the bug this shipped with. An
+    // item with nothing in a text column carries the empty string rather than `undefined` — the
+    // builder in `write.break.job.ts` says so one line above where it hands these over, and uses
+    // `||` on the artist for exactly this reason. An `- Album: ` with nothing after it is the blank
+    // field this comment promises never to draw, and the station aired the consequence: "Justin
+    // Timberlake's first solo single from his album ." A zero year or a zero length is the same
+    // claim in numbers and is dropped on the same test.
+    if (withFacts) {
+        if (track.year) lines.push(`- Year: ${track.year}`);
+        if (track.album?.trim()) lines.push(`- Album: ${track.album.trim()}`);
+        if (track.durationMs) lines.push(`- Length: ${spokenLength(track.durationMs)}`);
+    }
     if (withFacts && track.facts && track.facts.length > 0) lines.push('- Notes:', ...track.facts.map(fact => `  - ${fact}`));
     return lines.join('\n');
+}
+
+/**
+ * A length in words rather than in milliseconds.
+ *
+ * Minutes and seconds because this is something to TALK about — a record that goes on too long is a
+ * subject — where the stored figure is a measurement. A model handed `401000` either reads it out or
+ * divides it, and one of those is worse than the other.
+ *
+ * The two special cases are the ones a bare "6 minutes 0 seconds" gets wrong out loud.
+ */
+function spokenLength(durationMs: number): string {
+    const total = Math.max(0, Math.round(durationMs / 1000));
+    const minutes = Math.floor(total / 60);
+    const seconds = total % 60;
+
+    if (minutes === 0) return `${seconds} seconds`;
+    if (seconds === 0) return `${minutes} minutes`;
+    return `${minutes} minutes ${seconds} seconds`;
 }
 
 /**
@@ -1690,7 +1741,7 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // of wrongness — a statement about the moment that a listener can check against their own window
     // — and above the character check for the reason that one sits below the others: being out of
     // character is a question worth asking only about a script the station could otherwise say.
-    if (saysWrongDayPart(words, guard)) return undefined;
+    if (wrongDayPartIn(words, guard) !== undefined) return undefined;
 
     // A correct sentence that is not this character speaking, which is the failure a persona is
     // asked for and the one a model handed a page of content rules actually makes — in flat plain
@@ -1790,9 +1841,22 @@ const cuesWrongly = (script: string, guard: AnswerGuard): boolean => guard.cues 
  * {@link namesWrongTimeOfDay}. They share this predicate, and through it the `wrong-daypart` fault
  * and its sentence, because they are the same thing to a listener: the station saying what time it
  * is and being wrong.
+ *
+ * ## It answers the WORD, and that is the whole of why it is not a boolean
+ *
+ * Both checks already know which word they caught, and this threw it away for as long as it returned
+ * `true`. What that cost is a question nobody could answer from the record: `contradictsDayPart` can
+ * only ever fire on four strings — `tonight`, `this morning`, `this afternoon`, `this evening` — and
+ * "which of the four, how often" is the difference between a sheet with one habit and a model with a
+ * general problem. On the live station `conspiracy` sent a third of its breaks to the floor for
+ * months with this fault among the leaders, and finding out which word did it meant reading raw
+ * answers by hand, one at a time, only while `llm.captureWrites` happened to be on.
+ *
+ * The word reaches `script_history.reason` through {@link writeDecline}, so `scripts/break.declines.ts`
+ * splits the fault by word with no change of its own: it groups on the reason string.
  */
-const saysWrongDayPart = (script: string, guard: AnswerGuard): boolean =>
-    contradictsDayPart(script, guard.dayPart) !== undefined || namesWrongTimeOfDay(script, guard.moment?.at, guard.moment?.zone) !== undefined;
+const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined =>
+    contradictsDayPart(script, guard.dayPart) ?? namesWrongTimeOfDay(script, guard.moment?.at, guard.moment?.zone);
 
 /**
  * Why a cleaned script is not the persona speaking, or `undefined` when it is.
@@ -1856,7 +1920,21 @@ export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-n
  * the row and the log disagreeing about the same break.
  */
 export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFault; reason: string } | undefined {
-    const reasoned = (fault: WriteFault) => ({ fault, reason: FAULT_REASONS[fault] });
+    // `said` names the wording that actually caused it, for the one fault whose sentence cannot be
+    // acted on without it. The rest are already specific: a break that named no record, or ran long,
+    // or read a sample back, tells an operator where to look on its own. "The wrong half of the day"
+    // does not — the fix for a model reaching for `tonight` in the morning is not the fix for one
+    // saying `teatime` at ten, and the row could not tell them apart.
+    //
+    // Appended to the sentence rather than carried beside it, because the sentence is the thing that
+    // reaches BOTH destinations already: `script_history.reason` and, through the writers, the log
+    // line's own message. A second field would have to be threaded through five writers to arrive
+    // where this arrives for nothing. It splits the fault into one row per word in
+    // `scripts/break.declines.ts`, which groups on the reason and is the report this is for.
+    const reasoned = (fault: WriteFault, said?: string) => ({
+        fault,
+        reason: said === undefined ? FAULT_REASONS[fault] : `${FAULT_REASONS[fault]}: it said "${said}"`,
+    });
 
     const tidied = tidyAnswer(text, guard);
     if (tidied === undefined) return reasoned('nothing-said');
@@ -1873,7 +1951,8 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     // a break that named nothing has not got as far as cueing anything wrongly, and a break that
     // told the listener the wrong record played is not worth asking whether it did so in voice.
     if (cuesWrongly(speakable, guard)) return reasoned('cued-wrong');
-    if (saysWrongDayPart(speakable, guard)) return reasoned('wrong-daypart');
+    const daypart = wrongDayPartIn(speakable, guard);
+    if (daypart !== undefined) return reasoned('wrong-daypart', daypart);
 
     const fault = faultIn(speakable, guard);
 

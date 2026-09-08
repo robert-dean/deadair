@@ -8,6 +8,13 @@ export const queryKeys = {
         /** The verdict on the refresh cookie. Deliberately not keyed on the session epoch; see `session.bootstrap`. */
         restore: () => ['session', 'restore'] as const,
     },
+    /**
+     * How the operator signs in. One key: the API answers with every enrolled factor at once, and
+     * enrolling or removing one answers in terms of the whole list again.
+     */
+    auth: {
+        factors: () => ['auth', 'factors'] as const,
+    },
     onboarding: {
         requirements: () => ['onboarding', 'requirements'] as const,
     },

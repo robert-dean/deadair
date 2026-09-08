@@ -4,13 +4,13 @@ import { NewsPage, NewsQuery, StationFeedList } from '../modules/news/types/news
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
- * generated from [news.ck](file://./../../data/contracts/news/news.ck)
+ * generated from [news.ck](../../data/contracts/news/news.ck)
  */
 export const NewsRouter = ServerKitRouter();
 
 /**
  * Every feed every installed news plugin currently offers
- * from [news.ck](file://./../../data/contracts/news/news.ck#L22)
+ * from [news.ck](../../data/contracts/news/news.ck#L22)
  */
 NewsRouter.get('/news/feeds', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(NewsService);
@@ -23,7 +23,7 @@ NewsRouter.get('/news/feeds', requirePolicy({ policy: 'platform.view' }), async 
 
 /**
  * Published entries, newest first
- * from [news.ck](file://./../../data/contracts/news/news.ck#L34)
+ * from [news.ck](../../data/contracts/news/news.ck#L34)
  */
 NewsRouter.get('/news', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, NewsQuery.strict());

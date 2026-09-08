@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Anchor, Badge, Button, Card, Code, Collapse, Group, List, SimpleGrid, Spoiler, Stack, Text } from '@mantine/core';
 
 import { formatDate } from '../shared/format.date';
+import type { Moment } from '../shared/feed.moment';
 import { ErrorAlert } from '../shared/error.alert';
 import { PageSkeleton } from '../shared/page.skeleton';
 
@@ -32,8 +33,8 @@ export interface EnrichmentFacts {
 export interface EnrichmentProvenance {
     provider: string;
     providerRef?: string;
-    fetchedAt: string;
-    expiresAt?: string;
+    fetchedAt: Moment;
+    expiresAt?: Moment;
     stale: boolean;
     found: boolean;
     /** The last attempt errored. Distinct from `found: false`, which is the provider having nothing. */
@@ -53,7 +54,7 @@ export interface EnrichmentClaim {
     source: string;
     sourceUrl: string;
     sourceQuote: string;
-    lastUsedAt?: string;
+    lastUsedAt?: Moment;
 }
 
 export interface EnrichmentPanelProps {

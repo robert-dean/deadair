@@ -314,16 +314,32 @@ export class PlayoutService {
      * takes one id rather than two because a chart's is already qualified with
      * the plugin that offered it.
      *
-     * What differs is downstream and worth knowing from here: a chart names
-     * records where a playlist names copies, so `putOnAir` looks each entry up
-     * and ingests it, and a station with `rotation.discover` off can play almost
-     * none of one. That arrives as the same 422 an empty playlist gives, worded
-     * to name the setting.
+     * **NOT the same delegate any more, and that is the whole difference between
+     * the two.** A playlist names copies, so putting one on air is a read and a
+     * vet and answering inline is honest. A chart names RECORDS, so every entry
+     * is matched, looked up at a provider and ingested — up to
+     * `MAX_CHART_ENTRIES` of them, each a search across every searchable
+     * provider. So this hands the work to `AirChartJob` and answers the ASK,
+     * which is `replanOrder`'s shape rather than `playPlaylist`'s.
+     *
+     * The status returned is therefore the station as it stands NOW, before the
+     * changeover: there is nothing else true to answer with. The console polls
+     * `/playout/status` regardless, so the transport bar shows the new programme
+     * when the job has one, the same way it shows a replan.
+     *
+     * A station with `rotation.discover` off can still play almost none of a
+     * chart. That no longer arrives as a 422 here, because knowing it needs the
+     * lookups; it reaches the operator on the activity feed. What IS still
+     * refused at the door is an id naming no chart, and a chart nothing could
+     * read.
+     *
+     * @throws 422 when the id names no chart, or when nothing could read one.
      */
     async playChart(input: PlayoutChartInput): Promise<PlayoutStatus> {
-        await this.director.putOnAir({ chartId: input.chartId, ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }) });
+        await this.director.airChart({ chartId: input.chartId, ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }) });
 
-        await this.pusher.reconcile();
+        // No `reconcile()` here, unlike the playlist above: there is nothing new to hand over yet.
+        // The job reconciles once the order it built is actually on.
         return this.getStatus();
     }
 

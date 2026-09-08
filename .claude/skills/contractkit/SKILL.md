@@ -8,9 +8,9 @@ description: Write or change ContractKit `.ck` contracts in `apps/api/data/contr
 `.ck` files under `apps/api/data/contracts/` are the source of truth for every HTTP route in this
 repo. One `.ck` edit regenerates code in three places. Never hand-edit any of them.
 
-Everything below was checked against the installed toolchain: `@contractkit/cli` 0.10.6,
-`@contractkit/core` 0.26.0, `@contractkit/plugin-typescript` 0.31.1, `@contractkit/prettier-plugin`
-0.14.1. Behaviour here has changed under several of those minors, so check the version before
+Everything below was checked against the installed toolchain: `@contractkit/cli` 0.11.1,
+`@contractkit/core` 0.29.0, `@contractkit/plugin-typescript` 0.38.0, `@contractkit/prettier-plugin`
+0.14.7. Behaviour here has changed under several of those minors, so check the version before
 trusting a claim that contradicts what you observe.
 
 ## The loop
@@ -38,11 +38,34 @@ Given `apps/api/data/contracts/<area>/<filename>.ck`, per `apps/api/contractkit.
 | SDK client | `packages/sdk/src/{area}/<filename>.client.ts` |
 | SDK types | `packages/sdk/src/{area}/types/<filename>.ts` |
 | SDK aggregator + barrel | `packages/sdk/src/deadair.sdk.ts`, `packages/sdk/src/index.ts` |
+| Kotlin models + clients | `packages/sdk-kotlin/src/commonMain/kotlin/com/maroonedsoftware/deadair/sdk/{models,clients}/` |
+| Kotlin runtime + aggregator | `.../sdk/runtime/{SdkRuntime,Serializers}.kt`, `.../sdk/DeadairSdk.kt` |
 
 `{area}` comes from the file's own `options { keys: { area: ... } }` block, so that key decides
 which module directory the types land in and which `sdk.<area>` namespace the client hangs off.
 Split contracts by convention: `<area>.ck` holds `operation` declarations, `<area>.types.ck` holds
 `contract` declarations.
+
+### The Kotlin output
+
+A second plugin, `@contractkit/plugin-kotlin`, generates a Ktor client for the Android listener.
+Its config is three keys — `baseDir`, `packageName`, `sdkName` — and both `scaffold` and
+`includeInternal` are deliberately off: `apps/android` owns the Gradle file, and an
+`operation(internal)` has no business on a listener's phone. One model file per contract file, one
+client per operation file; there is no `area`/`subarea` nesting, so `authentication.factor.ck`
+becomes `AuthenticationFactorClient` rather than a member of an `authentication` namespace.
+
+**Nothing about the Kotlin output is checked by Prettier** — it has no parser for `.kt` — so
+`build:contracts` re-formats only the three TypeScript roots and the Kotlin is committed exactly as
+emitted. It is compiled by `apps/android`'s `:sdk` subproject and by nothing else.
+
+**Kotlin that does not compile is a generator bug**, and it is fixed upstream in the ContractKit
+repository with a test and a changeset, never in the output. The generator's own README says its
+Kotlin had never been put through a toolchain, and the first attempt here found two: a `/*` in
+contract prose opened a nested comment that swallowed the rest of a file (Kotlin block comments
+NEST, so escaping `*/` alone is not enough), and a default against a named `enum` contract was
+emitted as its wire string rather than the enum member. Both are fixed in 0.1.1, which is the
+floor this repo pins.
 
 ## The two hand-maintained edges
 
@@ -161,9 +184,10 @@ lying mime and letting the client sniff.
   plugin's `output` set, and the orphaned `.ts` goes with it on the next run. Do not hand-delete
   generated output; run `pnpm build:contracts` and let the cleanup do it, then drop the router from
   `routes.setup.ts`, which is hand-written and will otherwise import a missing file.
-- **`rootDir` in `apps/api/contractkit.config.json` is an absolute `~/projects/deadair/` path.**
-  It resolves case-insensitively on this Mac, but a checkout at another path silently compiles
-  nothing (empty glob, no error). If a run reports zero files, look there first.
+- **`rootDir` in `apps/api/contractkit.config.json` is the RELATIVE `../..`.** It was an absolute
+  `~/projects/deadair/` path once, which resolved on exactly one machine and matched there only
+  because macOS ignores case; CI's `generated` job compiled nothing (empty glob, no error). If a run
+  reports zero files, look there first.
 - **`operation(internal)`** still generates a router but no SDK client method. Use it for endpoints
   a browser or an upstream hits directly (OIDC callback, magic-link redirect, playout callbacks),
   not for anything the console calls.
@@ -171,9 +195,10 @@ lying mime and letting the client sniff.
   `sdk:` on the verb, or move the operation into a `subarea`.
 - **Method naming priority** is `sdk:` verbatim, else camelCased `name:`, else inferred from verb +
   path. Changing a `name:` renames the SDK method and breaks `apps/web` callers.
-- **`readonly` / `writeonly` fields split a contract into three schemas** (`XBase`, `X`, `XInput`).
-  The router validates request bodies and query against `XInput`, so a field marked `readonly`
-  cannot be sent by a client, no matter what the service accepts.
+- **`readonly` / `writeonly` fields split a contract into two schemas** (`X` and `XInput`; the
+  unexported `XBase` that used to sit between them went in plugin-typescript 0.34). The router
+  validates request bodies and query against `XInput`, so a field marked `readonly` cannot be sent
+  by a client, no matter what the service accepts.
 - **Prettier runs on generated output** (`"prettier": true`), but what it produces is NOT what
   `prettier --check` accepts, so `build:contracts` re-formats the output itself afterwards. Measured
   on `getArt`, `getVoiceSample`, `getSegmentAudio` and `getPadAudio`: a single-parameter method whose
@@ -188,13 +213,22 @@ lying mime and letting the client sniff.
   the same place either way.
 - **A local `build:contracts` compiles only what the cache has invalidated**, so it reports
   `N unchanged` for files it never looked at. CI checks out fresh with no `.contractkit/cache` and
-  compiles all 119, which is why it can fail on output a local run just called clean. To reproduce,
+  compiles all 125, which is why it can fail on output a local run just called clean. To reproduce,
   `rm -rf .contractkit/cache` first.
 - **`date` / `time` / `datetime` / `duration` / `interval` are Luxon objects over ISO-8601 strings**,
-  not numbers. `duration` in particular renders as a Luxon `Duration` parsed from `"PT3M42S"`. It is
-  the obvious-looking choice for a `durationMs` field and the wrong one: milliseconds stay
-  `int(min=0)` here, because `apps/web` carries no luxon dependency and the plugin SDK's JSON-safe
-  boundary specifies integer millis.
+  not numbers, on BOTH sides since plugin-typescript 0.34: the router parses them and the SDK
+  revives them, so `apps/web` receives a `DateTime` and not the ISO text. The shared moment helpers
+  in `apps/web/src/components/shared/feed.moment.ts` accept either, because plugin capability
+  payloads still carry strings under the JSON-safe rule. `duration` renders as a Luxon `Duration`
+  parsed from `"PT3M42S"`; it is the obvious-looking choice for a `durationMs` field and the wrong
+  one, because the plugin SDK's JSON-safe boundary specifies integer millis, so milliseconds stay
+  `int(min=0)` here.
+- **An operation with no `response:` block, or only bare error statuses, answers 204** (0.34). It used
+  to answer 200, or the first bare error status, on success. Declare `200:` if you mean it.
+- **`int` and `number` no longer coerce `null`, `[]` or `true`** (0.34). Those now 400 where they
+  validated as `0`, `0` and `1`. String-shaped numbers still coerce, so query and headers are unaffected.
+- **Inline `query:` and `headers:` fields are required unless marked `?` or given a default** (0.34),
+  in the SDK signature and the OpenAPI document as well as the router, which always required them.
 - **Comments become generated documentation.** A trailing `# ...` on a field becomes its `.describe()`
   and its SDK JSDoc; a comment above a field or an operation does the same. Rationale aimed at the
   next contract author does not belong there — it ends up in the public SDK type. Put it in this

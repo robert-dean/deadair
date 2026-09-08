@@ -5,13 +5,13 @@ import { ChartPage, ChartQuery, StationChartList } from '../modules/charts/types
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
- * generated from [charts.ck](file://./../../data/contracts/charts/charts.ck)
+ * generated from [charts.ck](../../data/contracts/charts/charts.ck)
  */
 export const ChartsRouter = ServerKitRouter();
 
 /**
  * Every chart every installed chart plugin currently offers
- * from [charts.ck](file://./../../data/contracts/charts/charts.ck#L22)
+ * from [charts.ck](../../data/contracts/charts/charts.ck#L22)
  */
 ChartsRouter.get('/charts', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(ChartsService);
@@ -24,7 +24,7 @@ ChartsRouter.get('/charts', requirePolicy({ policy: 'platform.view' }), async ct
 
 /**
  * One chart's records, ranked
- * from [charts.ck](file://./../../data/contracts/charts/charts.ck#L37)
+ * from [charts.ck](../../data/contracts/charts/charts.ck#L37)
  */
 ChartsRouter.get('/charts/:id', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const { id } = await parseAndValidate(

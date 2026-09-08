@@ -2,8 +2,8 @@ import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { AudienceWatch } from '#modules/playout/audience.watch.js';
 import { Rundown } from '#modules/playout/rundown.js';
-import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import type { NowPlaying } from './types/nowplaying.types.js';
+import { HLS_PLAYLIST_PATH, STREAM_DEFAULTS, STREAM_KEYS, resolveMountSettings, streamMounts } from '#modules/stream/stream.settings.js';
+import type { NowPlaying, NowPlayingMount } from './types/nowplaying.types.js';
 
 /**
  * What the station is playing, for anything that is not the console.
@@ -42,6 +42,36 @@ export class NowPlayingService {
     }
 
     /**
+     * Every way to listen, MP3 first.
+     *
+     * Through `streamMounts` rather than assembled here, because it is the single source
+     * of truth for which mounts exist and the config renderer, the audience gate and the
+     * console all read it: a client offered a mount the renderer never wrote is worse
+     * than a client offered none. `resolveMountSettings` rather than the full resolver
+     * because that one decrypts secrets and takes a SCOPED `EncryptionProvider`, which
+     * this service deliberately does not hold.
+     *
+     * HLS is appended rather than coming out of `streamMounts`, and that is not an
+     * oversight: it is not an Icecast mount. Nothing publishes it as one, the audience
+     * gate counts its listeners a different way, and its path is a constant rather than
+     * derived from `stream.mount` — see {@link HLS_PLAYLIST_PATH}. Its bitrate is left
+     * absent because the figure a listener would get is the AAC variant's, and reporting
+     * the AAC setting here would state a rate for an output whose own setting is not it.
+     */
+    private mounts(): NowPlayingMount[] {
+        const settings = resolveMountSettings(this.config);
+        const mounts: NowPlayingMount[] = streamMounts(settings).map(mount => ({
+            format: mount.format,
+            path: mount.path,
+            ...(mount.bitrateKbps === undefined ? {} : { bitrateKbps: mount.bitrateKbps }),
+        }));
+
+        if (settings.hlsEnabled) mounts.push({ format: 'hls', path: HLS_PLAYLIST_PATH });
+
+        return mounts;
+    }
+
+    /**
      * Answers even when nothing is airing, with `onAir: false` and no track. A
      * 404 for a quiet station would make an ordinary state look like a fault, and
      * a poller would have to special-case it to tell "off air" from "this URL is
@@ -56,13 +86,18 @@ export class NowPlayingService {
         // listening" while it is quiet is the honest pair, and in an audience-gated
         // station the two facts explain each other.
         const listeners = this.audience.listenerCount();
-        if (!nowPlaying) return { station: this.stationName(), onAir: false, listeners };
+        // On both answers, because a client picking how to listen has to be able to ask that
+        // of a station that is currently quiet — which, under `audience` air mode, is every
+        // station nobody has tuned into yet.
+        const mounts = this.mounts();
+        if (!nowPlaying) return { station: this.stationName(), onAir: false, listeners, mounts };
 
         const { item, startedAt, remainingMs } = nowPlaying;
         return {
             station: this.stationName(),
             onAir: true,
             listeners,
+            mounts,
             track: {
                 title: item.title,
                 // A display line, not a list. Everything downstream renders it as text,

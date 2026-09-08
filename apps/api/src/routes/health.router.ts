@@ -3,12 +3,12 @@ import { HealthService } from '#src/modules/health/health.service.js';
 import { Health } from '../modules/health/types/health.types.js';
 
 /**
- * generated from [health.ck](file://./../../data/contracts/health/health.ck)
+ * generated from [health.ck](../../data/contracts/health/health.ck)
  */
 export const HealthRouter = ServerKitRouter();
 
 /**
- * from [health.ck](file://./../../data/contracts/health/health.ck#L28)
+ * from [health.ck](../../data/contracts/health/health.ck#L28)
  * anonymous access, no security required
  * @internal
  */
@@ -22,7 +22,7 @@ HealthRouter.get('/health', async ctx => {
 });
 
 /**
- * from [health.ck](file://./../../data/contracts/health/health.ck#L41)
+ * from [health.ck](../../data/contracts/health/health.ck#L41)
  * anonymous access, no security required
  * @internal
  */

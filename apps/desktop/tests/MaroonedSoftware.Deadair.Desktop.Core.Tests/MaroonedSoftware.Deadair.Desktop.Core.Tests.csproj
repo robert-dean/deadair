@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <RootNamespace>MaroonedSoftware.Deadair.Desktop.Core.Tests</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../src/MaroonedSoftware.Deadair.Desktop.Core/MaroonedSoftware.Deadair.Desktop.Core.csproj" />
+        <!--
+            The navigation table is a rule about the station's account model rather than about
+            Avalonia — which pages a listener can reach without signing in — so it is worth a test
+            even though the table lives in the app project.
+        -->
+        <ProjectReference Include="../../src/MaroonedSoftware.Deadair.Desktop/MaroonedSoftware.Deadair.Desktop.csproj" />
+    </ItemGroup>
+
+</Project>

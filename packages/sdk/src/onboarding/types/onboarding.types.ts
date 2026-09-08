@@ -1,11 +1,11 @@
 /**
- * generated from [OnboardingRequirementKey](file://./../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L7)
+ * generated from [OnboardingRequirementKey](../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L7)
  */
 export type OnboardingRequirementKey = 'admin.account';
 
 /**
  * A single onboarding requirement
- * generated from [CoreOnboardingRequirement](file://./../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L9)
+ * generated from [CoreOnboardingRequirement](../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L9)
  */
 export interface CoreOnboardingRequirement {
     /** The key of the requirement */
@@ -24,7 +24,7 @@ export interface CoreOnboardingRequirementInput {
 }
 
 /**
- * generated from [AdminAccountOnboardingRequirement](file://./../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L16)
+ * generated from [AdminAccountOnboardingRequirement](../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L16)
  */
 export interface AdminAccountOnboardingRequirement extends Omit<CoreOnboardingRequirement, 'key'> {
     key: 'admin.account';
@@ -36,7 +36,7 @@ export interface AdminAccountOnboardingRequirementInput extends Omit<CoreOnboard
 }
 
 /**
- * generated from [OnboardingRequirement](file://./../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L24)
+ * generated from [OnboardingRequirement](../../../../../apps/api/data/contracts/onboarding/onboarding.types.ck#L24)
  */
 export type OnboardingRequirement = AdminAccountOnboardingRequirement;
 export type OnboardingRequirementInput = AdminAccountOnboardingRequirementInput;

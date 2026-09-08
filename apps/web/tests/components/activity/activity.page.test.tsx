@@ -5,6 +5,7 @@
 
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 import { userEvent } from '@testing-library/user-event';
 import type { ActivityEntry } from '@deadair/sdk';
 
@@ -13,7 +14,7 @@ import { render, screen, setupUser } from '../../utils/render';
 
 const entry = (over: Partial<ActivityEntry> = {}): ActivityEntry => ({
     id: 'evt-1',
-    at: '2026-08-13T03:14:15.926Z',
+    at: DateTime.fromISO('2026-08-13T03:14:15.926Z'),
     module: 'playout',
     kind: 'silence.cause',
     severity: 'info',

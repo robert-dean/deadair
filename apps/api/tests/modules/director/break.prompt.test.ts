@@ -492,6 +492,81 @@ describe('breakPrompt', () => {
         expect(rules).not.toMatch(/describes its presenter/i);
     });
 
+    // The three the running order has always held and the writer never saw. A writer told a title
+    // and a name has nothing specific to be specific about, which is what the station's invented
+    // years and invented studios were: not a model being careless, a model being asked.
+    describe('what the order knows about a record', () => {
+        const known = { ...previous, year: 1973, album: 'Solid Air', durationMs: 401_000 };
+
+        it('hands over the year, the album and the length', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: known }));
+
+            expect(said).toContain('- Year: 1973');
+            expect(said).toContain('- Album: Solid Air');
+            expect(said).toContain('- Length: 6 minutes 41 seconds');
+        });
+
+        it('leaves out what the order does not know rather than showing it blank', () => {
+            // The weather describer's rule, and this follows it: a model given an empty field fills
+            // it in. Absent is the honest shape and a blank is an invitation.
+            const said = user(prompt({ kind: 'talkbreak', previous: { ...previous, year: 1973 } }));
+
+            expect(said).toContain('- Year: 1973');
+            expect(said).not.toContain('- Album:');
+            expect(said).not.toContain('- Length:');
+        });
+
+        it('drops a field the order holds as empty rather than drawing it blank', () => {
+            // An item with nothing in a text column carries the empty string, not `undefined`, which
+            // is why the builder uses `||` on the artist. Guarding only on `undefined` drew
+            // "- Album: " with nothing after it, and the station aired "Justin Timberlake's first
+            // solo single from his album ."
+            const said = user(prompt({ kind: 'talkbreak', previous: { ...previous, album: '', year: 0, durationMs: 0 } }));
+
+            expect(said).not.toContain('- Album:');
+            expect(said).not.toContain('- Year:');
+            expect(said).not.toContain('- Length:');
+        });
+
+        it('drops an album that is nothing but whitespace', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: { ...previous, album: '   ' } }));
+
+            expect(said).not.toContain('- Album:');
+        });
+
+        it('says the length in minutes and seconds rather than in milliseconds', () => {
+            // A model handed `401000` either reads it out or divides it, and one of those is worse.
+            const said = user(prompt({ kind: 'talkbreak', previous: known }));
+
+            expect(said).not.toContain('401000');
+        });
+
+        it('does not say zero seconds for a whole number of minutes', () => {
+            const said = user(prompt({ kind: 'talkbreak', previous: { ...previous, durationMs: 180_000 } }));
+
+            expect(said).toContain('- Length: 3 minutes');
+            expect(said).not.toContain('0 seconds');
+        });
+
+        it('stops claiming the station knows only the title and the artist', () => {
+            // The paragraph forbade dates on the same screen that now prints one, which is a prompt
+            // arguing with itself. It names the listing now instead of enumerating it.
+            const said = user(prompt({ kind: 'talkbreak', previous: known }));
+
+            expect(said).toContain('beyond what is listed above');
+            expect(said).not.toContain('beyond the title and who it is by');
+        });
+
+        it('still forbids every date when no year was listed', () => {
+            // The narrowing has to leave the old rule exactly where it was for a record the order
+            // knows nothing about, which is still the ordinary case.
+            const said = user(prompt({ kind: 'talkbreak', previous }));
+
+            expect(said).toContain('no dates beyond any year listed above');
+            expect(said).not.toContain('- Year:');
+        });
+    });
+
     describe('the notes', () => {
         const withFacts = { ...previous, facts: ['John Martyn was born in New Malden in 1948.'] };
 
@@ -1302,6 +1377,35 @@ describe('readAnswer, against the half of the day it was told', () => {
 
         expect(declined?.fault).toBe('wrong-daypart');
         expect(declined?.reason).toMatch(/wrong half of the day/i);
+    });
+
+    // The sentence alone sent an operator to read raw answers one at a time to learn which of four
+    // words did it, and only while `llm.captureWrites` happened to be on. `conspiracy` spent months
+    // at a third of its breaks on the floor with this among the leaders and nothing in the record
+    // said whether that was one habit or four.
+    it('names the word it caught, so the row says which of the four it was', () => {
+        const declined = writeDecline('Tonight we are back to back.', { dayPart: at(9) });
+
+        expect(declined?.reason).toContain('it said "tonight"');
+    });
+
+    it('names the word for the time-of-day half too, which is a different fix', () => {
+        // A model reaching for `tonight` in the morning and one saying `midday` at half past four
+        // are one fault to a listener and two different things to change.
+        const declined = writeDecline('Welcome to your midday news blast.', { moment: moment(16) });
+
+        expect(declined?.reason).toContain('it said "midday"');
+    });
+
+    it('leaves every other fault’s sentence exactly as it was', () => {
+        // The word is appended for the one fault whose sentence cannot be acted on without it. A
+        // break that named no record already says where to look.
+        const declined = writeDecline('A pleasant enough record, and that is all there is to say.', {
+            names: [{ title: 'Solid Air', artist: 'John Martyn' }],
+        });
+
+        expect(declined?.fault).toBe('named-nothing');
+        expect(declined?.reason).not.toContain('it said');
     });
 
     // The half a stretch cannot reach. "Midday" is the afternoon at ten past twelve and still the

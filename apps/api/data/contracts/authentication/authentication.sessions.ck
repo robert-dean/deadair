@@ -18,3 +18,29 @@ operation /auth/logout: {
         }
     }
 }
+
+# ── Who am I ────────────────────────────────────────────────────────────────────────────
+#
+# Roles are resolved per request from the tuple store and never live in the token: the JWT
+# carries no roles and the token response's `scope` is empty. So a client that wants to know
+# whether to DRAW an operator control, rather than draw it and be told 403, has exactly this one
+# way to find out. The answer is a hint about what to show; the API stays the gate on every
+# operation regardless.
+
+operation /auth/session: {
+    get: { # Who the caller is and which platform roles they hold
+        name: Read session
+        service: SessionsService.readCurrentSession
+        security: {
+            # The read floor rather than `policy: none`. A signed-in actor holding no role can do
+            # nothing else either, so answering 403 here says the same thing every other read
+            # would say — and both platform roles grant it, which is the point of asking.
+            policy: platform.view
+        }
+        response: {
+            200: {
+                application/json: AuthSession
+            }
+        }
+    }
+}

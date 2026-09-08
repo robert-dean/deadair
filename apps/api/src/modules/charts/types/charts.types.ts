@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * A chart one installed plugin offers
- * generated from [StationChart](file://./../../../../data/contracts/charts/charts.types.ck#L7)
+ * generated from [StationChart](../../../../data/contracts/charts/charts.types.ck#L7)
  */
 export const StationChart = z.strictObject({
     id: z
@@ -22,25 +22,31 @@ export type StationChart = z.infer<typeof StationChart>;
 
 /**
  * One record's place in a chart
- * generated from [ChartRecord](file://./../../../../data/contracts/charts/charts.types.ck#L20)
+ * generated from [ChartRecord](../../../../data/contracts/charts/charts.types.ck#L20)
  */
 export const ChartRecord = z.strictObject({
-    rank: z.coerce.number().int().min(1),
+    rank: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1)),
     title: z.string().min(1).max(400),
     artist: z.string().min(1).max(200).describe('The lead artist alone. The other credits are in `featuring`'),
     featuring: z.array(z.string().min(1).max(200)).optional(),
     album: z.string().max(400).optional(),
-    year: z.coerce.number().int().min(0).optional(),
-    peak: z.coerce.number().int().min(1).optional().describe('Best position this record has reached, where the source tracks it'),
-    weeksOn: z.coerce.number().int().min(0).optional().describe('How many editions it has appeared in, where the source tracks it'),
+    year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
+    peak: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1))
+        .optional()
+        .describe('Best position this record has reached, where the source tracks it'),
+    weeksOn: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe('How many editions it has appeared in, where the source tracks it'),
 });
 export type ChartRecord = z.infer<typeof ChartRecord>;
 
 /**
- * generated from [ChartQuery](file://./../../../../data/contracts/charts/charts.types.ck#L31)
+ * generated from [ChartQuery](../../../../data/contracts/charts/charts.types.ck#L31)
  */
 export const ChartQuery = z.strictObject({
-    limit: z.coerce.number().int().min(1).max(100).optional(),
+    limit: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(100)).optional(),
     date: z
         .string()
         .max(10)
@@ -52,7 +58,7 @@ export const ChartQuery = z.strictObject({
 export type ChartQuery = z.infer<typeof ChartQuery>;
 
 /**
- * generated from [StationChartList](file://./../../../../data/contracts/charts/charts.types.ck#L16)
+ * generated from [StationChartList](../../../../data/contracts/charts/charts.types.ck#L16)
  */
 export const StationChartList = z.strictObject({
     charts: z.array(StationChart),
@@ -60,7 +66,7 @@ export const StationChartList = z.strictObject({
 export type StationChartList = z.infer<typeof StationChartList>;
 
 /**
- * generated from [ChartPage](file://./../../../../data/contracts/charts/charts.types.ck#L36)
+ * generated from [ChartPage](../../../../data/contracts/charts/charts.types.ck#L36)
  */
 export const ChartPage = z.strictObject({
     chartId: z.string().min(1).max(400),

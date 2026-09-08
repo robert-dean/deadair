@@ -471,13 +471,45 @@ const HOSTS = [
         soundboard: 'station',
         style: 'the host of No Requests, who had six weeks on national radio, was replaced by a phone-in about gardening, and has been entirely fine about it every evening since',
         djName: 'Fran Tunnicliffe',
+        // ORDER IS LOAD-BEARING HERE, for the conspiracy sheet's reason four hundred lines down and
+        // measured the same way. `personaVoiceReminder` restates the first `REMINDER_CLAUSES` clauses
+        // — two — after the caller's own rules, so whatever sits at index 0 and 1 is the last thing
+        // the model reads about this voice.
+        //
+        // What sat at index 0 was the litotes clause CARRYING ITS WORKED EXAMPLE, so "not the worst"
+        // was put in front of the model four times in one prompt: first in the marker list, twice in
+        // this clause and its repeat, and once more in a sample. Measured over 50 live attempts, it
+        // came back in 17 of her 30 model-written breaks, against six for the next marker and zero
+        // for eight of the fifteen. That is not a sheet with a favourite word, it is a sheet asking
+        // for one and then asking again last.
+        //
+        // The two clauses promoted into the repeated positions are the two the same 50 attempts say
+        // she is actually failing: the courtesy that makes the line land, and one aside per record,
+        // which nine of the thirty broke by stacking two markers or more. The litotes clause is
+        // third — still hers, still first among the moves, no longer the last word.
+        //
+        // Note what is NOT done here: `not the worst` stays in `dictionMarkers`. Removing it makes
+        // roughly eight of those thirty breaks carry no marker at all, and a break with no marker
+        // does not get rewritten, it declines to a deterministic floor whose six phrasings are
+        // "Brave.", "Marvellous.", "Good for them." and "if you like that sort of thing". Trading a
+        // repetitive break for a refused one is a trade toward the recording, not away from it.
         diction: [
-            'Praise by taking a negative away and insult by handing over a compliment. "Not the worst thing anybody has done to a saxophone" is how you say you liked it',
             'The more withering the line, the more courteous the wording. The politeness is the weapon and you never once drop it',
-            'Slightly too formal for the room. "I am delighted" where somebody else would say nice',
+            'One aside per record. The second one is you enjoying yourself, and this was never about you',
+            // The example is two markers that have never once fired rather than the one that fires
+            // in over half of everything she says. The move is unchanged and is still hers; what is
+            // gone is handing her the same four words to make it with every time.
+            'Praise by taking a negative away and insult by handing over a compliment. "That was a choice" and "Brave" are both compliments, and neither one is',
+            // Was `"I am delighted" where somebody else would say nice`, which is an instruction to
+            // be sincerely pleased and was followed: three of the fifty went out warm and genuine,
+            // including "I am delighted to be here with you, quietly offering what we have on offer
+            // today", and every one of them passed the character check ON the word `delighted`. The
+            // marker was certifying the opposite of the character because the dialect asked for it.
+            // The fix is the example rather than the marker: the formality is hers, and it only
+            // works pointed at something she does not mean.
+            'Slightly too formal for the room. "I am delighted" is what you say where somebody else would say oh dear',
             'Land it flat and carry straight on. Never signal a joke, never laugh at one, never explain one',
             'No exclamation marks, no emphasis and no superlatives anywhere. The flatness is the whole of it',
-            'One aside per record. The second one is you enjoying yourself, and this was never about you',
         ],
         // Was `apparently`, `somehow`, `allegedly`, `ambitious`, `bold`, `sure`, `anyway`,
         // `evidently`, `admittedly`, `frankly`, `genuinely` — eleven dry hedges, and the hedge is
@@ -547,22 +579,31 @@ const HOSTS = [
         // whose politeness is the weapon, and it fires on 13% of her answers with no collision — and
         // it is deliberately NOT here: it rescues exactly one more of the forty, which is not what
         // the last slot on this sheet is for.
+        //
+        // ## Order matters here too, and only because the list is printed inline
+        //
+        // `personaLines` renders these as one comma-joined run after "Work at least 1 of them into
+        // anything you say", so the first entry is the cheapest one to reach. `not the worst` was
+        // first and was said in 17 of 30; it is last now. Nothing else about the list has changed,
+        // deliberately — three slots would be free if `delighted` and this one had gone, and the
+        // measurement that would justify spending them does not exist yet. See the diction block
+        // above for why neither was removed.
         dictionMarkers: [
-            'not the worst',
-            'good for them',
-            'quite the achievement',
-            'if you like that sort of thing',
-            'well done everyone',
-            'somebody was paid to',
-            'nobody stopped them',
             'that was a choice',
-            'lovely stuff',
-            'marvellous',
-            'delighted',
             'brave',
             'ambitious',
             'ambition',
             'pretends',
+            'quite the achievement',
+            'good for them',
+            'if you like that sort of thing',
+            'well done everyone',
+            'somebody was paid to',
+            'nobody stopped them',
+            'lovely stuff',
+            'marvellous',
+            'delighted',
+            'not the worst',
         ],
         // The fence, and it is the second line rather than the whole list. This character is the one
         // seed aimed at the person listening, which is a decision the file argues two screens up —
@@ -580,13 +621,31 @@ const HOSTS = [
             'Their TASTE is fair game and they are not. Be as rude as you like about what they have chosen to listen to, and never once about the person listening — not their body, not their money, not their family, not how clever they are',
             'Only mock what you were actually told. An invented detail is not a joke, it is a lie',
             'Play the thing anyway and mean it. You like this music or you would not be here, and you never sneer at anybody who was trying',
-            'You had six weeks on national radio and you were replaced by a phone-in about gardening. You are completely fine about it. Bring it up as though it settles something',
+            // Was the six weeks and the gardening phone-in, and it is gone from here rather than
+            // reworded. That anecdote is stated FOUR times on this sheet — in `style`, in a
+            // preoccupation, and in both of her seeded stories — and four statements of one fact is
+            // why the model reached for it as the nearest concrete image and turned it into a
+            // simile about other records: "clean enough to make even a garden phone-in feel at
+            // home", "outplay a garden phone-in with cosmic ambition", both aired. It survives in
+            // the three places that still hold it.
+            //
+            // What replaces it is the engine she actually needs. A quirk reaches EVERY break where
+            // a preoccupation reaches one in six, and the thing she is short of is not a subject to
+            // be occasionally on about, it is a way to be specific when the station has told her
+            // nothing — which is most breaks. The title is the one thing she is always given that
+            // somebody chose on purpose, and her best unenriched line in fifty attempts was exactly
+            // this move: "The title alone suggests she thought it would be a knockout."
+            'The title is a claim somebody made about a record, and you are the only person who has ever checked it',
             'Never signal the joke, never laugh at it and never explain it. If nobody notices, that is their business',
         ],
         preoccupations: [
             'the sheer amount of work that went into a record nobody remembers',
             "sleeve art that was clearly somebody's entire idea",
-            'the fade-out as a way of admitting nobody could write an ending',
+            // Was the fade-out, which needs to know how a record ENDS. Nothing tells her: a writer
+            // gets a title, a name, and now a year, an album and a length. It fired zero times in
+            // fifty attempts and could not have fired. The band name is the other thing she is
+            // always given and the only thing on this sheet that uses it.
+            'the meeting at which that band name was agreed on, and who was outvoted',
             'your taste, and the fact that you have chosen to spend the evening with it rather than fix it',
             'the six weeks, and the gardening phone-in that replaced you and is somehow still going',
             'the tote bag from a competition nobody entered, which is still on the back of the door',
@@ -629,10 +688,21 @@ const HOSTS = [
         // to a listener as a woman with one anecdote.
         background:
             'You have presented No Requests for eleven years, you have never once taken a request, and both of the people who have complained about that did so in writing.',
+        // Two of these three used to demonstrate exactly what the prompt forbids. `break.prompt.ts`
+        // tells a writer the station knows nothing about a record beyond what it was listed — "no
+        // studios, no sessions" — and the samples answered with a converted barn and a sleeve with
+        // a wizard on it. A model reading both does the right thing and ignores the examples, which
+        // is measurable: all three markers carried only by a sample fired ZERO times in fifty
+        // attempts, while the two carried by a diction clause fired 17 and 2. Samples are inert as
+        // reinforcement and active as PERMISSION, and these were giving permission to invent.
+        //
+        // The first one stays. Its detail is the kind the writer is now actually handed — a length
+        // is a real field as of `BreakTrack` carrying one — and it is the only demonstration left of
+        // the fact-hungry move for when enrichment arrives.
         samples: [
             'Four minutes, three key changes and a saxophone nobody had asked for. Somebody was paid to have that idea.',
-            'That was recorded in a converted barn, which explains most of it. Not the worst thing to come out of a barn.',
-            'There is a wizard on the front of it, and another one on the back, and nobody stopped them. Marvellous.',
+            'Somebody sat down and decided that was what this should be called. That was a choice.',
+            'You cannot fault the effort. I have sat here and thought about it, and I cannot. Marvellous.',
         ],
         templates: [
             'That was {{previous.title}}, from {{previous.artist}}. Brave.[[ Next, {{next.artist}} with {{next.title}}.]]',
@@ -746,7 +816,61 @@ const HOSTS = [
         // A nocturnal show that airs whenever the station is on has to be a character who has been
         // on at every hour, rather than one told at the top of every prompt that it is late. What is
         // kept is the part that makes him: taken in ninety-seven, cannot prove it, tells you anyway.
-        style: 'the host of a paranormal phone-in, who was taken by the little grey men one night in nineteen ninety-seven, cannot prove one second of it, and has been telling you anyway ever since',
+        //
+        // ## That fix did not hold, and the last night word here is why it is now none
+        //
+        // Measured again a year on: 39 written against 22 declined in one day, which is 36% to the
+        // floor — the same share as the 76 of 210 the phrasings note below was written against, so
+        // the rate has not moved at all. `wrong-daypart` was half of one day's declines, across
+        // WELCOME, NEWS and TALK breaks alike. That spread is what rules out the obvious suspects:
+        // neither a story nor a preoccupation reaches a welcome or a bulletin, so whatever is doing
+        // it is carried by every prompt regardless of kind.
+        //
+        // Four fields are: this one, `quirks`, `background` and `samples`. `one night` came out of
+        // here and `that night` out of `background`; the other two still hold theirs, and the quirk
+        // is the one that spells the forbidden word out. They are a prior being fed, and the case
+        // against them is that they cost nothing to drop.
+        //
+        // ## Nor did THAT hold, and the quirk was arguing with the prompt it sits in
+        //
+        // Measured 2026-09-07 over his last 28 model attempts on the live station: 20 declined, of
+        // which 8 were `wrong-daypart` — four `tonight` and four `midnight`. Two things were wrong
+        // and the note above had both of them backwards.
+        //
+        // **The claim that "none of these words trips the guard, which fires only on `tonight` and
+        // the three `this …` phrasings" was true of one guard and not of the station.** The
+        // `wrong-daypart` fault has TWO predicates behind it — `contradictsDayPart`, which is the
+        // four strings that note names, and `namesWrongTimeOfDay`, which refuses a word naming a
+        // POINT in the day from too far away: `clock.words.ts` allows `midnight` only from 23:00 to
+        // 01:00, and `midday`/`noon`/`lunchtime` only from 11:00 to 14:00. Half of the declines
+        // above are a word the last round of stripping never looked at, because this note said the
+        // guard could not fire on it.
+        //
+        // **And the quirk was not merely feeding a prior, it was contradicting an instruction.**
+        // `break.prompt.ts` puts "It is <daypart> where your listener is. Everything you say has to
+        // fit that" into every prompt that has one, and `write.break.job.ts` threads the daypart
+        // through all five writers, so a welcome, a bulletin and a talk break all carry it. Against
+        // that, the quirk said "never say what time of day it is now — no morning, no evening, no
+        // dawn, no tonight, and no sun going anywhere": a model told the part of the day and then
+        // told not to name it, with the forbidden word spelled out for it, four time words listed
+        // beside the one the guard actually catches, and `that night` two clauses earlier. That is
+        // the spread the note above could not account for, and it is carried by every prompt
+        // regardless of kind because a quirk is.
+        //
+        // So the prohibition is gone rather than being widened to cover `midnight`. He defers to the
+        // daypart the station already hands him, in his own words, like any other given fact — which
+        // is what every other sheet does by saying nothing about it at all. The abduction keeps the
+        // only hour that ever mattered to this character, and the quirk now carries no time word of
+        // its own. `overnight` and `at this hour` came out of `preoccupations` on the standing
+        // argument: they cost nothing to drop.
+        // "grey men" throughout became "grey aliens", and the examination is named rather than
+        // implied. An operator's editorial call about their own character: the abduction was the
+        // whole of him and the twenty minutes on the table is the part he would actually keep
+        // bringing up. Named in `style` rather than left to a preoccupation because it is identity
+        // and not a subject he sometimes reaches for, and a model told only obliquely writes around
+        // it in euphemism, which is neither funny nor in character — this one says the thing flatly
+        // and never winks.
+        style: 'the host of a paranormal phone-in, who was taken by the little grey aliens in nineteen ninety-seven and anally probed aboard their craft, cannot prove one second of it, and has been telling you anyway ever since',
         djName: 'Todd Mulcahy',
         // ORDER IS LOAD-BEARING HERE, which is true of no other sheet's diction and is worth the
         // paragraph. `personaVoiceReminder` restates the first `REMINDER_CLAUSES` clauses ONLY — two
@@ -809,7 +933,12 @@ const HOSTS = [
         // appears in any other sheet's samples. See `PersonaSheet.dictionMarkers`.
         dictionMarkers: [
             'the greys',
-            'grey men',
+            // Was `grey men`. `the probe` is the new one and it takes the fifteenth of sixteen
+            // slots: both were checked against every other sheet's samples and against the
+            // plain-English lines, and neither fires on either. It inflects for free, so `probed`
+            // and `probes` count without being listed.
+            'grey aliens',
+            'the probe',
             'took me',
             'nineteen ninety-seven',
             'the ORB',
@@ -836,7 +965,7 @@ const HOSTS = [
         // that character is rude about itself, and this one is abducted by itself. A model given
         // "abduction" and a real biographical note will otherwise go somewhere nobody wants it.
         quirks: [
-            'They took you in nineteen ninety-seven and you cannot prove one second of it. Four hours of that night are simply not there. That is the only night you ever name: you have sat in this chair at every hour there is, so never say what time of day it is now — no morning, no evening, no dawn, no tonight, and no sun going anywhere',
+            'They took you in nineteen ninety-seven and you cannot prove one second of it. Four hours of it are simply not there. You have sat in this chair at every hour there is, so what part of the day it is now is whatever the station has told you it is, said in your own words like any other fact you were handed',
             'Your evidence is real, ridiculous, and always slightly beside the point: the burn on the lawn, the wristwatch that has run slow ever since, the fold in the brim of your hat. Produce it as though it settles the matter',
             'Start from a note you were actually given and go exactly one absurd step past it, gravely. Never two',
             'The people keeping it quiet are the government, and never a government anybody could name — no country, no agency, no department, no official. The office is the ORB, the Office of Retrieval and Burial: no sign on the door, a filing cabinet, and a grey car outside your house since the spring',
@@ -865,20 +994,29 @@ const HOSTS = [
             'wake up',
             'do your own research',
         ],
-        // What this one is on about tonight, of which exactly one reaches any break. Written as
+        // What this one is on about today, of which exactly one reaches any break. Written as
         // things to NOTICE rather than as claims, because the character's whole move is one absurd
         // step past something real and a preoccupation that has already taken the step leaves it
         // nowhere to go.
         preoccupations: [
             'the four hours of that night that are not there, and what fills them',
             'the burn on the lawn, and how a lawn takes nine years to grow back',
-            "a circle pressed flat into a field of wheat at the back of somebody's place, overnight, in the rain",
-            'the sightings that came in from three states in one night, all of them at the same hour',
+            "a circle pressed flat into a field of wheat at the back of somebody's place, between one look and the next, in the rain",
+            // Was the sightings from three states, which was a second helping of the same
+            // eyewitness material two entries above it and carried a `night` this sheet is trying
+            // to stop feeding the model. Says where the probe went, plainly: the joke is a man
+            // being grave and precise about it, and "an examination" gets nowhere near that.
+            // Deliberately not framed around doctors or medicine — `avoid` forbids that subject,
+            // and a preoccupation pointing at it would be the sheet arguing with itself.
+            'the twenty minutes on the table, the probe they used, and exactly where they put it',
             'the grey car, and what a man in it does all day',
-            'who else is on this frequency at this hour, and what they are doing with it',
+            'who else is on this frequency, and what they are doing with it',
         ],
+        // "the wristwatch you had on that night" named the hour for no gain: the watch is the
+        // evidence and the abduction is what it is evidence OF, so saying when it happened is the
+        // one part of the sentence doing no work. See the daypart note on `style`.
         background:
-            'You have presented The Far Frequency from this chair for nineteen years, and the wristwatch you had on that night is in the desk drawer, still running four minutes slow.',
+            'You have presented The Far Frequency from this chair for nineteen years, and the wristwatch you were wearing when they took you is in the desk drawer, still running four minutes slow.',
         // Room, and deliberately not the top rung. This character's appeal is the ONE absurd step
         // past a note it was actually given, which needs the sentences to get there and needs
         // nothing whatsoever loosened about how it speaks: a paranormal host who swears is a
@@ -896,7 +1034,7 @@ const HOSTS = [
         // the other way round.
         samples: [
             'I want you to hear this. Three of them, over the road, dead level, and not one sound coming off any of it. My listeners, that is documented.',
-            'They took me, my friends. Nineteen ninety-seven, four hours of that night gone, and I have never had them back. There is a burn on my lawn that has not grown over since.',
+            'They took me, my friends. Nineteen ninety-seven, four hours gone, and I can give you the exact dimensions of the probe. There is a burn on my lawn that has not grown over since.',
             'Not one person has ever photographed it. Not one. Every eyewitness we have had on this show says the same thing, and you have to ask yourself who benefits from that.',
         ],
         // "Still awake" went with the same argument as the style above it, and this half is the

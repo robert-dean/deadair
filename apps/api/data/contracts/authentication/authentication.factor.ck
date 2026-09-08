@@ -89,3 +89,17 @@ operation /auth/mfa/start: {
         }
     }
 }
+
+operation /auth/factors/{method}/{methodId}: {
+    params: {
+        method: AuthenticationFactorMethod
+        methodId: string(max=255)
+    }
+    delete: { # Remove one of the caller's own factors. Answered only for `authenticator` today, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account.
+        name: Remove factor
+        service: AuthenticationRegistrationService.removeFactor
+        response: {
+            204:
+        }
+    }
+}

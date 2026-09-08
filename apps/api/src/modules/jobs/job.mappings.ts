@@ -11,6 +11,7 @@ import { ArtCacheJob } from '#modules/art/art.cache.job.js';
 import { AnalysisJob } from '#modules/analysis/analysis.job.js';
 import { CacheTrackJob } from '#modules/playout/audio/cache.track.job.js';
 import { FETCH_PER_PASS } from '#modules/playout/audio/track.cache.planner.js';
+import { AirChartJob } from '#modules/director/air.chart.job.js';
 import { ExtendLineupJob } from '#modules/director/extend.lineup.job.js';
 import { ReplanLineupJob } from '#modules/director/replan.lineup.job.js';
 import { ProduceProductionJob } from '#modules/productions/produce.production.job.js';
@@ -232,6 +233,21 @@ export const JobMappings: Record<JobNames, JobMapping> = {
     'director.extend_lineup': {
         job: ExtendLineupJob,
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 3 }) },
+    },
+
+    // No cron, for the reason the replan gives: this is an operator choosing a document to air.
+    //
+    // NO retry, which is where it parts company with the other two. They are additive or replace a
+    // tail; this ends the broadcast that is on and starts another, so a second attempt minutes later
+    // would change a station the operator has since put somewhere else on the strength of a press
+    // they have forgotten making. A chart that failed to air is a button to press again.
+    //
+    // `expiresIn` is the longest here and has to be: a chart is up to `MAX_CHART_ENTRIES` records
+    // and the operator's path now asks for a lookup PER entry, each a search across every searchable
+    // provider, with an ingest behind every hit.
+    'director.air_chart': {
+        job: AirChartJob,
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 15 }) },
     },
 
     // No cron, and there could not be one: this is an operator saying they do not like what is

@@ -1,6 +1,6 @@
 /**
  * A feed one installed plugin offers
- * generated from [StationFeed](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L7)
+ * generated from [StationFeed](../../../../../apps/api/data/contracts/news/news.types.ck#L7)
  */
 export interface StationFeed {
     /** Unique across the station: the plugin's own id for the feed, qualified with the plugin that offered it. Two services both calling something `world` stay distinct */
@@ -16,7 +16,7 @@ export interface StationFeed {
 
 /**
  * One published entry
- * generated from [NewsStory](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L20)
+ * generated from [NewsStory](../../../../../apps/api/data/contracts/news/news.types.ck#L20)
  */
 export interface NewsStory {
     /** Stable for the same entry across calls, which is what lets a reader tell an arrival from something it has already seen */
@@ -36,7 +36,7 @@ export interface NewsStory {
 }
 
 /**
- * generated from [NewsQuery](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L32)
+ * generated from [NewsQuery](../../../../../apps/api/data/contracts/news/news.types.ck#L32)
  */
 export interface NewsQuery {
     /** One feed, or absent for every feed the station can see, merged newest first */
@@ -49,14 +49,14 @@ export interface NewsQuery {
 }
 
 /**
- * generated from [StationFeedList](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L16)
+ * generated from [StationFeedList](../../../../../apps/api/data/contracts/news/news.types.ck#L16)
  */
 export interface StationFeedList {
     feeds: StationFeed[];
 }
 
 /**
- * generated from [NewsPage](file://./../../../../../apps/api/data/contracts/news/news.types.ck#L39)
+ * generated from [NewsPage](../../../../../apps/api/data/contracts/news/news.types.ck#L39)
  */
 export interface NewsPage {
     /** Newest first. Empty when nothing could be read, which is deliberately not an error: the news is something the station may talk about, never something it needs to air */

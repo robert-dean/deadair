@@ -5,13 +5,13 @@ import { TraceDetail, TracesPage, TracesQuery } from '../modules/station/types/t
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
- * generated from [traces.ck](file://./../../data/contracts/station/traces.ck)
+ * generated from [traces.ck](../../data/contracts/station/traces.ck)
  */
 export const TracesRouter = ServerKitRouter();
 
 /**
  * Recent decisions, newest first, folded to one row each
- * from [traces.ck](file://./../../data/contracts/station/traces.ck#L27)
+ * from [traces.ck](../../data/contracts/station/traces.ck#L27)
  */
 TracesRouter.get('/traces', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const query = await parseAndValidate(ctx.query, TracesQuery.strict());
@@ -26,13 +26,13 @@ TracesRouter.get('/traces', requirePolicy({ policy: 'platform.manage' }), async 
 
 /**
  * One decision: every call it made, and the decisions on either side of it
- * from [traces.ck](file://./../../data/contracts/station/traces.ck#L43)
+ * from [traces.ck](../../data/contracts/station/traces.ck#L43)
  */
 TracesRouter.get('/traces/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(
         ctx.params,
         z.strictObject({
-            id: z.string().min(1).max(200),
+            id: z.string().min(1).max(200).describe('The job or request id. A unique prefix is enough'),
         }),
     );
 

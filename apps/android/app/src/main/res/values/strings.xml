@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Every word the app says. The Kotlin that decides WHAT to say returns a `Message` and never a
+    sentence, so this file is the only place a sentence lives; see `ui/text/Message.kt`.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">deadair</string>
+
+    <!-- The frame -->
+    <string name="tab_now_playing">Now playing</string>
+    <string name="tab_up_next">Up next</string>
+    <string name="tab_history">Played</string>
+    <string name="tab_whats_on">What\'s on</string>
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+
+    <!-- Now playing -->
+    <string name="now_warming_up">Warming up</string>
+    <string name="now_off_air">Off air</string>
+    <string name="now_cant_reach">Can\'t reach the station</string>
+    <string name="now_quiet_until_someone_tunes_in">Quiet until someone tunes in — press play to start it.</string>
+    <string name="now_coming_on_air">The station is coming on air</string>
+    <string name="now_showing_last_said">Showing the last thing it said</string>
+    <string name="nobody_listening">Nobody listening</string>
+    <plurals name="listening">
+        <item quantity="one">%1$d listening</item>
+        <item quantity="other">%1$d listening</item>
+    </plurals>
+    <!-- Who is listening, then how: "3 listening · MP3" -->
+    <string name="now_footer">%1$s · %2$s</string>
+    <string name="now_fell_back_to_mp3">This station does not publish %1$s. Playing MP3.</string>
+    <!-- How far through the record, spoken for the progress bar: "1:42 of 3:58" -->
+    <string name="playhead_position">%1$s of %2$s</string>
+    <string name="play">Play</string>
+    <string name="stop">Stop</string>
+    <string name="buffering">Buffering</string>
+
+    <!-- First run and the station address -->
+    <string name="setup_intro">The address your station\'s console loads from. The same one carries the stream.</string>
+    <string name="station_address">Station address</string>
+    <string name="station_address_example">https://radio.example.com</string>
+    <string name="check">Check</string>
+    <string name="listen_to">Listen to %1$s</string>
+    <string name="use_station">Use %1$s</string>
+    <string name="station_answered_as">Answered as %1$s</string>
+    <string name="station_not_encrypted">Not encrypted. Ordinary on a home network, where the station has no certificate.</string>
+    <string name="station_not_an_address">That is not an address</string>
+    <string name="station_unknown_shape">That is a deadair station, but it answers a shape this app does not know. It may need updating.</string>
+    <string name="station_older_api">That is a deadair station running an older API: it does not report `%1$s`. Update the station.</string>
+    <string name="station_not_a_station">Something answered, but not a station. Check the address.</string>
+    <string name="station_answered_status">Answered %1$d, which is not a station. Check the address.</string>
+    <string name="station_could_not_reach">Could not reach it. Check the address and that you are on the right network.</string>
+
+    <!-- Settings -->
+    <string name="section_station">Station</string>
+    <string name="section_format">Format</string>
+    <string name="section_account">Account</string>
+    <string name="format_mp3">Always available</string>
+    <string name="format_hls">Survives moving between wifi and mobile data</string>
+    <string name="format_aac">Smaller than MP3 at the same quality</string>
+    <string name="format_opus">Smallest of all, and the newest</string>
+    <string name="format_flac">Lossless. Uses the most data</string>
+    <string name="format_not_published">Not published by this station</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="use_wallpaper_colours">Use wallpaper colours</string>
+    <string name="use_wallpaper_colours_detail">Off, and the app wears the station\'s own green on carbon</string>
+
+    <!-- The account -->
+    <string name="account_optional">Optional. Listening needs no account. Signing in adds what the station has played and what is on next.</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="show_password">Show password</string>
+    <string name="hide_password">Hide password</string>
+    <string name="sign_in">Sign in</string>
+    <string name="sign_out">Sign out</string>
+    <string name="sign_out_question">Sign out?</string>
+    <string name="sign_out_detail">What the station has played and what is on next go back behind the sign-in. Listening is not affected.</string>
+    <string name="cancel">Cancel</string>
+    <string name="signed_in_operator">Signed in as the operator of this station</string>
+    <string name="signed_in_listener">Signed in to this station as a listener</string>
+    <string name="account_bad_credentials">That email and password did not work</string>
+    <string name="account_could_not_reach">Could not reach the station to sign in</string>
+    <string name="account_second_factor_unsupported">This account\'s second factor is not one this app can answer. Sign in on the console instead.</string>
+    <string name="account_no_refresh_token">The station issued no refresh token</string>
+
+    <!-- The second factor -->
+    <string name="second_factor_title">One more step</string>
+    <string name="second_factor_detail">Enter the code from your authenticator app.</string>
+    <string name="authenticator_code">Authenticator code</string>
+    <string name="start_again">Start again</string>
+    <string name="account_code_refused">That code was not accepted. Wait for the next one and try again.</string>
+    <string name="account_sign_in_expired">That sign-in took too long and has expired. Start again.</string>
+    <string name="account_factor_refused">The station would not accept that authenticator for this sign-in. Start again.</string>
+
+    <!-- A tab before sign-in, an error, an empty answer, a stale reading -->
+    <string name="signed_out_detail">The station keeps this for signed-in listeners. Listening itself needs no account.</string>
+    <string name="error_could_not_reach">Could not reach the station</string>
+    <string name="error_detail">Check that you are on the right network. The app keeps trying on its own, more slowly each time.</string>
+    <string name="try_again">Try again</string>
+    <string name="stale_last_said">Could not reach the station just now. This is the last it said.</string>
+    <string name="stale_last_said_at">Could not reach the station just now. Showing what it said at %1$s.</string>
+
+    <!-- The transport: why the station is or is not on air. Two words for the lamp, a heading for the panel; the station sends the sentence -->
+    <string name="show_why">Show why</string>
+    <string name="hide_why">Hide why</string>
+    <string name="ruled_out">Ruled out (%1$d)</string>
+    <string name="copy">Copy</string>
+    <string name="copied">Copied</string>
+    <string name="silence_label_airing">On air</string>
+    <string name="silence_label_transport_stalled">Transport stalled</string>
+    <string name="silence_label_control_denied">Stream refusing us</string>
+    <string name="silence_label_stream_unreachable">Stream unreachable</string>
+    <string name="silence_label_config_not_adopted">Config not adopted</string>
+    <string name="silence_label_stood_down">Off air</string>
+    <string name="silence_label_no_programme">Nothing to air</string>
+    <string name="silence_label_warming_up">Warming up</string>
+    <string name="silence_label_waiting_on_audio">Records not here</string>
+    <string name="silence_label_no_audience">Ready</string>
+    <string name="silence_label_not_driving">Not driving</string>
+    <string name="silence_label_starved">Off the running order</string>
+    <string name="silence_title_airing">On air</string>
+    <string name="silence_title_transport_stalled">The transport loop has stopped</string>
+    <string name="silence_title_control_denied">The stream is refusing the bridge secret</string>
+    <string name="silence_title_stream_unreachable">The stream is not reachable</string>
+    <string name="silence_title_config_not_adopted">A container is running config that was replaced</string>
+    <string name="silence_title_stood_down">The station was stood down</string>
+    <string name="silence_title_no_programme">There is nothing left to air</string>
+    <string name="silence_title_warming_up">The station is fetching its first records</string>
+    <string name="silence_title_waiting_on_audio">The records are not here, and nothing is fetching them</string>
+    <string name="silence_title_no_audience">Waiting for a listener</string>
+    <string name="silence_title_not_driving">The mount is not being held</string>
+    <string name="silence_title_starved">The mount is airing the local bed</string>
+
+    <!-- The operator's transport. Drawn only for the account the station calls its operator -->
+    <string name="skip">Skip</string>
+    <string name="start">Start</string>
+    <string name="confirm_stop">Confirm stop</string>
+    <string name="driving_schedule">The schedule put this on. It runs until the block ends.</string>
+    <string name="driving_sustaining">Between blocks: nothing is scheduled, so the station is playing what it fills the gaps with.</string>
+    <string name="driving_operator">You put this on. It holds until the next scheduled block begins.</string>
+    <string name="hold_offered">The schedule takes this back at the next block.</string>
+    <string name="hold_until_released">Held until you release it. The schedule will not take this back.</string>
+    <string name="hold_until_about">Held until about %1$s.</string>
+    <string name="keep_on_past_next_block">Keep it on past the next block</string>
+    <string name="keep_on_two_hours">Keep it on for two hours</string>
+    <string name="release">Release</string>
+    <string name="air_mode_heading">On air</string>
+    <string name="air_mode_audience">When someone listens</string>
+    <string name="air_mode_always">Always</string>
+    <string name="notice_no_longer_operator">The station no longer treats this account as its operator.</string>
+    <string name="notice_step_up_needed">The station wants your authenticator code again before that. Do it on the console.</string>
+    <string name="notice_nothing_to_resume">Nothing to resume: the station has not been put on air yet.</string>
+    <string name="notice_playlist_empty">That playlist has nothing the station can play.</string>
+    <string name="notice_host_gone">That persona is no longer on the station.</string>
+    <string name="notice_could_not_reach">Could not reach the station to do that.</string>
+    <string name="notice_failed">The station refused that (%1$d).</string>
+
+    <!-- The running order -->
+    <string name="order_empty">The running order is empty.</string>
+    <plurals name="played_earlier">
+        <item quantity="one">%1$d played earlier</item>
+        <item quantity="other">%1$d played earlier</item>
+    </plurals>
+    <plurals name="skipped_earlier">
+        <item quantity="one">%1$d skipped</item>
+        <item quantity="other">%1$d skipped</item>
+    </plurals>
+    <string name="earlier_in_this_broadcast">Earlier in this broadcast</string>
+    <!-- Between the clauses of a count: "3 played earlier, 1 skipped" -->
+    <string name="clause_separator">", "</string>
+    <string name="item_planned">Planned</string>
+    <!-- Deliberately not "playing": the player runs ahead of the listener, and a handed item may be two records from being heard -->
+    <string name="item_handed">Handed over</string>
+    <string name="item_airing">On air</string>
+    <string name="item_played">Played</string>
+    <string name="item_skipped">Skipped</string>
+    <string name="item_unavailable">Unavailable</string>
+    <string name="item_removed">Removed</string>
+    <string name="item_not_written_yet">Not written yet</string>
+    <string name="item_no_audio_yet">No audio yet</string>
+    <string name="item_will_skip">Will skip</string>
+
+    <!-- The broadcast at the top of the running order -->
+    <string name="presented_by">Presented by %1$s</string>
+    <string name="presented_by_stations_host">Presented by the station\'s host</string>
+    <string name="presented_by_nobody">Presented by nobody</string>
+    <string name="asked_for">Asked for: %1$s</string>
+    <string name="host_picker_title">Who presents this show</string>
+    <string name="host_picker_note">Changing this re-writes the breaks already written for it, and one that is not ready when its slot comes round is skipped.</string>
+    <string name="stations_host">The station\'s host</string>
+    <!-- A persona and the fact that the station has them on air: "Cass (on air)" -->
+    <string name="host_on_air">%1$s (on air)</string>
+
+    <!-- The operator's running-order actions -->
+    <string name="extend">Extend</string>
+    <string name="shuffle">Shuffle</string>
+    <string name="refill_asked">Refill asked for. The records land in a few seconds.</string>
+    <string name="row_actions">Actions for %1$s</string>
+    <string name="play_next">Play next</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
+    <string name="drop">Drop</string>
+    <string name="dropped">Dropped “%1$s”.</string>
+    <string name="put_it_back">Put it back</string>
+
+    <!-- A record's page -->
+    <string name="record">Record</string>
+    <string name="open_record">Open this record</string>
+    <string name="record_not_found">No record with that id is in the catalog.</string>
+    <string name="airings">Airings</string>
+    <string name="never_aired">Never aired</string>
+    <plurals name="aired_times">
+        <item quantity="one">Aired once</item>
+        <item quantity="other">Aired %1$d times</item>
+    </plurals>
+    <string name="about_this_record">About this record</string>
+    <string name="enrichment_heading">What the providers say</string>
+    <string name="enrichment_failed">Could not load what the providers said.</string>
+    <string name="enrichment_empty_record">No provider has been asked about this record yet. The enrichment pass picks up what it has not seen, oldest first.</string>
+    <string name="loading">Loading…</string>
+    <string name="field_released">Providers say released</string>
+    <string name="field_label">Label</string>
+    <string name="field_bpm">BPM</string>
+    <string name="field_key">Key</string>
+    <string name="field_isrc">ISRC</string>
+    <string name="show_source">Show the source</string>
+    <string name="hide_source">Hide the source</string>
+    <string name="read_more">Read more</string>
+    <string name="show_less">Show less</string>
+    <!-- Provider, then what it said: "musicbrainz · 3 May 2026" -->
+    <string name="source_line">%1$s · %2$s</string>
+    <string name="source_nothing_found">nothing found</string>
+    <string name="source_could_not_ask">could not ask</string>
+    <string name="source_could_not_reask">%1$s, could not re-ask</string>
+    <string name="source_due_again">due again</string>
+
+    <!-- Album and artist pages -->
+    <string name="album">Album</string>
+    <string name="artist">Artist</string>
+    <string name="album_not_found">No album with that id is in the catalog.</string>
+    <string name="artist_not_found">No artist with that id is in the catalog.</string>
+    <string name="tracks">Tracks</string>
+    <string name="albums">Albums</string>
+    <plurals name="tracks_count">
+        <item quantity="one">%1$d track</item>
+        <item quantity="other">%1$d tracks</item>
+    </plurals>
+    <plurals name="albums_count">
+        <item quantity="one">%1$d album</item>
+        <item quantity="other">%1$d albums</item>
+    </plurals>
+    <string name="album_no_tracks">No tracks from this album are in the catalog.</string>
+    <string name="artist_no_albums">Nothing by this artist has been ingested as an album. Their tracks may still be in the catalog, filed without a release.</string>
+    <plurals name="more_not_shown">
+        <item quantity="one">%1$d more, not shown here</item>
+        <item quantity="other">%1$d more, not shown here</item>
+    </plurals>
+    <string name="about_this_album">About this album</string>
+    <string name="about_this_artist">About this artist</string>
+    <string name="enrichment_empty_album">No provider has been asked about this album yet. The enrichment pass picks up what it has not seen, oldest first.</string>
+    <string name="enrichment_empty_artist">No provider has been asked about this artist yet. The enrichment pass picks up what it has not seen, oldest first.</string>
+
+    <!-- Airing a playlist or a chart -->
+    <string name="air_something">Air something</string>
+    <string name="air_something_intro">Putting one of these on air replaces the running order and goes out to every listener.</string>
+    <string name="air_nothing_offered">No plugin offers a playlist or a chart.</string>
+    <!-- A plugin that could not be asked: "spotify: token expired" -->
+    <string name="source_error">%1$s: %2$s</string>
+    <string name="charts">Charts</string>
+    <string name="playlist_unavailable">This playlist is unavailable.</string>
+    <string name="playlist_no_tracks">This playlist has no tracks the station can play.</string>
+    <string name="air_this_playlist">Air this playlist</string>
+    <string name="chart_unavailable">This chart is unavailable.</string>
+    <string name="chart_empty">Nothing in this edition.</string>
+    <string name="chart_order_heading">Which way round</string>
+    <string name="chart_order_countdown">Countdown, ending on number one</string>
+    <string name="chart_order_ranked">Number one first</string>
+    <string name="chart_order_unordered">No fixed order</string>
+    <string name="air_this_chart">Air this chart</string>
+    <string name="chart_caveat">Records the library has never held are fetched as they are needed, and air untrimmed until they have been measured.</string>
+    <string name="chart_peak">peak %1$d</string>
+    <plurals name="chart_weeks">
+        <item quantity="one">%1$d week</item>
+        <item quantity="other">%1$d weeks</item>
+    </plurals>
+    <string name="air_confirm_title">Air %1$s to everyone?</string>
+    <string name="air_confirm_detail">This replaces what every listener hears.</string>
+    <string name="air_it">Air it</string>
+
+    <!-- What it said -->
+    <string name="what_it_said">What it said</string>
+    <string name="one_break">One break</string>
+    <string name="scripts_empty">The station has not said anything yet.</string>
+    <string name="show_details">Show details</string>
+    <string name="hide_details">Hide details</string>
+    <string name="outcome_written">Written</string>
+    <!-- Not a fault: a model that declined and let the floor write is the station working as designed -->
+    <string name="outcome_declined">Declined</string>
+    <string name="outcome_failed">Failed</string>
+    <string name="writer_model">Model</string>
+    <string name="writer_floor">Floor</string>
+    <string name="fact_kind">Kind</string>
+    <string name="fact_host">Host</string>
+    <string name="fact_model">Model</string>
+    <string name="fact_from">From</string>
+    <string name="fact_took">Took</string>
+    <string name="fact_tokens">Tokens</string>
+    <string name="fact_after">After</string>
+    <string name="fact_before">Before</string>
+    <string name="fact_note">Note</string>
+    <!-- Nothing acts on these; they are kept. So no promise about rotation -->
+    <string name="script_dislike">The station should not say things like this</string>
+    <string name="script_no_opinion">Heard it, no opinion</string>
+    <string name="script_like">More like this</string>
+
+    <!-- Planning the station: replanning this show, or starting a new one -->
+    <string name="plan">Plan</string>
+    <string name="plan_keep">Keep this show</string>
+    <string name="plan_new">Start a new show</string>
+    <string name="plan_keep_blurb">Everything still to come is dropped and the station programmes that stretch again. What is playing, and what the player is already holding, keeps going.</string>
+    <string name="plan_new_blurb">The station programmes itself against this, from your own library first and from your providers when the library cannot fill it. A record it does not own yet is fetched and kept. What you like and dislike is taken into account either way.</string>
+    <string name="plan_replacing_warning">This starts a new broadcast: everything still to come is dropped, and what is playing stops.</string>
+    <string name="plan_brief_label">Asked to play</string>
+    <string name="plan_brief_placeholder">warm and unhurried</string>
+    <string name="plan_brief_count">%1$d/%2$d</string>
+    <string name="plan_brief_keep_desc">This steers every refill for the rest of the broadcast, not just these records. Empty it to hand the programming back to the host.</string>
+    <string name="plan_brief_new_desc">In your own words, for the model that chooses records. It keeps steering every refill until the station is put on air again.</string>
+    <string name="plan_keep_note">The host, the period and the shape belong to this show and keep running with it. Changing any of them starts a new one.</string>
+    <string name="plan_hosted_by">Hosted by</string>
+    <string name="plan_host_unset">Whichever persona the station has on air</string>
+    <string name="plan_era_from">From year</string>
+    <string name="plan_era_to">To year</string>
+    <string name="plan_era_from_desc">Empty means no lower bound.</string>
+    <string name="plan_era_to_desc">Empty means no upper bound.</string>
+    <string name="plan_era_note">A record whose release year the catalogue does not know is played whatever the period. Leaving it out is not evidence of the wrong decade, and demanding one would empty the draw on a library nothing has enriched.</string>
+    <!--
+        A range rather than a quantity, so lint's suggestion of a plural is wrong here: neither
+        number counts anything, and no language inflects the word between two years.
+    -->
+    <string name="plan_era_out_of_range" tools:ignore="PluralsCandidate">Between %1$d and %2$d</string>
+    <string name="plan_era_backwards">Earlier than the start</string>
+    <string name="plan_mode">Mode</string>
+    <string name="mode_rotation">Rotation</string>
+    <string name="mode_setlist">Setlist</string>
+    <string name="mode_feature">Feature</string>
+    <string name="plan_on_end">When it runs out</string>
+    <string name="on_end_extend">Keep going</string>
+    <string name="on_end_repeat">Start again</string>
+    <string name="on_end_stop">Stop</string>
+    <string name="plan_shape_note">Starting again replays what this broadcast already aired. It never reaches further than that: a record you disliked stays off the air whether the broadcast is running for the first time or the fifth.</string>
+    <string name="plan_callins">Take calls during this broadcast</string>
+    <string name="plan_callins_desc">A phone-in is written and spoken a turn at a time, so it lands minutes after it is asked for. A setlist or a feature takes none whatever this says.</string>
+    <string name="plan_keep_footer">The records are chosen before the old ones are dropped, so nothing goes quiet. They can take a minute to appear.</string>
+    <string name="plan_new_footer">Choosing records against your words needs a model configured to programme with. Without one the station plays its own rotation, which is the designed answer rather than a failure.</string>
+    <string name="plan_replan">Replan</string>
+    <string name="plan_go_on_air">Go on air</string>
+    <string name="plan_confirm_title">Start a new show?</string>
+
+    <!-- Rating: the station's own curation mark, with rotation consequences -->
+    <string name="rating_dislike">Never play %1$s</string>
+    <string name="rating_no_opinion">No opinion about %1$s</string>
+    <string name="rating_like">Play %1$s more often</string>
+    <string name="rating_caption">This is the station\'s mark, not a favourite: it changes how often the station plays this.</string>
+
+    <!-- History -->
+    <string name="history_empty">Nothing has aired yet.</string>
+    <string name="earlier">Earlier</string>
+    <string name="history_yesterday_at">Yesterday %1$s</string>
+    <!-- Weekday, then the time: "Wed 14:00" -->
+    <string name="history_weekday_at">%1$s %2$s</string>
+
+    <!-- The schedule -->
+    <string name="schedule_on_air">On air</string>
+    <string name="schedule_due_now">Due now</string>
+    <string name="schedule_up_next">Up next</string>
+    <string name="schedule_after_that">After that</string>
+    <string name="schedule_between_blocks">Between blocks</string>
+    <string name="schedule_nothing_scheduled">Nothing scheduled</string>
+    <string name="schedule_untitled">Untitled</string>
+    <string name="schedule_left">%1$s left</string>
+    <string name="schedule_in">in %1$s</string>
+    <string name="schedule_sustaining_for">The station is on its sustaining source for the next %1$s.</string>
+    <string name="schedule_no_block_due">No block is due from here on, so the station stays on whatever it is set to sustain on.</string>
+    <string name="schedule_taken_over">The station is airing something else, which is what happens when it was put on by hand. It moves back to the schedule when the next block begins.</string>
+    <!-- "20:00–22:00", and with a weekday when it is not today: "Mon 09:00–11:00" -->
+    <string name="schedule_hours">%1$s–%2$s</string>
+    <string name="schedule_hours_on_day">%1$s %2$s–%3$s</string>
+    <!-- Hours, then who is on: "20:00–22:00 · Cass" -->
+    <string name="schedule_hours_and_host">%1$s · %2$s</string>
+    <string name="span_ending">ending</string>
+    <!-- Plurals even where English does not inflect, because the languages that do inflect "min" and "h" need the slot -->
+    <plurals name="span_minutes">
+        <item quantity="one">%1$d min</item>
+        <item quantity="other">%1$d min</item>
+    </plurals>
+    <plurals name="span_hours">
+        <item quantity="one">%1$d h</item>
+        <item quantity="other">%1$d h</item>
+    </plurals>
+    <!-- Keyed on the hours; the minutes ride along as the second argument -->
+    <plurals name="span_hours_minutes">
+        <item quantity="one">%1$d h %2$d min</item>
+        <item quantity="other">%1$d h %2$d min</item>
+    </plurals>
+    <string name="span_a_day">a day</string>
+    <plurals name="span_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+</resources>

@@ -48,7 +48,31 @@ export class CatalogResolverService {
      *
      * One short transaction per item, rather than one long one per run, is what
      * lets the caller be a long, network-bound walk without holding a pool
-     * connection and an open snapshot for its whole duration.
+     * connection and an open snapshot for its whole duration. That is still
+     * true of the walk, which runs in a job scope with no transaction to join.
+     *
+     * ## It JOINS an open transaction rather than opening a second one
+     *
+     * Kysely refuses `.transaction()` on a `Transaction` outright, and on every
+     * non-exempt request the injected `Kysely` IS one: `auditContextMiddleware`
+     * opens a transaction per request and overrides the scoped `Kysely<DB>`
+     * with it. So opening unconditionally here threw for every caller reached
+     * from an HTTP handler rather than from a job.
+     *
+     * That was live, and it was silent. Airing a published chart is the one
+     * broadcast source that has to INGEST — a chart names records where a
+     * playlist names copies — so `PickResolver.discover` calls this inside the
+     * request transaction. Every lookup threw "calling the transaction method
+     * for a Transaction is not supported", `discover` caught it and downgraded
+     * it to a warning, and a hundred-entry chart went on air with the eight
+     * records the library already held.
+     *
+     * Joining keeps what the transaction is here for: the sequence still
+     * commits whole or not at all. What changes when there IS an ambient one is
+     * that it commits with the caller's work instead of on its own, and a
+     * failure here takes the caller's transaction down too. Both are the right
+     * way round — a request that could not finish should leave no track behind,
+     * and one that succeeded should not have its ingest rolled back separately.
      *
      * @param pluginId - Manifest id of the providing plugin.
      * @param track - The item as the provider described it.
@@ -63,8 +87,8 @@ export class CatalogResolverService {
             return { status: 'skipped', reason: 'no-artist' };
         }
 
-        return this.db.transaction().execute(async trx => {
-            const resolver = this.resolver.withTransaction(trx);
+        const ingest = async (executor: Kysely<DB>): Promise<IngestResult> => {
+            const resolver = this.resolver.withTransaction(executor);
             const artistId = await resolver.resolveArtist(artistName);
             // The track's year is the album's here, and that is the provider's own claim rather than
             // an inference: what a provider dates is the RELEASE an item sits on, so a row's year and
@@ -74,7 +98,9 @@ export class CatalogResolverService {
             const resolved = await resolver.resolveTrack(artistId, albumId, track);
             await resolver.upsertTrackSource(resolved.id, pluginId, track, origin);
             return { status: 'ingested', trackId: resolved.id, created: resolved.created };
-        });
+        };
+
+        return this.db.isTransaction ? await ingest(this.db) : await this.db.transaction().execute(ingest);
     }
 
     /**

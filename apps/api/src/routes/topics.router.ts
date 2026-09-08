@@ -1,17 +1,17 @@
 import { z } from 'zod';
 import { ServerKitRouter, bodyParserMiddleware, requirePolicy } from '@maroonedsoftware/koa';
 import { TopicsService } from '#src/modules/topics/topics.service.js';
-import { Topic, TopicInput, TopicKindList, TopicList, TopicQuery } from '../modules/topics/types/topics.types.js';
+import { TopicInput, TopicKindList, TopicList, TopicQuery } from '../modules/topics/types/topics.types.js';
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
- * generated from [topics.ck](file://./../../data/contracts/topics/topics.ck)
+ * generated from [topics.ck](../../data/contracts/topics/topics.ck)
  */
 export const TopicsRouter = ServerKitRouter();
 
 /**
  * Every subject this station has named, for one sort of break or for all of them
- * from [topics.ck](file://./../../data/contracts/topics/topics.ck#L25)
+ * from [topics.ck](../../data/contracts/topics/topics.ck#L25)
  */
 TopicsRouter.get('/topics', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const query = await parseAndValidate(ctx.query, TopicQuery.strict());
@@ -26,7 +26,7 @@ TopicsRouter.get('/topics', requirePolicy({ policy: 'platform.view' }), async ct
 
 /**
  * Names a new subject. Nothing uses it until something points at it
- * from [topics.ck](file://./../../data/contracts/topics/topics.ck#L39)
+ * from [topics.ck](../../data/contracts/topics/topics.ck#L39)
  */
 TopicsRouter.post('/topics', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, TopicInput);
@@ -41,7 +41,7 @@ TopicsRouter.post('/topics', requirePolicy({ policy: 'platform.manage' }), bodyP
 
 /**
  * Which sorts of break have subjects, and the form each one's settings are edited with
- * from [topics.ck](file://./../../data/contracts/topics/topics.ck#L59)
+ * from [topics.ck](../../data/contracts/topics/topics.ck#L59)
  */
 TopicsRouter.get('/topics/kinds', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(TopicsService);
@@ -54,7 +54,7 @@ TopicsRouter.get('/topics/kinds', requirePolicy({ policy: 'platform.view' }), as
 
 /**
  * Rewrites one subject. A break already written keeps the words it was given
- * from [topics.ck](file://./../../data/contracts/topics/topics.ck#L77)
+ * from [topics.ck](../../data/contracts/topics/topics.ck#L77)
  */
 TopicsRouter.put('/topics/:id', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const { id } = await parseAndValidate(
@@ -76,7 +76,7 @@ TopicsRouter.put('/topics/:id', requirePolicy({ policy: 'platform.manage' }), bo
 
 /**
  * Removes a subject, and any band on the format clock that asked for it
- * from [topics.ck](file://./../../data/contracts/topics/topics.ck#L89)
+ * from [topics.ck](../../data/contracts/topics/topics.ck#L89)
  */
 TopicsRouter.delete('/topics/:id', requirePolicy({ policy: 'platform.manage' }), async ctx => {
     const { id } = await parseAndValidate(

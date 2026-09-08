@@ -7,7 +7,6 @@ import type {
     PadSetMembership,
     PadSetWrite,
     PadState,
-    PadUpload,
     PronunciationList,
     PronunciationQuery,
     PronunciationStateWrite,
@@ -22,10 +21,10 @@ import type {
     SegmentCreate,
     SegmentList,
     SegmentScanResult,
-    SegmentUpload,
     SpeechPreviewRequest,
     VoiceList,
 } from './types/render.types.js';
+import { revivePadList, reviveScriptAttempt, reviveScriptHistoryPage } from './types/render.types.js';
 
 export class RenderClient {
     constructor(private fetch: SdkFetch) {}
@@ -82,7 +81,7 @@ export class RenderClient {
         const result = await this.fetch(`/scripts${qs}`, {
             method: 'GET',
         });
-        return await parseJson<ScriptHistoryPage>(result);
+        return reviveScriptHistoryPage(await parseJson<ScriptHistoryPage>(result));
     }
 
     /**
@@ -95,7 +94,7 @@ export class RenderClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<ScriptAttempt>(result);
+        return reviveScriptAttempt(await parseJson<ScriptAttempt>(result));
     }
 
     /**
@@ -335,7 +334,7 @@ export class RenderClient {
      */
     async listPads(): Promise<PadList> {
         const result = await this.fetch(`/pads`, { method: 'GET' });
-        return await parseJson<PadList>(result);
+        return revivePadList(await parseJson<PadList>(result));
     }
 
     /**
@@ -347,7 +346,7 @@ export class RenderClient {
             method: 'POST',
             body: body,
         });
-        return await parseJson<PadList>(result);
+        return revivePadList(await parseJson<PadList>(result));
     }
 
     /**
@@ -369,7 +368,7 @@ export class RenderClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<PadList>(result);
+        return revivePadList(await parseJson<PadList>(result));
     }
 
     /**
@@ -378,7 +377,7 @@ export class RenderClient {
      */
     async deletePad(id: string): Promise<PadList> {
         const result = await this.fetch(`/pads/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        return await parseJson<PadList>(result);
+        return revivePadList(await parseJson<PadList>(result));
     }
 
     /**
@@ -391,7 +390,7 @@ export class RenderClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<PadList>(result);
+        return revivePadList(await parseJson<PadList>(result));
     }
 
     /**
@@ -434,7 +433,7 @@ export class RenderClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<PadList>(result);
+        return revivePadList(await parseJson<PadList>(result));
     }
 
     /**
@@ -447,7 +446,7 @@ export class RenderClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<PadList>(result);
+        return revivePadList(await parseJson<PadList>(result));
     }
 
     /**
@@ -456,7 +455,7 @@ export class RenderClient {
      */
     async deletePadSet(id: string): Promise<PadList> {
         const result = await this.fetch(`/pads/sets/${encodeURIComponent(id)}`, { method: 'DELETE' });
-        return await parseJson<PadList>(result);
+        return revivePadList(await parseJson<PadList>(result));
     }
 
     /**
@@ -469,6 +468,6 @@ export class RenderClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<PadList>(result);
+        return revivePadList(await parseJson<PadList>(result));
     }
 }

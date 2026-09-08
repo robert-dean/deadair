@@ -7,10 +7,13 @@ import type {
     AuthenticationRegistrationInput,
     AuthenticationRegistrationVerification,
     AuthenticationRequest,
-    AuthenticationToken,
     AuthenticationTokenOutput,
-    AuthenticationTokenResponse,
     AuthenticationTokenResponseOutput,
+} from './types/authentication.types.js';
+import {
+    reviveAuthenticationLoginStartResponse,
+    reviveAuthenticationRegistration,
+    reviveAuthenticationTokenResponseOutput,
 } from './types/authentication.types.js';
 import { AuthenticationFactorsClient } from './authentication.factor.client.js';
 import { AuthenticationSessionsClient } from './authentication.sessions.client.js';
@@ -42,7 +45,7 @@ export class AuthenticationClient {
             headers: { 'Content-Type': __contentType },
             body: __serialized,
         });
-        return await parseJson<AuthenticationTokenResponseOutput>(result);
+        return reviveAuthenticationTokenResponseOutput(await parseJson<AuthenticationTokenResponseOutput>(result));
     }
 
     /**
@@ -55,7 +58,7 @@ export class AuthenticationClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<AuthenticationRegistration>(result);
+        return reviveAuthenticationRegistration(await parseJson<AuthenticationRegistration>(result));
     }
 
     /**
@@ -81,6 +84,6 @@ export class AuthenticationClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<AuthenticationLoginStartResponse>(result);
+        return reviveAuthenticationLoginStartResponse(await parseJson<AuthenticationLoginStartResponse>(result));
     }
 }

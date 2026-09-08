@@ -4,13 +4,13 @@ import { StationSettings, StationSettingsInput } from '../modules/settings/types
 import { parseAndValidate } from '@maroonedsoftware/zod';
 
 /**
- * generated from [settings.ck](file://./../../data/contracts/settings/settings.ck)
+ * generated from [settings.ck](../../data/contracts/settings/settings.ck)
  */
 export const SettingsRouter = ServerKitRouter();
 
 /**
  * Every station setting, its descriptor and its current value
- * from [settings.ck](file://./../../data/contracts/settings/settings.ck#L26)
+ * from [settings.ck](../../data/contracts/settings/settings.ck#L26)
  */
 SettingsRouter.get('/settings', requirePolicy({ policy: 'platform.view' }), async ctx => {
     const service = ctx.container.get(SettingsService);
@@ -23,7 +23,7 @@ SettingsRouter.get('/settings', requirePolicy({ policy: 'platform.view' }), asyn
 
 /**
  * Applies a submitted settings form and answers with the settings as they now stand
- * from [settings.ck](file://./../../data/contracts/settings/settings.ck#L35)
+ * from [settings.ck](../../data/contracts/settings/settings.ck#L35)
  */
 SettingsRouter.put('/settings', requirePolicy({ policy: 'platform.manage' }), bodyParserMiddleware(['json']), async ctx => {
     const body = await parseAndValidate(ctx.parsedBody, StationSettingsInput);

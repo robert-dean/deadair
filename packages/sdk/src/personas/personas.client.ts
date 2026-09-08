@@ -2,7 +2,6 @@ import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
 import type {
     GeneratedPersona,
-    Persona,
     PersonaFile,
     PersonaImportPlan,
     PersonaImportResult,

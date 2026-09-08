@@ -16,8 +16,13 @@
         "lint": "eslint --fix",
         "format": "prettier --write . --ignore-path ../../.prettierignore"
     },
+    "dependencies": {
+        "decimal.js": "^10.6.0",
+        "luxon": "^3.7.2"
+    },
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",
-        "@repo/config-typescript": "workspace:*"
+        "@repo/config-typescript": "workspace:*",
+        "@types/luxon": "^3.7.3"
     }
 }

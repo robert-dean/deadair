@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The mark's own field, sampled from `apps/web/public/logo.png` rather than chosen. The
+         launcher masks this layer, so the green is a full bleed here and becomes the disc. -->
+    <color name="ic_launcher_background">#2FD98C</color>
+    <!-- What the launch window is painted before Compose's first frame. -->
+    <color name="launch_background">#FFFBFE</color>
+</resources>

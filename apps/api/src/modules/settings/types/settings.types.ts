@@ -3,7 +3,7 @@ import { ConfigFieldDescriptor } from '../../plugins/types/plugins.types.js';
 
 /**
  * Which part of the console owns a setting. Every one of these but `schedule` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes.
- * generated from [SettingGroup](file://./../../../../data/contracts/settings/settings.types.ck#L7)
+ * generated from [SettingGroup](../../../../data/contracts/settings/settings.types.ck#L7)
  */
 export const SettingGroup = z.enum(['station', 'stream', 'housekeeping', 'secrets', 'rotation', 'playout', 'render', 'llm', 'analysis', 'schedule']);
 export type SettingGroup = z.infer<typeof SettingGroup>;
@@ -11,7 +11,7 @@ export type SettingGroup = z.infer<typeof SettingGroup>;
 /**
  * A submitted settings form. Partial: a key that is present is written, a key that is absent is left
  * alone, so a console may send one field. A secret submitted blank clears it
- * generated from [StationSettingsInput](file://./../../../../data/contracts/settings/settings.types.ck#L39)
+ * generated from [StationSettingsInput](../../../../data/contracts/settings/settings.types.ck#L39)
  */
 export const StationSettingsInput = z.strictObject({
     values: z.record(z.string(), z.unknown()),
@@ -22,7 +22,7 @@ export type StationSettingsInput = z.infer<typeof StationSettingsInput>;
  * A station setting as the console needs to render it. `ConfigFieldDescriptor` is the plugins area's,
  * and shared deliberately: a plugin's settings form and the station's are the same problem, and the
  * console renders both with one component
- * generated from [StationSettingDescriptor](file://./../../../../data/contracts/settings/settings.types.ck#L26)
+ * generated from [StationSettingDescriptor](../../../../data/contracts/settings/settings.types.ck#L26)
  */
 export const StationSettingDescriptor = ConfigFieldDescriptor.extend({
     group: SettingGroup,
@@ -31,7 +31,7 @@ export type StationSettingDescriptor = z.infer<typeof StationSettingDescriptor>;
 
 /**
  * Every station setting, with what it is currently worth
- * generated from [StationSettings](file://./../../../../data/contracts/settings/settings.types.ck#L31)
+ * generated from [StationSettings](../../../../data/contracts/settings/settings.types.ck#L31)
  */
 export const StationSettings = z.strictObject({
     descriptors: z.array(StationSettingDescriptor),

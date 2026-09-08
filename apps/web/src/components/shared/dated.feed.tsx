@@ -1,12 +1,12 @@
 import { type ReactNode } from 'react';
 import { Box, Card, Stack, Text, Tooltip } from '@mantine/core';
 
-import { formatMomentFull, formatMomentStamp } from './feed.moment';
+import { formatMomentFull, formatMomentStamp, type Moment } from './feed.moment';
 
 /** The two things this needs of a row to place it: which one it is, and when it happened. */
 export interface DatedFeedItem {
     id: string;
-    at: string;
+    at: Moment;
 }
 
 export interface DatedFeedProps<T extends DatedFeedItem> {
@@ -61,7 +61,7 @@ function FeedRule({ first, children }: { first: boolean; children: ReactNode }) 
  * never be what wraps, and the full date behind a tooltip because the column abbreviates the month
  * and drops the year.
  */
-export function FeedMoment({ at }: { at: string }) {
+export function FeedMoment({ at }: { at: Moment }) {
     return (
         <Tooltip label={formatMomentFull(at)} openDelay={300}>
             <Text size="xs" c="dimmed" className="da-num" style={{ whiteSpace: 'nowrap' }}>

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <RootNamespace>Shots</RootNamespace>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia" />
+        <PackageReference Include="Avalonia.Headless" />
+        <PackageReference Include="Avalonia.Skia" />
+        <PackageReference Include="Avalonia.Themes.Fluent" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../src/MaroonedSoftware.Deadair.Desktop/MaroonedSoftware.Deadair.Desktop.csproj" />
+    </ItemGroup>
+
+</Project>

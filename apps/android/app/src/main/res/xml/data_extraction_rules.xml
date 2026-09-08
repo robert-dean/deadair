@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Nothing leaves the device. `android:allowBackup="false"` says this for Android 11 and below;
+    from 12 the same claim has to be made here, separately for a cloud backup and for a transfer to
+    a new phone.
+
+    The app stores two things: the station's address and the chosen format. Restoring those onto a
+    different device would point it at a station that device may not be able to reach — a LAN
+    address is meaningless on someone else's network — and the failure would look like the app
+    being broken rather than like a setting being wrong. Typing an address once is cheaper.
+
+    Both attributes are needed and neither is redundant: `allowBackup="false"` turns off cloud
+    backup everywhere, and from Android 12 a device-to-device TRANSFER ignores it and is governed
+    only by this file. Lint asks for `fullBackupContent` as well, on the grounds that this file
+    does nothing below 12 — which is true, and `allowBackup="false"` is already the whole answer
+    there, so the check is suppressed in the manifest rather than answered with a third file that
+    configures a backup that never happens.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+    </device-transfer>
+</data-extraction-rules>

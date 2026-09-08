@@ -1,0 +1,37 @@
+<!--
+    What every project under apps/desktop is, before it says anything about itself.
+
+    `TreatWarningsAsErrors` is the one entry here that is a rule rather than a setting: the generated
+    SDK next door is emitted to compile clean under it, so a warning in this tree is always something
+    somebody wrote. `RestorePackagesWithLockFile` exists so CI can restore in locked mode and a
+    dependency cannot move underneath a build that is otherwise reproducible. (No flag is named here:
+    an XML comment may not contain a double hyphen, which is how this file first failed to load.)
+
+    This file does NOT reach `packages/sdk-csharp`, which sits outside this directory and carries its
+    own properties in the project file the generator scaffolded once.
+-->
+<Project>
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>latest</LangVersion>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+        <AnalysisLevel>latest-recommended</AnalysisLevel>
+        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <!--
+            Declared so that a plain build and a publish for this runtime agree about what the lock
+            file should contain. Without it, publishing rewrites every `packages.lock.json` to name
+            the RID and the next locked restore fails because the projects declare none — and turning
+            the lock off for the publish instead is refused outright (NU1005) once a lock file exists.
+            The app targets Apple Silicon, so saying so is the honest fix rather than a workaround.
+        -->
+        <RuntimeIdentifiers>osx-arm64</RuntimeIdentifiers>
+        <Version>0.1.0</Version>
+        <Company>Marooned Software</Company>
+        <Product>deadair</Product>
+    </PropertyGroup>
+
+</Project>

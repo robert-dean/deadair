@@ -1,6 +1,7 @@
 import { Button, Card, Code, CopyButton, Group, Progress, Stack, Table, Text } from '@mantine/core';
 import { useQuery } from '@tanstack/react-query';
 import type { PlayoutMount, PluginSummary, StationHeartbeat } from '@deadair/sdk';
+import type { DateTime } from 'luxon';
 
 import { usePlayoutStatus } from '../../api/playout.queries';
 import { pluginsListOptions } from '../../api/plugins.queries';
@@ -271,12 +272,12 @@ function Section({ title, failed, pending, children }: { title: string; failed: 
  * reconcile and a nightly sweep are both healthy, and a page that painted one red would be picking
  * a number the station deliberately did not.
  */
-function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; readAt: string; phone: boolean }) {
+function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; readAt: DateTime; phone: boolean }) {
     if (heartbeats.length === 0) {
         return <EmptyState>Nothing is being watched, which on a running station means the loops have not registered yet.</EmptyState>;
     }
 
-    const taken = new Date(readAt).getTime();
+    const taken = readAt.toMillis();
 
     // The phone gets cards: the same two ages fold into one fact line under the loop's name,
     // rather than holding columns that push the whole section into a sideways scroll.
@@ -343,8 +344,8 @@ function Loops({ heartbeats, readAt, phone }: { heartbeats: StationHeartbeat[]; 
 }
 
 /** How long between two moments, in the coarsest unit that still says something. */
-function ago(now: number, then: string): string {
-    const seconds = Math.max(0, Math.round((now - new Date(then).getTime()) / 1000));
+function ago(now: number, then: DateTime): string {
+    const seconds = Math.max(0, Math.round((now - then.toMillis()) / 1000));
     if (seconds < 60) return `${seconds}s`;
     if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
     if (seconds < 86_400) return `${Math.round(seconds / 3600)}h`;

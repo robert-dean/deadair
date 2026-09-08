@@ -1,6 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
 import type { Production, ProductionList, ProductionRequest } from './types/productions.types.js';
+import { reviveProduction, reviveProductionList } from './types/productions.types.js';
 
 export class ProductionsClient {
     constructor(private fetch: SdkFetch) {}
@@ -11,7 +12,7 @@ export class ProductionsClient {
      */
     async listProductions(): Promise<ProductionList> {
         const result = await this.fetch(`/productions`, { method: 'GET' });
-        return await parseJson<ProductionList>(result);
+        return reviveProductionList(await parseJson<ProductionList>(result));
     }
 
     /**
@@ -24,7 +25,7 @@ export class ProductionsClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<Production>(result);
+        return reviveProduction(await parseJson<Production>(result));
     }
 
     /**
@@ -33,6 +34,6 @@ export class ProductionsClient {
      */
     async cancelProduction(id: string): Promise<Production> {
         const result = await this.fetch(`/productions/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
-        return await parseJson<Production>(result);
+        return reviveProduction(await parseJson<Production>(result));
     }
 }

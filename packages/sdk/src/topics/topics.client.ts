@@ -1,6 +1,6 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson, buildQueryString } from '../sdk-options.js';
-import type { Topic, TopicInput, TopicKindList, TopicList, TopicQuery } from './types/topics.types.js';
+import type { TopicInput, TopicKindList, TopicList, TopicQuery } from './types/topics.types.js';
 
 export class TopicsClient {
     constructor(private fetch: SdkFetch) {}

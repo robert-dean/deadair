@@ -1,7 +1,9 @@
+import type { AuthSession } from './types/authentication.types.js';
 import type { SdkFetch } from '../sdk-options.js';
+import { parseJson } from '../sdk-options.js';
 
 /**
- * generated from [authentication.sessions.ck](file://./../../../../apps/api/data/contracts/authentication/authentication.sessions.ck)
+ * generated from [authentication.sessions.ck](../../../../apps/api/data/contracts/authentication/authentication.sessions.ck)
  */
 export class AuthenticationSessionsClient {
     constructor(private fetch: SdkFetch) {}
@@ -12,5 +14,14 @@ export class AuthenticationSessionsClient {
      */
     async logout(): Promise<void> {
         await this.fetch(`/auth/logout`, { method: 'POST' });
+    }
+
+    /**
+     * @name Read session
+     * @description Who the caller is and which platform roles they hold
+     */
+    async readSession(): Promise<AuthSession> {
+        const result = await this.fetch(`/auth/session`, { method: 'GET' });
+        return await parseJson<AuthSession>(result);
     }
 }

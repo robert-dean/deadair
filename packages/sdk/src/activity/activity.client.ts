@@ -1,6 +1,7 @@
 import type { SdkFetch } from '../sdk-options.js';
 import { parseJson, buildQueryString } from '../sdk-options.js';
 import type { ActivityPage, ActivityQuery } from './types/activity.types.js';
+import { reviveActivityPage } from './types/activity.types.js';
 
 export class ActivityClient {
     constructor(private fetch: SdkFetch) {}
@@ -14,6 +15,6 @@ export class ActivityClient {
         const result = await this.fetch(`/activity${qs}`, {
             method: 'GET',
         });
-        return await parseJson<ActivityPage>(result);
+        return reviveActivityPage(await parseJson<ActivityPage>(result));
     }
 }

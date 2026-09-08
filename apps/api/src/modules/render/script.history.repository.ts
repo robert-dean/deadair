@@ -411,7 +411,16 @@ export class ScriptHistoryRepository extends DataRepository {
 
         const cursor = decodeCursor(query.before);
         if (cursor !== undefined) {
-            statement = statement.where(sql<boolean>`(created_at, id) < (${cursor.at.toISO()}::timestamptz, ${cursor.id})`);
+            // TABLE-QUALIFIED, for `HISTORY_COLUMNS`' reason, and missed there because this is a raw
+            // fragment rather than a column Kysely resolves: `deadair.script_ratings` carries its own
+            // `created_at`, so the bare name is "column reference is ambiguous" and the read fails.
+            //
+            // It failed on the SECOND page alone, since page one sends no cursor and so no predicate.
+            // That is why the ratings join shipped looking fine: the console's "Load older" has been a
+            // silent no-op ever since, the request 500ing behind a button that stays enabled.
+            statement = statement.where(
+                sql<boolean>`(deadair.script_history.created_at, deadair.script_history.id) < (${cursor.at.toISO()}::timestamptz, ${cursor.id})`,
+            );
         }
         if (query.kind !== undefined) statement = statement.where('kind', '=', query.kind);
         if (query.writer !== undefined) statement = statement.where('writer', '=', query.writer);

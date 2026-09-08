@@ -5,7 +5,7 @@ import type { Production } from '@deadair/sdk';
 import { useCancelProduction, useProductions, useRequestProduction } from '../../api/productions.queries';
 import { EmptyState } from '../shared/empty.state';
 import { ErrorAlert } from '../shared/error.alert';
-import { formatMomentMinute } from '../shared/feed.moment';
+import { formatMomentMinute, type Moment } from '../shared/feed.moment';
 import { PageHeader } from '../shared/page.header';
 import { PageSkeleton } from '../shared/page.skeleton';
 import { toneColor, type StatusTone } from '../shared/status';
@@ -105,7 +105,7 @@ function cast(production: Production): string {
  * When a scheduled production is due, to the minute, and carrying its weekday because a production
  * can be commissioned days out.
  */
-const moment = (iso: string): string => formatMomentMinute(iso, { weekday: true, fallback: '—' });
+const moment = (iso: Moment): string => formatMomentMinute(iso, { weekday: true, fallback: '—' });
 
 /** One production, and how far along it is. */
 function ProductionCard({ production, stopping, onCancel }: { production: Production; stopping: boolean; onCancel: () => void }) {

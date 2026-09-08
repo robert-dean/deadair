@@ -33,6 +33,7 @@ import { Route as SettingsPlayoutRouteImport } from './routes/settings/playout'
 import { Route as SettingsRenderRouteImport } from './routes/settings/render'
 import { Route as SettingsRotationRouteImport } from './routes/settings/rotation'
 import { Route as SettingsSecretsRouteImport } from './routes/settings/secrets'
+import { Route as SettingsSecurityRouteImport } from './routes/settings/security'
 import { Route as SettingsStationRouteImport } from './routes/settings/station'
 import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
 import { Route as SettingsStreamRouteImport } from './routes/settings/stream'
@@ -164,6 +165,11 @@ const SettingsSecretsRoute = SettingsSecretsRouteImport.update({
   path: '/settings/secrets',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsSecurityRoute = SettingsSecurityRouteImport.update({
+  id: '/settings/security',
+  path: '/settings/security',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsStationRoute = SettingsStationRouteImport.update({
   id: '/settings/station',
   path: '/settings/station',
@@ -237,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
   '/settings/secrets': typeof SettingsSecretsRoute
+  '/settings/security': typeof SettingsSecurityRoute
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/stream': typeof SettingsStreamRoute
@@ -273,6 +280,7 @@ export interface FileRoutesByTo {
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
   '/settings/secrets': typeof SettingsSecretsRoute
+  '/settings/security': typeof SettingsSecurityRoute
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/stream': typeof SettingsStreamRoute
@@ -310,6 +318,7 @@ export interface FileRoutesById {
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
   '/settings/secrets': typeof SettingsSecretsRoute
+  '/settings/security': typeof SettingsSecurityRoute
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/stream': typeof SettingsStreamRoute
@@ -348,6 +357,7 @@ export interface FileRouteTypes {
     | '/settings/render'
     | '/settings/rotation'
     | '/settings/secrets'
+    | '/settings/security'
     | '/settings/station'
     | '/settings/storage'
     | '/settings/stream'
@@ -384,6 +394,7 @@ export interface FileRouteTypes {
     | '/settings/render'
     | '/settings/rotation'
     | '/settings/secrets'
+    | '/settings/security'
     | '/settings/station'
     | '/settings/storage'
     | '/settings/stream'
@@ -420,6 +431,7 @@ export interface FileRouteTypes {
     | '/settings/render'
     | '/settings/rotation'
     | '/settings/secrets'
+    | '/settings/security'
     | '/settings/station'
     | '/settings/storage'
     | '/settings/stream'
@@ -457,6 +469,7 @@ export interface RootRouteChildren {
   SettingsRenderRoute: typeof SettingsRenderRoute
   SettingsRotationRoute: typeof SettingsRotationRoute
   SettingsSecretsRoute: typeof SettingsSecretsRoute
+  SettingsSecurityRoute: typeof SettingsSecurityRoute
   SettingsStationRoute: typeof SettingsStationRoute
   SettingsStorageRoute: typeof SettingsStorageRoute
   SettingsStreamRoute: typeof SettingsStreamRoute
@@ -643,6 +656,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsSecretsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/security': {
+      id: '/settings/security'
+      path: '/settings/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof SettingsSecurityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/station': {
       id: '/settings/station'
       path: '/settings/station'
@@ -737,6 +757,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRenderRoute: SettingsRenderRoute,
   SettingsRotationRoute: SettingsRotationRoute,
   SettingsSecretsRoute: SettingsSecretsRoute,
+  SettingsSecurityRoute: SettingsSecurityRoute,
   SettingsStationRoute: SettingsStationRoute,
   SettingsStorageRoute: SettingsStorageRoute,
   SettingsStreamRoute: SettingsStreamRoute,

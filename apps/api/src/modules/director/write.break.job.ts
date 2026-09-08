@@ -932,6 +932,13 @@ function neighboursOf(lineup: StationLineup, segmentId: string): Neighbours | un
                     artist: item.track.artist || 'an unknown artist',
                     // Carried for what comes later rather than for anything today. See `BreakTrack`.
                     ...(item.track.trackId === undefined ? {} : { trackId: item.track.trackId }),
+                    // The three the order already holds. Passed through one at a time rather than
+                    // spread, so an item that knows the year and not the album hands over the year
+                    // and stays silent about the album — `describe` renders what is here and a
+                    // blank field is an invitation to invent one.
+                    ...(item.track.year === undefined ? {} : { year: item.track.year }),
+                    ...(item.track.album === undefined ? {} : { album: item.track.album }),
+                    ...(item.track.durationMs === undefined ? {} : { durationMs: item.track.durationMs }),
                 },
             };
         }

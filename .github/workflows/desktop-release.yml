@@ -1,0 +1,96 @@
+# Building the desktop listener and desk as something somebody can download.
+#
+# Deliberately `workflow_dispatch` and NOT a push trigger, for the same reason `android-release.yml`
+# is: `release.yml` publishes Docker images on every push to main, which is right for images because
+# a tag is overwritten and nobody downstream counts them. A GitHub release is not like that. It is a
+# permanent entry with a version somebody may already have downloaded, and a push trigger would cut
+# one for every README typo.
+#
+# The artifact is UNSIGNED. macOS will refuse it on a first launch until somebody right-clicks and
+# chooses Open, which is stated in the release notes rather than left to be discovered. Signing needs
+# an Apple Developer ID and a decision about paying for one; the steps below are shaped so that
+# adding it later is a secret and one extra step rather than a rewrite.
+
+name: Desktop release
+
+on:
+    workflow_dispatch:
+        inputs:
+            version:
+                description: Version to stamp the bundle with, without a leading v
+                type: string
+                default: 0.1.0
+            draft:
+                description: Create the release as a draft rather than publishing it
+                type: boolean
+                default: true
+
+permissions:
+    contents: write
+
+jobs:
+    release:
+        # macOS, and not a choice: the player is AVFoundation behind a shim that only clang on a Mac
+        # can build, and a self-contained osx-arm64 publish has to run on the platform it targets.
+        runs-on: macos-latest
+        timeout-minutes: 30
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v5
+              with:
+                  global-json-file: apps/desktop/global.json
+                  cache: true
+                  cache-dependency-path: '**/packages.lock.json'
+
+            # The same gates the ordinary build job runs. A release that skipped them would be the one
+            # build nobody checked.
+            - name: Restore
+              working-directory: apps/desktop
+              run: dotnet restore --locked-mode
+
+            - name: Build
+              working-directory: apps/desktop
+              run: dotnet build -c Release -warnaserror --no-restore
+
+            - name: Test
+              working-directory: apps/desktop
+              run: dotnet test -c Release --no-build
+
+            # Builds the native shim, publishes self-contained for Apple Silicon, and assembles the
+            # bundle. The script is the same one used by hand, so a release cannot drift from what a
+            # developer produces locally.
+            - name: Build the app bundle
+              run: apps/desktop/tools/macos/make-app-bundle.sh "${{ inputs.version }}"
+
+            # Zipped with `ditto`, which preserves the resource forks and symlinks inside a bundle.
+            # A plain `zip` produces an archive macOS unpacks into something that will not launch.
+            - name: Archive
+              working-directory: apps/desktop/artifacts
+              run: ditto -c -k --sequesterRsrc --keepParent deadair.app "deadair-${{ inputs.version }}-osx-arm64.zip"
+
+            - name: Publish the release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  notes=$(cat <<'NOTES'
+                  The desktop listener and operator desk, for macOS on Apple Silicon.
+
+                  It is unsigned, so the first launch needs a right-click and Open. macOS will
+                  otherwise refuse it without saying why.
+
+                  Point it at your station's address on first run. Listening needs no account; the
+                  desk appears when you sign in as the operator.
+                  NOTES
+                  )
+
+                  gh release create "v${{ inputs.version }}" \
+                      --title "deadair desktop ${{ inputs.version }}" \
+                      --notes "$notes" \
+                      ${{ inputs.draft && '--draft' || '' }} \
+                      "apps/desktop/artifacts/deadair-${{ inputs.version }}-osx-arm64.zip"

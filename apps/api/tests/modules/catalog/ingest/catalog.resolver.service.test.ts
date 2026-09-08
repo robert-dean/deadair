@@ -106,6 +106,27 @@ function fakeDb() {
     return { db: db as unknown as Kysely<DB>, state };
 }
 
+/**
+ * A `Kysely` that already IS a transaction, which is what the scoped one is on
+ * every non-exempt request: `auditContextMiddleware` opens one and overrides the
+ * container's `Kysely<DB>` with it.
+ *
+ * Its `transaction()` throws Kysely's real message rather than being a spy, so a
+ * test cannot pass by asserting on a call that a working implementation would
+ * have made anyway — reaching for it at all is the bug.
+ */
+function fakeAmbientTransaction() {
+    const db = {
+        isTransaction: true,
+        transaction: () => ({
+            execute: async () => {
+                throw new Error('calling the transaction method for a Transaction is not supported');
+            },
+        }),
+    };
+    return { db: db as unknown as Kysely<DB> };
+}
+
 describe('CatalogResolverService.ingestTrack', () => {
     it('runs every write on the transaction, never on the pooled connection', async () => {
         const { repository, onPool, onTransaction } = fakeRepository();
@@ -117,6 +138,32 @@ describe('CatalogResolverService.ingestTrack', () => {
         expect(onTransaction).toEqual(['resolveArtist', 'resolveAlbum', 'resolveTrack', 'upsertTrackSource']);
         expect(onPool).toEqual([]);
         expect(state).toEqual({ opened: 1, committed: 1, rolledBack: 0 });
+    });
+
+    it('joins a transaction the caller already opened instead of opening a second one', async () => {
+        // Kysely refuses `.transaction()` on a `Transaction`, and the scoped `Kysely` is one on
+        // every non-exempt request. Opening unconditionally is what made airing a chart resolve
+        // eight of a hundred records: `PickResolver.discover` calls this inside the request
+        // transaction, caught the throw, and downgraded each one to a warning.
+        const { repository, onPool, onTransaction } = fakeRepository();
+        const { db } = fakeAmbientTransaction();
+
+        const result = await new CatalogResolverService(db, repository).ingestTrack('deadair.spotify', track(), 'discovered');
+
+        expect(result).toEqual({ status: 'ingested', trackId: 'track-1', created: true });
+        expect(onTransaction).toEqual(['resolveArtist', 'resolveAlbum', 'resolveTrack', 'upsertTrackSource']);
+        expect(onPool).toEqual([]);
+        // The caller's transaction itself, so the writes land inside it rather than beside it.
+        expect(repository.withTransaction).toHaveBeenCalledWith(db);
+    });
+
+    it('lets a failure reach the caller’s transaction rather than absorbing it', async () => {
+        // Joining means the caller rolls back too, which is the half of this worth stating: a
+        // request that could not finish must leave no track behind.
+        const { repository } = fakeRepository({ failOn: 'binding' });
+        const { db } = fakeAmbientTransaction();
+
+        await expect(new CatalogResolverService(db, repository).ingestTrack('deadair.spotify', track())).rejects.toThrow(/binding write failed/);
     });
 
     it('resolves the artist before the album, since an album needs one', async () => {

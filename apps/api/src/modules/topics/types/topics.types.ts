@@ -3,7 +3,7 @@ import { ConfigFieldDescriptor } from '../../plugins/types/plugins.types.js';
 
 /**
  * What a break can be about: a news category, and later a weather location. The operator's own vocabulary, per sort of break
- * generated from [Topic](file://./../../../../data/contracts/topics/topics.types.ck#L8)
+ * generated from [Topic](../../../../data/contracts/topics/topics.types.ck#L8)
  */
 export const Topic = z.strictObject({
     id: z.string().min(1).max(100),
@@ -17,7 +17,9 @@ export const Topic = z.strictObject({
     config: z
         .record(z.string(), z.unknown())
         .describe("This sort of break's own settings for this subject, in the fields its kind declares. Nothing generic reads them"),
-    position: z.coerce.number().int().min(0).describe('Your own order, for the list. Two subjects never contest anything, so it means nothing else'),
+    position: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Your own order, for the list. Two subjects never contest anything, so it means nothing else'),
 });
 export type Topic = z.infer<typeof Topic>;
 
@@ -32,13 +34,15 @@ export const TopicInput = z.strictObject({
     config: z
         .record(z.string(), z.unknown())
         .describe("This sort of break's own settings for this subject, in the fields its kind declares. Nothing generic reads them"),
-    position: z.coerce.number().int().min(0).describe('Your own order, for the list. Two subjects never contest anything, so it means nothing else'),
+    position: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Your own order, for the list. Two subjects never contest anything, so it means nothing else'),
 });
 export type TopicInput = z.infer<typeof TopicInput>;
 
 /**
  * A sort of break that has subjects at all, and how one of its subjects is edited. `ConfigFieldDescriptor` is the plugins area's, shared for the reason a station setting shares it: one form component renders them all
- * generated from [TopicKindDescriptor](file://./../../../../data/contracts/topics/topics.types.ck#L22)
+ * generated from [TopicKindDescriptor](../../../../data/contracts/topics/topics.types.ck#L22)
  */
 export const TopicKindDescriptor = z.strictObject({
     kind: z.string().min(1).max(100),
@@ -50,7 +54,7 @@ export const TopicKindDescriptor = z.strictObject({
 export type TopicKindDescriptor = z.infer<typeof TopicKindDescriptor>;
 
 /**
- * generated from [TopicQuery](file://./../../../../data/contracts/topics/topics.types.ck#L34)
+ * generated from [TopicQuery](../../../../data/contracts/topics/topics.types.ck#L34)
  */
 export const TopicQuery = z.strictObject({
     kind: z.string().max(100).optional().describe('One sort of break, or absent for every subject this station has named'),
@@ -58,7 +62,7 @@ export const TopicQuery = z.strictObject({
 export type TopicQuery = z.infer<typeof TopicQuery>;
 
 /**
- * generated from [TopicList](file://./../../../../data/contracts/topics/topics.types.ck#L17)
+ * generated from [TopicList](../../../../data/contracts/topics/topics.types.ck#L17)
  */
 export const TopicList = z.strictObject({
     topics: z.array(Topic),
@@ -71,7 +75,7 @@ export const TopicListInput = z.strictObject({
 export type TopicListInput = z.infer<typeof TopicListInput>;
 
 /**
- * generated from [TopicKindList](file://./../../../../data/contracts/topics/topics.types.ck#L30)
+ * generated from [TopicKindList](../../../../data/contracts/topics/topics.types.ck#L30)
  */
 export const TopicKindList = z.strictObject({
     kinds: z.array(TopicKindDescriptor),

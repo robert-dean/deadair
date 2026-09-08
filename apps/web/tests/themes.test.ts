@@ -38,14 +38,18 @@ function readThemeTokens(themeId: string): Record<TokenName, string> {
         throw new Error(`tokens.css: no :root block found for theme '${themeId}'`);
     }
     const block = match[1];
+    if (block === undefined) {
+        throw new Error(`tokens.css: the :root block for theme '${themeId}' is empty`);
+    }
 
     const tokens = {} as Record<TokenName, string>;
     for (const name of TOKEN_NAMES) {
         const tokenMatch = block.match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`));
-        if (!tokenMatch) {
+        const value = tokenMatch?.[1];
+        if (value === undefined) {
             throw new Error(`tokens.css: theme '${themeId}' does not set ${name}`);
         }
-        tokens[name] = tokenMatch[1];
+        tokens[name] = value;
     }
     return tokens;
 }

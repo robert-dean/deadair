@@ -1,4 +1,5 @@
 import { Injectable } from 'injectkit';
+import type { ChartEntry } from '@deadair/plugin-sdk';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { httpError } from '@maroonedsoftware/errors';
 import { JobBroker } from '@maroonedsoftware/jobbroker';
@@ -509,6 +510,50 @@ export class DirectorConsoleService {
      * @throws 422 when the chart could not be read, or when nothing on it can air.
      */
     private async chartTracks(chartId: string, order: PutOnAirInput['chartOrder'], era: EraWindow): Promise<RundownTrack[]> {
+        const { address, entries } = await this.readChart(chartId);
+
+        const picks = chartPicks(entries, { order: order ?? DEFAULT_CHART_ORDER, ...(bindsAnything(era) ? { era } : {}) });
+        // A lookup for every entry, rather than the refill's cap. That cap protects a provider's
+        // rate budget from one background refill starving the next, and there is no next refill
+        // here: this is an operator asking for one document, once, already bounded at
+        // `MAX_CHART_ENTRIES`. Held to it, a hundred-record chart got 32 lookups and aired the
+        // remainder as "not in the catalog" without a provider ever being asked about them, which
+        // reads from the console exactly like a chart service that carried nothing.
+        const tracks = await this.resolver.resolve(picks, NO_RULES, { era, preference: [address.pluginId], discoveries: picks.length });
+        if (tracks.length === 0) {
+            // Said in the operator's terms rather than the resolver's, and the two cases are named
+            // apart because they want opposite fixes. With discovery off this is not a fault at all
+            // — it is a setting doing exactly what it says — but a chart pick is almost never
+            // already in the library, so it empties the whole document and reads from the console
+            // as a broken plugin. That is the "decline loudly" rule `chart-discovery.md` asks for,
+            // and this is the surface where somebody is standing at the desk to read it.
+            throw httpError(422).withDetails({
+                message: settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT)
+                    ? "nothing on that chart can be played: no provider serves these records, or the period and the station's own vetoes rule them all out"
+                    : 'nothing on that chart is in the library, and "rotation.discover" is off, so the station may not look these records up',
+            });
+        }
+        return tracks;
+    }
+
+    /**
+     * A chart id resolved to a plugin and the entries it currently serves, or a refusal.
+     *
+     * Both of the ways airing a chart can fail before a single provider is asked, in one place
+     * because two callers need exactly them: {@link airChart} at the door, so an operator hears
+     * about a chart nothing can read while they are still looking at the button, and
+     * {@link chartTracks} in the job, which does the work.
+     *
+     * **Deliberately read twice, once per caller**, rather than the door handing its entries to the
+     * job. That follows `ExtendLineupJob` and `ReplanLineupJob`, both of which re-read everything at
+     * run time so an attempt is judged against the station as it stands: a chart is a live document,
+     * and passing a snapshot through a queue would air whatever it said when the button was pressed.
+     * It also keeps the payload to an id. The cost is one extra plugin call per airing, against the
+     * hundred provider searches behind it.
+     *
+     * @throws 422 when the id names no chart, or when nothing could read one.
+     */
+    private async readChart(chartId: string): Promise<{ address: { pluginId: string }; entries: ChartEntry[] }> {
         const address = splitChartId(chartId);
         if (address === undefined) {
             throw httpError(422).withDetails({ message: 'that is not a chart id; it names a plugin and one of its charts, as `plugin:chart`' });
@@ -524,22 +569,44 @@ export class DirectorConsoleService {
             throw httpError(422).withDetails({ message: 'that chart could not be read, so there is nothing to play' });
         }
 
-        const picks = chartPicks(entries, { order: order ?? DEFAULT_CHART_ORDER, ...(bindsAnything(era) ? { era } : {}) });
-        const tracks = await this.resolver.resolve(picks, NO_RULES, { era, preference: [address.pluginId] });
-        if (tracks.length === 0) {
-            // Said in the operator's terms rather than the resolver's, and the two cases are named
-            // apart because they want opposite fixes. With discovery off this is not a fault at all
-            // — it is a setting doing exactly what it says — but a chart pick is almost never
-            // already in the library, so it empties the whole document and reads from the console
-            // as a broken plugin. That is the "decline loudly" rule `chart-discovery.md` asks for,
-            // and this is the surface where somebody is standing at the desk to read it.
-            throw httpError(422).withDetails({
-                message: settingIsOn(this.config, DISCOVER_KEY, DISCOVER_DEFAULT)
-                    ? "nothing on that chart can be played: no provider serves these records, or the period and the station's own vetoes rule them all out"
-                    : 'nothing on that chart is in the library, and "rotation.discover" is off, so the station may not look these records up',
-            });
-        }
-        return tracks;
+        return { address, entries };
+    }
+
+    /**
+     * Ask the station to go on air with a published chart.
+     *
+     * Queued, like {@link replanOrder}, and for a reason neither the playlist changeover beside it
+     * nor any other console action has: a chart names RECORDS where a playlist names copies, so
+     * every entry has to be looked up at a provider and ingested — up to `MAX_CHART_ENTRIES` of
+     * them, each a search across every searchable provider. Done inline that is minutes of network
+     * holding a pooled connection and the operator's request open, which is the shape
+     * `transaction.exemptions.ts` records as having taken the pool down once already.
+     *
+     * **What is answered here is the ASK**, on `extendOrder`'s rule. The two failures an operator
+     * can act on are still raised at the door, because {@link readChart} runs before anything is
+     * enqueued and both are cheap to know: an id that names no chart, and a chart nothing could
+     * read. The third — nothing on it can be played — needs the lookups to know at all, so it
+     * lands on the activity feed minutes later rather than on the button.
+     *
+     * @throws 422 when the id names no chart, or when nothing could read one.
+     */
+    async airChart(input: { chartId: string; chartOrder?: PutOnAirInput['chartOrder'] }): Promise<void> {
+        // Read and discarded. The job reads it again for the reason `readChart` gives; what this
+        // call is for is refusing at the door rather than accepting an ask that cannot land.
+        await this.readChart(input.chartId);
+
+        await this.jobs.send('director.air_chart', {
+            chartId: input.chartId,
+            ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }),
+        });
+
+        void this.activity.record({
+            module: 'director',
+            kind: 'air.chartRequested',
+            detail: 'An operator asked the station to go on air with a published chart.',
+            data: { chartId: input.chartId, ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }) },
+            ...(this.actor() === undefined ? {} : { actorId: this.actor() as string }),
+        });
     }
 
     // ── the live running order ─────────────────────────────────────────────────

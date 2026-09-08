@@ -170,4 +170,45 @@ describe('ScriptHistoryRepository.page', () => {
         // clicked into one turn of a phone-in asked about that turn.
         expect(captured.sql).toContain('"deadair"."segments"."id" =');
     });
+
+    // The keyset is a raw fragment rather than a column Kysely resolves, so it is the one reference
+    // in this statement that the ratings join could not qualify on the author's behalf, and
+    // `deadair.script_ratings` carries its own `created_at`. Unqualified it is "column reference is
+    // ambiguous", which the console saw as a 500 behind "Load older" on every page after the first.
+    it('qualifies the keyset columns, which the ratings join makes ambiguous', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).page({ limit: 20, before: '2026-09-04T14:19:35.265Z|b793814d-7dfc-4696-8a64-3d825214f061' });
+
+        expect(captured.sql).toContain('(deadair.script_history.created_at, deadair.script_history.id) <');
+        // The join whose presence is the whole reason the qualification is needed.
+        expect(captured.sql).toContain('left join "deadair"."script_ratings"');
+        // Belt and braces on the actual failure: no bare `created_at` anywhere a planner could
+        // resolve two ways. Every legitimate mention is table-qualified or quoted as an output name.
+        expect(captured.sql).not.toMatch(/[(,]\s*created_at\b/);
+    });
+
+    it('walks backwards from the cursor it was given', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).page({ limit: 20, before: '2026-09-04T14:19:35.265Z|b793814d-7dfc-4696-8a64-3d825214f061' });
+
+        // Both halves reach the statement as parameters: a model's attempt and the floor's attempt
+        // for the same break land in the same millisecond, so the id is what breaks that tie.
+        expect(captured.parameters).toContain('b793814d-7dfc-4696-8a64-3d825214f061');
+
+        // The INSTANT rather than the string. `decodeCursor` parses to a `DateTime` and the
+        // statement re-serialises it, so what goes on the wire carries the running machine's offset
+        // rather than the cursor's `Z`. The same moment, spelled the local way, which is what
+        // `::timestamptz` compares. Asserting the text would pass in UTC and fail everywhere else.
+        const stamp = captured.parameters?.find(parameter => typeof parameter === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(parameter));
+        expect(stamp).toBeDefined();
+        expect(Date.parse(stamp as string)).toBe(Date.parse('2026-09-04T14:19:35.265Z'));
+    });
+
+    it('asks for no cursor predicate when there is no cursor', async () => {
+        const captured: Captured = {};
+        await repositoryOver(fakeDb([], captured)).page({ limit: 20 });
+
+        // Why the bug survived: page one is the only page a first load asks for.
+        expect(captured.sql).not.toContain('created_at, deadair.script_history.id) <');
+    });
 });

@@ -4,6 +4,8 @@
 # same way whether Prettier runs from here or from a package directory.
 
 **/package-lock.json
+# NuGet writes this one, two-space, on every restore. Same argument as the lockfiles above it.
+**/packages.lock.json
 **/pnpm-lock.yaml
 **/yarn.lock
 **/node_modules/

@@ -4,6 +4,7 @@
 // whole card and the causal indent survives the loss of the table.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 
 import { TracesPage } from '../../../src/components/station/traces.page';
 import { stubPhoneMedia } from '../../utils/phone';
@@ -26,7 +27,7 @@ vi.mock('../../../src/api/client', () => ({
 const decision = (over: Record<string, unknown> = {}) => ({
     id: 'aaaaaaaa-1111-4111-8111-111111111111',
     kind: 'catalog.enrich',
-    at: '2026-08-25T12:00:00.000Z',
+    at: DateTime.fromISO('2026-08-25T12:00:00.000Z'),
     ms: 1200,
     calls: 4,
     failed: 0,
@@ -115,7 +116,15 @@ describe('TracesPage', () => {
                 readTrace.mockResolvedValue({
                     decision: decision(),
                     caused: [],
-                    spans: [{ at: '2026-08-25T12:00:00.000Z', op: 'plugin.call', target: 'deadair.musicbrainz', ms: 300, outcome: 'ok' }],
+                    spans: [
+                        {
+                            at: DateTime.fromISO('2026-08-25T12:00:00.000Z'),
+                            op: 'plugin.call',
+                            target: 'deadair.musicbrainz',
+                            ms: 300,
+                            outcome: 'ok',
+                        },
+                    ],
                 });
 
                 render(<TracesPage />);

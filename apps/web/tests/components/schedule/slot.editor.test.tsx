@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 const PLAYLISTS: CatalogPlaylistPage = { playlists: [], errors: [] };
-const PERSONAS: PersonaList = { personas: [], onAirPersonaId: undefined };
+const PERSONAS: PersonaList = { personas: [] };
 const CHARTS = { charts: [{ id: 'deadair.lastfm:top-100', pluginId: 'deadair.lastfm', name: 'Global Top 100' }] };
 
 const slot = (over: Partial<ScheduleSlot> = {}): ScheduleSlot => ({
@@ -176,6 +176,8 @@ describe('SlotEditor', () => {
                 onClose={noop}
                 onSubmit={noop}
                 onDelete={noop}
+                saving={false}
+                deleting={false}
             />,
         );
 
@@ -194,7 +196,7 @@ describe('SlotEditor', () => {
         listPersonas.mockResolvedValue(PERSONAS);
         listCharts.mockResolvedValue(CHARTS);
 
-        render(<SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={noop} onDelete={noop} />);
+        render(<SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />);
 
         await screen.findByRole('combobox', { name: 'Playing from' });
         expect(screen.queryByRole('combobox', { name: 'Played' })).toBeNull();
@@ -211,6 +213,8 @@ describe('SlotEditor', () => {
                 onClose={noop}
                 onSubmit={onSubmit}
                 onDelete={noop}
+                saving={false}
+                deleting={false}
             />,
         );
         await screen.findByRole('combobox', { name: 'Playing from' });

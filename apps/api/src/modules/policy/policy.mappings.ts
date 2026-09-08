@@ -19,6 +19,7 @@ import {
     RecoveryAllowedPolicyContext,
     DefaultAssuranceLevelPolicy,
     AuthAssuranceLevelPolicyContext,
+    DefaultMfaRequiredPolicy,
     SupportVerificationAllowedPolicy,
     SupportVerificationAllowedPolicyContext,
 } from '@maroonedsoftware/authentication';
@@ -87,26 +88,26 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPol
     'auth.factor.oidc.profile.allowed': OidcProfileAllowedPolicy,
     'auth.factor.oauth2.profile.allowed': OAuth2ProfileAllowedPolicy,
     'auth.session.recent.factor': AuthRecentFactorPolicy,
-    // **Second factors are deliberately off, and these two are how.** One operator, one install, no
-    // remote access — a station whose console is on the same machine as the mixer does not want to
-    // be handed a code every time it reloads a plugin. Written down because a stub is otherwise
-    // indistinguishable from unfinished wiring, and the real policy is sitting one directory away
-    // in `policies/auth.mfa.satisfied.policy.ts` looking like it should be here.
+    // **A second factor is asked for at sign-in only by somebody who has enrolled one.** The
+    // package's default rule filters the actor's enrolled factors down to those that can stand as
+    // a SECOND factor (possession, not the one just used, not OIDC) and denies only when something
+    // survives; `MfaOrchestrator.issueOrChallenge` mints a challenge on that denial and nothing
+    // else. So an account holding a password alone signs in exactly as before, and an account that
+    // has enrolled an authenticator is asked for its code. Opt-in per account, and the console's
+    // Security page is where the opting happens.
     //
-    // What each one currently costs, since they are not equivalent:
+    // This used to be `AlwaysAllowPolicy`, on the argument that one operator on one install did not
+    // want to be handed a code every time the console reloaded a plugin. That argument was about
+    // codes on every REQUEST, which this does not cause: the challenge is raised once, at the
+    // password grant, and the session it mints lasts a month behind the refresh cookie.
     //
-    // `mfa.required` IS evaluated on every sign-in — `AuthenticationService` asks
-    // `MfaOrchestrator.issueOrChallenge`, which mints a challenge only when the policy DENIES. So
-    // allowing it makes the whole `mfa_challenge_id` path unreachable and every primary factor mint
-    // a full session. Mapping `DefaultMfaRequiredPolicy` here would switch that path on for any
-    // actor holding a viable second factor; the routes and contracts for it already exist.
-    //
-    // `mfa.satisfied` is evaluated by NOTHING today. It is the koa package's DEFAULT_POLICY, used
-    // only for a bare `requirePolicy()`, and every one of this app's ~107 call sites names its
-    // policy explicitly. Wiring `AuthMfaSatisfiedPolicy` in would therefore change no behaviour
-    // until a contract omitted its security block — which is exactly the trap
-    // `authentication.ck` already warns about, since an omitted block is not public.
-    'auth.session.mfa.required': AlwaysAllowPolicy,
+    // `mfa.satisfied` is the other half and is left alone on purpose. Nothing evaluates it: it is
+    // the koa package's DEFAULT_POLICY, used only for a bare `requirePolicy()`, and every one of
+    // this app's contracts names its policy explicitly. Mapping the real one in would change
+    // nothing today and would turn an omitted security block into an MFA gate tomorrow, which is
+    // exactly the trap `authentication.ck` already warns about. Gating ROUTES on a second factor is
+    // a separate decision from asking for one at sign-in, and it has not been taken.
+    'auth.session.mfa.required': DefaultMfaRequiredPolicy,
     'auth.session.mfa.satisfied': AlwaysAllowPolicy,
     'auth.recovery.allowed': RecoveryAllowedPolicy,
     'auth.support.verification.allowed': SupportVerificationAllowedPolicy,

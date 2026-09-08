@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            A test project is an executable that runs itself. xunit v3 is built on the Microsoft
+            Testing Platform, and the .NET 10 SDK no longer supports the VSTest path the old
+            `Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio` pair went through, so neither
+            package is referenced: adding them back is what produces the "Testing with VSTest target
+            is no longer supported" error.
+
+            What selects the platform is the `test` section of `global.json`, and nothing here. The
+            `TestingPlatformDotnetTestSupport` property is the OLDER opt-in, for driving a testing
+            platform project through the VSTest path on an SDK that still had one; on .NET 10 it is
+            documented as no longer required and was measured here as not sufficient either.
+        -->
+        <OutputType>Exe</OutputType>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <RootNamespace>MaroonedSoftware.Deadair.Sdk.Tests</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../../packages/sdk-csharp/DeadairSdk.csproj" />
+    </ItemGroup>
+
+</Project>

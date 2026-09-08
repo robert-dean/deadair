@@ -1,0 +1,129 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:views="using:MaroonedSoftware.Deadair.Desktop.Views"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.ListenerView"
+    x:DataType="vm:ListenerViewModel">
+
+    <UserControl.Resources>
+        <conv:ToneBrushConverter x:Key="ToneBrush" />
+    </UserControl.Resources>
+
+    <DockPanel LastChildFill="True">
+
+        <!-- The header: the station, and whether it is on air. The lamp is the only place a tone
+             becomes a colour, and it does it through the converter rather than in this file. -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource DaPanelBrush}" Padding="20,14"
+                BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Ellipse Width="10" Height="10" Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+                    <TextBlock Text="{Binding StationName}" FontWeight="SemiBold"
+                               Foreground="{DynamicResource DaTextBrush}" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <TextBlock Grid.Column="2" VerticalAlignment="Center"
+                           Foreground="{DynamicResource DaTextDimmedBrush}">
+                    <Run Text="{Binding Listeners}" />
+                    <Run Text="listening" />
+                </TextBlock>
+            </Grid>
+        </Border>
+
+        <!-- The transport, at the bottom where a player's controls belong. -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource DaPanelBrush}" Padding="20,16"
+                BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="18">
+                <Button Command="{Binding ToggleCommand}" Width="108" Padding="0,10"
+                        HorizontalContentAlignment="Center">
+                    <TextBlock Text="{Binding Playing, Converter={x:Static conv:PlayLabelConverter.Instance}}" />
+                </Button>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Text="{Binding Elapsed}" FontFamily="monospace" FontSize="12"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <TextBlock Grid.Column="2" Text="{Binding Remaining}" FontFamily="monospace" FontSize="12"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    </Grid>
+                    <!-- Sits at zero when the station could not say where the record is up to, rather
+                         than guessing from when it started. -->
+                    <ProgressBar Minimum="0" Maximum="{Binding Duration}" Value="{Binding Position}"
+                                 Height="4" Foreground="{DynamicResource DaPhosphorBrush}"
+                                 Background="{DynamicResource DaBorderBrush}" />
+                </StackPanel>
+
+                <TextBlock Grid.Column="2" Text="{Binding ListeningLabel}" VerticalAlignment="Center"
+                           Foreground="{Binding Tone, Converter={StaticResource ToneBrush}}" />
+            </Grid>
+        </Border>
+
+        <!-- The desk, and the account that unlocks it. Beside what is on air rather than instead of
+             it: the app is a listener that becomes a desk, not two apps sharing a window. -->
+        <Border DockPanel.Dock="Right" Width="380" Padding="20"
+                Background="{DynamicResource DaPanelBrush}"
+                BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1,0,0,0">
+            <ScrollViewer>
+                <StackPanel Spacing="16">
+                    <views:LoginView DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Login}"
+                                     IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).SignedOut}" />
+
+                    <StackPanel Spacing="8"
+                                IsVisible="{Binding !$parent[Window].((vm:ShellViewModel)DataContext).SignedOut}">
+                        <TextBlock Text="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Account}"
+                                   FontSize="12" Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <Button Content="Sign out"
+                                Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).SignOutCommand}" />
+                    </StackPanel>
+
+                    <views:TransportView DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport}" />
+
+                    <views:RunningOrderView Height="360"
+                                            DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Order}" />
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- What is on air. -->
+        <Border Padding="32">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="28" VerticalAlignment="Center">
+
+                <Border Width="220" Height="220" CornerRadius="4" ClipToBounds="True"
+                        Background="{DynamicResource DaRaisedBrush}"
+                        BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1">
+                    <Panel>
+                        <!-- A missing or failed cover falls back to the panel: art is hotlinked until
+                             the station caches it, so a dead upstream is ordinary. -->
+                        <TextBlock Text="♪" FontSize="56" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <Image Source="{Binding Artwork}" Stretch="UniformToFill" />
+                    </Panel>
+                </Border>
+
+                <StackPanel Grid.Column="1" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title, FallbackValue='Nothing on air'}" FontSize="26"
+                               FontWeight="SemiBold" TextWrapping="Wrap"
+                               Foreground="{DynamicResource DaTextBrush}" />
+                    <TextBlock Text="{Binding Artist}" FontSize="16" TextWrapping="Wrap"
+                               Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                    <TextBlock Text="{Binding Album}" FontSize="13" TextWrapping="Wrap"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+
+                    <TextBlock Text="The station is quiet." IsVisible="{Binding !OnAir}"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+
+                    <!-- A failed poll keeps the last good answer and says it is old, rather than
+                         blanking a screen that still holds something true. -->
+                    <TextBlock Text="Not answering. Showing the last reading."
+                               IsVisible="{Binding Stale}"
+                               Foreground="{DynamicResource DaToneFaultBrush}" />
+                </StackPanel>
+
+            </Grid>
+        </Border>
+
+    </DockPanel>
+
+</UserControl>

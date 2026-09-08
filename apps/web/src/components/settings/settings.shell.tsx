@@ -21,6 +21,7 @@ export type SettingsSectionId =
     | 'housekeeping'
     | 'secrets'
     | 'appearance'
+    | 'security'
     | 'rotation'
     | 'playout'
     | 'render'
@@ -114,6 +115,10 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // because "how do I make this readable in daylight" is a question an operator brings to
     // Settings, and the card itself says plainly that it is remembered on this browser alone.
     { id: 'appearance', label: 'Appearance', hint: 'How the console looks, on this browser' },
+    // Beside Appearance because it is the other section about the operator rather than the
+    // station: a second factor protects this person's sign-in, and enrolling one changes nothing
+    // about what listeners hear.
+    { id: 'security', label: 'Security', hint: 'How you sign in' },
     {
         id: 'rotation',
         label: 'Rotation',
@@ -171,6 +176,7 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/housekeeping'
     | '/settings/secrets'
     | '/settings/appearance'
+    | '/settings/security'
     | '/settings/rotation'
     | '/settings/playout'
     | '/settings/render'
@@ -185,6 +191,7 @@ export const SETTINGS_ROUTES: Record<
     housekeeping: '/settings/housekeeping',
     secrets: '/settings/secrets',
     appearance: '/settings/appearance',
+    security: '/settings/security',
     rotation: '/settings/rotation',
     playout: '/settings/playout',
     render: '/settings/render',

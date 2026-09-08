@@ -1,0 +1,60 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.ProgrammeView"
+    x:DataType="vm:ProgrammeViewModel">
+
+    <DockPanel Margin="24" LastChildFill="True">
+
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,14">
+            <TextBlock Text="Programme" FontSize="20" FontWeight="SemiBold"
+                       Foreground="{DynamicResource DaTextBrush}" />
+
+            <Border Padding="14" CornerRadius="3" Background="{DynamicResource DaPanelBrush}"
+                    BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="On now" FontSize="11"
+                               Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    <TextBlock Text="{Binding OnNow}" TextWrapping="Wrap"
+                               Foreground="{DynamicResource DaTextBrush}" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="{Binding Problem}" TextWrapping="Wrap" FontSize="12"
+                       IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+        </StackPanel>
+
+        <!-- Read-only. Editing a timetable wants dragging, and a wrong drop reschedules a broadcast. -->
+        <ListBox ItemsSource="{Binding Slots}" Background="Transparent" BorderThickness="0">
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:SlotViewModel">
+                    <Grid ColumnDefinitions="120,110,*" ColumnSpacing="12" Margin="0,4">
+                        <TextBlock Text="{Binding Days}" FontSize="12" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        <TextBlock Grid.Column="1" Text="{Binding Window}" FontFamily="monospace" FontSize="12"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                        <StackPanel Grid.Column="2" Spacing="2">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding Label}" Foreground="{DynamicResource DaTextBrush}" />
+                                <!-- The slot actually airing, which is not always the one the clock
+                                     says: a hold keeps a broadcast past its slot on purpose. -->
+                                <Border IsVisible="{Binding IsAiring}" CornerRadius="2" Padding="5,1"
+                                        Background="{DynamicResource DaToneLiveBrush}">
+                                    <TextBlock Text="ON AIR" FontSize="9" Foreground="White" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{Binding Brief}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                       IsVisible="{Binding Brief, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+    </DockPanel>
+
+</UserControl>

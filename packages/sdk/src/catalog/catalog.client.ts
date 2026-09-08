@@ -7,7 +7,6 @@ import type {
     Artist,
     ArtistEnrichmentDetail,
     ArtistPage,
-    CatalogQuery,
     CatalogQueryInput,
     ClearEnrichmentQuery,
     RateInput,
@@ -16,9 +15,9 @@ import type {
     TrackDetail,
     TrackEnrichmentDetail,
     TrackPage,
-    TrackQuery,
     TrackQueryInput,
 } from './types/catalog.types.js';
+import { reviveAlbumEnrichmentDetail, reviveArtistEnrichmentDetail, reviveTrackDetail, reviveTrackEnrichmentDetail } from './types/catalog.types.js';
 
 export class CatalogClient {
     constructor(private fetch: SdkFetch) {}
@@ -50,7 +49,7 @@ export class CatalogClient {
      */
     async getArtistEnrichment(id: string): Promise<ArtistEnrichmentDetail> {
         const result = await this.fetch(`/catalog/artists/${encodeURIComponent(id)}/enrichment`, { method: 'GET' });
-        return await parseJson<ArtistEnrichmentDetail>(result);
+        return reviveArtistEnrichmentDetail(await parseJson<ArtistEnrichmentDetail>(result));
     }
 
     /**
@@ -99,7 +98,7 @@ export class CatalogClient {
      */
     async getAlbumEnrichment(id: string): Promise<AlbumEnrichmentDetail> {
         const result = await this.fetch(`/catalog/albums/${encodeURIComponent(id)}/enrichment`, { method: 'GET' });
-        return await parseJson<AlbumEnrichmentDetail>(result);
+        return reviveAlbumEnrichmentDetail(await parseJson<AlbumEnrichmentDetail>(result));
     }
 
     /**
@@ -133,7 +132,7 @@ export class CatalogClient {
      */
     async getTrack(id: string): Promise<TrackDetail> {
         const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}`, { method: 'GET' });
-        return await parseJson<TrackDetail>(result);
+        return reviveTrackDetail(await parseJson<TrackDetail>(result));
     }
 
     /**
@@ -178,7 +177,7 @@ export class CatalogClient {
      */
     async getTrackEnrichment(id: string): Promise<TrackEnrichmentDetail> {
         const result = await this.fetch(`/catalog/tracks/${encodeURIComponent(id)}/enrichment`, { method: 'GET' });
-        return await parseJson<TrackEnrichmentDetail>(result);
+        return reviveTrackEnrichmentDetail(await parseJson<TrackEnrichmentDetail>(result));
     }
 
     /**

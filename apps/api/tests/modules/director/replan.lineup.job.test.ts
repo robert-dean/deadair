@@ -72,8 +72,12 @@ function build(options: Options = {}) {
     const generate = vi.fn(async (_inputs: SetInputs) => named);
     const generator = { generate } as unknown as SetGenerator;
 
-    const resolve = vi.fn(async (picks: readonly TrackPick[]) =>
-        options.resolvable ? options.resolvable(picks) : picks.map(pick => track(pick.title, pick.artist)),
+    // Declared with all three of `PickResolver.resolve`'s parameters even though the body reads
+    // only the first: the options argument is what one case below asserts on, and a double that
+    // takes fewer arguments than the real method types that read as an out-of-range index.
+    const resolve = vi.fn(
+        async (picks: readonly TrackPick[], _rules?: unknown, _options?: { avoidArtistKeys?: ReadonlySet<string>; seedArtistKey?: string }) =>
+            options.resolvable ? options.resolvable(picks) : picks.map(pick => track(pick.title, pick.artist)),
     );
     const resolver = { resolve } as unknown as PickResolver;
 
@@ -141,7 +145,7 @@ describe('ReplanLineupJob', () => {
 
         await job.run({ count: 2 });
 
-        const options = resolve.mock.calls[0]![2] as { seedArtistKey?: string; avoidArtistKeys?: ReadonlySet<string> };
+        const options = resolve.mock.calls[0]![2]!;
         expect(options.seedArtistKey).toBe(artistKey(['Survivor']));
         expect(options.avoidArtistKeys).toContain(artistKey(['Survivor']));
         expect(options.avoidArtistKeys).not.toContain(artistKey(['Discarded']));

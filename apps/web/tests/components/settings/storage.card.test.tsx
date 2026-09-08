@@ -3,6 +3,7 @@
 // cannot have either. Plus the cap bar, which is the one thing on this page an operator can act on.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 import type { StorageReport } from '@deadair/sdk';
 
 import { StorageCard } from '../../../src/components/settings/storage.card';
@@ -20,7 +21,7 @@ afterEach(() => {
 });
 
 const REPORT: StorageReport = {
-    readAt: '2026-08-16T13:43:48.367Z',
+    readAt: DateTime.fromISO('2026-08-16T13:43:48.367Z'),
     totalFiles: 1556,
     totalBytes: 3_931_781_328,
     stores: [

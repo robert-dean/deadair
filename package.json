@@ -24,7 +24,7 @@
         "wizard": "wizard"
     },
     "devDependencies": {
-        "@contractkit/prettier-plugin": "^0.14.2",
+        "@contractkit/prettier-plugin": "^0.14.7",
         "@types/node": "^26.1.2",
         "@vitest/coverage-v8": "^4.1.10",
         "eslint": "^10.8.0",

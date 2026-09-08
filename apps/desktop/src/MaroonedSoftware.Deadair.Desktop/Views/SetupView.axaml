@@ -1,0 +1,51 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
+    x:Class="MaroonedSoftware.Deadair.Desktop.Views.SetupView"
+    x:DataType="vm:SetupViewModel">
+
+    <Border Padding="48">
+        <StackPanel MaxWidth="420" Spacing="18" VerticalAlignment="Center" HorizontalAlignment="Center">
+
+            <TextBlock
+                Text="deadair"
+                FontSize="34"
+                FontWeight="SemiBold"
+                Foreground="{DynamicResource DaPhosphorBrush}" />
+
+            <TextBlock
+                Text="The address of your station. Something like radio.example.com."
+                TextWrapping="Wrap"
+                Foreground="{DynamicResource DaTextSecondaryBrush}" />
+
+            <TextBox
+                Text="{Binding Address}"
+                PlaceholderText="radio.example.com"
+                FontFamily="monospace"
+                IsEnabled="{Binding !Busy}" />
+
+            <Button
+                Content="Connect"
+                Command="{Binding ConnectCommand}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center"
+                Padding="0,10" />
+
+            <!-- The station's four answers get four sentences: what to do about "not a station" and
+                 about "nothing answered" are different things. -->
+            <TextBlock
+                Text="{Binding Problem}"
+                IsVisible="{Binding Problem, Converter={x:Static ObjectConverters.IsNotNull}}"
+                TextWrapping="Wrap"
+                Foreground="{DynamicResource DaToneFaultBrush}" />
+
+            <TextBlock
+                Text="Asking the station…"
+                IsVisible="{Binding Busy}"
+                Foreground="{DynamicResource DaTextDimmedBrush}" />
+
+        </StackPanel>
+    </Border>
+
+</UserControl>

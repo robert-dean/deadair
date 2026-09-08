@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            No Avalonia reference, and there must never be one. Everything decidable without a window
+            lives here so it can be tested as plain .NET, which is the arrangement that gives the
+            Android listener its coverage without an instrumented test in sight.
+        -->
+        <RootNamespace>MaroonedSoftware.Deadair.Desktop.Core</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../../packages/sdk-csharp/DeadairSdk.csproj" />
+    </ItemGroup>
+
+</Project>

@@ -5,6 +5,10 @@ subsystem.
 **Piece 1 is solved, 2026-08-16**, and not in this tree: the operator fronted the mount with a
 Cloudflare tunnel and listens on a phone and an AVR. Nothing here was built, and nothing here needs
 to be. See §1 for what that settles and the three questions it makes live.
+**Piece 2 gained a client of its own, 2026-09-05**: `apps/android` is a Kotlin listener app over the
+generated Kotlin SDK — background playback, lock-screen controls, what is on air, and a picker over
+`/nowplaying`'s new `mounts[]`. It does not replace the tunnel, which is still how the mount is
+reached; it replaces pointing a generic player at a URL and getting one flattened ICY line back.
 **State of the rest:** catalog sync is already automatic; pieces 2 and 3 do not exist.
 
 ---

@@ -85,6 +85,19 @@ export function buildQueryString(query: object | undefined): string {
     return qs ? `?${qs}` : '';
 }
 
+/**
+ * Read a JSON response body.
+ *
+ * No reviver: `bigIntReviver` matches any string of the form `123n` anywhere in the
+ * document, so a contract with no bigint field would still have a legitimate string like
+ * "123n" silently turned into a BigInt. Clients whose contracts do use bigint import
+ * `parseJsonWithBigInt` under this name instead.
+ */
 export async function parseJson<T>(res: Response): Promise<T> {
+    return JSON.parse(await res.text()) as T;
+}
+
+/** `parseJson` for contracts that declare a bigint, applying the `123n` reviver. */
+export async function parseJsonWithBigInt<T>(res: Response): Promise<T> {
     return JSON.parse(await res.text(), bigIntReviver) as T;
 }

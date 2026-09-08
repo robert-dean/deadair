@@ -1,16 +1,29 @@
+import { Decimal } from 'decimal.js';
+import { DateTime } from 'luxon';
+
+Decimal.set({ toExpNeg: -9e15, toExpPos: 9e15 });
+const __dt = (v: unknown, path: string): DateTime => {
+    if (typeof v !== 'string') {
+        throw new TypeError(`ContractKit: expected an ISO 8601 string at '${path}', received ${typeof v}.`);
+    }
+    const d = DateTime.fromISO(v);
+    if (!d.isValid) throw new TypeError(`ContractKit: '${v}' at '${path}' is not a valid ISO 8601 datetime.`);
+    return d;
+};
+
 /**
  * Five values, where `PluginLogLevel` next door has four. The plugin enum is the narrower one on
  * purpose — that is the vocabulary a plugin's own `PluginLogger` offers — while `api.log` is written
  * by `DeadairLogger`, which tees every level the app-wide `Logger` has, `trace` included. Narrowing
  * here would make a `trace` line unrepresentable in the type of the surface that reads the file it
  * is in.
- * generated from [LogLevel](file://./../../../../../apps/api/data/contracts/station/logs.types.ck#L12)
+ * generated from [LogLevel](../../../../../apps/api/data/contracts/station/logs.types.ck#L12)
  */
 export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error';
 
 /**
  * One log file this install has, whether or not anything has been written to it
- * generated from [LogSource](file://./../../../../../apps/api/data/contracts/station/logs.types.ck#L14)
+ * generated from [LogSource](../../../../../apps/api/data/contracts/station/logs.types.ck#L14)
  */
 export interface LogSource {
     /** A closed set the API owns: `api`, `liquidsoap`, `shim`. Never a path */
@@ -25,12 +38,21 @@ export interface LogSource {
     /** Retained size across every segment. Zero when absent */
     bytes: number;
     /** Absent when nothing has ever been written */
-    lastWriteAt?: string;
+    lastWriteAt?: DateTime;
+}
+
+/** Rehydrates every wire-encoded scalar in a LogSource into its runtime type. Mutates and returns `raw`. */
+export function reviveLogSource(raw: LogSource): LogSource {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    if (__o0['lastWriteAt'] != null) {
+        __o0['lastWriteAt'] = __dt(__o0['lastWriteAt'], 'LogSource.lastWriteAt');
+    }
+    return raw;
 }
 
 /**
  * One line, as far as it could be read back
- * generated from [LogLine](file://./../../../../../apps/api/data/contracts/station/logs.types.ck#L28)
+ * generated from [LogLine](../../../../../apps/api/data/contracts/station/logs.types.ck#L28)
  */
 export interface LogLine {
     /** Absent on a line this API did not write, and on one of its own that did not parse */
@@ -42,7 +64,7 @@ export interface LogLine {
 }
 
 /**
- * generated from [LogQuery](file://./../../../../../apps/api/data/contracts/station/logs.types.ck#L41)
+ * generated from [LogQuery](../../../../../apps/api/data/contracts/station/logs.types.ck#L41)
  */
 export interface LogQuery {
     limit?: number;
@@ -51,15 +73,27 @@ export interface LogQuery {
 }
 
 /**
- * generated from [LogSourceList](file://./../../../../../apps/api/data/contracts/station/logs.types.ck#L24)
+ * generated from [LogSourceList](../../../../../apps/api/data/contracts/station/logs.types.ck#L24)
  */
 export interface LogSourceList {
     /** Every source, in a fixed order, including the ones that are not present */
     sources: LogSource[];
 }
 
+/** Rehydrates every wire-encoded scalar in a LogSourceList into its runtime type. Mutates and returns `raw`. */
+export function reviveLogSourceList(raw: LogSourceList): LogSourceList {
+    const __o0 = raw as unknown as Record<string, unknown>;
+    {
+        const __a1 = __o0['sources'] as unknown[];
+        for (let __i2 = 0; __i2 < __a1.length; __i2++) {
+            reviveLogSource(__a1[__i2] as never);
+        }
+    }
+    return raw;
+}
+
 /**
- * generated from [LogPage](file://./../../../../../apps/api/data/contracts/station/logs.types.ck#L34)
+ * generated from [LogPage](../../../../../apps/api/data/contracts/station/logs.types.ck#L34)
  */
 export interface LogPage {
     sourceId: string;

@@ -1,0 +1,135 @@
+<!--
+    The console's surfaces, one set per theme.
+
+    Ported hex for hex from `apps/web/src/tokens.css` and the ramps in `apps/web/src/themes.ts`, so
+    the desktop and the browser are recognisably the same desk. Two rules carried over with them:
+
+    A value that differs between themes lives in a token rather than inside the rule that uses it. A
+    colour written into a control template cannot be overridden by a theme without restating the whole
+    template, which is how the web console ended up with two of them.
+
+    Nothing outside this file names a colour for a STATUS. The five `DaTone*` entries are the whole
+    vocabulary, and `StatusTone` in the Core project is what chooses between them.
+-->
+<ResourceDictionary
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:themes="using:MaroonedSoftware.Deadair.Desktop.Themes">
+    <ResourceDictionary.ThemeDictionaries>
+
+        <!-- Carbon: the studio at night, and what an install with no preference gets. -->
+        <ResourceDictionary x:Key="{x:Static themes:ConsoleThemes.Carbon}">
+            <Color x:Key="DaBg">#0c0e0d</Color>
+            <Color x:Key="DaPanel">#121514</Color>
+            <Color x:Key="DaRaised">#191d1b</Color>
+            <Color x:Key="DaBorder">#242927</Color>
+            <Color x:Key="DaBorderStrong">#313836</Color>
+            <Color x:Key="DaText">#e8edea</Color>
+            <Color x:Key="DaTextSecondary">#a7b2ac</Color>
+            <!-- #6e7a74 measured 4.33:1 on the desk, under the 4.5 floor for text below 18px. -->
+            <Color x:Key="DaTextDimmed">#75817b</Color>
+            <Color x:Key="DaPhosphor">#2fd98c</Color>
+            <Color x:Key="DaBgGlow">#10130f</Color>
+
+            <Color x:Key="DaToneLive">#ff4b4b</Color>
+            <Color x:Key="DaToneOk">#2fd98c</Color>
+            <Color x:Key="DaToneStandby">#4c8dff</Color>
+            <Color x:Key="DaToneFault">#ffb224</Color>
+            <Color x:Key="DaToneOff">#75817b</Color>
+
+            <Color x:Key="DaSeverityFailure">#ff4b4b</Color>
+            <Color x:Key="DaSeverityWarning">#ffb224</Color>
+            <Color x:Key="DaSeverityNotice">#4c8dff</Color>
+
+            <x:Double x:Key="DaCornerRadius">3</x:Double>
+            <x:Double x:Key="DaHeadingTracking">0.06</x:Double>
+        </ResourceDictionary>
+
+        <!-- Studio White. NOT carbon inverted: every hue is darker than its counterpart, because
+             contrast on paper runs the other way. The tally stays red, because it is the one colour
+             here that means the same thing in every room. -->
+        <ResourceDictionary x:Key="{x:Static themes:ConsoleThemes.White}">
+            <Color x:Key="DaBg">#f4f1ea</Color>
+            <Color x:Key="DaPanel">#fbf9f4</Color>
+            <Color x:Key="DaRaised">#ffffff</Color>
+            <Color x:Key="DaBorder">#ddd6c8</Color>
+            <Color x:Key="DaBorderStrong">#c3b9a5</Color>
+            <Color x:Key="DaText">#221f1a</Color>
+            <Color x:Key="DaTextSecondary">#56504a</Color>
+            <!-- #6b6257, darkened for AA contrast on paper. -->
+            <Color x:Key="DaTextDimmed">#6b6257</Color>
+            <Color x:Key="DaPhosphor">#0e7247</Color>
+            <Color x:Key="DaBgGlow">#fbf9f4</Color>
+
+            <Color x:Key="DaToneLive">#c81f22</Color>
+            <Color x:Key="DaToneOk">#0e7247</Color>
+            <Color x:Key="DaToneStandby">#1a5cba</Color>
+            <Color x:Key="DaToneFault">#97640a</Color>
+            <Color x:Key="DaToneOff">#6b6257</Color>
+
+            <Color x:Key="DaSeverityFailure">#c81f22</Color>
+            <Color x:Key="DaSeverityWarning">#97640a</Color>
+            <Color x:Key="DaSeverityNotice">#1a5cba</Color>
+
+            <!-- Rules instead of fills: 2px is barely a corner, which is what stops a page of white
+                 cards on a white desk reading as a pile of pills. -->
+            <x:Double x:Key="DaCornerRadius">2</x:Double>
+            <x:Double x:Key="DaHeadingTracking">0</x:Double>
+        </ResourceDictionary>
+
+        <!-- Neon Transmitter. The accent is yellow and the status ramps rotate to make room: a theme
+             with a yellow accent and a yellow warning draws "running" and "broken" in one colour. -->
+        <ResourceDictionary x:Key="{x:Static themes:ConsoleThemes.Neon}">
+            <Color x:Key="DaBg">#060a0c</Color>
+            <Color x:Key="DaPanel">#0d1316</Color>
+            <Color x:Key="DaRaised">#141c20</Color>
+            <Color x:Key="DaBorder">#20282c</Color>
+            <Color x:Key="DaBorderStrong">#333c41</Color>
+            <Color x:Key="DaText">#eafcff</Color>
+            <Color x:Key="DaTextSecondary">#a3c2cc</Color>
+            <Color x:Key="DaTextDimmed">#7d8b90</Color>
+            <Color x:Key="DaPhosphor">#fcee0a</Color>
+            <Color x:Key="DaBgGlow">#0d1316</Color>
+
+            <Color x:Key="DaToneLive">#ff1e46</Color>
+            <!-- Not the accent: "running" and the thing you selected must not be one colour. -->
+            <Color x:Key="DaToneOk">#05deff</Color>
+            <Color x:Key="DaToneStandby">#66edff</Color>
+            <Color x:Key="DaToneFault">#ff8f00</Color>
+            <Color x:Key="DaToneOff">#7d8b90</Color>
+
+            <Color x:Key="DaSeverityFailure">#ff1e46</Color>
+            <Color x:Key="DaSeverityWarning">#ff8f00</Color>
+            <Color x:Key="DaSeverityNotice">#05deff</Color>
+
+            <x:Double x:Key="DaCornerRadius">2</x:Double>
+            <!-- The only console that stencils. This is what stops capitals at heading size closing
+                 up into a block. -->
+            <x:Double x:Key="DaHeadingTracking">0.12</x:Double>
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!--
+        The brushes every control actually binds to, defined ONCE over the colours above rather than
+        restated per theme. A `DynamicResource` colour re-resolves when the variant changes, so
+        switching theme moves these with it and there is only one place a hex can drift out of step.
+    -->
+    <SolidColorBrush x:Key="DaBgBrush" Color="{DynamicResource DaBg}" />
+    <SolidColorBrush x:Key="DaPanelBrush" Color="{DynamicResource DaPanel}" />
+    <SolidColorBrush x:Key="DaRaisedBrush" Color="{DynamicResource DaRaised}" />
+    <SolidColorBrush x:Key="DaBorderBrush" Color="{DynamicResource DaBorder}" />
+    <SolidColorBrush x:Key="DaBorderStrongBrush" Color="{DynamicResource DaBorderStrong}" />
+    <SolidColorBrush x:Key="DaTextBrush" Color="{DynamicResource DaText}" />
+    <SolidColorBrush x:Key="DaTextSecondaryBrush" Color="{DynamicResource DaTextSecondary}" />
+    <SolidColorBrush x:Key="DaTextDimmedBrush" Color="{DynamicResource DaTextDimmed}" />
+    <SolidColorBrush x:Key="DaPhosphorBrush" Color="{DynamicResource DaPhosphor}" />
+
+    <SolidColorBrush x:Key="DaToneLiveBrush" Color="{DynamicResource DaToneLive}" />
+    <SolidColorBrush x:Key="DaToneOkBrush" Color="{DynamicResource DaToneOk}" />
+    <SolidColorBrush x:Key="DaToneStandbyBrush" Color="{DynamicResource DaToneStandby}" />
+    <SolidColorBrush x:Key="DaToneFaultBrush" Color="{DynamicResource DaToneFault}" />
+    <SolidColorBrush x:Key="DaToneOffBrush" Color="{DynamicResource DaToneOff}" />
+
+    <CornerRadius x:Key="DaCorner">3</CornerRadius>
+</ResourceDictionary>

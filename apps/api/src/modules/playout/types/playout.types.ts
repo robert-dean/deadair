@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * The plugin playlist to load into the running order
- * generated from [PlayoutPlaylistInput](file://./../../../../data/contracts/playout/playout.types.ck#L7)
+ * generated from [PlayoutPlaylistInput](../../../../data/contracts/playout/playout.types.ck#L7)
  */
 export const PlayoutPlaylistInput = z.strictObject({
     pluginId: z.string().min(1).max(200),
@@ -12,7 +12,7 @@ export type PlayoutPlaylistInput = z.infer<typeof PlayoutPlaylistInput>;
 
 /**
  * The published chart to build the running order from
- * generated from [PlayoutChartInput](file://./../../../../data/contracts/playout/playout.types.ck#L12)
+ * generated from [PlayoutChartInput](../../../../data/contracts/playout/playout.types.ck#L12)
  */
 export const PlayoutChartInput = z.strictObject({
     chartId: z.string().min(1).max(400).describe('As `pluginId:chartId`, which is how `GET /charts` lists them'),
@@ -25,7 +25,7 @@ export type PlayoutChartInput = z.infer<typeof PlayoutChartInput>;
 
 /**
  * One item in the running order, as the console sees it
- * generated from [PlayoutItem](file://./../../../../data/contracts/playout/playout.types.ck#L17)
+ * generated from [PlayoutItem](../../../../data/contracts/playout/playout.types.ck#L17)
  */
 export const PlayoutItem = z.strictObject({
     id: z.string().min(1).max(100).describe("deadair's own id for this item, not the provider's: a playlist may hold the same track twice"),
@@ -33,15 +33,16 @@ export const PlayoutItem = z.strictObject({
     externalId: z.string().min(1).max(400).describe("The track's id in its plugin's id space"),
     title: z.string().min(1).max(400),
     artists: z.array(z.string().min(1).max(200)),
-    durationMs: z.coerce
-        .number()
-        .int()
-        .min(0)
+    durationMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .optional()
         .describe('Integer milliseconds. Deliberately not the `duration` scalar, which is a Luxon `Duration` over an ISO-8601 string'),
     album: z.string().max(400).optional(),
     artworkUrl: z.string().max(2000).optional().describe("The locally cached cover where there is one, the provider's URL otherwise"),
-    year: z.coerce.number().int().min(0).optional().describe('First release year, when the catalog knows one'),
+    year: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe('First release year, when the catalog knows one'),
     trackId: z
         .string()
         .max(100)
@@ -56,7 +57,7 @@ export type PlayoutItem = z.infer<typeof PlayoutItem>;
  * re-rendered — so a reseeded secret leaves a process holding credentials that match nothing,
  * and the symptom names something else entirely (every listener refused, or no mount at all).
  * The app cannot restart a sibling container and should not be able to, so it reports.
- * generated from [StreamConfigWarning](file://./../../../../data/contracts/playout/playout.types.ck#L41)
+ * generated from [StreamConfigWarning](../../../../data/contracts/playout/playout.types.ck#L41)
  */
 export const StreamConfigWarning = z.strictObject({
     container: z.enum(['icecast', 'liquidsoap']).describe('Which one is behind'),
@@ -68,7 +69,7 @@ export type StreamConfigWarning = z.infer<typeof StreamConfigWarning>;
 /**
  * Which gate is keeping the station quiet, or `airing` when none of them is. Ordered by cause: a
  * stalled transport loop makes every reading under it stale, so it is ruled out first
- * generated from [SilenceCause](file://./../../../../data/contracts/playout/playout.types.ck#L49)
+ * generated from [SilenceCause](../../../../data/contracts/playout/playout.types.ck#L49)
  */
 export const SilenceCause = z.enum([
     'airing',
@@ -90,25 +91,28 @@ export type SilenceCause = z.infer<typeof SilenceCause>;
  * How one gate is doing. `waiting` is its own state rather than a mild fault, because a station
  * idling for want of a listener and a station that cannot reach its stream are both silent and only
  * one of them is something to go and fix
- * generated from [SilenceState](file://./../../../../data/contracts/playout/playout.types.ck#L67)
+ * generated from [SilenceState](../../../../data/contracts/playout/playout.types.ck#L67)
  */
 export const SilenceState = z.enum(['ok', 'waiting', 'fault']);
 export type SilenceState = z.infer<typeof SilenceState>;
 
 /**
  * One mount the station is publishing right now
- * generated from [PlayoutMount](file://./../../../../data/contracts/playout/playout.types.ck#L84)
+ * generated from [PlayoutMount](../../../../data/contracts/playout/playout.types.ck#L84)
  */
 export const PlayoutMount = z.strictObject({
     format: z.enum(['mp3', 'opus', 'aac', 'flac']),
     path: z.string().min(1).max(200).describe('Same-origin path, on the same terms as `PlayoutStatus.mountPath`'),
-    bitrateKbps: z.coerce.number().int().min(1).optional().describe('Absent for FLAC, which is lossless and has no rate to set'),
+    bitrateKbps: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1))
+        .optional()
+        .describe('Absent for FLAC, which is lossless and has no rate to set'),
 });
 export type PlayoutMount = z.infer<typeof PlayoutMount>;
 
 /**
  * Which rundown item Liquidsoap has just started playing
- * generated from [PlayoutAiredQuery](file://./../../../../data/contracts/playout/playout.types.ck#L104)
+ * generated from [PlayoutAiredQuery](../../../../data/contracts/playout/playout.types.ck#L104)
  */
 export const PlayoutAiredQuery = z.strictObject({
     item: z.string().min(1).max(100).describe("The id the app put on the pushed uri's `annotate:` metadata"),
@@ -117,7 +121,7 @@ export type PlayoutAiredQuery = z.infer<typeof PlayoutAiredQuery>;
 
 /**
  * Which way the running order went, and how long it had been that way
- * generated from [PlayoutStarveQuery](file://./../../../../data/contracts/playout/playout.types.ck#L108)
+ * generated from [PlayoutStarveQuery](../../../../data/contracts/playout/playout.types.ck#L108)
  */
 export const PlayoutStarveQuery = z.strictObject({
     state: z
@@ -125,10 +129,8 @@ export const PlayoutStarveQuery = z.strictObject({
         .describe(
             '`starved`: the queue stopped producing while deadair was driving, so the mount fell through to the local bed. `recovered`: it is producing again',
         ),
-    forMs: z.coerce
-        .number()
-        .int()
-        .min(0)
+    forMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .describe(
             'How long the PREVIOUS state lasted, in milliseconds. On a recovery this is the length of the gap, which is the number worth reading',
         ),
@@ -137,15 +139,15 @@ export type PlayoutStarveQuery = z.infer<typeof PlayoutStarveQuery>;
 
 /**
  * What the PLAYER says is airing, which is not the same as what was last handed to it
- * generated from [PlayoutNowPlaying](file://./../../../../data/contracts/playout/playout.types.ck#L30)
+ * generated from [PlayoutNowPlaying](../../../../data/contracts/playout/playout.types.ck#L30)
  */
 export const PlayoutNowPlaying = z.strictObject({
     item: PlayoutItem,
-    startedAt: z.coerce.number().int().min(0).describe('Unix epoch millis, as observed when the player reported it'),
-    remainingMs: z.coerce
-        .number()
-        .int()
-        .min(0)
+    startedAt: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Unix epoch millis, as observed when the player reported it'),
+    remainingMs: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .optional()
         .describe("The decoder's own countdown, absent when it cannot say. It leads the listener by the encoder and client buffers"),
 });
@@ -153,7 +155,7 @@ export type PlayoutNowPlaying = z.infer<typeof PlayoutNowPlaying>;
 
 /**
  * One gate's answer about itself
- * generated from [SilenceCheck](file://./../../../../data/contracts/playout/playout.types.ck#L69)
+ * generated from [SilenceCheck](../../../../data/contracts/playout/playout.types.ck#L69)
  */
 export const SilenceCheck = z.strictObject({
     code: SilenceCause.describe('Never `airing`, which is the absence of a blocking gate rather than a gate'),
@@ -165,7 +167,7 @@ export type SilenceCheck = z.infer<typeof SilenceCheck>;
 
 /**
  * Why the station cannot be heard, as one answer
- * generated from [StationSilence](file://./../../../../data/contracts/playout/playout.types.ck#L76)
+ * generated from [StationSilence](../../../../data/contracts/playout/playout.types.ck#L76)
  */
 export const StationSilence = z.strictObject({
     audible: z
@@ -186,7 +188,7 @@ export type StationSilence = z.infer<typeof StationSilence>;
 
 /**
  * The station's transport, as one reading
- * generated from [PlayoutStatus](file://./../../../../data/contracts/playout/playout.types.ck#L90)
+ * generated from [PlayoutStatus](../../../../data/contracts/playout/playout.types.ck#L90)
  */
 export const PlayoutStatus = z.strictObject({
     streamUp: z
@@ -211,11 +213,11 @@ export const PlayoutStatus = z.strictObject({
         ),
     nowPlaying: PlayoutNowPlaying.optional(),
     upNext: z.array(PlayoutItem).describe('Waiting here, in order. Excludes what the player already holds'),
-    queuedCount: z.coerce.number().int().min(0).describe('How many items are waiting in total, of which `upNext` is the head'),
-    listeners: z.coerce
-        .number()
-        .int()
-        .min(0)
+    queuedCount: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How many items are waiting in total, of which `upNext` is the head'),
+    listeners: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
         .describe(
             'How many clients Icecast has attached to the mount. Zero both for "nobody is listening" and for an Icecast that is not answering, which `audience` is where to tell apart',
         ),

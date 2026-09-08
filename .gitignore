@@ -62,3 +62,31 @@ __pycache__/
 # Rendered by stream/crossfade.check.liq; regenerate rather than commit.
 stream/*.check.wav
 .tanstack/
+
+# The Android listener is the second non-Node thing in the tree, and these are its build
+# droppings. `build/` and `.idea/` above already cover most of it; the rest is Gradle's own
+# caches and the SDK path, which names one machine's filesystem and is never committed.
+.gradle/
+.kotlin/
+local.properties
+*.iml
+.cxx/
+captures/
+*.hprof
+
+# The desktop app is the third non-Node thing in the tree, after the sidecar and the Android
+# listener, and these are MSBuild's droppings. `bin/` and `obj/` are bare rather than anchored
+# because nothing else in this repository uses either name, and a NuGet restore writes them beside
+# every project rather than in one place.
+bin/
+obj/
+.vs/
+*.user
+TestResults/
+apps/desktop/artifacts/
+
+# Signing keys, which live outside the repo and are ignored here anyway as a second line of
+# defence. The upload key is the one artifact this project cannot regenerate: lose it and the
+# published app can never be updated again, only replaced under a new application id.
+*.jks
+*.keystore

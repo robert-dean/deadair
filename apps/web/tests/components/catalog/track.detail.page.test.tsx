@@ -5,6 +5,7 @@
 
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DateTime } from 'luxon';
 import type { TrackDetail } from '@deadair/sdk';
 
 import { TrackDetailPage } from '../../../src/components/catalog/track.detail.page';
@@ -72,8 +73,10 @@ describe('TrackDetailPage', () => {
             detail({
                 albumName: '( )',
                 year: 2002,
-                bindings: [binding({ byteSize: 8_400_000, fetchedAt: '2026-08-14T10:00:00.000Z', format: 'ogg', bitrate: 320_000 })],
-                plays: [{ airedAt: '2026-08-15T21:00:00.000Z', source: 'director' }],
+                bindings: [
+                    binding({ byteSize: 8_400_000, fetchedAt: DateTime.fromISO('2026-08-14T10:00:00.000Z'), format: 'ogg', bitrate: 320_000 }),
+                ],
+                plays: [{ airedAt: DateTime.fromISO('2026-08-15T21:00:00.000Z'), source: 'director' }],
                 playCount: 12,
             }),
         );
@@ -89,7 +92,7 @@ describe('TrackDetailPage', () => {
     // The first of the three answers. A benched copy is the station standing a copy down on purpose,
     // which is why it is not drawn as a fault.
     it('says when every copy has been benched', async () => {
-        getTrack.mockResolvedValue(detail({ bindings: [binding({ missingAt: '2026-08-15T09:00:00.000Z' })] }));
+        getTrack.mockResolvedValue(detail({ bindings: [binding({ missingAt: DateTime.fromISO('2026-08-15T09:00:00.000Z') })] }));
 
         render(<TrackDetailPage trackId={TRACK_ID} />);
 
@@ -101,7 +104,7 @@ describe('TrackDetailPage', () => {
     it('says when the bytes keep failing, and how many times', async () => {
         getTrack.mockResolvedValue(
             detail({
-                bindings: [binding({ attempts: 3, lastError: 'upstream answered 404', nextAttemptAt: '2026-08-16T09:00:00.000Z' })],
+                bindings: [binding({ attempts: 3, lastError: 'upstream answered 404', nextAttemptAt: DateTime.fromISO('2026-08-16T09:00:00.000Z') })],
             }),
         );
 
@@ -126,7 +129,11 @@ describe('TrackDetailPage', () => {
     // than off `fetchedAt`, which is what a live row with the old shape showed up.
     it('tells a record whose bytes were dropped from one that is held', async () => {
         getTrack.mockResolvedValue(
-            detail({ bindings: [binding({ fetchedAt: '2026-08-12T14:49:25.667Z', lastServedAt: '2026-08-12T14:49:25.667Z' })] }),
+            detail({
+                bindings: [
+                    binding({ fetchedAt: DateTime.fromISO('2026-08-12T14:49:25.667Z'), lastServedAt: DateTime.fromISO('2026-08-12T14:49:25.667Z') }),
+                ],
+            }),
         );
 
         render(<TrackDetailPage trackId={TRACK_ID} />);
@@ -139,7 +146,9 @@ describe('TrackDetailPage', () => {
     // wrong, so a row with one must not read as measured.
     it('tells an incomplete measurement from a finished one', async () => {
         getTrack.mockResolvedValue(
-            detail({ analysis: { schemaVersion: 3, complete: false, analyzedAt: '2026-08-14T11:00:00.000Z', analyzer: 'sidecar 0.4' } }),
+            detail({
+                analysis: { schemaVersion: 3, complete: false, analyzedAt: DateTime.fromISO('2026-08-14T11:00:00.000Z'), analyzer: 'sidecar 0.4' },
+            }),
         );
 
         render(<TrackDetailPage trackId={TRACK_ID} />);
@@ -174,7 +183,9 @@ describe('TrackDetailPage', () => {
         try {
             getTrack.mockResolvedValue(
                 detail({
-                    bindings: [binding({ byteSize: 8_400_000, fetchedAt: '2026-08-14T10:00:00.000Z', format: 'ogg', bitrate: 320_000 })],
+                    bindings: [
+                        binding({ byteSize: 8_400_000, fetchedAt: DateTime.fromISO('2026-08-14T10:00:00.000Z'), format: 'ogg', bitrate: 320_000 }),
+                    ],
                 }),
             );
 

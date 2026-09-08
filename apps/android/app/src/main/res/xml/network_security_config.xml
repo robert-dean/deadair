@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Cleartext is permitted, and it has to be.
+
+    The station's container serves plain HTTP on one port and TLS terminates OUTSIDE it, at
+    whatever tunnel or reverse proxy the operator put in front. An operator who has put nothing in
+    front — which is every LAN install — is reachable only at `http://host:8080`, so an app that
+    refused cleartext would refuse the most common way this software is actually run.
+
+    A domain allowlist would be the narrower answer and cannot be written: the address is whatever
+    the listener types, and it is not known when this file is built. The app says so in the setup
+    screen instead, at the moment somebody enters an `http://` address.
+
+    `cleartextTrafficPermitted` is honoured by OkHttp, which serves both the API and the artwork,
+    and by ExoPlayer's `HttpURLConnection` data source, which carries the audio.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

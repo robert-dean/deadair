@@ -1,24 +1,24 @@
 import type {
     AuthenticationFactor,
-    AuthenticationToken,
+    AuthenticationFactorMethod,
     AuthenticationTokenOutput,
     FactorChallengeStartRequest,
-    FactorChallengeStartResponse,
     FactorChallengeStartResponseOutput,
     StepUpStartRequest,
-    StepUpStartResponse,
     StepUpStartResponseOutput,
 } from './types/authentication.types.js';
+import { reviveFactorChallengeStartResponseOutput, reviveStepUpStartResponseOutput } from './types/authentication.types.js';
 import type {
     AuthenticationFactorRegistration,
     AuthenticationFactorRegistrationResponse,
     AuthenticationFactorRegistrationVerification,
 } from './types/registration.types.js';
+import { reviveAuthenticationFactorRegistrationResponse } from './types/registration.types.js';
 import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
 
 /**
- * generated from [authentication.factor.ck](file://./../../../../apps/api/data/contracts/authentication/authentication.factor.ck)
+ * generated from [authentication.factor.ck](../../../../apps/api/data/contracts/authentication/authentication.factor.ck)
  */
 export class AuthenticationFactorsClient {
     constructor(private fetch: SdkFetch) {}
@@ -42,7 +42,7 @@ export class AuthenticationFactorsClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<AuthenticationFactorRegistrationResponse>(result);
+        return reviveAuthenticationFactorRegistrationResponse(await parseJson<AuthenticationFactorRegistrationResponse>(result));
     }
 
     /**
@@ -68,7 +68,7 @@ export class AuthenticationFactorsClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<FactorChallengeStartResponseOutput>(result);
+        return reviveFactorChallengeStartResponseOutput(await parseJson<FactorChallengeStartResponseOutput>(result));
     }
 
     /**
@@ -81,6 +81,14 @@ export class AuthenticationFactorsClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body, bigIntReplacer),
         });
-        return await parseJson<StepUpStartResponseOutput>(result);
+        return reviveStepUpStartResponseOutput(await parseJson<StepUpStartResponseOutput>(result));
+    }
+
+    /**
+     * @name Remove factor
+     * @description Remove one of the caller's own factors. Answered only for `authenticator` today, and only after a recent strong-factor verification: the same gate enrolment sits behind once a strong factor exists, so a stolen session cannot quietly switch the second factor off. Removing the last authenticator turns the sign-in challenge off for that account.
+     */
+    async removeFactor(method: AuthenticationFactorMethod, methodId: string): Promise<void> {
+        await this.fetch(`/auth/factors/${encodeURIComponent(method)}/${encodeURIComponent(methodId)}`, { method: 'DELETE' });
     }
 }

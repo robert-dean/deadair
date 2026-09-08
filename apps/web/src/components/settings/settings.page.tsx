@@ -9,6 +9,7 @@ import { PageSkeleton } from '../shared/page.skeleton';
 import { AppearanceCard } from './appearance.card';
 import { ConfigFieldsForm } from './config.fields.form';
 import { PluginGrantsCard } from './plugin.grants.card';
+import { SecurityCard } from './security.card';
 import { SETTINGS_SECTIONS, type SettingsSection, type SettingsSectionId } from './settings.shell';
 import { UnsavedGuard } from './unsaved.guard';
 import { StorageCard } from './storage.card';
@@ -49,13 +50,15 @@ export interface SettingsSectionPageProps {
 /**
  * A section whose contents are a card of its own rather than declared settings.
  *
- * Appearance writes to this browser, Storage is read-only, and Grants is somebody else's question.
+ * Appearance writes to this browser, Storage is read-only, Grants is somebody else's question, and
+ * Security is about the operator rather than the station.
  * None of them reads `GET /settings`, so none of them shows a skeleton waiting for it.
  */
 function StandaloneSection({ section }: { section: SettingsSection }) {
     if (section.id === 'appearance') return <AppearanceCard />;
     if (section.id === 'storage') return <StorageCard />;
     if (section.id === 'grants') return <PluginGrantsCard />;
+    if (section.id === 'security') return <SecurityCard />;
 
     // A section with no group and no card of its own is a list entry nobody finished. Said out
     // loud rather than rendered as a blank page.

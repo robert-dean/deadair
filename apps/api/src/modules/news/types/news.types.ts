@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * A feed one installed plugin offers
- * generated from [StationFeed](file://./../../../../data/contracts/news/news.types.ck#L7)
+ * generated from [StationFeed](../../../../data/contracts/news/news.types.ck#L7)
  */
 export const StationFeed = z.strictObject({
     id: z
@@ -22,7 +22,7 @@ export type StationFeed = z.infer<typeof StationFeed>;
 
 /**
  * One published entry
- * generated from [NewsStory](file://./../../../../data/contracts/news/news.types.ck#L20)
+ * generated from [NewsStory](../../../../data/contracts/news/news.types.ck#L20)
  */
 export const NewsStory = z.strictObject({
     id: z
@@ -48,11 +48,11 @@ export const NewsStory = z.strictObject({
 export type NewsStory = z.infer<typeof NewsStory>;
 
 /**
- * generated from [NewsQuery](file://./../../../../data/contracts/news/news.types.ck#L32)
+ * generated from [NewsQuery](../../../../data/contracts/news/news.types.ck#L32)
  */
 export const NewsQuery = z.strictObject({
     feedId: z.string().max(400).optional().describe('One feed, or absent for every feed the station can see, merged newest first'),
-    limit: z.coerce.number().int().min(1).max(100).optional(),
+    limit: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(100)).optional(),
     since: z.string().max(40).optional().describe('Only entries published after this ISO-8601 instant'),
     headlinesOnly: z
         .preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean())
@@ -64,7 +64,7 @@ export const NewsQuery = z.strictObject({
 export type NewsQuery = z.infer<typeof NewsQuery>;
 
 /**
- * generated from [StationFeedList](file://./../../../../data/contracts/news/news.types.ck#L16)
+ * generated from [StationFeedList](../../../../data/contracts/news/news.types.ck#L16)
  */
 export const StationFeedList = z.strictObject({
     feeds: z.array(StationFeed),
@@ -72,7 +72,7 @@ export const StationFeedList = z.strictObject({
 export type StationFeedList = z.infer<typeof StationFeedList>;
 
 /**
- * generated from [NewsPage](file://./../../../../data/contracts/news/news.types.ck#L39)
+ * generated from [NewsPage](../../../../data/contracts/news/news.types.ck#L39)
  */
 export const NewsPage = z.strictObject({
     stories: z

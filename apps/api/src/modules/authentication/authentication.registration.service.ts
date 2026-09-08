@@ -225,24 +225,7 @@ export class AuthenticationRegistrationService {
     async registerFactor(request: AuthenticationFactorRegistration): Promise<AuthenticationFactorRegistrationResponse> {
         const { actorId } = this.authorizationContext.requireAuthentication();
 
-        // Email, password, and oidc are the bootstrap factors — a login can have
-        // only these at registration without ever proving a stronger factor, so we
-        // can't require a recent strong-factor verification before binding the
-        // first one (chicken-and-egg). Email is `kind: 'possession'` in the session
-        // taxonomy but treated as weak here because email control alone is the
-        // threat we're hardening against. OIDC is similar: the Google session is
-        // the assertion, the SPA can't re-prove it inline without bouncing through
-        // the IdP, so it stays bootstrap-tier. Once any non-bootstrap factor is
-        // enrolled, every subsequent bind requires recent re-verification by
-        // something other than email/password/oidc.
-        const factors = await this.actorsRepository.listFactors(actorId, true);
-        const isBootstrap = (method: string): boolean => method === 'email' || method === 'password' || method === 'oidc';
-        if (!factors.every(factor => isBootstrap(factor.method))) {
-            await this.policyService.assert('auth.session.recent.factor', {
-                within: Duration.fromDurationLike({ minutes: 5 }),
-                excludeMethods: ['email', 'password', 'oidc'],
-            });
-        }
+        await this.assertRecentStrongFactorIfAnyEnrolled(actorId);
 
         const handler = this.factorHandlerMap.get(request.method);
         if (!handler || !handler.registerFactor) {
@@ -251,6 +234,59 @@ export class AuthenticationRegistrationService {
             });
         }
         return await parseAndValidate(await handler.registerFactor(actorId, request), AuthenticationFactorRegistrationResponse);
+    }
+
+    /**
+     * Removes one of the caller's own factors. Only `authenticator` is answered today.
+     *
+     * Behind the same gate as enrolment: once a strong factor exists, taking one away is as much
+     * a change to how the account is protected as adding one, and it is the change a stolen
+     * session would want to make. Removing the last authenticator simply turns the sign-in
+     * challenge off for the account, which the `mfa.required` rule handles on its own.
+     *
+     * The step-up denial is thrown as the policy renders it (403, `details.kind:
+     * 'step_up_required'`), so the console can open its re-verify dialog and try again.
+     */
+    async removeFactor(method: AuthenticationFactorMethod, methodId: string): Promise<void> {
+        const { actorId } = this.authorizationContext.requireAuthentication();
+
+        if (method !== 'authenticator') {
+            throw httpError(400).withDetails({
+                method: `Unsupported method ${method}`,
+            });
+        }
+
+        await this.assertRecentStrongFactorIfAnyEnrolled(actorId);
+
+        // Scoped to the caller: the repository answers only this actor's rows, so somebody else's
+        // factor id is indistinguishable from one that never existed.
+        const factor = await this.authenticatorFactorService.getFactor(actorId, methodId).catch(() => undefined);
+        if (!factor || !factor.active) {
+            throw httpError(404).withDetails({
+                methodId: 'No such factor',
+            });
+        }
+
+        await this.authenticatorFactorService.deleteFactor(actorId, methodId);
+    }
+
+    // Email, password, and oidc are the bootstrap factors — a login can have only these at
+    // registration without ever proving a stronger factor, so we can't require a recent
+    // strong-factor verification before binding the first one (chicken-and-egg). Email is
+    // `kind: 'possession'` in the session taxonomy but treated as weak here because email control
+    // alone is the threat we're hardening against. OIDC is similar: the Google session is the
+    // assertion, the SPA can't re-prove it inline without bouncing through the IdP, so it stays
+    // bootstrap-tier. Once any non-bootstrap factor is enrolled, every subsequent bind or removal
+    // requires recent re-verification by something other than email/password/oidc.
+    private async assertRecentStrongFactorIfAnyEnrolled(actorId: string): Promise<void> {
+        const factors = await this.actorsRepository.listFactors(actorId, true);
+        const isBootstrap = (method: string): boolean => method === 'email' || method === 'password' || method === 'oidc';
+        if (!factors.every(factor => isBootstrap(factor.method))) {
+            await this.policyService.assert('auth.session.recent.factor', {
+                within: Duration.fromDurationLike({ minutes: 5 }),
+                excludeMethods: ['email', 'password', 'oidc'],
+            });
+        }
     }
 
     async verifyFactorRegistration(request: AuthenticationFactorRegistrationVerification) {

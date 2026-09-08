@@ -1,6 +1,6 @@
 /**
  * A chart one installed plugin offers
- * generated from [StationChart](file://./../../../../../apps/api/data/contracts/charts/charts.types.ck#L7)
+ * generated from [StationChart](../../../../../apps/api/data/contracts/charts/charts.types.ck#L7)
  */
 export interface StationChart {
     /** Unique across the station: the plugin's own id for the chart, qualified with the plugin that offered it. Two services both calling something `top-100` stay distinct */
@@ -15,7 +15,7 @@ export interface StationChart {
 
 /**
  * One record's place in a chart
- * generated from [ChartRecord](file://./../../../../../apps/api/data/contracts/charts/charts.types.ck#L20)
+ * generated from [ChartRecord](../../../../../apps/api/data/contracts/charts/charts.types.ck#L20)
  */
 export interface ChartRecord {
     rank: number;
@@ -32,7 +32,7 @@ export interface ChartRecord {
 }
 
 /**
- * generated from [ChartQuery](file://./../../../../../apps/api/data/contracts/charts/charts.types.ck#L31)
+ * generated from [ChartQuery](../../../../../apps/api/data/contracts/charts/charts.types.ck#L31)
  */
 export interface ChartQuery {
     limit?: number;
@@ -41,14 +41,14 @@ export interface ChartQuery {
 }
 
 /**
- * generated from [StationChartList](file://./../../../../../apps/api/data/contracts/charts/charts.types.ck#L16)
+ * generated from [StationChartList](../../../../../apps/api/data/contracts/charts/charts.types.ck#L16)
  */
 export interface StationChartList {
     charts: StationChart[];
 }
 
 /**
- * generated from [ChartPage](file://./../../../../../apps/api/data/contracts/charts/charts.types.ck#L36)
+ * generated from [ChartPage](../../../../../apps/api/data/contracts/charts/charts.types.ck#L36)
  */
 export interface ChartPage {
     chartId: string;

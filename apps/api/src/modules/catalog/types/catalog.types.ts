@@ -11,7 +11,7 @@ const _ZodDatetime = z.preprocess(
 /**
  * What the station has been told about a record. `neutral` is the absence of an opinion rather than
  * a middling one, and it is what rating something back to nothing means.
- * generated from [Rating](file://./../../../../data/contracts/catalog/catalog.types.ck#L9)
+ * generated from [Rating](../../../../data/contracts/catalog/catalog.types.ck#L9)
  */
 export const Rating = z.enum(['liked', 'neutral', 'disliked']);
 export type Rating = z.infer<typeof Rating>;
@@ -27,7 +27,7 @@ export type Rating = z.infer<typeof Rating>;
  * The failure columns are here rather than hidden because that is the question this page exists to
  * answer. A row with `attempts` and no `fetchedAt` is a remembered failure, and `lastError` with
  * `nextAttemptAt` is the whole of why a perfectly good-looking record will not play.
- * generated from [TrackBinding](file://./../../../../data/contracts/catalog/catalog.types.ck#L73)
+ * generated from [TrackBinding](../../../../data/contracts/catalog/catalog.types.ck#L73)
  */
 export const TrackBinding = z.strictObject({
     sourceId: z.uuid().describe('`track_sources.id`, which is also what the audio URL carries'),
@@ -38,13 +38,18 @@ export const TrackBinding = z.strictObject({
         .describe('False when the provider still knows the record but will not serve it here'),
     missingAt: _ZodDatetime.optional().describe('When the station gave up on this copy. Cleared by the next sync that sees it again'),
     origin: z.string().min(1).max(40).describe('`sync` if a playlist walk saw it, `discovered` if something looked it up'),
-    bitrate: z.coerce.number().int().min(0).optional(),
+    bitrate: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
     format: z.string().max(100).optional(),
     lastSeenAt: _ZodDatetime.optional(),
-    byteSize: z.coerce.number().int().min(0).optional().describe('What the station holds of this copy, absent when nothing has ever fetched it.'),
+    byteSize: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .optional()
+        .describe('What the station holds of this copy, absent when nothing has ever fetched it.'),
     fetchedAt: _ZodDatetime.optional(),
     lastServedAt: _ZodDatetime.optional(),
-    attempts: z.coerce.number().int().min(0).describe('CONSECUTIVE failures. Reset by a fetch that works'),
+    attempts: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('CONSECUTIVE failures. Reset by a fetch that works'),
     lastError: z.string().max(2000).optional(),
     nextAttemptAt: _ZodDatetime.optional(),
 });
@@ -60,10 +65,10 @@ export type TrackBindingInput = z.infer<typeof TrackBindingInput>;
  * argues at length: a measurement of a truncated download is confident and wrong, so every reader in
  * the app filters on `complete` and a page that showed only a date would be reporting a record as
  * measured that nothing will use the measurement of.
- * generated from [TrackAnalysis](file://./../../../../data/contracts/catalog/catalog.types.ck#L98)
+ * generated from [TrackAnalysis](../../../../data/contracts/catalog/catalog.types.ck#L98)
  */
 export const TrackAnalysis = z.strictObject({
-    schemaVersion: z.coerce.number().int().min(0),
+    schemaVersion: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
     complete: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()),
     analyzer: z.string().max(200).optional().describe('The measuring thing itself, which is not the plugin adapting it'),
     analyzerPluginId: z.string().max(200).optional(),
@@ -78,7 +83,7 @@ export type TrackAnalysisInput = z.infer<typeof TrackAnalysisInput>;
 
 /**
  * One airing of a record, as this page needs it: when, and under which broadcast.
- * generated from [TrackPlay](file://./../../../../data/contracts/catalog/catalog.types.ck#L109)
+ * generated from [TrackPlay](../../../../data/contracts/catalog/catalog.types.ck#L109)
  */
 export const TrackPlay = z.strictObject({
     airedAt: _ZodDatetime,
@@ -96,11 +101,13 @@ export type TrackPlayInput = z.infer<typeof TrackPlayInput>;
  * A count rather than a bare 204, because the interesting answers are the small ones: clearing the
  * audio of a record with three copies and being told `1` is the station saying two of them were
  * never here — which is a fact about the record and not about the button.
- * generated from [TrackClearResult](file://./../../../../data/contracts/catalog/catalog.types.ck#L132)
+ * generated from [TrackClearResult](../../../../data/contracts/catalog/catalog.types.ck#L132)
  */
 export const TrackClearResult = z.strictObject({
     trackId: z.uuid(),
-    cleared: z.coerce.number().int().min(0).describe('Rows this affected. Zero is an ordinary answer, not a failure'),
+    cleared: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Rows this affected. Zero is an ordinary answer, not a failure'),
     detail: z.string().min(1).max(400).describe('What happened, in the words the console shows'),
 });
 export type TrackClearResult = z.infer<typeof TrackClearResult>;
@@ -111,7 +118,7 @@ export type TrackClearResultInput = z.infer<typeof TrackClearResultInput>;
 /**
  * Narrow a clear to one provider's answer, for the case where one source is wrong and the rest are
  * not. Absent clears every provider's.
- * generated from [ClearEnrichmentQuery](file://./../../../../data/contracts/catalog/catalog.types.ck#L140)
+ * generated from [ClearEnrichmentQuery](../../../../data/contracts/catalog/catalog.types.ck#L140)
  */
 export const ClearEnrichmentQuery = z.strictObject({
     provider: z.string().min(1).max(200).optional(),
@@ -130,7 +137,7 @@ export type ClearEnrichmentQuery = z.infer<typeof ClearEnrichmentQuery>;
  * One enum for both lists rather than two, because the alternative is a second near-identical
  * contract whose only content is which two keys it drops. A key the row cannot answer falls back to
  * name order rather than failing: an ordering nobody can serve is a page an operator cannot open.
- * generated from [CatalogSort](file://./../../../../data/contracts/catalog/catalog.types.ck#L155)
+ * generated from [CatalogSort](../../../../data/contracts/catalog/catalog.types.ck#L155)
  */
 export const CatalogSort = z.enum(['name', 'albums', 'tracks', 'year', 'rating']);
 export type CatalogSort = z.infer<typeof CatalogSort>;
@@ -143,7 +150,7 @@ export type CatalogSort = z.infer<typeof CatalogSort>;
  *   unmeasured  no trustworthy measurement, so no cue points and no level decided before air
  *   benched     every copy written off, which is the one state that means it CANNOT air
  *   failing     a fetch has failed and is backing off. Not benched yet, and often the state before it
- * generated from [TrackState](file://./../../../../data/contracts/catalog/catalog.types.ck#L171)
+ * generated from [TrackState](../../../../data/contracts/catalog/catalog.types.ck#L171)
  */
 export const TrackState = z.enum(['cached', 'uncached', 'unmeasured', 'benched', 'failing']);
 export type TrackState = z.infer<typeof TrackState>;
@@ -155,7 +162,7 @@ export type TrackState = z.infer<typeof TrackState>;
  * `state` is deliberately absent. It is three independent booleans rather than one column, so there
  * is no ordering of it an operator would agree with: a benched record and an unmeasured one are not
  * more or less than each other.
- * generated from [TrackSort](file://./../../../../data/contracts/catalog/catalog.types.ck#L179)
+ * generated from [TrackSort](../../../../data/contracts/catalog/catalog.types.ck#L179)
  */
 export const TrackSort = z.enum(['title', 'artist', 'album', 'year', 'duration', 'rating']);
 export type TrackSort = z.infer<typeof TrackSort>;
@@ -167,15 +174,15 @@ export type TrackSort = z.infer<typeof TrackSort>;
  * `docs/todo/analysis-queue-ordering.md` necessary, and it was a psql query then. `total` is the
  * same number as `meta.total` when nothing is filtered, and is repeated here so the counts can be
  * read as N of M without reaching into the pager.
- * generated from [TrackStateCounts](file://./../../../../data/contracts/catalog/catalog.types.ck#L196)
+ * generated from [TrackStateCounts](../../../../data/contracts/catalog/catalog.types.ck#L196)
  */
 export const TrackStateCounts = z.strictObject({
-    total: z.coerce.number().int().min(0),
-    cached: z.coerce.number().int().min(0),
-    measured: z.coerce.number().int().min(0),
-    enriched: z.coerce.number().int().min(0),
-    benched: z.coerce.number().int().min(0),
-    failing: z.coerce.number().int().min(0),
+    total: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    cached: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    measured: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    enriched: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    benched: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
+    failing: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
 });
 export type TrackStateCounts = z.infer<typeof TrackStateCounts>;
 
@@ -183,7 +190,7 @@ export const TrackStateCountsInput = z.strictObject({});
 export type TrackStateCountsInput = z.infer<typeof TrackStateCountsInput>;
 
 /**
- * generated from [EnrichmentExternalId](file://./../../../../data/contracts/catalog/catalog.types.ck#L244)
+ * generated from [EnrichmentExternalId](../../../../data/contracts/catalog/catalog.types.ck#L244)
  */
 export const EnrichmentExternalId = z.strictObject({
     source: z.string().min(1).max(200).describe('e.g. `musicbrainz`, `wikidata`'),
@@ -194,7 +201,7 @@ export type EnrichmentExternalId = z.infer<typeof EnrichmentExternalId>;
 /**
  * Narrowed to http(s) by the host before it is stored, since the console renders these as
  * something a human clicks.
- * generated from [EnrichmentLink](file://./../../../../data/contracts/catalog/catalog.types.ck#L251)
+ * generated from [EnrichmentLink](../../../../data/contracts/catalog/catalog.types.ck#L251)
  */
 export const EnrichmentLink = z.strictObject({
     label: z.string().min(1).max(200),
@@ -206,7 +213,7 @@ export type EnrichmentLink = z.infer<typeof EnrichmentLink>;
  * One thing the station believes, and the words it read that say so. Extracted by the host out of
  * an article a plugin handed over, rather than said by any plugin: `sourceUrl` is where a person
  * checks it and `sourceQuote` is the span that supports it, and neither is ever absent.
- * generated from [FactClaim](file://./../../../../data/contracts/catalog/catalog.types.ck#L344)
+ * generated from [FactClaim](../../../../data/contracts/catalog/catalog.types.ck#L344)
  */
 export const FactClaim = z.strictObject({
     id: z.uuid(),
@@ -216,7 +223,7 @@ export const FactClaim = z.strictObject({
     sourceProvider: z.string().min(1).max(200),
     sourceUrl: z.string().min(1).max(2000),
     sourceQuote: z.string().min(1).max(2000),
-    confidence: z.coerce.number().optional(),
+    confidence: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number()).optional(),
     model: z.string().max(200).optional(),
     lastUsedAt: _ZodDatetime.optional().describe('Absent means never said on air'),
 });
@@ -228,7 +235,7 @@ export type FactClaimInput = z.infer<typeof FactClaimInput>;
 /**
  * Rate an artist, a record or a song. Ratings are absolute: a dislike anywhere above a track
  * excludes it, and nothing the station programmes may turn that off.
- * generated from [RateInput](file://./../../../../data/contracts/catalog/catalog.types.ck#L13)
+ * generated from [RateInput](../../../../data/contracts/catalog/catalog.types.ck#L13)
  */
 export const RateInput = z.strictObject({
     rating: Rating,
@@ -245,7 +252,7 @@ export type RateInput = z.infer<typeof RateInput>;
  * the station's copy, to be resolved against the API base the client already configures (the API
  * mounts at the root and does not know the `/api` prefix the edge adds). Prefer the local one by
  * doing nothing: the switch happens server-side as soon as the art cache pass has the bytes.
- * generated from [Artist](file://./../../../../data/contracts/catalog/catalog.types.ck#L26)
+ * generated from [Artist](../../../../data/contracts/catalog/catalog.types.ck#L26)
  */
 export const Artist = z.strictObject({
     id: z.uuid(),
@@ -253,8 +260,12 @@ export const Artist = z.strictObject({
     mbid: z.uuid().optional().describe('MusicBrainz artist id, absent until enrichment resolves one'),
     imageUrl: z.string().optional().describe('Absolute upstream URL, or an API-relative path to the local copy'),
     rating: Rating.default('neutral'),
-    albumCount: z.coerce.number().int().min(0).describe('Unmerged albums credited to this artist'),
-    trackCount: z.coerce.number().int().min(0).describe('Unmerged tracks credited to this artist'),
+    albumCount: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Unmerged albums credited to this artist'),
+    trackCount: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Unmerged tracks credited to this artist'),
 });
 export type Artist = z.infer<typeof Artist>;
 
@@ -267,7 +278,7 @@ export const ArtistInput = z.strictObject({
 export type ArtistInput = z.infer<typeof ArtistInput>;
 
 /**
- * generated from [Album](file://./../../../../data/contracts/catalog/catalog.types.ck#L36)
+ * generated from [Album](../../../../data/contracts/catalog/catalog.types.ck#L36)
  */
 export const Album = z.strictObject({
     id: z.uuid(),
@@ -275,24 +286,24 @@ export const Album = z.strictObject({
     artistId: z.uuid(),
     artistName: z.string().describe('Joined, so a list renders without a second request per row'),
     mbid: z.uuid().optional().describe('MusicBrainz release-group id, absent until enrichment resolves one'),
-    year: z.coerce.number().int().optional(),
+    year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
     imageUrl: z.string().optional().describe('Absolute upstream URL, or an API-relative path to the local copy'),
     rating: Rating.default('neutral'),
-    trackCount: z.coerce.number().int().min(0),
+    trackCount: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)),
 });
 export type Album = z.infer<typeof Album>;
 
 export const AlbumInput = z.strictObject({
     name: z.string(),
     mbid: z.uuid().optional().describe('MusicBrainz release-group id, absent until enrichment resolves one'),
-    year: z.coerce.number().int().optional(),
+    year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
     imageUrl: z.string().optional().describe('Absolute upstream URL, or an API-relative path to the local copy'),
     rating: Rating.default('neutral'),
 });
 export type AlbumInput = z.infer<typeof AlbumInput>;
 
 /**
- * generated from [Track](file://./../../../../data/contracts/catalog/catalog.types.ck#L48)
+ * generated from [Track](../../../../data/contracts/catalog/catalog.types.ck#L48)
  */
 export const Track = z.strictObject({
     id: z.uuid(),
@@ -304,8 +315,8 @@ export const Track = z.strictObject({
     albumImageUrl: z.string().optional().describe("The record's cover, in the two spellings `Album.imageUrl` has. Nothing hangs art off a recording"),
     artists: z.string().describe('Display credit as written on the release ("X feat. Y"), not a join key'),
     genre: z.string().optional(),
-    year: z.coerce.number().int().optional(),
-    durationMs: z.coerce.number().int().min(0).optional(),
+    year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
+    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
     rating: Rating.default('neutral'),
 });
 export type Track = z.infer<typeof Track>;
@@ -314,8 +325,8 @@ export const TrackInput = z.strictObject({
     title: z.string(),
     artists: z.string().describe('Display credit as written on the release ("X feat. Y"), not a join key'),
     genre: z.string().optional(),
-    year: z.coerce.number().int().optional(),
-    durationMs: z.coerce.number().int().min(0).optional(),
+    year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
+    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
     rating: Rating.default('neutral'),
 });
 export type TrackInput = z.infer<typeof TrackInput>;
@@ -323,7 +334,7 @@ export type TrackInput = z.infer<typeof TrackInput>;
 /**
  * Pagination plus a name filter. Every list operation here takes it, so the console's search box
  * narrows server-side rather than filtering one page client-side and lying about the total.
- * generated from [CatalogQuery](file://./../../../../data/contracts/catalog/catalog.types.ck#L159)
+ * generated from [CatalogQuery](../../../../data/contracts/catalog/catalog.types.ck#L159)
  */
 export const CatalogQuery = Pagination.extend({
     search: z.string().min(1).max(200).optional(),
@@ -342,19 +353,22 @@ export type CatalogQueryInput = z.infer<typeof CatalogQueryInput>;
  * `1997`, `1997-06` or `1997-06-24` depending on what is actually known about the release, and the
  * SDK types it the same way. A `datetime` would reject the first two or invent a day and a time
  * for them, which is a precision the source never claimed.
- * generated from [TrackEnrichmentData](file://./../../../../data/contracts/catalog/catalog.types.ck#L260)
+ * generated from [TrackEnrichmentData](../../../../data/contracts/catalog/catalog.types.ck#L260)
  */
 export const TrackEnrichmentData = z.strictObject({
     artist: z.string().max(2000).optional(),
     title: z.string().max(2000).optional(),
     album: z.string().max(2000).optional(),
-    year: z.coerce.number().int().optional(),
+    year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
     releaseDate: z.string().max(10).optional(),
     genres: z.array(z.string().max(2000)).optional(),
     moods: z.array(z.string().max(2000)).optional(),
     biography: z.string().max(20000).optional(),
     facts: z.array(z.string().max(2000)).optional().describe('Short lines, each independently speakable'),
-    bpm: z.coerce.number().optional().describe('Not an integer: a tempo a source measured rather than declared is fractional'),
+    bpm: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number())
+        .optional()
+        .describe('Not an integer: a tempo a source measured rather than declared is fractional'),
     musicalKey: z.string().max(2000).optional(),
     label: z.string().max(2000).optional(),
     isrc: z.string().max(2000).optional(),
@@ -369,7 +383,7 @@ export const TrackEnrichmentData = z.strictObject({
 export type TrackEnrichmentData = z.infer<typeof TrackEnrichmentData>;
 
 /**
- * generated from [ArtistEnrichmentData](file://./../../../../data/contracts/catalog/catalog.types.ck#L280)
+ * generated from [ArtistEnrichmentData](../../../../data/contracts/catalog/catalog.types.ck#L280)
  */
 export const ArtistEnrichmentData = z.strictObject({
     name: z.string().max(2000).optional(),
@@ -384,12 +398,12 @@ export const ArtistEnrichmentData = z.strictObject({
 export type ArtistEnrichmentData = z.infer<typeof ArtistEnrichmentData>;
 
 /**
- * generated from [AlbumEnrichmentData](file://./../../../../data/contracts/catalog/catalog.types.ck#L291)
+ * generated from [AlbumEnrichmentData](../../../../data/contracts/catalog/catalog.types.ck#L291)
  */
 export const AlbumEnrichmentData = z.strictObject({
     name: z.string().max(2000).optional(),
     artist: z.string().max(2000).optional().describe("The record's own credit, which is not always the track's"),
-    year: z.coerce.number().int().optional(),
+    year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int()).optional(),
     releaseDate: z.string().max(10).optional().describe('Partial, exactly as on TrackEnrichmentData'),
     label: z.string().max(2000).optional(),
     genres: z.array(z.string().max(2000)).optional(),
@@ -403,7 +417,7 @@ export type AlbumEnrichmentData = z.infer<typeof AlbumEnrichmentData>;
 
 /**
  * One page of artists, with the totals the request was counted against
- * generated from [ArtistPage](file://./../../../../data/contracts/catalog/catalog.types.ck#L224)
+ * generated from [ArtistPage](../../../../data/contracts/catalog/catalog.types.ck#L224)
  */
 export const ArtistPage = z.strictObject({
     meta: Pagination,
@@ -419,7 +433,7 @@ export type ArtistPageInput = z.infer<typeof ArtistPageInput>;
 
 /**
  * One page of albums
- * generated from [AlbumPage](file://./../../../../data/contracts/catalog/catalog.types.ck#L229)
+ * generated from [AlbumPage](../../../../data/contracts/catalog/catalog.types.ck#L229)
  */
 export const AlbumPage = z.strictObject({
     meta: Pagination,
@@ -439,13 +453,15 @@ export type AlbumPageInput = z.infer<typeof AlbumPageInput>;
  * The enrichment is deliberately NOT here. It has its own operation already, answering
  * `TrackEnrichmentDetail` with every provider's payload and the station's own sourced claims, and
  * the console draws it through the same panel the list uses. One enrichment shape rather than two.
- * generated from [TrackDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L120)
+ * generated from [TrackDetail](../../../../data/contracts/catalog/catalog.types.ck#L120)
  */
 export const TrackDetail = Track.extend({
     bindings: z.array(TrackBinding),
     analysis: TrackAnalysis.optional().describe('Absent for a record the walk has not reached'),
     plays: z.array(TrackPlay).describe('The most recent airings, newest first'),
-    playCount: z.coerce.number().int().min(0).describe('How many times in all, which the list above is only the head of'),
+    playCount: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How many times in all, which the list above is only the head of'),
 });
 export type TrackDetail = z.infer<typeof TrackDetail>;
 
@@ -463,7 +479,7 @@ export type TrackDetailInput = z.infer<typeof TrackDetailInput>;
  * the query that was already running — and everything wider (which providers, how many bytes, why the
  * last fetch failed) is `TrackDetail`'s, one click away. A fourth would be the beginning of putting
  * the detail page in a table cell.
- * generated from [TrackRow](file://./../../../../data/contracts/catalog/catalog.types.ck#L211)
+ * generated from [TrackRow](../../../../data/contracts/catalog/catalog.types.ck#L211)
  */
 export const TrackRow = Track.extend({
     hasAudio: z.preprocess(v => (v === 'true' ? true : v === 'false' ? false : v), z.boolean()).describe('The bytes are on this machine'),
@@ -484,7 +500,7 @@ export type TrackRowInput = z.infer<typeof TrackRowInput>;
  *
  * Its own contract rather than a field on `CatalogQuery`, because that one is shared with the artist
  * and album lists where none of these states means anything.
- * generated from [TrackQuery](file://./../../../../data/contracts/catalog/catalog.types.ck#L185)
+ * generated from [TrackQuery](../../../../data/contracts/catalog/catalog.types.ck#L185)
  */
 export const TrackQuery = CatalogQuery.extend({
     state: TrackState.optional(),
@@ -502,7 +518,7 @@ export type TrackQueryInput = z.infer<typeof TrackQueryInput>;
  * One provider's stored answer. `found: false` is a recorded miss, which is a fact rather than a
  * failure: the provider was asked, had nothing, and is not asked again until `expiresAt`. A provider
  * that could not be asked at all is `failed` instead, and the two never both hold.
- * generated from [TrackEnrichmentSource](file://./../../../../data/contracts/catalog/catalog.types.ck#L308)
+ * generated from [TrackEnrichmentSource](../../../../data/contracts/catalog/catalog.types.ck#L308)
  */
 export const TrackEnrichmentSource = z.strictObject({
     provider: z.string().min(1).max(200),
@@ -526,7 +542,7 @@ export const TrackEnrichmentSourceInput = z.strictObject({
 export type TrackEnrichmentSourceInput = z.infer<typeof TrackEnrichmentSourceInput>;
 
 /**
- * generated from [ArtistEnrichmentSource](file://./../../../../data/contracts/catalog/catalog.types.ck#L319)
+ * generated from [ArtistEnrichmentSource](../../../../data/contracts/catalog/catalog.types.ck#L319)
  */
 export const ArtistEnrichmentSource = z.strictObject({
     provider: z.string().min(1).max(200),
@@ -548,7 +564,7 @@ export const ArtistEnrichmentSourceInput = z.strictObject({
 export type ArtistEnrichmentSourceInput = z.infer<typeof ArtistEnrichmentSourceInput>;
 
 /**
- * generated from [AlbumEnrichmentSource](file://./../../../../data/contracts/catalog/catalog.types.ck#L330)
+ * generated from [AlbumEnrichmentSource](../../../../data/contracts/catalog/catalog.types.ck#L330)
  */
 export const AlbumEnrichmentSource = z.strictObject({
     provider: z.string().min(1).max(200),
@@ -571,7 +587,7 @@ export type AlbumEnrichmentSourceInput = z.infer<typeof AlbumEnrichmentSourceInp
 
 /**
  * One page of tracks, with what the station has of each and of the whole set
- * generated from [TrackPage](file://./../../../../data/contracts/catalog/catalog.types.ck#L234)
+ * generated from [TrackPage](../../../../data/contracts/catalog/catalog.types.ck#L234)
  */
 export const TrackPage = z.strictObject({
     meta: Pagination,
@@ -595,7 +611,7 @@ export type TrackPageInput = z.infer<typeof TrackPageInput>;
  * `claims` sits beside them rather than inside `merged`, because a claim is the host's own and not
  * any provider's. The articles they were read out of are deliberately NOT here: raw source prose is
  * stored and never sent.
- * generated from [TrackEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L364)
+ * generated from [TrackEnrichmentDetail](../../../../data/contracts/catalog/catalog.types.ck#L364)
  */
 export const TrackEnrichmentDetail = z.strictObject({
     trackId: z.uuid(),
@@ -613,7 +629,7 @@ export const TrackEnrichmentDetailInput = z.strictObject({
 export type TrackEnrichmentDetailInput = z.infer<typeof TrackEnrichmentDetailInput>;
 
 /**
- * generated from [ArtistEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L371)
+ * generated from [ArtistEnrichmentDetail](../../../../data/contracts/catalog/catalog.types.ck#L371)
  */
 export const ArtistEnrichmentDetail = z.strictObject({
     artistId: z.uuid(),
@@ -631,7 +647,7 @@ export const ArtistEnrichmentDetailInput = z.strictObject({
 export type ArtistEnrichmentDetailInput = z.infer<typeof ArtistEnrichmentDetailInput>;
 
 /**
- * generated from [AlbumEnrichmentDetail](file://./../../../../data/contracts/catalog/catalog.types.ck#L378)
+ * generated from [AlbumEnrichmentDetail](../../../../data/contracts/catalog/catalog.types.ck#L378)
  */
 export const AlbumEnrichmentDetail = z.strictObject({
     albumId: z.uuid(),

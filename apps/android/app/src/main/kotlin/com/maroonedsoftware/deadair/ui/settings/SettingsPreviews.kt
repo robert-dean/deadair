@@ -54,6 +54,24 @@ private fun RefusedPreview() =
 
 @PreviewLightDark
 @Composable
+private fun SecondFactorPreview() =
+    Settings(
+        StationEntryState.typing("https://radio.example.com", stored = "https://radio.example.com"),
+        SessionState.SignedOut,
+        AccountState(email = "operator@example.com", challenge = SecondFactor("c_1", "totp-1")),
+    )
+
+@PreviewLightDark
+@Composable
+private fun CodeRefusedPreview() =
+    Settings(
+        StationEntryState.typing("https://radio.example.com", stored = "https://radio.example.com"),
+        SessionState.SignedOut,
+        AccountState(email = "operator@example.com", challenge = SecondFactor("c_1", "totp-1"), error = Message.CodeRefused),
+    )
+
+@PreviewLightDark
+@Composable
 private fun OperatorPreview() =
     Settings(
         StationEntryState.typing("https://radio.example.com", stored = "https://radio.example.com"),

@@ -26,19 +26,61 @@
                        Foreground="{DynamicResource DaAccentBrush}" />
         </Border>
 
-        <!-- The account. Filled in the next phase; the border is here so the sidebar's shape does
-             not change when it arrives. -->
-        <Border DockPanel.Dock="Bottom" Padding="16,12" MinHeight="56"
+        <!--
+            The account.
+
+            It used to be a panel inside the desk, which put signing in on one particular page and
+            made the desk two things at once. It belongs here for the same reason the section
+            headings do: an account is about the whole app rather than about what is on air, and the
+            sidebar is already where the app says what this account can reach.
+        -->
+        <Border DockPanel.Dock="Bottom" Padding="12,10" MinHeight="56"
                 BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="0,1,0,0">
-            <StackPanel Spacing="2" VerticalAlignment="Center">
-                <TextBlock Text="{Binding Account, FallbackValue='Not signed in'}"
-                           IsVisible="{Binding !SignedOut}" FontSize="12"
-                           TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource DaTextBrush}" />
-                <TextBlock Classes="eyebrow" Text="OPERATOR" IsVisible="{Binding !SignedOut}"
-                           Foreground="{DynamicResource DaAccentBrush}" />
-                <TextBlock Classes="dimmed" Text="Sign in on the desk" IsVisible="{Binding SignedOut}" />
-            </StackPanel>
+            <Panel>
+                <!-- Signed out. The flyout keeps sign-in out of the page stack: it is a thing you do
+                     and leave, not a place you go, and it must not take somebody off whatever they
+                     were reading. -->
+                <Button x:Name="SignIn" Classes="nav" IsVisible="{Binding SignedOut}"
+                        Height="36" Padding="8,0">
+                    <Grid ColumnDefinitions="16,*,14" ColumnSpacing="10">
+                        <PathIcon Data="{DynamicResource DaIconPerson}" />
+                        <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Text="Sign in" FontSize="13"
+                                       Foreground="{DynamicResource DaTextBrush}" />
+                            <TextBlock Classes="eyebrow" Text="OPERATOR DESK" />
+                        </StackPanel>
+                        <PathIcon Grid.Column="2" Width="12" Height="12"
+                                  Data="{DynamicResource DaIconChevronRight}"
+                                  Foreground="{DynamicResource DaTextDimmedBrush}" />
+                    </Grid>
+
+                    <Button.Flyout>
+                        <Flyout Placement="RightEdgeAlignedBottom" ShowMode="Standard">
+                            <views:LoginView Width="320"
+                                             DataContext="{Binding $parent[views:Sidebar].((vm:ShellViewModel)DataContext).Login}" />
+                        </Flyout>
+                    </Button.Flyout>
+                </Button>
+
+                <!-- Signed in. Signing out leaves somebody listening, so it is a quiet icon rather
+                     than a button competing with the rail. -->
+                <Grid ColumnDefinitions="16,*,32" ColumnSpacing="10" IsVisible="{Binding !SignedOut}"
+                      Margin="8,0">
+                    <PathIcon Data="{DynamicResource DaIconPerson}"
+                              Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                    <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Account}" FontSize="12"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource DaTextBrush}" />
+                        <TextBlock Classes="eyebrow" Text="OPERATOR"
+                                   Foreground="{DynamicResource DaAccentBrush}" />
+                    </StackPanel>
+                    <Button Grid.Column="2" Classes="icon" ToolTip.Tip="Sign out"
+                            Command="{Binding SignOutCommand}">
+                        <PathIcon Data="{DynamicResource DaIconSignOut}" />
+                    </Button>
+                </Grid>
+            </Panel>
         </Border>
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">

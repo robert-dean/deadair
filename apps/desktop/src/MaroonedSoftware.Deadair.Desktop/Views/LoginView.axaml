@@ -5,13 +5,11 @@
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.LoginView"
     x:DataType="vm:LoginViewModel">
 
-    <StackPanel Spacing="10">
+    <StackPanel Spacing="10" Margin="16">
 
-        <TextBlock Text="Sign in as the operator" FontWeight="SemiBold"
-                   Foreground="{DynamicResource DaTextBrush}" />
-        <TextBlock Text="Listening needs no account. This is for the desk."
-                   FontSize="12" TextWrapping="Wrap"
-                   Foreground="{DynamicResource DaTextDimmedBrush}" />
+        <TextBlock Classes="h3" Text="Sign in as the operator" />
+        <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                   Text="Listening needs no account. This is for the desk." />
 
         <StackPanel Spacing="8" IsVisible="{Binding !NeedsCode}">
             <TextBox Text="{Binding Email}" PlaceholderText="you@example.com" IsEnabled="{Binding !Busy}" />
@@ -28,9 +26,9 @@
         </StackPanel>
 
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-            <Button Content="Back" Command="{Binding CancelCommand}" IsVisible="{Binding NeedsCode}"
+            <Button Classes="ghost" Content="Back" Command="{Binding CancelCommand}" IsVisible="{Binding NeedsCode}"
                     HorizontalAlignment="Left" />
-            <Button Grid.Column="1" Content="Sign in" Command="{Binding SubmitCommand}"
+            <Button Grid.Column="1" Classes="primary" Content="Sign in" Command="{Binding SubmitCommand}"
                     IsEnabled="{Binding !Busy}" />
         </Grid>
 

@@ -39,17 +39,6 @@
                 BorderBrush="{DynamicResource DaBorderBrush}" BorderThickness="1,0,0,0">
             <ScrollViewer>
                 <StackPanel Spacing="16">
-                    <views:LoginView DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Login}"
-                                     IsVisible="{Binding $parent[Window].((vm:ShellViewModel)DataContext).SignedOut}" />
-
-                    <StackPanel Spacing="8"
-                                IsVisible="{Binding !$parent[Window].((vm:ShellViewModel)DataContext).SignedOut}">
-                        <TextBlock Text="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Account}"
-                                   FontSize="12" Foreground="{DynamicResource DaTextDimmedBrush}" />
-                        <Button Content="Sign out"
-                                Command="{Binding $parent[Window].((vm:ShellViewModel)DataContext).SignOutCommand}" />
-                    </StackPanel>
-
                     <views:TransportView DataContext="{Binding $parent[Window].((vm:ShellViewModel)DataContext).Transport}" />
 
                     <views:RunningOrderView Height="360"

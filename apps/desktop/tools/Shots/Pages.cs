@@ -25,7 +25,9 @@ internal static class Pages
     public static IEnumerable<(string Name, Control Page)> All()
     {
         yield return ("player-bar", Bar());
-        yield return ("sidebar", Rail());
+        yield return ("sidebar", Rail(operatorSignedIn: true));
+        yield return ("sidebar-signed-out", Rail(operatorSignedIn: false));
+        yield return ("login", SignIn());
         yield return ("voice-characters", Voice(VoiceTab.Characters));
         yield return ("voice-said", Voice(VoiceTab.Said));
         yield return ("voice-segments", Voice(VoiceTab.Segments));
@@ -35,12 +37,23 @@ internal static class Pages
     }
 
     /// <summary>The sidebar, signed in, so every section and both states of an entry are in frame.</summary>
-    private static Border Rail() =>
+    private static Border Rail(bool operatorSignedIn) =>
         new()
         {
             Width = 220,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
-            Child = new Sidebar { DataContext = Fakes.Shell(operatorSignedIn: true) },
+            Child = new Sidebar { DataContext = Fakes.Shell(operatorSignedIn) },
+        };
+
+    /// <summary>The sign-in panel at the width the sidebar's flyout gives it.</summary>
+    private static Border SignIn() =>
+        new()
+        {
+            Width = 320,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top,
+            Background = null,
+            Child = new LoginView { DataContext = Fakes.Shell(operatorSignedIn: false).Login },
         };
 
     /// <summary>The bar on its own, at the width it really gets, so its columns can be looked at.</summary>

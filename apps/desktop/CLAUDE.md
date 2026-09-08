@@ -481,7 +481,8 @@ mark changes, and what it writes is committed — so `make-app-bundle.sh` needs 
 packages the app without one. It writes two things. `tools/macos/deadair.icns` is the bundle's icon,
 copied into `Contents/Resources` and named by `CFBundleIconFile` WITHOUT its extension, which is that
 key's own convention and shows the blank document icon rather than an error when it is wrong. And
-`Assets/logo-mark.png` is the mark inside the app, which `Window.Icon` reads.
+`Assets/logo-mark.png` is the mark inside the app, which `Window.Icon` and the sidebar's title strip
+both read.
 
 Two things about the icns are not obvious and both are in the script's docstring at length. The disc
 is INSET to 858 of 1024 rather than run to the edge, because macOS draws every icon inside a shared

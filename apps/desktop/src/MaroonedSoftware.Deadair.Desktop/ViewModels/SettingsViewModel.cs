@@ -131,7 +131,7 @@ public sealed partial class SettingsViewModel(
         ArgumentNullException.ThrowIfNull(choice);
 
         MarkChosenFormat(choice.Format);
-        await settings.SaveAsync(settings.Current with { Format = choice.Format }).ConfigureAwait(true);
+        await settings.UpdateAsync(current => current with { Format = choice.Format }).ConfigureAwait(true);
     }
 
     private void MarkChosenFormat(NowPlayingMountFormat chosen)
@@ -145,7 +145,7 @@ public sealed partial class SettingsViewModel(
     partial void OnAppearanceChanged(Appearance value)
     {
         themes.Apply(value);
-        _ = settings.SaveAsync(settings.Current with { Appearance = value });
+        _ = settings.UpdateAsync(current => current with { Appearance = value });
     }
 
     [RelayCommand]

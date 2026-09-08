@@ -392,11 +392,14 @@ internal static class Fakes
 
         public Task LoadAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task SaveAsync(DesktopSettings settings, CancellationToken cancellationToken = default)
+        public Task SaveAsync(DesktopSettings settings, CancellationToken cancellationToken = default) =>
+            UpdateAsync(_ => settings, cancellationToken);
+
+        public Task<DesktopSettings> UpdateAsync(Func<DesktopSettings, DesktopSettings> change, CancellationToken cancellationToken = default)
         {
-            Current = settings;
-            Changed?.Invoke(settings);
-            return Task.CompletedTask;
+            Current = change(Current);
+            Changed?.Invoke(Current);
+            return Task.FromResult(Current);
         }
     }
 }

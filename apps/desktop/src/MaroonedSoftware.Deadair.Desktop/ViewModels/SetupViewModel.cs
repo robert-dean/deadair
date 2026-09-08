@@ -50,8 +50,8 @@ public sealed partial class SetupViewModel(ISettingsStore settings, StationProbe
             switch (reading.Result)
             {
                 case StationProbeResult.Reachable:
-                    await settings.SaveAsync(
-                        settings.Current with { Station = station.ToString(), StationName = reading.Station },
+                    await settings.UpdateAsync(
+                        current => current with { Station = station.ToString(), StationName = reading.Station },
                         cancellationToken).ConfigureAwait(true);
                     Connected?.Invoke(station, reading.Station);
                     break;

@@ -67,7 +67,37 @@ public sealed record DesktopSettings
     [JsonPropertyName("appearance")]
     public Appearance Appearance { get; init; } = Appearance.System;
 
-    /// <summary>0.0 to 1.0.</summary>
+    /// <summary>
+    /// 0.0 to 1.0, and THIS MACHINE's volume alone.
+    /// </summary>
+    /// <remarks>
+    /// A network device has its own volume, which belongs to the device and is not this app's to
+    /// remember: it is shared with whoever else plays to that speaker, and a knob on the front of it
+    /// can move it while nothing here is looking. So the slider writes here only while the output is
+    /// local, and coming back from a device restores what the Mac was last set to rather than what
+    /// the speaker happened to be at.
+    /// </remarks>
     [JsonPropertyName("volume")]
     public double Volume { get; init; } = 0.8;
+
+    /// <summary>Where the sound comes out. Absent means this machine.</summary>
+    [JsonPropertyName("output")]
+    public OutputMemory? Output { get; init; }
+
+    /// <summary>What has been decided about each plugin, keyed by its id.</summary>
+    [JsonPropertyName("plugins")]
+    public IReadOnlyDictionary<string, PluginSettings> Plugins { get; init; } = new Dictionary<string, PluginSettings>(StringComparer.Ordinal);
+
+    /// <summary>One plugin's settings, replaced, leaving every other plugin's alone.</summary>
+    public DesktopSettings WithPlugin(string id, PluginSettings plugin)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+
+        var plugins = new Dictionary<string, PluginSettings>(Plugins, StringComparer.Ordinal)
+        {
+            [id] = plugin,
+        };
+
+        return this with { Plugins = plugins };
+    }
 }

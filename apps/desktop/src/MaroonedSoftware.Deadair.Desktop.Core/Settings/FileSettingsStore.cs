@@ -66,16 +66,28 @@ public sealed class FileSettingsStore : ISettingsStore, IDisposable
         }
     }
 
-    public async Task SaveAsync(DesktopSettings settings, CancellationToken cancellationToken = default)
+    public Task SaveAsync(DesktopSettings settings, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
 
-        Current = settings;
-        Changed?.Invoke(settings);
+        return UpdateAsync(_ => settings, cancellationToken);
+    }
 
+    public async Task<DesktopSettings> UpdateAsync(Func<DesktopSettings, DesktopSettings> change, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+
+        // The lock is taken BEFORE the change is applied, not just around the write. Applying it
+        // outside would make this a read-modify-write with a gap in the middle, which is the very
+        // thing this method exists to close: two writers would each build their new settings from
+        // the same old ones and the second would land on top of the first, silently.
         await _writing.WaitAsync(cancellationToken).ConfigureAwait(false);
+        DesktopSettings settings;
         try
         {
+            settings = change(Current) ?? throw new InvalidOperationException("a settings change answered null");
+            Current = settings;
+
             Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
 
             // Written beside and moved into place, so an interrupted write leaves the previous
@@ -89,6 +101,11 @@ public sealed class FileSettingsStore : ISettingsStore, IDisposable
         {
             _writing.Release();
         }
+
+        // Raised outside the lock. A subscriber that wrote settings back from its handler would
+        // otherwise deadlock against a semaphore this same call is still holding.
+        Changed?.Invoke(settings);
+        return settings;
     }
 
     public void Dispose() => _writing.Dispose();

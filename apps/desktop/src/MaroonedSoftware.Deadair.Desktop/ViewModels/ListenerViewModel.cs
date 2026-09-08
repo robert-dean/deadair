@@ -195,7 +195,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private void SaveVolume()
     {
         _volumeSettles.Stop();
-        _ = _settings.SaveAsync(_settings.Current with { Volume = _volume });
+        _ = _settings.UpdateAsync(settings => settings with { Volume = _volume });
     }
 
     private static string First(string value) =>

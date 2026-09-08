@@ -1389,6 +1389,45 @@ describe('readAnswer, against the half of the day it was told', () => {
         expect(declined?.reason).toContain('it said "tonight"');
     });
 
+    // A record's name is full of words that say what time it is, and back-announcing one says
+    // nothing whatsoever about the moment. Refusing these would cost the station the model's
+    // sentence for naming the record it was handed, which is the failure every guard in this file
+    // is written to avoid.
+    describe('with the names of the records it was shown taken out first', () => {
+        const tonight = { title: 'Tonight, Tonight', artist: 'The Smashing Pumpkins' };
+        const glory = { title: "(What's the Story) Morning Glory?", artist: 'Oasis' };
+        const midnight = { title: 'Midnight Train to Georgia', artist: 'Gladys Knight & the Pips' };
+
+        it('takes a morning break that back-announced a record called Tonight, Tonight', () => {
+            const script = 'That was Tonight, Tonight, from The Smashing Pumpkins.';
+
+            expect(readAnswer(script, { dayPart: at(9), names: [tonight] })).toBe(script);
+        });
+
+        it('takes an evening break that named Morning Glory', () => {
+            const script = "Next, Oasis, with (What's the Story) Morning Glory?";
+
+            expect(readAnswer(script, { dayPart: at(20), names: [glory] })).toBe(script);
+        });
+
+        // Already live before the daypart words were widened: `namesWrongTimeOfDay` matches
+        // `midnight` as a bare word, so this break was refused for naming its own record.
+        it('takes a midday break that named Midnight Train to Georgia', () => {
+            const script = 'That was Midnight Train to Georgia, from Gladys Knight & the Pips.';
+
+            expect(readAnswer(script, { moment: moment(12), names: [midnight] })).toBe(script);
+        });
+
+        it('still refuses the same break when the word was not the record it was shown', () => {
+            expect(readAnswer('Tonight we are back to back, and it does not let up.', { dayPart: at(9), names: [glory] })).toBeUndefined();
+        });
+
+        it('asks the same question of a break shown no records at all', () => {
+            // A welcome and a bulletin populate no names, so nothing about them changes.
+            expect(readAnswer('Tonight we are back to back, and it does not let up.', { dayPart: at(9) })).toBeUndefined();
+        });
+    });
+
     it('names the word for the time-of-day half too, which is a different fix', () => {
         // A model reaching for `tonight` in the morning and one saying `midday` at half past four
         // are one fault to a listener and two different things to change.

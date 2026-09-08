@@ -1855,8 +1855,64 @@ const cuesWrongly = (script: string, guard: AnswerGuard): boolean => guard.cues 
  * The word reaches `script_history.reason` through {@link writeDecline}, so `scripts/break.declines.ts`
  * splits the fault by word with no change of its own: it groups on the reason string.
  */
-const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined =>
-    contradictsDayPart(script, guard.dayPart) ?? namesWrongTimeOfDay(script, guard.moment?.at, guard.moment?.zone);
+const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined => {
+    const spoken = withoutRecordNames(script, guard);
+
+    return contradictsDayPart(spoken, guard.dayPart) ?? namesWrongTimeOfDay(spoken, guard.moment?.at, guard.moment?.zone);
+};
+
+/**
+ * A script with the names of the records it was shown taken out of it.
+ *
+ * ## A title is not a claim about the time
+ *
+ * Both clock checks read the script for words that say what time it is, and a record's name is full
+ * of them: `Tonight, Tonight`, `(What's the Story) Morning Glory?`, `Midnight Rambler`, `In the
+ * Evening`. A break that back-announces one of those has said nothing whatsoever about the moment,
+ * and refusing it would cost the station the model's sentence for the crime of naming the record it
+ * was given. This is not hypothetical for {@link namesWrongTimeOfDay}, which already matches
+ * `midnight` as a bare word and so already refuses a midday break for back-announcing
+ * `Midnight Train to Georgia`.
+ *
+ * So the names come out before either check reads the words. Taken from
+ * {@link AnswerGuard.names} — the same records {@link namesNothing} asks about, through the same
+ * {@link identifiersOf} — so what counts as naming a record is one answer and cannot drift into
+ * being two.
+ *
+ * ## What it costs, and why that is the right direction
+ *
+ * A break that says the word as a title AND means it about the moment loses the second one too:
+ * every `tonight` in a break that back-announced a record called `Tonight` looks identical. That is
+ * a false NEGATIVE, and the file's whole bargain is that a break wrongly refused costs a sentence
+ * the station wanted while a break wrongly passed costs one wrong word — with the floor underneath
+ * being a correct sentence either way. The narrow miss is the survivable one.
+ *
+ * A guard carrying no records changes nothing, which keeps every kind that populates no names — a
+ * welcome, a bulletin, a link at the top of an order — reading exactly the script it always did.
+ * The answer is {@link bareWords} rather than the original text because that is the form the names
+ * can be matched in at all, and both checks read it the same: `saysTime` lower-cases before its
+ * `includes`, and `saysWholeWord` bounds on letters that punctuation was never part of.
+ */
+const withoutRecordNames = (script: string, guard: AnswerGuard): string => {
+    const records = (guard.names ?? []).filter((record): record is BreakTrack => record !== undefined);
+    if (records.length === 0) return script;
+
+    // Both possessive endings beside the plain name, for the reason `saysName` carries them: what is
+    // in the text after a presenter names a record is `iron maiden's`, and a plain search for the
+    // band never finds it.
+    let spoken = ` ${bareWords(script)} `;
+    for (const candidate of records.flatMap(identifiersOf)) {
+        for (const form of [` ${candidate} `, ` ${candidate}'s `, ` ${candidate}' `]) {
+            // Every occurrence, not the first: a break may name the same record twice, and the two
+            // spaces put back are what keeps the words either side of it separate.
+            while (spoken.includes(form)) spoken = spoken.replace(form, '  ');
+        }
+    }
+
+    // Back to single spacing, because `contradictsDayPart` looks for a PHRASE and a doubled space
+    // where a title used to be would hide `this morning` from it.
+    return spoken.replace(/\s+/g, ' ').trim();
+};
 
 /**
  * Why a cleaned script is not the persona speaking, or `undefined` when it is.

@@ -21,16 +21,9 @@
              render and the layout must not differ between what is drawn and what is looked at. -->
         <Border DockPanel.Dock="Top" Height="38" Padding="80,0,12,0"
                 chrome:WindowDecorationProperties.ElementRole="TitleBar">
-            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <!-- The mark and the wordmark together, as the console's header has them. The MARK
-                     rather than the lockup: at 20px the arched "deadair radio" is illegible, and the
-                     wordmark beside it is already saying the name. Decorative, so it is not in the
-                     tab order and announces nothing. -->
-                <Image Source="avares://deadair/Assets/logo-mark.png" Width="20" Height="20" />
-                <TextBlock Text="deadair" FontSize="15" FontWeight="Bold" LetterSpacing="1.4"
-                           VerticalAlignment="Center"
-                           Foreground="{DynamicResource DaAccentBrush}" />
-            </StackPanel>
+            <TextBlock Text="deadair" FontSize="15" FontWeight="Bold" LetterSpacing="1.4"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource DaAccentBrush}" />
         </Border>
 
         <!--

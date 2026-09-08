@@ -31,11 +31,10 @@ get subtly wrong by hand:
     and a smudge. The headphones still clear the mask. Both were rendered through the real mask and
     looked at before choosing, which is the only way this question can be answered.
 
-It also copies the mark into the app's `Assets/`, where `Window.Icon` and the sidebar's title strip
-read it — those keep the circular badge, which is the right shape inside a window and beside a
-wordmark. That is a second copy of a file the console already has, which is the same trade
-`apps/android` makes: the alternative is a build step reaching across the tree into a directory this
-solution deliberately does not know about.
+It also copies the mark into the app's `Assets/`, where `Window.Icon` reads it — that keeps the
+circular badge, which is the shape the mark was drawn as. That is a second copy of a file the console
+already has, which is the same trade `apps/android` makes: the alternative is a build step reaching
+across the tree into a directory this solution deliberately does not know about.
 """
 
 import os

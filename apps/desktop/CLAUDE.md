@@ -820,3 +820,16 @@ sockets, the sandbox refuses them, and the build hangs for exactly five minutes 
 `Build FAILED` with zero errors — which reads like a broken repository and is not one. NuGet restore
 is refused the same way (`NU1301 ... Permission denied (localhost:PORT)`) even though the host is
 reachable by curl, so a restore needs the sandbox off. Neither applies to CI.
+
+**And a BUILD needs the sandbox off too, not just a restore.** Two more refusals, in the order they
+surface. With a restore, NuGet's vulnerability audit cannot reach `api.nuget.org`, which is a warning
+everywhere else and `NU1900 ... Warning As Error` here, because this tree treats warnings as errors.
+Past that — `--no-restore` against an already-restored tree — `Avalonia.BuildServices.targets` throws
+`MSB4018` wrapping `System.IO.IOException: Operation not permitted`, with the stack
+`AvaloniaStatsTask.Execute` → `WriteTelemetry` → `Logger.LogException` → `Logger.AppendLine`. Read
+that stack the right way round: the task is failing while writing the log entry that records its own
+failure, so the error names the LOGGER rather than the write that was actually refused first, and
+there is no property or environment variable in the targets to turn the task off. Both fail in about
+four seconds with zero warnings and one error, which reads like a broken repository and is not one;
+the same command with the sandbox off succeeds in three. Measured 2026-09-08 against Avalonia 11.3.2.
+Neither applies to CI.

@@ -133,6 +133,7 @@ fun Message.resolve(): String =
         is Message.OperatorNotice ->
             when (val it = notice) {
                 Notice.NoLongerOperator -> stringResource(R.string.notice_no_longer_operator)
+                Notice.StepUpNeeded -> stringResource(R.string.notice_step_up_needed)
                 Notice.NothingToResume -> stringResource(R.string.notice_nothing_to_resume)
                 Notice.PlaylistEmpty -> stringResource(R.string.notice_playlist_empty)
                 Notice.HostGone -> stringResource(R.string.notice_host_gone)

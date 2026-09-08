@@ -21,6 +21,15 @@ sealed interface Notice {
     /** The station answered 403: the cached role was wrong, and has been re-read. */
     data object NoLongerOperator : Notice
 
+    /**
+     * The station answered 403 asking for the account to be proved again, not refusing it.
+     *
+     * The opposite state to [NoLongerOperator], and the roles are deliberately NOT re-read: the
+     * account holds the permission, and what is missing is a recent second factor rather than a
+     * role. Re-reading would confirm `admin` and change nothing, having spent a request to do it.
+     */
+    data object StepUpNeeded : Notice
+
     /** Start on a station that was never put on air. There is nothing to resume. */
     data object NothingToResume : Notice
 
@@ -67,6 +76,9 @@ class OperatorActions(private val session: OperatorSession) {
             session.withSession(action)
         } catch (error: SdkError) {
             when {
+                // Before the plain 403, because it IS one: reading them as a single case is what
+                // tells an operator they are no longer the operator while they still are.
+                error.isStepUpRequired -> _notices.tryEmit(Notice.StepUpNeeded)
                 error.status == FORBIDDEN -> {
                     runCatching { session.refreshRoles() }
                     _notices.tryEmit(Notice.NoLongerOperator)

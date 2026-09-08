@@ -148,6 +148,7 @@
     <string name="air_mode_audience">When someone listens</string>
     <string name="air_mode_always">Always</string>
     <string name="notice_no_longer_operator">The station no longer treats this account as its operator.</string>
+    <string name="notice_step_up_needed">The station wants your authenticator code again before that. Do it on the console.</string>
     <string name="notice_nothing_to_resume">Nothing to resume: the station has not been put on air yet.</string>
     <string name="notice_playlist_empty">That playlist has nothing the station can play.</string>
     <string name="notice_host_gone">That persona is no longer on the station.</string>

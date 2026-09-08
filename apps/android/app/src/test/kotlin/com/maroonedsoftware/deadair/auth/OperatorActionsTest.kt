@@ -22,14 +22,28 @@ import org.junit.Test
  * a 403 re-reads the roles and says so once rather than failing quietly on every press.
  */
 class OperatorActionsTest {
-    private class FakeSession(status: HttpStatusCode, body: String = "{}") : OperatorSession {
+    private class FakeSession(status: HttpStatusCode, body: String = "{}", challenge: String? = null) : OperatorSession {
         var refreshes = 0
         private val sdk =
             DeadairSdk(
                 SdkConfig(
                     baseUrl = "https://radio.example/api",
                     httpClient =
-                        HttpClient(MockEngine { respond(content = body, status = status, headers = headersOf(HttpHeaders.ContentType, ContentType.Application.Json.toString())) }),
+                        HttpClient(
+                            MockEngine {
+                                respond(
+                                    content = body,
+                                    status = status,
+                                    headers =
+                                        headersOf(
+                                            *buildList {
+                                                add(HttpHeaders.ContentType to listOf(ContentType.Application.Json.toString()))
+                                                if (challenge != null) add(HttpHeaders.WWWAuthenticate to listOf(challenge))
+                                            }.toTypedArray(),
+                                        ),
+                                )
+                            },
+                        ),
                 ),
             )
 
@@ -111,6 +125,61 @@ class OperatorActionsTest {
         runCurrent()
 
         assertEquals(listOf(Notice.CouldNotReach), heard)
+        listening.cancel()
+    }
+
+    // ── The 403 that is not a refusal ───────────────────────────────────────────────────
+
+    @Test
+    fun `a step-up 403 says the station wants a code, and leaves the roles alone`() = runTest {
+        // The opposite state to no-longer-operator: the account still holds the permission, so
+        // re-reading the roles would confirm `admin` and change nothing, and the operator would be
+        // told they are not the operator while they are.
+        val fake = FakeSession(HttpStatusCode.Forbidden, """{"message":"Forbidden","details":{"kind":"step_up_required"}}""")
+        val actions = OperatorActions(fake)
+        val heard = mutableListOf<Notice>()
+        val listening = backgroundScope.launch { actions.notices.collect { heard += it } }
+        runCurrent()
+
+        actions.run { it.authenticationSessions.readSession() }
+        runCurrent()
+
+        assertEquals(listOf(Notice.StepUpNeeded), heard)
+        assertEquals(0, fake.refreshes)
+        listening.cancel()
+    }
+
+    @Test
+    fun `the challenge spelling of the same denial reads the same way`() = runTest {
+        // The station sends both, and which one arrives is not this app's to depend on.
+        val fake = FakeSession(HttpStatusCode.Forbidden, challenge = """Bearer error="mfa_required"""")
+        val actions = OperatorActions(fake)
+        val heard = mutableListOf<Notice>()
+        val listening = backgroundScope.launch { actions.notices.collect { heard += it } }
+        runCurrent()
+
+        actions.run { it.authenticationSessions.readSession() }
+        runCurrent()
+
+        assertEquals(listOf(Notice.StepUpNeeded), heard)
+        assertEquals(0, fake.refreshes)
+        listening.cancel()
+    }
+
+    @Test
+    fun `only a 403 can be a step-up`() = runTest {
+        // A 401 naming `mfa_required` is the token endpoint mid-sign-in, which is a different
+        // conversation and never one of these actions.
+        val fake = FakeSession(HttpStatusCode.Unauthorized, challenge = """Bearer error="mfa_required"""")
+        val actions = OperatorActions(fake)
+        val heard = mutableListOf<Notice>()
+        val listening = backgroundScope.launch { actions.notices.collect { heard += it } }
+        runCurrent()
+
+        actions.run { it.authenticationSessions.readSession() }
+        runCurrent()
+
+        assertEquals(listOf(Notice.Failed(401)), heard)
         listening.cancel()
     }
 }

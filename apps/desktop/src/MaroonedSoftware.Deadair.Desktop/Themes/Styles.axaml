@@ -1,0 +1,334 @@
+<!--
+    What the app's own controls look like, in one place.
+
+    Before this file every size, padding and weight was a literal in whichever view happened to need
+    it, and the only `Style` in the tree was six lines inside `VoiceView` — so the Library's tab strip
+    had the same bug Voice had already fixed, and nothing said which tab you were on. A class here is
+    the fix for a whole kind of control rather than for one page.
+
+    Three rules the entries below keep:
+
+    A style names a TOKEN, never a hex, a font name or a pixel count that a token already holds. The
+    exceptions are sizes that belong to one control and are meaningless elsewhere — a 40px transport
+    circle, a 3px active bar.
+
+    A hover-revealed action moves `Opacity`, never `IsVisible`. Every row in this app is its own Grid,
+    so a column that collapses when its content is hidden takes the row's other columns with it, and
+    the page stops lining up. The column is always there; only the ink comes and goes.
+
+    Text classes set colour and size and NOTHING about layout. A class that also set a margin would be
+    a class you cannot use in the one place the margin is wrong.
+-->
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- The window carries the body face, so every control inherits it and no view names a family. -->
+    <Style Selector="Window">
+        <Setter Property="FontFamily" Value="{DynamicResource DaFontBody}" />
+        <Setter Property="FontSize" Value="{DynamicResource DaFontSizeBody}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+    </Style>
+
+    <!-- ── Words ─────────────────────────────────────────────────────────────────────────────── -->
+
+    <Style Selector="TextBlock.display">
+        <Setter Property="FontSize" Value="{DynamicResource DaFontSizeDisplay}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="LetterSpacing" Value="-0.3" />
+        <Setter Property="LineHeight" Value="40" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+    </Style>
+
+    <Style Selector="TextBlock.h1">
+        <Setter Property="FontSize" Value="{DynamicResource DaFontSizeH1}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="LetterSpacing" Value="-0.2" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+    </Style>
+
+    <Style Selector="TextBlock.h2">
+        <Setter Property="FontSize" Value="{DynamicResource DaFontSizeH2}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+    </Style>
+
+    <Style Selector="TextBlock.h3">
+        <Setter Property="FontSize" Value="{DynamicResource DaFontSizeSubhead}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+    </Style>
+
+    <!-- The eyebrow: a label above a thing, in capitals, tracked open. The CAPITALS are in the text
+         itself rather than a transform, so a string that must not be shouted simply is not. -->
+    <Style Selector="TextBlock.eyebrow">
+        <Setter Property="FontFamily" Value="{DynamicResource DaFontMono}" />
+        <Setter Property="FontSize" Value="{DynamicResource DaFontSizeCaption}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="LetterSpacing" Value="{DynamicResource DaEyebrowTracking}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextDimmedBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Figures: a timecode, a bitrate, a count. Fixed pitch so a column of them does not jitter as
+         the digits change, which is the whole reason a playhead is set in mono. -->
+    <Style Selector="TextBlock.mono">
+        <Setter Property="FontFamily" Value="{DynamicResource DaFontMono}" />
+    </Style>
+
+    <Style Selector="TextBlock.secondary">
+        <Setter Property="Foreground" Value="{DynamicResource DaTextSecondaryBrush}" />
+    </Style>
+
+    <Style Selector="TextBlock.dimmed">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextDimmedBrush}" />
+    </Style>
+
+    <!-- ── Buttons ───────────────────────────────────────────────────────────────────────────── -->
+
+    <Style Selector="Button">
+        <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
+    </Style>
+
+    <Style Selector="Button.primary">
+        <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="16,7" />
+    </Style>
+    <Style Selector="Button.primary /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+        <Setter Property="Opacity" Value="0.85" />
+    </Style>
+
+    <Style Selector="Button.ghost">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextSecondaryBrush}" />
+        <Setter Property="Padding" Value="12,5" />
+    </Style>
+    <Style Selector="Button.ghost /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderBrush}" />
+    </Style>
+    <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderStrongBrush}" />
+    </Style>
+
+    <!-- An armed Stop. The station goes off air and there is no undo, so the second press is asked
+         for in the tally colour rather than only in the word. -->
+    <Style Selector="Button.ghost.armed">
+        <Setter Property="Foreground" Value="{DynamicResource DaToneLiveBrush}" />
+    </Style>
+    <Style Selector="Button.ghost.armed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="BorderBrush" Value="{DynamicResource DaToneLiveBrush}" />
+    </Style>
+
+    <Style Selector="Button.icon">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextDimmedBrush}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.icon /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+    </Style>
+    <Style Selector="Button.icon.small">
+        <Setter Property="Width" Value="26" />
+        <Setter Property="Height" Value="26" />
+    </Style>
+
+    <!-- The one Listen/Stop. A filled circle, as every player has, and the only control on the bar
+         that carries the accent. -->
+    <Style Selector="Button.play">
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.play /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+        <Setter Property="CornerRadius" Value="20" />
+    </Style>
+    <Style Selector="Button.play:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaAccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaOnAccentBrush}" />
+        <Setter Property="Opacity" Value="0.85" />
+    </Style>
+
+    <!-- Which tab you are on. Without this every tab looks the same and the page is a list with no
+         address: Voice fixed it locally, Library never did, and this is that fix for both. -->
+    <Style Selector="Button.tab">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextSecondaryBrush}" />
+        <Setter Property="Padding" Value="12,5" />
+    </Style>
+    <Style Selector="Button.tab /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderBrush}" />
+    </Style>
+    <Style Selector="Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderStrongBrush}" />
+    </Style>
+    <Style Selector="Button.tab.active">
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+    </Style>
+    <Style Selector="Button.tab.active /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaAccentBrush}" />
+    </Style>
+
+    <!-- A rail entry. The label is the only thing that dims when it is not current; the icon takes
+         its colour from the same `Foreground`, so the two can never disagree. -->
+    <Style Selector="Button.nav">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextSecondaryBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Padding" Value="10,0,12,0" />
+        <Setter Property="Height" Value="34" />
+    </Style>
+    <Style Selector="Button.nav /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+    </Style>
+    <Style Selector="Button.nav.active">
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.nav.active /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+    </Style>
+
+    <!-- ── Surfaces ──────────────────────────────────────────────────────────────────────────── -->
+
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource DaPanelBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
+        <Setter Property="Padding" Value="{DynamicResource DaSpace5}" />
+    </Style>
+
+    <Style Selector="Border.pill">
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Artwork. Square, clipped, and never rounded: see `DaCornerNone` in Tokens. -->
+    <Style Selector="Border.art">
+        <Setter Property="CornerRadius" Value="{DynamicResource DaCornerNone}" />
+        <Setter Property="ClipToBounds" Value="True" />
+        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+    </Style>
+
+    <!-- ── Rows ──────────────────────────────────────────────────────────────────────────────── -->
+
+    <Style Selector="ListBox.rows">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.rows ListBoxItem">
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
+    </Style>
+    <Style Selector="ListBox.rows ListBoxItem /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
+    </Style>
+    <Style Selector="ListBox.rows ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+    </Style>
+    <!-- These lists are read, not chosen from. A selection highlight would say the row you last
+         clicked is still doing something. -->
+    <Style Selector="ListBox.rows ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.rows ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
+    </Style>
+
+    <!-- The action a row carries. Opacity rather than visibility, so the column keeps its width and
+         the rows above and below do not move when the pointer arrives. -->
+    <Style Selector="Button.reveal">
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+            </Transitions>
+        </Setter>
+    </Style>
+    <Style Selector="ListBoxItem:pointerover Button.reveal">
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="Button.reveal:focus">
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <!-- ── The lamp ──────────────────────────────────────────────────────────────────────────── -->
+
+    <!-- It pulses only when something is genuinely live. A lamp that always breathes is decoration,
+         and then the one that means ON AIR says nothing. -->
+    <Style Selector="Ellipse.lamp.live">
+        <Style.Animations>
+            <Animation Duration="0:0:2" IterationCount="Infinite">
+                <KeyFrame Cue="0%">
+                    <Setter Property="Opacity" Value="1" />
+                </KeyFrame>
+                <KeyFrame Cue="50%">
+                    <Setter Property="Opacity" Value="0.55" />
+                </KeyFrame>
+                <KeyFrame Cue="100%">
+                    <Setter Property="Opacity" Value="1" />
+                </KeyFrame>
+            </Animation>
+        </Style.Animations>
+    </Style>
+
+    <!-- ── Inputs ────────────────────────────────────────────────────────────────────────────── -->
+
+    <Style Selector="TextBox">
+        <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
+    </Style>
+
+    <Style Selector="PathIcon">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+    </Style>
+
+</Styles>

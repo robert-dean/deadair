@@ -23,7 +23,7 @@
         <StackPanel Spacing="8" IsVisible="{Binding NeedsCode}">
             <TextBlock Text="Enter the code from your authenticator." FontSize="12" TextWrapping="Wrap"
                        Foreground="{DynamicResource DaTextSecondaryBrush}" />
-            <TextBox Text="{Binding Code}" PlaceholderText="000000" FontFamily="monospace"
+            <TextBox Text="{Binding Code}" PlaceholderText="000000" FontFamily="{DynamicResource DaFontMono}"
                      MaxLength="6" IsEnabled="{Binding !Busy}" />
         </StackPanel>
 

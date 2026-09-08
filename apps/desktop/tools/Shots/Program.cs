@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using MaroonedSoftware.Deadair.Desktop;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
@@ -20,16 +21,19 @@ namespace Shots;
 // Not a test. It asserts nothing and cannot fail meaningfully — a layout is judged by looking at it,
 // which is exactly the thing an assertion cannot do.
 //
-//     dotnet run --project apps/desktop/tools/Shots -- artifacts/shots [theme]
+//     dotnet run --project apps/desktop/tools/Shots -- artifacts/shots [light|dark]
 internal static class Program
 {
     [STAThread]
     public static void Main(string[] args)
     {
         var into = args.Length > 0 ? args[0] : "artifacts/shots";
-        var theme = args.Length > 1 && Enum.TryParse<ThemeId>(args[1], ignoreCase: true, out var parsed)
+        // `Default` follows the host, which headless does not have, so a shot names its appearance
+        // rather than inheriting one. Without this every frame renders light and the dark half of
+        // the app goes unlooked-at.
+        var appearance = args.Length > 1 && Enum.TryParse<Appearance>(args[1], ignoreCase: true, out var parsed)
             ? parsed
-            : ThemeId.Carbon;
+            : Appearance.Dark;
 
         Directory.CreateDirectory(into);
 
@@ -41,20 +45,22 @@ internal static class Program
                 // what a screen would show.
                 UseHeadlessDrawing = false,
             })
-            .AfterSetup(_ => Render(into, theme))
+            .AfterSetup(_ => Render(into, appearance))
             .SetupWithoutStarting();
     }
 
-    private static void Render(string into, ThemeId theme)
+    private static void Render(string into, Appearance appearance)
     {
         if (Application.Current is { } application)
         {
-            application.RequestedThemeVariant = ConsoleThemes.For(theme);
+            application.RequestedThemeVariant = appearance is Appearance.Light
+                ? ThemeVariant.Light
+                : ThemeVariant.Dark;
         }
 
         foreach (var (name, page) in Pages.All())
         {
-            Save(Path.Combine(into, $"{name}-{theme.ToString().ToLowerInvariant()}.png"), page);
+            Save(Path.Combine(into, $"{name}-{appearance.ToString().ToLowerInvariant()}.png"), page);
         }
     }
 

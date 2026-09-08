@@ -24,7 +24,7 @@
                             <!-- The active bar, which is the one place the accent marks position
                                  rather than decorating. -->
                             <Rectangle Width="3" RadiusX="2" RadiusY="2"
-                                       Fill="{DynamicResource DaPhosphorBrush}"
+                                       Fill="{DynamicResource DaAccentBrush}"
                                        IsVisible="{Binding IsCurrent}" />
                             <TextBlock Grid.Column="1" Text="{Binding Label}" VerticalAlignment="Center"
                                        Foreground="{DynamicResource DaTextBrush}" />

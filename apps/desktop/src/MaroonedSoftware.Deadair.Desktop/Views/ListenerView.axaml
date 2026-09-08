@@ -43,15 +43,15 @@
 
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
                     <Grid ColumnDefinitions="Auto,*,Auto">
-                        <TextBlock Text="{Binding Elapsed}" FontFamily="monospace" FontSize="12"
+                        <TextBlock Classes="mono" Text="{Binding Elapsed}" FontSize="12"
                                    Foreground="{DynamicResource DaTextDimmedBrush}" />
-                        <TextBlock Grid.Column="2" Text="{Binding Remaining}" FontFamily="monospace" FontSize="12"
+                        <TextBlock Classes="mono" Grid.Column="2" Text="{Binding Remaining}" FontSize="12"
                                    Foreground="{DynamicResource DaTextDimmedBrush}" />
                     </Grid>
                     <!-- Sits at zero when the station could not say where the record is up to, rather
                          than guessing from when it started. -->
                     <ProgressBar Minimum="0" Maximum="{Binding Duration}" Value="{Binding Position}"
-                                 Height="4" Foreground="{DynamicResource DaPhosphorBrush}"
+                                 Height="4" Foreground="{DynamicResource DaAccentBrush}"
                                  Background="{DynamicResource DaBorderBrush}" />
                 </StackPanel>
 

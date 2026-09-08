@@ -4,7 +4,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 namespace MaroonedSoftware.Deadair.Desktop.Themes;
 
 /// <summary>
-/// Which console this console is, applied and remembered for the run.
+/// Whether this install follows the system, and applying that choice.
 /// </summary>
 /// <remarks>
 /// An object rather than a static, because the choice is restored at startup, changed from a page and
@@ -13,15 +13,15 @@ namespace MaroonedSoftware.Deadair.Desktop.Themes;
 /// </remarks>
 public sealed class ThemeManager
 {
-    public ThemeId Current { get; private set; } = ThemeId.Carbon;
+    public Appearance Current { get; private set; } = Appearance.System;
 
-    public void Apply(ThemeId theme)
+    public void Apply(Appearance appearance)
     {
-        Current = theme;
+        Current = appearance;
 
         if (Application.Current is { } application)
         {
-            application.RequestedThemeVariant = ConsoleThemes.For(theme);
+            application.RequestedThemeVariant = AppearanceVariants.For(appearance);
         }
     }
 }

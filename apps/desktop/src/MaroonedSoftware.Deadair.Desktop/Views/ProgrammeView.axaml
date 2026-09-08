@@ -33,7 +33,7 @@
                     <Grid ColumnDefinitions="120,110,*" ColumnSpacing="12" Margin="0,4">
                         <TextBlock Text="{Binding Days}" FontSize="12" VerticalAlignment="Center"
                                    Foreground="{DynamicResource DaTextDimmedBrush}" />
-                        <TextBlock Grid.Column="1" Text="{Binding Window}" FontFamily="monospace" FontSize="12"
+                        <TextBlock Classes="mono" Grid.Column="1" Text="{Binding Window}" FontSize="12"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource DaTextSecondaryBrush}" />
                         <StackPanel Grid.Column="2" Spacing="2">

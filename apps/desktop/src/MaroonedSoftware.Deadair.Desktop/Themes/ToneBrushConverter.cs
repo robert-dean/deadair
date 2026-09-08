@@ -108,9 +108,9 @@ public sealed class SeverityBrushConverter : IValueConverter
         var key = value is Severity severity
             ? severity switch
             {
-                Severity.Failure => "DaToneLiveBrush",
-                Severity.Warning => "DaToneFaultBrush",
-                _ => "DaToneStandbyBrush",
+                Severity.Failure => "DaSeverityFailureBrush",
+                Severity.Warning => "DaSeverityWarningBrush",
+                _ => "DaSeverityNoticeBrush",
             }
             : "DaTextDimmedBrush";
 

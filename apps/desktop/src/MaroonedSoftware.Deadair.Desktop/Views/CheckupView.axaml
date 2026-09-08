@@ -80,7 +80,7 @@
                             <Grid ColumnDefinitions="Auto,64,80,*" ColumnSpacing="8" Margin="0,2">
                                 <Ellipse Width="6" Height="6" VerticalAlignment="Center"
                                          Fill="{Binding Severity, Converter={x:Static conv:SeverityBrushConverter.Instance}}" />
-                                <TextBlock Grid.Column="1" Text="{Binding When}" FontFamily="monospace" FontSize="11"
+                                <TextBlock Classes="mono" Grid.Column="1" Text="{Binding When}" FontSize="11"
                                            Foreground="{DynamicResource DaTextDimmedBrush}" />
                                 <TextBlock Grid.Column="2" Text="{Binding Module}" FontSize="11"
                                            TextTrimming="CharacterEllipsis"

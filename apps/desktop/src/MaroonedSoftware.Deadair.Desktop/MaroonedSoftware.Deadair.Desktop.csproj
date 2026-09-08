@@ -9,6 +9,13 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!-- Avalonia's own targets add the XAML and the application icon, and nothing else, so the
+             fonts and the icon licence are invisible to `avares://` without this. A missing entry
+             here does not fail the build: the font silently falls back to the system face. -->
+        <AvaloniaResource Include="Assets/**" />
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Avalonia" />
         <PackageReference Include="Avalonia.Desktop" />
         <PackageReference Include="Avalonia.Themes.Fluent" />

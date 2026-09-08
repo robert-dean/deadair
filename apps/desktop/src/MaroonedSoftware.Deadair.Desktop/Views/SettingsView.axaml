@@ -2,7 +2,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:MaroonedSoftware.Deadair.Desktop.ViewModels"
-    xmlns:themes="using:MaroonedSoftware.Deadair.Desktop.Themes"
+    xmlns:conv="using:MaroonedSoftware.Deadair.Desktop.Themes"
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsView"
     x:DataType="vm:SettingsViewModel">
 
@@ -22,27 +22,20 @@
         <ScrollViewer>
             <StackPanel Spacing="22">
 
-                <!-- Appearance is this install's own and never leaves it, which is why it sits above
-                     the station's settings rather than among them. -->
+                <!-- Appearance is this install's own and never leaves it, which is why it sits
+                     above the station's settings rather than among them, and why it needs no Save.
+                     Phase 8 makes this a segmented control; the three values are the whole choice. -->
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Appearance" FontWeight="SemiBold"
-                               Foreground="{DynamicResource DaTextBrush}" />
-                    <ItemsControl ItemsSource="{Binding Themes}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="themes:ThemeChoice">
-                                <RadioButton GroupName="theme" Margin="0,3"
-                                             IsChecked="{Binding IsChosen}"
-                                             Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).ChooseThemeCommand}"
-                                             CommandParameter="{Binding}">
-                                    <StackPanel Spacing="2">
-                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource DaTextBrush}" />
-                                        <TextBlock Text="{Binding Blurb}" FontSize="11"
-                                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
-                                    </StackPanel>
-                                </RadioButton>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <TextBlock Classes="h3" Text="This app" />
+                    <TextBlock Classes="dimmed" Text="Appearance" />
+                    <RadioButton GroupName="appearance" Content="System"
+                                 IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.System}}" />
+                    <RadioButton GroupName="appearance" Content="Light"
+                                 IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.Light}}" />
+                    <RadioButton GroupName="appearance" Content="Dark"
+                                 IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.Dark}}" />
+                    <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                               Text="Follows macOS unless you choose one." />
                 </StackPanel>
 
                 <!-- Everything below is drawn from what the station declares, so a setting added

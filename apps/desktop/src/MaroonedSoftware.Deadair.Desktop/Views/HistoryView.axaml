@@ -21,7 +21,7 @@
             <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:HistoryRowViewModel">
                     <Grid ColumnDefinitions="60,*,220" ColumnSpacing="12" Margin="0,3">
-                        <TextBlock Text="{Binding When}" FontFamily="monospace" FontSize="12"
+                        <TextBlock Classes="mono" Text="{Binding When}" FontSize="12"
                                    Foreground="{DynamicResource DaTextDimmedBrush}" />
                         <TextBlock Grid.Column="1" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
                                    Foreground="{DynamicResource DaTextBrush}" />

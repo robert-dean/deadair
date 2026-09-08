@@ -10,24 +10,6 @@
         <conv:ToneBrushConverter x:Key="ToneBrush" />
     </UserControl.Resources>
 
-    <UserControl.Styles>
-        <!-- Which tab you are on. Without this every tab looks the same and the page is a list with
-             no address: the four buttons were indistinguishable and nothing said which had been
-             pressed. -->
-        <Style Selector="Button.tab">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="{DynamicResource DaBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="{DynamicResource DaTextSecondaryBrush}" />
-            <Setter Property="Padding" Value="12,5" />
-        </Style>
-        <Style Selector="Button.tab.active">
-            <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource DaPhosphorBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
-        </Style>
-    </UserControl.Styles>
-
     <DockPanel Margin="24" LastChildFill="True" MaxWidth="980" HorizontalAlignment="Left">
 
         <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,14">
@@ -86,7 +68,7 @@
                         <Grid ColumnDefinitions="Auto,54,90,*" ColumnSpacing="10" Margin="0,4">
                             <Ellipse Width="6" Height="6" VerticalAlignment="Top" Margin="0,6,0,0"
                                      Fill="{Binding Tone, Converter={StaticResource ToneBrush}}" />
-                            <TextBlock Grid.Column="1" Text="{Binding When}" FontFamily="monospace" FontSize="11"
+                            <TextBlock Classes="mono" Grid.Column="1" Text="{Binding When}" FontSize="11"
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />
                             <TextBlock Grid.Column="2" Text="{Binding Kind}" FontSize="11"
                                        TextTrimming="CharacterEllipsis"

@@ -50,9 +50,9 @@
                                        Foreground="{DynamicResource DaTextBrush}" />
                             <TextBlock Grid.Column="1" Text="{Binding Artists}" TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource DaTextSecondaryBrush}" />
-                            <TextBlock Grid.Column="2" Text="{Binding Year}" FontFamily="monospace" FontSize="11"
+                            <TextBlock Classes="mono" Grid.Column="2" Text="{Binding Year}" FontSize="11"
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />
-                            <TextBlock Grid.Column="3" Text="{Binding Length}" FontFamily="monospace" FontSize="11"
+                            <TextBlock Classes="mono" Grid.Column="3" Text="{Binding Length}" FontSize="11"
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />
                         </Grid>
                     </DataTemplate>

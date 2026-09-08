@@ -1,10 +1,24 @@
 <!--
-    The console's surfaces, one set per theme.
+    The app's surfaces, in the two the operating system has.
 
-    Ported hex for hex from `apps/web/src/tokens.css` and the ramps in `apps/web/src/themes.ts`, so
-    the desktop and the browser are recognisably the same desk. Two rules carried over with them:
+    ## Why there are two and not three
 
-    A value that differs between themes lives in a token rather than inside the rule that uses it. A
+    This app used to carry the web console's three consoles — Carbon, Studio White, Neon — ported hex
+    for hex. They were the wrong thing to port. A console is a page the operator chooses to open and
+    dresses to taste; this app is also a LISTENER, and a listener who has told macOS they want light
+    has already answered the only appearance question worth asking them. So the variants here are the
+    built-in `Light` and `Dark`, the application asks for `ThemeVariant.Default`, and the system
+    decides. Settings offers System, Light and Dark and nothing else. The three consoles are still
+    the web console's own and nothing in `apps/web` changed.
+
+    Two consequences that are easy to get wrong. Keys are the BUILT-IN variants, so they are written
+    plainly rather than as `{x:Static}` — that rule applied to custom variants, which these are not.
+    And dark is not light inverted: the status hues are re-picked rather than reused, because a green
+    that reads as an instrument on black reads as highlighter on white. Dark's surfaces are the old
+    Carbon ones unchanged; light is a neutral near-white with the status hues taken from the old
+    Studio White, which were the ones measured against a light ground.
+
+    A value that differs between the two lives in a token rather than inside the rule that uses it. A
     colour written into a control template cannot be overridden by a theme without restating the whole
     template, which is how the web console ended up with two of them.
 
@@ -13,12 +27,10 @@
 -->
 <ResourceDictionary
     xmlns="https://github.com/avaloniaui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:themes="using:MaroonedSoftware.Deadair.Desktop.Themes">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ResourceDictionary.ThemeDictionaries>
 
-        <!-- Carbon: the studio at night, and what an install with no preference gets. -->
-        <ResourceDictionary x:Key="{x:Static themes:ConsoleThemes.Carbon}">
+        <ResourceDictionary x:Key="Dark">
             <Color x:Key="DaBg">#0c0e0d</Color>
             <Color x:Key="DaPanel">#121514</Color>
             <Color x:Key="DaRaised">#191d1b</Color>
@@ -28,8 +40,9 @@
             <Color x:Key="DaTextSecondary">#a7b2ac</Color>
             <!-- #6e7a74 measured 4.33:1 on the desk, under the 4.5 floor for text below 18px. -->
             <Color x:Key="DaTextDimmed">#75817b</Color>
-            <Color x:Key="DaPhosphor">#2fd98c</Color>
-            <Color x:Key="DaBgGlow">#10130f</Color>
+            <Color x:Key="DaAccent">#2fd98c</Color>
+            <!-- What sits ON the accent. Dark's accent is bright, so its ink is the desk itself. -->
+            <Color x:Key="DaOnAccent">#0c0e0d</Color>
 
             <Color x:Key="DaToneLive">#ff4b4b</Color>
             <Color x:Key="DaToneOk">#2fd98c</Color>
@@ -41,79 +54,44 @@
             <Color x:Key="DaSeverityWarning">#ffb224</Color>
             <Color x:Key="DaSeverityNotice">#4c8dff</Color>
 
-            <x:Double x:Key="DaCornerRadius">3</x:Double>
-            <x:Double x:Key="DaHeadingTracking">0.06</x:Double>
+            <BoxShadows x:Key="DaHeroShadow">0 16 48 0 #8C000000</BoxShadows>
         </ResourceDictionary>
 
-        <!-- Studio White. NOT carbon inverted: every hue is darker than its counterpart, because
-             contrast on paper runs the other way. The tally stays red, because it is the one colour
+        <!-- Neutral near-white rather than paper. The tally stays red, because it is the one colour
              here that means the same thing in every room. -->
-        <ResourceDictionary x:Key="{x:Static themes:ConsoleThemes.White}">
-            <Color x:Key="DaBg">#f4f1ea</Color>
-            <Color x:Key="DaPanel">#fbf9f4</Color>
-            <Color x:Key="DaRaised">#ffffff</Color>
-            <Color x:Key="DaBorder">#ddd6c8</Color>
-            <Color x:Key="DaBorderStrong">#c3b9a5</Color>
-            <Color x:Key="DaText">#221f1a</Color>
-            <Color x:Key="DaTextSecondary">#56504a</Color>
-            <!-- #6b6257, darkened for AA contrast on paper. -->
-            <Color x:Key="DaTextDimmed">#6b6257</Color>
-            <Color x:Key="DaPhosphor">#0e7247</Color>
-            <Color x:Key="DaBgGlow">#fbf9f4</Color>
+        <ResourceDictionary x:Key="Light">
+            <Color x:Key="DaBg">#f5f5f4</Color>
+            <Color x:Key="DaPanel">#ffffff</Color>
+            <Color x:Key="DaRaised">#ececea</Color>
+            <Color x:Key="DaBorder">#e2e2e0</Color>
+            <Color x:Key="DaBorderStrong">#c9c9c6</Color>
+            <Color x:Key="DaText">#1a1a1a</Color>
+            <Color x:Key="DaTextSecondary">#55565a</Color>
+            <!-- 4.9:1 on the panel and 4.7:1 on the desk, which is the floor for text below 18px. -->
+            <Color x:Key="DaTextDimmed">#6e7075</Color>
+            <Color x:Key="DaAccent">#0e7247</Color>
+            <Color x:Key="DaOnAccent">#ffffff</Color>
 
             <Color x:Key="DaToneLive">#c81f22</Color>
             <Color x:Key="DaToneOk">#0e7247</Color>
             <Color x:Key="DaToneStandby">#1a5cba</Color>
             <Color x:Key="DaToneFault">#97640a</Color>
-            <Color x:Key="DaToneOff">#6b6257</Color>
+            <Color x:Key="DaToneOff">#6e7075</Color>
 
             <Color x:Key="DaSeverityFailure">#c81f22</Color>
             <Color x:Key="DaSeverityWarning">#97640a</Color>
             <Color x:Key="DaSeverityNotice">#1a5cba</Color>
 
-            <!-- Rules instead of fills: 2px is barely a corner, which is what stops a page of white
-                 cards on a white desk reading as a pile of pills. -->
-            <x:Double x:Key="DaCornerRadius">2</x:Double>
-            <x:Double x:Key="DaHeadingTracking">0</x:Double>
-        </ResourceDictionary>
-
-        <!-- Neon Transmitter. The accent is yellow and the status ramps rotate to make room: a theme
-             with a yellow accent and a yellow warning draws "running" and "broken" in one colour. -->
-        <ResourceDictionary x:Key="{x:Static themes:ConsoleThemes.Neon}">
-            <Color x:Key="DaBg">#060a0c</Color>
-            <Color x:Key="DaPanel">#0d1316</Color>
-            <Color x:Key="DaRaised">#141c20</Color>
-            <Color x:Key="DaBorder">#20282c</Color>
-            <Color x:Key="DaBorderStrong">#333c41</Color>
-            <Color x:Key="DaText">#eafcff</Color>
-            <Color x:Key="DaTextSecondary">#a3c2cc</Color>
-            <Color x:Key="DaTextDimmed">#7d8b90</Color>
-            <Color x:Key="DaPhosphor">#fcee0a</Color>
-            <Color x:Key="DaBgGlow">#0d1316</Color>
-
-            <Color x:Key="DaToneLive">#ff1e46</Color>
-            <!-- Not the accent: "running" and the thing you selected must not be one colour. -->
-            <Color x:Key="DaToneOk">#05deff</Color>
-            <Color x:Key="DaToneStandby">#66edff</Color>
-            <Color x:Key="DaToneFault">#ff8f00</Color>
-            <Color x:Key="DaToneOff">#7d8b90</Color>
-
-            <Color x:Key="DaSeverityFailure">#ff1e46</Color>
-            <Color x:Key="DaSeverityWarning">#ff8f00</Color>
-            <Color x:Key="DaSeverityNotice">#05deff</Color>
-
-            <x:Double x:Key="DaCornerRadius">2</x:Double>
-            <!-- The only console that stencils. This is what stops capitals at heading size closing
-                 up into a block. -->
-            <x:Double x:Key="DaHeadingTracking">0.12</x:Double>
+            <BoxShadows x:Key="DaHeroShadow">0 12 32 0 #2E000000</BoxShadows>
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>
 
     <!--
         The brushes every control actually binds to, defined ONCE over the colours above rather than
-        restated per theme. A `DynamicResource` colour re-resolves when the variant changes, so
-        switching theme moves these with it and there is only one place a hex can drift out of step.
+        restated per variant. A `DynamicResource` colour re-resolves when the variant changes, so a
+        system appearance change moves these with it and there is only one place a hex can drift out
+        of step.
     -->
     <SolidColorBrush x:Key="DaBgBrush" Color="{DynamicResource DaBg}" />
     <SolidColorBrush x:Key="DaPanelBrush" Color="{DynamicResource DaPanel}" />
@@ -123,7 +101,8 @@
     <SolidColorBrush x:Key="DaTextBrush" Color="{DynamicResource DaText}" />
     <SolidColorBrush x:Key="DaTextSecondaryBrush" Color="{DynamicResource DaTextSecondary}" />
     <SolidColorBrush x:Key="DaTextDimmedBrush" Color="{DynamicResource DaTextDimmed}" />
-    <SolidColorBrush x:Key="DaPhosphorBrush" Color="{DynamicResource DaPhosphor}" />
+    <SolidColorBrush x:Key="DaAccentBrush" Color="{DynamicResource DaAccent}" />
+    <SolidColorBrush x:Key="DaOnAccentBrush" Color="{DynamicResource DaOnAccent}" />
 
     <SolidColorBrush x:Key="DaToneLiveBrush" Color="{DynamicResource DaToneLive}" />
     <SolidColorBrush x:Key="DaToneOkBrush" Color="{DynamicResource DaToneOk}" />
@@ -131,5 +110,49 @@
     <SolidColorBrush x:Key="DaToneFaultBrush" Color="{DynamicResource DaToneFault}" />
     <SolidColorBrush x:Key="DaToneOffBrush" Color="{DynamicResource DaToneOff}" />
 
-    <CornerRadius x:Key="DaCorner">3</CornerRadius>
+    <SolidColorBrush x:Key="DaSeverityFailureBrush" Color="{DynamicResource DaSeverityFailure}" />
+    <SolidColorBrush x:Key="DaSeverityWarningBrush" Color="{DynamicResource DaSeverityWarning}" />
+    <SolidColorBrush x:Key="DaSeverityNoticeBrush" Color="{DynamicResource DaSeverityNotice}" />
+
+    <!--
+        Everything below is the same in both appearances. Type, space and corners are a shape rather
+        than a mood: it is the COLOURS that a room changes.
+
+        The `#` names the family INSIDE the file, which is not the file's name. Plex Sans carries a
+        typographic family on its Medium and SemiBold cuts, so all four weights answer to one family
+        name and `FontWeight` picks between them; see `Assets/Fonts/LICENSE.md` for how that was read
+        and for the one cut where it is not true.
+    -->
+    <FontFamily x:Key="DaFontBody">avares://deadair/Assets/Fonts#IBM Plex Sans</FontFamily>
+    <FontFamily x:Key="DaFontMono">avares://deadair/Assets/Fonts#IBM Plex Mono</FontFamily>
+
+    <CornerRadius x:Key="DaCorner">6</CornerRadius>
+    <!-- Artwork is square in every size, which is the one shape decision taken from a competitor
+         rather than from this tree: a rounded cover is a product's frame around somebody else's
+         picture. -->
+    <CornerRadius x:Key="DaCornerNone">0</CornerRadius>
+
+    <x:Double x:Key="DaSpace1">2</x:Double>
+    <x:Double x:Key="DaSpace2">4</x:Double>
+    <x:Double x:Key="DaSpace3">8</x:Double>
+    <x:Double x:Key="DaSpace4">12</x:Double>
+    <x:Double x:Key="DaSpace5">16</x:Double>
+    <x:Double x:Key="DaSpace6">22</x:Double>
+    <x:Double x:Key="DaSpace7">30</x:Double>
+    <Thickness x:Key="DaPageGutter">28</Thickness>
+
+    <x:Double x:Key="DaFontSizeCaption">11</x:Double>
+    <x:Double x:Key="DaFontSizeBody">13</x:Double>
+    <x:Double x:Key="DaFontSizeSubhead">15</x:Double>
+    <x:Double x:Key="DaFontSizeH3">17</x:Double>
+    <x:Double x:Key="DaFontSizeH2">20</x:Double>
+    <x:Double x:Key="DaFontSizeH1">26</x:Double>
+    <x:Double x:Key="DaFontSizeDisplay">34</x:Double>
+
+    <!-- An eyebrow is capitals at caption size, which close up without this. -->
+    <x:Double x:Key="DaEyebrowTracking">1</x:Double>
+
+    <!-- There is no duration token: XAML has no `TimeSpan` intrinsic, and a `Transition`'s Duration
+         cannot take a DynamicResource anyway. The one animation length in this app is written where
+         it runs, in `Styles.axaml`. A token nothing can reach is the kind this file just deleted. -->
 </ResourceDictionary>

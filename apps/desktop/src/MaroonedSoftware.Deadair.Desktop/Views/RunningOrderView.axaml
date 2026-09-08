@@ -63,7 +63,7 @@
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />
                         </StackPanel>
 
-                        <TextBlock Grid.Column="2" Text="{Binding Length}" FontFamily="monospace" FontSize="11"
+                        <TextBlock Classes="mono" Grid.Column="2" Text="{Binding Length}" FontSize="11"
                                    VerticalAlignment="Center" HorizontalAlignment="Right"
                                    Foreground="{DynamicResource DaTextDimmedBrush}" />
 

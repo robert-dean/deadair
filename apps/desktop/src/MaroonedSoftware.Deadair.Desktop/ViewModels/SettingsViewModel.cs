@@ -38,13 +38,14 @@ public sealed partial class SettingsViewModel(
 
     public ObservableCollection<SettingGroupViewModel> Groups { get; } = [];
 
+    /// <summary>What this install looks like: the system's choice, or one made here.</summary>
     /// <remarks>
-    /// An instance property because XAML binds to one, and it reads the static list rather than
-    /// copying it: the three themes are the same three for every window.
+    /// Applied at once and remembered, because an appearance somebody has to press Save to see is an
+    /// appearance they cannot judge. Save is for the STATION's settings; this one is local and never
+    /// leaves the machine.
     /// </remarks>
-#pragma warning disable CA1822 // Instance so that a view can bind to it.
-    public IReadOnlyList<ThemeChoice> Themes => ConsoleThemes.All;
-#pragma warning restore CA1822
+    [ObservableProperty]
+    private Appearance _appearance = Appearance.System;
 
     [ObservableProperty]
     private bool _busy;
@@ -55,30 +56,13 @@ public sealed partial class SettingsViewModel(
     public void Attach(StationUrl station)
     {
         _station = station;
-        MarkChosen(settings.Current.Theme);
+        Appearance = settings.Current.Appearance;
     }
 
-    /// <remarks>
-    /// Applied at once and remembered, because a theme somebody has to press Save to see is a theme
-    /// they cannot judge.
-    /// </remarks>
-    [RelayCommand]
-    private async Task ChooseThemeAsync(ThemeChoice choice)
+    partial void OnAppearanceChanged(Appearance value)
     {
-        ArgumentNullException.ThrowIfNull(choice);
-
-        themes.Apply(choice.Id);
-        MarkChosen(choice.Id);
-
-        await settings.SaveAsync(settings.Current with { Theme = choice.Id }).ConfigureAwait(true);
-    }
-
-    private static void MarkChosen(ThemeId chosen)
-    {
-        foreach (var choice in ConsoleThemes.All)
-        {
-            choice.IsChosen = choice.Id == chosen;
-        }
+        themes.Apply(value);
+        _ = settings.SaveAsync(settings.Current with { Appearance = value });
     }
 
     [RelayCommand]

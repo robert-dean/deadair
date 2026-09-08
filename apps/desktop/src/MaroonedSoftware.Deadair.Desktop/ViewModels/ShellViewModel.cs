@@ -136,8 +136,10 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         await _settings.LoadAsync().ConfigureAwait(true);
 
-        // Before anything is drawn, so the window does not open in carbon and then repaint.
-        _themes.Apply(_settings.Current.Theme);
+        // Before anything is drawn, so the window does not open in the wrong appearance and then
+        // repaint. Applying System is applying nothing, which is what makes the system's own choice
+        // land on the first frame.
+        _themes.Apply(_settings.Current.Appearance);
 
         if (StationUrl.TryParse(_settings.Current.Station, out var station))
         {

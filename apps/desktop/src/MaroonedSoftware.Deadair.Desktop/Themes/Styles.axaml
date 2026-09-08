@@ -229,6 +229,42 @@
         <Setter Property="Background" Value="{DynamicResource DaRaisedBrush}" />
     </Style>
 
+    <!-- One of a small set of choices, drawn as a strip rather than a column of radio buttons: the
+         choices here are three appearances and five formats, and a stack of dots reads as a form to
+         fill in rather than a switch to flick. -->
+    <Style Selector="RadioButton.segment">
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="CornerRadius" Value="{DynamicResource DaCorner}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextSecondaryBrush}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border x:Name="Face" Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      VerticalAlignment="Center" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="RadioButton.segment:pointerover">
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+    </Style>
+    <Style Selector="RadioButton.segment:checked">
+        <Setter Property="Background" Value="{DynamicResource DaPanelBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DaTextBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DaBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="RadioButton.segment:disabled">
+        <Setter Property="Opacity" Value="0.4" />
+    </Style>
+
     <!-- ── Surfaces ──────────────────────────────────────────────────────────────────────────── -->
 
     <Style Selector="Border.card">

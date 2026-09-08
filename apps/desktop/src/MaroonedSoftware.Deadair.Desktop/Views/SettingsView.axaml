@@ -6,52 +6,111 @@
     x:Class="MaroonedSoftware.Deadair.Desktop.Views.SettingsView"
     x:DataType="vm:SettingsViewModel">
 
-    <DockPanel Margin="24" LastChildFill="True">
+    <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True">
 
         <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,14">
-            <TextBlock Text="Settings" FontSize="20" FontWeight="SemiBold"
-                       Foreground="{DynamicResource DaTextBrush}" />
-            <TextBlock Text="{Binding Notice}" FontSize="12"
-                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}"
-                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+            <TextBlock Classes="h1" Text="Settings" />
+            <TextBlock Classes="dimmed" Text="{Binding Notice}"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </StackPanel>
 
-        <Button DockPanel.Dock="Bottom" Content="Save changes" HorizontalAlignment="Left" Margin="0,14,0,0"
+        <!-- Outside the scroll, because it is the station's button and a page long enough to scroll
+             is a page where it would otherwise be somewhere below the fold. Appearance and format
+             need no Save at all: they are this install's own and are kept the moment they change. -->
+        <Button DockPanel.Dock="Bottom" Classes="primary" Content="Save changes"
+                HorizontalAlignment="Left" Margin="0,16,0,0"
                 Command="{Binding SaveCommand}" IsEnabled="{Binding !Busy}" />
 
         <ScrollViewer>
             <StackPanel Spacing="22">
 
-                <!-- Appearance is this install's own and never leaves it, which is why it sits
-                     above the station's settings rather than among them, and why it needs no Save.
-                     Phase 8 makes this a segmented control; the three values are the whole choice. -->
-                <StackPanel Spacing="8">
-                    <TextBlock Classes="h3" Text="This app" />
-                    <TextBlock Classes="dimmed" Text="Appearance" />
-                    <RadioButton GroupName="appearance" Content="System"
-                                 IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.System}}" />
-                    <RadioButton GroupName="appearance" Content="Light"
-                                 IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.Light}}" />
-                    <RadioButton GroupName="appearance" Content="Dark"
-                                 IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.Dark}}" />
-                    <TextBlock Classes="dimmed" TextWrapping="Wrap"
-                               Text="Follows macOS unless you choose one." />
-                </StackPanel>
+                <!-- This install's own, and never sent anywhere: which is why it sits above the
+                     station's settings rather than among them, and why neither of these has a Save. -->
+                <Border Classes="card" MaxWidth="900" HorizontalAlignment="Stretch">
+                    <StackPanel Spacing="18">
+                        <TextBlock Classes="h3" Text="This app" />
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="dimmed" Text="Appearance" />
+                            <Border CornerRadius="{DynamicResource DaCorner}" Padding="3"
+                                    HorizontalAlignment="Left"
+                                    Background="{DynamicResource DaRaisedBrush}">
+                                <StackPanel Orientation="Horizontal" Spacing="2">
+                                    <RadioButton Classes="segment" GroupName="appearance"
+                                                 IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.System}}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconLaptop}" />
+                                            <TextBlock Text="System" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton Classes="segment" GroupName="appearance"
+                                                 IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.Light}}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconSun}" />
+                                            <TextBlock Text="Light" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton Classes="segment" GroupName="appearance"
+                                                 IsChecked="{Binding Appearance, Converter={x:Static conv:AppearanceConverter.Dark}}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <PathIcon Width="14" Height="14" Data="{DynamicResource DaIconMoon}" />
+                                            <TextBlock Text="Dark" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="Follows macOS unless you choose one." />
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Classes="dimmed" Text="Listen in" />
+                            <!-- What the station PUBLISHES, read off the last reading. A format it
+                                 is not publishing is drawn and disabled rather than hidden: a FLAC
+                                 row that vanishes tells somebody who wants FLAC nothing, and finding
+                                 out by connecting to each mount would put a silent station on air. -->
+                            <ItemsControl ItemsSource="{Binding Formats}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="8" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FormatChoiceViewModel">
+                                        <RadioButton Classes="segment" GroupName="format"
+                                                     IsEnabled="{Binding IsAvailable}"
+                                                     IsChecked="{Binding IsChosen, Mode=OneWay}"
+                                                     Command="{Binding $parent[ItemsControl].((vm:SettingsViewModel)DataContext).ChooseFormatCommand}"
+                                                     CommandParameter="{Binding}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding Label}" />
+                                                <TextBlock Classes="mono dimmed" Text="{Binding Detail}"
+                                                           FontSize="11" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </RadioButton>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="What the station is publishing. Takes effect the next time you press Listen." />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
 
                 <!-- Everything below is drawn from what the station declares, so a setting added
                      there appears here with no code. -->
                 <ItemsControl ItemsSource="{Binding Groups}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:SettingGroupViewModel">
-                            <StackPanel Spacing="8" Margin="0,0,0,18">
-                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource DaTextBrush}" />
+                            <Border Classes="card" MaxWidth="900" HorizontalAlignment="Stretch" Margin="0,0,0,16">
+                            <StackPanel Spacing="8">
+                                <TextBlock Classes="h3" Text="{Binding Name}" />
                                 <ItemsControl ItemsSource="{Binding Fields}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:SettingFieldViewModel">
                                             <StackPanel Spacing="3" Margin="0,0,0,10">
                                                 <TextBlock Text="{Binding Label}" FontSize="12"
-                                                           Foreground="{DynamicResource DaTextSecondaryBrush}" />
+                                                           Classes="secondary" />
 
                                                 <CheckBox IsChecked="{Binding Switch}" IsVisible="{Binding IsBoolean}"
                                                           Content="On" />
@@ -62,19 +121,19 @@
                                                 <!-- A secret is reported as a configured-boolean and
                                                      never as a value, so an empty box means leave it
                                                      alone rather than clear it. -->
-                                                <TextBlock Text="{Binding SecretState}" FontSize="11"
-                                                           IsVisible="{Binding IsSecret}"
-                                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                                <TextBlock Text="{Binding SecretState}" Classes="dimmed"
+                                                           FontSize="11" IsVisible="{Binding IsSecret}" />
 
-                                                <TextBlock Text="{Binding Help}" FontSize="11" TextWrapping="Wrap"
+                                                <TextBlock Text="{Binding Help}" Classes="dimmed" FontSize="11"
+                                                           TextWrapping="Wrap"
                                                            MaxWidth="560" HorizontalAlignment="Left"
-                                                           IsVisible="{Binding Help, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                                           Foreground="{DynamicResource DaTextDimmedBrush}" />
+                                                           IsVisible="{Binding Help, Converter={x:Static ObjectConverters.IsNotNull}}" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>

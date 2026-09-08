@@ -10,11 +10,11 @@
         <conv:ToneBrushConverter x:Key="ToneBrush" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24" LastChildFill="True" MaxWidth="980" HorizontalAlignment="Left">
+    <DockPanel Margin="{DynamicResource DaPageGutter}" LastChildFill="True" MaxWidth="980"
+               HorizontalAlignment="Left">
 
         <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,14">
-            <TextBlock Text="Voice" FontSize="20" FontWeight="SemiBold"
-                       Foreground="{DynamicResource DaTextBrush}" />
+            <TextBlock Classes="h1" Text="Voice" />
 
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <Button Classes="tab" Classes.active="{Binding IsCharacters}" Content="Characters"
@@ -27,15 +27,13 @@
                         Command="{Binding ShowTabCommand}" CommandParameter="Productions" />
             </StackPanel>
 
-            <TextBlock Text="{Binding Notice}" FontSize="12" TextWrapping="Wrap"
-                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}"
-                       Foreground="{DynamicResource DaTextDimmedBrush}" />
+            <TextBlock Classes="dimmed" Text="{Binding Notice}" TextWrapping="Wrap"
+                       IsVisible="{Binding Notice, Converter={x:Static ObjectConverters.IsNotNull}}" />
         </StackPanel>
 
         <Panel>
 
-            <ListBox ItemsSource="{Binding Personas}" IsVisible="{Binding IsCharacters}"
-                     Background="Transparent" BorderThickness="0">
+            <ListBox Classes="rows" ItemsSource="{Binding Personas}" IsVisible="{Binding IsCharacters}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:PersonaRowViewModel">
                         <Grid ColumnDefinitions="14,*,Auto" ColumnSpacing="10" Margin="0,7">
@@ -50,7 +48,8 @@
                                            MaxWidth="620" HorizontalAlignment="Left"
                                            Foreground="{DynamicResource DaTextDimmedBrush}" />
                             </StackPanel>
-                            <Button Grid.Column="2" Content="Put on air" FontSize="11" Padding="8,3"
+                            <Button Grid.Column="2" Classes="reveal ghost" Content="Put on air"
+                                    FontSize="11" Padding="8,3"
                                     VerticalAlignment="Top" IsVisible="{Binding !Active}"
                                     Command="{Binding $parent[ListBox].((vm:VoiceViewModel)DataContext).PutOnAirCommand}"
                                     CommandParameter="{Binding}" />
@@ -61,8 +60,7 @@
 
             <!-- One row per ATTEMPT rather than per segment: a model that declined and the floor that
                  covered for it are two facts, not one misleading one. -->
-            <ListBox ItemsSource="{Binding Scripts}" IsVisible="{Binding IsSaid}"
-                     Background="Transparent" BorderThickness="0">
+            <ListBox Classes="rows" ItemsSource="{Binding Scripts}" IsVisible="{Binding IsSaid}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:ScriptRowViewModel">
                         <Grid ColumnDefinitions="Auto,54,90,*" ColumnSpacing="10" Margin="0,4">
@@ -80,8 +78,7 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <ListBox ItemsSource="{Binding Segments}" IsVisible="{Binding IsSegments}"
-                     Background="Transparent" BorderThickness="0">
+            <ListBox Classes="rows" ItemsSource="{Binding Segments}" IsVisible="{Binding IsSegments}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:SegmentRowViewModel">
                         <Grid ColumnDefinitions="Auto,*,110,90" ColumnSpacing="10" Margin="0,4">
@@ -99,14 +96,13 @@
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <ListBox ItemsSource="{Binding Productions}" IsVisible="{Binding IsProductions}"
-                     Background="Transparent" BorderThickness="0">
+            <ListBox Classes="rows" ItemsSource="{Binding Productions}" IsVisible="{Binding IsProductions}">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:ProductionRowViewModel">
                         <!-- Fixed widths, not `Auto`. Every row is its own Grid, so an `Auto` column
                              sizes to that row alone and the columns do not line up down the list —
                              which is exactly how this looked before. -->
-                        <Grid ColumnDefinitions="380,90,110,Auto" ColumnSpacing="14" Margin="0,5">
+                        <Grid ColumnDefinitions="380,90,110,96" ColumnSpacing="14">
                             <TextBlock Text="{Binding Title}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource DaTextBrush}" />
@@ -114,7 +110,8 @@
                                        Foreground="{DynamicResource DaTextDimmedBrush}" />
                             <TextBlock Grid.Column="2" Text="{Binding State}" VerticalAlignment="Center" FontSize="11"
                                        Foreground="{DynamicResource DaTextSecondaryBrush}" />
-                            <Button Grid.Column="3" Content="Cancel" FontSize="11" Padding="8,3"
+                            <Button Grid.Column="3" Classes="reveal ghost" Content="Cancel"
+                                    FontSize="11" Padding="8,3"
                                     HorizontalAlignment="Left" IsVisible="{Binding CanCancel}"
                                     Command="{Binding $parent[ListBox].((vm:VoiceViewModel)DataContext).CancelProductionCommand}"
                                     CommandParameter="{Binding}" />

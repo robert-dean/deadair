@@ -169,13 +169,21 @@ that carries the audio; the older `AVURLAssetHTTPHeaderFieldsKey` trick applies 
 alone, so the request that actually streams goes out as AppleCoreMedia and is counted as a different
 listener from the rest of the app.
 
-## Avalonia 12, and four things that are not in any migration guide
+## Avalonia 12, and five things that are not in any migration guide
 
-**A custom `ThemeVariant` cannot be named as a string in XAML.** `RequestedThemeVariant="Carbon"` and
-`<ResourceDictionary x:Key="Carbon">` both compile and then throw at startup — the type converter
-knows the built-in light and dark pair and nothing else. Both have to be `{x:Static
-themes:ConsoleThemes.Carbon}`. This costs two runs to find, because the second failure looks like the
-first one coming back.
+**`ExtendClientAreaChromeHints` was REMOVED.** The window runs under the title bar with
+`ExtendClientAreaToDecorationsHint` plus `ExtendClientAreaTitleBarHeightHint`, and the drag region is
+whatever carries `WindowDecorationProperties.ElementRole="TitleBar"` — the sidebar's top strip. It is
+worth knowing that `WindowDecorationMargin` reads as zero in a headless render, so a layout that
+positioned itself from it would differ between what is drawn and what is looked at; the 80px the
+traffic lights need is written down instead.
+
+**A custom `ThemeVariant` cannot be named as a string in XAML**, and the app no longer has one: it
+asks for `ThemeVariant.Default` and the theme dictionaries are keyed by the BUILT-IN `Light` and
+`Dark`, which are ordinary strings. The rule survives for anyone reintroducing a variant of their own
+— `RequestedThemeVariant="Whatever"` and `<ResourceDictionary x:Key="Whatever">` both compile and
+then throw at startup, and both have to be `{x:Static}` — and it is why the built-in pair is the
+cheaper answer.
 
 **`Avalonia.Diagnostics` has no Avalonia 12 release.** It stops at 11.3.20, so the developer tools
 overlay is simply unavailable and asking for it fails the restore rather than degrading. Checked
@@ -219,9 +227,9 @@ the other side: a failed reading of the listener count is "could not say", never
 
 **Settings are tolerant of a bad file, and that hid a real bug once.** `FileSettingsStore` treats an
 unreadable file as an install with no preferences, which is right — the worst case is retyping a
-station address, and refusing to start is worse. But `ThemeId` had no string converter, so a
-hand-written file naming `"Carbon"` failed to parse, the tolerance swallowed it, and the app started
-as though it had never been configured, taking the station address with it. Found by RUNNING the app
+station address, and refusing to start is worse. But the appearance enum had no string converter, so a
+hand-written file naming one failed to parse, the tolerance swallowed it, and the app started as
+though it had never been configured, taking the station address with it. Found by RUNNING the app
 and noticing it opened no connection. The converter is on the enum now and a test asserts the file
 reads as names; the lesson is that a deliberate catch needs a test proving the ordinary path through
 it works.
@@ -257,6 +265,49 @@ what is allowed. A 403 refreshes them rather than being reported as a failure. T
 nothing at all and lets every 403 through to the user, which is a defensible choice for a page that
 is only ever opened by the operator and the wrong one for an app that is also a listener.
 
+## How it looks
+
+**`Themes/Styles.axaml` is where a control's look lives, and `Themes/Tokens.axaml` is where a value
+does.** Before them every size and weight was a literal in whichever view needed it, and the only
+style in the tree was six lines inside `VoiceView` — which is why Library had the same "nothing says
+which tab you are on" bug Voice had already fixed for itself. A class is the fix for a KIND of
+control; a token is a value two of them share.
+
+A style names a token rather than a hex, a font or a number a token already holds. The exceptions are
+sizes that belong to one control and mean nothing elsewhere: a 40px transport circle, a 3px active
+bar.
+
+**A Thickness is not a double, and Avalonia will not widen one into the other.** `Border.card` set
+its padding from a spacing token and threw on the first card that did not override the padding
+itself — which was every card except the one that already existed. Padding tokens are `Thickness`.
+
+**Type is IBM Plex Sans and IBM Plex Mono, and nothing else.** Mono is for figures — a timecode, a
+bitrate, an eyebrow — because a column of proportional digits jitters as they change. The faces are
+in `Assets/Fonts` with the naming facts that decide whether a weight is reachable written down beside
+them: Skia reads TTF and OTF, so the woff2 the web console self-hosts could never have been used
+here, and a family name after the `#` is the one INSIDE the file rather than the file's own.
+
+**Assets are invisible to `avares://` without `<AvaloniaResource Include="Assets/**" />`.** Avalonia's
+targets add the XAML and the application icon and nothing else, and a missing entry does not fail the
+build: the font silently falls back to the system face.
+
+**Icons are `StreamGeometry` in `Themes/Icons.axaml`, keyed by name.** Fluent's Regular 20 set, pasted
+as path data rather than pulled in as a package, because this app draws about twenty icons and a
+package would be a dependency, a licence and a renderer for that. Every one inherits `Foreground`, so
+nothing here names a colour. A key is a string, so a typo is a blank square rather than an error —
+`NavigationTests` reads the dictionary and asserts every entry names one that is really there.
+
+**Fluent's own accent is repointed through `FluentTheme.Palettes`.** Without it a stock control draws
+Avalonia's blue beside this app's green. The volume thumb is the one that shows it, and it is NOT
+reachable from a style: three selectors were tried against it with a garish test colour and none
+matched, because Fluent gives the thumb a control theme carrying its own brush. Overriding
+`SystemAccentColor` reaches some of Fluent and not that; the palettes reach all of it.
+
+**A hover-revealed action moves `Opacity`, never `IsVisible`, in a column that is always there.**
+Every row in this app is its own Grid, so a column that collapses when its content is hidden sizes to
+that row alone and the page stops lining up. The same rule is why an `Auto` column cannot align down
+a list.
+
 ## Navigation
 
 **The rail replaces rather than pushes.** A rail is not history, so pressing Desk after Library does
@@ -266,6 +317,20 @@ not leave Library on a stack. Detail pages, when they arrive, will push onto one
 Desk and History need none, because listening is accountless and somebody who heard a record twenty
 minutes ago should not have to sign in to learn its name. Signing out while on a gated page sends
 them back to the desk rather than leaving them looking at an empty screen with no explanation.
+
+**The player bar is on every page, and that is the shape of the app rather than a decoration.** It
+used to be the bottom of the desk, so opening the Library took the transport, the playhead and the
+lamp off the screen while the station kept playing. What is playing is not a page.
+
+**The bar is a DockPanel and not three columns.** With a fixed left column and an `Auto` right one
+the middle is whatever is left over, and at the window's 820px minimum that was nothing: the play
+button drew over the timecode. Docked, the ends take what they need and the transport keeps the rest.
+
+**`PageHost` builds each page once and sets its DataContext in code.** The seven pages used to be
+stacked in a `Panel` with their visibility bound through the window, which laid all of them out on
+every frame and made each one reach back up through `$parent[Window]` to find its own view model. The
+pages are still built once and kept — they hold subscriptions and pollers, and rebuilding one per
+visit would re-fetch a catalog somebody is walking back and forth through.
 
 **Setting `DataContext` on a child re-scopes every binding on that element**, including `IsVisible`.
 So a page whose visibility depends on the shell has to name the window's own DataContext explicitly:
@@ -279,26 +344,47 @@ the property names are the ones the views read.
 ## Looking at a page without a screen
 
 **`tools/Shots` renders a page to a PNG.** Avalonia's headless platform with real Skia drawing, a
-window, two dispatcher passes and a captured frame. It exists because everything about this app
+window, three dispatcher passes and a captured frame. It exists because everything about this app
 except how it LOOKS can be checked by running it, and a sandboxed session has no Screen Recording
 permission — so a layout was the one thing going unverified.
 
 ```bash
-dotnet run --project apps/desktop/tools/Shots -- artifacts/shots carbon
+dotnet run --project apps/desktop/tools/Shots -- artifacts/shots dark
+dotnet run --project apps/desktop/tools/Shots -- artifacts/shots light
 ```
 
 It asserts nothing and cannot fail meaningfully. A layout is judged by looking at it, which is the
 thing an assertion cannot do; the value is entirely in the picture.
 
-**Two dispatcher passes, not one.** The first measures and arranges; a frame captured before the
-second is a half-laid-out page, which reads as a bug in the page rather than in the tool.
+**It renders the SHELL, not pages.** Nearly every frame is the whole window — sidebar, page, bar —
+because what goes wrong in this app goes wrong BETWEEN three controls rather than inside one, and a
+page rendered on its own can show neither a bar overflowing its column nor a hero clipping beside the
+operator card. Both of those were found this way and neither was visible in the code. There is a
+frame at 820x520 for the same reason: the minimum window is where a layout runs out of room.
 
-**The window has to carry the theme's own background.** Without it every page renders on the platform
-default, so a dark theme appears to have a white margin and the light one looks whiter than it is.
+**An appearance is named rather than inherited.** `ThemeVariant.Default` follows the host, and
+headless has no host, so a shot that did not say which appearance it wanted rendered light — and the
+dark half of the app would go unlooked-at.
+
+**Three dispatcher passes, not two.** The first measures and arranges and the second finishes it; the
+third is for the desk, whose cover is sized in code from the room the page turned out to have. That
+answer only exists after a pass has run, and setting it asks for another. On screen the same settling
+happens across frames and is invisible.
+
+**The window has to carry the theme's own background**, and for a shell frame the shell as well: the
+desk's operator column names the WINDOW's DataContext deliberately, so a frame without one had every
+binding through it fail — and a failed `IsVisible` binding defaults to TRUE, which drew Skip, Stop
+and Start at once on a page with no operator.
+
+**Do not attach the listener.** Attaching subscribes it to `/nowplaying`, and a poller against the
+fake client's refusals marks the reading stale, so every desk frame carried "Not answering" including
+the one meant to show a station that answers. The desk's frames are posed outright instead.
 
 **The data matters as much as the layout.** Rows of one-word values look fine and prove nothing. The
-fixtures use a long persona style, a wrapped talk break and a module name that runs past its column,
-because that is where a layout actually goes wrong.
+fixtures use a long persona style, a wrapped talk break, a module name that runs past its column and
+a title that has to trim, because that is where a layout actually goes wrong. They live in one place
+and are reached through the shell, so a page cannot be looked at with different data from the shell
+it is drawn in.
 
 ### What it found the first time it was pointed at a page
 
@@ -359,8 +445,23 @@ a value. An empty box means leave it alone; sending an empty string would clear 
 overwrite a value somebody else edited while the page was open.
 
 **Appearance is this install's own** and never leaves it, which is why Settings is reachable with no
-account: somebody who only listens should still be able to choose which console they are looking at.
-The stored theme is applied before the window is drawn, so it does not open in carbon and repaint.
+account: somebody who only listens should still be able to say whether they are looking at a light
+app or a dark one. It is applied before the window is drawn, so it does not open in the wrong one and
+repaint, and it is kept the moment it changes rather than on Save — Save is the STATION's button, and
+an appearance you have to press it to see is one you cannot judge. The same is true of the format.
+
+**There are no consoles here, and that is a decision rather than an omission.** This app carried the
+web console's Carbon, Studio White and Neon, ported hex for hex, until it was noticed that they were
+the wrong thing to port: a console is a page an operator opens and dresses to taste, and this app is
+also a LISTENER. Somebody who has told macOS they want light has already answered the only appearance
+question worth asking them. So the choice is System, Light or Dark, `ThemeVariant.Default` does the
+following, and the three consoles remain the web console's own. Dark keeps Carbon's surfaces
+unchanged; light is a neutral near-white carrying Studio White's status hues, which were the ones
+measured against a light ground.
+
+**Nothing migrates the old `theme` key.** The three had no light-or-dark answer between them, and an
+absent key already means the system's choice, which is what somebody who never went looking for the
+setting wants. A test says so.
 
 ## The check-up
 

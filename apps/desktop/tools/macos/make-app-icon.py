@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the desktop app's icon from the console's logo.
 
-Run after `apps/web/public/logo.png` or `logo-mark.png` changes, from anywhere:
+Run after `apps/web/public/logo-mark.png` changes, from anywhere:
 
     python3 -m venv /tmp/iconvenv && /tmp/iconvenv/bin/pip install Pillow
     /tmp/iconvenv/bin/python apps/desktop/tools/macos/make-app-icon.py
@@ -19,15 +19,16 @@ get subtly wrong by hand:
     across and its circle is 858, larger, because a circle of the square's width reads smaller than
     it is. This mark is a circle, so 858 is its size and the 83 pixels of transparency around it are
     not wasted margin — they are what stops it looming a size bigger than everything beside it.
-  * The SMALL entries are the mark rather than the lockup. Below about 64 pixels the arched
-    "deadair radio" is mush, and an icon whose ring of type has turned to noise looks broken rather
-    than small. `logo-mark.png` is the same badge with the skull alone, which is what the console
-    header and the Android launcher already do at their small sizes and for the same reason. The
-    two never appear at once: nothing on macOS shows a 64 and a 128 side by side.
-  * Only the 1024 entry is an upscale, and it is the one nothing looks at closely. The lockup
-    source is 512, so every size the dock and the switcher use is a downscale from it; 1024 exists
-    for Finder's gallery view, where LANCZOS from 512 still beats letting macOS scale the 512 entry
-    itself.
+  * The source is `logo-mark.png`, the badge with the skull alone, at EVERY size — not the lockup
+    for the large entries and the mark for the small. An app icon is looked at in a dock, a
+    switcher and a menu bar rather than read, so the version that survives being small is the one
+    to draw at all sizes; and an icon that changed which artwork it was halfway down the scale is
+    two icons. The lockup's arched "deadair radio" is mush below about 64px anyway, which is the
+    same reason the console header and the Android launcher already drop it.
+  * That source is 192px, so every canvas from 256 up is an upscale. It holds because the mark is
+    flat colour and heavy line rather than photography, and because the skull fills far more of the
+    disc than it does inside the lockup — the drawing is bigger here before any resampling. LANCZOS
+    from 192 still beats handing macOS a smaller entry and letting it scale that.
 
 It also copies the mark into the app's `Assets/`, where `Window.Icon` and the sidebar's title strip
 read it from. That is a second copy of a file the console already has, which is the same trade
@@ -43,13 +44,11 @@ import tempfile
 from PIL import Image
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..'))
-LOCKUP = os.path.join(ROOT, 'apps/web/public/logo.png')
 MARK = os.path.join(ROOT, 'apps/web/public/logo-mark.png')
 ICNS = os.path.join(ROOT, 'apps/desktop/tools/macos/deadair.icns')
 ASSETS = os.path.join(ROOT, 'apps/desktop/src/MaroonedSoftware.Deadair.Desktop/Assets')
 
 DISC = 858 / 1024  # the icon grid's circle, as a fraction of the canvas
-SIMPLIFY_BELOW = 128  # canvases smaller than this get the mark, not the lockup
 
 # The names iconutil expects. A size appears twice when it is both a 2x of one point size and the 1x
 # of the next; the file is written twice and is identical, which is what the format wants.
@@ -67,10 +66,10 @@ ENTRIES = [
 ]
 
 
-def render(source, canvas):
+def render(mark, canvas):
     """The disc at the grid's size, centred on a transparent canvas of `canvas` pixels."""
     diameter = round(canvas * DISC)
-    disc = source.resize((diameter, diameter), Image.LANCZOS)
+    disc = mark.resize((diameter, diameter), Image.LANCZOS)
     out = Image.new('RGBA', (canvas, canvas), (0, 0, 0, 0))
     offset = (canvas - diameter) // 2
     out.paste(disc, (offset, offset))
@@ -78,14 +77,13 @@ def render(source, canvas):
 
 
 def main():
-    lockup = Image.open(LOCKUP).convert('RGBA')
     mark = Image.open(MARK).convert('RGBA')
 
     with tempfile.TemporaryDirectory() as tmp:
         iconset = os.path.join(tmp, 'deadair.iconset')
         os.mkdir(iconset)
         for name, size in ENTRIES:
-            render(mark if size < SIMPLIFY_BELOW else lockup, size).save(os.path.join(iconset, name))
+            render(mark, size).save(os.path.join(iconset, name))
         subprocess.run(['iconutil', '--convert', 'icns', '--output', ICNS, iconset], check=True)
     print(f'wrote {ICNS}')
 

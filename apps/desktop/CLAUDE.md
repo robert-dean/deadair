@@ -475,9 +475,9 @@ here, and a family name after the `#` is the one INSIDE the file rather than the
 targets add the XAML and the application icon and nothing else, and a missing entry does not fail the
 build: the font silently falls back to the system face.
 
-**The app's icon is BUILT from the console's logo, by `tools/macos/make-app-icon.py`.** Same
-arrangement as `apps/android/tools/make-launcher-icon.py`: Pillow, run by hand on the rare day the
-mark changes, and what it writes is committed — so `make-app-bundle.sh` needs no Python and CI
+**The app's icon is BUILT from `apps/web/public/logo-mark.png`, by `tools/macos/make-app-icon.py`.**
+Same arrangement as `apps/android/tools/make-launcher-icon.py`: Pillow, run by hand on the rare day
+the mark changes, and what it writes is committed — so `make-app-bundle.sh` needs no Python and CI
 packages the app without one. It writes two things. `tools/macos/deadair.icns` is the bundle's icon,
 copied into `Contents/Resources` and named by `CFBundleIconFile` WITHOUT its extension, which is that
 key's own convention and shows the blank document icon rather than an error when it is wrong. And
@@ -487,11 +487,15 @@ both read.
 Two things about the icns are not obvious and both are in the script's docstring at length. The disc
 is INSET to 858 of 1024 rather than run to the edge, because macOS draws every icon inside a shared
 grid and a mark that fills its canvas looms a size bigger than everything beside it in the dock. And
-the entries below 128px are `logo-mark.png` rather than the lockup: under about 64px the arched
-"deadair radio" is noise, and an icon whose type has turned to mush reads as broken rather than as
-small. The console header and the Android launcher already make that same swap, for that same reason.
-`Window.Icon` does nothing on macOS — the bundle is where a Mac looks — and is set because it is one
-line and the alternative on the platforms after this one is the toolkit's placeholder.
+the SOURCE IS THE MARK AT EVERY SIZE, never the `logo.png` lockup. The first version drew the lockup
+above 128px and the mark below, on the argument that a large icon has room for the arched type; what
+that actually produces is two icons wearing one name, and it trades the sizes an icon is really seen
+at — dock, switcher, menu bar — for the one nobody looks at. The mark is what survives being small,
+so it is what gets drawn. Its 192px source means every canvas from 256 up is an upscale, which holds
+because the artwork is flat colour and heavy line and because the skull fills far more of the disc
+here than it does inside the lockup. `Window.Icon` does nothing on macOS — the bundle is where a Mac
+looks — and is set because it is one line and the alternative on the platforms after this one is the
+toolkit's placeholder.
 
 **Icons are `StreamGeometry` in `Themes/Icons.axaml`, keyed by name.** Fluent's Regular 20 set, pasted
 as path data rather than pulled in as a package, because this app draws about twenty icons and a

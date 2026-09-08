@@ -181,6 +181,15 @@ public sealed partial class ShellViewModel : ObservableObject
     {
         Listener.Attach(station, name);
 
+        if (Listener.Outputs is { } outputs)
+        {
+            outputs.Attach(station);
+
+            // Back to wherever the station was last playing, before anybody presses anything. It is
+            // a scan and a selection, both of which are quiet while nothing is playing.
+            await outputs.RestoreAsync().ConfigureAwait(true);
+        }
+
         // The session comes first: the desk cannot read the transport without one, and the roles it
         // restores decide whether the desk is drawn at all.
         await _session.AttachAsync(station).ConfigureAwait(true);

@@ -171,6 +171,22 @@ public sealed class PluginManager(
     public IReadOnlyList<PluginLogEntry> LogFor(string id) =>
         _hosts.TryGetValue(id, out var host) ? host.Lines : [];
 
+    /// <summary>
+    /// Writes a line into a plugin's own log on its behalf.
+    /// </summary>
+    /// <remarks>
+    /// For what the HOST noticed about a plugin: a call that threw, an answer that made no sense.
+    /// It belongs beside what the plugin said about itself rather than in a log of its own, because
+    /// somebody asking why their speaker is not listed wants one place to look.
+    /// </remarks>
+    public void Note(string id, string message)
+    {
+        if (_hosts.TryGetValue(id, out var host))
+        {
+            host.Logger.Warn(message);
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_disposed)

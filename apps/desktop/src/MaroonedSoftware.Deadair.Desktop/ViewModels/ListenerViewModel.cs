@@ -56,8 +56,10 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         ISystemNowPlaying systemNowPlaying,
         ISettingsStore settings,
         HttpClient http,
-        IUiDispatcher dispatcher)
+        IUiDispatcher dispatcher,
+        OutputsViewModel? outputs = null)
     {
+        Outputs = outputs;
         _player = player;
         _systemNowPlaying = systemNowPlaying;
         _settings = settings;
@@ -82,6 +84,16 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
         _volumeSettles = new DispatcherTicker(TimeSpan.FromMilliseconds(400), SaveVolume);
     }
+
+    /// <summary>
+    /// The picker in the bar.
+    /// </summary>
+    /// <remarks>
+    /// Optional so that a shot can build a bar without one, and so that the two are wired in one
+    /// direction: the picker knows about outputs and the bar knows about the picker, and neither
+    /// asks the other anything.
+    /// </remarks>
+    public OutputsViewModel? Outputs { get; }
 
     [ObservableProperty]
     private string _stationName = "deadair";

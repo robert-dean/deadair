@@ -88,6 +88,14 @@ internal static class Composition
             provider.GetRequiredService<ISettingsStore>(),
             TimeProvider.System));
 
+        // Where the station can come out. The catalog is the app's own list; the source behind it is
+        // whichever plugins declared they know about somewhere to play.
+        services.AddSingleton<IOutputSource>(provider => new PluginOutputSource(provider.GetRequiredService<PluginManager>()));
+        services.AddSingleton(provider => new OutputCatalog(
+            provider.GetRequiredService<IOutputSource>(),
+            provider.GetRequiredService<OutputSwitch>(),
+            provider.GetRequiredService<ISettingsStore>()));
+
         services.AddSingleton<ShellViewModel>();
         services.AddSingleton<LoginViewModel>();
         services.AddSingleton<TransportViewModel>();
@@ -101,6 +109,7 @@ internal static class Composition
         services.AddSingleton<VoiceViewModel>();
         services.AddSingleton<ThemeManager>();
         services.AddSingleton<ListenerViewModel>();
+        services.AddSingleton<OutputsViewModel>();
         services.AddSingleton<SetupViewModel>();
 
         return services.BuildServiceProvider();

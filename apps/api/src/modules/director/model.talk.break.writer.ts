@@ -270,9 +270,10 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // The cases are told apart because they need different fixes and look identical from
             // the row: a model that stopped at the token ceiling having said NOTHING spent its whole
             // allowance thinking, which is a number to raise; one that said too much is a prompt to
-            // tighten; and a script refused as not this character carries its own reason. Which of
-            // the six it was is `writeDecline`'s answer, and all but two of them are something an
-            // operator can go and change on the personas page.
+            // tighten; and a script refused as not this character carries its own reason. Which one
+            // it was is `writeDecline`'s answer, and most of them are something an operator can go
+            // and change on the personas page — `character-trimmed` being the one that looks like a
+            // sheet problem and is not.
             const words = result.text.trim().split(/\s+/).filter(Boolean).length;
             const declined = writeDecline(result.text, guard);
             // Onto the detail as well as into the log, so the reason reaches `script_history.reason`

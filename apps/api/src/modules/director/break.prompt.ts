@@ -1935,7 +1935,7 @@ export function faultIn(script: string, guard: AnswerGuard): CharacterFault | un
 /**
  * What an operator should go and change, per fault.
  *
- * Four sentences rather than one, because the four are not variations on "the model missed": a spent
+ * A sentence per fault rather than one shared, because they are not variations on "the model missed": a spent
  * signature is the station working exactly as designed and wants nothing done about it, a quoted
  * sample is a sheet whose examples are too magnetic for the model in front of them, forbidden
  * wording is worth reading a capture for, and a flat plain-English line is markers or diction wanting
@@ -1952,17 +1952,25 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'avoided-wording': 'the model used wording the persona forbids',
     'out-of-character': 'the model wrote a line the station could say, but not in its own voice',
+    'character-trimmed': 'the model wrote in character but put the character past the word ceiling, so what would have aired carries none of it',
 };
 
 /**
- * Every way an answer can be refused: the four character faults, plus the two that come first.
+ * Every way an answer can be refused: the four character faults, plus the ones that come first.
  *
- * The two are separated because they want opposite things done about them and the row could not tell
- * them apart: a 203-word bulletin was reported as the model having "nothing to say here", which sent
- * an operator looking at a persona sheet for a ceiling that was in the way of a bulletin the prompt
- * had asked for.
+ * `nothing-said` and `ran-long` are separated because they want opposite things done about them and
+ * the row could not tell them apart: a 203-word bulletin was reported as the model having "nothing to
+ * say here", which sent an operator looking at a persona sheet for a ceiling that was in the way of a
+ * bulletin the prompt had asked for.
+ *
+ * `character-trimmed` is the same separation one step further down, and it was measured the same way.
+ * Of 50 breaks `conspiracy` lost to `out-of-character` in three days, 5 had written the character and
+ * put it past the ceiling — the first marker landing at word 50, 64, 75, 98 and 163 of answers
+ * running 82 to 173 words, all of it cut before the check read them. Reported as `out-of-character`
+ * those five send an operator to a persona sheet that is working, when what wants changing is a model
+ * writing four times the length it was given.
  */
-export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing' | 'cued-wrong' | 'wrong-daypart';
+export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing' | 'cued-wrong' | 'wrong-daypart' | 'character-trimmed';
 
 /**
  * Why a raw answer was refused, for a writer that wants to say so, or `undefined` when it was not.
@@ -2013,8 +2021,18 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     if (daypart !== undefined) return reasoned('wrong-daypart', daypart);
 
     const fault = faultIn(speakable, guard);
+    if (fault === undefined) return undefined;
 
-    return fault === undefined ? undefined : reasoned(fault);
+    // The character was there and the CEILING took it. Asked only of a script the trim actually
+    // shortened, and only when the untrimmed answer was clean on all four checks — so this claims the
+    // trim did it only where the trim is the single thing that changed. Everything else stays
+    // `out-of-character`, including an answer that was out of character before it was cut.
+    //
+    // It refuses either way. This is a change of what the ROW says, not of what airs: the words are
+    // no more speakable for having been in character further down than the listener will ever hear.
+    if (fault === 'out-of-character' && speakable !== tidied && faultIn(tidied, guard) === undefined) return reasoned('character-trimmed');
+
+    return reasoned(fault);
 }
 
 /**

@@ -1436,6 +1436,40 @@ describe('readAnswer, against the half of the day it was told', () => {
         expect(declined?.reason).toContain('it said "midday"');
     });
 
+    // Of 50 breaks `conspiracy` lost to `out-of-character` in three days, 5 had written the character
+    // and put it past the ceiling: the first marker at word 50, 64, 75, 98 and 163 of answers running
+    // 82 to 173 words. Reported as out-of-character they send an operator to a sheet that is working.
+    describe('when the ceiling is what took the character', () => {
+        const sheet = { dictionMarkers: ['the greys'] };
+        const short = { maxWords: 12, persona: sheet };
+        // Eleven words of plain English, then the character. The trim keeps the first sentence, which
+        // is inside the ceiling and over the share floor, and the marker goes with the rest.
+        const CHARACTER_AT_THE_END = 'The record you just heard came out in a quiet week. Then the greys took me.';
+
+        it('says the ceiling took it, not that the sheet is not being read', () => {
+            const declined = writeDecline(CHARACTER_AT_THE_END, short);
+
+            expect(declined?.fault).toBe('character-trimmed');
+            expect(declined?.reason).toMatch(/past the word ceiling/i);
+        });
+
+        it('still says out-of-character when the answer never had any', () => {
+            const answer = 'The record you just heard came out in a quiet week. Nobody made much of it at all.';
+
+            expect(writeDecline(answer, short)?.fault).toBe('out-of-character');
+        });
+
+        it('still says out-of-character when nothing was trimmed at all', () => {
+            expect(writeDecline('A tidy little line about a record.', { persona: sheet })?.fault).toBe('out-of-character');
+        });
+
+        // It is a change of what the row says and not of what airs: the character the listener would
+        // have heard is still absent from the words that would have gone out.
+        it('refuses the break either way', () => {
+            expect(readAnswer(CHARACTER_AT_THE_END, short)).toBeUndefined();
+        });
+    });
+
     it('leaves every other fault’s sentence exactly as it was', () => {
         // The word is appended for the one fault whose sentence cannot be acted on without it. A
         // break that named no record already says where to look.

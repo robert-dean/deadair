@@ -80,8 +80,17 @@
     <string name="signed_in_listener">Signed in to this station as a listener</string>
     <string name="account_bad_credentials">That email and password did not work</string>
     <string name="account_could_not_reach">Could not reach the station to sign in</string>
-    <string name="account_second_factor_unsupported">This station asked for a second factor, which this app cannot answer yet</string>
+    <string name="account_second_factor_unsupported">This account\'s second factor is not one this app can answer. Sign in on the console instead.</string>
     <string name="account_no_refresh_token">The station issued no refresh token</string>
+
+    <!-- The second factor -->
+    <string name="second_factor_title">One more step</string>
+    <string name="second_factor_detail">Enter the code from your authenticator app.</string>
+    <string name="authenticator_code">Authenticator code</string>
+    <string name="start_again">Start again</string>
+    <string name="account_code_refused">That code was not accepted. Wait for the next one and try again.</string>
+    <string name="account_sign_in_expired">That sign-in took too long and has expired. Start again.</string>
+    <string name="account_factor_refused">The station would not accept that authenticator for this sign-in. Start again.</string>
 
     <!-- A tab before sign-in, an error, an empty answer, a stale reading -->
     <string name="signed_out_detail">The station keeps this for signed-in listeners. Listening itself needs no account.</string>

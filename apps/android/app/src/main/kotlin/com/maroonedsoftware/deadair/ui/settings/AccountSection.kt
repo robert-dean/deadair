@@ -61,71 +61,128 @@ fun AccountSection(
     account: AccountState,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
+    onCodeChange: (String) -> Unit,
     onSignIn: () -> Unit,
+    onStartAgain: () -> Unit,
     onSignOut: () -> Unit,
 ) {
-    val focus = LocalFocusManager.current
-
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         when (session) {
             is SessionState.SignedIn -> SignedIn(session, onSignOut)
-            SessionState.SignedOut -> {
-                Text(stringResource(R.string.account_optional), style = MaterialTheme.typography.bodyMedium)
-
-                OutlinedTextField(
-                    value = account.email,
-                    onValueChange = onEmailChange,
-                    label = { Text(stringResource(R.string.email)) },
-                    singleLine = true,
-                    enabled = !account.busy,
-                    isError = account.error != null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-                    keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),
-                    modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.EmailAddress },
-                )
-
-                // Shown on request. A mistyped long password on a phone keyboard is a certain
-                // retry, and this form clears the password on a refusal — so without a way to
-                // look, a listener retypes blind, twice.
-                var passwordShown by rememberSaveable { mutableStateOf(false) }
-                OutlinedTextField(
-                    value = account.password,
-                    onValueChange = onPasswordChange,
-                    label = { Text(stringResource(R.string.password)) },
-                    singleLine = true,
-                    enabled = !account.busy,
-                    isError = account.error != null,
-                    // The error sits under the password rather than the email because that is the
-                    // field a listener retypes, and it is the one this app clears for them.
-                    // Announced when it lands, because the field the listener was in has just
-                    // been emptied under them and the reason is the only clue.
-                    supportingText = account.error?.let { { Text(it.resolve(), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) } },
-                    visualTransformation = if (passwordShown) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { passwordShown = !passwordShown }) {
-                            Icon(
-                                painterResource(if (passwordShown) R.drawable.ic_visibility_off else R.drawable.ic_visibility),
-                                contentDescription = stringResource(if (passwordShown) R.string.hide_password else R.string.show_password),
-                            )
-                        }
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                    // Done signs in, which is what a thumb on the last field of a form means.
-                    keyboardActions = KeyboardActions(onDone = { if (account.canSubmit) onSignIn() }),
-                    modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Password },
-                )
-
-                // The button keeps its place while the station answers, with the spinner inside
-                // it. Swapping the whole button for a spinner moved the layout on every tap.
-                Button(onClick = onSignIn, enabled = account.canSubmit, modifier = Modifier.fillMaxWidth()) {
-                    if (account.busy) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
-                    } else {
-                        Text(stringResource(R.string.sign_in))
-                    }
+            // Once the station has asked for a second factor the password step is over, and its
+            // fields go with it: leaving them on screen invites a retype of something that was
+            // accepted a moment ago, and there is nothing left to send them to.
+            SessionState.SignedOut ->
+                if (account.challenge != null) {
+                    SecondFactor(account, onCodeChange, onSignIn, onStartAgain)
+                } else {
+                    PasswordForm(account, onEmailChange, onPasswordChange, onSignIn)
                 }
-            }
         }
+    }
+}
+
+@Composable
+private fun PasswordForm(account: AccountState, onEmailChange: (String) -> Unit, onPasswordChange: (String) -> Unit, onSignIn: () -> Unit) {
+    val focus = LocalFocusManager.current
+
+    Text(stringResource(R.string.account_optional), style = MaterialTheme.typography.bodyMedium)
+
+    OutlinedTextField(
+        value = account.email,
+        onValueChange = onEmailChange,
+        label = { Text(stringResource(R.string.email)) },
+        singleLine = true,
+        enabled = !account.busy,
+        isError = account.error != null,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }),
+        modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.EmailAddress },
+    )
+
+    // Shown on request. A mistyped long password on a phone keyboard is a certain
+    // retry, and this form clears the password on a refusal — so without a way to
+    // look, a listener retypes blind, twice.
+    var passwordShown by rememberSaveable { mutableStateOf(false) }
+    OutlinedTextField(
+        value = account.password,
+        onValueChange = onPasswordChange,
+        label = { Text(stringResource(R.string.password)) },
+        singleLine = true,
+        enabled = !account.busy,
+        isError = account.error != null,
+        // The error sits under the password rather than the email because that is the
+        // field a listener retypes, and it is the one this app clears for them.
+        // Announced when it lands, because the field the listener was in has just
+        // been emptied under them and the reason is the only clue.
+        supportingText = account.error?.let { { Text(it.resolve(), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) } },
+        visualTransformation = if (passwordShown) VisualTransformation.None else PasswordVisualTransformation(),
+        trailingIcon = {
+            IconButton(onClick = { passwordShown = !passwordShown }) {
+                Icon(
+                    painterResource(if (passwordShown) R.drawable.ic_visibility_off else R.drawable.ic_visibility),
+                    contentDescription = stringResource(if (passwordShown) R.string.hide_password else R.string.show_password),
+                )
+            }
+        },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        // Done signs in, which is what a thumb on the last field of a form means.
+        keyboardActions = KeyboardActions(onDone = { if (account.canSubmit) onSignIn() }),
+        modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.Password },
+    )
+
+    // The button keeps its place while the station answers, with the spinner inside
+    // it. Swapping the whole button for a spinner moved the layout on every tap.
+    Button(onClick = onSignIn, enabled = account.canSubmit, modifier = Modifier.fillMaxWidth()) {
+        if (account.busy) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
+        } else {
+            Text(stringResource(R.string.sign_in))
+        }
+    }
+}
+
+/**
+ * The code box, once the station has asked for one.
+ *
+ * A separate step rather than a third field on the form, because it is a separate exchange: the
+ * password has already been spent, and what is being answered is a challenge with its own clock.
+ * Start again is on the screen for somebody who cannot reach their authenticator, and is the only
+ * way out that does not involve waiting for the challenge to expire.
+ */
+@Composable
+private fun SecondFactor(account: AccountState, onCodeChange: (String) -> Unit, onSubmit: () -> Unit, onStartAgain: () -> Unit) {
+    Text(stringResource(R.string.second_factor_title), style = MaterialTheme.typography.titleSmall)
+    Text(stringResource(R.string.second_factor_detail), style = MaterialTheme.typography.bodyMedium)
+
+    val focus = LocalFocusManager.current
+    OutlinedTextField(
+        value = account.code,
+        onValueChange = onCodeChange,
+        label = { Text(stringResource(R.string.authenticator_code)) },
+        singleLine = true,
+        enabled = !account.busy,
+        isError = account.error != null,
+        // Announced when it lands: the field the operator was in has just been emptied under
+        // them, and the reason is the only clue as to why.
+        supportingText = account.error?.let { { Text(it.resolve(), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) } },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { if (account.canSubmit) onSubmit() else focus.clearFocus() }),
+        // The one-time-code content type is what offers the code from a notification, which on a
+        // phone is where a good half of them arrive.
+        modifier = Modifier.fillMaxWidth().semantics { contentType = ContentType.SmsOtpCode },
+    )
+
+    Button(onClick = onSubmit, enabled = account.canSubmit, modifier = Modifier.fillMaxWidth()) {
+        if (account.busy) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = LocalContentColor.current)
+        } else {
+            Text(stringResource(R.string.sign_in))
+        }
+    }
+
+    TextButton(onClick = onStartAgain, enabled = !account.busy, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.start_again))
     }
 }
 

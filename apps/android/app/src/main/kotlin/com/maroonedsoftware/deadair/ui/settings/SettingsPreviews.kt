@@ -30,7 +30,9 @@ private fun Settings(entry: StationEntryState, session: SessionState, account: A
             onDynamicColour = {},
             onEmailChange = {},
             onPasswordChange = {},
+            onCodeChange = {},
             onSignIn = {},
+            onStartAgain = {},
             onSignOut = {},
         )
     }

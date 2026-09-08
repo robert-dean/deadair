@@ -75,6 +75,12 @@ sealed interface Message {
 
     data object SecondFactorUnsupported : Message
 
+    data object CodeRefused : Message
+
+    data object SignInExpired : Message
+
+    data object FactorRefused : Message
+
     data object NoRefreshToken : Message
 
     // ── The schedule ──────────────────────────────────────────────────────────────────────

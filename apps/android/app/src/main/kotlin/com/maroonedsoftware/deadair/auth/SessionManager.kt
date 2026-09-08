@@ -1,7 +1,12 @@
 package com.maroonedsoftware.deadair.auth
 
 import com.maroonedsoftware.deadair.sdk.DeadairSdk
+import com.maroonedsoftware.deadair.sdk.models.AuthenticationRequest
 import com.maroonedsoftware.deadair.sdk.models.AuthenticationTokenIssued
+import com.maroonedsoftware.deadair.sdk.models.AuthenticationTokenResponse
+import com.maroonedsoftware.deadair.sdk.models.AuthenticatorAuthenticationRequest
+import com.maroonedsoftware.deadair.sdk.models.MfaChallengeFactor
+import com.maroonedsoftware.deadair.sdk.models.MfaRequiredResponse
 import com.maroonedsoftware.deadair.sdk.models.PasswordAuthenticationRequest
 import com.maroonedsoftware.deadair.sdk.models.RefreshTokenAuthenticationRequest
 import com.maroonedsoftware.deadair.sdk.runtime.SdkError
@@ -23,20 +28,47 @@ import kotlinx.coroutines.sync.withLock
 /** Nothing is signed in, so the call that needed a session was never made. */
 class NotSignedInException : Exception("Not signed in to this station")
 
-/** What came of offering an email and a password. */
+/** What came of offering an email and a password, or a code against a pending challenge. */
 sealed interface SignInResult {
     data object Ok : SignInResult
 
-    /** The station read the credentials and said no. The listener can fix this by typing again. */
+    /**
+     * The station read the credentials — or the code — and said no. The listener can fix this by
+     * typing again.
+     */
     data object BadCredentials : SignInResult
 
     /**
-     * The station answered with something this app cannot do. Named rather than worded, so the
-     * words live with the rest of the app's copy and not in a class that has no screen.
+     * The station wants a second factor before it will issue anything.
+     *
+     * A 200 rather than an error, which is why signing in answers with a result type instead of
+     * throwing: a client reading the status alone sees a successful sign-in with no token in it.
+     * The challenge is satisfied by posting a proof grant carrying [challengeId], and [factors]
+     * lists every factor that would satisfy it — of which this app can answer the authenticator
+     * and nothing else. See `authenticatorFactors`.
      */
-    data class Unsupported(val reason: Reason) : SignInResult {
-        enum class Reason { SECOND_FACTOR, NO_REFRESH_TOKEN }
-    }
+    data class SecondFactorNeeded(val challengeId: String, val factors: List<MfaChallengeFactor>) : SignInResult
+
+    /**
+     * The challenge is gone: it expired, or it was already spent.
+     *
+     * Told apart from a wrong code because the remedy is different. A code can be retyped; an
+     * expired challenge cannot be answered at all, and the password step has to be done again.
+     */
+    data object ChallengeExpired : SignInResult
+
+    /**
+     * The station will not accept that factor for this challenge, which is almost always a bug
+     * here rather than anything the operator did: the method id sent with the code was not one of
+     * the challenge's eligible authenticators.
+     */
+    data object FactorRefused : SignInResult
+
+    /**
+     * A token with nothing to renew it from. Refused rather than kept, because the session would
+     * otherwise end when the access token does, with no way back and nothing said at the time.
+     */
+    data object NoRefreshToken : SignInResult
 
     /** Anything else: no network, a station that is down. Carries the diagnostic, which is never shown. */
     data class Failed(val message: String?) : SignInResult
@@ -113,30 +145,66 @@ class SessionManager(
     suspend fun signIn(station: StationUrl, email: String, password: String): SignInResult {
         val answer =
             try {
-                sdkFor(station) { emptyMap() }
-                    .authentication
-                    .requestToken(PasswordAuthenticationRequest(username = email, password = password))
+                requestToken(station, PasswordAuthenticationRequest(username = email, password = password))
             } catch (error: SdkError) {
                 // The token endpoint answers 400 for a grant it will not honour and 401 for
                 // credentials it read and rejected. Both are the same thing to a listener, and
                 // both are fixed by typing again.
-                return if (error.status == 400 || error.status == 401) SignInResult.BadCredentials else SignInResult.Failed(error.message)
+                return if (error.status in CREDENTIAL_REFUSALS) SignInResult.BadCredentials else SignInResult.Failed(error.message)
             } catch (error: Exception) {
                 return SignInResult.Failed(error.message)
             }
 
-        if (answer !is AuthenticationTokenIssued) {
-            // The other arm is `mfa_required`. The station's MFA policy always allows today, so
-            // this is unreachable rather than unsupported — and saying which is the difference
-            // between a listener who tries again and one who goes looking for a setting.
-            return SignInResult.Unsupported(SignInResult.Unsupported.Reason.SECOND_FACTOR)
-        }
+        return accept(station, email, answer)
+    }
 
-        val refreshToken =
-            answer.refreshToken
-                // Without one, the session simply ends when the access token does, with nothing to
-                // renew it from and no way to say so at the time. Refusing now is the honest moment.
-                ?: return SignInResult.Unsupported(SignInResult.Unsupported.Reason.NO_REFRESH_TOKEN)
+    /**
+     * Answer a pending challenge with a code from an authenticator app.
+     *
+     * [methodId] is the id of the factor the code belongs to and has to be one the challenge
+     * listed: TOTP has no other binding to the actor at initial login, so the station cannot work
+     * out which authenticator six digits are supposed to be from. Sending the wrong one is refused
+     * as `invalid_factor`, and reporting THAT as a bad code is what sends somebody to re-read their
+     * authenticator forever.
+     */
+    suspend fun completeSecondFactor(
+        station: StationUrl,
+        email: String,
+        challengeId: String,
+        methodId: String,
+        code: String,
+    ): SignInResult {
+        val answer =
+            try {
+                requestToken(station, AuthenticatorAuthenticationRequest(code = code, mfaChallengeId = challengeId, methodId = methodId))
+            } catch (error: SdkError) {
+                if (error.status !in CREDENTIAL_REFUSALS) return SignInResult.Failed(error.message)
+                // Three different refusals arrive as one status, and the station names which in
+                // `WWW-Authenticate`. Reading it is the difference between telling somebody their
+                // code was wrong and telling them their sign-in has expired.
+                return when (error.authError) {
+                    INVALID_CHALLENGE -> SignInResult.ChallengeExpired
+                    INVALID_FACTOR -> SignInResult.FactorRefused
+                    else -> SignInResult.BadCredentials
+                }
+            } catch (error: Exception) {
+                return SignInResult.Failed(error.message)
+            }
+
+        return accept(station, email, answer)
+    }
+
+    /**
+     * Keep whatever the token endpoint answered with, whichever grant asked for it.
+     *
+     * Shared by the password step and the code step because the second half of a sign-in is the
+     * same either way, and the arm that is NOT a token is the whole reason both steps exist.
+     */
+    private suspend fun accept(station: StationUrl, email: String, answer: AuthenticationTokenResponse): SignInResult {
+        if (answer is MfaRequiredResponse) return SignInResult.SecondFactorNeeded(answer.challengeId, answer.factors)
+        if (answer !is AuthenticationTokenIssued) return SignInResult.Failed(null)
+
+        val refreshToken = answer.refreshToken ?: return SignInResult.NoRefreshToken
 
         store.save(StoredSession(origin = station.origin, email = email, accessToken = answer.accessToken, refreshToken = refreshToken))
 
@@ -146,6 +214,10 @@ class SessionManager(
         runCatching { refreshRoles() }
         return SignInResult.Ok
     }
+
+    /** Unauthenticated, because none of the grants that reach it have a session yet by definition. */
+    private suspend fun requestToken(station: StationUrl, request: AuthenticationRequest): AuthenticationTokenResponse =
+        sdkFor(station) { emptyMap() }.authentication.requestToken(request)
 
     /**
      * Ask the station which platform roles this account holds, and remember the answer.
@@ -286,6 +358,9 @@ class SessionManager(
         const val UNAUTHORIZED = 401
         const val FORBIDDEN = 403
         val CLIENT_ERRORS = 400..499
+
+        /** A grant the station will not honour, and one it read and rejected. Both are retyped. */
+        val CREDENTIAL_REFUSALS = setOf(400, UNAUTHORIZED)
 
         /** As long as `NowPlayingRepository` holds its poll open for, and for the same reasons. */
         const val SUBSCRIBER_GRACE_MS = 5_000L

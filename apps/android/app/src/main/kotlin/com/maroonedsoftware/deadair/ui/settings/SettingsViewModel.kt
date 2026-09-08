@@ -99,8 +99,16 @@ class SettingsViewModel(
         _account.value = AccountState.typingPassword(_account.value, password)
     }
 
+    fun onCodeChange(code: String) {
+        _account.value = AccountState.typingCode(_account.value, code)
+    }
+
     /**
-     * Sign in to the station this app is pointed at.
+     * Sign in to the station this app is pointed at, or answer the challenge it asked for.
+     *
+     * One entry point for both steps because it is one button on one screen, and which exchange it
+     * makes is decided by whether a challenge is pending rather than by the caller: a screen that
+     * had to know would be a second copy of the answer, free to disagree with the first.
      *
      * The STORED station, not the one in the field: the field may be mid-edit, and a password sent
      * to a half-typed address is a password sent to whoever happens to own it.
@@ -112,8 +120,25 @@ class SettingsViewModel(
 
         _account.value = current.copy(busy = true, error = null)
         viewModelScope.launch {
-            _account.value = AccountState.from(_account.value, sessions.signIn(station, current.email.trim(), current.password))
+            val challenge = current.challenge
+            val answer =
+                if (challenge == null) {
+                    sessions.signIn(station, current.email.trim(), current.password)
+                } else {
+                    sessions.completeSecondFactor(station, current.email.trim(), challenge.challengeId, challenge.methodId, current.code.trim())
+                }
+            _account.value = AccountState.from(_account.value, answer)
         }
+    }
+
+    /**
+     * Abandon a pending challenge and go back to the password step.
+     *
+     * Nothing is told to the station: an MFA challenge is short-lived and single-use, and there is
+     * no route to hand one back. It simply expires unanswered.
+     */
+    fun startAgain() {
+        _account.value = AccountState.startAgain(_account.value)
     }
 
     fun signOut() {

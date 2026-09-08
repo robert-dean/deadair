@@ -78,7 +78,9 @@ fun SettingsScreen(
     onDynamicColour: (Boolean) -> Unit,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
+    onCodeChange: (String) -> Unit,
     onSignIn: () -> Unit,
+    onStartAgain: () -> Unit,
     onSignOut: () -> Unit,
 ) {
     Scaffold(
@@ -181,7 +183,9 @@ fun SettingsScreen(
                     account = account,
                     onEmailChange = onEmailChange,
                     onPasswordChange = onPasswordChange,
+                    onCodeChange = onCodeChange,
                     onSignIn = onSignIn,
+                    onStartAgain = onStartAgain,
                     onSignOut = onSignOut,
                 )
 

@@ -259,7 +259,9 @@ private fun Listener(graph: AppGraph) {
                             onDynamicColour = model::setDynamicColour,
                             onEmailChange = model::onEmailChange,
                             onPasswordChange = model::onPasswordChange,
+                            onCodeChange = model::onCodeChange,
                             onSignIn = model::signIn,
+                            onStartAgain = model::startAgain,
                             onSignOut = model::signOut,
                         )
                     }

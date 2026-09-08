@@ -3,6 +3,7 @@
     <Project Path="../../packages/sdk-csharp/DeadairSdk.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/MaroonedSoftware.Deadair.Desktop.PluginSdk/MaroonedSoftware.Deadair.Desktop.PluginSdk.csproj" />
     <Project Path="src/MaroonedSoftware.Deadair.Desktop.Core/MaroonedSoftware.Deadair.Desktop.Core.csproj" />
     <Project Path="src/MaroonedSoftware.Deadair.Desktop.Player.Mac/MaroonedSoftware.Deadair.Desktop.Player.Mac.csproj" />
     <Project Path="src/MaroonedSoftware.Deadair.Desktop/MaroonedSoftware.Deadair.Desktop.csproj" />

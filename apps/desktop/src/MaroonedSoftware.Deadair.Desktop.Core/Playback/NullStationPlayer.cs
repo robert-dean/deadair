@@ -1,3 +1,5 @@
+using MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
+
 namespace MaroonedSoftware.Deadair.Desktop.Core.Playback;
 
 /// <summary>

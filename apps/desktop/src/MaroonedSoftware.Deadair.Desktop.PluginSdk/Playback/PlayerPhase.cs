@@ -1,4 +1,4 @@
-namespace MaroonedSoftware.Deadair.Desktop.Core.Playback;
+namespace MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
 
 /// <summary>
 /// What the player is doing.

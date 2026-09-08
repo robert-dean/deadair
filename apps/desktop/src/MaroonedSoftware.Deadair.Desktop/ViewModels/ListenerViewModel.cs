@@ -10,6 +10,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
+using MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
 using MaroonedSoftware.Deadair.Sdk.Models;
 using NowPlayingReading = MaroonedSoftware.Deadair.Sdk.Models.NowPlaying;
 

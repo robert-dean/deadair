@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!--
+            The contract a plugin compiles against, and NOTHING else. No Avalonia, no generated SDK,
+            no packages at all: every assembly named here would have to be served from the host's own
+            load context to keep one type identity across the seam, so the smaller this is the fewer
+            ways a plugin can be handed two copies of the same type.
+        -->
+        <RootNamespace>MaroonedSoftware.Deadair.Desktop.PluginSdk</RootNamespace>
+        <!--
+            Tracks PluginApi.Version. A test asserts the two agree, because a plugin's apiVersion
+            range is checked against the constant while the runtime binds against the assembly.
+        -->
+        <Version>1.0.0</Version>
+    </PropertyGroup>
+
+</Project>

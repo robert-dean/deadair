@@ -11,6 +11,7 @@
 
     <ItemGroup>
         <ProjectReference Include="../../../../packages/sdk-csharp/DeadairSdk.csproj" />
+        <ProjectReference Include="../MaroonedSoftware.Deadair.Desktop.PluginSdk/MaroonedSoftware.Deadair.Desktop.PluginSdk.csproj" />
     </ItemGroup>
 
 </Project>

@@ -297,7 +297,8 @@
       "maroonedsoftware.deadair.desktop.core": {
         "type": "Project",
         "dependencies": {
-          "DeadairSdk": "[1.0.0, )"
+          "DeadairSdk": "[1.0.0, )",
+          "MaroonedSoftware.Deadair.Desktop.PluginSdk": "[1.0.0, )"
         }
       },
       "maroonedsoftware.deadair.desktop.player.mac": {
@@ -305,6 +306,9 @@
         "dependencies": {
           "MaroonedSoftware.Deadair.Desktop.Core": "[0.1.0, )"
         }
+      },
+      "maroonedsoftware.deadair.desktop.pluginsdk": {
+        "type": "Project"
       },
       "Avalonia": {
         "type": "CentralTransitive",

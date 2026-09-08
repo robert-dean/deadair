@@ -1,4 +1,4 @@
-namespace MaroonedSoftware.Deadair.Desktop.Core.Playback;
+namespace MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
 
 /// <summary>
 /// One mount, played.
@@ -11,8 +11,9 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Playback;
 ///
 /// Implementations report state and nothing else. What to DO about a state — whether a failure is
 /// warm-up or a fault, when to reconnect, how long to keep trying — is policy, it is the same on
-/// every platform, and it lives in <see cref="PlaybackConductor"/> where it can be tested without a
-/// sound card.
+/// every platform, and it lives in the host's own <c>PlaybackConductor</c> where it can be tested
+/// without a sound card. That type is deliberately NOT here: a plugin implements this interface and
+/// never decides what a phase means.
 /// </remarks>
 public interface IStationPlayer : IAsyncDisposable
 {

@@ -1,4 +1,5 @@
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
+using MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
 using Xunit;
 
 namespace MaroonedSoftware.Deadair.Desktop.Core.Tests;

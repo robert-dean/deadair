@@ -29,6 +29,7 @@ interface Turn {
     text?: string;
     toolCalls?: LlmToolCall[];
     usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
+    providerState?: Record<string, unknown>;
 }
 
 /**
@@ -57,6 +58,7 @@ function scriptedPlugin(turns: Turn[], options: { tools?: boolean } = {}) {
                     toolCalls: turn.toolCalls ?? [],
                     ...(turn.usage === undefined ? {} : { usage: turn.usage }),
                     finishReason: (turn.toolCalls?.length ?? 0) > 0 ? 'tool-calls' : 'stop',
+                    ...(turn.providerState === undefined ? {} : { providerState: turn.providerState }),
                 };
 
                 return {
@@ -379,6 +381,36 @@ describe('a tool call the model wrote as text', () => {
         expect(result.text).toBe('[{"title":"Ocean Drive","artist":"Miami Nights 1984"}]');
         // It counts as a search, because one ran.
         expect(result.toolCallsMade).toBe(1);
+    });
+
+    it('hands a provider its own signed state back on the turn it signed', async () => {
+        // Opaque to everything here on purpose. Anthropic refuses a tool round trip whose thinking
+        // block is missing and Gemini wants its thought signatures back on the calls it made; both
+        // are facts about a wire protocol, so the loop carries them without reading them.
+        const signed = { reasoning: [{ text: 'worth a search', providerMetadata: { anthropic: { signature: 'sig-1' } } }] };
+        const { record, asked } = scriptedPlugin([
+            { toolCalls: [{ id: 'call_1', name: 'similar_artists', arguments: { artist: 'Mitch Murder' } }], providerState: signed },
+            { text: 'done' },
+        ]);
+        const { service } = serviceFor(record, [searchTool(async () => ({ similar: [] }))]);
+
+        await service.converse(ask());
+
+        expect(asked[1]?.messages.find(message => message.role === 'assistant')?.providerState).toEqual(signed);
+    });
+
+    it('sends no signed state on a call the model never made', async () => {
+        // A rescued call is the loop's own reconstruction of something the model wrote as text, so
+        // there is nothing signed to attach to it and attaching the turn's state would be a lie.
+        const { record, asked } = scriptedPlugin([
+            { text: '{"artist":"Mitch Murder"}', providerState: { reasoning: [{ text: 'x', providerMetadata: { anthropic: { signature: 's' } } }] } },
+            { text: 'done' },
+        ]);
+        const { service } = serviceFor(record, [searchTool(async () => ({ similar: [] }))]);
+
+        await service.converse(ask());
+
+        expect(asked[1]?.messages.find(message => message.role === 'assistant')?.providerState).toBeUndefined();
     });
 
     it('replays the rescued call as a well-formed one, and the tool turn answers its id', async () => {

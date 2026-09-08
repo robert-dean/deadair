@@ -4,7 +4,8 @@ import {
     configBaseUrl,
     configString,
     errorText,
-    jsonBody,
+    parseRows,
+    readRowSecret,
     type LlmFinishReason,
     type LlmHandle,
     type LlmModelInfo,
@@ -14,21 +15,21 @@ import {
     type LlmToolCall,
     type ConfigFieldOption,
 } from '@deadair/plugin-sdk';
-import { createOpenAICompatible, type OpenAICompatibleProvider } from '@ai-sdk/openai-compatible';
-import { APICallError, streamText } from 'ai';
-import { hostFetch } from './llm.fetch.js';
+import { streamText } from 'ai';
 import { abortWith, withCancel } from './llm.abort.js';
-import { splitSystemPrompt, toModelMessages, toToolSet } from './llm.messages.js';
+import { providerStateOf, splitSystemPrompt, toModelMessages, toToolSet } from './llm.messages.js';
 import { describeModels, toolCapableModels } from './llm.models.js';
 import {
     DEFAULT_REASONING_EFFORT,
     isReasoningEffortSetting,
     llmManifest,
     MODEL_CACHE_MS,
-    PROBE_TIMEOUT_MS,
-    PROVIDER_NAME,
+    readProviderKind,
     type ReasoningEffortSetting,
 } from './llm.manifest.js';
+import { buildArms, missingCredential, OPENAI_COMPATIBLE_ADDRESSES, type ProviderRow } from './llm.arms.js';
+import { qualify, readModelName } from './llm.names.js';
+import type { ProviderArm } from './llm.provider.js';
 
 export { llmManifest };
 
@@ -39,13 +40,14 @@ interface Attempt {
 }
 
 /**
- * Words out of any OpenAI-compatible endpoint.
+ * Words out of whichever kind of provider the operator chose.
  *
- * One plugin rather than one per provider, because the AI SDK is already the
- * provider abstraction: `createOpenAICompatible` reaches a local Ollama, OpenAI,
- * vLLM and most hosted providers behind a single base URL, and a native adapter
- * for something with its own protocol slots in behind the `providerKind`
- * discriminator without the host noticing.
+ * One plugin rather than one per provider, because everything here except the
+ * transport is the same work whoever is answering: the stream whose cancellation
+ * stops the generation, the one re-attempt without a thinking field, the answer
+ * recovered out of a reasoning channel, the tool declarations that come back
+ * unrun. `providerKind` picks an arm and the arm is deliberately small — see
+ * `llm.provider.ts`, which says what an arm may and may not know.
  *
  * ## The words are a stream, and that is load-bearing
  *
@@ -62,197 +64,272 @@ interface Attempt {
  * `llm.messages.ts`, which is where that decision is enforced.
  */
 export class LlmPlugin extends Plugin implements LlmPluginInstance {
-    private baseUrl = '';
-    private apiKey?: string;
     private model = '';
     private temperature?: number;
     private models = '';
-    private provider?: OpenAICompatibleProvider;
     private reasoningEffort: ReasoningEffortSetting = DEFAULT_REASONING_EFFORT;
 
-    /**
-     * Set for the rest of this load once a server has answered 400 naming
-     * `reasoning_effort`. Not config, and not carried across a reload: a
-     * reconfigure may point this at a different server entirely, and a strict
-     * server today says nothing about tomorrow's.
-     */
-    private reasoningRefused = false;
+    /** Every provider the operator configured, by the name they gave it. See `llm.arms.ts`. */
+    private arms: ReadonlyMap<string, ProviderArm> = new Map();
 
-    /** What `/models` last said, and when. See {@link fetchModels}. */
-    private discovered?: { at: number; ids: string[] };
+    /** Each provider's kind, for the sentences that have to say what a row is missing. */
+    private kinds = new Map<string, ProviderRow['kind']>();
+
+    /**
+     * The arms that have refused the thinking field, for the rest of this load.
+     *
+     * A SET rather than a flag, and the difference is a real failure: a Gemini 2.5
+     * model refusing `thinkingLevel` used to latch the whole plugin, so the next
+     * break written on Claude went out with its thinking silently switched off. A
+     * refusal is a fact about the provider that refused it, and two rows of the same
+     * KIND are still two providers — one account's model saying no tells you nothing
+     * about another's.
+     *
+     * Not config and not carried across a reload: a reconfigure may point an arm at
+     * a different account entirely, and a strict model today says nothing about the
+     * one an operator names tomorrow.
+     */
+    private readonly reasoningRefused = new Set<string>();
+
+    /** What each arm's model listing last said, and when. See {@link fetchModels}. */
+    private readonly discovered = new Map<string, { at: number; ids: string[] }>();
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
-        this.baseUrl = configBaseUrl(config.baseUrl);
         this.model = configString(config.model) ?? '';
         this.temperature = typeof config.temperature === 'number' ? config.temperature : undefined;
         this.models = typeof config.models === 'string' ? config.models : '';
         const configuredEffort = configString(config.reasoningEffort);
         this.reasoningEffort = isReasoningEffortSetting(configuredEffort) ? configuredEffort : DEFAULT_REASONING_EFFORT;
-        this.reasoningRefused = false;
-        this.apiKey = await this.host.secrets.get('apiKey');
+        this.reasoningRefused.clear();
 
-        // Built once per load rather than per call: it is a closure over the base
-        // URL, the key and the fetch, none of which change without a reload. A
+        // Built once per load rather than per call: an arm is a closure over an
+        // address, a key and the fetch, none of which change without a reload. A
         // reconfigure reinitializes the plugin, which runs this again.
-        this.provider =
-            this.baseUrl.length === 0
-                ? undefined
-                : createOpenAICompatible({
-                      name: PROVIDER_NAME,
-                      baseURL: this.baseUrl,
-                      ...(this.apiKey === undefined ? {} : { apiKey: this.apiKey }),
-                      // Sends `stream_options: { include_usage: true }`. Without it a streaming
-                      // response carries no token counts at all — measured against Ollama, which
-                      // answers with usage only when asked — and `LlmResult.usage` comes back
-                      // empty, which is the one thing that makes what a break cost observable.
-                      includeUsage: true,
-                      // The whole reason this is safe to point at an operator-supplied
-                      // address. Everything the SDK sends goes through the host's fetch,
-                      // so the allowlist, the per-upstream rate limit, the redirect
-                      // re-check and the body bounds all apply to a model call exactly as
-                      // they do to anything else. A plugin reaching for global fetch here
-                      // would quietly opt out of all four. See `llm.fetch.ts`.
-                      fetch: hostFetch(this.host),
-                  });
+        //
+        // The credential comes from the secrets store rather than from the row, because a `secret`
+        // column is never in the row — that is what makes it a secret rather than a JSON string
+        // with a password in it. See `readRowSecret`.
+        const rows: ProviderRow[] = [];
+        for (const row of parseRows(config.providers)) {
+            const apiKey = await readRowSecret(this.host, 'providers', row, 'apiKey');
+            rows.push({
+                name: row.name ?? '',
+                kind: readProviderKind(row.kind),
+                baseUrl: configBaseUrl(row.baseUrl),
+                ...(apiKey === undefined ? {} : { apiKey }),
+            });
+        }
 
-        // Dropped rather than kept: the operator may have just pointed this
-        // somewhere else, and a list from the old server is worse than no list.
-        this.discovered = undefined;
+        this.arms = buildArms(this.host, rows);
+        this.kinds = new Map(rows.map(row => [row.name.trim(), row.kind]));
 
-        this.host.logger.info('llm ready', { baseUrl: this.baseUrl, model: this.model });
+        // Dropped rather than kept: the operator may have just pointed an arm
+        // somewhere else, and a list from the old service is worse than no list.
+        this.discovered.clear();
+
+        this.host.logger.info('llm ready', { providers: [...this.arms.keys()].join(',') || 'none', model: this.model });
     }
 
     /**
-     * Whether this can be reached, and what it has.
+     * Which providers can be reached, and what each of them has.
      *
      * Reports the models it found, because this is the ONLY way an operator can
-     * learn them: a default model cannot be chosen before the server URL is
-     * saved, and the URL cannot be tested before it is saved either. So the loop
-     * has to be "save the address, press test, read the names, choose one" — and
-     * that only works if this says the names out loud.
+     * learn them: a default model cannot be chosen before a credential is saved,
+     * and a credential cannot be tested before it is saved either. So the loop has
+     * to be "save the key, press test, read the names, choose one" — and that only
+     * works if this says the names out loud.
+     *
+     * One line per configured arm, and every arm reported even when an earlier one
+     * failed. A single line saying "connected" would be an answer about whichever
+     * arm happened to be first, on a form that now configures three.
      */
     async testConnection(): Promise<{ ok: boolean; message: string }> {
-        if (this.baseUrl.length === 0) return { ok: false, message: 'No server URL set.' };
+        if (this.kinds.size === 0) return { ok: false, message: 'No providers are configured. Add one to the table below.' };
 
-        let models: string[];
-        try {
-            models = await this.fetchModels();
-        } catch (error) {
-            return { ok: false, message: errorText(error) };
+        const lines: string[] = [];
+        const found: string[] = [];
+        let reached = 0;
+
+        // Every ROW, not every arm. A row that could not be built is the one an operator most needs
+        // told about — it is the row they half filled in — and reporting only what was built would
+        // answer "nothing is configured" to somebody looking at a table with three rows in it.
+        for (const [provider, kind] of this.kinds) {
+            if (!this.arms.has(provider)) {
+                lines.push(`${provider}: ${missingCredential(kind)}.`);
+                continue;
+            }
+
+            try {
+                const ids = await this.fetchModels(provider);
+                reached += 1;
+                for (const id of ids) found.push(qualify(provider, id));
+                lines.push(ids.length === 0 ? `${provider}: reached, but it listed no models.` : `${provider}: ${ids.length} model(s).`);
+            } catch (error) {
+                lines.push(`${provider}: ${errorText(error)}`);
+            }
         }
 
-        if (models.length === 0) {
-            return { ok: true, message: 'Connected, but the server listed no models.' };
-        }
+        const message = lines.join(' ');
 
-        const listed = models.join(', ');
+        // False only when NOTHING answered. One arm of three failing is worth reporting in
+        // the sentence and is not a failed test: the station can still write on the other
+        // two, and a red result would say otherwise.
+        if (reached === 0) return { ok: false, message };
+
         if (this.model.length === 0) {
-            return { ok: true, message: `Connected. ${models.length} model(s) available: ${listed}. Set one as the default model.` };
+            return { ok: true, message: found.length === 0 ? message : `${message} Set one of them as the default model.` };
         }
 
-        // v1 paid for this sentence: "connected" alone, with a model name that is
-        // not installed, sends an operator looking at the network for a fault that
-        // is a typo.
-        if (!models.includes(this.model)) {
-            return { ok: true, message: `Connected, but "${this.model}" is not one of them. Available: ${listed}.` };
+        // v1 paid for this sentence: "connected" alone, with a model name that is not
+        // installed, sends an operator looking at the network for a fault that is a typo.
+        // The names themselves are not listed here any more — with three providers that is
+        // a paragraph nobody reads, and the default model field is an autocomplete fed by
+        // this same listing, which is where they are now learned.
+        if (found.length > 0 && !found.includes(this.model)) {
+            return { ok: true, message: `${message} But "${this.model}" is not one of them.` };
         }
 
-        return { ok: true, message: `Connected. Default model "${this.model}". ${models.length} available.` };
+        return { ok: true, message: `${message} Default model "${this.model}".` };
     }
 
     /**
-     * What the settings form should offer, out of what the server actually has.
+     * What the settings form should offer, out of what the providers actually have.
      *
      * This is what makes the form fillable. Without it, the only way to learn a model name is to
      * read it out of a "Test connection" message and type it back, and the default model cannot be
-     * chosen before the address is saved anyway — a loop with no way in.
+     * chosen before a credential is saved anyway — a loop with no way in.
      *
-     * Both fields get the same list and use it differently: the default model is free text with
-     * these as suggestions, so a model behind a proxy that does not list it stays typeable, and the
-     * tool-capable models are ticked from it, because that answer only means anything about models
-     * that exist.
+     * The two model fields are answered differently, and the difference is the point. The default
+     * model is offered every model across every provider, because it is the field that decides
+     * which one an unnamed request reaches. The tool-capable models are offered only the models of
+     * providers that cannot answer the tool question themselves, because a Claude model ticked in
+     * that box would be an operator confirming something already known.
      *
-     * Answers nothing rather than throwing when the server is unreachable: an operator fixing a bad
-     * address needs the form, and the refresh control is right there.
+     * Answers what it can rather than throwing when something is unreachable: an operator fixing a
+     * bad address needs the form, and the refresh control is right there.
      */
     async suggestConfigOptions(): Promise<Record<string, ConfigFieldOption[]>> {
-        let ids: string[];
-        try {
-            ids = await this.fetchModels();
-        } catch (error) {
-            this.host.logger.debug('llm could not suggest models', { error: errorText(error) });
-            return {};
+        // Offered whether or not anything can be reached, and per CELL rather than per field:
+        // `providers.baseUrl` is the column key the console publishes a row's choices under. It is
+        // also where an operator learns that OpenAI is one of these rather than a missing provider,
+        // since a `url` cell with suggestions draws as free text plus a list.
+        const suggestions: Record<string, ConfigFieldOption[]> = { 'providers.baseUrl': [...OPENAI_COMPATIBLE_ADDRESSES] };
+
+        const described = await this.describeEveryArm();
+        if (described.length > 0) {
+            suggestions.model = described.map(entry => ({ value: entry.id, label: entry.label ?? entry.id }));
+
+            const ticked = described.filter(entry => !this.answersToolsItself(entry.id));
+            if (ticked.length > 0) suggestions.models = ticked.map(entry => ({ value: entry.id, label: entry.label ?? entry.id }));
         }
 
-        if (ids.length === 0) return {};
+        return suggestions;
+    }
 
-        const options = ids.map(id => ({ value: id, label: id }));
-        return { model: options, models: options };
+    /** Whether the provider a qualified model belongs to says every one of its models takes tools. */
+    private answersToolsItself(qualified: string): boolean {
+        const named = readModelName(qualified);
+        return named !== undefined && this.arms.get(named.provider)?.toolsOnEveryModel === true;
     }
 
     /**
-     * The models this server has, annotated with which accept tools.
+     * Every model the station could name, across every configured provider.
      *
-     * The ids come from the server, because it knows them and the operator should
-     * not have to type out what the machine can say. The tool flags come from
-     * config, because no OpenAI-compatible endpoint reports tool support and it
-     * cannot be inferred from a name. See `llm.models.ts`.
+     * The ids come from the services, because they know them and the operator should
+     * not have to type out what the machine can say. Where the tool flags come from
+     * depends on the arm: a vendor whose own models all take tools says so, and an
+     * OpenAI-compatible endpoint cannot, so there the flags come from config. See
+     * `llm.models.ts`.
      *
-     * A server that cannot be reached answers from config alone rather than
-     * throwing: a momentary blip should cost the console its list, not the
+     * A provider that cannot be reached contributes what config knows rather than
+     * failing the list: a momentary blip should cost the console some rows, not the
      * station its ability to write.
      */
     async listModels(): Promise<LlmModelInfo[]> {
-        let discovered: string[];
-        try {
-            discovered = await this.fetchModels();
-        } catch (error) {
-            this.host.logger.debug('llm could not list models', { error: errorText(error) });
-            discovered = [];
+        return await this.describeEveryArm();
+    }
+
+    /** {@link listModels}'s body, shared with the config suggestions so one round of listing serves both. */
+    private async describeEveryArm(): Promise<LlmModelInfo[]> {
+        const described: LlmModelInfo[] = [];
+
+        for (const [provider, arm] of this.arms) {
+            const ids = await this.reachableModels(provider);
+
+            // One describer for every kind now. What differs is only who answers the tool
+            // question: a vendor serving its own models answers it, and an OpenAI-compatible
+            // server cannot, so there it comes from the operator's ticked list.
+            described.push(...describeModels(provider, ids, this.models, this.model, arm.toolsOnEveryModel));
         }
 
-        return describeModels(discovered, this.models, this.model);
+        return described;
+    }
+
+    /** One arm's model ids, or none at all when it cannot be reached. */
+    private async reachableModels(provider: string): Promise<string[]> {
+        if (!this.arms.has(provider)) return [];
+
+        try {
+            return await this.fetchModels(provider);
+        } catch (error) {
+            this.host.logger.debug("llm could not list a provider's models", { provider, error: errorText(error) });
+            return [];
+        }
     }
 
     /**
-     * `GET /models`, cached briefly.
+     * What one provider has, cached briefly.
      *
      * Cached because `listModels` is on the path of every conversation that might
      * use tools, and a round trip per break to learn something that changes when
      * an operator installs a model is a poor trade. Short enough that pulling a
      * new model shows up within a minute without a reload.
      *
-     * @throws {Error} with a sentence a console can show, for a server that
+     * Per arm rather than one slot, because three providers answer at three speeds
+     * and one shared entry would have whichever asked last evicting the rest.
+     *
+     * @throws {Error} with a sentence a console can show, for a provider that
      * refused or could not be reached.
      */
-    private async fetchModels(): Promise<string[]> {
-        const cached = this.discovered;
+    private async fetchModels(provider: string): Promise<string[]> {
+        const arm = this.arms.get(provider);
+        if (arm === undefined) throw new Error(`there is no provider called "${provider}"`);
+
+        const cached = this.discovered.get(provider);
         if (cached !== undefined && Date.now() - cached.at < MODEL_CACHE_MS) return cached.ids;
 
-        const response = await this.host.fetch(`${this.baseUrl}/models`, { headers: this.authHeaders(), timeoutMs: PROBE_TIMEOUT_MS });
-        if (!response.ok) {
-            await response.body?.cancel().catch(() => {});
-            throw new Error(`Server answered HTTP ${response.status}.`);
-        }
+        const ids = await arm.fetchModels();
 
-        const body = await jsonBody<{ data?: { id?: unknown }[] }>(response);
-        const ids = (body?.data ?? []).map(entry => (typeof entry.id === 'string' ? entry.id.trim() : '')).filter(id => id.length > 0);
-
-        this.discovered = { at: Date.now(), ids };
+        this.discovered.set(provider, { at: Date.now(), ids });
         return ids;
     }
 
     async generate(request: LlmRequest): Promise<LlmHandle> {
-        const provider = this.provider;
-        if (provider === undefined) throw new PluginError('the model plugin has no server URL configured').withCode('config');
+        const asked = configString(request.model) ?? this.model;
+        if (asked.length === 0) throw new PluginError('the model plugin has no model configured and none was asked for').withCode('config');
 
-        const model = configString(request.model) ?? this.model;
-        if (model.length === 0) throw new PluginError('the model plugin has no model configured and none was asked for').withCode('config');
+        // Which provider, read off the name. The one place that decision is made, so a caller
+        // naming `claude:sonnet` reaches the row called `claude` whatever else is configured.
+        // See `llm.names.ts`.
+        const named = readModelName(asked);
+        if (named === undefined) {
+            throw new PluginError(`"${asked}" does not name a provider; models are named provider:model`).withCode('config');
+        }
+
+        const { provider, id: model } = named;
+        const arm = this.arms.get(provider);
+        if (arm === undefined) {
+            // Two different repairs, and they read differently on the form: a row that is not
+            // there at all, and a row that is there without what its kind needs.
+            const kind = this.kinds.get(provider);
+            const because = kind === undefined ? 'there is no provider by that name' : missingCredential(kind);
+            throw new PluginError(`"${asked}" cannot be reached: ${because}`).withCode('config');
+        }
 
         if (request.messages.length === 0) throw new PluginError('a generation needs at least one message').withCode('config');
 
-        this.assertCanUseTools(request, model);
+        this.assertCanUseTools(request, arm, asked);
 
         const temperature = request.temperature ?? this.temperature;
         const tools = toToolSet(request.tools);
@@ -266,20 +343,24 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         // until something reads the stream, which is what lets the fallback below build a second one
         // only if the first is refused.
         const buildAttempt = (effortField: string | undefined): Attempt => {
+            const reasoning = effortField === undefined ? undefined : arm.reasoningOptions(effortField);
+
             // Aborted when the host cancels the text stream, and linked to the invocation signal so
             // that being abandoned before the first chunk still stops the request.
             const controller = new AbortController();
             abortWith(this.host.signal, controller);
 
             const stream = streamText({
-                model: provider.chatModel(model),
+                model: arm.languageModel(model),
                 ...(system === undefined ? {} : { system }),
                 messages: toModelMessages(rest),
                 ...(temperature === undefined ? {} : { temperature }),
                 ...(request.maxOutputTokens === undefined ? {} : { maxOutputTokens: request.maxOutputTokens }),
                 ...(tools === undefined ? {} : { tools }),
-                // Unset unless the setting or the caller's own hint asks for it. See `effortToSend`.
-                ...(effortField === undefined ? {} : { providerOptions: { [PROVIDER_NAME]: { reasoningEffort: effortField } } }),
+                // Unset unless the setting or the caller's own hint asks for it, and in whatever
+                // this service calls thinking. See `effortToSend` and the arm's own
+                // `reasoningOptions`.
+                ...(reasoning === undefined ? {} : { providerOptions: reasoning }),
                 // The host already runs the one server-sanctioned retry, on a 429 or 503 carrying
                 // `Retry-After` (`plugin.host.factory.ts`). A second layer underneath it multiplied a
                 // throttled or failing provider's load by however many times the SDK retried on its
@@ -303,7 +384,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             return { stream, controller };
         };
 
-        const firstEffort = this.effortToSend(request.reasoningEffort);
+        const firstEffort = this.effortToSend(provider, request.reasoningEffort);
         const first = buildAttempt(firstEffort);
 
         // What `withCancel`'s own abort reaches: the currently active attempt, which the fallback
@@ -323,7 +404,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             // `textStream` alone would not: it is one branch of a tee, so closing it leaves the
             // other branch — which `resultOf` reads — pulling the provider regardless. `driveText`
             // reads through this same reader, so cancelling it here reaches the real one too.
-            text: withCancel(streamFromGenerator(this.driveText(first, firstEffort, buildAttempt, active, resolveResult)), () =>
+            text: withCancel(streamFromGenerator(this.driveText(provider, first, firstEffort, buildAttempt, active, resolveResult)), () =>
                 active.controller.abort(),
             ),
             // Built here rather than awaited, so `generate` returns as soon as the request is away.
@@ -353,6 +434,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
      * any other fault arrived — and runs at most once.
      */
     private async *driveText(
+        provider: string,
         first: Attempt,
         firstEffortSent: string | undefined,
         buildAttempt: (effortField: string | undefined) => Attempt,
@@ -389,10 +471,11 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                     continue;
                 }
 
-                if (part.type === 'error' && retriable && isReasoningEffortRefusal(part.error)) {
+                if (part.type === 'error' && retriable && this.arms.get(provider)?.isReasoningRefusal(part.error) === true) {
                     retriable = false;
-                    this.reasoningRefused = true;
-                    this.host.logger.warn('llm: the server refused reasoning_effort; retrying once without it', {
+                    this.reasoningRefused.add(provider);
+                    this.host.logger.warn('llm: the provider refused the thinking field; retrying once without it', {
+                        provider,
                         error: errorText(part.error),
                     });
 
@@ -420,12 +503,14 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
     /**
      * What `reasoning_effort` should actually carry, given the setting and the caller's own hint.
      *
-     * `undefined` once {@link reasoningRefused} has latched: a strict server that rejected the field
-     * once gets it dropped for the rest of this plugin's life, regardless of what a later caller asks
-     * for or how this is configured.
+     * `undefined` once {@link reasoningRefused} has latched FOR THIS ARM: a provider that rejected
+     * the field once gets it dropped for the rest of this plugin's life, regardless of what a later
+     * caller asks for or how this is configured. Only that provider — one arm refusing says nothing
+     * about the others, and latching them together would silently switch thinking off on a model
+     * that had never refused anything.
      */
-    private effortToSend(hint: LlmRequest['reasoningEffort']): string | undefined {
-        if (this.reasoningRefused) return undefined;
+    private effortToSend(provider: string, hint: LlmRequest['reasoningEffort']): string | undefined {
+        if (this.reasoningRefused.has(provider)) return undefined;
 
         switch (this.reasoningEffort) {
             case 'off':
@@ -448,12 +533,17 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
      * have supplied reads as confidently wrong rather than as a failure anyone
      * notices.
      */
-    private assertCanUseTools(request: LlmRequest, model: string): void {
+    private assertCanUseTools(request: LlmRequest, arm: ProviderArm, model: string): void {
         if (request.tools === undefined || request.tools.length === 0) return;
 
-        // Read from config alone rather than through `describeModels`, so this
-        // stays synchronous and cannot be fooled by a `/models` blip: a model the
-        // server did not list this second is still one the operator ticked.
+        // A vendor whose models all take tools has already answered this, and asking the
+        // operator to tick a box confirming it is asking them to know something the arm knows.
+        if (arm.toolsOnEveryModel) return;
+
+        // Read from config alone rather than through `describeModels`, so this stays
+        // synchronous and cannot be fooled by a listing blip: a model the provider did not
+        // list this second is still one the operator ticked. Compared QUALIFIED, because one
+        // station has several providers and the same bare name on two of them is two models.
         if (toolCapableModels(this.models).includes(model)) return;
 
         throw new PluginError(`model "${model}" is not marked as able to use tools; tick it under the plugin's tool-capable models`).withCode(
@@ -489,6 +579,11 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
             });
         }
 
+        // Read off `content` rather than off the tool calls alone, because the reasoning
+        // half only exists as parts: `stream.reasoningText` is the text with the
+        // signatures already thrown away, and the signature is the whole point.
+        const providerState = providerStateOf(content);
+
         const spoken = spokenAnswer({ text, reasoningText, toolCalls: toolCalls.length, finishReason });
         if (spoken !== text) {
             this.host.logger.debug('llm: the answer arrived as reasoning rather than text; using it', {
@@ -521,11 +616,11 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
                 ...(reasoningText === undefined ? {} : { reasoningChars: reasoningText.length }),
             },
             finishReason: toFinishReason(finishReason),
+            // Only where the provider signed something. See `providerStateOf`: an
+            // OpenAI-compatible server signs nothing, so this field never appears on
+            // one and the transcript the host builds is byte-identical to before.
+            ...(providerState === undefined ? {} : { providerState }),
         };
-    }
-
-    private authHeaders(): Record<string, string> {
-        return this.apiKey === undefined || this.apiKey.length === 0 ? {} : { authorization: `Bearer ${this.apiKey}` };
     }
 }
 
@@ -665,14 +760,4 @@ function streamFromGenerator<T>(generator: AsyncGenerator<T, void, unknown>): Re
             await generator.return(undefined).catch(() => undefined);
         },
     });
-}
-
-/**
- * Whether a fault is a strict server saying it does not know `reasoning_effort`, rather than any
- * other way a generation can fail. `maxRetries: 0` is why this arrives as `APICallError` rather than
- * the SDK's own `RetryError` wrapping it: unwrapped, the status code and the response body it
- * quotes are still on it.
- */
-function isReasoningEffortRefusal(error: unknown): boolean {
-    return APICallError.isInstance(error) && error.statusCode === 400 && /reasoning_effort/.test(error.responseBody ?? '');
 }

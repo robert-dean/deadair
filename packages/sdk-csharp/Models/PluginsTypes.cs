@@ -107,8 +107,8 @@ public sealed record ConfigFieldOption
 
 /// <summary>
 /// Where a field's or a column's choices come from when only the console can enumerate them: the
-/// station's own tables, the platform's zone list, or the enabled plugins that can do one of four
-/// jobs. Resolved by the console either way
+/// station's own tables, the platform's zone list, the enabled plugins that can do one of four jobs,
+/// or the models the selected model plugin currently offers. Resolved by the console either way
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter<ConfigFieldOptionSource>))]
 public enum ConfigFieldOptionSource
@@ -133,6 +133,9 @@ public enum ConfigFieldOptionSource
 
     [JsonStringEnumMemberName("plugins.analysis")]
     PluginsAnalysis,
+
+    [JsonStringEnumMemberName("llm.models")]
+    LlmModels,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<PluginLogLevel>))]
@@ -255,7 +258,10 @@ public sealed record PluginFieldSuggestions
     public required bool Supported { get; init; }
 }
 
-/// <summary>One column of a `list` field. Every cell is stored as a string, so this describes the control rather than the value</summary>
+/// <summary>
+/// One column of a `list` field. Every ordinary cell is stored as a string in the row, so this describes the
+/// control rather than the value; a `secret` cell is encrypted on its own and is never in the row at all
+/// </summary>
 public sealed record ConfigFieldColumn
 {
     [JsonPropertyName("key")]
@@ -485,7 +491,7 @@ public sealed record PluginSummary
     [JsonPropertyName("configFields")]
     public required List<ConfigFieldDescriptor> ConfigFields { get; init; }
 
-    /// <summary>One entry per `secret` field: whether a value is currently stored. Never the value itself</summary>
+    /// <summary>Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself</summary>
     [JsonPropertyName("secretsConfigured")]
     public required Dictionary<string, bool> SecretsConfigured { get; init; }
 
@@ -527,7 +533,7 @@ public sealed record PluginSummaryInput
     [JsonPropertyName("configFields")]
     public required List<ConfigFieldDescriptor> ConfigFields { get; init; }
 
-    /// <summary>One entry per `secret` field: whether a value is currently stored. Never the value itself</summary>
+    /// <summary>Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself</summary>
     [JsonPropertyName("secretsConfigured")]
     public required Dictionary<string, bool> SecretsConfigured { get; init; }
 }
@@ -564,7 +570,7 @@ public sealed record PluginDetail
     [JsonPropertyName("configFields")]
     public required List<ConfigFieldDescriptor> ConfigFields { get; init; }
 
-    /// <summary>One entry per `secret` field: whether a value is currently stored. Never the value itself</summary>
+    /// <summary>Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself</summary>
     [JsonPropertyName("secretsConfigured")]
     public required Dictionary<string, bool> SecretsConfigured { get; init; }
 
@@ -620,7 +626,7 @@ public sealed record PluginDetailInput
     [JsonPropertyName("configFields")]
     public required List<ConfigFieldDescriptor> ConfigFields { get; init; }
 
-    /// <summary>One entry per `secret` field: whether a value is currently stored. Never the value itself</summary>
+    /// <summary>Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself</summary>
     [JsonPropertyName("secretsConfigured")]
     public required Dictionary<string, bool> SecretsConfigured { get; init; }
 
@@ -650,6 +656,9 @@ public enum ConfigFieldColumnType
 
     [JsonStringEnumMemberName("select")]
     Select,
+
+    [JsonStringEnumMemberName("secret")]
+    Secret,
 }
 
 [JsonConverter(typeof(ConfigFieldDescriptorDefaultConverter))]

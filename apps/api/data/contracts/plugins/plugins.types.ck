@@ -26,15 +26,16 @@ contract ConfigFieldOption: {
 }
 
 # Where a field's or a column's choices come from when only the console can enumerate them: the
-# station's own tables, the platform's zone list, or the enabled plugins that can do one of four
-# jobs. Resolved by the console either way
-contract ConfigFieldOptionSource: enum(station.newsCategories, station.newsFeeds, intl.timeZones, plugins.speech, plugins.llm, plugins.mixer, plugins.analysis)
+# station's own tables, the platform's zone list, the enabled plugins that can do one of four jobs,
+# or the models the selected model plugin currently offers. Resolved by the console either way
+contract ConfigFieldOptionSource: enum(station.newsCategories, station.newsFeeds, intl.timeZones, plugins.speech, plugins.llm, plugins.mixer, plugins.analysis, llm.models)
 
-# One column of a `list` field. Every cell is stored as a string, so this describes the control rather than the value
+# One column of a `list` field. Every ordinary cell is stored as a string in the row, so this describes the
+# control rather than the value; a `secret` cell is encrypted on its own and is never in the row at all
 contract ConfigFieldColumn: {
     key: string(min=1, max=200)
     label: string(min=1, max=200)
-    type: enum(string, url, select)
+    type: enum(string, url, select, secret)
     required?: boolean
     placeholder?: string(max=400)
     options?: array(ConfigFieldOption)
@@ -73,7 +74,7 @@ contract PluginSummary: {
     description?: string(max=2000)
     icon?: string(max=2000)
     configFields: array(ConfigFieldDescriptor)
-    secretsConfigured: record(string, boolean) # One entry per `secret` field: whether a value is currently stored. Never the value itself
+    secretsConfigured: record(string, boolean) # Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself
     firstEnabledAt?: readonly datetime # When this plugin was first ever enabled. Absent means it never has been, so the console asks before it is
 }
 

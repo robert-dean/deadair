@@ -3,6 +3,7 @@ import type { DateTime } from 'luxon';
 import { EncryptionProvider } from '@maroonedsoftware/encryption';
 import { ConfigField } from '@deadair/plugin-sdk';
 import { PluginConfigRecord, PluginConfigRepository } from './plugin.config.repository.js';
+import { configuredCells, holdsRowSecrets, splitRowSecrets } from './plugin.config.rows.js';
 import { PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginLogLevel } from './types/plugins.types.js';
 
@@ -16,7 +17,11 @@ export interface PluginConfigReadModel {
     enabled: boolean;
     /** Plain (non-secret) values only. */
     config: Record<string, unknown>;
-    /** One entry per `secret` field: whether a value is currently stored. */
+    /**
+     * Whether a value is currently stored, per `secret` field and per `secret` CELL.
+     *
+     * A field is under its own key; a cell is under `field/rowId/column`. Never a value either way.
+     */
     configured: Record<string, boolean>;
     /** Whether the reserved OAuth vault key holds a value. */
     oauthConnected: boolean;
@@ -52,12 +57,27 @@ export class PluginConfigService {
      * PUT never has to resubmit secrets the operator did not retype. A secret
      * key present but blank clears the stored value. Keys with no matching
      * descriptor are ignored.
+     *
+     * A `list` whose columns include a `secret` splits the same three ways per CELL, which is why
+     * `secrets` is built before the plain loop rather than after it.
      */
     async saveConfig(pluginId: string, fields: ConfigField[], submitted: Record<string, unknown>): Promise<PluginConfigReadModel> {
         const existing = await this.pluginConfigRepository.get(pluginId);
 
         const config: Record<string, unknown> = {};
+        let secrets: Record<string, string> = { ...(existing?.secrets ?? {}) };
+
         for (const field of fields.filter(isStoredPlainField)) {
+            // A list holding credentials is the one field whose plain half and secret half are the
+            // same submission, so it is split before either is written: the cells come out, the row
+            // keeps an id so its ciphertext has something to belong to. See `plugin.config.rows.ts`.
+            if (holdsRowSecrets(field) && Object.hasOwn(submitted, field.key)) {
+                const split = splitRowSecrets(field, submitted[field.key], secrets, plaintext => this.encryptionProvider.encrypt(plaintext));
+                config[field.key] = split.value;
+                secrets = split.secrets;
+                continue;
+            }
+
             if (Object.hasOwn(submitted, field.key)) {
                 config[field.key] = submitted[field.key];
             } else if (existing && Object.hasOwn(existing.config, field.key)) {
@@ -65,7 +85,6 @@ export class PluginConfigService {
             }
         }
 
-        const secrets: Record<string, string> = { ...(existing?.secrets ?? {}) };
         for (const field of fields.filter(isSecretField)) {
             if (!Object.hasOwn(submitted, field.key)) continue;
             const value = submitted[field.key];
@@ -130,7 +149,7 @@ export class PluginConfigService {
             if (Object.hasOwn(record.config, field.key)) config[field.key] = record.config[field.key];
         }
 
-        const configured: Record<string, boolean> = {};
+        const configured: Record<string, boolean> = { ...configuredCells(record.secrets) };
         for (const field of fields.filter(isSecretField)) {
             const ciphertext = record.secrets[field.key];
             configured[field.key] = typeof ciphertext === 'string' && ciphertext.length > 0;

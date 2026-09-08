@@ -10,7 +10,11 @@ Read the ones covering whatever you are about to change. The always-loaded index
 ## Where the loop lives
 
 **The station's words are a plugin, and the loop around them is not.** `llm` capability, `plugins/llm` on the
-AI SDK's OpenAI-compatible provider so one plugin covers a local server and a hosted one alike. `llm.pluginId`
+AI SDK, with three provider arms: an OpenAI-compatible one reaching Ollama, vLLM, OpenAI itself, Groq, Mistral
+and OpenRouter behind whatever address is set, plus Anthropic and Gemini in their own protocols. A native arm
+is never there for COVERAGE — the compatible one already reaches those two — but for what only their own
+protocol carries, and each is a dependency and a branch rather than a second plugin, because everything above
+the transport is the same work whoever answers. `llm.pluginId`
 picks it, mirroring `render.speechPluginId` including its DEFAULT — see plugin selection in
 `apps/api/CLAUDE.md`. The MODEL is a per-call parameter rather than config, because `plugin_configs.plugin_id`
 is a primary key and a station wanting a big model for a show and a small one for an ident cannot express that
@@ -20,6 +24,47 @@ admission and covering the drain; the tool loop, because a tool is a station fun
 plugin would be the wrong side of the fence; and `ToolRegistry`, whose sources are an explicit list rather
 than whatever registered itself. A tool declaration goes out and a tool call comes back, both plain JSON, so
 nothing executable crosses.
+
+**Every configured provider is reachable at once, and the MODEL NAME says which.** Not a "which
+provider" setting, because there is already a per-call parameter carrying exactly this decision and a
+second one beside it would drift: the model travels with every request, the plugin is one station
+setting, so a station wanting a hosted model for the words listeners hear and a local one for the
+volume nobody hears has one place to say so. A provider is a ROW the operator adds and NAMES, which
+is what lets a station hold two of the same kind — a local Ollama and Groq are both
+OpenAI-compatible and are two different providers, and a protocol is not a thing you can have two
+of. So a model is `provider:model`, split at the FIRST colon, which is what keeps Ollama's own
+`name:tag` ids intact: `ollama:gpt-oss-radio:latest` is the row called `ollama` and the model
+`gpt-oss-radio:latest`. **An unqualified name is refused rather than guessed at** — "the first row"
+would change meaning the moment somebody reorders the table, and a model quietly reaching the wrong
+provider is worse than a save that will not go through. `llm.names.ts` holds the rule, `llm.arms.ts`
+builds one arm per row, and a row missing what its kind needs refuses a generation naming it with a
+sentence saying which cell is empty.
+
+**The key lives in the row, and that took a chassis feature.** A `list` column may be a `secret` now:
+encrypted per cell, never in the stored row, never returned by the API, write-only in the console —
+everything a `secret` FIELD already was. What it needed was a name for the row, since a ciphertext
+has to belong to one and a list is an array the console rewrites whole on every save. `ROW_ID_KEY`
+and `plugin.config.rows.ts` are that, and the rule the whole file keeps is that a secret cell is
+never in the row: it is merged back exactly once, in memory, so a plugin's own schema can judge a
+form that has one.
+
+**Nobody has to TYPE a qualified name**, which is what makes refusing the unqualified form fair. The six
+writer settings — the talk break, the set generator, fact extraction, the two persona passes and the persona
+writer — declare `optionsFrom: 'llm.models'`, which the console resolves by asking whichever plugin
+`llm.pluginId` names for its `model` suggestions: the same call that plugin's own settings form makes, so one
+cache entry serves both. That makes them autocompletes over every model on every configured provider,
+labelled `model · provider`. They stay FREE TEXT with suggestions rather than becoming closed lists, because
+empty means "the plugin's own default" and a model behind a proxy that does not list itself has to stay
+reachable.
+
+**A signed thinking block is part of the conversation, and the transcript carries it.** Anthropic refuses a
+tool round trip whose earlier turns arrive without their thinking signatures, and Gemini wants its thought
+signatures back on the function calls it made. So `LlmResult.providerState` comes off a generation and goes
+back onto the `assistant` turn the loop builds, opaque the whole way: the host never reads it, and the rule in
+the plugin is **carry what the provider SIGNED** rather than carry the reasoning. That is what keeps the
+OpenAI-compatible arm exactly as it was — a local server signs nothing, so nothing is captured and nothing new
+is sent — and it is why an unsigned reasoning block is dropped rather than replayed, for the same reason
+`spokenAnswer` is careful about reasoning: a model's working-out is not something it said.
 
 **A station with no model plugin is an ordinary state, not a fault** — `canGenerate()` answers it without
 throwing, so a writer picks its deterministic binding.
@@ -33,10 +78,12 @@ costing a silent station while looking like it was helping. The asymmetry is PRI
 is expressed by bounding the background job (`ModelSetGenerator.BUDGET_MS`), which needs nothing from the
 gate.
 
-**A model budget and degradation tiers are deliberately NOT built** (`docs/todo/station-intelligence.md` §2,
-deferred against its own ordering claim): every call goes through `LlmService`, so the retrofit is one file,
-the model is self-hosted so nothing is billed, and "no tier makes music stop" is already structural — the
-chain tops up and the writer registry falls through.
+**A model budget and degradation tiers are still NOT built, and one of the three reasons has now expired**
+(`docs/todo/station-intelligence.md` §2): every call goes through `LlmService`, so the retrofit is one file,
+and "no tier makes music stop" is already structural — the chain tops up and the writer registry falls
+through. But "the model is self-hosted so nothing is billed" stopped being true the day a provider arm reached
+a paid API, which is exactly the trigger that section named. The retrofit surface is unchanged; what changed is
+that a runaway refill now costs money rather than a warm GPU.
 
 ## The tool loop
 

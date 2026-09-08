@@ -39,6 +39,18 @@ import { usePhone } from '../shared/use.phone';
 import { columnSuggestionKey, useDeclaredOptions } from './declared.options';
 import classes from './config.fields.form.module.css';
 
+/**
+ * The cell a row's own identity lives under, and how a credential inside a row is addressed.
+ *
+ * Both are spelled out here rather than imported, for the reason `declared.options.ts` spells the
+ * plugin capabilities out: this console has no dependency on `@deadair/plugin-sdk`, and these are
+ * part of the wire contract rather than something that moves without a contract change of its own.
+ * The API mints the id and reports each cell's configured-ness under the joined key; the form's job
+ * is to send the id back and never to show what it addresses.
+ */
+const ROW_ID_KEY = '$id';
+const rowSecretKey = (fieldKey: string, rowId: string, columnKey: string): string => `${fieldKey}/${rowId}/${columnKey}`;
+
 /** One row of a `list` field. Every cell is a string; the column decides the control, not the value. */
 type FieldRow = Record<string, string>;
 
@@ -85,6 +97,12 @@ function parseStoredRows(value: unknown, columns: readonly ConfigFieldColumn[]):
 
             const stored = entry as Record<string, unknown>;
             const row: FieldRow = {};
+
+            // Carried through untouched and never drawn. It is what a stored credential hangs off,
+            // so a row that loses it on the way through this form is a row whose key is orphaned.
+            const rowId = stored[ROW_ID_KEY];
+            if (typeof rowId === 'string' && rowId.length > 0) row[ROW_ID_KEY] = rowId;
+
             columns.forEach((column, at) => {
                 const cell = stored[column.key];
                 row[cellNameOf(at)] = typeof cell === 'string' ? cell : '';
@@ -99,28 +117,54 @@ function parseStoredRows(value: unknown, columns: readonly ConfigFieldColumn[]):
 /** A field's value as rows, for the one type that holds an array rather than a scalar. */
 const rowsOf = (value: FieldValue | undefined): FieldRow[] => (Array.isArray(value) ? value : []);
 
-/** A row nobody filled in. The form leaves one behind whenever somebody adds a row and thinks better of it. */
-const isBlankRow = (row: FieldRow): boolean => Object.values(row).every(cell => cell.trim().length === 0);
+/**
+ * A row nobody filled in. The form leaves one behind whenever somebody adds a row and thinks better
+ * of it.
+ *
+ * The id does not count as filling one in: it is the form's bookkeeping rather than the operator's
+ * answer, and counting it would keep every emptied row alive forever.
+ */
+const isBlankRow = (row: FieldRow): boolean => Object.entries(row).every(([name, cell]) => name === ROW_ID_KEY || cell.trim().length === 0);
 
 /**
- * The rows as they are stored: the columns' own keys back, blank rows dropped, every cell trimmed.
+ * The rows as they are sent: the columns' own keys back, blank rows dropped, every cell trimmed, and
+ * each row's id carried through so the server can keep a credential attached to it.
  *
- * A cell nobody filled in is left OUT of its row rather than stored as an empty string, which is
- * the same rule the rest of the submission follows and the one the plugin SDK reads rows under:
- * absent means not set.
+ * A cell nobody filled in is left OUT of its row rather than sent as an empty string, which is the
+ * same rule the rest of the submission follows and the one the plugin SDK reads rows under: absent
+ * means not set.
+ *
+ * A `secret` cell follows the three-way rule a secret FIELD does, for the same reasons. Typed sets
+ * it. Absent keeps whatever is stored, which is what lets an operator rename a row without retyping
+ * the key beside it. `null` clears it — present and explicitly empty, rather than `''`, which is
+ * what a half-typed field looks like. A row is only ever emptied of its credential deliberately.
  */
-const rowsForSubmission = (rows: readonly FieldRow[], columns: readonly ConfigFieldColumn[]): FieldRow[] =>
+const rowsForSubmission = (
+    rows: readonly FieldRow[],
+    columns: readonly ConfigFieldColumn[],
+    fieldKey: string,
+    cleared: ReadonlySet<string>,
+): Record<string, unknown>[] =>
     rows
-        .map(
-            row =>
-                Object.fromEntries(
-                    columns.flatMap((column, at) => {
-                        const cell = (row[cellNameOf(at)] ?? '').trim();
-                        return cell.length === 0 ? [] : [[column.key, cell]];
-                    }),
-                ) as FieldRow,
-        )
-        .filter(row => !isBlankRow(row));
+        .filter(row => !isBlankRow(row))
+        .map(row => {
+            const rowId = row[ROW_ID_KEY];
+            const submitted: Record<string, unknown> = rowId === undefined ? {} : { [ROW_ID_KEY]: rowId };
+
+            for (const [at, column] of columns.entries()) {
+                const cell = (row[cellNameOf(at)] ?? '').trim();
+
+                if (column.type === 'secret') {
+                    if (rowId !== undefined && cleared.has(rowSecretKey(fieldKey, rowId, column.key))) submitted[column.key] = null;
+                    else if (cell.length > 0) submitted[column.key] = cell;
+                    continue;
+                }
+
+                if (cell.length > 0) submitted[column.key] = cell;
+            }
+
+            return submitted;
+        });
 
 /** An empty row of the declared columns, so a new row draws every cell rather than growing them as it is typed into. */
 const emptyRow = (columns: readonly ConfigFieldColumn[]): FieldRow => Object.fromEntries(columns.map((_, at) => [cellNameOf(at), '']));
@@ -333,7 +377,7 @@ function buildSubmission(
         }
 
         if (field.type === 'list') {
-            submission[field.key] = JSON.stringify(rowsForSubmission(Array.isArray(value) ? value : [], columnsOf(field)));
+            submission[field.key] = JSON.stringify(rowsForSubmission(Array.isArray(value) ? value : [], columnsOf(field), field.key, cleared));
             return;
         }
 
@@ -451,11 +495,6 @@ export function ConfigFieldsForm({
     // frame.
     const phone = usePhone();
 
-    // The one thing this form reads for itself, and it still knows nothing about what it is
-    // configuring: a column declaring `optionsFrom` names a STATION vocabulary, which neither the
-    // plugin nor the settings page is in a position to answer. Resolved here rather than at the two
-    // call sites so neither grows its own copy, and nothing is fetched for a form that asks for none.
-    const declared = useDeclaredOptions(fields);
     const offered = (key: string): readonly ConfigFieldOption[] => {
         const suggested = suggestions?.[key];
         return suggested !== undefined && suggested.length > 0 ? suggested : (declared[key] ?? []);
@@ -467,6 +506,36 @@ export function ConfigFieldsForm({
         const source = suggested.length > 0 ? suggested : (field.options ?? []);
         return source.map(option => ({ value: option.value, label: option.label }));
     };
+
+    /**
+     * What a `secret` cell in a row needs beyond its value.
+     *
+     * `undefined` for every column that is not one, and for a row the server has never seen: a new
+     * row has no id, so there is nothing stored against it and nothing to describe. The key is the
+     * one the API reports configured-ness under, which is also the one `cleared` is tracked by, so
+     * the same string addresses both halves.
+     */
+    const secretCellState = (field: ConfigFieldDescriptor, row: FieldRow, column: ConfigFieldColumn): RowSecretState | undefined => {
+        if (column.type !== 'secret') return undefined;
+
+        const rowId = row[ROW_ID_KEY];
+        if (rowId === undefined || rowId.length === 0) return undefined;
+
+        const key = rowSecretKey(field.key, rowId, column.key);
+        const at = fields.findIndex(candidate => candidate.key === field.key);
+        const index = rows(field).indexOf(row);
+
+        return {
+            stored: secretsConfigured[key] === true,
+            cleared: cleared.has(key),
+            onToggleCleared: () => {
+                toggleCleared(key, `${nameOf(at)}.${index}.${cellNameOf(columnsOf(field).indexOf(column))}`);
+            },
+        };
+    };
+
+    /** The rows a list field currently holds, for addressing one of them by position. */
+    const rows = (field: ConfigFieldDescriptor): readonly FieldRow[] => rowsOf(form.getValues()[nameOf(fields.indexOf(field))]);
 
     /** The same, for one cell of a `list`: what was suggested or resolved for it, else the column's own. */
     const columnOptionsFor = (field: ConfigFieldDescriptor, column: ConfigFieldColumn): { value: string; label: string }[] => {
@@ -507,6 +576,25 @@ export function ConfigFieldsForm({
         },
     });
 
+    // The one thing this form reads for itself, and it still knows nothing about what it is
+    // configuring: a column declaring `optionsFrom` names a STATION vocabulary, which neither the
+    // plugin nor the settings page is in a position to answer. Resolved here rather than at the two
+    // call sites so neither grows its own copy, and nothing is fetched for a form that asks for none.
+    //
+    // The reader is how one source answers a question about ANOTHER field: `llm.models` offers the
+    // models of whichever plugin `llm.pluginId` names, and that value lives in this form. Positional
+    // names are this form's own business, so the lookup is by KEY and the translation happens here.
+    //
+    // BELOW `useForm` and not above it, which is not a tidiness point: the reader closes over `form`
+    // and is called synchronously during this same render, so declared any earlier it reads a `const`
+    // in its temporal dead zone and the whole settings page renders as "this page did not load".
+    const declared = useDeclaredOptions(fields, key => {
+        const index = fields.findIndex(field => field.key === key);
+        if (index < 0) return undefined;
+        const value = form.getValues()[nameOf(index)];
+        return typeof value === 'string' ? value : undefined;
+    });
+
     /**
      * Whether anything here is unsaved, which is NOT the same question as `form.isDirty()`.
      *
@@ -545,6 +633,15 @@ export function ConfigFieldsForm({
             // input would suggest the form still knows it.
             fields.forEach((field, index) => {
                 if (field.type === 'secret') form.setFieldValue(nameOf(index), '');
+
+                // The same for a credential typed into a row. Left in the cell it would suggest the
+                // form still knows it, and the server has just told us it does not have to.
+                for (const [at, column] of columnsOf(field).entries()) {
+                    if (column.type !== 'secret') continue;
+                    rowsOf(form.getValues()[nameOf(index)]).forEach((_row, row) => {
+                        form.setFieldValue(`${nameOf(index)}.${row}.${cellNameOf(at)}`, '');
+                    });
+                }
             });
             form.resetDirty();
         } catch (caught) {
@@ -682,6 +779,7 @@ export function ConfigFieldsForm({
                         cellProps={path => form.getInputProps(path)}
                         cellKey={path => form.key(path)}
                         optionsFor={column => columnOptionsFor(field, column)}
+                        secretCell={(row, column) => secretCellState(field, row, column)}
                         onAdd={() => {
                             form.insertListItem(name, emptyRow(columnsOf(field)));
                         }}
@@ -758,7 +856,14 @@ export function ConfigFieldsForm({
     }
 
     // A 422's field messages have already gone to the inputs; anything else needs saying out loud.
-    const failure = error && !apiErrorDetails(error) ? apiErrorMessage(error, failureMessage) : undefined;
+    //
+    // "Has details" is not the same as "was reported", and reading it as such is how a refused save
+    // showed nothing whatsoever: a `details` carrying only the server's own sentence routed to no
+    // input, and suppressed this alert on the strength of existing. So the question asked here is
+    // whether any field actually took a message — and where none did, the sentence is said here.
+    const routed = apiErrorDetails(error);
+    const reachedAField = routed !== undefined && fields.some(field => routed[field.key] !== undefined);
+    const failure = error && !reachedAField ? apiErrorMessage(error, failureMessage) : undefined;
 
     return (
         <form
@@ -839,6 +944,8 @@ interface RowsFieldProps {
     cellProps: (path: string) => GetInputPropsReturnType;
     cellKey: (path: string) => string;
     optionsFor: (column: ConfigFieldColumn) => { value: string; label: string }[];
+    /** What a `secret` cell has to know beyond its value, or nothing for a column that is not one. */
+    secretCell: (row: FieldRow, column: ConfigFieldColumn) => RowSecretState | undefined;
     onAdd: () => void;
     onRemove: (index: number) => void;
     /** Move one row a single place, `-1` up and `1` down. See {@link RowsField}. */
@@ -880,7 +987,21 @@ interface RowsFieldProps {
  * unlabelled boxes. Both shapes draw their cells through {@link RowCell}, so a column type only ever
  * decides its control once.
  */
-function RowsField({ field, name, phone, rows, error, disabled, cellProps, cellKey, optionsFor, onAdd, onRemove, onMove }: RowsFieldProps) {
+function RowsField({
+    field,
+    name,
+    phone,
+    rows,
+    error,
+    disabled,
+    cellProps,
+    cellKey,
+    optionsFor,
+    secretCell,
+    onAdd,
+    onRemove,
+    onMove,
+}: RowsFieldProps) {
     const columns = columnsOf(field);
 
     return (
@@ -907,6 +1028,7 @@ function RowsField({ field, name, phone, rows, error, disabled, cellProps, cellK
                                                 choices={optionsFor(column)}
                                                 disabled={disabled}
                                                 cell={cellProps(`${name}.${index}.${cellNameOf(at)}`)}
+                                                secret={secretCell(row, column)}
                                             />
                                         ))}
                                     </Stack>
@@ -937,6 +1059,7 @@ function RowsField({ field, name, phone, rows, error, disabled, cellProps, cellK
                                                     choices={optionsFor(column)}
                                                     disabled={disabled}
                                                     cell={cellProps(`${name}.${index}.${cellNameOf(at)}`)}
+                                                    secret={secretCell(row, column)}
                                                 />
                                             </Table.Td>
                                         ))}
@@ -1277,8 +1400,18 @@ function SecretField({ field, inputProps, stored, cleared, disabled, onToggleCle
     );
 }
 
+/** The state of one stored credential in a row: everything about it except the value, which nothing here has. */
+interface RowSecretState {
+    /** Whether the server currently holds one for this cell. Never the value itself. */
+    stored: boolean;
+    cleared: boolean;
+    onToggleCleared: () => void;
+}
+
 interface RowCellProps {
     column: ConfigFieldColumn;
+    /** Present only for a `secret` column, and only once its row has been saved at least once. */
+    secret?: RowSecretState;
     /**
      * Whether the control names itself. The desk's table says what a cell is for once, in the column
      * heading; the phone's card has no heading row, so the label rides the control. Either way the
@@ -1298,13 +1431,48 @@ interface RowCellProps {
  * table cell, once per a card — this was the pair most likely to drift, and the way it would drift
  * is a `url` column losing its keyboard on the surface where the keyboard is the whole point.
  */
-function RowCell({ column, labelled, choices, disabled, cell }: RowCellProps) {
+function RowCell({ column, labelled, choices, disabled, cell, secret }: RowCellProps) {
     const common = {
         label: labelled ? column.label : undefined,
         'aria-label': column.label,
         placeholder: column.placeholder,
         disabled,
     };
+
+    // Write-only, exactly as a `secret` FIELD is and for the same reason: the API reports one as a
+    // boolean and no more, so there is never a value to draw. What differs is only where the state
+    // lives — per cell rather than per field — and the affordance below is the same one `SecretField`
+    // offers, squeezed into a cell: a filled placeholder for a stored value, and a way to say the
+    // deliberate thing. A row nobody has saved yet has no `secret` at all, because there is nothing
+    // stored for it to describe.
+    if (column.type === 'secret') {
+        const stored = secret?.stored === true;
+        const cleared = secret?.cleared === true;
+
+        return (
+            <Stack gap={2}>
+                <PasswordInput
+                    {...common}
+                    disabled={disabled || cleared}
+                    placeholder={stored && !cleared ? '••••••••' : column.placeholder}
+                    {...cell}
+                />
+                {stored ? (
+                    <Anchor
+                        component="button"
+                        type="button"
+                        size="xs"
+                        ta="left"
+                        c={cleared ? undefined : 'red'}
+                        onClick={secret?.onToggleCleared}
+                        aria-label={`${cleared ? 'Keep' : 'Clear'} the stored ${column.label.toLowerCase()}`}
+                    >
+                        {cleared ? 'Will be removed — keep it instead' : 'Stored — clear it'}
+                    </Anchor>
+                ) : undefined}
+            </Stack>
+        );
+    }
 
     if (choices.length > 0) {
         return <Autocomplete {...common} {...suggestionsAsValues(choices)} limit={Infinity} {...cell} />;

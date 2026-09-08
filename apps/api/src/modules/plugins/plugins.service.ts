@@ -9,6 +9,7 @@ import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { AccessControlService, isAllVisible } from '#modules/permissions/access.control.service.js';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { safeChannel } from '#src/logging/rotating.log.store.js';
+import { formAsItWillBe } from './plugin.config.rows.js';
 import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secret.js';
 import { PluginConfigService, type PluginConfigReadModel } from './plugin.config.service.js';
 import { asCatalogPlugin } from './plugin.capabilities.js';
@@ -53,9 +54,6 @@ interface PluginOAuthCapability {
     getAuthorizeUrl(state: string): Promise<string>;
     handleCallback(params: Record<string, string>): Promise<void>;
 }
-
-/** A secret submitted blank clears the stored value; an omitted one keeps it. */
-const isClearedSecret = (value: unknown): boolean => value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
 
 const isCallable = (value: unknown): boolean => typeof value === 'function';
 
@@ -754,19 +752,40 @@ export class PluginsService {
         const effective = await this.effectiveConfig(manifest, submitted);
 
         let issues: string;
+        // Keyed by the field each issue names, which is what lets the console put the message on the
+        // input it is about. Without them a refused save was SILENT: the settings form reads
+        // `details` as a field map, finds nothing it recognises, and suppresses its own alert on the
+        // grounds that the fields have already been told — so a plugin whose schema refuses a
+        // combination showed the operator nothing at all, on the one screen the refusal exists to
+        // reach them on. First issue per field wins, because the input has room for one message.
+        const fields: Record<string, string> = {};
         try {
             const parsed = manifest.configSchema.safeParse(effective);
             if (parsed.success) return;
             issues = parsed.error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`).join('; ');
+            for (const issue of parsed.error.issues) {
+                const [key] = issue.path;
+                if (typeof key === 'string' && fields[key] === undefined) fields[key] = issue.message;
+            }
         } catch (error) {
             // `configSchema` is plugin code; a refinement may throw.
             throw httpError(422).withDetails({ message: `configuration could not be validated: ${serverkitErrorText(error)}` });
         }
 
-        throw httpError(422).withDetails({ message: `configuration is invalid: ${issues}` });
+        // The sentence stays, and it is what a refusal naming no field at all still says out loud.
+        throw httpError(422).withDetails({ ...fields, message: `configuration is invalid: ${issues}` });
     }
 
-    /** The settings form as it will stand once `submitted` is saved. */
+    /**
+     * The settings form as it will stand once `submitted` is saved.
+     *
+     * The merge itself is `formAsItWillBe` in `plugin.config.rows.ts`, shared with the load-time
+     * check in `PluginLifecycleManager` — two copies of "stored plus secrets plus the submission"
+     * was survivable while every secret was a top-level field, and stopped being once one could sit
+     * in a row: spreading the secrets map would put `providers/ab12/apiKey` into the form as a key
+     * no plugin has declared, and leave the row it belongs to looking unconfigured to the very
+     * refinement meant to check it.
+     */
     private async effectiveConfig(manifest: PluginManifest, submitted: Record<string, unknown>): Promise<Record<string, unknown>> {
         const stored = await this.pluginConfigService.getConfig(manifest.id);
 
@@ -781,22 +800,7 @@ export class PluginsService {
         // schema would reject it.
         delete secrets[PLUGIN_OAUTH_SECRET_KEY];
 
-        const effective: Record<string, unknown> = { ...stored, ...secrets };
-
-        // Only declared fields are folded in, matching what `saveConfig` will
-        // actually persist: validating keys it is about to drop would be a lie.
-        for (const field of manifest.configFields) {
-            if (field.type === 'note') continue;
-            if (!Object.hasOwn(submitted, field.key)) continue;
-
-            if (field.type === 'secret' && isClearedSecret(submitted[field.key])) {
-                delete effective[field.key];
-                continue;
-            }
-            effective[field.key] = submitted[field.key];
-        }
-
-        return effective;
+        return formAsItWillBe(manifest.configFields, stored, secrets, submitted);
     }
 
     private requireRecord(id: string): PluginRecord {

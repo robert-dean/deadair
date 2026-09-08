@@ -92,8 +92,8 @@ data class ConfigFieldOption(
 
 /**
  * Where a field's or a column's choices come from when only the console can enumerate them: the
- * station's own tables, the platform's zone list, or the enabled plugins that can do one of four
- * jobs. Resolved by the console either way
+ * station's own tables, the platform's zone list, the enabled plugins that can do one of four jobs,
+ * or the models the selected model plugin currently offers. Resolved by the console either way
  */
 @Serializable
 enum class ConfigFieldOptionSource {
@@ -111,6 +111,8 @@ enum class ConfigFieldOptionSource {
     PLUGINS_MIXER,
     @SerialName("plugins.analysis")
     PLUGINS_ANALYSIS,
+    @SerialName("llm.models")
+    LLM_MODELS,
 }
 
 @Serializable
@@ -198,7 +200,10 @@ data class PluginFieldSuggestions(
     val supported: Boolean,
 )
 
-/** One column of a `list` field. Every cell is stored as a string, so this describes the control rather than the value */
+/**
+ * One column of a `list` field. Every ordinary cell is stored as a string in the row, so this describes the
+ * control rather than the value; a `secret` cell is encrypted on its own and is never in the row at all
+ */
 @Serializable
 data class ConfigFieldColumn(
     val key: String,
@@ -311,7 +316,7 @@ data class PluginSummary(
     val description: String? = null,
     val icon: String? = null,
     val configFields: List<ConfigFieldDescriptor>,
-    /** One entry per `secret` field: whether a value is currently stored. Never the value itself */
+    /** Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself */
     val secretsConfigured: Map<String, Boolean>,
     /** When this plugin was first ever enabled. Absent means it never has been, so the console asks before it is */
     val firstEnabledAt: Instant? = null,
@@ -329,7 +334,7 @@ data class PluginSummaryInput(
     val description: String? = null,
     val icon: String? = null,
     val configFields: List<ConfigFieldDescriptor>,
-    /** One entry per `secret` field: whether a value is currently stored. Never the value itself */
+    /** Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself */
     val secretsConfigured: Map<String, Boolean>,
 )
 
@@ -345,7 +350,7 @@ data class PluginDetail(
     val description: String? = null,
     val icon: String? = null,
     val configFields: List<ConfigFieldDescriptor>,
-    /** One entry per `secret` field: whether a value is currently stored. Never the value itself */
+    /** Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself */
     val secretsConfigured: Map<String, Boolean>,
     /** When this plugin was first ever enabled. Absent means it never has been, so the console asks before it is */
     val firstEnabledAt: Instant? = null,
@@ -367,7 +372,7 @@ data class PluginDetailInput(
     val description: String? = null,
     val icon: String? = null,
     val configFields: List<ConfigFieldDescriptor>,
-    /** One entry per `secret` field: whether a value is currently stored. Never the value itself */
+    /** Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself */
     val secretsConfigured: Map<String, Boolean>,
     val config: Map<String, JsonElement>,
     val lastError: String? = null,
@@ -383,6 +388,8 @@ enum class ConfigFieldColumnType {
     URL,
     @SerialName("select")
     SELECT,
+    @SerialName("secret")
+    SECRET,
 }
 
 @Serializable(with = ConfigFieldDescriptorDefaultSerializer::class)

@@ -89,6 +89,17 @@ export interface LlmMessage {
 
     /** Which call this `tool` turn answers. Absent on every other role. */
     toolCallId?: string;
+
+    /**
+     * What the provider signed on this `assistant` turn, quoted back verbatim.
+     * Absent on every other role, and absent from a provider that signs nothing.
+     *
+     * Opaque to the host, which is the point: it is the plugin's own
+     * {@link LlmResult.providerState} handed straight back, so a provider that
+     * refuses a turn missing its own signature gets one that has it. See
+     * {@link LlmResult.providerState} for what puts it there.
+     */
+    providerState?: Record<string, unknown>;
 }
 
 /** A tool the model may ask for. */
@@ -209,6 +220,24 @@ export interface LlmResult {
     usage?: LlmUsage;
 
     finishReason: LlmFinishReason;
+
+    /**
+     * Whatever this provider SIGNED on this turn, in the plugin's own shape, for
+     * the host to hand back on the `assistant` message it builds out of this
+     * result. Absent when the provider signed nothing, which is every
+     * OpenAI-compatible server.
+     *
+     * The host never reads it. It exists because two providers refuse a tool
+     * round trip whose earlier turns arrive stripped: Anthropic will not accept a
+     * turn whose thinking block and its signature are missing, and Gemini wants
+     * its thought signatures back on the function calls it made. Both are facts
+     * about a wire protocol rather than about a conversation, so the station's
+     * boundary carries them without describing them.
+     *
+     * JSON-safe like everything else here: it is stored in a transcript and sent
+     * back across the boundary, so no class instances and no functions.
+     */
+    providerState?: Record<string, unknown>;
 }
 
 /**

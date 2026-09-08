@@ -1,4 +1,5 @@
 import { parseMultiSelect, type LlmModelInfo } from '@deadair/plugin-sdk';
+import { qualify } from './llm.names.js';
 
 /**
  * The operator's list of models, and which of them can be given tools.
@@ -113,13 +114,29 @@ export function isParseableModelList(raw: string | undefined): boolean {
  * anyway: a proxy that serves a model without listing it is a real thing, and
  * dropping the entry would silently disable tools on it.
  *
+ * `everyModelTakesTools` is the arm answering the second question outright, and
+ * it is not a shortcut: a vendor serving only its own models knows which of them
+ * take tools, so asking an operator to tick a box confirming it is asking them
+ * to supply something already known — and a box they have not found yet reads,
+ * from the console, as a station that will not use its own library. Only an
+ * OpenAI-compatible endpoint genuinely cannot say, and that is where the config
+ * half earns its place.
+ *
  * `defaultModel` is folded in for the same reason it always was: a plugin that
  * names a model it will not admit to having is a confusing thing to debug.
  * Anything not annotated arrives without tools, which is the conservative
  * direction — the cost of being wrong is a failed generation, and the cost of
  * being cautious is a break written without facts a tool would have supplied.
  */
-export function describeModels(discovered: readonly string[], raw: string | undefined, defaultModel: string): LlmModelInfo[] {
+export function describeModels(
+    provider: string,
+    discovered: readonly string[],
+    raw: string | undefined,
+    defaultModel: string,
+    everyModelTakesTools = false,
+): LlmModelInfo[] {
+    // The ticked models are QUALIFIED, because one station now has several providers and
+    // `gpt-oss` on two of them is two models. Compared qualified against qualified below.
     const withTools = new Set(toolCapableModels(raw));
 
     const ids: string[] = [];
@@ -128,17 +145,20 @@ export function describeModels(discovered: readonly string[], raw: string | unde
         if (trimmed.length > 0 && !ids.includes(trimmed)) ids.push(trimmed);
     };
 
-    // Server first, so the console lists them in the order it reported. Then the
-    // default, then anything annotated that never came back from `/models`.
-    for (const id of discovered) add(id);
-    add(defaultModel);
-    for (const id of withTools) add(id);
+    // The provider first, so the console lists them in the order it reported. Then anything
+    // this provider was annotated with that never came back from its own listing.
+    for (const id of discovered) add(qualify(provider, id));
+    for (const id of withTools) {
+        if (id.startsWith(`${provider}:`)) add(id);
+    }
 
     const fallback = defaultModel.trim();
     return ids.map(id => ({
         id,
-        label: id,
-        tools: withTools.has(id),
+        // The plain name with the provider beside it, because the qualified id reads as machinery
+        // and this is what a console draws.
+        label: `${id.slice(provider.length + 1)} · ${provider}`,
+        tools: everyModelTakesTools || withTools.has(id),
         // Marked so the host knows which entry an unnamed request will actually reach.
         // Without it the host has to assume the worst model on the server, and would
         // never send tools to a station that has more than a couple installed.

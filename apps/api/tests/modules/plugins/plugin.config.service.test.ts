@@ -176,3 +176,94 @@ describe('PluginConfigService.getConfig', () => {
         expect(Object.keys(config)).not.toContain('apiKey');
     });
 });
+
+describe('PluginConfigService: a credential inside a row', () => {
+    const providers: ConfigField[] = [
+        {
+            key: 'providers',
+            label: 'Providers',
+            type: 'list',
+            columns: [
+                { key: 'name', label: 'Name', type: 'string' },
+                { key: 'apiKey', label: 'API key', type: 'secret' },
+            ],
+        },
+    ];
+
+    const rows = (...entries: Record<string, unknown>[]): Record<string, unknown> => ({ providers: JSON.stringify(entries) });
+
+    /** The rows as they were STORED, which is where the whole rule is visible. */
+    const storedRows = (config: Record<string, unknown>): Record<string, unknown>[] => JSON.parse(String(config.providers));
+
+    it('encrypts the cell, keeps it out of the row, and gives the row a name', async () => {
+        const { service: svc, repo } = service();
+
+        const result = await svc.saveConfig('plugin.a', providers, rows({ name: 'claude', apiKey: 'sk-live' }));
+
+        const [row] = storedRows(result.config);
+        expect(row?.name).toBe('claude');
+        expect(row?.apiKey).toBeUndefined();
+        expect(row?.$id).toEqual(expect.any(String));
+
+        const stored = await repo.get('plugin.a');
+        expect(JSON.stringify(stored?.config)).not.toContain('sk-live');
+        await expect(svc.getSecrets('plugin.a')).resolves.toEqual({ [`providers/${String(row?.$id)}/apiKey`]: 'sk-live' });
+    });
+
+    it('reports the cell as configured, under its own key and never as a value', async () => {
+        const { service: svc } = service();
+
+        const saved = await svc.saveConfig('plugin.a', providers, rows({ name: 'claude', apiKey: 'sk-live' }));
+        const [row] = storedRows(saved.config);
+
+        expect(saved.configured[`providers/${String(row?.$id)}/apiKey`]).toBe(true);
+        expect(JSON.stringify(saved)).not.toContain('sk-live');
+    });
+
+    it('keeps the stored credential when a second save does not resend it', async () => {
+        // The same contract a secret field has, which is what lets an operator edit the name in a
+        // row without retyping the key beside it.
+        const { service: svc } = service();
+
+        const first = await svc.saveConfig('plugin.a', providers, rows({ name: 'claude', apiKey: 'sk-live' }));
+        const [row] = storedRows(first.config);
+        await svc.saveConfig('plugin.a', providers, rows({ $id: row?.$id, name: 'renamed' }));
+
+        await expect(svc.getSecrets('plugin.a')).resolves.toEqual({ [`providers/${String(row?.$id)}/apiKey`]: 'sk-live' });
+    });
+
+    it('clears the credential when the cell comes back null', async () => {
+        const { service: svc } = service();
+
+        const first = await svc.saveConfig('plugin.a', providers, rows({ name: 'claude', apiKey: 'sk-live' }));
+        const [row] = storedRows(first.config);
+        await svc.saveConfig('plugin.a', providers, rows({ $id: row?.$id, name: 'claude', apiKey: null }));
+
+        await expect(svc.getSecrets('plugin.a')).resolves.toEqual({});
+    });
+
+    it('forgets the credential of a row that was removed', async () => {
+        const { service: svc } = service();
+
+        await svc.saveConfig('plugin.a', providers, rows({ name: 'claude', apiKey: 'sk-live' }));
+        await svc.saveConfig('plugin.a', providers, rows());
+
+        await expect(svc.getSecrets('plugin.a')).resolves.toEqual({});
+    });
+
+    it('keeps a row id stable across a save, so the credential stays with its row', async () => {
+        const { service: svc } = service();
+
+        const first = await svc.saveConfig('plugin.a', providers, rows({ name: 'a', apiKey: 'sk-a' }, { name: 'b', apiKey: 'sk-b' }));
+        const [one, two] = storedRows(first.config);
+
+        // Reordered, exactly as the console sends it after a drag.
+        const second = await svc.saveConfig('plugin.a', providers, rows({ $id: two?.$id, name: 'b' }, { $id: one?.$id, name: 'a' }));
+
+        expect(storedRows(second.config).map(row => row.name)).toEqual(['b', 'a']);
+        await expect(svc.getSecrets('plugin.a')).resolves.toEqual({
+            [`providers/${String(one?.$id)}/apiKey`]: 'sk-a',
+            [`providers/${String(two?.$id)}/apiKey`]: 'sk-b',
+        });
+    });
+});

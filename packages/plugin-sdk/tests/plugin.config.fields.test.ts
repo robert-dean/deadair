@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { configFieldSchema, parseMultiSelect, parseRows } from '../src/plugin.config.fields.js';
+import { configFieldSchema, isRowSecretKey, parseMultiSelect, parseRows, ROW_ID_KEY, rowSecretKey } from '../src/plugin.config.fields.js';
 
 describe('parseMultiSelect', () => {
     it('reads the values back out of the array they are stored as', () => {
@@ -90,8 +90,56 @@ describe('configFieldSchema', () => {
     it('refuses a column type nobody defined, and an option source nothing resolves', () => {
         const columns = (column: unknown) => configFieldSchema.safeParse({ key: 'feeds', label: 'Feeds', type: 'list', columns: [column] }).success;
 
-        expect(columns({ key: 'secret', label: 'Token', type: 'secret' })).toBe(false);
+        expect(columns({ key: 'token', label: 'Token', type: 'password' })).toBe(false);
         expect(columns({ key: 'category', label: 'Category', type: 'string', optionsFrom: 'station.whatever' })).toBe(false);
+    });
+
+    it('accepts a secret column, which is new', () => {
+        // It used to be refused, because a row is stored as plain JSON and nothing encrypted one
+        // cell of it. `ROW_ID_KEY` is what changed: a ciphertext can belong to a row now.
+        const parsed = configFieldSchema.safeParse({
+            key: 'providers',
+            label: 'Providers',
+            type: 'list',
+            columns: [
+                { key: 'name', label: 'Name', type: 'string', required: true },
+                { key: 'apiKey', label: 'API key', type: 'secret' },
+            ],
+        });
+
+        expect(parsed.success).toBe(true);
+    });
+
+    it('refuses a key holding the one character a secret cell key is joined on', () => {
+        // Otherwise a cell's ciphertext could be addressed two ways, and the host would have two
+        // answers to "is this configured".
+        const field = (key: string) => configFieldSchema.safeParse({ key, label: 'A field', type: 'string' }).success;
+        const column = (key: string) =>
+            configFieldSchema.safeParse({ key: 'rows', label: 'Rows', type: 'list', columns: [{ key, label: 'A cell', type: 'string' }] }).success;
+
+        expect(field('a/b')).toBe(false);
+        expect(column('a/b')).toBe(false);
+        expect(field('a.b')).toBe(true);
+    });
+
+    it('accepts every option source the union declares', () => {
+        // This schema validates real manifests at load, so a source missing from it is a plugin the
+        // host refuses to start. Two were missing and nothing noticed, because no bundled plugin had
+        // asked for one yet.
+        const source = (optionsFrom: string) => configFieldSchema.safeParse({ key: 'a', label: 'A', type: 'string', optionsFrom }).success;
+
+        for (const declared of [
+            'station.newsCategories',
+            'station.newsFeeds',
+            'intl.timeZones',
+            'plugins.speech',
+            'plugins.llm',
+            'plugins.mixer',
+            'plugins.analysis',
+            'llm.models',
+        ]) {
+            expect(source(declared), declared).toBe(true);
+        }
     });
 
     it('takes a column key shaped however the plugin likes, dots included', () => {
@@ -121,5 +169,27 @@ describe('configFieldSchema', () => {
 
     it('still refuses a type nobody defined', () => {
         expect(configFieldSchema.safeParse({ key: 'k', label: 'l', type: 'freeform' }).success).toBe(false);
+    });
+});
+
+describe('a row that holds a secret', () => {
+    it('addresses the cell by field, row and column', () => {
+        expect(rowSecretKey('providers', 'ab12cd34', 'apiKey')).toBe('providers/ab12cd34/apiKey');
+    });
+
+    it('tells a row cell apart from a plain secret field', () => {
+        // A field key is one part and can never collide with a three-part one, which is the whole
+        // reason the separator is refused inside a key.
+        expect(isRowSecretKey('providers/ab12cd34/apiKey')).toBe(true);
+        expect(isRowSecretKey('apiKey')).toBe(false);
+        expect(isRowSecretKey('oauth.tokens')).toBe(false);
+    });
+
+    it('carries its id back like any other cell', () => {
+        // A plugin that ignores it behaves exactly as it did before this existed; one that reads a
+        // row secret needs it, and `readRowSecret` is the only thing that looks.
+        const [row] = parseRows(JSON.stringify([{ [ROW_ID_KEY]: 'ab12cd34', name: 'ollama' }]));
+
+        expect(row).toEqual({ [ROW_ID_KEY]: 'ab12cd34', name: 'ollama' });
     });
 });

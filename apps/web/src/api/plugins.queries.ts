@@ -204,14 +204,25 @@ export function useTestPlugin(id: string) {
  * empty answer is a perfectly usable form, and the operator has an explicit refresh for the case
  * where they have just fixed the address.
  */
-export function usePluginConfigSuggestions(id: string) {
-    return useQuery({
+export function pluginConfigSuggestionsOptions(id: string) {
+    return queryOptions({
         queryKey: queryKeys.plugins.configSuggestions(id),
         queryFn: () => sdk.plugins.suggestPluginConfigOptions(id),
         retry: false,
         refetchOnWindowFocus: false,
         staleTime: Infinity,
     });
+}
+
+/**
+ * The hook form, for the plugin's own settings page.
+ *
+ * Shares its options object with the station settings page, which asks the same question for its
+ * `llm.models` fields (`declared.options.ts`). One cache entry rather than two: this costs a round
+ * trip to somebody's model server, and the two pages asking separately would pay it twice.
+ */
+export function usePluginConfigSuggestions(id: string) {
+    return useQuery(pluginConfigSuggestionsOptions(id));
 }
 
 /** Rescans the mounted plugin directory. Needs `platform.manage`, so a non-admin gets a 403. */

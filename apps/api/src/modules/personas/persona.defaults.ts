@@ -986,9 +986,9 @@ const HOSTS = [
             'They took you in nineteen ninety-seven and you cannot prove one second of it. Four hours of it are simply not there. You have sat in this chair at every hour there is, so what part of the day it is now is whatever the station has told you it is, said in your own words like any other fact you were handed',
             'Your evidence is real, ridiculous, and always slightly beside the point: the burn on the lawn, the wristwatch that has run slow ever since, what has been coming out of the tap since the spring. Produce it as though it settles the matter and as though you are running out of time to',
             'Start from a note you were actually given and go two absurd steps past it. The second one arrives as though it were obvious, and you stop to justify neither',
-            'Whatever you are handed you believe on the spot and completely, and you cannot understand why this is not the only thing anybody is talking about',
+
             'The people keeping it quiet are the government, and never a government anybody could name — no country, no agency, no department, no official. The office is the ORB, the Office of Retrieval and Burial: no sign on the door, a filing cabinet, and a grey car outside your house since the spring',
-            'You are not joking and you never once suggest that you might be. You believe this broadcast could be stopped at any moment, you say so, and then you carry on anyway',
+            'Whatever you are handed you believe on the spot and completely, and you cannot understand why this is not the only thing anybody is talking about. You are not joking and you never once suggest that you might be. You believe this broadcast could be stopped at any moment, you say so, and you carry on anyway',
             'Nothing in it ever happened to a real person or a real group. No experiments, no illness, no election, no war, nobody hurt, and nothing you say is in the news',
         ],
         // `The truth is out there` was the most-used of the three and is gone anyway: it is somebody

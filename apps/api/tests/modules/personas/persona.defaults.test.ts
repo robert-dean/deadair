@@ -202,6 +202,31 @@ describe('the seeded personas', () => {
         }
     });
 
+    // `cleanList` CAPS every one of these silently, so a seed carrying one entry too many ships a
+    // field the model never sees and the checks never read. That is survivable for a subject and is
+    // not for a quirk: this sheet's last two quirks are the fence that makes the conspiracy host
+    // safe to ship, and a seventh quirk added above them dropped the second fence off the end of the
+    // list with nothing failing anywhere. Every capped field, so the next one cannot do it either.
+    it('keep every capped field inside its cap, so nothing is silently dropped', () => {
+        const capped = [
+            ['diction', PERSONA_SHEET_LIMITS.diction, (p: (typeof SEED_CHARACTERS)[number]) => p.diction],
+            ['dictionMarkers', PERSONA_SHEET_LIMITS.dictionMarkers, (p: (typeof SEED_CHARACTERS)[number]) => p.dictionMarkers],
+            ['quirks', PERSONA_SHEET_LIMITS.quirks, (p: (typeof SEED_CHARACTERS)[number]) => p.quirks],
+            ['catchphrases', PERSONA_SHEET_LIMITS.catchphrases, (p: (typeof SEED_CHARACTERS)[number]) => p.catchphrases],
+            ['avoid', PERSONA_SHEET_LIMITS.avoid, (p: (typeof SEED_CHARACTERS)[number]) => p.avoid],
+            ['samples', PERSONA_SHEET_LIMITS.samples, (p: (typeof SEED_CHARACTERS)[number]) => p.samples],
+        ] as const;
+
+        for (const persona of SEED_CHARACTERS) {
+            for (const [field, cap, read] of capped) {
+                expect(
+                    read(persona)?.length ?? 0,
+                    `${persona.key} would have ${field} entries dropped before the model sees them`,
+                ).toBeLessThanOrEqual(cap);
+            }
+        }
+    });
+
     // The same trap as the samples below, one field up: a subject carrying wording the sheet forbids
     // goes into the prompt as the thing to talk about and comes back as the thing that gets the
     // script refused.

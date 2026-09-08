@@ -2,6 +2,7 @@ using System.Globalization;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MaroonedSoftware.Deadair.Desktop.Core.History;
 using MaroonedSoftware.Deadair.Desktop.Core.Net;
 using MaroonedSoftware.Deadair.Desktop.Core.NowPlaying;
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
@@ -9,6 +10,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Core.Text;
 using MaroonedSoftware.Deadair.Desktop.Core.Ui;
+using MaroonedSoftware.Deadair.Sdk.Models;
 using NowPlayingReading = MaroonedSoftware.Deadair.Sdk.Models.NowPlaying;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
@@ -30,6 +32,16 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private readonly IUiDispatcher _dispatcher;
     private readonly PlaybackConductor _conductor = new();
     private readonly DispatcherTicker _ticker;
+
+    /// <summary>
+    /// Holds a volume change back until the hand stops moving.
+    /// </summary>
+    /// <remarks>
+    /// The player hears every change at once, because a slider that lags is a slider nobody trusts.
+    /// The FILE does not: dragging across the bar is dozens of values, and writing each one is dozens
+    /// of writes to somebody's Application Support folder for one gesture.
+    /// </remarks>
+    private readonly DispatcherTicker _volumeSettles;
 
     private NowPlayingRepository? _repository;
     private IDisposable? _lease;
@@ -60,6 +72,8 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         // Half a second, counted from the reading rather than from a wall clock, so the playhead
         // moves smoothly between polls and is re-anchored whenever a real answer arrives.
         _ticker = new DispatcherTicker(TimeSpan.FromMilliseconds(500), Tick);
+
+        _volumeSettles = new DispatcherTicker(TimeSpan.FromMilliseconds(400), SaveVolume);
     }
 
     [ObservableProperty]
@@ -107,12 +121,92 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     [ObservableProperty]
     private bool _stale;
 
+    /// <summary>
+    /// Whether the station could say where the record is up to.
+    /// </summary>
+    /// <remarks>
+    /// The bar draws a playhead when this is true and the word LIVE when it is not. Both are honest
+    /// answers; what would not be is a bar sitting at zero, which reads as a record that has not
+    /// started rather than as a station that cannot say.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _hasPlayhead;
+
+    /// <summary>How the mount currently chosen names itself: <c>MP3 128 kb/s</c>, <c>FLAC</c>.</summary>
+    /// <remarks>
+    /// Read out of <c>mounts[]</c> and never by asking a mount anything. A connection of any length
+    /// registers an audience for the full linger, so a bar that probed to label itself would put a
+    /// silent station on air just by being drawn.
+    /// </remarks>
+    [ObservableProperty]
+    private string _formatLabel = string.Empty;
+
+    /// <summary>Whether the wanted format was not on offer and MP3 is playing instead.</summary>
+    [ObservableProperty]
+    private bool _formatFellBack;
+
+    [ObservableProperty]
+    private string _listenersLabel = ListenerCount.Label(0);
+
+    /// <summary>The record's own initial, for the square drawn when there is no cover.</summary>
+    /// <remarks>
+    /// A letter rather than a musical note, which is the web console's answer to the same question:
+    /// a note is a picture of "music" on a page that is already entirely about music, while an
+    /// initial at least tells two missing covers apart.
+    /// </remarks>
+    public string Initial => First(Title ?? StationName);
+
+    /// <summary>Whether something is genuinely on air, which is the only thing allowed to pulse.</summary>
+    public bool IsLive => Tone is StatusTone.Live;
+
+    /// <summary>The lamp beside ON AIR, which is about the STATION rather than about this listener.</summary>
+    public StatusTone AirTone => OnAir ? StatusTone.Live : StatusTone.Off;
+
     public bool Playing => Listening is not ListeningState.Stopped;
+
+    /// <summary>0.0 to 1.0.</summary>
+    /// <remarks>
+    /// Settings has held a volume since the app could play at all and nothing has ever let anybody
+    /// change it. The player hears a change immediately; the file hears it once the hand stops.
+    /// </remarks>
+    public double Volume
+    {
+        get => _volume;
+        set
+        {
+            if (Math.Abs(_volume - value) < 0.001)
+            {
+                return;
+            }
+
+            _volume = value;
+            OnPropertyChanged();
+
+            _player.Volume = value;
+
+            _volumeSettles.Stop();
+            _volumeSettles.Start();
+        }
+    }
+
+    private double _volume = 0.8;
+
+    private void SaveVolume()
+    {
+        _volumeSettles.Stop();
+        _ = _settings.SaveAsync(_settings.Current with { Volume = _volume });
+    }
+
+    private static string First(string value) =>
+        value.Length == 0 ? "?" : char.ToUpperInvariant(value[0]).ToString();
 
     public void Attach(StationUrl station, string? name)
     {
         _station = station;
         StationName = name ?? station.Origin.Host;
+
+        _volume = _settings.Current.Volume;
+        OnPropertyChanged(nameof(Volume));
 
         _repository = new NowPlayingRepository(station, _http, _dispatcher);
         _repository.Changed += OnReading;
@@ -146,7 +240,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _conductor.Requested();
         Apply();
 
-        _player.Volume = _settings.Current.Volume;
+        _player.Volume = Volume;
         await _player.PlayAsync(_station.MountUrl(choice.Path)).ConfigureAwait(true);
         _ticker.Start();
     }
@@ -160,6 +254,17 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
     /// <summary>Raised so the desk can act on a Skip asked for from outside the window.</summary>
     public event Func<Task>? SkipRequested;
+
+    /// <summary>
+    /// Raised with every reading's <c>mounts[]</c>, so a page that wants to know what the station
+    /// publishes can be told rather than ask.
+    /// </summary>
+    /// <remarks>
+    /// This exists so that the format picker is not tempted to fetch, and certainly not to connect.
+    /// One subscription to `/nowplaying` for the whole app is also one User-Agent and one place the
+    /// rate limit is spent.
+    /// </remarks>
+    public event Action<IReadOnlyList<NowPlayingMount>>? MountsChanged;
 
     private async Task OnCommandedAsync(RemoteCommand command)
     {
@@ -219,12 +324,21 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
         StationName = now.Station;
         Listeners = now.Listeners;
+        ListenersLabel = ListenerCount.Label(now.Listeners);
         OnAir = now.OnAir;
+        OnPropertyChanged(nameof(AirTone));
+
+        // The mount named without asking one anything: `mounts[]` is carried for exactly this.
+        var mount = MountSelection.Choose(now.Mounts, _settings.Current.Format);
+        FormatLabel = MountLabel.Name(mount.Format) + Rate(now.Mounts, mount);
+        FormatFellBack = mount.FellBack;
+        MountsChanged?.Invoke(now.Mounts);
 
         var track = now.Track;
         Title = track?.Title;
         Artist = track?.Artist;
         Album = track?.Album;
+        OnPropertyChanged(nameof(Initial));
 
         Duration = Playhead.Duration(track)?.TotalSeconds ?? 0;
         Tick();
@@ -243,15 +357,31 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         {
             // The station could not say. Drawing nothing is the honest answer; the tempting fallback
             // measures when the record STARTED and leads what is being heard.
+            HasPlayhead = false;
             Position = 0;
-            Elapsed = "--:--";
-            Remaining = "--:--";
+            Elapsed = ClockFormat.Unknown;
+            Remaining = ClockFormat.Unknown;
             return;
         }
 
+        HasPlayhead = true;
         Position = position.Value.TotalSeconds;
-        Elapsed = Clock(position.Value);
-        Remaining = "-" + Clock(duration.Value - position.Value);
+        Elapsed = ClockFormat.Elapsed(position.Value);
+        Remaining = ClockFormat.Remaining(duration.Value - position.Value);
+    }
+
+    /// <summary>The bitrate, when the chosen mount has one to give.</summary>
+    private static string Rate(IReadOnlyList<NowPlayingMount> mounts, MountChoice choice)
+    {
+        foreach (var mount in mounts)
+        {
+            if (mount.Path == choice.Path && mount.BitrateKbps is { } rate and > 0)
+            {
+                return string.Create(CultureInfo.CurrentCulture, $" {rate} kb/s");
+            }
+        }
+
+        return string.Empty;
     }
 
     private async Task LoadArtworkAsync(string? artworkUrl)
@@ -308,6 +438,7 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     {
         Listening = _conductor.State;
         OnPropertyChanged(nameof(Playing));
+        OnPropertyChanged(nameof(IsLive));
 
         (ListeningLabel, Tone) = _conductor.State switch
         {
@@ -322,22 +453,11 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         };
     }
 
-    private static string Clock(TimeSpan value)
-    {
-        if (value < TimeSpan.Zero)
-        {
-            value = TimeSpan.Zero;
-        }
-
-        return value.TotalHours >= 1
-            ? value.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
-            : value.ToString(@"m\:ss", CultureInfo.InvariantCulture);
-    }
-
     public async ValueTask DisposeAsync()
     {
         _player.StatusChanged -= OnPlayerStatus;
         _ticker.Stop();
+        _volumeSettles.Stop();
         _systemNowPlaying.Clear();
         _lease?.Dispose();
 

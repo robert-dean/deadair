@@ -11,16 +11,33 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 /// <summary>One record in the library.</summary>
-public sealed record TrackRowViewModel(Guid Id, string Title, string Artists, string? Album, string Length, string? Year);
+public sealed record TrackRowViewModel(
+    Guid Id,
+    string Title,
+    string Artists,
+    string? Album,
+    string Length,
+    string? Year,
+    Uri? ArtworkUrl)
+{
+    /// <summary>The square drawn until, or instead of, a cover.</summary>
+    public string Initial => Title.Length == 0 ? "?" : char.ToUpperInvariant(Title[0]).ToString();
+}
 
 /// <summary>One act.</summary>
 public sealed record ArtistRowViewModel(Guid Id, string Name);
 
 /// <summary>One release.</summary>
-public sealed record AlbumRowViewModel(Guid Id, string Name, string ArtistName);
+public sealed record AlbumRowViewModel(Guid Id, string Name, string ArtistName, Uri? ArtworkUrl)
+{
+    public string Initial => Name.Length == 0 ? "?" : char.ToUpperInvariant(Name[0]).ToString();
+}
 
 /// <summary>A playlist the station can be put on air from.</summary>
-public sealed record PlaylistRowViewModel(string PluginId, string Id, string Name, string Source);
+public sealed record PlaylistRowViewModel(string PluginId, string Id, string Name, string Source, Uri? ArtworkUrl)
+{
+    public string Initial => Name.Length == 0 ? "?" : char.ToUpperInvariant(Name[0]).ToString();
+}
 
 /// <summary>A published chart the station can be put on air from.</summary>
 public sealed record ChartRowViewModel(string Id, string Name, string Source);
@@ -184,7 +201,7 @@ public sealed partial class LibraryViewModel(OperatorActions actions, HttpClient
         Albums.Clear();
         foreach (var album in page.Data)
         {
-            Albums.Add(new AlbumRowViewModel(album.Id, album.Name, album.ArtistName));
+            Albums.Add(new AlbumRowViewModel(album.Id, album.Name, album.ArtistName, _station.ArtUrl(album.ImageUrl)));
         }
     }
 
@@ -207,7 +224,8 @@ public sealed partial class LibraryViewModel(OperatorActions actions, HttpClient
         foreach (var playlist in page.Playlists)
         {
             Playlists.Add(new PlaylistRowViewModel(
-                playlist.PluginId, playlist.Id, playlist.Name, playlist.PluginName));
+                playlist.PluginId, playlist.Id, playlist.Name, playlist.PluginName,
+                _station.ArtUrl(playlist.ArtworkUrl)));
         }
     }
 
@@ -362,7 +380,8 @@ public sealed partial class LibraryViewModel(OperatorActions actions, HttpClient
                     row.DurationMs is { } ms && ms > 0
                         ? TimeSpan.FromMilliseconds(ms).ToString(@"m\:ss", CultureInfo.InvariantCulture)
                         : "--:--",
-                    row.Year?.ToString(CultureInfo.InvariantCulture)));
+                    row.Year?.ToString(CultureInfo.InvariantCulture),
+                    _station.ArtUrl(row.AlbumImageUrl)));
             }
 
             var first = Total == 0 ? 0 : (Page * PageSize) + 1;

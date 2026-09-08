@@ -42,6 +42,46 @@ public class NavigationTests
     }
 
     [Fact]
+    public void EveryDestinationNamesAnIconThatIsReallyThere()
+    {
+        // The icon is a resource KEY, so a typo is a blank square at run time rather than a compile
+        // error. This reads the dictionary the application merges and asks it.
+        var icons = File.ReadAllText(
+            Path.Combine(Repository(), "src", "MaroonedSoftware.Deadair.Desktop", "Themes", "Icons.axaml"));
+
+        foreach (var entry in Destinations.All)
+        {
+            Assert.Contains($"x:Key=\"{entry.Icon}\"", icons, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public void TheSectionsAgreeWithTheAccountRuleRatherThanRestatingIt()
+    {
+        // A heading is the account rule said out loud: everything under Desk needs one, and nothing
+        // under Listen or App does. A destination that disagreed would put a page somebody cannot
+        // open under a heading promising they can.
+        foreach (var entry in Destinations.All)
+        {
+            Assert.Equal(entry.Section is NavSection.Desk, entry.NeedsOperator);
+        }
+    }
+
+    /// <summary>Walks up from the test binary to the `apps/desktop` directory.</summary>
+    private static string Repository()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !Directory.Exists(Path.Combine(directory.FullName, "src")))
+        {
+            directory = directory.Parent;
+        }
+
+        Assert.NotNull(directory);
+        return directory.FullName;
+    }
+
+    [Fact]
     public void TheFirstDestinationWorksWithNoAccount()
     {
         // Whatever the rail opens on has to be reachable by somebody who has not signed in, or the

@@ -17,20 +17,33 @@
                        Foreground="{DynamicResource DaTextDimmedBrush}" />
         </StackPanel>
 
-        <ListBox ItemsSource="{Binding Rows}" Background="Transparent" BorderThickness="0">
-            <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="vm:HistoryRowViewModel">
-                    <Grid ColumnDefinitions="60,*,220" ColumnSpacing="12" Margin="0,3">
-                        <TextBlock Classes="mono" Text="{Binding When}" FontSize="12"
-                                   Foreground="{DynamicResource DaTextDimmedBrush}" />
-                        <TextBlock Grid.Column="1" Text="{Binding Title}" TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource DaTextBrush}" />
-                        <TextBlock Grid.Column="2" Text="{Binding Artists}" TextTrimming="CharacterEllipsis"
-                                   Foreground="{DynamicResource DaTextSecondaryBrush}" />
-                    </Grid>
-                </DataTemplate>
-            </ListBox.ItemTemplate>
-        </ListBox>
+        <!-- One list per day, under the day's own heading. Phase 7 gives the rows their artwork. -->
+        <ScrollViewer>
+            <ItemsControl ItemsSource="{Binding Days}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:HistoryDayViewModel">
+                        <StackPanel Spacing="6" Margin="0,0,0,16">
+                            <TextBlock Classes="eyebrow" Text="{Binding Label}" Margin="8,0,0,0" />
+                            <ListBox Classes="rows" ItemsSource="{Binding Rows}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:HistoryRowViewModel">
+                                        <Grid ColumnDefinitions="60,*,220" ColumnSpacing="12">
+                                            <TextBlock Classes="mono dimmed" Text="{Binding When}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Title}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource DaTextBrush}" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Artists}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Classes="secondary" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
 
     </DockPanel>
 

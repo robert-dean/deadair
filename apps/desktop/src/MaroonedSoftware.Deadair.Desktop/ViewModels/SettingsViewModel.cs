@@ -3,6 +3,7 @@ using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MaroonedSoftware.Deadair.Desktop.Core.Auth;
+using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
 using MaroonedSoftware.Deadair.Desktop.Themes;
@@ -14,6 +15,33 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
 /// <summary>One group of the station's settings, as the station groups them.</summary>
 public sealed record SettingGroupViewModel(string Name, IReadOnlyList<SettingFieldViewModel> Fields);
+
+/// <summary>
+/// One way to listen, and whether the station is publishing it.
+/// </summary>
+/// <remarks>
+/// An unpublished format is drawn and DISABLED rather than hidden, which is the rule the Android
+/// listener arrived at: a FLAC row that vanishes tells somebody who wants FLAC nothing, while one
+/// they cannot choose tells them the station is not offering it. Which is which comes from
+/// <c>mounts[]</c> on the last reading and never from trying a mount — a connection of any length
+/// registers an audience for the full five-minute linger.
+/// </remarks>
+public sealed partial class FormatChoiceViewModel(NowPlayingMountFormat format, string label) : ObservableObject
+{
+    public NowPlayingMountFormat Format { get; } = format;
+
+    public string Label { get; } = label;
+
+    [ObservableProperty]
+    private bool _isAvailable;
+
+    [ObservableProperty]
+    private bool _isChosen;
+
+    /// <summary>The rate, when the station published one for this format.</summary>
+    [ObservableProperty]
+    private string _detail = string.Empty;
+}
 
 /// <summary>
 /// The station's settings, and this app's own.
@@ -53,10 +81,65 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     private string? _notice;
 
+    /// <summary>Every format the station could publish, in the order a listener would try them.</summary>
+    public IReadOnlyList<FormatChoiceViewModel> Formats { get; } =
+    [
+        new(NowPlayingMountFormat.Mp3, MountLabel.Name(NowPlayingMountFormat.Mp3)),
+        new(NowPlayingMountFormat.Aac, MountLabel.Name(NowPlayingMountFormat.Aac)),
+        new(NowPlayingMountFormat.Opus, MountLabel.Name(NowPlayingMountFormat.Opus)),
+        new(NowPlayingMountFormat.Flac, MountLabel.Name(NowPlayingMountFormat.Flac)),
+        new(NowPlayingMountFormat.Hls, MountLabel.Name(NowPlayingMountFormat.Hls)),
+    ];
+
     public void Attach(StationUrl station)
     {
         _station = station;
         Appearance = settings.Current.Appearance;
+        MarkChosenFormat(settings.Current.Format);
+    }
+
+    /// <summary>
+    /// Says which formats are really on offer, from a reading somebody else already took.
+    /// </summary>
+    /// <remarks>
+    /// Handed the mounts rather than fetching them: this page has no business asking `/nowplaying`
+    /// when the listener half of the app is already subscribed to it, and it must never ask a MOUNT.
+    /// </remarks>
+    public void ApplyMounts(IReadOnlyList<NowPlayingMount> mounts)
+    {
+        ArgumentNullException.ThrowIfNull(mounts);
+
+        foreach (var choice in Formats)
+        {
+            var published = mounts.FirstOrDefault(mount => mount.Format == choice.Format);
+
+            choice.IsAvailable = published is not null;
+            choice.Detail = published is null
+                ? string.Empty
+                : MountLabel.Of(published).Replace(choice.Label, string.Empty, StringComparison.Ordinal).Trim();
+        }
+    }
+
+    /// <remarks>
+    /// Saved at once like the appearance, and for the same reason: Save is the STATION's button. What
+    /// it does not do is reconnect — the change lands on the next Listen, because dropping a live
+    /// connection to pick up a new one is a second audience on a gated station.
+    /// </remarks>
+    [RelayCommand]
+    private async Task ChooseFormatAsync(FormatChoiceViewModel choice)
+    {
+        ArgumentNullException.ThrowIfNull(choice);
+
+        MarkChosenFormat(choice.Format);
+        await settings.SaveAsync(settings.Current with { Format = choice.Format }).ConfigureAwait(true);
+    }
+
+    private void MarkChosenFormat(NowPlayingMountFormat chosen)
+    {
+        foreach (var choice in Formats)
+        {
+            choice.IsChosen = choice.Format == chosen;
+        }
     }
 
     partial void OnAppearanceChanged(Appearance value)

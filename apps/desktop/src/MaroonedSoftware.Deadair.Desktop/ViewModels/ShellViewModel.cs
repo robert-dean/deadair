@@ -67,6 +67,10 @@ public sealed partial class ShellViewModel : ObservableObject
         // player: the player has no next track to move to.
         Listener.SkipRequested += Transport.SkipFromSystemAsync;
 
+        // The format picker is told what the station publishes rather than asking, and never by
+        // connecting to a mount to find out.
+        Listener.MountsChanged += StationSettings.ApplyMounts;
+
         // A page fetches when it is opened rather than on a timer. A catalog does not change while
         // somebody is looking at it, and the station rate-limits.
         Navigation.Navigated += destination =>

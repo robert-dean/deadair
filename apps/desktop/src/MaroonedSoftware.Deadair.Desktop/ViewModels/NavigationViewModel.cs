@@ -5,7 +5,7 @@ using MaroonedSoftware.Deadair.Desktop.Navigation;
 
 namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 
-/// <summary>One button on the rail.</summary>
+/// <summary>One button on the sidebar.</summary>
 public sealed partial class NavigationItemViewModel(NavigationEntry entry) : ObservableObject
 {
     public NavigationEntry Entry { get; } = entry;
@@ -14,8 +14,23 @@ public sealed partial class NavigationItemViewModel(NavigationEntry entry) : Obs
 
     public string Key => Entry.Key;
 
+    /// <summary>The icon's resource key, which the view resolves.</summary>
+    public string Icon => Entry.Icon;
+
     [ObservableProperty]
     private bool _isCurrent;
+
+    [ObservableProperty]
+    private bool _isVisible = true;
+}
+
+/// <summary>One heading in the sidebar, and what sits under it.</summary>
+public sealed partial class NavigationSectionViewModel(string label, IReadOnlyList<NavigationItemViewModel> items)
+    : ObservableObject
+{
+    public string Label { get; } = label;
+
+    public IReadOnlyList<NavigationItemViewModel> Items { get; } = items;
 
     [ObservableProperty]
     private bool _isVisible = true;
@@ -38,9 +53,31 @@ public sealed partial class NavigationViewModel : ObservableObject
         }
 
         Items[0].IsCurrent = true;
+
+        // Built once and in the order the destinations are declared, so the sidebar and the keyboard
+        // cannot end up disagreeing about what exists.
+        Sections =
+        [
+            .. Items
+                .GroupBy(item => item.Entry.Section)
+                .Select(group => new NavigationSectionViewModel(Heading(group.Key), [.. group])),
+        ];
+
+        ApplyRole(isOperator: false);
     }
 
+    /// <summary>
+    /// Every destination, flat.
+    /// </summary>
+    /// <remarks>
+    /// The keyboard reads this rather than the sections: a shortcut is about the whole app, and
+    /// walking a grouping to find a letter would be walking a view's arrangement to answer a
+    /// question that has nothing to do with it.
+    /// </remarks>
     public ObservableCollection<NavigationItemViewModel> Items { get; } = [];
+
+    /// <summary>The same destinations, under the headings the sidebar draws.</summary>
+    public IReadOnlyList<NavigationSectionViewModel> Sections { get; }
 
     [ObservableProperty]
     private Destination _current = new Destination.Desk();
@@ -103,9 +140,26 @@ public sealed partial class NavigationViewModel : ObservableObject
             item.IsVisible = !item.Entry.NeedsOperator || isOperator;
         }
 
+        // A heading with nothing under it is a heading promising a section somebody cannot reach.
+        foreach (var section in Sections)
+        {
+            section.IsVisible = section.Items.Any(item => item.IsVisible);
+        }
+
         if (!isOperator && Items.Any(item => item is { IsCurrent: true, IsVisible: false }))
         {
             Show(new Destination.Desk());
         }
     }
+
+    /// <remarks>
+    /// The words rather than the enum's own: `Listen` and `App` are already sentences, and the desk
+    /// is "The desk" everywhere else in this app.
+    /// </remarks>
+    private static string Heading(NavSection section) => section switch
+    {
+        NavSection.Listen => "LISTEN",
+        NavSection.Desk => "DESK",
+        _ => "APP",
+    };
 }

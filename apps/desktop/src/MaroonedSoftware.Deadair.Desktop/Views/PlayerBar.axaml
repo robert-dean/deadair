@@ -85,8 +85,11 @@
             </StackPanel>
 
             <!-- The one control a listener has, and the last thing docked, so it fills. -->
+            <!-- Stretched, so the `*` column is the room the bar has rather than what its content
+                 asked for: centred, the LIVE rule had no width of its own and drew as a stub. With
+                 a MaxWidth the group still sits in the middle of whatever is left. -->
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14" MaxWidth="560" MinWidth="150"
-                  HorizontalAlignment="Center" VerticalAlignment="Center">
+                  HorizontalAlignment="Stretch" VerticalAlignment="Center">
                 <Button Classes="play" Command="{Binding ToggleCommand}">
                     <PathIcon Width="18" Height="18"
                               Data="{Binding Playing, Converter={x:Static conv:PlayIconConverter.Instance}}" />

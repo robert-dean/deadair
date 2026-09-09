@@ -13,10 +13,12 @@ import {
     DEFAULT_MAX_WORDS,
     maxWordsFor,
     overusedWords,
+    permittedYears,
     readAnswer,
     TALK_BREAK_SHAPE,
     writeDecline,
     writeTrim,
+    yearsIn,
     type PromptSettings,
 } from '../../../src/modules/director/break.prompt.js';
 import type { BreakWriteRequest } from '../../../src/modules/director/break.writer.js';
@@ -1766,5 +1768,169 @@ describe('writeDecline', () => {
     it('carries a sentence an operator can read beside the fault', () => {
         expect(writeDecline('   ', {})?.reason).toMatch(/nothing/i);
         expect(writeDecline(Array.from({ length: 99 }, () => 'word').join(' '), {})?.reason).toMatch(/word ceiling/i);
+    });
+});
+
+// The music path's answer to `inventedFigure`, and it exists because the prompt has been asking for
+// this in words the whole time with nothing reading the reply. Every claim below is a shape this
+// station actually aired: "formed in Hannover nineteen sixty-five", "The band born in Brooklyn,
+// 1989", "born in Ho-Ho-Kus back in nineteen seventy-two", "launched in Los Angeles back in two
+// thousand". All four are true in the world and none was in the notes, which is the point — the
+// station cannot tell a model's good recall from its bad, and the same mechanism produced "a band
+// born in Los Angeles in eight-twenty-three".
+describe('readAnswer, against the years it was given', () => {
+    const dated = { title: 'Solid Air', artist: 'John Martyn', year: 1973 };
+    const pirate = { dictionMarkers: ['ye', 'aye', 'matey'] };
+
+    it('asks nothing of a guard that names no permitted years, like every other field here', () => {
+        const script = 'That was Solid Air, from John Martyn, recorded in 1965.';
+
+        expect(readAnswer(script, {})).toBe(script);
+    });
+
+    it('keeps a year it was actually listed', () => {
+        const script = 'That was Solid Air, from John Martyn. Nineteen seventy-three, and it has not aged a day.';
+
+        expect(readAnswer(script, { years: [1973], names: [dated] })).toBe(script);
+    });
+
+    it('declines a year it was never given, in digits', () => {
+        expect(readAnswer('That was Solid Air, from John Martyn, and the band formed in 1965.', { years: [1973], names: [dated] })).toBeUndefined();
+    });
+
+    // The half `inventedFigure` documents itself as doing without. Of the four dates this station
+    // aired ungrounded, three were words and one was digits.
+    it('declines a year it was never given, spoken as words', () => {
+        const guard = { years: [1973], names: [dated] };
+
+        expect(readAnswer('Solid Air there. They formed in Hannover nineteen sixty-five.', guard)).toBeUndefined();
+        expect(readAnswer('Solid Air there, from a band that launched back in two thousand.', guard)).toBeUndefined();
+        expect(readAnswer('Solid Air there. Born in Ho-Ho-Kus back in nineteen seventy-two.', guard)).toBeUndefined();
+    });
+
+    // An empty permitted set is the statement a factless break makes, and it is the sentence the
+    // prompt already puts in front of the model: the station knows nothing about this record beyond
+    // what is listed, so every year in the answer is one the model brought with it.
+    it('refuses every year when the station was given none', () => {
+        expect(readAnswer('That was Solid Air, from John Martyn, out in 1973.', { years: [], names: [dated] })).toBeUndefined();
+    });
+
+    // A record's name is full of digits for the same reason it is full of words about the time, and
+    // `Miami Nights 1984` is an artist on this station rather than a hypothetical.
+    it('takes the record names out first, so a title full of digits is not a claim about a date', () => {
+        const nineteen = { title: '1979', artist: 'The Smashing Pumpkins' };
+        const miami = { title: 'Early Summer', artist: 'Miami Nights 1984' };
+        const script = 'That was 1979, from The Smashing Pumpkins. Next, Early Summer, from Miami Nights 1984.';
+
+        expect(readAnswer(script, { years: [], names: [nineteen, miami] })).toBe(script);
+    });
+
+    // The album is on the prompt, so a break may repeat it, and refusing that would be the station
+    // refusing its own note. Permitted rather than stripped: see `permittedYears`.
+    it('keeps a year that was in the album it was shown', () => {
+        const ozzy = { title: 'Crazy Train', artist: 'Ozzy Osbourne', album: 'Blizzard Of Ozz (40th Anniversary Expanded Edition)', year: 2020 };
+        const script = 'Crazy Train there, from Ozzy Osbourne, off the Blizzard Of Ozz 40th Anniversary Expanded Edition.';
+
+        expect(readAnswer(script, { years: permittedYears([ozzy]), names: [ozzy] })).toBe(script);
+    });
+
+    // Found by replaying the check over what this station has already aired: 5 of the 23 breaks it
+    // refused were the paranormal host telling his own seeded story, which opens "Nineteen
+    // ninety-seven. I was driving home". The prompt prints that story and the sheet asks him to
+    // bring it up, so refusing the break is the station asking for something and then declining a
+    // script for doing it.
+    it('keeps a year the station itself put in the prompt, which is the persona telling its own story', () => {
+        const story = 'Nineteen ninety-seven. I was driving home, past the last streetlight, and there were three of them over the road.';
+        const script = 'Solid Air there. It takes me back to nineteen ninety-seven, my friends, and the four hours I never got back.';
+
+        expect(readAnswer(script, { years: permittedYears([dated], undefined, [story]), names: [dated] })).toBe(script);
+    });
+
+    it('keeps a year a supplied fact carried, which is what makes this a bargain rather than a trick', () => {
+        const withFact = { ...dated, facts: ['"Crazy Train" is the debut solo single by Ozzy Osbourne, released in 1980.'] };
+        const script = 'Solid Air there. Nineteen eighty, and somebody was paid to have that idea.';
+
+        expect(readAnswer(script, { years: permittedYears([withFact]), names: [withFact] })).toBe(script);
+    });
+
+    // A century word with nothing completing it is not a date, and a break is full of both of these.
+    // The parser wants the second half before it calls anything a year.
+    it('does not read an ordinary number as a year', () => {
+        const guard = { years: [], names: [dated] };
+
+        expect(readAnswer('Solid Air there. Twenty minutes of it, and nineteen records to go.', guard)).toBeDefined();
+        expect(readAnswer('Solid Air there. Twenty two people have asked for this.', guard)).toBeDefined();
+        expect(readAnswer('Solid Air there. Four minutes and three key changes.', guard)).toBeDefined();
+    });
+
+    it('says which fault it was and which year did it, so the row does not need a capture', () => {
+        const declined = writeDecline('Solid Air there. They formed in Hannover nineteen sixty-five.', { years: [1973], names: [dated] });
+
+        expect(declined?.fault).toBe('invented-year');
+        expect(declined?.reason).toMatch(/never gave it/i);
+        expect(declined?.reason).toContain('it said "1965"');
+    });
+
+    // In `writeDecline`'s own order: a break that dated the record wrongly is not worth asking
+    // whether it did so in voice.
+    it('reports the year before the character, for an answer that failed both', () => {
+        const declined = writeDecline('Solid Air there. They formed in Hannover nineteen sixty-five.', {
+            years: [1973],
+            names: [dated],
+            persona: pirate,
+        });
+
+        expect(declined?.fault).toBe('invented-year');
+    });
+});
+
+describe('permittedYears', () => {
+    it('reads the listing, the album and the facts, and says nothing twice', () => {
+        const record = { title: 'Crazy Train', artist: 'Ozzy Osbourne', album: 'Blizzard Of Ozz (1980)', year: 1980, facts: ['Released in 1980.'] };
+
+        expect(permittedYears([record])).toEqual([1980]);
+    });
+
+    it('permits every year the prompt itself carried, rather than a list of the fields it came from', () => {
+        expect(permittedYears([], undefined, ['You had six weeks on national radio in nineteen eighty-four.'])).toEqual([1984]);
+    });
+
+    it('permits the year the break airs in, which a presenter can state from the booth', () => {
+        const years = permittedYears([{ title: 'Solid Air', artist: 'John Martyn' }], { at: Date.UTC(2026, 4, 1, 12), zone: 'UTC' });
+
+        expect(years).toContain(2026);
+    });
+
+    it('answers nothing for records that carried no date at all', () => {
+        expect(permittedYears([{ title: 'Solid Air', artist: 'John Martyn' }, undefined])).toEqual([]);
+    });
+});
+
+describe('yearsIn', () => {
+    it('reads a year in digits and the same year in words', () => {
+        expect(yearsIn('released in 1965')).toEqual([1965]);
+        expect(yearsIn('released in nineteen sixty-five')).toEqual([1965]);
+    });
+
+    it('reads the spoken shapes a presenter actually uses', () => {
+        expect(yearsIn('nineteen eighty')).toEqual([1980]);
+        expect(yearsIn('nineteen oh five')).toEqual([1905]);
+        expect(yearsIn('nineteen seventeen')).toEqual([1917]);
+        expect(yearsIn('two thousand')).toEqual([2000]);
+        expect(yearsIn('two thousand and four')).toEqual([2004]);
+        expect(yearsIn('twenty twenty-three')).toEqual([2023]);
+    });
+
+    it('leaves a number that completes no year alone', () => {
+        expect(yearsIn('twenty minutes')).toEqual([]);
+        expect(yearsIn('nineteen records')).toEqual([]);
+        expect(yearsIn('twenty two people')).toEqual([]);
+        expect(yearsIn('503 downloads and 1750000 more')).toEqual([]);
+    });
+
+    // A bare decade is a year to a listener and is deliberately not read as one: catching it means
+    // reading every two-digit number word as a date, which refuses "forty five seconds".
+    it('does not reach for a decade with no century in front of it', () => {
+        expect(yearsIn('back in seventy-two')).toEqual([]);
     });
 });

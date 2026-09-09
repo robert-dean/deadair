@@ -9,6 +9,7 @@ import {
     breakPrompt,
     maxWordsFor,
     offeredPads,
+    permittedYears,
     readAnswer,
     TALK_BREAK_SHAPE,
     writeDecline,
@@ -248,6 +249,25 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // keep a pad hit in a kind of break whose shape refused to offer one, which is the same
             // class of disagreement `maxWordsFor` exists to prevent one field up.
             pads: offeredPads(settings, TALK_BREAK_SHAPE),
+            // The dates this break was actually handed, from the same two records the prompt was
+            // built from. Unconditional, like `cues` and for the same reason: an EMPTY permitted set
+            // is the statement a factless break makes rather than a question left unasked, and it is
+            // the one the prompt has been making in words all along — "the station knows nothing
+            // about X beyond what is listed above". This is the answer side of that sentence.
+            //
+            // The talk break alone for now. It is the kind that carries the whole music path (749 of
+            // the aired model breaks on this station against 121 for the next one), and a bulletin's
+            // years belong to its stories rather than to a record, so `NEWS_SHAPE` would need its own
+            // substrate here rather than this one.
+            // The prompt itself is the third argument, and it is what keeps this a bargain: a
+            // persona's story, background and preoccupations carry dates the station ASKED to hear,
+            // and five of the aired breaks this was measured on are the paranormal host telling his
+            // own seeded story, which opens on a year. See `permittedYears`.
+            years: permittedYears(
+                [request.previous, request.next],
+                request.moment,
+                messages.map(message => message.content),
+            ),
         };
         const script = readAnswer(result.text, guard);
 

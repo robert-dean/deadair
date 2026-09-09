@@ -140,7 +140,6 @@ export class SessionActivityService {
 
     // ---- Helpers ----
 
-
     private toListedSession(session: AuthenticationSession, currentSessionToken?: string): ListedSession {
         return {
             sessionToken: session.sessionToken,

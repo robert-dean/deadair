@@ -35,7 +35,8 @@ afterEach(() => {
 const EMAIL_FACTOR = { method: 'email', method_id: 'email-1', kind: 'possession', label: 'a***@example.com' };
 const AUTHENTICATOR_FACTOR = { method: 'authenticator', method_id: 'totp-1', kind: 'possession', label: 'Phone' };
 
-const challengeOf = (factors: unknown[]) => ({ result: 'mfa_required', challenge_id: 'mfa-1', expires_at: '2026-01-01T00:00:00.000Z', factors }) as never;
+const challengeOf = (factors: unknown[]) =>
+    ({ result: 'mfa_required', challenge_id: 'mfa-1', expires_at: '2026-01-01T00:00:00.000Z', factors }) as never;
 
 const noop = () => undefined;
 

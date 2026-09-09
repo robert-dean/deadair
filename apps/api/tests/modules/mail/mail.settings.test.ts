@@ -95,7 +95,10 @@ describe('resolving the mail settings', () => {
     });
 
     it('decrypts the stored password', () => {
-        const settings = resolveMailSettings(configOf({ ...configured, [MAIL_KEYS.user]: 'radio', [MAIL_KEYS.password]: 'enc:hunter2' }), encryptionOf());
+        const settings = resolveMailSettings(
+            configOf({ ...configured, [MAIL_KEYS.user]: 'radio', [MAIL_KEYS.password]: 'enc:hunter2' }),
+            encryptionOf(),
+        );
 
         expect(settings).toMatchObject({ user: 'radio', password: 'hunter2' });
     });

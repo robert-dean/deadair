@@ -58,7 +58,9 @@ describe('starting a factor challenge for a method that is not implemented', () 
     it('names the method it cannot answer for, so the caller is not left reading it as a bad body', async () => {
         const { service } = build();
 
-        const error = await service.startFactorChallenge({ method: 'phone', transport: 'sms', mfa_challenge_id: CHALLENGE_ID }).catch((e: unknown) => e);
+        const error = await service
+            .startFactorChallenge({ method: 'phone', transport: 'sms', mfa_challenge_id: CHALLENGE_ID })
+            .catch((e: unknown) => e);
 
         expect(IsHttpError(error) ? error.details : undefined).toEqual({ method: 'phone factor challenges are not implemented' });
     });

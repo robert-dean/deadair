@@ -131,7 +131,7 @@ function wrap(subject: string, inner: string): string {
         `<title>${escapeHtml(subject)}</title></head>`,
         '<body style="margin:0;padding:24px;background:#f6f6f6">',
         '<div style="max-width:520px;margin:0 auto;padding:24px;background:#ffffff;border-radius:8px;',
-        'font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;',
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;",
         'font-size:15px;line-height:1.5;color:#1a1a1a">',
         inner,
         '</div></body></html>',

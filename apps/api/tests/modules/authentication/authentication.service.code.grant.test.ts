@@ -24,14 +24,21 @@ const primaryFactor = { issuedAt: now, authenticatedAt: now, method: 'password',
 const secondaryFactor = { issuedAt: now, authenticatedAt: now, method: 'email', methodId: 'email-1', kind: 'possession' };
 
 const build = (
-    options: { challengeExists?: boolean; eligible?: { method: string; methodId: string }[]; verifierResolves?: boolean; verifyThrows?: unknown } = {},
+    options: {
+        challengeExists?: boolean;
+        eligible?: { method: string; methodId: string }[];
+        verifierResolves?: boolean;
+        verifyThrows?: unknown;
+    } = {},
 ) => {
     const mfaChallengeService = {
-        peek: vi.fn().mockResolvedValue(
-            options.challengeExists === false
-                ? undefined
-                : { actor: { kind: 'user', actorId: ACTOR_ID }, eligibleFactors: options.eligible ?? [{ method: 'email', methodId: 'email-1' }] },
-        ),
+        peek: vi
+            .fn()
+            .mockResolvedValue(
+                options.challengeExists === false
+                    ? undefined
+                    : { actor: { kind: 'user', actorId: ACTOR_ID }, eligibleFactors: options.eligible ?? [{ method: 'email', methodId: 'email-1' }] },
+            ),
     };
     const mfaOrchestrator = {
         completeMfa: vi.fn().mockResolvedValue({ actor: { kind: 'user', actorId: ACTOR_ID }, primaryFactor, secondaryFactor }),
@@ -73,7 +80,8 @@ const build = (
         responseCookieJar,
     });
 
-    const submit = (body: Record<string, unknown>) => (service as never as { handleCode: (r: unknown) => Promise<unknown> }).handleCode({ grant_type: 'code', ...body });
+    const submit = (body: Record<string, unknown>) =>
+        (service as never as { handleCode: (r: unknown) => Promise<unknown> }).handleCode({ grant_type: 'code', ...body });
 
     return { submit, mfaChallengeService, mfaOrchestrator, emailFactorService, pkceProvider, sessionActivity };
 };
@@ -89,7 +97,9 @@ describe('the code grant’s proof of origin', () => {
     it('refuses a request carrying both a verifier and an MFA challenge', async () => {
         const { submit } = build();
 
-        expect(await statusOf(submit({ code: '123456', code_verifier: VERIFIER, mfa_challenge_id: MFA_CHALLENGE, challenge_id: EMAIL_CHALLENGE }))).toBe(400);
+        expect(
+            await statusOf(submit({ code: '123456', code_verifier: VERIFIER, mfa_challenge_id: MFA_CHALLENGE, challenge_id: EMAIL_CHALLENGE })),
+        ).toBe(400);
     });
 
     it('refuses a request carrying neither', async () => {

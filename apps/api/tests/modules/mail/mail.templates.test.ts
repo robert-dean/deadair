@@ -11,7 +11,11 @@ const STATION = 'Dead Air';
 
 const messages: MailMessage[] = [
     { to: 'someone@example.com', template: 'SignInCode', data: { code: '123456', minutes: 10 } },
-    { to: 'someone@example.com', template: 'SignInLink', data: { link: 'https://radio.example.com/auth/callback?token=t&challenge_id=c', minutes: 30 } },
+    {
+        to: 'someone@example.com',
+        template: 'SignInLink',
+        data: { link: 'https://radio.example.com/auth/callback?token=t&challenge_id=c', minutes: 30 },
+    },
     { to: 'someone@example.com', template: 'VerifyEmail', data: { code: '654321', minutes: 10 } },
 ];
 
@@ -70,7 +74,10 @@ describe('rendering a message', () => {
     });
 
     it('escapes an ampersand in the link, which every real one has', () => {
-        const envelope = renderMail({ to: 'a@b.c', template: 'SignInLink', data: { link: 'https://x.test/cb?token=a&challenge_id=b', minutes: 30 } }, STATION);
+        const envelope = renderMail(
+            { to: 'a@b.c', template: 'SignInLink', data: { link: 'https://x.test/cb?token=a&challenge_id=b', minutes: 30 } },
+            STATION,
+        );
 
         expect(envelope.html).toContain('token=a&amp;challenge_id=b');
     });

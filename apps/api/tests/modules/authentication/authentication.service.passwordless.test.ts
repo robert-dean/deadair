@@ -20,9 +20,11 @@ const CHALLENGE_ID = 'email-challenge-1';
 
 const build = (options: { factorExists?: boolean; active?: boolean; spaBaseUrl?: string; limited?: boolean; mailConfigured?: boolean } = {}) => {
     const emailFactorRepository = {
-        findFactor: vi.fn().mockResolvedValue(
-            options.factorExists === false ? undefined : { id: 'email-1', actorId: ACTOR_ID, active: options.active ?? true, value: EMAIL },
-        ),
+        findFactor: vi
+            .fn()
+            .mockResolvedValue(
+                options.factorExists === false ? undefined : { id: 'email-1', actorId: ACTOR_ID, active: options.active ?? true, value: EMAIL },
+            ),
     };
     const emailFactorService = {
         issueEmailChallenge: vi.fn().mockResolvedValue({
@@ -82,9 +84,19 @@ const build = (options: { factorExists?: boolean; active?: boolean; spaBaseUrl?:
         responseCookieJar: { setRefreshToken: vi.fn() },
     });
 
-    const startLink = () => (service as never as { handleLinkStartLogin: (r: unknown) => Promise<{ challengeId: string; expiresAt: DateTime }> }).handleLinkStartLogin({ grant_type: 'link', email: EMAIL });
-    const startCode = () => (service as never as { handleCodeStartLogin: (r: unknown) => Promise<{ challengeId: string; expiresAt: DateTime }> }).handleCodeStartLogin({ grant_type: 'code', email: EMAIL, code_challenge: 'client-challenge' });
-    const redeemLink = (link = 'magic-token-abc') => (service as never as { handleLink: (r: unknown) => Promise<unknown> }).handleLink({ grant_type: 'link', challenge_id: CHALLENGE_ID, link });
+    const startLink = () =>
+        (service as never as { handleLinkStartLogin: (r: unknown) => Promise<{ challengeId: string; expiresAt: DateTime }> }).handleLinkStartLogin({
+            grant_type: 'link',
+            email: EMAIL,
+        });
+    const startCode = () =>
+        (service as never as { handleCodeStartLogin: (r: unknown) => Promise<{ challengeId: string; expiresAt: DateTime }> }).handleCodeStartLogin({
+            grant_type: 'code',
+            email: EMAIL,
+            code_challenge: 'client-challenge',
+        });
+    const redeemLink = (link = 'magic-token-abc') =>
+        (service as never as { handleLink: (r: unknown) => Promise<unknown> }).handleLink({ grant_type: 'link', challenge_id: CHALLENGE_ID, link });
 
     return { startLink, startCode, redeemLink, emailFactorService, mailService, signInMailLimiter, pkceProvider, mfaOrchestrator };
 };

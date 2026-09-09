@@ -195,7 +195,10 @@ export const AuthenticationModule: ServerKitModule = {
         // in `setup.middleware.ts` cannot do: `/auth/login/start` takes no session and mails
         // whatever address it is handed, so the thing worth bounding is how often one inbox can be
         // made to receive.
-        registry.register(SignInMailLimiter).useFactory(container => new SignInMailLimiter(container.get(Redis))).asSingleton();
+        registry
+            .register(SignInMailLimiter)
+            .useFactory(container => new SignInMailLimiter(container.get(Redis)))
+            .asSingleton();
         registry.register(HtmlRedirectProvider).useClass(HtmlRedirectProvider).asScoped();
 
         registry.register(FidoFactorRepository).useClass(DeadairFidoFactorRepository).asScoped();

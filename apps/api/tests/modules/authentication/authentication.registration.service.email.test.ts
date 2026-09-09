@@ -57,7 +57,11 @@ const build = (options: { alreadyRegistered?: boolean; otpExpiration?: Duration;
         registerPasswordFactor: vi.fn().mockResolvedValue(undefined),
     };
     const pkceProvider = { storeChallenge: vi.fn().mockResolvedValue(undefined) };
-    const cacheProvider = { get: vi.fn().mockResolvedValue(null), set: vi.fn().mockResolvedValue(undefined), delete: vi.fn().mockResolvedValue(undefined) };
+    const cacheProvider = {
+        get: vi.fn().mockResolvedValue(null),
+        set: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+    };
 
     const service = Object.create(AuthenticationRegistrationService.prototype) as AuthenticationRegistrationService;
     Object.assign(service, {

@@ -11,7 +11,9 @@ import { ONE_TIME_CODE_LENGTH, OneTimeCodeInput } from '../shared/one.time.code.
 /** The server's own wait, or a flat sentence when it did not say. */
 function rateLimitedMessage(error: unknown): string {
     const wait = retryAfterMs(error);
-    return wait === undefined ? 'Too many attempts. Wait a moment and try again.' : `Too many attempts. Try again in ${Math.ceil(wait / 1000)} seconds.`;
+    return wait === undefined
+        ? 'Too many attempts. Wait a moment and try again.'
+        : `Too many attempts. Try again in ${Math.ceil(wait / 1000)} seconds.`;
 }
 
 /**
@@ -153,7 +155,8 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
     // refused. Reported as its own thing rather than as a bad code, because no code was typed.
     const sendFailure = sendFailed ? apiErrorMessage(sendFailed, 'Could not send a code to your email. Try again.') : undefined;
     const response = submitEmailCode.data ?? submitAuthenticatorCode.data;
-    const anotherFactor = response?.result === 'mfa_required' ? 'The station asked for yet another factor, which this console cannot present.' : undefined;
+    const anotherFactor =
+        response?.result === 'mfa_required' ? 'The station asked for yet another factor, which this console cannot present.' : undefined;
 
     const codeReady = !isEmail || emailChallengeId !== undefined;
 
@@ -197,13 +200,7 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
                 </Button>
                 <Group justify="center" gap="xs">
                     {isEmail ? (
-                        <Button
-                            variant="subtle"
-                            size="compact-sm"
-                            loading={sendingCode}
-                            disabled={pending}
-                            onClick={() => void sendCode()}
-                        >
+                        <Button variant="subtle" size="compact-sm" loading={sendingCode} disabled={pending} onClick={() => void sendCode()}>
                             Send it again
                         </Button>
                     ) : undefined}

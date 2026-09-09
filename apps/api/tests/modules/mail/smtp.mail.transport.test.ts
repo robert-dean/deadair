@@ -80,7 +80,9 @@ describe('sending over SMTP', () => {
     it('closes it even when the send failed, so a refusal does not leak a socket', async () => {
         sendMail.mockRejectedValue(new Error('550 relay denied'));
 
-        await transport().send(ENVELOPE, SETTINGS, 'Dead Air').catch(() => undefined);
+        await transport()
+            .send(ENVELOPE, SETTINGS, 'Dead Air')
+            .catch(() => undefined);
 
         expect(close).toHaveBeenCalled();
     });
@@ -89,7 +91,9 @@ describe('sending over SMTP', () => {
     it('answers 502 when the server refuses', async () => {
         sendMail.mockRejectedValue(new Error('550 relay denied'));
 
-        const error = await transport().send(ENVELOPE, SETTINGS, 'Dead Air').catch((e: unknown) => e);
+        const error = await transport()
+            .send(ENVELOPE, SETTINGS, 'Dead Air')
+            .catch((e: unknown) => e);
 
         expect(IsHttpError(error) ? error.statusCode : undefined).toBe(502);
     });
@@ -99,9 +103,14 @@ describe('sending over SMTP', () => {
     it('keeps the recipient out of the response and puts it in the log instead', async () => {
         sendMail.mockRejectedValue(new Error('550 relay denied'));
 
-        const error = await transport().send(ENVELOPE, SETTINGS, 'Dead Air').catch((e: unknown) => e);
+        const error = await transport()
+            .send(ENVELOPE, SETTINGS, 'Dead Air')
+            .catch((e: unknown) => e);
 
         expect(JSON.stringify(IsHttpError(error) ? error.details : {})).not.toContain('someone@example.com');
-        expect(logger.error).toHaveBeenCalledWith('mail: could not send through the configured SMTP server', expect.objectContaining({ host: 'smtp.example.com' }));
+        expect(logger.error).toHaveBeenCalledWith(
+            'mail: could not send through the configured SMTP server',
+            expect.objectContaining({ host: 'smtp.example.com' }),
+        );
     });
 });

@@ -222,8 +222,14 @@ describe('SecurityCard, enrolling an email address', () => {
 
         await startEnrolment(user);
 
-        expect(registerFactor).toHaveBeenCalledWith(expect.objectContaining({ method: 'email', value: 'new@example.com' }));
+        // Asserted only after the panel has moved on, never straight after the click. The call is
+        // several awaits downstream of it — the step-up gate, then `generateCodeChallenge`, which is
+        // a real WebCrypto digest — so a synchronous assertion here races them. It passed alone and
+        // failed under a loaded CI shard, and the cost was not just this line: the test aborted with
+        // its `send()` still in flight, and that call then landed inside the NEXT test and made its
+        // count three. One racing assertion, two red tests.
         expect(await screen.findByText('We sent a code to new@example.com.')).toBeInTheDocument();
+        expect(registerFactor).toHaveBeenCalledWith(expect.objectContaining({ method: 'email', value: 'new@example.com' }));
 
         listFactors.mockResolvedValue([PASSWORD, { method: 'email', kind: 'possession', methodId: 'email-9', label: 'n***@example.com' }]);
         await user.type(screen.getByLabelText('Emailed code'), '123456');
@@ -266,7 +272,11 @@ describe('SecurityCard, enrolling an email address', () => {
             new SdkError(
                 503,
                 'Service Unavailable',
-                { statusCode: 503, message: 'Service Unavailable', details: { message: 'Email is not configured. Set a mail server under Settings → Mail.' } },
+                {
+                    statusCode: 503,
+                    message: 'Service Unavailable',
+                    details: { message: 'Email is not configured. Set a mail server under Settings → Mail.' },
+                },
                 new Headers(),
             ),
         );

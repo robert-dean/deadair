@@ -45,7 +45,8 @@ const build = (
     };
     const mailService = {
         assertConfigured: vi.fn(() => {
-            if (options.mailConfigured === false) throw httpError(503).withDetails({ mail: 'Email is not configured. Set a mail server under Settings → Mail.' });
+            if (options.mailConfigured === false)
+                throw httpError(503).withDetails({ mail: 'Email is not configured. Set a mail server under Settings → Mail.' });
         }),
         send: vi.fn().mockResolvedValue(undefined),
     };

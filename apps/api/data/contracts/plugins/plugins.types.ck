@@ -40,6 +40,8 @@ contract ConfigFieldColumn: {
     placeholder?: string(max=400)
     options?: array(ConfigFieldOption)
     optionsFrom?: ConfigFieldOptionSource
+    dependsOn?: string(min=1, max=200) # Key of another column in the same list. This cell applies only to a row whose cell there holds one of `dependsOnValues`. Stronger than a field's `dependsOn`, which only hides a control: a cell that does not apply is neither sent by the console nor read by the host, so a `url` column that does not apply to a row contributes no hostname to the plugin's allowlist. A target this list does not declare, or a target cell still empty, shows the cell
+    dependsOnValues?: array(string(min=1, max=200)) # The values of the `dependsOn` cell this one applies to. Omitted means any non-empty value; ignored without a target
 }
 
 # Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code

@@ -20,6 +20,7 @@ import { ScheduleTickJob } from '#modules/schedule/schedule.tick.job.js';
 import { WriteBreakJob } from '#modules/director/write.break.job.js';
 import { RenderSegmentJob } from '#modules/render/render.segment.job.js';
 import { PruneScriptHistoryJob } from '#modules/render/prune.script.history.job.js';
+import { PersonaAuditionJob } from '#modules/personas/persona.audition.job.js';
 import { PersonaDistilJob } from '#modules/personas/persona.distil.job.js';
 import { PersonaStoryPassJob } from '#modules/personas/persona.story.pass.job.js';
 import { PruneActivityJob } from '#modules/activity/prune.activity.job.js';
@@ -379,6 +380,22 @@ export const JobMappings: Record<JobNames, JobMapping> = {
         job: PersonaStoryPassJob,
         cron: '11 4 * * *',
         policy: { retryLimit: 1, expiresIn: Duration.fromObject({ minutes: 15 }) },
+    },
+
+    // No cron: an operator asks for an audition, and each transition sends the next. The chain IS
+    // the schedule, which is what keeps the station's one model slot free between transitions
+    // instead of held for a whole run.
+    //
+    // NO retry, unlike the two passes above, and for the opposite reason to the sweeps below: a
+    // retry here would be a second generation spent on a transition whose row may already hold one.
+    // The claim makes a redelivery free rather than harmful, but a RETRY is delivery after a
+    // failure, and the failure this actually has is the model host being down — which is the state
+    // the run should be reporting to the operator watching it, not silently paying for twice.
+    // `expiresIn` sits above one transition's whole wait plus its generation (`patienceFor`'s
+    // 30-second default queue, then `BUDGET_MS`) and well below a run.
+    'personas.audition': {
+        job: PersonaAuditionJob,
+        policy: { retryLimit: 0, expiresIn: Duration.fromObject({ minutes: 5 }) },
     },
 
     // NO retry, unlike everything else here, and the reason is which way the failure falls: a sweep

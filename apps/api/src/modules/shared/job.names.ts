@@ -15,6 +15,7 @@ export type JobNames =
     | 'schedule.tick'
     | 'personas.distil_notes'
     | 'personas.write_stories'
+    | 'personas.audition'
     | 'render.segment'
     | 'render.stitch_production'
     | 'render.prune_script_history'

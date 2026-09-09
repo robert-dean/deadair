@@ -41,6 +41,19 @@ export function useLoginMutation() {
  * verdict along with everything else, so the next person to sign in on this tab inherits none of
  * the previous user's state.
  */
+/**
+ * Asks the station to email a sign-in link.
+ *
+ * Answers the same shape whether or not the address has an account, deliberately — the API refuses
+ * to say, so the console has nothing to branch on and shows "check your inbox" either way.
+ */
+export function useMagicLinkMutation() {
+    return useMutation({
+        retry: false,
+        mutationFn: ({ email }: { email: string }) => sdk.authentication.startLogin({ grant_type: 'link', email }),
+    });
+}
+
 export function useLogoutMutation() {
     const queryClient = useQueryClient();
     return useMutation({

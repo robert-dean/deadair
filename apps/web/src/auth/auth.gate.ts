@@ -1,5 +1,12 @@
-/** Paths reachable without a session. Everything else is gated. */
-export const PUBLIC_PATHS: readonly string[] = ['/login', '/onboarding'];
+/**
+ * Paths reachable without a session. Everything else is gated.
+ *
+ * `/auth/callback` is where a magic link and a finished federated sign-in both land, and by
+ * definition nobody arriving there has a session yet — that is what they are there to get. Without
+ * it the gate would bounce every link to `/login` before the loader could redeem it, spending
+ * nothing and explaining nothing.
+ */
+export const PUBLIC_PATHS: readonly string[] = ['/login', '/onboarding', '/auth/callback'];
 
 /**
  * Where an auth-aware navigation should land, or undefined to stay put.

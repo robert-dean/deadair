@@ -20,6 +20,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as TracesRouteImport } from './routes/traces'
 import { Route as VoiceRouteImport } from './routes/voice'
+import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as PlaylistsIndexRouteImport } from './routes/playlists/index'
 import { Route as PluginsIndexRouteImport } from './routes/plugins/index'
@@ -99,6 +100,11 @@ const TracesRoute = TracesRouteImport.update({
 const VoiceRoute = VoiceRouteImport.update({
   id: '/voice',
   path: '/voice',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CatalogIndexRoute = CatalogIndexRouteImport.update({
@@ -240,6 +246,7 @@ export interface FileRoutesByFullPath {
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/grants': typeof SettingsGrantsRoute
@@ -278,6 +285,7 @@ export interface FileRoutesByTo {
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/grants': typeof SettingsGrantsRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/schedule': typeof ScheduleRoute
   '/traces': typeof TracesRoute
   '/voice': typeof VoiceRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/settings/analysis': typeof SettingsAnalysisRoute
   '/settings/appearance': typeof SettingsAppearanceRoute
   '/settings/grants': typeof SettingsGrantsRoute
@@ -357,6 +366,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/traces'
     | '/voice'
+    | '/auth/callback'
     | '/settings/analysis'
     | '/settings/appearance'
     | '/settings/grants'
@@ -395,6 +405,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/traces'
     | '/voice'
+    | '/auth/callback'
     | '/settings/analysis'
     | '/settings/appearance'
     | '/settings/grants'
@@ -433,6 +444,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/traces'
     | '/voice'
+    | '/auth/callback'
     | '/settings/analysis'
     | '/settings/appearance'
     | '/settings/grants'
@@ -472,6 +484,7 @@ export interface RootRouteChildren {
   ScheduleRoute: typeof ScheduleRoute
   TracesRoute: typeof TracesRoute
   VoiceRoute: typeof VoiceRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
   SettingsAnalysisRoute: typeof SettingsAnalysisRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
   SettingsGrantsRoute: typeof SettingsGrantsRoute
@@ -576,6 +589,13 @@ declare module '@tanstack/react-router' {
       path: '/voice'
       fullPath: '/voice'
       preLoaderRoute: typeof VoiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/catalog/': {
@@ -768,6 +788,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScheduleRoute: ScheduleRoute,
   TracesRoute: TracesRoute,
   VoiceRoute: VoiceRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
   SettingsAnalysisRoute: SettingsAnalysisRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
   SettingsGrantsRoute: SettingsGrantsRoute,

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Alert, Button, Card, Center, Image, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Button, Card, Center, Group, Image, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useNavigate } from '@tanstack/react-router';
 
-import { useLoginMutation } from '../api/auth.mutations';
+import { useLoginMutation, useMagicLinkMutation } from '../api/auth.mutations';
 import { isRateLimited, retryAfterMs } from '../api/retry.policy';
 import { apiErrorDetails, apiErrorMessage, isInvalidToken } from '../api/sdk.error';
 import { safeRedirectTarget } from '../auth/redirect.target';
@@ -49,6 +49,7 @@ function signInError(error: unknown): string | undefined {
 export function LoginPage({ redirect }: LoginPageProps) {
     const navigate = useNavigate();
     const login = useLoginMutation();
+    const magicLink = useMagicLinkMutation();
     // A sentence that has to outlive the mutation it came from: the challenge expiring resets the
     // login, and the reset would take the explanation with it.
     const [notice, setNotice] = useState<string>();
@@ -81,6 +82,23 @@ export function LoginPage({ redirect }: LoginPageProps) {
 
     const challenge = login.data?.result === 'mfa_required' ? login.data : undefined;
     const error = login.error ? signInError(login.error) : undefined;
+    const linkSent = magicLink.isSuccess;
+
+    /**
+     * Ask for a sign-in link.
+     *
+     * Validates the email field alone: the password is what this is an alternative to, so requiring
+     * it to be filled in first would defeat the point.
+     */
+    function requestLink(): void {
+        setNotice(undefined);
+        const email = form.getValues().email.trim();
+        if (email.length === 0) {
+            form.setFieldError('email', 'Enter your email address');
+            return;
+        }
+        magicLink.mutate({ email });
+    }
 
     return (
         <Center mih="70vh">
@@ -91,9 +109,13 @@ export function LoginPage({ redirect }: LoginPageProps) {
                     <Stack gap="xs" align="center">
                         <Image src="/logo-mark.png" alt="" aria-hidden w={64} h={64} />
                         <Stack gap="xxxs" align="center">
-                            <Title order={2}>{challenge ? 'One more step' : 'Sign in'}</Title>
+                            <Title order={2}>{challenge ? 'One more step' : linkSent ? 'Check your inbox' : 'Sign in'}</Title>
                             <Text c="dimmed" size="sm">
-                                {challenge ? 'One more factor, and you are in.' : 'Station controls are staff only.'}
+                                {challenge
+                                    ? 'One more factor, and you are in.'
+                                    : linkSent
+                                      ? 'If that address has an account here, a sign-in link is on its way.'
+                                      : 'Station controls are staff only.'}
                             </Text>
                         </Stack>
                     </Stack>
@@ -109,6 +131,19 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                 login.reset();
                             }}
                         />
+                    ) : linkSent ? (
+                        <Stack gap="md">
+                            <Text size="sm">Open the link on any device. It works once, and it expires.</Text>
+                            <Button
+                                variant="default"
+                                onClick={() => {
+                                    magicLink.reset();
+                                }}
+                                fullWidth
+                            >
+                                Use a password instead
+                            </Button>
+                        </Stack>
                     ) : (
                         <form
                             onSubmit={form.onSubmit(values => {
@@ -122,6 +157,9 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                     </Alert>
                                 ) : undefined}
                                 {error ? <ErrorAlert title="Sign-in failed">{error}</ErrorAlert> : undefined}
+                                {magicLink.error ? (
+                                    <ErrorAlert title="No link sent" error={magicLink.error} fallback="Could not send a sign-in link. Try again." />
+                                ) : undefined}
                                 <TextInput
                                     label="Email"
                                     placeholder="you@example.com"
@@ -141,6 +179,19 @@ export function LoginPage({ redirect }: LoginPageProps) {
                                 <Button type="submit" loading={login.isPending} fullWidth>
                                     Sign in
                                 </Button>
+                                {/* An alternative to the password rather than a step after it, so
+                                    it asks for nothing but the address already typed above. */}
+                                <Group justify="center">
+                                    <Button
+                                        variant="subtle"
+                                        size="compact-sm"
+                                        loading={magicLink.isPending}
+                                        disabled={login.isPending}
+                                        onClick={requestLink}
+                                    >
+                                        Email me a sign-in link
+                                    </Button>
+                                </Group>
                             </Stack>
                         </form>
                     )}

@@ -82,7 +82,14 @@ export function PersonaRehearsalPanel({ rehearsal, voice }: { rehearsal: Persona
     );
 }
 
-function Attempt({ attempt }: { attempt: PersonaRehearsalAttempt }) {
+/**
+ * One writer's turn, drawn the same way wherever it is read.
+ *
+ * Exported because an audition is this panel repeated down a playlist, and a second copy of the
+ * lamp-plus-duration-plus-words row is exactly how the two would drift into disagreeing about what
+ * a decline looks like.
+ */
+export function Attempt({ attempt }: { attempt: PersonaRehearsalAttempt }) {
     return (
         <Stack gap="xxs">
             <Group gap="xs" wrap="nowrap">

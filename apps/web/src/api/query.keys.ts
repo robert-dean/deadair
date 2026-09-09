@@ -101,6 +101,14 @@ export const queryKeys = {
         /** One character's notebook. Keyed per persona, since a panel only ever draws the one it is open under. */
         notes: (id: string) => ['personas', 'notes', id] as const,
         stories: (id: string) => ['personas', 'stories', id] as const,
+        /** One character's audition runs, newest first. Keyed per persona for the notebook's reason. */
+        auditions: (id: string) => ['personas', 'auditions', id] as const,
+        /**
+         * One run, with its breaks. Its own key rather than a slice of the list above, because the
+         * list carries no breaks at all: a page showing twenty runs must not read every break of
+         * every one, so the two are different reads of different sizes.
+         */
+        audition: (id: string, auditionId: string) => ['personas', 'audition', id, auditionId] as const,
     },
     schedule: {
         /** The station's day. One key: every write answers with the whole grid, since a slot's span is its neighbour's start. */

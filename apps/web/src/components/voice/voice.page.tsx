@@ -2,6 +2,7 @@ import { Stack, Text, Title } from '@mantine/core';
 
 import { PadsPage } from '../pads/pads.page';
 import { PersonasPage } from '../personas/personas.page';
+import { PersonaAuditionsPage } from '../personas/persona.auditions.page';
 import { ProductionsPage } from '../productions/productions.page';
 import { PronunciationsPage } from '../pronunciations/pronunciations.page';
 import { ScriptsPage } from '../scripts/scripts.page';
@@ -14,6 +15,7 @@ import { EmbeddedPage } from '../shared/page.header';
 /** The tabs, in the order an operator meets them: who is talking, then everything they need to talk. */
 export const VOICE_TABS = [
     { key: 'characters', label: 'Characters', hint: 'Who the station is when it talks' },
+    { key: 'auditions', label: 'Auditions', hint: 'A character over an hour of records, before it goes on air' },
     { key: 'voices', label: 'Voices', hint: 'Which voice reads which character' },
     { key: 'segments', label: 'Segments', hint: 'Recordings it plays rather than speaks' },
     { key: 'pronunciations', label: 'Pronunciations', hint: 'Names it was getting wrong' },
@@ -87,6 +89,11 @@ function body(tab: VoiceTab, segment?: string, persona?: string) {
     switch (tab) {
         case 'characters':
             return <PersonasPage />;
+        case 'auditions':
+            // The `persona` narrowing means the same thing here as it does on the Scripts tab: a link
+            // off a character opens this page about that character rather than about whoever is on
+            // air. The empty string is how "not narrowed" arrives off the URL.
+            return <PersonaAuditionsPage {...(persona === undefined || persona === '' ? {} : { persona })} />;
         case 'voices':
             return <VoicesPage />;
         case 'segments':

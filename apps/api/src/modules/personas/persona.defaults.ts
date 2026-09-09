@@ -598,6 +598,38 @@ const HOSTS = [
         // deliberately — three slots would be free if `delighted` and this one had gone, and the
         // measurement that would justify spending them does not exist yet. See the diction block
         // above for why neither was removed.
+        //
+        // ## The last slot went, and so did the one marker that was doing nothing
+        //
+        // Measured the way the paragraphs above ask for it: over all 420 answers this character has
+        // sent the live station, judged through `writeDecline` at her own 100-word ceiling rather
+        // than through `keepsCharacter` alone, because the ceiling is what decides which words the
+        // check ever reads. The live sheet refuses 48 of them for character — 40 `out-of-character`
+        // and 8 `character-trimmed`.
+        //
+        // `more like` and `attempt` are the two the corpus actually offers. Each appears in over
+        // fifty of her answers, each fires on 4 or more of the ones the current list refuses, and
+        // neither fires ONCE across the 1069 answers the other nine characters have sent. Together
+        // they take 48 down to 35. They are her judgement-of-effort move said plainly — "their
+        // attempt at humour feels like", "the riff is more like a tired alarm clock" — which is why
+        // they were already in her output and not in her list.
+        //
+        // `lovely stuff` paid for one of them. It fires on 1 of 420, it is the only marker here
+        // carrying no sample, and the word survives on the sheet anyway as half of the signature
+        // "No, that was lovely" — so the note two blocks down about those two fields being as close
+        // as they may get is now moot rather than contradicted.
+        //
+        // **`not the worst` stays, and the measurement is emphatic about it.** It is said in 230 of
+        // the 420, which is the lopsidedness this list has been trying to fix since it was written
+        // — and removing it with both new markers already in takes the refusals from 35 to 111. The
+        // block above guessed "roughly eight of thirty"; over a corpus seven times larger it is
+        // three quarters of the sheet. It is not a favourite word, it is the load-bearing one.
+        //
+        // `apparently` scores best of any single addition (48 to 40) and is deliberately NOT here.
+        // It is one of the eleven dry hedges this list was pruned of, on the argument that every dry
+        // character on the roster reaches for it, and the cross-fire evidence that would overturn
+        // that is exactly where it is weakest: the pedant and the slacker have sent 29 and 57
+        // answers between them. Re-adding it wants the roster corpus to be bigger first.
         dictionMarkers: [
             'that was a choice',
             'brave',
@@ -610,7 +642,11 @@ const HOSTS = [
             'well done everyone',
             'somebody was paid to',
             'nobody stopped them',
-            'lovely stuff',
+            // Mid-list rather than at the front, on the order rule above: both are already frequent
+            // in her natural output, so the cheapest position is worth spending on a marker that
+            // needs the encouragement rather than on two that do not.
+            'more like',
+            'attempt',
             'marvellous',
             'delighted',
             'not the worst',

@@ -181,7 +181,7 @@ apps/web               the console: React, Vite, TanStack Router, Mantine
 packages/plugin-sdk    the plugin contract and the host capabilities
 packages/sdk           a typed client, generated from the contracts
 plugins/*              spotify, navidrome, musicbrainz, lastfm, wikipedia, rss,
-                       kokoro, chatterbox, llm, analyzer
+                       websearch, weather, kokoro, chatterbox, llm, analyzer
 analysis/              the measurement sidecar (Python): cue points and loudness
 stream/, nginx/        the audio chain (radio.liq), the stream server and the edge
 ```

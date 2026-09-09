@@ -27,7 +27,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
 
     if (plugin.isPending) {
         return (
-            <Stack gap="lg" maw={720}>
+            <Stack gap="lg">
                 <PageSkeleton variant="card" />
             </Stack>
         );
@@ -48,7 +48,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
     const status = statusOf(detail.status);
 
     return (
-        <Stack gap="lg" maw={720}>
+        <Stack gap="lg">
             {/* `renderRoot` rather than `component={Link}`: the polymorphic form erases the
                 router's own types, and with them the check that this route still exists. */}
             <Anchor renderRoot={(props: object) => <Link to="/plugins" {...props} />} size="sm">

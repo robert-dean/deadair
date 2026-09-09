@@ -4,11 +4,11 @@
  *
  * ## Which payloads, and why
  *
- * This rule used to cover everything a plugin touched, on the strength of a
- * deferred move behind a subprocess: JSON was going to be the wire format, so
- * nothing could carry a `Date`, a `Uint8Array` or a live object. That move is
- * closed (`docs/decisions/plugin-trust.md`), and with it the reason to apply the
- * rule to `host.fetch`'s arguments and return value, which nothing serializes.
+ * This rule used to cover everything a plugin touched, on the strength of a deferred move behind a
+ * subprocess: JSON was going to be the wire format, so nothing could carry a `Date`, a `Uint8Array`
+ * or a live object. That move is closed (`packages/plugin-sdk/CLAUDE.md` § "Trust and egress"), and
+ * with it the reason to apply the rule to `host.fetch`'s arguments and return value, which nothing
+ * serializes.
  *
  * What is registered here is what has an INDEPENDENT reason to survive
  * `JSON.parse(JSON.stringify(x))`: it is stored in Postgres, or sent to the
@@ -309,13 +309,11 @@ export const BOUNDARY_METHOD_TYPES = [
  * Boundary interfaces that deliberately carry a LIVE object, and so are neither
  * payloads nor method contracts.
  *
- * The host and the plugin share a realm, permanently (see
- * `docs/decisions/plugin-trust.md`), so handing over a real `AbortSignal` or a
- * real stream is the correct design rather than a shortcut around the rule.
- * They are listed rather than simply left out, because the registry-coverage
- * test treats an unclassified boundary interface as an omission, and "this one
- * holds a live object on purpose" is a decision somebody should have to make in
- * writing.
+ * The host and the plugin share a realm, permanently (see `packages/plugin-sdk/CLAUDE.md` § "Trust
+ * and egress"), so handing over a real `AbortSignal` or a real stream is the correct design rather
+ * than a shortcut around the rule. They are listed rather than simply left out, because the
+ * registry-coverage test treats an unclassified boundary interface as an omission, and "this one
+ * holds a live object on purpose" is a decision somebody should have to make in writing.
  */
 export const BOUNDARY_LIVE_OBJECT_TYPES = [
     // `signal`: the invocation's own `AbortSignal`, watched by `host.fetch` and

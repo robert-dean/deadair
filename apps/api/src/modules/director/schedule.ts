@@ -1,11 +1,12 @@
 /**
  * The station's daypart schedule: which source, which host and which brief, by the wall clock.
  *
- * Pure, and that is the whole design rather than a convenience. `docs/decisions/on-air-ownership.md`
- * settles it in one line: the schedule is a stored document, a resolver and a timer that posts
- * commands, and it must never become an actor. Nothing here holds "the current show", because a
- * second stateful owner of what airs is the defect that document exists to remove. The live running
- * order already says which slot it belongs to, and the director is its only writer.
+ * Pure, and that is the whole design rather than a convenience. The ownership rule
+ * (`docs/internals/director.md` § "Who owns the running order") settles it in one line: the schedule
+ * is a stored document, a resolver and a timer that posts commands, and it must never become an
+ * actor. Nothing here holds "the current show", because a second stateful owner of what airs is the
+ * defect that document exists to remove. The live running order already says which slot it belongs
+ * to, and the director is its only writer.
  *
  * ## What this is NOT
  *

@@ -67,7 +67,7 @@ operation /director/air: {
 # What is ON AIR, which is one thing per station and is owned outright by the director.
 # Every route here posts a command to it rather than writing the order, because a second
 # writer of a running order is the whole class of bug this shape exists to remove. See
-# `docs/decisions/on-air-ownership.md`.
+# `docs/internals/director.md` § "Who owns the running order".
 
 operation /director/air/order: {
     get: { # The live running order, item by item, each saying where it has got to

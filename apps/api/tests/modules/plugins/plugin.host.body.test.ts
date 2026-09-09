@@ -16,11 +16,11 @@ import { stubContainer } from '../../utils/stub.container.js';
 /**
  * The bounds on a response body a plugin has not finished reading.
  *
- * These used to belong to a separate byte egress, `host.streams`, with its own
- * handles and base64 chunks, because a live `ReadableStream` could not cross the
- * plugin boundary. It can now (`docs/decisions/plugin-trust.md`), so the
- * protocol is gone and the bounds are not: a body is read outside the deadline
- * that fetched it, and without these it is an unbounded socket.
+ * These used to belong to a separate byte egress, `host.streams`, with its own handles and base64
+ * chunks, because a live `ReadableStream` could not cross the plugin boundary. It can now
+ * (`packages/plugin-sdk/CLAUDE.md` § "Trust and egress"), so the protocol is gone and the bounds
+ * are not: a body is read outside the deadline that fetched it, and without these it is an
+ * unbounded socket.
  */
 const PLUGIN_ID = 'test.bodies';
 

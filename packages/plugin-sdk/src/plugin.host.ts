@@ -1,8 +1,7 @@
 /**
- * What the host lends a plugin. Everything here is an ordinary in-process call:
- * the host and the plugin share a realm, permanently, so `fetch` hands back a
- * real `Response` and `signal` is a real `AbortSignal`. See
- * `docs/decisions/plugin-trust.md`.
+ * What the host lends a plugin. Everything here is an ordinary in-process call: the host and the
+ * plugin share a realm, permanently, so `fetch` hands back a real `Response` and `signal` is a real
+ * `AbortSignal`. See `packages/plugin-sdk/CLAUDE.md` § "Trust and egress".
  *
  * The JSON-safe rule that used to govern this file has not gone away, it has
  * moved to where it pays for itself: `boundary.json.safe.ts` still asserts it
@@ -150,14 +149,12 @@ export interface PluginTrackFetcher {
  * The single object handed to a plugin at init, and the sanctioned way to get
  * at the outside world: network, persistence, secrets, tokens.
  *
- * NOT A SANDBOX, and never going to be one. The host imports plugins into its
- * own realm, permanently (`docs/decisions/plugin-trust.md`), so global `fetch`,
- * `fs`, and `process.env` are all reachable and nothing stops a plugin from
- * using them. What this interface buys is a manifest that honestly describes a
- * well-behaved plugin's blast radius, plus a set of guarantees (rate limiting,
- * timeouts, SSRF-safe redirects) that no plugin has to reimplement. Containment
- * is not among them, and the console says so before an operator enables
- * anything.
+ * NOT A SANDBOX, and never going to be one. The host imports plugins into its own realm,
+ * permanently (`packages/plugin-sdk/CLAUDE.md` § "Trust and egress"), so global `fetch`, `fs`, and
+ * `process.env` are all reachable and nothing stops a plugin from using them. What this interface
+ * buys is a manifest that honestly describes a well-behaved plugin's blast radius, plus a set of
+ * guarantees (rate limiting, timeouts, SSRF-safe redirects) that no plugin has to reimplement.
+ * Containment is not among them, and the console says so before an operator enables anything.
  */
 export interface PluginHost {
     logger: PluginLogger;

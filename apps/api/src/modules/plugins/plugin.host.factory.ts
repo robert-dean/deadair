@@ -616,11 +616,10 @@ const guardedResponse = (manifest: PluginManifest, sent: SentResponse, controlle
  * what makes the manifest an honest description of a well-behaved plugin's
  * blast radius.
  *
- * It is not what stops a badly-behaved one, and it never will be.
- * `PluginLoader` imports plugin code into this process with a plain dynamic
- * `import()`, permanently (`docs/decisions/plugin-trust.md`), so a plugin that
- * wants global `fetch`, `fs`, or `process.env` has them and gating the methods
- * here does not take them away. This is the reliability and disclosure layer,
+ * It is not what stops a badly-behaved one, and it never will be. `PluginLoader` imports plugin code
+ * into this process with a plain dynamic `import()`, permanently (`packages/plugin-sdk/CLAUDE.md` §
+ * "Trust and egress"), so a plugin that wants global `fetch`, `fs`, or `process.env` has them and
+ * gating the methods here does not take them away. This is the reliability and disclosure layer,
  * which is all it was ever actually doing.
  *
  * So what crosses back to a plugin is whatever suits the job: `host.fetch`

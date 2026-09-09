@@ -210,11 +210,11 @@ export class TrackCachePlanner {
             // candidate — there is no `track_sources.id` to fetch — and it is emphatically not
             // unfetchable. It answers for itself at hand-over.
             //
-            // Without this the two states below collapse into one, and the collapse is not
-            // theoretical: on a fresh install, or for any imported playlist ahead of the first
-            // catalog sync, EVERY item is uncatalogued. Read as "every copy is benched" that marked
-            // 125 records of a 519-item order permanently unavailable in eight minutes, none of
-            // which was unobtainable — see `docs/decisions/bytes-before-air.md`.
+            // Without this the two states below collapse into one, and the collapse is not theoretical:
+            // on a fresh install, or for any imported playlist ahead of the first catalog sync, EVERY
+            // item is uncatalogued. Read as "every copy is benched" that marked 125 records of a
+            // 519-item order permanently unavailable in eight minutes, none of which was unobtainable —
+            // see `docs/internals/director.md` § "Nothing airs until its bytes are here".
             if (item.track.trackId === undefined) continue;
 
             // Absent from the answer for a record the catalog DOES hold means every copy has been

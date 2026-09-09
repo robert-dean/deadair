@@ -353,7 +353,7 @@ COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py 
 
 # The station's own soundboard, copied into the pad library once on a station that has never held a
 # pad. Below the fence with everything else the repository produces, and it is genuinely empty today:
-# `docs/decisions/pad-licensing.md` refuses attribution-requiring audio, because a radio station has
+# `docs/internals/render.md` § "Pads" refuses attribution-requiring audio, because a radio station has
 # nowhere to put a credit and the obligation would travel to the operator in silence. The directory
 # exists so the seam does, and so the day somebody sources verified CC0 audio it is a file drop.
 COPY assets/pads /app/assets/pads

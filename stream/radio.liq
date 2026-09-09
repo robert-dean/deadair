@@ -232,7 +232,7 @@ station_id = map_metadata(bed_label, insert_missing=true, mksafe(single("/radio/
 # record is not committed until its audio is on the app's own disk, so there is nothing left for a
 # deeper lead to hide. The cost was taken deliberately and is the second skip — the first still
 # lands at once, and one taken before the replacement resolves does not. See COMMIT_LEAD and
-# PLAYOUT_LEAD in apps/api, and docs/decisions/bytes-before-air.md.
+# PLAYOUT_LEAD in apps/api, and docs/internals/director.md, under "Nothing airs until its bytes are here".
 #
 # PLAYOUT_PREFETCH is materialized by the app from the same constant it uses for its own push lead
 # (PLAYOUT_LEAD), because the two are useless apart: pushing more than this resolves buys nothing,

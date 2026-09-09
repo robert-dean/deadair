@@ -6,7 +6,7 @@
 # that is what is being given up, and it will not be visible in the diff.
 #
 # Not a licence boundary, though an earlier version of this comment said it was.
-# docs/decisions/analysis-licensing.md keeps the analysis path permissive outright
+# analysis/README.md, under "The rule, stated once", keeps the analysis path permissive outright
 # rather than relying on the process boundary to hold a copyleft dependency at
 # arm's length, so there is nothing here for the boundary to carry.
 FROM python:3.13-slim

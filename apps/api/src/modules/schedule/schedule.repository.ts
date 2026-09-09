@@ -7,11 +7,12 @@ import { isChartSource, type ScheduleSlot } from '#modules/director/schedule.js'
 /**
  * The slots an operator has written.
  *
- * A plain reader and writer, and that is the whole of it. `docs/decisions/on-air-ownership.md` is
- * explicit that the schedule is a stored document with a pure resolver over it and must never become
- * a second stateful owner of what airs, so nothing here holds an opinion about which slot is on:
- * that question is `resolveSlot` in `#modules/director/schedule.js`, and the answer is recorded on
- * the running order, which the director alone writes.
+ * A plain reader and writer, and that is the whole of it. The ownership rule
+ * (`docs/internals/director.md` § "Who owns the running order") is explicit that the schedule is a
+ * stored document with a pure resolver over it and must never become a second stateful owner of what
+ * airs, so nothing here holds an opinion about which slot is on: that question is `resolveSlot` in
+ * `#modules/director/schedule.js`, and the answer is recorded on the running order, which the
+ * director alone writes.
  *
  * ## `days` is read back defensively
  *

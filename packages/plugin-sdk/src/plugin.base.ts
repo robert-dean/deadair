@@ -17,11 +17,11 @@ export type PluginDisposer = () => void | Promise<void>;
  *    undo, and the base runs every one on unload, last registered first,
  *    whether or not {@link Plugin.onUnload} throws.
  *
- * The second matters MORE in this host, not less. Plugins run inside the API
- * process (`docs/decisions/plugin-trust.md`), so a timer or a socket a plugin
- * forgets is not confined to a sandbox that gets torn down: it lives in the
- * server until somebody restarts it. Reloading a plugin on every config change
- * is a normal thing an operator does, so "forgets on unload" compounds.
+ * The second matters MORE in this host, not less. Plugins run inside the API process
+ * (`packages/plugin-sdk/CLAUDE.md` § "Trust and egress"), so a timer or a socket a plugin forgets
+ * is not confined to a sandbox that gets torn down: it lives in the server until somebody restarts
+ * it. Reloading a plugin on every config change is a normal thing an operator does, so "forgets on
+ * unload" compounds.
  *
  * ```ts
  * class MyPlugin extends Plugin implements EnrichmentPluginInstance {

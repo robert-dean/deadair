@@ -60,12 +60,11 @@ afterEach(() => {
 });
 
 describe('PluginHostFactory boundary conformance', () => {
-    // `host.fetch` is deliberately NOT on the JSON-safe list any more: it hands
-    // back a live `Response`, which is the whole point of
-    // `docs/decisions/plugin-trust.md`. What is still worth asserting is that the
-    // response carries everything the upstream's did, since it is rebuilt rather
-    // than passed through, and that the parts a plugin PARSES out of it are
-    // JSON-safe.
+    // `host.fetch` is deliberately NOT on the JSON-safe list any more: it hands back a live
+    // `Response`, which is the whole point of `packages/plugin-sdk/CLAUDE.md` § "Trust and egress".
+    // What is still worth asserting is that the response carries everything the upstream's did,
+    // since it is rebuilt rather than passed through, and that the parts a plugin PARSES out of it
+    // are JSON-safe.
     it('hands back a Response carrying the upstream status, headers and cookies', async () => {
         const h = harness();
         const manifest = conformanceManifest({ permissions: { network: ['api.example.com'], storage: true, oauth: true } });

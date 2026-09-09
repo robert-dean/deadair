@@ -91,11 +91,11 @@ export function DeskPage() {
     const { mutate: moveOrderItem } = moveItem;
     const { mutate: rateRecord } = rateTrack;
     // A record is spliced out of the order entirely when it is dropped — unlike a segment, which is
-    // only marked `removed`, on `docs/decisions/on-air-ownership.md`'s argument that a break planted
-    // again into the same slot a minute later is worse than one left marked — so a track is the one
-    // kind of drop that can be taken back. The position is read out of `items` at the moment of the
-    // click rather than trusted from a stale closure, because the table redraws under an operator's
-    // hand every five seconds.
+    // only marked `removed`, on the ownership rule's argument (`docs/internals/director.md` § "Who
+    // owns the running order") that a break planted again into the same slot a minute later is worse
+    // than one left marked — so a track is the one kind of drop that can be taken back. The position
+    // is read out of `items` at the moment of the click rather than trusted from a stale closure,
+    // because the table redraws under an operator's hand every five seconds.
     const onRemove = useCallback(
         (item: StationOrderItem) => {
             const trackId = item.kind === 'track' ? item.trackId : undefined;

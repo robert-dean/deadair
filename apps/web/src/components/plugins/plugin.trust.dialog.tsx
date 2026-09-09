@@ -11,11 +11,11 @@ export interface PluginTrustDialogProps {
 /**
  * The informed opt-in gate for turning a plugin on.
  *
- * `docs/decisions/plugin-isolation.md` chose option B, "trusted but serializable": a plugin is
- * code you chose to install, running inside this process with this process's own privileges, not
- * code contained in a sandbox. Enabling one is the moment that trust is actually extended, so this
- * dialog says so plainly instead of implying a boundary that does not exist. Disabling needs no
- * such consent, which is why only the enable path is gated.
+ * Plugins are trusted code, permanently (`packages/plugin-sdk/CLAUDE.md` § "Trust and egress"): a
+ * plugin is code you chose to install, running inside this process with this process's own
+ * privileges, not code contained in a sandbox. Enabling one is the moment that trust is actually
+ * extended, so this dialog says so plainly instead of implying a boundary that does not exist.
+ * Disabling needs no such consent, which is why only the enable path is gated.
  */
 export function PluginTrustDialog({ plugin, opened, onCancel, onConfirm }: PluginTrustDialogProps) {
     return (

@@ -9,17 +9,17 @@
 --                  steered by. Written when the player confirms a track started, never
 --                  when one is handed over.
 --
--- "Lineup" rather than "playlist" because `deadair.playlists` is a different thing: prepared
--- source material a running order is built FROM. The rule that keeps the two honest is that
--- if it is airing it is a lineup, and if it is prepared it is a playlist. Nothing is both,
--- which is the entire content of `docs/decisions/on-air-ownership.md`.
+-- "Lineup" rather than "playlist" because `deadair.playlists` is a different thing: prepared source
+-- material a running order is built FROM. The rule that keeps the two honest is that if it is airing
+-- it is a lineup, and if it is prepared it is a playlist. Nothing is both, which is the entire
+-- content of `docs/internals/director.md` § "Who owns the running order".
 
 -- The live on-air running order: one row per station, and the only thing that airs.
 --
--- Not a library. There was a `lineups` table here that tried to be both a reusable named
--- list and the broadcast in progress, and every mechanism that had to reconcile the two —
--- the cursor, the revision, compaction — was a source of bugs rather than a feature. See
--- `docs/decisions/on-air-ownership.md`.
+-- Not a library. There was a `lineups` table here that tried to be both a reusable named list and
+-- the broadcast in progress, and every mechanism that had to reconcile the two — the cursor, the
+-- revision, compaction — was a source of bugs rather than a feature. See
+-- `docs/internals/director.md` § "Who owns the running order".
 --
 -- So there is exactly one of these per station, it is built when the station goes ON AIR,
 -- and it is consumed. Prepared material is a playlist: a provider's, or `deadair.playlists`.
@@ -217,5 +217,6 @@ drop table if exists deadair.station_lineup;
 -- edited in place, so a database that applied an EARLIER version of this file still has the table
 -- that version created — and a `down` that only undoes the current `up` leaves it orphaned, where
 -- the next `up` will not touch it and nothing will ever drop it. See `deadair.lineups` in
--- `docs/decisions/on-air-ownership.md`: it was the library half of a job a lineup could not do.
+-- `docs/internals/director.md` § "Who owns the running order": it was the library half of a job a
+-- lineup could not do.
 drop table if exists deadair.lineups;

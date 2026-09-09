@@ -77,9 +77,9 @@ export const CONTROL_TTL_S = 6;
  * one resolved item: the first skip still lands at once, and a second taken before
  * the replacement resolves does not.
  *
- * It was three, and it came down with the commitment horizon — see `COMMIT_LEAD`
- * and `docs/decisions/bytes-before-air.md`. The two go back up together or not at
- * all; raising this one alone buys nothing, because there is nothing extra pushed
+ * It was three, and it came down with the commitment horizon — see `COMMIT_LEAD` and
+ * `docs/internals/director.md` § "Nothing airs until its bytes are here". The two go back up
+ * together or not at all; raising this one alone buys nothing, because there is nothing extra pushed
  * for it to resolve.
  */
 export const PLAYOUT_LEAD = 1;

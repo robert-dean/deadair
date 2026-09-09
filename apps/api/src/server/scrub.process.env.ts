@@ -5,10 +5,11 @@
  * live in the process environment.
  *
  * This is hygiene, nothing more: a crash dump, an error serializer, or some transitive dependency
- * that decides to log `process.env` should not get a free copy of a database password. It is NOT
- * a plugin containment measure. `apps/api/.env` is still on disk, `fs` still reads it, and a
- * plugin that wants the database URL can have it the same way it could before this file existed;
- * see `docs/decisions/plugin-isolation.md` for why that overstated claim was rejected.
+ * that decides to log `process.env` should not get a free copy of a database password. It is NOT a
+ * plugin containment measure. `apps/api/.env` is still on disk, `fs` still reads it, and a plugin
+ * that wants the database URL can have it the same way it could before this file existed; see
+ * `packages/plugin-sdk/CLAUDE.md` § "Trust and egress", which names this file as hygiene against an
+ * accident rather than containment.
  */
 
 /**

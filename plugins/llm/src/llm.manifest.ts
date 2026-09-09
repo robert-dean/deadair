@@ -7,15 +7,6 @@ export const PLUGIN_ID = 'deadair.llm';
 export const PLUGIN_VERSION = '0.0.1';
 
 /**
- * Where a local model server usually answers.
- *
- * A placeholder in the form only: the operator supplies the real one, because
- * the same plugin has to reach a container from inside compose, `localhost` from
- * a host `pnpm dev`, and somebody's cloud endpoint from neither.
- */
-export const DEFAULT_BASE_URL = 'http://localhost:11434/v1';
-
-/**
  * Anthropic's own address, and it is named here rather than left to the SDK's
  * default on purpose: that SDK reads `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY`
  * out of the environment when it is not told, and a plugin whose upstream and
@@ -252,7 +243,7 @@ export const llmManifest: PluginManifest = {
             // required field before it will submit the form at all, and a table it refuses to
             // submit is a table an operator cannot fix. The schema's own refine says the same
             // thing where it can be read: on the field, in a sentence.
-            help: 'Every provider the station can ask for words, and the name you give each one is how a model is addressed: a model on the row called "ollama" is named ollama:gpt-oss. Add as many as you like, including two of the same kind — a local server and a hosted one are two rows.',
+            help: 'Every provider the station can ask for words, and the name you give each one is how a model is addressed: a model on the row called "ollama" is named ollama:gpt-oss. Add as many as you like, including two of the same kind — a local server and a hosted one are two rows. Anthropic and Gemini are reached where they live, so those rows want a key and no address. OpenAI, Groq, Mistral and OpenRouter are not missing kinds: they are the OpenAI-compatible kind with their own address, which the Address cell offers.',
             columns: [
                 {
                     key: 'name',
@@ -268,17 +259,24 @@ export const llmManifest: PluginManifest = {
                     options: (Object.keys(PROVIDER_KINDS) as ProviderKind[]).map(value => ({ value, label: PROVIDER_KINDS[value] })),
                     placeholder: 'OpenAI-compatible',
                 },
+                // The two credential cells are drawn on every row whatever its Kind, because a
+                // column cannot yet be shown per row. So they say which kind wants them, which is
+                // the only place an operator looking at an Anthropic row can learn that its empty
+                // Address cell is correct rather than unfinished. An address typed there is
+                // ignored by the arm AND contributes a hostname to the plugin's allowlist
+                // (`addressCells` reads the `url` column of every row), so this wording is doing
+                // more than tidiness.
                 {
                     key: 'baseUrl',
                     label: 'Address',
                     type: 'url',
-                    placeholder: 'http://localhost:11434/v1',
+                    placeholder: 'For an OpenAI-compatible server',
                 },
                 {
                     key: 'apiKey',
                     label: 'API key',
                     type: 'secret',
-                    placeholder: 'For a hosted provider',
+                    placeholder: 'For Anthropic, Gemini or a hosted server',
                 },
             ],
         },

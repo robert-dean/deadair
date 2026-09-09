@@ -29,9 +29,9 @@ station's active one, then nothing. Every writer reads that same row, which was 
 the only thing the station said was a talk break, and stopped being right the day it read the news.
 
 Today, with a persona on air, a bulletin is written from that persona's sheet
-([model.news.break.writer.ts:104](../../apps/api/src/modules/director/model.news.break.writer.ts:104))
+([model.news.break.writer.ts:104](../../apps/api/src/modules/director/model.news.break.writer.ts#L104))
 and spoken in that persona's voice
-([write.break.job.ts:204](../../apps/api/src/modules/director/write.break.job.ts:204), `segment.voice
+([write.break.job.ts:204](../../apps/api/src/modules/director/write.break.job.ts#L204), `segment.voice
 ?? persona?.voice`). So a pirate captain reads the headlines in the pirate's voice, and the station
 has no way to say whether that is the joke or the bug. Both answers are legitimate — a character
 station wants its host reading everything, a straight station wants a newsreader — and the shape that
@@ -76,7 +76,7 @@ host's phrasings and the newsreader's voice, which is worse than either alone. T
 `resolveTemplates` and the voice stamp both read the kind-scoped answer, not just
 `breakPrompt`. Note that `NewsBreakWriter` deliberately does NOT chain into a persona's templates
 today, for `WelcomeWriter`'s reason
-([news.break.writer.ts:39](../../apps/api/src/modules/director/news.break.writer.ts:39)); that
+([news.break.writer.ts:39](../../apps/api/src/modules/director/news.break.writer.ts#L39)); that
 decision is worth re-reading once there is a newsreader to chain into, and may well survive.
 
 **A persona per kind is not a persona per SEGMENT.** `segments.persona_id` already records which
@@ -110,9 +110,9 @@ comment on `ScriptHistoryRepository.writtenBy`; [break-ratings.md](break-ratings
 The rest of this section is kept as the record of what was decided and why.
 
 There is already an avoid-list: `WriteBreakJob` hands the writer the last six scripts of the same
-kind ([write.break.job.ts:172](../../apps/api/src/modules/director/write.break.job.ts:172),
+kind ([write.break.job.ts:172](../../apps/api/src/modules/director/write.break.job.ts#L172),
 `RECENT_WINDOW = 6`), and the prompt tells the model not to reuse their opening or their shape
-([break.prompt.ts:228](../../apps/api/src/modules/director/break.prompt.ts:228)). That is the cheap
+([break.prompt.ts:228](../../apps/api/src/modules/director/break.prompt.ts#L228)). That is the cheap
 seed `dj-voice.md` correction 3 asked for, and `segment.repository.ts:337` already says where it
 stops being enough.
 
@@ -322,7 +322,7 @@ built.
 
 **The boundary tier exists and is correct, one layer down.** `BreakWriteRequest.recent` is the
 BROADCAST's memory rather than all-time history, and is kind-agnostic, on the argument written out at
-[break.writer.ts:306](../../apps/api/src/modules/director/break.writer.ts:306): a listener who tuned
+[break.writer.ts:306](../../apps/api/src/modules/director/break.writer.ts#L306): a listener who tuned
 in twenty minutes ago has heard this show and none of the one before it, so a phrase is spent only if
 it was spent tonight.
 

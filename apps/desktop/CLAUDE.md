@@ -822,14 +822,17 @@ Four-space indent, file-scoped namespaces, `TreatWarningsAsErrors` everywhere. T
 `tests/`, mirroring the source namespaces; the pure layer carries the coverage and there are no UI
 tests, exactly as on Android.
 
-**Words: pure state returns a `Message`, never a sentence.** Strings live in `Strings.resx` and are
-resolved at the view edge. `Message.Text` is only for words the STATION sent — a silence remedy, an
+**Words: pure state returns a `Message`, never a sentence — DESIGNED, not built.** There is no
+`Message` type, no `Strings.resx` and no resolver in the tree yet; view models still carry their own
+text. The intent, when the strings are pulled out: strings live in a resource file and are resolved
+at the view edge, and a `Message.Text` carries only words the STATION sent — a silence remedy, an
 attention row — which the client passes through verbatim and never rewrites.
 
-**C# cannot check that a `switch` covers a closed hierarchy**, so `MessageResolver` ends in a
-throwing default and a reflection test asserts every `Message` case has a resource key. That is
-Kotlin's compile-time exhaustiveness bought at test time, and it is the one deviation from the
-Android precedent that is a language limitation rather than a decision.
+**C# cannot check that a `switch` covers a closed hierarchy**, which is what makes that a real piece
+of work rather than a rename: the resolver has to end in a throwing default with a reflection test
+asserting every case has a resource key, buying at test time what Kotlin checks at compile time. It
+is the one deviation from the Android precedent that is a language limitation rather than a
+decision, and it is the reason this is written down before it is built.
 
 ## Building it
 

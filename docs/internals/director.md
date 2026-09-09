@@ -263,9 +263,11 @@ it, which is a reversal: the old ordering was argued from the items handed over 
 cursor by then, and the window now LEADS the commit lead so that a record's bytes are here several boundaries
 before its slot. Two fetches per pass, and it is the only place the backoff is read (a request for bytes
 something is waiting on ignores it). `CACHE_AHEAD` lives in `track.audio.service.ts` rather than in the
-planner that owns the window, for the reason `TRACK_PACE_MS` lives in `AnalysisService`: the planner imports
-the service, and the cycle the other way throws `Cannot access 'CACHE_AHEAD' before initialization` under
-Node's ESM loader while loading fine under vitest.
+planner that owns the window, for the reason the analysis pace constants
+(`DEFAULT_ANALYSIS_PROVIDER_PACE_MS`, `DEFAULT_ANALYSIS_LOCAL_PACE_MS`) sit in `analysis.settings.ts` rather
+than in the walk that reads them: the planner imports the service, and the cycle the other way throws
+`Cannot access 'CACHE_AHEAD' before initialization` under Node's ESM loader while loading fine under
+vitest.
 
 **Four consecutive failures write off the copy** — `TracksRepository.markBindingMissing` sets
 `track_sources.missing_at`, which every reader already excludes on, so one statement takes the binding out of

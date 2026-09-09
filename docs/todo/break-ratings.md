@@ -1,9 +1,14 @@
 # The station's own words get an opinion
 
 **Written:** 2026-08-22, out of "can the personas learn, self-reflect, improve?".
-**State of the tree:** nothing here exists. Everything it attaches to does: `deadair.script_history`
-(migration 0008), the `/scripts` console page, `CharacterFault`, and the catalog's own three-level
-rating, which is the shape this borrows and the argument this is measured against.
+**State of the tree:** **BUILT.** `deadair.script_ratings` is migration 0022 and
+`render/script.ratings.repository.ts` reads and writes it, as a table on the ATTEMPT rather than a
+column, which is what this file argued for. What is kept below is the reasoning and the three
+readers it named in the order the value arrives — the notebook's distil selection, a persona
+performance read, and the deferred sheet proposals — none of which is built on top of it yet.
+Everything it attaches to was already there: `deadair.script_history` (migration 0008), the
+`/scripts` console page, `CharacterFault`, and the catalog's own three-level rating, which is the
+shape this borrows and the argument this is measured against.
 
 ---
 
@@ -79,7 +84,8 @@ nothing is a thing an operator does, and it must be distinguishable from never h
 Two surfaces, both writing the same row, and neither is new page work:
 
 - **`/scripts`** already exists and paginates the whole history newest first
-  ([scripts.tsx](../../apps/web/src/routes/scripts.tsx), `GET /scripts` in
+  ([scripts.page.tsx](../../apps/web/src/components/scripts/scripts.page.tsx), reached as the Scripts
+  tab of `/voice` rather than a route of its own, and `GET /scripts` in
   [render.ck](../../apps/api/data/contracts/render/render.ck)). This is the review surface: an evening
   spent reading back what the station said. The page already filters by kind, writer, outcome and
   segment, so `rating` joins that set.

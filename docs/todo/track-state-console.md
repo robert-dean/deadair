@@ -11,7 +11,7 @@ anywhere to look at them together, and any way to throw one away short of a `psq
 
 | Fact | Where it lives | Read by an operator today |
 | --- | --- | --- |
-| Canonical record | `deadair.tracks` | `GET /catalog/tracks` (list only; **there is no `/catalog/tracks/{id}`**) |
+| Canonical record | `deadair.tracks` | `GET /catalog/tracks`, and `GET /catalog/tracks/{id}`, which this file called for and which now exists |
 | Which providers hold a copy | `deadair.track_sources` (`playable`, `missing_at`, `origin`, bitrate, format, `last_seen_at`) | Nowhere |
 | Bytes on this machine | `deadair.track_audio` per BINDING (`checksum`, `byte_size`, `fetched_at`, `attempts`, `last_error`, `next_attempt_at`) | Nowhere |
 | Measurement | `deadair.track_analysis` (`schema_version`, `complete`, `analyzed_at`, `failed_at`, `failure_reason`) | Nowhere |

@@ -173,7 +173,7 @@ one is deliberately not; the point of writing it down is that the ordering does 
 again.
 
 **1. Finish the settings layer, which is half built. BUILT.** `apps/api/data/contracts/settings` and
-`apps/web/src/routes/settings.tsx` both exist, so each new knob is one descriptor entry in
+`apps/web/src/routes/settings/` both exist, so each new knob is one descriptor entry in
 `settings.registry.ts` as intended. The rest of this item is kept for its reasoning.
 
 `SettingsService.set` already reloads

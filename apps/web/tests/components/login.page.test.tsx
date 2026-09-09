@@ -173,7 +173,7 @@ describe('LoginPage', () => {
             await fillAndSubmit('admin@example.com', 'hunter2');
             const user = setupUser();
 
-            const picker = await screen.findByRole('combobox', { name: 'Which authenticator' });
+            const picker = await screen.findByRole('combobox', { name: 'Verify with' });
             await user.click(picker);
             await user.click(await screen.findByRole('option', { name: 'Tablet' }));
             await user.type(screen.getByLabelText('Authenticator code'), '123456');

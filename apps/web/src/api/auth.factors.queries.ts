@@ -121,6 +121,63 @@ export function authenticatorFactors(challenge: MfaChallenge): MfaChallengeFacto
 }
 
 /**
+ * The methods this console can actually put a field in front of somebody for.
+ *
+ * Authenticators first, and the order is the recommendation: a code from an app is already on the
+ * operator's phone, while an emailed one is a round trip through a mail server that may or may not
+ * be configured. An account with both is offered the app.
+ *
+ * A challenge listing neither is a real state — a passkey enrolled through the API — and the panel
+ * says so rather than drawing a field no code can satisfy.
+ */
+export function presentableFactors(challenge: MfaChallenge): MfaChallengeFactorOutput[] {
+    const rank = (method: string): number => (method === 'authenticator' ? 0 : 1);
+    return challenge.factors.filter(factor => factor.method === 'authenticator' || factor.method === 'email').sort((a, b) => rank(a.method) - rank(b.method));
+}
+
+/**
+ * Asks the API to send a one-time code to the email factor on a pending challenge.
+ *
+ * Answers the `email_challenge_id` the code grant has to echo back. Deliberately not cached and
+ * deliberately re-runnable: calling it again is the operator pressing "send it again", and the API
+ * re-sends the same code rather than suppressing it.
+ */
+export function useStartEmailChallenge() {
+    return useMutation({
+        retry: false,
+        mutationFn: async ({ challengeId }: { challengeId: string }) => {
+            const response = await sdk.authentication.factors.startFactorChallenge({ method: 'email', mfa_challenge_id: challengeId });
+            if (response.method !== 'email') throw new Error('The station answered with a factor this console did not ask for.');
+            return response;
+        },
+    });
+}
+
+/**
+ * Submits an emailed code against a pending challenge.
+ *
+ * The sibling of {@link useMfaCodeMutation} and a different grant: an authenticator code is bound
+ * to the enrolled factor by `method_id`, while an emailed one is bound to the challenge the API
+ * issued when it sent the message, which is what `challenge_id` carries. Stores the session on
+ * `token` for the same reason its sibling does.
+ */
+export function useEmailCodeMutation() {
+    return useMutation({
+        retry: false,
+        mutationFn: ({ challengeId, emailChallengeId, code }: { challengeId: string; emailChallengeId: string; code: string }) =>
+            sdk.authentication.requestToken(
+                { grant_type: 'code', mfa_challenge_id: challengeId, challenge_id: emailChallengeId, code },
+                { contentType: 'application/json' },
+            ),
+        onSuccess: (response: AuthenticationTokenResponseOutput) => {
+            if (response.result === 'token') {
+                setSession(response.access_token, response.expires_in);
+            }
+        },
+    });
+}
+
+/**
  * Submits an authenticator code against a pending challenge.
  *
  * One mutation serves both halves of the feature. At sign-in the challenge came back from the

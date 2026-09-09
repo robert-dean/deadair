@@ -123,9 +123,26 @@ export interface RenderedTemplate {
      * be the right one: the opening is the part a listener actually hears repeating, so two
      * templates differing only in their middle are correctly treated as the same one, and nothing
      * has to be written down anywhere to make it work. Empty for a template that begins with a
-     * placeholder, which {@link wasHeard} then falls back to matching whole.
+     * placeholder, which is what {@link refrain} is for.
      */
     opening: string;
+    /**
+     * The longest literal a template with no {@link opening} always says, wherever it sits in the
+     * line. Undefined wherever there IS an opening, which recognises the phrasing instead.
+     *
+     * The answer for a phrasing that opens with a placeholder, which more than a third of the
+     * station's seeded ones do — `{{previous.artist}} there, with {{previous.title}}.` has no
+     * opening at all, and matching it whole is matching against a title and a credit that differ at
+     * every break, so it was never once recognised as spent. It did not merely fail to be excluded:
+     * it stayed in the pool while its siblings dropped out as they were used, which BIASED the
+     * choice towards it. Four of six breaks in one audition were the same phrasing, twice running.
+     *
+     * Undefined too where there is no such literal worth matching on — a phrasing that is placeholders
+     * and punctuation, whose every word is somebody else's. {@link wasHeard} matches those whole,
+     * which is exactly right for the one shape that reaches it: `{{station.name}}.` says the same
+     * sentence every time.
+     */
+    refrain?: string;
     /** Whether the rendered words say anything about the record that just finished. */
     saysPrevious: boolean;
     /** Whether they name the record coming up. What a forward claim is stamped from. */
@@ -411,15 +428,19 @@ export function renderTemplate(template: string, inputs: TemplateInputs, spoken:
     // everything to be safe, and produces a segment that renders, speaks and sounds like a fault.
     if (missingRequired || !/[\p{L}\p{N}]/u.test(script)) return undefined;
 
-    return { template, script, opening: openingOf(template), saysPrevious, saysNext };
+    // Only where there is no opening to be recognised by, so the two fields together say exactly how
+    // this phrasing is matched rather than leaving one of them as a run nothing ever reads.
+    const opening = openingOf(template);
+    const refrain = opening.length > 0 ? undefined : refrainOf(template);
+
+    return { template, script, opening, ...(refrain === undefined ? {} : { refrain }), saysPrevious, saysNext };
 }
 
 /**
  * The literal a template begins with, before its first placeholder or optional chunk.
  *
- * Empty for a template that opens with one of those, which is legitimate — `{{station.name}}.` is
- * the station's own third phrasing — and which {@link wasHeard} handles by matching the whole script
- * instead.
+ * Empty for a template that opens with one of those, which is legitimate and common — see
+ * {@link RenderedTemplate.refrain}, which is what recognises those instead.
  */
 function openingOf(template: string): string {
     const at = template.search(/\{\{|\[\[/);
@@ -427,17 +448,77 @@ function openingOf(template: string): string {
 }
 
 /**
+ * How much literal a run needs before it can stand for the whole phrasing.
+ *
+ * Measured on the run AS SEARCHED FOR, spaces at its ends included, because those spaces are part of
+ * what makes it specific — ` with ` finds a word where `with` also finds it inside `within`.
+ *
+ * Eight, and the line is drawn where it is because the two sides fail differently. Too low and
+ * ` with ` becomes a signature, so a phrasing is spent whenever any OTHER one said the word:
+ * over-exclusion, which `choose`'s second round absorbs by falling back to avoiding only the last
+ * thing said. Too high and a phrasing goes back to never being recognised at all, which is the bug
+ * this exists to close and which biases the choice TOWARDS it rather than merely failing to exclude
+ * it. Every seeded phrasing that needs a refrain clears eight; the two that decide it are `This is `
+ * in the station's second welcome, which is exactly eight, and ` with ` at six, which is a word
+ * shared by half the pool and has to stay out.
+ */
+const REFRAIN_FLOOR = 8;
+
+/**
+ * The longest literal run a template says whatever else it drops, or nothing when there is none.
+ *
+ * Asked only of a template that has no opening; see {@link RenderedTemplate.refrain}.
+ *
+ * Runs OUTSIDE optional chunks only, because a chunk is exactly the part that may not be there — a
+ * refrain taken from one would go missing from half the scripts the template produces. A chunk ENDS
+ * a run rather than being cut out of one, for the same reason `renderTemplate` drops a chunk's
+ * spacing with it: removing `[[…]]` from `A.[[ B]] C.` would splice `A.` onto ` C.` and invent a run
+ * the template never says as one piece.
+ *
+ * The longest rather than the most distinctive. Length is a rough proxy for both — the answer here
+ * is ` there, with ` where a listener would have said "Documented", and they identify the phrasing
+ * equally well — and picking between two runs on anything cleverer means deciding what a listener
+ * notices, which is not something this file can know.
+ */
+function refrainOf(template: string): string | undefined {
+    const runs = template
+        // Split on chunks as well as placeholders rather than stripping the chunks out, which is
+        // what keeps the literals either side of one apart.
+        .split(/\{\{[\s\S]*?\}\}|\[\[[\s\S]*?\]\]/)
+        // The same collapse `renderTemplate` puts the script through, so a run is compared against
+        // the spacing the script actually carries rather than the spacing the template was typed in.
+        .map(run => run.replace(/\s{2,}/g, ' '))
+        // A run of nothing but joinery clears the floor as easily as a phrase does — ` — and `,
+        // ` ... ` — and identifies nothing, so it is held to having a word in it as well.
+        .filter(run => run.length >= REFRAIN_FLOOR && /[\p{L}\p{N}]/u.test(run));
+
+    // Ties go to the earlier run, which is arbitrary and says so.
+    return runs.reduce<string | undefined>((longest, run) => (longest === undefined || run.length > longest.length ? run : longest), undefined);
+}
+
+/**
  * Whether one of the last few things the station said used this template.
  *
- * By its opening where it has one, because that is the part a listener hears repeating. By the whole
- * script where it does not, which is stricter and rarer and the best that can be done without
- * writing a template id down somewhere.
+ * Three ways, in the order of how well each identifies a phrasing:
+ *
+ * - by its opening where it has one, because that is the part a listener hears repeating;
+ * - by its {@link RenderedTemplate.refrain} where it has no opening, which is the same idea moved
+ *   off the front of the line for the phrasings that begin with a placeholder;
+ * - by the whole script where it has neither, which is right for the one shape that gets there —
+ *   `{{station.name}}.` fills from a constant, so it says the same sentence every time.
+ *
+ * `recent` is a list of SCRIPTS and carries no template identity, which is the constraint the whole
+ * of this works around. Giving it one means `script_history.source` and the audition's own rows
+ * reaching the read side, and a `recent` that is no longer the plain strings every model writer
+ * passes into its prompt; a refrain buys most of the same answer for none of that.
  */
 export function wasHeard(rendered: RenderedTemplate, recent: readonly string[]): boolean {
     const said = (script: string): string => script.trim().toLowerCase();
+    const { opening, refrain } = rendered;
 
-    if (rendered.opening.length === 0) return recent.some(script => said(script) === said(rendered.script));
-    return recent.some(script => said(script).startsWith(rendered.opening.toLowerCase()));
+    if (opening.length > 0) return recent.some(script => said(script).startsWith(said(opening)));
+    if (refrain !== undefined) return recent.some(script => said(script).includes(said(refrain)));
+    return recent.some(script => said(script) === said(rendered.script));
 }
 
 /**

@@ -171,6 +171,32 @@ describe("TalkBreakWriter against the operator's own phrasings", () => {
         expect(written?.script).toBe('That was Solid Air. Coming up, Pink Moon.');
     });
 
+    it('never repeats a phrasing that opens with a placeholder either', async () => {
+        // The audition's own failure. A phrasing with no opening literal used to fall through to
+        // being matched WHOLE, against a script naming records that have since moved on — so it was
+        // never spent, never dropped out of the pool, and went on being picked while the phrasings
+        // around it were correctly excluded as they were used. Six breaks, four of them the same
+        // sentence, two of those back to back.
+        const own = build({
+            [KEY]: [
+                '{{previous.artist}} there, with {{previous.title}}. Documented.',
+                'That was {{previous.title}}, from {{previous.artist}}.',
+                'You are listening to {{station.name}}. {{previous.title}} there.',
+            ].join('\n'),
+        });
+
+        // What the station said at the LAST break, which named a record it has since moved off. That
+        // is the whole difficulty: nothing in the words survives into this break except the phrasing.
+        const heard = 'Pantera there, with Domination. Documented.';
+
+        // Enough runs that a writer failing to exclude one of three phrasings fails this on chance.
+        for (let attempt = 0; attempt < 50; attempt++) {
+            const written = await own.write({ kind: TALK_BREAK_KIND, previous, station: 'Deadair', recent: [heard] });
+
+            expect(written?.script).not.toContain('there, with');
+        }
+    });
+
     it('does not use a phrasing whose required placeholder is missing', async () => {
         // Never filled with a blank: "That was , from ." is worse than saying nothing, and saying
         // nothing is a thing the station is built to absorb.

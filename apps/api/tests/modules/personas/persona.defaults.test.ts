@@ -15,7 +15,7 @@ import {
     personaLines,
     PERSONA_SHEET_LIMITS,
 } from '../../../src/modules/personas/persona.sheet.js';
-import { parseTemplates, unknownPlaceholders, usable } from '../../../src/modules/director/break.templates.js';
+import { parseTemplates, renderTemplate, unknownPlaceholders, usable, wasHeard } from '../../../src/modules/director/break.templates.js';
 import { spoken } from '../../../src/modules/director/talk.break.writer.js';
 
 const previous = { title: 'Solid Air', artist: 'John Martyn' };
@@ -281,6 +281,25 @@ describe('the phrasings the seeded personas carry', () => {
             const fits = usable(parseTemplates(persona.templates), { next, station: 'Deadair' }, spoken);
 
             expect(fits.length, `${persona.key} could not introduce a record on its own`).toBeGreaterThan(0);
+        }
+    });
+
+    it('can each be recognised as spent once the records have moved on', () => {
+        // The failure that produced this: eleven of the seeded phrasings open with a placeholder, so
+        // they had no opening to be matched on and fell through to being compared WHOLE against a
+        // script naming records the station has since played past. None of them ever matched, so
+        // none was ever spent — and a phrasing that is never spent does not merely escape the
+        // repetition rule, it stays in the pool while the ones around it drop out as they are used.
+        // The conspiracy host read four of six audition breaks off one phrasing, twice back to back.
+        for (const persona of withTemplates) {
+            const templates = parseTemplates(persona.templates);
+
+            for (const one of usable(templates, { previous, next, station: 'Deadair', clock: 'just after nine' }, spoken)) {
+                // The same phrasing at the break BEFORE, which named other records entirely.
+                const before = renderTemplate(one.template, { previous: next, next: previous, station: 'Deadair', clock: 'nearly ten' }, spoken);
+
+                expect(wasHeard(one, [before!.script]), `${persona.key}: "${one.template}" was not recognised`).toBe(true);
+            }
         }
     });
 

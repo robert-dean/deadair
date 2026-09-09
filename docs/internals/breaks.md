@@ -30,6 +30,20 @@ the operator's: a placeholder outside an optional chunk that cannot be filled me
 not apply, and a phrasing saying nothing about the record just finished is only offered where there
 is none.
 
+**A phrasing the station just used is recognised by its OPENING, or failing that by its refrain.**
+`recent` is a list of scripts and carries no template identity, so `wasHeard` has to recognise a
+phrasing from words that name records the station has since played past. The opening literal does it
+for most — it is also the part a listener hears repeating, so two phrasings differing only in their
+middle count as one, which is deliberate. A phrasing that BEGINS with a placeholder has no opening,
+and eleven of the seeded ones do; those are matched on their refrain, the longest literal they say
+outside any optional chunk. Before there was one they fell through to being compared whole, which
+essentially never matched, and the failure was not that they escaped the rule: they stayed in the
+pool while every phrasing around them dropped out as it was used, so the choice was BIASED towards
+them. One audition read four of six breaks off the same phrasing, twice back to back. A phrasing with
+neither is still compared whole, which is right for the only shape that reaches it — `{{station.name}}.`
+says the same sentence every time. See `break.templates.ts` for the floor a refrain has to clear and
+why giving `recent` a template identity instead was not worth what it costs.
+
 **A break is written when its slot comes near, not when it is planted.** Planting stays eager and runs to the
 end of the order, because the position is what keeps the spacing stable; `BreakPlanner.ripen` asks for the
 WORDS only within `WRITE_AHEAD` items of the cursor. That is the difference between an hour of forward

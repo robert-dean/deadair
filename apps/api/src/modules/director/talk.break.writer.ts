@@ -168,6 +168,13 @@ export class TalkBreakWriter extends BreakWriter {
  * leaves nothing — a window longer than the number of phrasings that fit the request, which is the
  * ordinary case for a break with only a `next` — it falls back to avoiding just the last thing said,
  * because saying the same sentence TWICE RUNNING is the one repetition anybody actually notices.
+ *
+ * Both rounds are only as good as `wasHeard`, and a phrasing it cannot recognise does not merely
+ * escape the first round: it stays in the pool while every phrasing around it drops out as it is
+ * used, so the choice is BIASED towards it rather than left even. That is not a hypothetical — it
+ * was true of every phrasing beginning with a placeholder until one was given a refrain to be
+ * recognised by, and it is why `break.templates.ts` treats being unrecognisable as a fault rather
+ * than as a phrasing that is simply always fresh.
  */
 function choose(fits: readonly RenderedTemplate[], recent: readonly string[]): RenderedTemplate {
     const unheard = fits.filter(one => !wasHeard(one, recent));

@@ -75,6 +75,9 @@ import { SignInMailLimiter } from './sign.in.mail.limiter.js';
 // `format(output=snake)` schemas). The public methods `requestToken` and `startFactorChallenge`
 // run `parseAndValidate` to flip these to the snake_case wire shape.
 type AuthenticationTokenInternal = AuthenticationTokenIssued | MfaRequiredResponse;
+
+/** The factor methods the wire contract admits — deliberately narrower than ServerKit's union. */
+type MfaChallengeFactorMethod = MfaRequiredResponse['factors'][number]['method'];
 type FactorChallengeStartInternal = FactorChallengeFidoStartResponse | FactorChallengeEmailStartResponse;
 type AuthenticateHandler = (request: BaseAuthenticationRequest) => Promise<AuthenticationTokenInternal>;
 type StartLoginHandler = (request: BaseAuthenticationLoginStart) => Promise<AuthenticationLoginStartResponse>;
@@ -411,12 +414,18 @@ export class AuthenticationService {
             result: 'mfa_required',
             challengeId: result.challenge.challengeId,
             expiresAt: result.challenge.expiresAt,
-            factors: result.challenge.eligibleFactors.map(f => ({
-                method: f.method,
-                methodId: f.methodId,
-                kind: f.kind,
-                ...(f.label ? { label: f.label } : {}),
-            })),
+            // ServerKit v5 widened AuthenticationFactorMethod with 'apikey', which is a
+            // machine credential rather than an enrolled factor. It can never reach an
+            // MFA challenge, and the wire contract has no arm for it, so narrow here
+            // rather than widening the contract to a value the SPA must never see.
+            factors: result.challenge.eligibleFactors
+                .filter((f): f is typeof f & { method: MfaChallengeFactorMethod } => f.method !== 'apikey')
+                .map(f => ({
+                    method: f.method,
+                    methodId: f.methodId,
+                    kind: f.kind,
+                    ...(f.label ? { label: f.label } : {}),
+                })),
         };
     }
 

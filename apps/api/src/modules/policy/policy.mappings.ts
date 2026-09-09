@@ -17,6 +17,11 @@ import {
     PhoneAllowedPolicyContext,
     RecoveryAllowedPolicy,
     RecoveryAllowedPolicyContext,
+    ApiKeyAllowedPolicy,
+    ApiKeyAllowedPolicyContext,
+    ApiKeySessionPolicy,
+    ApiKeySessionPolicyContext,
+    MfaSatisfiedOrApiKeyPolicy,
     DefaultAssuranceLevelPolicy,
     AuthAssuranceLevelPolicyContext,
     SupportVerificationAllowedPolicy,
@@ -112,6 +117,14 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPol
     'auth.recovery.allowed': RecoveryAllowedPolicy,
     'auth.support.verification.allowed': SupportVerificationAllowedPolicy,
     'auth.session.assurance.level': DefaultAssuranceLevelPolicy,
+    // API keys, added by ServerKit v5. This app issues none today, so the gates
+    // are mapped to the package defaults rather than left out: the mapping type
+    // demands every name, and a real implementation belongs with the feature
+    // rather than ahead of it. `auth.session.api.key` denies any session an API
+    // key did not establish, which is every session here.
+    'auth.api.key.allowed': ApiKeyAllowedPolicy,
+    'auth.session.api.key': ApiKeySessionPolicy,
+    'auth.session.mfa.satisfied.or.api.key': MfaSatisfiedOrApiKeyPolicy,
 };
 
 export type ServerPolicyContexts = {
@@ -128,4 +141,7 @@ export type ServerPolicyContexts = {
     'auth.recovery.allowed': RecoveryAllowedPolicyContext;
     'auth.session.assurance.level': AuthAssuranceLevelPolicyContext;
     'auth.support.verification.allowed': SupportVerificationAllowedPolicyContext;
+    'auth.api.key.allowed': ApiKeyAllowedPolicyContext;
+    'auth.session.api.key': ApiKeySessionPolicyContext;
+    'auth.session.mfa.satisfied.or.api.key': AuthMfaSatisfiedPolicyContext;
 };

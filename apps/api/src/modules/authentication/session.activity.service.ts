@@ -1,8 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { AuthenticationSession, AuthenticationSessionService, SessionRevocationReason } from '@maroonedsoftware/authentication';
+import { AuthenticationSession, AuthenticationSessionService } from '@maroonedsoftware/authentication';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
-import { SessionEventRepository, SessionEventType } from './repositories/session.event.repository.js';
 import { LoginActivityRepository } from './repositories/login.activity.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
 
@@ -59,7 +58,6 @@ const stringClaim = (claims: Record<string, unknown>, key: string): string | nul
 @Injectable()
 export class SessionActivityService {
     constructor(
-        private readonly sessionEvents: SessionEventRepository,
         private readonly loginActivity: LoginActivityRepository,
         private readonly sessionService: AuthenticationSessionService,
         private readonly authorizationContext: AuthorizationContext,
@@ -67,9 +65,9 @@ export class SessionActivityService {
     ) {}
 
     // Claims to attach when calling sessionService.createSession so the request's
-    // IP and User-Agent ride along with the session. The hook callbacks then read
-    // them back off the session blob — the hook signature doesn't pass request
-    // context directly.
+    // IP and User-Agent ride along with the session. SessionAuditSink reads them
+    // back off the session blob: a revoke happens on a different request, where
+    // the live context describes the wrong caller.
     buildLoginContextClaims(): Record<string, unknown> {
         const ip = this.authorizationContext.request.ipAddress ?? null;
         const ua = this.authorizationContext.request.userAgent ?? null;
@@ -118,63 +116,6 @@ export class SessionActivityService {
         }
     }
 
-    // ---- Session lifecycle hooks (registered on AuthenticationSessionServiceOptions) ----
-
-    onSessionCreated = async (session: AuthenticationSession): Promise<void> => {
-        await this.writeEvent(session, 'created');
-    };
-
-    onSessionRefreshed = async (session: AuthenticationSession): Promise<void> => {
-        await this.writeEvent(session, 'refreshed');
-    };
-
-    onSessionRevoked = async (session: AuthenticationSession, meta: { reason: SessionRevocationReason }): Promise<void> => {
-        await this.writeEvent(session, 'revoked', { reason: meta.reason });
-    };
-
-    onValidationFailed = async (sessionToken: string, meta: { reason: string }): Promise<void> => {
-        if (!sessionToken) {
-            // No session reference — nothing to attribute to an actor; skip the audit row.
-            return;
-        }
-        try {
-            // Validation failures arrive without a session, so we can't attribute an actor.
-            // Look up the most recent event for the token to recover the actor id.
-            const recent = await this.sessionService.getSession(sessionToken).catch(() => undefined);
-            const actorId = recent?.subject;
-            if (!actorId) return;
-            await this.sessionEvents.insert({
-                sessionToken,
-                actorId,
-                eventType: 'validation_failed',
-                ip: this.authorizationContext.request.ipAddress ?? null,
-                userAgent: this.truncatedUserAgent(),
-                metadata: meta,
-            });
-        } catch (err) {
-            this.logger.warn('auth: failed to record a session validation failure', { error: errorText(err) });
-        }
-    };
-
-    onRefreshReuseDetected = async (meta: { familyId: string; jti: string; sessionToken?: string }): Promise<void> => {
-        // The per-session onSessionRevoked('theft') calls already wrote one revoked
-        // row for each family member. We additionally bump the failure counter so
-        // brute-force / theft attempts show up alongside password / OTP failures.
-        const ip = this.authorizationContext.request.ipAddress;
-        if (!ip) return;
-        try {
-            await this.loginActivity.upsertFailure({
-                identifier: meta.familyId,
-                factorType: 'refresh',
-                ip,
-                actorId: null,
-                lastReason: 'refresh_token_reuse',
-            });
-        } catch (err) {
-            this.logger.warn('auth: failed to record a refresh-reuse failure', { error: errorText(err), ...meta });
-        }
-    };
-
     // ---- Listing / admin ----
 
     async listSessionsForActor(actorId: string, currentSessionToken?: string): Promise<ListedSession[]> {
@@ -198,25 +139,6 @@ export class SessionActivityService {
     }
 
     // ---- Helpers ----
-
-    private async writeEvent(
-        session: AuthenticationSession,
-        eventType: SessionEventType,
-        metadata: Record<string, unknown> | null = null,
-    ): Promise<void> {
-        try {
-            await this.sessionEvents.insert({
-                sessionToken: session.sessionToken,
-                actorId: session.subject,
-                eventType,
-                ip: stringClaim(session.claims, LOGIN_IP_CLAIM) ?? this.authorizationContext.request.ipAddress ?? null,
-                userAgent: stringClaim(session.claims, LOGIN_USER_AGENT_CLAIM) ?? this.truncatedUserAgent(),
-                metadata,
-            });
-        } catch (err) {
-            this.logger.warn('auth: failed to record a session event', { error: errorText(err), eventType });
-        }
-    }
 
     private toListedSession(session: AuthenticationSession, currentSessionToken?: string): ListedSession {
         return {

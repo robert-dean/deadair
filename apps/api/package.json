@@ -44,7 +44,7 @@
         "@deadair/error-codes": "workspace:*",
         "@deadair/plugin-sdk": "workspace:*",
         "@maroonedsoftware/appconfig": "^2.6.1",
-        "@maroonedsoftware/authentication": "^4.32.0",
+        "@maroonedsoftware/authentication": "^5.0.0",
         "@maroonedsoftware/cache": "^0.5.0",
         "@maroonedsoftware/encryption": "^0.5.13",
         "@maroonedsoftware/errors": "^1.9.1",

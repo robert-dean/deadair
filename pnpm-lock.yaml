@@ -45,8 +45,8 @@ importers:
         specifier: ^2.6.1
         version: 2.6.1(pg@8.22.0)(yaml@2.9.0)
       '@maroonedsoftware/authentication':
-        specifier: ^4.32.0
-        version: 4.32.0(ioredis@6.0.0)
+        specifier: ^5.0.0
+        version: 5.0.0(ioredis@6.0.0)
       '@maroonedsoftware/cache':
         specifier: ^0.5.0
         version: 0.5.0(ioredis@6.0.0)
@@ -1320,6 +1320,10 @@ packages:
 
   '@maroonedsoftware/authentication@4.32.0':
     resolution: {integrity: sha512-pF/57YkTtY8XFcivsmtfyNH9VPz7aa0XA6HBTU7O1+D1GhshpOfl67r3dCB9ODy3yBGuBvhgNStGqwiJxrdlMQ==}
+    engines: {node: '>=22'}
+
+  '@maroonedsoftware/authentication@5.0.0':
+    resolution: {integrity: sha512-9wfiJuk/tLN5If09bvj7j/UJWNRoDuc82iv5QiEnoxw2dpQxqetLoMP3ozipZbMazlcbU6bqe0oKffBc6H5YIQ==}
     engines: {node: '>=22'}
 
   '@maroonedsoftware/cache@0.5.0':
@@ -5475,6 +5479,32 @@ snapshots:
       yaml: 2.9.0
 
   '@maroonedsoftware/authentication@4.32.0(ioredis@6.0.0)':
+    dependencies:
+      '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
+      '@maroonedsoftware/encryption': 0.5.13
+      '@maroonedsoftware/errors': 1.9.1
+      '@maroonedsoftware/logger': 1.1.9
+      '@maroonedsoftware/policies': 0.6.9
+      '@maroonedsoftware/utilities': 1.11.5
+      '@node-rs/argon2': 2.2.0
+      '@zxcvbn-ts/core': 4.2.0
+      '@zxcvbn-ts/language-common': 4.1.3
+      '@zxcvbn-ts/language-en': 4.1.1
+      '@zxcvbn-ts/matcher-pwned': 4.1.3
+      arctic: 3.7.0
+      deepmerge-ts: 8.0.2
+      fido2-lib: 3.5.9
+      injectkit: 1.7.1
+      jsonwebtoken: 9.0.3
+      luxon: 3.7.2
+      openid-client: 6.8.7
+      qrcode: 1.5.4
+      rate-limiter-flexible: 11.2.0
+      zxcvbn-ts: 2.3.4
+    transitivePeerDependencies:
+      - ioredis
+
+  '@maroonedsoftware/authentication@5.0.0(ioredis@6.0.0)':
     dependencies:
       '@maroonedsoftware/cache': 0.5.0(ioredis@6.0.0)
       '@maroonedsoftware/encryption': 0.5.13

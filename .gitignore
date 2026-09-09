@@ -25,6 +25,11 @@ coverage
 # Turbo
 .turbo
 
+# The API's own log store (LOGS_DIR). `*.log` above catches `api.log`; the trace channel writes
+# `.jsonl`, which it does not, so a local `pnpm dev` left `logs/traces/*.jsonl` staged and three
+# commits carried one before anybody noticed. Runtime output either way, and re-created on boot.
+apps/api/logs/
+
 # Debug
 npm-debug.log*
 yarn-debug.log*

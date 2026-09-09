@@ -207,3 +207,54 @@ licence, and is an instruction rather than an enforcement.
 phrasing: it used to end "never about the person listening", and that came out because a sheet may
 legitimately aim a character at the listener (the shipped `wisecrack` does) and a prompt carrying both the
 quirk and the prohibition is two rules that disagree, which a model resolves by hedging into neither.
+
+## Hearing a character before it goes on air
+
+**A rehearsal is one break; an AUDITION is a playlist.** `POST /personas/{id}/rehearse` writes a single break
+against a fixed invented pair — no `trackId` so no facts, `recent: []`, the same two records every time — and
+that is the right shape for the question it answers, which is what one sheet EDIT changed: the substrate has
+to be pinned or two readings a minute apart are not comparable. What it cannot answer is whether a character
+holds up over real material, and that was previously knowable only by switching the station over and waiting
+an evening. `POST /personas/{id}/auditions` (migration 0024, `PersonaAuditionJob`, and the Auditions tab on
+Voice) is the half in between: one host, one provider playlist, one talk break per transition, and nothing
+airs. Six things are load-bearing, and every one of them is about not measuring the wrong thing.
+
+**It is a chain of jobs over one row, never a request.** Each transition is a generation at the `preview`
+tier, which queues behind everything the station does for itself and is preempted the moment a real break
+wants the model, so a run of twenty is minutes to hours — and this station redeploys on any push to main. So
+`persona_auditions.cursor` says which transition is next, one job claims it conditionally, writes one break
+and sends the next; the row IS the checkpoint, on `productions`' argument, and the claim is what makes a
+duplicate delivery free rather than a second break at one ordinal that the unique index refuses.
+
+**It cannot air, and that is a property of what it can reach.** The job holds neither `SegmentRepository` nor
+`ScriptHistoryRepository` nor `BreakRequestRepository`; the only tables under it are the two 0024 added, and
+neither is in the render path. That is the rehearsal's guarantee extended over a run rather than a rule
+somebody has to keep remembering — and it is checked rather than asserted: `scripts/audition.smoke.ts` counts
+`segments` and `script_history` before and after a real run.
+
+**It spends nothing the next real break is owed.** The notebook is read through `forPrompt` and never rested,
+the stories through a `tellable` read that stamps nothing, and the facts through `factsForTracks(…, { stamp:
+false })` — the same reading/resting split those stores were built around, applied at a new caller. A
+twenty-transition run that stamped would hand the next real break this character's twenty-first-best lines,
+report tellings nobody heard, and put a week of the station's best claims on cooldown for breaks that were
+going to say them.
+
+**`recent` comes from the RUN and not from the station.** This is the one place an audition deliberately
+diverges from the rehearsal: `recent: []` is what makes one reading repeatable, and over a playlist it would
+let the host land its signature phrase at every transition and report a repetition no broadcast produces. So
+each transition is shown this run's own scripts, newest first, at the same window `WriteBreakJob` uses — and
+`script_history` is never read here, nor written, so the station and the audition cannot see each other's
+words.
+
+**A model lost to the station is not recorded at all.** `preview` being preempted, or the queue running out
+of patience, both end with the floor writing a perfectly good line in the character's voice — which on air is
+the arrangement working and in a measurement is a lie, since an operator reading "the floor covered eight of
+ten" would go and rewrite a sheet that was never asked. `WriteAttempt.code` carries `timeout` / `unavailable`
+up from the gate so the job can tell that apart from a writer that actually broke, and such a transition is
+put off for 45 seconds and asked again, at most three times. A model that DECLINED is recorded immediately:
+that is the reading the whole feature exists to collect.
+
+**It is the before-the-fact half of `scripts/break.declines.ts`.** That report counts decline rates and marker
+recall out of `script_history`, which means a sheet change is judged an evening after it ships; the tally on
+an audition card is the same ratio over material an operator chose, before anything goes out. Neither
+replaces the other — the report reads what a real broadcast did, and only the live table can say that.

@@ -194,17 +194,15 @@ running order, which is what a schedule produces anyway.
 
 **Built 2026-08-16** (`ad36004`), as `POST /personas/{id}/rehearse` and
 `PersonaRehearsalService`, against fabricated neighbours and with `recent: []` so a reading is
-repeatable. What follows is the design as it stood, and it is kept for the first constraint below,
-which is only HALF honoured.
+repeatable. What follows is the design as it stood, and it is kept for the two constraints below,
+both of which are now honoured — and for the note at the end, which is what the same question turned
+into once it was asked over a playlist rather than over one pair of records.
 
-**The priority half is not done.** The tier it asks for now exists — `gate.priority.ts`, added the
-same day, where `preview` queues behind everything the station does for itself and is preempted out
-of the model when the station wants it back. The rehearsal does not use it. It calls
-`BreakWriterRegistry.write`, which reaches `ModelTalkBreakWriter`, which passes its own
-`LlmGateOptions` and no priority, so a rehearsal contends as `station`: exactly the "must not
-preempt a refill or a real break" this section was written to prevent. The fix is a `priority` on
-`BreakWriteRequest`, defaulted to `station` and threaded to `converse` by the three model bindings,
-which is the only route by which a writer could ever know it is being auditioned rather than aired.
+**The priority half was not done when this was written, and now is.** The tier it asks for exists —
+`gate.priority.ts`, added the same day, where `preview` queues behind everything the station does for
+itself and is preempted out of the model when the station wants it back — and the fix it named is
+built: `BreakWriteRequest.priority` is threaded to `converse` by the model bindings, and
+`PersonaRehearsalService` passes `preview`. See the note at the end of this section.
 
 An operator can already audition a VOICE — `GET /voices/{voiceId}/sample` renders a fixed line and
 the console plays the blob — but not a persona. What a sheet actually produces is unknowable until it
@@ -231,6 +229,22 @@ and the cheap half to produce; speaking them costs a synthesis per click and can
 behind the same route. That call is cheaper than it was: `SpeechGate` now serializes the engine and
 takes the same `preview` tier, so a spoken rehearsal is a `maxWaitMs` and a priority rather than a
 new question about what an operator clicking twice does to a render in flight.
+
+**Both of those are answered, and the note at the top of this section is now stale in the other
+direction, 2026-09-09.** `PersonaRehearsalService` passes `priority: 'preview'`, so the constraint
+this section was written to protect is honoured rather than half honoured; and a rehearsal IS spoken,
+through the sample store, from a button on the panel. What that section did not anticipate is the
+shape the same question takes over a PLAYLIST, which is now built (migration 0024, `PersonaAuditionJob`, the Auditions tab on Voice, and
+`docs/internals/personas.md` § "Hearing a character before it goes on air"): one host, one provider
+playlist, one break per transition, a job per transition so a run survives a redeploy, and nothing
+aired. Two things it forced that a single rehearsal never had to answer — a run must carry its OWN
+`recent` or it measures a host repeating a signature phrase no broadcast would let it repeat, and a
+model lost to the station must NOT be recorded, because a run that quietly stores the floor's line
+reports a busy Tuesday as a fact about the sheet. The second cost `WriteAttempt.code`, which is the
+only change the registry needed.
+
+The rehearsal itself stays exactly as it was, and should: a fixed pair is the right substrate for
+judging one edit, and an audition is the wrong tool for that question — it moves too much at once.
 
 ## 5. The changeover: a schedule swaps the host and the station says nothing
 

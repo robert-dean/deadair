@@ -89,19 +89,3 @@ operation(internal) /auth/login/oidc/callback: {
         }
     }
 }
-
-operation(internal) /auth/login/link/redirect: {
-    get: { # This is an internal endpoint handling the redirect routing for magic links. When the user follows the link the browser will direct the user to this endpoint which renders as a blank page, and then the user will be redirected to the provided magic link url.
-        name: MagicLink Redirect
-        service: AuthenticationService.magicLinkRedirect
-        query: {
-            token: string(max=100) # The magic link token
-            token_type: string(max=100) # The token type
-        }
-        response: {
-            200: {
-                text/html: string
-            }
-        }
-    }
-}

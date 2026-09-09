@@ -643,14 +643,6 @@ export class AuthenticationService {
         };
     }
 
-    async magicLinkRedirect(query: { token: string; token_type: string }): Promise<string> {
-        const { token, token_type } = query;
-
-        const { html } = this.htmlRedirectProvider.getRedirectHtml(new URL(`${this.options.spaBaseUrl}/auth/callback?token=${token_type}:${token}`));
-
-        return html;
-    }
-
     async startOidcLogin(request: OidcLoginStart): Promise<OidcLoginStartResponse> {
         const { url, state, expiresAt } = await this.oidcFactorService.beginAuthorization({
             provider: request.provider,

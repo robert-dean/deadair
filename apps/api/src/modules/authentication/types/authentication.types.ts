@@ -252,19 +252,18 @@ export const FactorChallengeFidoStart = z.strictObject({
 export type FactorChallengeFidoStart = z.infer<typeof FactorChallengeFidoStart>;
 
 /**
- * Issue an email OTP challenge during a pending MFA round
+ * Issue an email one-time-code challenge during a pending MFA round. Always a code: a magic link cannot complete an MFA round, since the `code` grant that redeems one takes `code(min=6, max=10)` and a link token is 43 characters
  * generated from [FactorChallengeEmailStart](../../../../data/contracts/authentication/authentication.types.ck#L290)
  */
 export const FactorChallengeEmailStart = z.strictObject({
     method: z.literal('email').describe('Discriminator'),
-    issueMethod: z.enum(['code', 'magiclink']).optional().describe('How to deliver the challenge — defaults to `code` (six-digit OTP)'),
     mfa_challenge_id: z.string().max(100).describe('The MFA challenge to which this factor challenge is bound'),
 });
 export type FactorChallengeEmailStart = z.infer<typeof FactorChallengeEmailStart>;
 
 /**
  * Response for a phone SMS challenge
- * generated from [FactorChallengePhoneStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L298)
+ * generated from [FactorChallengePhoneStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L297)
  */
 export const FactorChallengePhoneStartResponse = z
     .strictObject({
@@ -283,19 +282,17 @@ export type FactorChallengePhoneStartResponse = z.input<typeof FactorChallengePh
 export type FactorChallengePhoneStartResponseOutput = z.output<typeof FactorChallengePhoneStartResponse>;
 
 /**
- * Response for an email OTP challenge
- * generated from [FactorChallengeEmailStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L312)
+ * Response for an email one-time-code challenge
+ * generated from [FactorChallengeEmailStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L311)
  */
 export const FactorChallengeEmailStartResponse = z
     .strictObject({
         method: z.literal('email').describe('Discriminator'),
-        issueMethod: z.enum(['code', 'magiclink']).describe('Echo of the chosen delivery channel'),
         emailChallengeId: z.string().max(100).describe('The email-factor challenge id — echo back on the `code` grant as `challenge_id`'),
         expiresAt: _ZodDatetime.describe('When the email challenge expires'),
     })
     .transform(data => ({
         method: data.method,
-        issue_method: data.issueMethod,
         email_challenge_id: data.emailChallengeId,
         expires_at: data.expiresAt,
     }));
@@ -304,7 +301,7 @@ export type FactorChallengeEmailStartResponseOutput = z.output<typeof FactorChal
 
 /**
  * A factor satisfied by the session
- * generated from [SessionFactor](../../../../data/contracts/authentication/authentication.types.ck#L327)
+ * generated from [SessionFactor](../../../../data/contracts/authentication/authentication.types.ck#L325)
  */
 export const SessionFactor = z.strictObject({
     method: z.enum(['phone', 'password', 'authenticator', 'email', 'fido', 'oidc']).describe('The verification method'),
@@ -324,7 +321,7 @@ export type SessionFactorInput = z.infer<typeof SessionFactorInput>;
 
 /**
  * Optional metadata supplied to a revoke action
- * generated from [SessionRevoke](../../../../data/contracts/authentication/authentication.types.ck#L347)
+ * generated from [SessionRevoke](../../../../data/contracts/authentication/authentication.types.ck#L345)
  */
 export const SessionRevoke = z.strictObject({
     reason: z.string().max(255).nullable().optional().describe('Free-form reason recorded with the revoke'),
@@ -333,14 +330,14 @@ export type SessionRevoke = z.infer<typeof SessionRevoke>;
 
 /**
  * A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads
- * generated from [PlatformRole](../../../../data/contracts/authentication/authentication.types.ck#L352)
+ * generated from [PlatformRole](../../../../data/contracts/authentication/authentication.types.ck#L350)
  */
 export const PlatformRole = z.enum(['admin', 'listener']);
 export type PlatformRole = z.infer<typeof PlatformRole>;
 
 /**
  * A successful authentication record
- * generated from [Login](../../../../data/contracts/authentication/authentication.types.ck#L359)
+ * generated from [Login](../../../../data/contracts/authentication/authentication.types.ck#L357)
  */
 export const Login = z.strictObject({
     id: z.preprocess(val => (typeof val === 'string' ? BigInt(val.replace(/n$/, '')) : val), z.bigint()).describe('The login event identifier'),
@@ -364,7 +361,7 @@ export type LoginInput = z.infer<typeof LoginInput>;
 
 /**
  * The current user's display preferences, auto-detected by the SPA from the browser (Intl timezone + navigator.language). Omitted fields are left unchanged (absent = never set).
- * generated from [ActorPreferences](../../../../data/contracts/authentication/authentication.types.ck#L371)
+ * generated from [ActorPreferences](../../../../data/contracts/authentication/authentication.types.ck#L369)
  */
 export const ActorPreferences = z.strictObject({
     locale: z.string().max(32).optional().describe('RFC 5646 locale, e.g. "en-US"'),
@@ -438,7 +435,7 @@ export type AuthenticationFactor = z.infer<typeof AuthenticationFactor>;
 
 /**
  * Mint a fresh MFA challenge for the current session so the SPA can satisfy a `step_up_required` denial. Filters mirror `StepUpRequirement` from `@maroonedsoftware/policies`.
- * generated from [StepUpStartRequest](../../../../data/contracts/authentication/authentication.types.ck#L321)
+ * generated from [StepUpStartRequest](../../../../data/contracts/authentication/authentication.types.ck#L319)
  */
 export const StepUpStartRequest = z.strictObject({
     acceptableMethods: z.array(AuthenticationFactorMethod).optional().describe('If set, only these factor methods are listed as eligible'),
@@ -496,7 +493,7 @@ export const FidoAuthenticatorAttestationResponse = z.strictObject({
 export type FidoAuthenticatorAttestationResponse = z.infer<typeof FidoAuthenticatorAttestationResponse>;
 
 /**
- * generated from [FactorChallengeStartRequest](../../../../data/contracts/authentication/authentication.types.ck#L296)
+ * generated from [FactorChallengeStartRequest](../../../../data/contracts/authentication/authentication.types.ck#L295)
  */
 export const FactorChallengeStartRequest = z.discriminatedUnion('method', [
     FactorChallengePhoneStart,
@@ -507,7 +504,7 @@ export type FactorChallengeStartRequest = z.infer<typeof FactorChallengeStartReq
 
 /**
  * An active authentication session
- * generated from [Session](../../../../data/contracts/authentication/authentication.types.ck#L335)
+ * generated from [Session](../../../../data/contracts/authentication/authentication.types.ck#L333)
  */
 export const Session = z.strictObject({
     sessionToken: z.string().max(255).describe('Opaque session token used as the cache key and embedded in JWTs'),
@@ -529,7 +526,7 @@ export type SessionInput = z.infer<typeof SessionInput>;
 
 /**
  * Who the caller is, as the station sees them
- * generated from [AuthSession](../../../../data/contracts/authentication/authentication.types.ck#L354)
+ * generated from [AuthSession](../../../../data/contracts/authentication/authentication.types.ck#L352)
  */
 export const AuthSession = z.strictObject({
     actorId: z.string().max(100).describe('The actor the session belongs to'),
@@ -747,7 +744,7 @@ export type FidoAuthenticationLoginStartResponse = z.infer<typeof FidoAuthentica
 
 /**
  * Response for a FIDO assertion challenge
- * generated from [FactorChallengeFidoStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L305)
+ * generated from [FactorChallengeFidoStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L304)
  */
 export const FactorChallengeFidoStartResponse = z
     .strictObject({
@@ -844,7 +841,7 @@ export const AuthenticationLoginStartResponse = z.discriminatedUnion('grant_type
 export type AuthenticationLoginStartResponse = z.infer<typeof AuthenticationLoginStartResponse>;
 
 /**
- * generated from [FactorChallengeStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L319)
+ * generated from [FactorChallengeStartResponse](../../../../data/contracts/authentication/authentication.types.ck#L317)
  */
 export const FactorChallengeStartResponse = z.discriminatedUnion('method', [
     FactorChallengePhoneStartResponse,

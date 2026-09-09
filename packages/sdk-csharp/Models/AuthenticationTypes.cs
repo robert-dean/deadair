@@ -391,17 +391,12 @@ public sealed record FactorChallengeFidoStart : FactorChallengeStartRequest
     public required string MfaChallengeId { get; init; }
 }
 
-/// <summary>Issue an email OTP challenge during a pending MFA round</summary>
+/// <summary>Issue an email one-time-code challenge during a pending MFA round. Always a code: a magic link cannot complete an MFA round, since the `code` grant that redeems one takes `code(min=6, max=10)` and a link token is 43 characters</summary>
 public sealed record FactorChallengeEmailStart : FactorChallengeStartRequest
 {
     /// <summary>Discriminator</summary>
     [JsonPropertyName("method")]
     public string Method { get; init; } = "email";
-
-    /// <summary>How to deliver the challenge — defaults to `code` (six-digit OTP)</summary>
-    [JsonPropertyName("issueMethod")]
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public FactorChallengeEmailStartIssueMethod? IssueMethod { get; init; }
 
     /// <summary>The MFA challenge to which this factor challenge is bound</summary>
     [JsonPropertyName("mfa_challenge_id")]
@@ -428,16 +423,12 @@ public sealed record FactorChallengePhoneStartResponse : FactorChallengeStartRes
     public required DateTimeOffset ExpiresAt { get; init; }
 }
 
-/// <summary>Response for an email OTP challenge</summary>
+/// <summary>Response for an email one-time-code challenge</summary>
 public sealed record FactorChallengeEmailStartResponse : FactorChallengeStartResponse
 {
     /// <summary>Discriminator</summary>
     [JsonPropertyName("method")]
     public string Method { get; init; } = "email";
-
-    /// <summary>Echo of the chosen delivery channel</summary>
-    [JsonPropertyName("issue_method")]
-    public required FactorChallengeEmailStartResponseIssueMethod IssueMethod { get; init; }
 
     /// <summary>The email-factor challenge id — echo back on the `code` grant as `challenge_id`</summary>
     [JsonPropertyName("email_challenge_id")]
@@ -1575,17 +1566,6 @@ public sealed class AuthenticationLoginStartResponseConverter : JsonConverter<Au
     }
 }
 
-/// <summary>How to deliver the challenge — defaults to `code` (six-digit OTP)</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<FactorChallengeEmailStartIssueMethod>))]
-public enum FactorChallengeEmailStartIssueMethod
-{
-    [JsonStringEnumMemberName("code")]
-    Code,
-
-    [JsonStringEnumMemberName("magiclink")]
-    Magiclink,
-}
-
 [JsonConverter(typeof(FactorChallengeStartRequestConverter))]
 public interface FactorChallengeStartRequest
 {
@@ -1628,17 +1608,6 @@ public sealed class FactorChallengeStartRequestConverter : JsonConverter<FactorC
                 throw new JsonException($"Unknown FactorChallengeStartRequest member {value.GetType().Name}.");
         }
     }
-}
-
-/// <summary>Echo of the chosen delivery channel</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<FactorChallengeEmailStartResponseIssueMethod>))]
-public enum FactorChallengeEmailStartResponseIssueMethod
-{
-    [JsonStringEnumMemberName("code")]
-    Code,
-
-    [JsonStringEnumMemberName("magiclink")]
-    Magiclink,
 }
 
 [JsonConverter(typeof(FactorChallengeStartResponseConverter))]

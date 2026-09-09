@@ -285,21 +285,19 @@ export interface FactorChallengeFidoStart {
 }
 
 /**
- * Issue an email OTP challenge during a pending MFA round
+ * Issue an email one-time-code challenge during a pending MFA round. Always a code: a magic link cannot complete an MFA round, since the `code` grant that redeems one takes `code(min=6, max=10)` and a link token is 43 characters
  * generated from [FactorChallengeEmailStart](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L290)
  */
 export interface FactorChallengeEmailStart {
     /** Discriminator */
     method: 'email';
-    /** How to deliver the challenge — defaults to `code` (six-digit OTP) */
-    issueMethod?: 'code' | 'magiclink';
     /** The MFA challenge to which this factor challenge is bound */
     mfa_challenge_id: string;
 }
 
 /**
  * Response for a phone SMS challenge
- * generated from [FactorChallengePhoneStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L298)
+ * generated from [FactorChallengePhoneStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L297)
  */
 export interface FactorChallengePhoneStartResponse {
     /** Discriminator */
@@ -338,14 +336,12 @@ export function reviveFactorChallengePhoneStartResponseOutput(raw: FactorChallen
 }
 
 /**
- * Response for an email OTP challenge
- * generated from [FactorChallengeEmailStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L312)
+ * Response for an email one-time-code challenge
+ * generated from [FactorChallengeEmailStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L311)
  */
 export interface FactorChallengeEmailStartResponse {
     /** Discriminator */
     method: 'email';
-    /** Echo of the chosen delivery channel */
-    issueMethod: 'code' | 'magiclink';
     /** The email-factor challenge id — echo back on the `code` grant as `challenge_id` */
     emailChallengeId: string;
     /** When the email challenge expires */
@@ -355,8 +351,6 @@ export interface FactorChallengeEmailStartResponse {
 export interface FactorChallengeEmailStartResponseOutput {
     /** Discriminator */
     method: 'email';
-    /** Echo of the chosen delivery channel */
-    issue_method: 'code' | 'magiclink';
     /** The email-factor challenge id — echo back on the `code` grant as `challenge_id` */
     email_challenge_id: string;
     /** When the email challenge expires */
@@ -379,7 +373,7 @@ export function reviveFactorChallengeEmailStartResponseOutput(raw: FactorChallen
 
 /**
  * A factor satisfied by the session
- * generated from [SessionFactor](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L327)
+ * generated from [SessionFactor](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L325)
  */
 export interface SessionFactor {
     /** The verification method */
@@ -413,7 +407,7 @@ export function reviveSessionFactor(raw: SessionFactor): SessionFactor {
 
 /**
  * Optional metadata supplied to a revoke action
- * generated from [SessionRevoke](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L347)
+ * generated from [SessionRevoke](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L345)
  */
 export interface SessionRevoke {
     /** Free-form reason recorded with the revoke */
@@ -422,13 +416,13 @@ export interface SessionRevoke {
 
 /**
  * A platform-wide role held on `platform:main`. `admin` grants every operation; `listener` grants the reads
- * generated from [PlatformRole](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L352)
+ * generated from [PlatformRole](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L350)
  */
 export type PlatformRole = 'admin' | 'listener';
 
 /**
  * A successful authentication record
- * generated from [Login](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L359)
+ * generated from [Login](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L357)
  */
 export interface Login {
     /** The login event identifier */
@@ -462,7 +456,7 @@ export function reviveLogin(raw: Login): Login {
 
 /**
  * The current user's display preferences, auto-detected by the SPA from the browser (Intl timezone + navigator.language). Omitted fields are left unchanged (absent = never set).
- * generated from [ActorPreferences](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L371)
+ * generated from [ActorPreferences](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L369)
  */
 export interface ActorPreferences {
     /** RFC 5646 locale, e.g. "en-US" */
@@ -554,7 +548,7 @@ export interface AuthenticationFactor {
 
 /**
  * Mint a fresh MFA challenge for the current session so the SPA can satisfy a `step_up_required` denial. Filters mirror `StepUpRequirement` from `@maroonedsoftware/policies`.
- * generated from [StepUpStartRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L321)
+ * generated from [StepUpStartRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L319)
  */
 export interface StepUpStartRequest {
     /** If set, only these factor methods are listed as eligible */
@@ -618,13 +612,13 @@ export interface FidoAuthenticatorAttestationResponse {
 }
 
 /**
- * generated from [FactorChallengeStartRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L296)
+ * generated from [FactorChallengeStartRequest](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L295)
  */
 export type FactorChallengeStartRequest = FactorChallengePhoneStart | FactorChallengeFidoStart | FactorChallengeEmailStart;
 
 /**
  * An active authentication session
- * generated from [Session](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L335)
+ * generated from [Session](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L333)
  */
 export interface Session {
     /** Opaque session token used as the cache key and embedded in JWTs */
@@ -666,7 +660,7 @@ export function reviveSession(raw: Session): Session {
 
 /**
  * Who the caller is, as the station sees them
- * generated from [AuthSession](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L354)
+ * generated from [AuthSession](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L352)
  */
 export interface AuthSession {
     /** The actor the session belongs to */
@@ -908,7 +902,7 @@ export function reviveFidoAuthenticationLoginStartResponse(raw: FidoAuthenticati
 
 /**
  * Response for a FIDO assertion challenge
- * generated from [FactorChallengeFidoStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L305)
+ * generated from [FactorChallengeFidoStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L304)
  */
 export interface FactorChallengeFidoStartResponse {
     /** Discriminator */
@@ -1087,7 +1081,7 @@ export function reviveAuthenticationLoginStartResponse(raw: AuthenticationLoginS
 }
 
 /**
- * generated from [FactorChallengeStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L319)
+ * generated from [FactorChallengeStartResponse](../../../../../apps/api/data/contracts/authentication/authentication.types.ck#L317)
  */
 export type FactorChallengeStartResponse = FactorChallengePhoneStartResponse | FactorChallengeFidoStartResponse | FactorChallengeEmailStartResponse;
 export type FactorChallengeStartResponseOutput =

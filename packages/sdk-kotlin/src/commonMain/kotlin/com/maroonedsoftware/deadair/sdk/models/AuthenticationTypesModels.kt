@@ -273,13 +273,11 @@ data class FactorChallengeFidoStart(
     @SerialName("mfa_challenge_id") val mfaChallengeId: String,
 ) : FactorChallengeStartRequest
 
-/** Issue an email OTP challenge during a pending MFA round */
+/** Issue an email one-time-code challenge during a pending MFA round. Always a code: a magic link cannot complete an MFA round, since the `code` grant that redeems one takes `code(min=6, max=10)` and a link token is 43 characters */
 @Serializable
 data class FactorChallengeEmailStart(
     /** Discriminator */
     val method: String = "email",
-    /** How to deliver the challenge — defaults to `code` (six-digit OTP) */
-    val issueMethod: FactorChallengeEmailStartIssueMethod? = null,
     /** The MFA challenge to which this factor challenge is bound */
     @SerialName("mfa_challenge_id") val mfaChallengeId: String,
 ) : FactorChallengeStartRequest
@@ -297,13 +295,11 @@ data class FactorChallengePhoneStartResponse(
     @SerialName("expires_at") val expiresAt: Instant,
 ) : FactorChallengeStartResponse
 
-/** Response for an email OTP challenge */
+/** Response for an email one-time-code challenge */
 @Serializable
 data class FactorChallengeEmailStartResponse(
     /** Discriminator */
     val method: String = "email",
-    /** Echo of the chosen delivery channel */
-    @SerialName("issue_method") val issueMethod: FactorChallengeEmailStartResponseIssueMethod,
     /** The email-factor challenge id — echo back on the `code` grant as `challenge_id` */
     @SerialName("email_challenge_id") val emailChallengeId: String,
     /** When the email challenge expires */
@@ -1007,15 +1003,6 @@ object AuthenticationLoginStartResponseSerializer : KSerializer<AuthenticationLo
     }
 }
 
-/** How to deliver the challenge — defaults to `code` (six-digit OTP) */
-@Serializable
-enum class FactorChallengeEmailStartIssueMethod {
-    @SerialName("code")
-    CODE,
-    @SerialName("magiclink")
-    MAGICLINK,
-}
-
 @Serializable(with = FactorChallengeStartRequestSerializer::class)
 sealed interface FactorChallengeStartRequest
 
@@ -1042,15 +1029,6 @@ object FactorChallengeStartRequestSerializer : KSerializer<FactorChallengeStartR
             else -> throw SerializationException("Unknown FactorChallengeStartRequest method: $tag")
         }
     }
-}
-
-/** Echo of the chosen delivery channel */
-@Serializable
-enum class FactorChallengeEmailStartResponseIssueMethod {
-    @SerialName("code")
-    CODE,
-    @SerialName("magiclink")
-    MAGICLINK,
 }
 
 @Serializable(with = FactorChallengeStartResponseSerializer::class)

@@ -287,9 +287,8 @@ contract FactorChallengeFidoStart: { # Issue a WebAuthn assertion challenge duri
     mfa_challenge_id: string(max=100) # The MFA challenge to which this factor challenge is bound
 }
 
-contract FactorChallengeEmailStart: { # Issue an email OTP challenge during a pending MFA round
+contract FactorChallengeEmailStart: { # Issue an email one-time-code challenge during a pending MFA round. Always a code: a magic link cannot complete an MFA round, since the `code` grant that redeems one takes `code(min=6, max=10)` and a link token is 43 characters
     method: literal("email") # Discriminator
-    issueMethod?: enum(code, magiclink) # How to deliver the challenge — defaults to `code` (six-digit OTP)
     mfa_challenge_id: string(max=100) # The MFA challenge to which this factor challenge is bound
 }
 
@@ -309,9 +308,8 @@ contract format(output=snake) FactorChallengeFidoStartResponse: { # Response for
     expiresAt: datetime # When the FIDO challenge expires
 }
 
-contract format(output=snake) FactorChallengeEmailStartResponse: { # Response for an email OTP challenge
+contract format(output=snake) FactorChallengeEmailStartResponse: { # Response for an email one-time-code challenge
     method: literal("email") # Discriminator
-    issueMethod: enum(code, magiclink) # Echo of the chosen delivery channel
     emailChallengeId: string(max=100) # The email-factor challenge id — echo back on the `code` grant as `challenge_id`
     expiresAt: datetime # When the email challenge expires
 }

@@ -10,7 +10,7 @@
 -->
 <status etag="85acf97831f85c80aec3b20377a4012e">
     <service>https</service>
-    <streamUrl>https://radio.deanhome.app/live.mp3</streamUrl>
+    <streamUrl>https://radio.example.com/live.mp3</streamUrl>
     <title1>Deadair</title1>
     <secs>0</secs>
     <state>connecting</state>

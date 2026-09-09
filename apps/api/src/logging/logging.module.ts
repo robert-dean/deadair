@@ -1,6 +1,9 @@
 import { Container } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { Logger } from '@maroonedsoftware/logger';
+// Referenced by `{@link RotatingLogStore}` in the documentation below and nowhere in the code.
+// The rule counts identifiers rather than doc links, and dropping this would break the link.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { RotatingLogStore } from './rotating.log.store.js';
 import { getLogStore } from './log.store.js';
 import { errorText } from '#modules/shared/error.text.js';

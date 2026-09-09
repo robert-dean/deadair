@@ -26,7 +26,8 @@ alone: `/me/playlists` still takes 50, and `/me/top/{type}` also takes 50. So on
 no longer serve all three.
 
 It was not failing only by luck. `PER_PROVIDER_LIMIT` in
-[catalog.search.tool.ts](../../apps/api/src/modules/llm/catalog.search.tool.ts) is exactly `10`. A
+[provider.search.ts](../../apps/api/src/modules/llm/provider.search.ts) was exactly `10` when this
+was written and is `25` today, still under the ceiling. A
 caller asking for 11 got a 400, `SpotifyResponseValidator` turned it into `upstream`, and the tool
 dropped that provider from the results without failing the search, by design. The symptom would have
 been a model that quietly could not see the Spotify half of the library.

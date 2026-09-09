@@ -70,10 +70,10 @@ const MAX_SUGGESTED_FIELDS = 50;
 /**
  * A plugin's suggestions, as something the console can definitely render.
  *
- * Plugins are trusted code (`docs/decisions/plugin-trust.md`), so this is not a security boundary
- * and does not pretend to be one. It is the same care `toPluginError` takes for the same reason:
- * this value is about to be JSON and then a form, and a plugin returning a number where a label
- * belongs should cost that entry rather than the whole settings page.
+ * Plugins are trusted code (`packages/plugin-sdk/CLAUDE.md` § "Trust and egress"), so this is not a
+ * security boundary and does not pretend to be one. It is the same care `toPluginError` takes for the
+ * same reason: this value is about to be JSON and then a form, and a plugin returning a number where
+ * a label belongs should cost that entry rather than the whole settings page.
  */
 function sanitizeSuggestions(suggested: unknown): Record<string, ConfigFieldOption[]> {
     if (typeof suggested !== 'object' || suggested === null) return {};

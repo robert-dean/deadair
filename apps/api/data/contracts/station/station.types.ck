@@ -80,6 +80,7 @@ contract StationBacklog: {
 contract StationCheckup: {
     readAt: readonly datetime # When this reading was taken, so a stale page cannot pass itself off as now
     revision?: readonly string(min=1, max=100) # The commit this station was built from, as the image's `org.opencontainers.image.revision` label says it. Unlike the sections below, absent is not a failed reader: it means nothing stamped this build, which is what a development tree and a hand-built image both are
+    version?: readonly string(min=1, max=50) # The release this station is, as the image's `org.opencontainers.image.version` label says it. Absent on the same terms as `revision` and for a second reason: only a tagged build carries one, so a station following `latest` reports a commit and no version
     heartbeats?: readonly array(StationHeartbeat)
     backlog?: readonly StationBacklog
 }

@@ -48,7 +48,7 @@ function draw(values: Record<string, unknown>) {
 }
 
 /** What the form actually sent for the list, parsed back out of the string it is stored as. */
-const submitted = (onSubmit: ReturnType<typeof vi.fn>): unknown => JSON.parse((onSubmit.mock.calls.at(-1)?.[0] as Record<string, string>).feeds!);
+const submitted = (onSubmit: ReturnType<typeof vi.fn>): unknown => JSON.parse((onSubmit.mock.calls.at(-1)?.[0] as { feeds: string }).feeds);
 
 describe('reordering a list field', () => {
     it('moves a row up, values and all', async () => {
@@ -133,9 +133,12 @@ describe('a credential inside a row', () => {
         return { onSubmit, user: setupUser() };
     }
 
+    /** Every row the form actually sent, parsed back out of the string the list is stored as. */
+    const sentRows = (onSubmit: ReturnType<typeof vi.fn>): Record<string, unknown>[] =>
+        JSON.parse((onSubmit.mock.calls.at(-1)?.[0] as { providers: string }).providers);
+
     /** The single row the form actually sent. */
-    const sentRow = (onSubmit: ReturnType<typeof vi.fn>): Record<string, unknown> =>
-        JSON.parse((onSubmit.mock.calls.at(-1)?.[0] as Record<string, string>).providers)[0];
+    const sentRow = (onSubmit: ReturnType<typeof vi.fn>): Record<string, unknown> => sentRows(onSubmit)[0]!;
 
     const saveButton = () => screen.getByRole('button', { name: 'Save' });
 
@@ -221,7 +224,7 @@ describe('a credential inside a row', () => {
         await user.click(screen.getByRole('button', { name: 'Move row 2 up' }));
         await user.click(saveButton());
 
-        expect(JSON.parse((onSubmit.mock.calls.at(-1)?.[0] as Record<string, string>).providers)).toEqual([
+        expect(sentRows(onSubmit)).toEqual([
             { $id: 'second', name: 'b' },
             { $id: 'first', name: 'a' },
         ]);

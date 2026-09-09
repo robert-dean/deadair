@@ -93,6 +93,10 @@ library.
 | `deadair/deadair:full` | a voice, PostgreSQL, Redis | nothing |
 | `deadair/deadair:slim` | — | PostgreSQL, Redis, a speech server |
 
+Those three tags follow `main`, so they move on every push. A release is a `v*` tag, and it
+publishes `0.1.0` and `0.1` alongside them: **pin `deadair/deadair:0.1` to track releases only**,
+and read [CHANGELOG.md](CHANGELOG.md) for what changed between them. Images are `linux/amd64`.
+
 On Unraid, install the template in [`unraid/deadair.xml`](unraid/deadair.xml). Anywhere else,
 [`deploy/docker-compose.yml`](deploy/docker-compose.yml) is the same container written for Compose.
 One published port carries the console, the API and the stream, so whatever you already put in front
@@ -201,7 +205,7 @@ apps/web               the console: React, Vite, TanStack Router, Mantine
 packages/plugin-sdk    the plugin contract and the host capabilities
 packages/sdk           a typed client, generated from the contracts
 plugins/*              spotify, navidrome, musicbrainz, lastfm, wikipedia, rss,
-                       kokoro, chatterbox, llm, analyzer
+                       websearch, weather, kokoro, chatterbox, llm, analyzer
 analysis/              the measurement sidecar (Python): cue points and loudness
 stream/, nginx/        the audio chain (radio.liq), the stream server and the edge
 ```
@@ -211,11 +215,26 @@ them; CI regenerates all three and fails on anything that moved.
 
 [`CLAUDE.md`](CLAUDE.md) is the deep reference: every non-obvious constraint, with the measured
 failure behind it. Read the part covering whatever you are about to touch — most of those paragraphs
-exist because the obvious fix was shipped first and was wrong. [`docs/decisions/`](docs/decisions)
-holds the long-form arguments and [`docs/todo/`](docs/todo) holds work that was designed against the
-real tree and then deliberately deferred, which is worth reading before designing a feature from
-scratch: the call may already have been made.
+exist because the obvious fix was shipped first and was wrong. [`docs/internals/`](docs/internals)
+holds the long-form arguments, one file per subsystem, and [`docs/todo/`](docs/todo) holds work that
+was designed against the real tree and then deliberately deferred, which is worth reading before
+designing a feature from scratch: the call may already have been made.
+
+## Reporting something
+
+Bugs and requests go to [the issue tracker](https://github.com/robert-dean/deadair/issues).
+Anything security-shaped goes privately instead — [SECURITY.md](SECURITY.md) says how, and says what
+the station assumes about where it runs, which is worth reading before you decide something is a
+bug. [CONTRIBUTING.md](CONTRIBUTING.md) is how to build it and the handful of rules that will bounce
+a change.
 
 ## Licence
 
-[MIT](LICENSE). The software, not the music — see [docs/licensing.md](docs/licensing.md).
+[MIT](LICENSE), for the source in this repository.
+
+That is not the whole picture for the published container image, which bundles Liquidsoap, Icecast,
+go-librespot and — in the `full` variant — PostgreSQL and Redis, several of them copyleft.
+[THIRD-PARTY.md](THIRD-PARTY.md) lists every one with its version and its terms.
+
+And none of it is about the music, which is yours and is licensed by whoever licensed it to you:
+see [docs/licensing.md](docs/licensing.md) before you publish an address.

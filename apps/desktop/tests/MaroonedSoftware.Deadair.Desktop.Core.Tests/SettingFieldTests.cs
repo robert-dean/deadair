@@ -135,12 +135,12 @@ public class SettingFieldTests
     {
         var field = SettingFieldViewModel.ForPlugin(
             new FieldSpec("players", "Players", "One per line.", FieldKind.Text, null),
-            "10.0.1.36");
+            "192.0.2.36");
 
         Assert.Equal("players", field.Key);
         Assert.Equal("Players", field.Label);
         Assert.Equal("One per line.", field.Help);
-        Assert.Equal("10.0.1.36", field.Text);
+        Assert.Equal("192.0.2.36", field.Text);
         Assert.True(field.IsText);
         Assert.True(field.IsMultiline);
         Assert.False(field.IsSecret);

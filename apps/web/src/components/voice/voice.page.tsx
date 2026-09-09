@@ -1,4 +1,4 @@
-import { Stack, Text, Title } from '@mantine/core';
+import { Stack, Title } from '@mantine/core';
 
 import { PadsPage } from '../pads/pads.page';
 import { PersonasPage } from '../personas/personas.page';

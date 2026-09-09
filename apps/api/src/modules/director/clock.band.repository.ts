@@ -9,7 +9,8 @@ import type { ClockBand, ClockBandDraft, ClockBandRecord } from './clock.bands.j
  *
  * A plain reader and writer, the same shape `ScheduleRepository` is and for the same reason: this is
  * a stored document that the planner reads on its pass, and nothing here holds an opinion about what
- * airs. `docs/decisions/on-air-ownership.md` is why that separation is worth stating twice.
+ * airs. `docs/internals/director.md` § "Who owns the running order" is why that separation is worth
+ * stating twice.
  *
  * ## Two reads, and they are not the same question
  *

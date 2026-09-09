@@ -122,10 +122,11 @@ const pad = (value: number, width = 2) => String(value).padStart(width, '0');
  *
  * ## Nothing here changes what is on air
  *
- * Writing a slot does not put the station on it, and deleting the slot that is currently on does not
- * take the station off. The tick notices at the next boundary, which is the invariant in
- * `docs/decisions/on-air-ownership.md`: the schedule says WHAT should be on air and never WHEN the
- * changeover happens, because only the director knows where the track boundaries are.
+ * Writing a slot does not put the station on it, and deleting the slot that is currently on does not take
+ * the station off. The tick notices at the next boundary, which is the invariant the ownership rule
+ * states (`docs/internals/director.md` § "Who owns the running order"): the schedule says WHAT should be
+ * on air and never WHEN the changeover happens, because only the director knows where the track
+ * boundaries are.
  *
  * ## A dangling reference is voided when the schedule is RESOLVED, not refused when it is saved
  *

@@ -13,7 +13,7 @@ namespace MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.Tests;
 /// </summary>
 public sealed class BluOsPhaseTests
 {
-    private static readonly Uri Mount = new("https://radio.deanhome.app/live.mp3");
+    private static readonly Uri Mount = new("https://radio.example.com/live.mp3");
 
     [Theory]
     [InlineData("stop", null, PlayerPhase.Stopped)]
@@ -128,10 +128,10 @@ public sealed class BluOsPhaseTests
     /// the mount is looked for INSIDE the value rather than compared to the whole of it.
     /// </summary>
     [Theory]
-    [InlineData("https://radio.deanhome.app/live.mp3", StreamMatch.Ours)]
-    [InlineData("TuneIn:https://radio.deanhome.app/live.mp3", StreamMatch.Ours)]
+    [InlineData("https://radio.example.com/live.mp3", StreamMatch.Ours)]
+    [InlineData("TuneIn:https://radio.example.com/live.mp3", StreamMatch.Ours)]
     [InlineData("Deezer:142986206", StreamMatch.Other)]
-    [InlineData("https://radio.deanhome.app/live.flac", StreamMatch.Other)]
+    [InlineData("https://radio.example.com/live.flac", StreamMatch.Other)]
     [InlineData("https://someone-elses-station.example.com/live.mp3", StreamMatch.Other)]
     [InlineData(null, StreamMatch.Absent)]
     [InlineData("", StreamMatch.Absent)]
@@ -148,6 +148,6 @@ public sealed class BluOsPhaseTests
     [Fact]
     public void AnotherMountOfTheSameStationIsNotThisOne()
     {
-        Assert.Equal(StreamMatch.Other, BluOsPhase.Match("https://radio.deanhome.app/live.aac", Mount));
+        Assert.Equal(StreamMatch.Other, BluOsPhase.Match("https://radio.example.com/live.aac", Mount));
     }
 }

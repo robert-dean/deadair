@@ -93,22 +93,22 @@ Two decisions to make when it lands, neither obvious:
   columns for good reason and this is the one case where the split shows.
 
 ## The daypart schedule
-
 Morning / afternoon / evening / night, each naming a PLAYLIST rather than a stored lineup: there is
 no stored lineup to name any more, and a changeover builds the running order from its slot's source
-the way `putOnAir` does. See `docs/decisions/on-air-ownership.md`, which also records why the
-schedule must post commands and bump the epoch synchronously rather than writing anything itself.
+the way `putOnAir` does. See `docs/internals/director.md` § "Who owns the running order", which also
+records why the schedule must post commands and bump the epoch synchronously rather than writing
+anything itself.
 
 The original entry, still true of the mechanism: The director already re-reads
 `deadair.station_air` on every wake and switches when it names a different lineup, which is the
 behaviour a scheduler needs. What is deferred is the `Programme` seam (`current(): { slot, lineupId }`)
 and the changeover policy: finish the track, then swap.
-
 **Read back 2026-08-19, and three things above have moved.** "Finish the track, then swap" is not a
 policy still to be written: `Rundown.retract()` reclaims everything handed and not heard and leaves
 the airing record playing, and `putOnAir` calls it first, so it is built. The seam is
 `ScheduleResolver` rather than `Programme` (that word is spent twice over; see the naming note in
-`on-air-ownership.md`), and its `lineupId` half is stale, since there are no stored lineups to name.
+`docs/internals/director.md` § "Who owns the running order"), and its `lineupId` half is stale,
+since there are no stored lineups to name.
 
 **And the sub-hour half of this is already built, which is worth knowing before designing it again.**
 `deadair.clock_bands` anchors events inside the hour (half past for the news, nine o'clock for it, an
@@ -167,7 +167,7 @@ a discipline rather than a structure. `onAired` already does exactly this correc
 history: it is deliberately not a director command, it records what a listener actually heard, and
 it hands its own work off to a job. A `nowplaying` plugin capability is still right; what feeds it
 is `jobs.send`, and `@maroonedsoftware/eventbus` stays unused. See
-`docs/decisions/how-work-is-dispatched.md`.
+`apps/api/CLAUDE.md` § "How work is dispatched".
 
 ## Rotation rules as operator settings
 

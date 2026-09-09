@@ -216,7 +216,7 @@ contract PadUpload: {
 #
 # The operator names the address, so this is them choosing a file exactly as dropping one in the
 # library is. Nothing inspects what comes back and nothing records a claim about its licence -- see
-# `docs/decisions/pad-licensing.md`, whose line is redistribution rather than use
+# `docs/internals/render.md` under "Pads", whose line is redistribution rather than use
 contract PadFetch: {
     url: url # Where the audio is. Followed once, bounded, and refused unless what comes back is a format the station serves
     board: string(min=1, max=200) # The directory it is filed under, which is also the set it joins

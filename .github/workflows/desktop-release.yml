@@ -6,6 +6,10 @@
 # permanent entry with a version somebody may already have downloaded, and a push trigger would cut
 # one for every README typo.
 #
+# The tag it cuts is `desktop-v<version>`, NOT `v<version>`. The bare `v*` namespace belongs to the
+# station's own releases, which are what an operator means by "a deadair release"; a macOS listener
+# sharing it would put two unrelated things in one numbered sequence and make `v0.1.0` ambiguous.
+#
 # The artifact is UNSIGNED. macOS will refuse it on a first launch until somebody right-clicks and
 # chooses Open, which is stated in the release notes rather than left to be discovered. Signing needs
 # an Apple Developer ID and a decision about paying for one; the steps below are shaped so that
@@ -16,10 +20,6 @@ name: Desktop release
 on:
     workflow_dispatch:
         inputs:
-            version:
-                description: Version to stamp the bundle with, without a leading v
-                type: string
-                default: 0.1.0
             draft:
                 description: Create the release as a draft rather than publishing it
                 type: boolean
@@ -65,14 +65,26 @@ jobs:
             # Builds the native shim, publishes self-contained for Apple Silicon, and assembles the
             # bundle. The script is the same one used by hand, so a release cannot drift from what a
             # developer produces locally.
+            # The version is NOT an input. It was, defaulting to a literal that also appeared in
+            # `Directory.Build.props`, in the bundle script and in the release notes — four copies,
+            # so a release could stamp a bundle with a number the assembly inside it disagreed with.
+            # `Directory.Build.props` is the one place it is written; everything below reads this.
+            - name: Read the version
+              id: version
+              run: |
+                  set -euo pipefail
+                  version="$(dotnet msbuild apps/desktop/Directory.Build.props -getProperty:Version | tr -d '[:space:]')"
+                  test -n "$version"
+                  echo "value=${version}" >> "$GITHUB_OUTPUT"
+
             - name: Build the app bundle
-              run: apps/desktop/tools/macos/make-app-bundle.sh "${{ inputs.version }}"
+              run: apps/desktop/tools/macos/make-app-bundle.sh "${{ steps.version.outputs.value }}"
 
             # Zipped with `ditto`, which preserves the resource forks and symlinks inside a bundle.
             # A plain `zip` produces an archive macOS unpacks into something that will not launch.
             - name: Archive
               working-directory: apps/desktop/artifacts
-              run: ditto -c -k --sequesterRsrc --keepParent deadair.app "deadair-${{ inputs.version }}-osx-arm64.zip"
+              run: ditto -c -k --sequesterRsrc --keepParent deadair.app "deadair-${{ steps.version.outputs.value }}-osx-arm64.zip"
 
             - name: Publish the release
               env:
@@ -89,8 +101,8 @@ jobs:
                   NOTES
                   )
 
-                  gh release create "v${{ inputs.version }}" \
-                      --title "deadair desktop ${{ inputs.version }}" \
+                  gh release create "desktop-v${{ steps.version.outputs.value }}" \
+                      --title "deadair desktop ${{ steps.version.outputs.value }}" \
                       --notes "$notes" \
                       ${{ inputs.draft && '--draft' || '' }} \
-                      "apps/desktop/artifacts/deadair-${{ inputs.version }}-osx-arm64.zip"
+                      "apps/desktop/artifacts/deadair-${{ steps.version.outputs.value }}-osx-arm64.zip"

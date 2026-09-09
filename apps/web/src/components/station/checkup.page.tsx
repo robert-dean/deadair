@@ -189,7 +189,7 @@ export function CheckupPage() {
             </Section>
 
             <Section title="Build" failed={checkup.isError} pending={checkup.isPending}>
-                <Build revision={checkup.data?.revision} />
+                <Build revision={checkup.data?.revision} version={checkup.data?.version} />
             </Section>
         </Stack>
     );
@@ -212,17 +212,26 @@ export function CheckupPage() {
  * short: seven characters is what an operator compares against `git log` by eye, and the full forty
  * is what they paste back into one.
  */
-function Build({ revision }: { revision?: string }) {
+function Build({ revision, version }: { revision?: string; version?: string }) {
     if (revision === undefined) {
         return (
             <Text size="sm" c="dimmed">
-                This station was not built from a commit, which is what a development tree and a hand-built image both are.
+                {version === undefined
+                    ? 'This station was not built from a commit, which is what a development tree and a hand-built image both are.'
+                    : `This station is ${version}, and nothing recorded which commit it was built from.`}
             </Text>
         );
     }
 
     return (
         <Group gap="sm" wrap="wrap">
+            {/*
+             * The version is shown only when there IS one, and it is absent far more often than the
+             * revision: `latest` follows main, so an ordinary station is a commit and no release.
+             * Saying "no version" would read as a fault on a station that is working exactly as
+             * intended, where saying nothing reads as what it is.
+             */}
+            {version !== undefined && <Code title={`Release ${version}`}>{version}</Code>}
             <Text size="sm">Built from</Text>
             <Code title={revision}>{revision.slice(0, 7)}</Code>
             <CopyButton value={revision}>

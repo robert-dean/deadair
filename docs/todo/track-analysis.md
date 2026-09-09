@@ -10,13 +10,12 @@ than a kind of enrichment (`packages/plugin-sdk/src/capabilities/analysis.ts` sa
 completeness flag exactly as "The storage shape" below asks for. `AnalysisModule` in `apps/api`
 walks the catalog and measures what it finds. The four cue points come from an RMS envelope over
 ffmpeg-decoded samples, and the loudness layer at the end is built and checked against `ebur128`.
-
 **What is still deferred is the beat layer alone** — `bpm`, `beat_confidence`, `downbeats`,
-`vocal_onset`, `vocal_curve`. **Its licence question is now answered** in
-[../decisions/analysis-licensing.md](../decisions/analysis-licensing.md), and the answer changes two
-things this file says below. Every dependency in the analysis path is permissive, weights included,
-so no copyleft toolkit is a candidate at all. And the sidecar was NOT chosen for licence reasons: it
-was chosen because decoding does not happen in Node, which is the whole of it. Read that file before
+`vocal_onset`, `vocal_curve`. **Its licence question is now answered** by the
+[analysis licence rule](../../analysis/README.md#the-rule-stated-once), and the answer changes two
+things this file says below. Every dependency in the analysis path is permissive, weights included, so no
+copyleft toolkit is a candidate at all. And the sidecar was NOT chosen for licence reasons: it was
+chosen because decoding does not happen in Node, which is the whole of it. Read that file before
 pinning anything, and read it instead of "The licence check comes before the design" below, which it
 supersedes.
 
@@ -86,11 +85,10 @@ enough for both uses, and storing it at audio frame rate would be storing a sign
 decision from.
 
 ## The vocal fields cannot be measured this way
-
-**Built and reverted 2026-08-30.** `analysis-licensing.md` puts `vocal_onset` and `vocal_curve`
-outside the licence question — "two of the five are not part of the problem at all", computed from
-"band-limited energy, 200 Hz to 4 kHz". That is correct about licensing and wrong about
-feasibility, and the difference cost a day.
+**Built and reverted 2026-08-30.** The licence rule in `analysis/README.md` puts `vocal_onset` and
+`vocal_curve` outside the licence question — "two of the five are not part of the problem at all",
+computed from "band-limited energy, 200 Hz to 4 kHz". That is correct about licensing and wrong
+about feasibility, and the difference cost a day.
 
 **Band energy alone measures nothing new**, which was caught at design time: 200 Hz–4 kHz is the
 band `intro_end` already uses, because it is where voices *and lead instruments* live. The
@@ -154,17 +152,16 @@ station's architecture says audio does not go. Three ways out, in order of prefe
 3. **Decode in-process** and argue the exception. Cheapest to write, and it puts a CPU-bound decode
    loop inside the request path of the API server, so it is only defensible if analysis is strictly
    a background job with a concurrency of one.
-
 **The licence check comes before the design, not after.** ~~The toolkits that compute beat grids and
-vocal separation are mostly copyleft, several AGPL, and §3 already flags this. It bears on the choice
-above rather than merely on the code: a sidecar is a separate program communicating over HTTP, which
-is a materially different licence position from linking the same library into the API process.~~
-**Superseded 2026-08-11 by [../decisions/analysis-licensing.md](../decisions/analysis-licensing.md),
-which took this file up on its own request to write the answer down.** It came out the other way
-round: the rule is that nothing copyleft or non-commercial enters the analysis path in the first
-place, weights included, so the boundary never carries any licence weight and option 1 stands on
-keeping the decoder out of Node alone. The paragraph above is kept because it is the reasoning the
-decision had to answer, not because it holds.
+vocal separation are mostly copyleft, several AGPL, and §3 already flags this. It bears on the
+choice above rather than merely on the code: a sidecar is a separate program communicating over
+HTTP, which is a materially different licence position from linking the same library into the API
+process.~~ **Superseded 2026-08-11 by [the analysis licence rule](../../analysis/README.md#the-rule-stated-once), which took this file up on its own request to
+write the answer down.** It came out the other way round: the rule is that nothing copyleft or
+non-commercial enters the analysis path in the first place, weights included, so the boundary never
+carries any licence weight and option 1 stands on keeping the decoder out of Node alone. The
+paragraph above is kept because it is the reasoning the decision had to answer, not because it
+holds.
 
 ## The storage shape
 

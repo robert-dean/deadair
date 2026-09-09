@@ -286,7 +286,7 @@ There was once a second egress here, `host.streams`, with handles, sequence
 numbers, base64 chunks and an idempotent `close()`, because a live object could
 not cross the boundary. All of it is gone: a `ReadableStream` is already a
 pull-based stream with backpressure and a cancel, and the boundary is a function
-call. See `docs/decisions/plugin-trust.md`.
+call. See `CLAUDE.md` § "Trust and egress".
 
 What survives is the bounds, and they are the reason it was ever thought about:
 a body is read outside the deadline that fetched it, so an idle deadline, a

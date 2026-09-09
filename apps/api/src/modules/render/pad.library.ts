@@ -124,12 +124,12 @@ export class PadLibrary {
      *
      * ## Nothing ships in it today
      *
-     * `assets/pads/` is empty on purpose — `docs/decisions/pad-licensing.md` says why, and the short
-     * version is that everything the station redistributes has to be CC0 and sourcing that properly
-     * is a research task with a legal edge. So this is a no-op on every current install, and the
-     * reason it exists anyway is that the copy is the part with the decisions in it (when, guarded on
-     * what, and what happens on a second boot) and those are worth settling before there is audio to
-     * argue about.
+     * `assets/pads/` is empty on purpose — `docs/internals/render.md` § "Pads" says why, and the short
+     * version is that everything the station redistributes has to be CC0 and sourcing that properly is
+     * a research task with a legal edge. So this is a no-op on every current install, and the reason
+     * it exists anyway is that the copy is the part with the decisions in it (when, guarded on what,
+     * and what happens on a second boot) and those are worth settling before there is audio to argue
+     * about.
      *
      * Best-effort throughout: a pack that could not be copied costs the station its stock sounds and
      * never its boot, exactly as a lexicon that could not be seeded does.

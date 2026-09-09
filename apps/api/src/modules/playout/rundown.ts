@@ -12,11 +12,10 @@ import { errorText } from '#modules/shared/error.text.js';
  * handed over, what is actually airing, and what the player turns out not to be
  * holding after all.
  *
- * **It is not a list.** It used to hold one — `queue`, `served` and `airing` were a
- * second copy of the order, minted per play — and that second copy was the last
- * place the two-jobs split survived. There is ONE ordered list now, the director's
- * {@link LiveOrder}, and an item's position in it IS its state. See
- * `docs/decisions/on-air-ownership.md`.
+ * **It is not a list.** It used to hold one — `queue`, `served` and `airing` were a second copy of
+ * the order, minted per play — and that second copy was the last place the two-jobs split survived.
+ * There is ONE ordered list now, the director's {@link LiveOrder}, and an item's position in it IS
+ * its state. See `docs/internals/director.md` § "Who owns the running order".
  *
  * The distinction the whole class is still built around is that **handing an item
  * to the player is not the same as it airing**. Liquidsoap resolves (and, for an
@@ -227,9 +226,9 @@ export interface PulledItem {
  *
  * It was fifteen seconds, sized for a resolve that meant a Spotify track coming through the shim,
  * decrypted from the CDN. That is not what a resolve is any more: a record is not committed until
- * its audio is on this machine (`docs/decisions/bytes-before-air.md`), so what Liquidsoap does with
- * a pushed uri is a loopback GET of a local file. Five seconds is generous for that and still an
- * order of magnitude above what it should take.
+ * its audio is on this machine (the bytes-before-air rule), so what Liquidsoap does with a pushed
+ * uri is a loopback GET of a local file. Five seconds is generous for that and still an order of
+ * magnitude above what it should take.
  *
  * **Reasoned rather than measured**, which is worth admitting: the gap between a push and the item
  * appearing in `queued` has not been timed against the running station. The failure mode of guessing

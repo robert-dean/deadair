@@ -132,7 +132,7 @@ worth building first, and it is worth building even if the other half never land
 track's mood, and:
 
 - `EnrichedTrack.moods` already exists in the plugin SDK
-  ([enrichment.ts:110](../../packages/plugin-sdk/src/capabilities/enrichment.ts:110)) and **nothing
+  ([enrichment.ts:110](../../packages/plugin-sdk/src/capabilities/enrichment.ts#L110)) and **nothing
   populates it.** The MusicBrainz plugin declines it explicitly, and correctly: that service does not
   carry it.
 - So it needs an enrichment source that does (Last.fm's tags are the obvious one), a mapping from

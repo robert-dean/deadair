@@ -12,7 +12,15 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
-version="${1:-0.1.0}"
+# `Directory.Build.props` is the one place the desktop app's version is written. Read it rather than
+# repeating it: this literal was in four places at once (here, the props file, the release workflow's
+# default, and the release notes), which is three chances for a bundle to disagree with the assembly
+# inside it. An argument still overrides, for building a one-off by hand.
+version="${1:-$(dotnet msbuild "$root/Directory.Build.props" -getProperty:Version 2>/dev/null | tr -d '[:space:]')}"
+if [ -z "$version" ]; then
+    echo "could not read Version from Directory.Build.props, and none was given" >&2
+    exit 1
+fi
 
 out="$root/artifacts"
 app="$out/deadair.app"

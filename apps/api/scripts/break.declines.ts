@@ -25,6 +25,17 @@
  * large improvement, shipped, and moved the live rate by four tenths of a point — which nobody would
  * have known without asking the table.
  *
+ * ## This is the AFTER, and the audition is the before
+ *
+ * Everything here is read out of what already aired, which means a sheet change is judged an evening
+ * after it ships. `POST /personas/{id}/auditions` asks the same question of material an operator
+ * chose — one host over a playlist, one break per transition, nothing aired — and its card carries
+ * the same ratio. The two do not replace each other and should disagree in one direction: an
+ * audition writes at the `preview` tier and retries a model the station took back, so a run that
+ * still shows the floor covering says something about the sheet, while this table's floor rate
+ * includes every break written while the station was busy. Only the live table can say what a real
+ * broadcast did.
+ *
  * ## The recall half is `keepsCharacter` asked backwards
  *
  * `persona.markers.test.ts` measures a marker list for PRECISION, against the roster: does this

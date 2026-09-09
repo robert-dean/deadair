@@ -13,10 +13,11 @@
  *
  * ## The producer says what and how soon; the director says where
  *
- * Nothing here names a position, and nothing outside the director ever will:
- * `docs/decisions/on-air-ownership.md` is built on every writer posting a command and none of them
- * writing the running order itself. A producer knows that a listener arrived; only the director knows
- * what is committed, what is airing, and where a break can still legally go.
+ * Nothing here names a position, and nothing outside the director ever will: the ownership rule
+ * (`docs/internals/director.md` § "Who owns the running order") is built on every writer posting a
+ * command and none of them writing the running order itself. A producer knows that a listener
+ * arrived; only the director knows what is committed, what is airing, and where a break can still
+ * legally go.
  */
 
 import type { GatePriority } from '#modules/shared/gate.priority.js';

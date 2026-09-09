@@ -16,11 +16,12 @@ import { ScheduleService } from './schedule.service.js';
  *
  * ## It is a timer and never an authority
  *
- * `docs/decisions/on-air-ownership.md` states the invariant this exists inside: **the schedule says
- * WHAT should be on air, and never WHEN the changeover happens.** All this does is notice a
- * mismatch and post the same command the operator's own button posts. Where the boundary actually
- * falls is the director's business — `Rundown.retract()` reclaims what was handed over and not
- * heard and leaves the airing record playing, which is "finish the track, then swap" already built.
+ * The ownership rule (`docs/internals/director.md` § "Who owns the running order") states the
+ * invariant this exists inside: **the schedule says WHAT should be on air, and never WHEN the
+ * changeover happens.** All this does is notice a mismatch and post the same command the operator's
+ * own button posts. Where the boundary actually falls is the director's business —
+ * `Rundown.retract()` reclaims what was handed over and not heard and leaves the airing record
+ * playing, which is "finish the track, then swap" already built.
  *
  * ## Correctness never depends on the tick
  *

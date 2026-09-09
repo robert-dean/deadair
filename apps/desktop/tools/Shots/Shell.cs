@@ -64,7 +64,7 @@ internal static class Fakes
         {
             NeedsStation = false,
             SignedOut = !operatorSignedIn,
-            Account = operatorSignedIn ? "marla@deanhome.app" : null,
+            Account = operatorSignedIn ? "operator@example.com" : null,
         };
 
         // Attached, because opening a page runs that page's load and a view model with no station
@@ -449,7 +449,7 @@ internal static class Fakes
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["discover"] = "true",
-                ["players"] = "10.0.1.40",
+                ["players"] = "192.0.2.40",
             },
             Problem: null,
             ["12:34  offering 2 player(s)", "12:34  looking for players on the network, plus 1 address written down"]),
@@ -472,11 +472,11 @@ internal static class Fakes
         public Task<IReadOnlyList<Output>> DiscoverAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Output>>(
             [
-                new Output("deadair.bluos", "90:56:82:00:bc:99", "Kitchen", "Bluesound Pulse Mini 2i", "10.0.1.36:11000"),
+                new Output("deadair.bluos", "90:56:82:0a:bc:0d", "Kitchen", "Bluesound Pulse Mini 2i", "192.0.2.36:11000"),
 
                 // A long one on purpose. A name that fits proves nothing about a bar at its minimum
                 // width, and this is the frame that decides whether the caption's cap is right.
-                new Output("deadair.bluos", "90:56:82:00:bc:aa", "Living Room NAD M10 V2", "M10 V2", "10.0.1.40:11000"),
+                new Output("deadair.bluos", "90:56:82:0a:bc:0e", "Living Room NAD M10 V2", "M10 V2", "192.0.2.40:11000"),
             ]);
 
         public IStationPlayer? Open(Output output) => new NullStationPlayer();

@@ -51,11 +51,10 @@ import { errorText } from '#modules/shared/error.text.js';
  * ONE, which is as small as this can be: the player needs the next item resolved before the current
  * one ends or the boundary is a gap, and nothing beyond that item has to be decided yet.
  *
- * It was three, and dropping it is what `docs/decisions/bytes-before-air.md` calls collapsing the
- * commitment horizon. It became affordable because a committed record's audio is now already on this
- * machine, so Liquidsoap's resolve is a loopback read of a local file rather than a provider
- * download — the lead used to be cover for a download that might take seconds, and there is no
- * download left to cover.
+ * It was three, and dropping it is what the bytes-before-air rule calls collapsing the commitment
+ * horizon. It became affordable because a committed record's audio is now already on this machine, so
+ * Liquidsoap's resolve is a loopback read of a local file rather than a provider download — the lead
+ * used to be cover for a download that might take seconds, and there is no download left to cover.
  *
  * What it buys is everything an operator edit could have changed. An item handed to the player is
  * one they can no longer reorder or remove, so a lead of three put the next quarter of an hour out
@@ -214,11 +213,10 @@ const PERSIST_THROTTLE_MS = 2_000;
  * room for, which means the station is driven by what the player has actually
  * done rather than by a clock guessing at it.
  *
- * **It owns the running order outright.** One {@link StationLineup} per station,
- * held here, edited here, and written down from here. Nothing else writes it and
- * there is no second copy for a request to edit — which is the whole of stage 2 of
- * `docs/decisions/on-air-ownership.md`, and the reason the revision, the cursor and
- * compaction are all gone rather than fixed.
+ * **It owns the running order outright.** One {@link StationLineup} per station, held here, edited
+ * here, and written down from here. Nothing else writes it and there is no second copy for a request
+ * to edit — which is the whole of stage 2 of `docs/internals/director.md` § "Who owns the running
+ * order", and the reason the revision, the cursor and compaction are all gone rather than fixed.
  *
  * **Everything reaches it as a command on one queue**, handled one at a time and
  * in order: see {@link DirectorMailbox}. An operator's change, a finished refill
@@ -469,10 +467,10 @@ export class DirectorService {
     /**
      * Until when the schedule must leave the running order alone, or `undefined` for no hold.
      *
-     * A passthrough, and it earns its line here for the reason {@link status} does: the running
-     * order is the sole authority on what is airing, and the tick is a timer that READS. Putting the
-     * hold anywhere else would make the schedule a second stateful owner of programming, which is
-     * the thing `docs/decisions/on-air-ownership.md` exists to prevent.
+     * A passthrough, and it earns its line here for the reason {@link status} does: the running order
+     * is the sole authority on what is airing, and the tick is a timer that READS. Putting the hold
+     * anywhere else would make the schedule a second stateful owner of programming, which is the thing
+     * `docs/internals/director.md` § "Who owns the running order" exists to prevent.
      */
     holdUntil(): number | undefined {
         return this.lineup?.holdUntil;
@@ -1831,8 +1829,9 @@ export class DirectorService {
      * The head of a candidate list, cut at the first record whose audio is not on this machine.
      *
      * **The precondition the whole shape exists for.** A record is committed only once its bytes are
-     * here, so Liquidsoap's resolve is a read from this app rather than a provider download inside
-     * the request it is waiting on. See `docs/decisions/bytes-before-air.md`.
+     * here, so Liquidsoap's resolve is a read from this app rather than a provider download inside the
+     * request it is waiting on. See `docs/internals/director.md` § "Nothing airs until its bytes are
+     * here".
      *
      * It CUTS rather than filters, and that is the load-bearing half. Filtering would commit the warm
      * items and leave the cold one behind them, which reorders the running order — an operator's
@@ -2030,7 +2029,7 @@ export class DirectorService {
      * thing in the pass whose entire purpose is to make a failure more bearable, so it must not be
      * able to cause one.
      */
-    private async holdWarmUp(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
+    private async holdWarmUp(lineup: StationLineup, _rules: ResolvedRules): Promise<void> {
         // Everything is inside the try, guards included. This is the one step in the pass whose
         // entire purpose is to make a bad moment more bearable, so it must not be able to make one:
         // a throw out of the cheapest-looking condition here would take the commit pass with it and

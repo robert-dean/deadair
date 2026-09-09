@@ -2,9 +2,12 @@
 
 **Written:** 2026-08-12, after an hour of diagnosing why nothing was airing without ever being able to
 read Liquidsoap's log.
-**State of the tree:** `radio.liq` sets `settings.log.level.set(3)` and nothing else about logging, so
-Liquidsoap logs to stdout and only to stdout. `spotify-shim.log` is the one stream-side log on disk,
-append-only, never rotated. No compose service declares a `logging:` block. The app's own logs are
+**State of the tree:** **the file half is built.** `radio.liq` now sets `log.file`, `log.file.append`
+and `log.file.path` (`LOG_FILE`, defaulting to `/streamlogs/liquidsoap.log`), so Liquidsoap's log is
+on disk and `/logs` serves it beside the app's own and the shim's — which is what an hour of blind
+diagnosis was spent for. What is NOT built is any BOUND on it: neither that file nor
+`spotify-shim.log` is rotated by anything, which is why both are read from the END through
+`logging/file.tail.ts` rather than read whole. No compose service declares a `logging:` block. The app's own logs are
 fine and already rotate (`RotatingLogStore`, `LOG_MAX_*`, dated files in `.docvol/logs`).
 
 ---

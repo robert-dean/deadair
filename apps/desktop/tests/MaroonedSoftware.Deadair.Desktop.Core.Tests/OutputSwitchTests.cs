@@ -17,8 +17,8 @@ public sealed class OutputSwitchTests
 {
     private static readonly Uri Mount = new("https://radio.example.com/live.mp3");
 
-    private static readonly Output Kitchen = new("deadair.bluos", "90:56:82:00:bc:99", "Kitchen", "N130", "10.0.1.36:11000");
-    private static readonly Output LivingRoom = new("deadair.bluos", "90:56:82:00:bc:aa", "Living Room", "M10 V2", "10.0.1.40:11000");
+    private static readonly Output Kitchen = new("deadair.bluos", "90:56:82:0a:bc:0d", "Kitchen", "N130", "192.0.2.36:11000");
+    private static readonly Output LivingRoom = new("deadair.bluos", "90:56:82:0a:bc:0e", "Living Room", "M10 V2", "192.0.2.40:11000");
 
     [Fact]
     public async Task StartsOnThisMachine()

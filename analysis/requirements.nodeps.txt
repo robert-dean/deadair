@@ -1,7 +1,7 @@
 # The beat tracker, WITHOUT its dependency list, which is the whole point of the
 # separate line. It requires `soxr` (LGPL-2.1-or-later), and copyleft is refused
 # in the analysis path outright — see the long note in requirements.txt for why
-# that costs nothing here, and `docs/decisions/analysis-licensing.md` for the rule.
+# that costs nothing here, and `analysis/README.md` § "The rule, stated once" for the rule.
 #
 # Everything it actually needs is pinned in the file above, so `--no-deps` removes
 # exactly one package and leaves the model intact. If beat_this ever imports soxr

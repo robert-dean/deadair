@@ -168,16 +168,16 @@ versus not and became what the station HAS versus what it can GET — a PREFEREN
 carried and the model had to arbitrate. **That arbitration is now gone** (2026-08-20): `search_music`
 answers from both and marks every row `owned`, because the preference was real and the decision was
 one the host could make itself. See `docs/internals/programming.md` for what is load-bearing in it.
-
 **The operator can now say what an hour should be**, which is the other half of this entry that was
 never written down here because it did not exist: `station_lineup.brief`, free text, set when the
 station goes on air and re-read on every refill, in the user turn of `setPrompt`. It is now the ONLY
 thing that says what to play: `llm.setPersona` was retired into a persona's `music` line, and that
 line has since been deleted too, because a second prose description of the music made a local model
 split the difference between the two. A period (`era_from`/`era_to`) rides beside it as the one
-structured half a brief can have — see `docs/internals/personas.md` and the period rule in `docs/internals/director.md`. Measured on the station's own `gpt-oss-radio`: asked for
-"heavy metal hits" it named 23 of 24 in four searches and 85 seconds, `finish: 'stop'`, and four of
-those were records the library did not hold and Spotify did.
+structured half a brief can have — see `docs/internals/personas.md` and the period rule in
+`docs/internals/director.md`. Measured on the station's own `gpt-oss-radio`: asked for "heavy metal
+hits" it named 23 of 24 in four searches and 85 seconds, `finish: 'stop'`, and four of those were
+records the library did not hold and Spotify did.
 
 ## 2. Budget and degradation tiers, built before the model, not after
 
@@ -472,11 +472,10 @@ ever cut for time, cut it down to those two rather than dropping it.
   submissions in 2022 and is a fixed dump, so it is a cold-start layer for back catalogue keyed by
   recording id and nothing for anything released since. The open toolkits that would compute these
   values are worth a look for the two hard points, with a licence check first, because the usual one
-  in this space is AGPL and this would run inside the API process. **That check has since been done**
-  in [../decisions/analysis-licensing.md](../decisions/analysis-licensing.md), and it came out as a
-  standing rule rather than a per-toolkit judgement: nothing copyleft or non-commercial enters the
-  analysis path, weights included. It also does not run inside the API process, per the corrected
-  bullet below.
+  in this space is AGPL and this would run inside the API process. **That check has since been
+  done** in [the analysis licence rule](../../analysis/README.md#the-rule-stated-once), and it came out as a standing rule rather
+  than a per-toolkit judgement: nothing copyleft or non-commercial enters the analysis path, weights
+  included. It also does not run inside the API process, per the corrected bullet below.
 - ~~**Analysis is an enrichment plugin, not app code.**~~ **Wrong, and corrected by building it.**
   The fan-out shape was the right instinct and the capability was not: enrichment merges what
   several upstreams claim about a recording, and a measurement has one source and nothing to merge.

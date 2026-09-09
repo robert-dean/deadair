@@ -28,7 +28,7 @@ was shipped first and was wrong.
 | the running order, briefs, periods, committing, track audio | [`docs/internals/director.md`](docs/internals/director.md) |
 | which records get chosen, ratings, advisory, the search tool | [`docs/internals/programming.md`](docs/internals/programming.md) |
 | what a break says, facts, phrasings, bulletins, the format clock | [`docs/internals/breaks.md`](docs/internals/breaks.md) |
-| personas, their notebooks, their stories, latitude | [`docs/internals/personas.md`](docs/internals/personas.md) |
+| personas, their notebooks, their stories, latitude, auditions | [`docs/internals/personas.md`](docs/internals/personas.md) |
 | phone-ins, beats, casting, stitching | [`docs/internals/productions.md`](docs/internals/productions.md) |
 | speech engines, voices, cues, pads, segment stages, pronunciations | [`docs/internals/render.md`](docs/internals/render.md) |
 | the mount, the audience gate, why it is quiet, the activity feed | [`docs/internals/playout.md`](docs/internals/playout.md) |
@@ -47,26 +47,35 @@ tasks cross more than one of them, and for those the order matters:
 | a plugin, or a capability on the host | `packages/plugin-sdk/CLAUDE.md`, then its `README.md` |
 | the schema | the generated-output rule below first, because the types are not yours to edit |
 
-The long-form arguments are in `docs/decisions/`, and `docs/todo/` holds work designed against the
-real tree and then deliberately deferred. **Read `docs/todo/` before designing a station feature
-from scratch: the call may already have been made.**
+`docs/todo/` holds work designed against the real tree and then deliberately deferred. **Read it
+before designing a station feature from scratch: the call may already have been made.**
 
-- `docs/decisions/plugin-trust.md` — why plugins run in-process permanently, what that bought back,
-  and which half of the JSON-safe rule survives. It supersedes `plugin-isolation.md` (still worth
-  its four-row threat table, which is why the rate limiting, redirect chasing and breaker exist) and
-  `plugin-streaming.md` (still worth its bounds on a body read outside the call that fetched it).
-- `docs/decisions/analysis-licensing.md` — every dependency in the analysis path is permissive,
-  weights included, and the sidecar is NOT a licence workaround. Read it before pinning anything in
+The long-form arguments the rest of the tree cites by name live in the scoped files above, each under
+its own heading. There is no separate directory of them, and a comment or a doc that points at one is
+pointing at something that has never existed:
+
+- **Plugin trust** — why plugins run in-process permanently, what the closed subprocess option bought
+  back, which half of the JSON-safe rule survives, and the four-row threat table that says which
+  three threats the egress layer actually answers: `packages/plugin-sdk/CLAUDE.md` § "Trust and
+  egress".
+- **Analysis licensing** — every dependency in the analysis path is permissive, weights included, and
+  the sidecar is NOT a licence workaround. Read it before pinning anything in
   `analysis/requirements.txt`, and note that the licence to check is the model WEIGHTS' licence,
-  which is not in the package metadata.
-- `docs/decisions/on-air-ownership.md` — why the director is the sole writer of the running order,
-  and the four bugs that were all the same bug.
-- `docs/decisions/bytes-before-air.md` — why a record is not committed until its audio is local, why
-  the gate cuts rather than filters, and why it fails open.
-- `docs/decisions/pad-licensing.md`, `docs/decisions/how-work-is-dispatched.md`.
-- `apps/api/README.md` for the boot sequence, DI scoping convention and middleware. **Read its
-  module and route tables as the target design, not the tree**; verify against
-  `src/modules/modules.ts` before relying on any entry.
+  which is not in the package metadata: `analysis/README.md` § "The rule, stated once".
+- **Who owns the running order** — why the director is the sole writer, the four bugs that were all
+  the same bug, and why the schedule is a document and a resolver rather than an actor:
+  `docs/internals/director.md` § "Who owns the running order".
+- **Bytes before air** — why a record is not committed until its audio is local, why the gate cuts
+  rather than filters, and why it fails open: `docs/internals/director.md` § "Nothing airs until its
+  bytes are here".
+- **Pad licensing** — what this repository may ship as audio, and why the manifest records a checksum
+  and an uploader: `docs/internals/render.md` § "Pads".
+- **How work is dispatched** — the four mechanisms, which properties choose between them, and why
+  there is no event bus: `apps/api/CLAUDE.md` § "How work is dispatched".
+- `apps/api/README.md` for the boot sequence, DI scoping convention and middleware. Its module and
+  route tables were checked against `src/modules/modules.ts` and `src/routes/routes.setup.ts` on
+  2026-09-09 and list all 37 modules and all 29 routers in registration order. Those two files stay
+  the source of truth: verify against them before relying on an entry.
 - `README.md` and `docs/licensing.md` are written for whoever RUNS this rather than for whoever
   works on it. Keep them true.
 
@@ -152,10 +161,6 @@ is 3736 tests in 18 seconds against the other fourteen packages' half as many in
 running tests BY HAND changed: the root config replaces no package's config, so `pnpm test` through
 turbo and `pnpm --filter <pkg> test` both behave exactly as before, and a new package with tests is
 picked up by adding its own `vitest.config.ts` as usual.
-
-## Multi-package work
-
-Larger features run as numbered handoffs under `.claude/handoffs/<nnn>-<slug>/`: a `_run.md` stating the goal, the package list with agent roles, and the dependency edges and why they exist, then one file per package with a matching `.result.md` written back when it lands. Completed run directories are the record and are not edited by later runs. Follow the existing shape when starting a new one.
 
 ## Adding to these files
 

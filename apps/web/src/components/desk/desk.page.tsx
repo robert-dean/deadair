@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Button, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { Anchor } from '@mantine/core';
@@ -70,7 +70,10 @@ export function DeskPage() {
     // dropped row held AT THE MOMENT of the click — the table redraws under an operator's hand
     // every five seconds, so a captured index from anywhere else risks naming a row that has moved.
     const loaded = order.data;
-    const items = loaded?.items ?? [];
+    // Memoised on the query's own data rather than recomputed: `?? []` mints a new array every
+    // render, and `onRemove` below closes over this one, so without it every poll hands the table a
+    // new handler and undoes the memoisation the rows are relying on.
+    const items = useMemo(() => loaded?.items ?? [], [loaded]);
 
     const shuffle = useShuffleOrder();
     const extend = useExtendOrder();
@@ -88,11 +91,11 @@ export function DeskPage() {
     const { mutate: moveOrderItem } = moveItem;
     const { mutate: rateRecord } = rateTrack;
     // A record is spliced out of the order entirely when it is dropped — unlike a segment, which is
-    // only marked `removed`, on `docs/decisions/on-air-ownership.md`'s argument that a break planted
-    // again into the same slot a minute later is worse than one left marked — so a track is the one
-    // kind of drop that can be taken back. The position is read out of `items` at the moment of the
-    // click rather than trusted from a stale closure, because the table redraws under an operator's
-    // hand every five seconds.
+    // only marked `removed`, on the ownership rule's argument (`docs/internals/director.md` § "Who
+    // owns the running order") that a break planted again into the same slot a minute later is worse
+    // than one left marked — so a track is the one kind of drop that can be taken back. The position
+    // is read out of `items` at the moment of the click rather than trusted from a stale closure,
+    // because the table redraws under an operator's hand every five seconds.
     const onRemove = useCallback(
         (item: StationOrderItem) => {
             const trackId = item.kind === 'track' ? item.trackId : undefined;

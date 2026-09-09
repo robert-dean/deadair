@@ -65,9 +65,10 @@ export interface SpokenAudio {
  * as it writes. A five-minute talk break is a few hundred kilobytes in flight and a file on disk,
  * never a `Buffer` of the whole thing.
  *
- * There used to be a drain loop here, reading base64 chunks one invocation at a time through a
- * handle protocol, with a chunk-count guard against a plugin that never said `done`. All of it was
- * the cost of a boundary that could not carry a live object. See `docs/decisions/plugin-trust.md`.
+ * There used to be a drain loop here, reading base64 chunks one invocation at a time through a handle
+ * protocol, with a chunk-count guard against a plugin that never said `done`. All of it was the cost of
+ * a boundary that could not carry a live object. See `packages/plugin-sdk/CLAUDE.md` § "Trust and
+ * egress".
  *
  * ## The words that go out are not the words on the row
  *

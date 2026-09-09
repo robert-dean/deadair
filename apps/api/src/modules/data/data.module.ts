@@ -1,6 +1,6 @@
 import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { BuildRevision, buildRevision } from '#modules/shared/build.revision.js';
+import { BuildRevision, buildRevision, buildVersion } from '#modules/shared/build.revision.js';
 import { Heartbeat } from '#modules/shared/heartbeat.js';
 import { StationBus } from '#modules/shared/station.bus.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
@@ -218,7 +218,7 @@ export const DataModule: ServerKitModule = {
         // per-request copy would be a per-request re-read of a constant.
         registry
             .register(BuildRevision)
-            .useFactory(() => new BuildRevision(buildRevision(config)))
+            .useFactory(() => new BuildRevision(buildRevision(config), buildVersion(config)))
             .asSingleton();
     },
 };

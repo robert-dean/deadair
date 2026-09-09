@@ -115,13 +115,12 @@ buys nothing the alternative does not.
 
 So an episode is **N contiguous segments in the running order**. No new audio path, and the commit
 pass, the cache planner and the player all work unchanged.
-
 That collides with one rule, and the collision is the interesting part. **A segment that is not
 `ready` is skipped, never waited for** — correct for a break, ruinous for a show, where beat 7
 failing leaves a hole in the middle of a programme rather than a missing sentence. An episode is
-more like a RECORD than a break, which is the same asymmetry
-[bytes-before-air.md](../decisions/bytes-before-air.md) already argues when it holds a cold record
-and skips a cold segment.
+more like a RECORD than a break, which is the same asymmetry the
+[bytes-before-air rule](../internals/director.md#nothing-airs-until-its-bytes-are-here) already
+argues when it holds a cold record and skips a cold segment.
 
 The mechanism for that exists and should be reused rather than reinvented. An `interrupt` break
 request is already rendered BEFORE it is injected: `BreakPlanner.prepareRequested` gives its segment
@@ -222,7 +221,8 @@ The five decisions are. What sits on top of them, as of 2026-08-16:
   whole lineup object, so an episode inserted and not yet heard is lost, and nothing re-injects it
   because its row already claims it aired. An operator can trigger this today by putting the station
   on air at an unlucky moment; a schedule would reproduce it unattended at the same hour every day,
-  which is this file's neighbour argument in `on-air-ownership.md` exactly. The fix belongs in
+  which is this file's neighbour argument in `docs/internals/director.md` § "Who owns the running
+  order" exactly. The fix belongs in
   `putOnAir` rather than in the schedule, so an operator's changeover is covered by the same code,
   and it may only return a group NO beat of which has been heard: a part-aired episode is genuinely
   over and must not restart from the top.
@@ -296,7 +296,7 @@ The five decisions are. What sits on top of them, as of 2026-08-16:
   break inherits for nothing.
 - [personas.md](personas.md) — callers cast per episode are personas, and §4's rehearsal is the
   preview tier's first real caller.
-- [../decisions/how-work-is-dispatched.md](../decisions/how-work-is-dispatched.md) — the four
-  dispatch mechanisms, and why admission control is not one of them.
-- [../decisions/bytes-before-air.md](../decisions/bytes-before-air.md) — held versus skipped, which
+- [how work is dispatched](../../apps/api/CLAUDE.md#how-work-is-dispatched) —
+  the four dispatch mechanisms, and why admission control is not one of them.
+- [the bytes-before-air rule](../internals/director.md#nothing-airs-until-its-bytes-are-here) — held versus skipped, which
   §3 is a third instance of.

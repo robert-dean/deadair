@@ -15,13 +15,12 @@ notebook it created has no way to lose a line except an operator's hand.
 They are ordered by what blocks what. §1 is a schema change §2 wants to be made before it writes its
 own; §3 needs both; §4 needs neither and can be taken on any afternoon. §5 needs §3 to exist and
 nothing else.
-
 **That ordering was wrong about §3, which landed first (2026-08-19) and needed neither §1 nor §2.**
 The blocker it was waiting on was the daypart schedule rather than anything about personas: a slot
 carries a `persona_id` and the changeover copies it onto the running order, which is all this ever
 was. §5 is therefore unblocked and is now the one to take, and its rule is already written down in
-`docs/decisions/on-air-ownership.md` — a clock-fired changeover defers its spoken half to the next
-track boundary, where an operator's airs at once.
+`docs/internals/director.md` § "Who owns the running order" — a clock-fired changeover defers its
+spoken half to the next track boundary, where an operator's airs at once.
 
 ## 1. One station, one persona, and the newsreader is the case that broke it
 
@@ -30,9 +29,9 @@ station's active one, then nothing. Every writer reads that same row, which was 
 the only thing the station said was a talk break, and stopped being right the day it read the news.
 
 Today, with a persona on air, a bulletin is written from that persona's sheet
-([model.news.break.writer.ts:104](../../apps/api/src/modules/director/model.news.break.writer.ts:104))
+([model.news.break.writer.ts:104](../../apps/api/src/modules/director/model.news.break.writer.ts#L104))
 and spoken in that persona's voice
-([write.break.job.ts:204](../../apps/api/src/modules/director/write.break.job.ts:204), `segment.voice
+([write.break.job.ts:204](../../apps/api/src/modules/director/write.break.job.ts#L204), `segment.voice
 ?? persona?.voice`). So a pirate captain reads the headlines in the pirate's voice, and the station
 has no way to say whether that is the joke or the bug. Both answers are legitimate — a character
 station wants its host reading everything, a straight station wants a newsreader — and the shape that
@@ -77,7 +76,7 @@ host's phrasings and the newsreader's voice, which is worse than either alone. T
 `resolveTemplates` and the voice stamp both read the kind-scoped answer, not just
 `breakPrompt`. Note that `NewsBreakWriter` deliberately does NOT chain into a persona's templates
 today, for `WelcomeWriter`'s reason
-([news.break.writer.ts:39](../../apps/api/src/modules/director/news.break.writer.ts:39)); that
+([news.break.writer.ts:39](../../apps/api/src/modules/director/news.break.writer.ts#L39)); that
 decision is worth re-reading once there is a newsreader to chain into, and may well survive.
 
 **A persona per kind is not a persona per SEGMENT.** `segments.persona_id` already records which
@@ -111,9 +110,9 @@ comment on `ScriptHistoryRepository.writtenBy`; [break-ratings.md](break-ratings
 The rest of this section is kept as the record of what was decided and why.
 
 There is already an avoid-list: `WriteBreakJob` hands the writer the last six scripts of the same
-kind ([write.break.job.ts:172](../../apps/api/src/modules/director/write.break.job.ts:172),
+kind ([write.break.job.ts:172](../../apps/api/src/modules/director/write.break.job.ts#L172),
 `RECENT_WINDOW = 6`), and the prompt tells the model not to reuse their opening or their shape
-([break.prompt.ts:228](../../apps/api/src/modules/director/break.prompt.ts:228)). That is the cheap
+([break.prompt.ts:228](../../apps/api/src/modules/director/break.prompt.ts#L228)). That is the cheap
 seed `dj-voice.md` correction 3 asked for, and `segment.repository.ts:337` already says where it
 stops being enough.
 
@@ -194,17 +193,15 @@ running order, which is what a schedule produces anyway.
 
 **Built 2026-08-16** (`ad36004`), as `POST /personas/{id}/rehearse` and
 `PersonaRehearsalService`, against fabricated neighbours and with `recent: []` so a reading is
-repeatable. What follows is the design as it stood, and it is kept for the first constraint below,
-which is only HALF honoured.
+repeatable. What follows is the design as it stood, and it is kept for the two constraints below,
+both of which are now honoured — and for the note at the end, which is what the same question turned
+into once it was asked over a playlist rather than over one pair of records.
 
-**The priority half is not done.** The tier it asks for now exists — `gate.priority.ts`, added the
-same day, where `preview` queues behind everything the station does for itself and is preempted out
-of the model when the station wants it back. The rehearsal does not use it. It calls
-`BreakWriterRegistry.write`, which reaches `ModelTalkBreakWriter`, which passes its own
-`LlmGateOptions` and no priority, so a rehearsal contends as `station`: exactly the "must not
-preempt a refill or a real break" this section was written to prevent. The fix is a `priority` on
-`BreakWriteRequest`, defaulted to `station` and threaded to `converse` by the three model bindings,
-which is the only route by which a writer could ever know it is being auditioned rather than aired.
+**The priority half was not done when this was written, and now is.** The tier it asks for exists —
+`gate.priority.ts`, added the same day, where `preview` queues behind everything the station does for
+itself and is preempted out of the model when the station wants it back — and the fix it named is
+built: `BreakWriteRequest.priority` is threaded to `converse` by the model bindings, and
+`PersonaRehearsalService` passes `preview`. See the note at the end of this section.
 
 An operator can already audition a VOICE — `GET /voices/{voiceId}/sample` renders a fixed line and
 the console plays the blob — but not a persona. What a sheet actually produces is unknowable until it
@@ -231,6 +228,22 @@ and the cheap half to produce; speaking them costs a synthesis per click and can
 behind the same route. That call is cheaper than it was: `SpeechGate` now serializes the engine and
 takes the same `preview` tier, so a spoken rehearsal is a `maxWaitMs` and a priority rather than a
 new question about what an operator clicking twice does to a render in flight.
+
+**Both of those are answered, and the note at the top of this section is now stale in the other
+direction, 2026-09-09.** `PersonaRehearsalService` passes `priority: 'preview'`, so the constraint
+this section was written to protect is honoured rather than half honoured; and a rehearsal IS spoken,
+through the sample store, from a button on the panel. What that section did not anticipate is the
+shape the same question takes over a PLAYLIST, which is now built (migration 0024, `PersonaAuditionJob`, the Auditions tab on Voice, and
+`docs/internals/personas.md` § "Hearing a character before it goes on air"): one host, one provider
+playlist, one break per transition, a job per transition so a run survives a redeploy, and nothing
+aired. Two things it forced that a single rehearsal never had to answer — a run must carry its OWN
+`recent` or it measures a host repeating a signature phrase no broadcast would let it repeat, and a
+model lost to the station must NOT be recorded, because a run that quietly stores the floor's line
+reports a busy Tuesday as a fact about the sheet. The second cost `WriteAttempt.code`, which is the
+only change the registry needed.
+
+The rehearsal itself stays exactly as it was, and should: a fixed pair is the right substrate for
+judging one edit, and an audition is the wrong tool for that question — it moves too much at once.
 
 ## 5. The changeover: a schedule swaps the host and the station says nothing
 
@@ -309,7 +322,7 @@ built.
 
 **The boundary tier exists and is correct, one layer down.** `BreakWriteRequest.recent` is the
 BROADCAST's memory rather than all-time history, and is kind-agnostic, on the argument written out at
-[break.writer.ts:306](../../apps/api/src/modules/director/break.writer.ts:306): a listener who tuned
+[break.writer.ts:306](../../apps/api/src/modules/director/break.writer.ts#L306): a listener who tuned
 in twenty minutes ago has heard this show and none of the one before it, so a phrase is spent only if
 it was spent tonight.
 
@@ -377,4 +390,5 @@ operator opts into, not the behaviour of a fresh install.
   Deleting the field deleted the rule, and `SetInputs.persona` went with it: the record chooser no
   longer learns who is presenting. **A persona is a voice.** What an hour plays is the brief, plus
   the one structured half a brief can have — `era_from`/`era_to`, which is what lets a decade reach
-  the deterministic draw as well as the model. See `docs/internals/personas.md` and the period rule in `docs/internals/director.md`.
+  the deterministic draw as well as the model. See `docs/internals/personas.md` and the period rule
+  in `docs/internals/director.md`.

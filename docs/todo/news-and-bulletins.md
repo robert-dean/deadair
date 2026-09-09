@@ -105,9 +105,9 @@ a `NewsWatch`.
 Three rules, and all three are already paid for:
 
 - **A plugin does not push.** Nothing in the built half gives a plugin a way to reach the director,
-  and it must stay that way (`docs/decisions/on-air-ownership.md`: every writer posts a command and
-  none of them writes the running order). Polling is host code, so urgency, cooldown and whether the
-  station is even on air stay host decisions.
+  and it must stay that way (`docs/internals/director.md` § "Who owns the running order": every
+  writer posts a command and none of them writes the running order). Polling is host code, so
+  urgency, cooldown and whether the station is even on air stay host decisions.
 - **What is new is answerable from the capability alone.** The id/`publishedAt`/`since` contract
   above, plus a cache that never filters. A watcher that had to hold per-plugin state to tell a
   repeat from an arrival is the hard version of this.

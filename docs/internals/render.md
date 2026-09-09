@@ -140,9 +140,20 @@ nothing can escape the library root rather than that each caller remembered; it 
 because both audio libraries take a directory name from somebody typing, and a second copy of a path rule is a
 second thing that can be relaxed by accident.
 
-And **the URL door is USE rather than redistribution**, which `pad-licensing.md` now says in as many words: an
+**What this repository SHIPS in `assets/pads/` is CC0 or nothing, and today it is nothing.** Everything
+redistributed here has to carry a public-domain dedication or its equivalent; audio that merely requires
+attribution is REFUSED rather than credited, because a radio station has nowhere to put a credit and the
+obligation would travel silently to every self-hoster who pulls the image. `assets/pads/MANIFEST.json` is the
+provenance record and is shaped by that: a `sha256` per file, because the claim is about bytes rather than
+about a page, and an `uploader`, because CC0 on an upload site is self-asserted and who asserted it is the
+only thing anybody can check later. It is empty deliberately rather than pending — sourcing verified
+public-domain audio is a research task with a legal edge and nobody has done it — and the seam around it
+(`PadLibrary.seed`, `PAD_ASSETS_DIR`, the `COPY assets/pads` in the Dockerfile) exists so that the day
+somebody does, it is a file drop rather than a feature.
+
+And **the URL door is USE rather than redistribution**, which is where that rule draws its line: an
 operator naming an address is choosing a file exactly as dropping one in is, there is deliberately no
-allowlist, and what that file still blocks is a CATALOGUE — a console panel that searches a sample library is
+allowlist, and what the rule still blocks is a CATALOGUE — a console panel that searches a sample library is
 this project steering somebody at files and vouching for them.
 
 ## Segments and their stages

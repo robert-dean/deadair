@@ -108,7 +108,7 @@ services:
     # This comment used to give a second reason, that the boundary held a copyleft
     # toolkit at arm's length from the API process. Retired: the analysis path is
     # permissive outright, weights included, so there is nothing for the boundary to
-    # hold. See docs/decisions/analysis-licensing.md.
+    # hold. See analysis/README.md, under "The rule, stated once",.
     analysis:
         build:
             context: .

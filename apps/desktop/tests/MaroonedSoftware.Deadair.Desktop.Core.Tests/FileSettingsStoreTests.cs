@@ -142,9 +142,9 @@ public class FileSettingsStoreTests : IDisposable
                 Output = new OutputMemory
                 {
                     PluginId = "deadair.bluos",
-                    DeviceId = "90:56:82:0e:1b:00",
+                    DeviceId = "90:56:82:0a:1b:0d",
                     Name = "Living Room",
-                    Address = "10.0.1.36:11000",
+                    Address = "192.0.2.36:11000",
                 },
             },
             TestContext.Current.CancellationToken);
@@ -155,9 +155,9 @@ public class FileSettingsStoreTests : IDisposable
         var output = reopened.Current.Output;
         Assert.NotNull(output);
         Assert.Equal("deadair.bluos", output.PluginId);
-        Assert.Equal("90:56:82:0e:1b:00", output.DeviceId);
+        Assert.Equal("90:56:82:0a:1b:0d", output.DeviceId);
         Assert.Equal("Living Room", output.Name);
-        Assert.Equal("10.0.1.36:11000", output.Address);
+        Assert.Equal("192.0.2.36:11000", output.Address);
     }
 
     /// <summary>
@@ -177,7 +177,7 @@ public class FileSettingsStoreTests : IDisposable
                 Config = new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["discover"] = "true",
-                    ["players"] = "10.0.1.36",
+                    ["players"] = "192.0.2.36",
                 },
             }),
             TestContext.Current.CancellationToken);
@@ -194,7 +194,7 @@ public class FileSettingsStoreTests : IDisposable
         var plugin = reopened.Current.Plugins["deadair.bluos"];
         Assert.True(plugin.Enabled);
         Assert.Equal("true", plugin.Config["discover"]);
-        Assert.Equal("10.0.1.36", plugin.Config["players"]);
+        Assert.Equal("192.0.2.36", plugin.Config["players"]);
     }
 
     [Fact]

@@ -20,7 +20,7 @@ using PluginLogLevel = MaroonedSoftware.Deadair.Desktop.PluginSdk.PluginLogLevel
 // a version number changing.
 //
 //     dotnet run --project apps/desktop/plugins/bluos/spikes/BluOsSpike -- \
-//         https://radio.deanhome.app [player-host[:port]] [seconds] [--allow-stop]
+//         https://radio.example.com [player-host[:port]] [seconds] [--allow-stop]
 //
 // What it exists to settle, in the order the answers matter:
 //
@@ -39,7 +39,7 @@ using PluginLogLevel = MaroonedSoftware.Deadair.Desktop.PluginSdk.PluginLogLevel
 // Stopping drops that listener, and the station's own count lingers five minutes past the last one
 // by design, so the honest witness of a stop is the count six minutes later.
 
-var origin = (args.Length > 0 ? args[0] : "https://radio.deanhome.app").TrimEnd('/');
+var origin = (args.Length > 0 ? args[0] : "https://radio.example.com").TrimEnd('/');
 var wanted = args.Length > 1 && !args[1].StartsWith("--", StringComparison.Ordinal) ? args[1] : null;
 var seconds = args.Length > 2 && int.TryParse(args[2], CultureInfo.InvariantCulture, out var parsed) ? parsed : 30;
 var allowStop = args.Contains("--allow-stop", StringComparer.Ordinal);

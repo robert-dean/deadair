@@ -29,6 +29,10 @@ ARG WITH_DB=0
 # sha (see `.github/workflows/images.yml`), which is what makes "is the station running what I
 # committed" a question the console can answer.
 ARG REVISION=
+# The release this image is. Empty by default on the same argument as `REVISION` above: a build that
+# is not a release should not claim to be one, and "no version" is the honest answer for every image
+# built from a working tree or from an ordinary push. CI passes it only on a tag run.
+ARG VERSION=
 ARG NODE_VERSION=26.7.0
 ARG S6_OVERLAY_VERSION=3.2.3.2
 ARG GO_LIBRESPOT_VERSION=v0.7.4
@@ -353,7 +357,7 @@ COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py 
 
 # The station's own soundboard, copied into the pad library once on a station that has never held a
 # pad. Below the fence with everything else the repository produces, and it is genuinely empty today:
-# `docs/decisions/pad-licensing.md` refuses attribution-requiring audio, because a radio station has
+# `docs/internals/render.md` § "Pads" refuses attribution-requiring audio, because a radio station has
 # nowhere to put a credit and the obligation would travel to the operator in silence. The directory
 # exists so the seam does, and so the day somebody sources verified CC0 audio it is a file drop.
 COPY assets/pads /app/assets/pads
@@ -466,8 +470,8 @@ ENV NODE_ENV=production \
 # said here: nothing in the station fails as quietly as a callback nobody receives.
 ENV PLAYOUT_BASE_URL=http://app:3000/playout
 
-# What this image was built from, said twice on purpose, because the two readers cannot reach each
-# other's copy.
+# What this image was built from and which release it is, each said twice on purpose, because the two
+# readers cannot reach each other's copy.
 #
 # The LABEL is for whoever has the daemon: `docker inspect` answers it without starting anything,
 # and the name is the OCI standard one so every registry UI and scanner already knows what it means.
@@ -479,6 +483,18 @@ ENV PLAYOUT_BASE_URL=http://app:3000/playout
 # Both are metadata over the layer beneath them, so this is also the cheapest possible place to put
 # the one argument that changes every build: nothing below rebuilds when the sha moves.
 #
+# The labels that never change go FIRST, above the two that do, for the same reason the argument
+# below is declared as late as it is: a constant layer that sits after a volatile one is rebuilt
+# every time the volatile one moves. These are what a registry page and a vulnerability scanner
+# read, and without them the published image is anonymous on Docker Hub — `.source` in particular
+# is what wires it back to the repository it was built from.
+LABEL org.opencontainers.image.title="deadair" \
+    org.opencontainers.image.description="An AI radio station you run yourself: it picks the records, writes what the presenter says between them, speaks it, and streams the result." \
+    org.opencontainers.image.source="https://github.com/robert-dean/deadair" \
+    org.opencontainers.image.url="https://github.com/robert-dean/deadair" \
+    org.opencontainers.image.licenses="MIT" \
+    org.opencontainers.image.vendor="Marooned Software"
+
 # DECLARED here rather than with the other arguments at the top of the stage. The reasoning for
 # putting it up there was that an argument busts the cache at its first USE, not at its
 # declaration — which is not what the builds do. The first release after this argument was added
@@ -486,8 +502,11 @@ ENV PLAYOUT_BASE_URL=http://app:3000/playout
 # rebuilt, apt included, on a commit that touched nothing the stage reads. Declaring it one line
 # above the only two lines that read it leaves nothing behind it to invalidate.
 ARG REVISION
+ARG VERSION
 LABEL org.opencontainers.image.revision="${REVISION}"
+LABEL org.opencontainers.image.version="${VERSION}"
 ENV BUILD_REVISION=${REVISION}
+ENV BUILD_VERSION=${VERSION}
 
 # The one address the station is reached at: the console, the API under /api, and the stream
 # itself. Everything else here talks to everything else over loopback.

@@ -10,12 +10,12 @@ public sealed class LsdpDevicesTests
     [Fact]
     public void ReadsAPlayersNameModelAndPort()
     {
-        var device = Assert.Single(LsdpDevices.From([Player("90:56:82:0e:1b:00", "10.0.1.36", "Living Room", "M10V2", "11000")], "deadair.bluos"));
+        var device = Assert.Single(LsdpDevices.From([Player("90:56:82:0a:1b:0d", "192.0.2.36", "Living Room", "M10V2", "11000")], "deadair.bluos"));
 
-        Assert.Equal("90:56:82:0e:1b:00", device.Id);
+        Assert.Equal("90:56:82:0a:1b:0d", device.Id);
         Assert.Equal("Living Room", device.Name);
         Assert.Equal("M10V2", device.Model);
-        Assert.Equal("10.0.1.36:11000", device.Address);
+        Assert.Equal("192.0.2.36:11000", device.Address);
     }
 
     /// <summary>
@@ -25,7 +25,7 @@ public sealed class LsdpDevicesTests
     [Fact]
     public void ThreeAnswersFromOnePlayerAreOnePlayer()
     {
-        var announce = Player("90:56:82:0e:1b:00", "10.0.1.36", "Living Room", "M10V2", "11000");
+        var announce = Player("90:56:82:0a:1b:0d", "192.0.2.36", "Living Room", "M10V2", "11000");
 
         Assert.Single(LsdpDevices.From([announce, announce, announce], "deadair.bluos"));
     }
@@ -39,12 +39,12 @@ public sealed class LsdpDevicesTests
     {
         var devices = LsdpDevices.From(
             [
-                Player("90:56:82:0e:1b:00", "10.0.1.36", "Living Room", "M10V2", "11000"),
-                Player("90:56:82:0e:1b:00", "10.0.1.44", "Living Room", "M10V2", "11000"),
+                Player("90:56:82:0a:1b:0d", "192.0.2.36", "Living Room", "M10V2", "11000"),
+                Player("90:56:82:0a:1b:0d", "192.0.2.44", "Living Room", "M10V2", "11000"),
             ],
             "deadair.bluos");
 
-        Assert.Equal("10.0.1.44:11000", Assert.Single(devices).Address);
+        Assert.Equal("192.0.2.44:11000", Assert.Single(devices).Address);
     }
 
     /// <summary>
@@ -54,17 +54,17 @@ public sealed class LsdpDevicesTests
     [Fact]
     public void APlayerOnAnotherPortIsRememberedAtIt()
     {
-        var device = Assert.Single(LsdpDevices.From([Player("aa:bb:cc:dd:ee:ff", "10.0.1.50", "Zone 3", "CI580", "11020")], "deadair.bluos"));
+        var device = Assert.Single(LsdpDevices.From([Player("aa:bb:cc:dd:ee:ff", "192.0.2.50", "Zone 3", "CI580", "11020")], "deadair.bluos"));
 
-        Assert.Equal("10.0.1.50:11020", device.Address);
+        Assert.Equal("192.0.2.50:11020", device.Address);
     }
 
     [Fact]
     public void APortThatMakesNoSenseFallsBackToTheUsualOne()
     {
-        var device = Assert.Single(LsdpDevices.From([Player("aa:bb:cc:dd:ee:ff", "10.0.1.50", "Odd one", "X", "not a port")], "deadair.bluos"));
+        var device = Assert.Single(LsdpDevices.From([Player("aa:bb:cc:dd:ee:ff", "192.0.2.50", "Odd one", "X", "not a port")], "deadair.bluos"));
 
-        Assert.Equal("10.0.1.50:11000", device.Address);
+        Assert.Equal("192.0.2.50:11000", device.Address);
     }
 
     /// <summary>
@@ -75,8 +75,8 @@ public sealed class LsdpDevicesTests
     public void SomethingThatIsNotAPlayerIsNotOffered()
     {
         var announce = new LsdpAnnounce(
-            "90:56:82:0e:1b:01",
-            IPAddress.Parse("10.0.1.37"),
+            "90:56:82:0a:1b:0e",
+            IPAddress.Parse("192.0.2.37"),
             [new LsdpRecord(LsdpPacket.SecondaryPlayerClass, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["name"] = "Zone 2" })]);
 
         Assert.Empty(LsdpDevices.From([announce], "deadair.bluos"));
@@ -90,13 +90,13 @@ public sealed class LsdpDevicesTests
     public void APlayerThatDidNotSayItsNameIsListedUnderItsAddress()
     {
         var announce = new LsdpAnnounce(
-            "90:56:82:0e:1b:02",
-            IPAddress.Parse("10.0.1.38"),
+            "90:56:82:0a:1b:0f",
+            IPAddress.Parse("192.0.2.38"),
             [new LsdpRecord(LsdpPacket.PlayerClass, new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase))]);
 
         var device = Assert.Single(LsdpDevices.From([announce], "deadair.bluos"));
 
-        Assert.Equal("10.0.1.38", device.Name);
+        Assert.Equal("192.0.2.38", device.Name);
         Assert.Null(device.Model);
     }
 
@@ -105,8 +105,8 @@ public sealed class LsdpDevicesTests
     {
         var devices = LsdpDevices.From(
             [
-                Player("00:00:00:00:00:01", "10.0.1.10", "Study", "N130", "11000"),
-                Player("00:00:00:00:00:02", "10.0.1.11", "Bedroom", "N130", "11000"),
+                Player("00:00:00:00:00:01", "192.0.2.10", "Study", "N130", "11000"),
+                Player("00:00:00:00:00:02", "192.0.2.11", "Bedroom", "N130", "11000"),
             ],
             "deadair.bluos");
 

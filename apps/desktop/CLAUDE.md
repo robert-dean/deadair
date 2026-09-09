@@ -268,11 +268,11 @@ everybody. Read [`docs/todo/now-playing-displays.md`](../../docs/todo/now-playin
 first; it is the earlier probe of the same amp and it closed the DISPLAY half of this permanently.
 
 ```bash
-dotnet run --project apps/desktop/plugins/bluos/spikes/BluOsSpike -- https://radio.deanhome.app
+dotnet run --project apps/desktop/plugins/bluos/spikes/BluOsSpike -- https://radio.example.com
 ```
 
 **A player handed a mount reports that mount, and this corrects the earlier probe's biggest gap.**
-`/Play?url=` produces `service=https` and `streamUrl=https://radio.deanhome.app/live.mp3`, the bare
+`/Play?url=` produces `service=https` and `streamUrl=https://radio.example.com/live.mp3`, the bare
 URL, from the moment it is asked rather than from the moment it plays. The probe had only ever seen
 a `streamUrl` for a station added through the controller app, where it arrives prefixed
 (`TuneIn:https://…`), so `BluOsPhase.Match` looks for the mount INSIDE the value and both readings
@@ -308,8 +308,8 @@ to prove it.
 said `stream`. A watcher that read the next status as the truth would report a stop as having
 failed; the player reports `Stopped` from the command itself.
 
-**The same player writes its own address in two cases.** `/SyncStatus` gives `90:56:82:00:BC:99` and
-the LSDP announcement gives `90:56:82:00:bc:99`. Nothing compares them today, and anything that ever
+**The same player writes its own address in two cases.** `/SyncStatus` gives `90:56:82:0A:BC:0D` and
+the LSDP announcement gives `90:56:82:0a:bc:0d`. Nothing compares them today, and anything that ever
 does has to fold the case first. The device's id comes from LSDP, which is also where the port comes
 from — every player is on 11000 except a CI580, whose four zones are on 11000, 11010, 11020 and
 11030.
@@ -822,14 +822,17 @@ Four-space indent, file-scoped namespaces, `TreatWarningsAsErrors` everywhere. T
 `tests/`, mirroring the source namespaces; the pure layer carries the coverage and there are no UI
 tests, exactly as on Android.
 
-**Words: pure state returns a `Message`, never a sentence.** Strings live in `Strings.resx` and are
-resolved at the view edge. `Message.Text` is only for words the STATION sent — a silence remedy, an
+**Words: pure state returns a `Message`, never a sentence — DESIGNED, not built.** There is no
+`Message` type, no `Strings.resx` and no resolver in the tree yet; view models still carry their own
+text. The intent, when the strings are pulled out: strings live in a resource file and are resolved
+at the view edge, and a `Message.Text` carries only words the STATION sent — a silence remedy, an
 attention row — which the client passes through verbatim and never rewrites.
 
-**C# cannot check that a `switch` covers a closed hierarchy**, so `MessageResolver` ends in a
-throwing default and a reflection test asserts every `Message` case has a resource key. That is
-Kotlin's compile-time exhaustiveness bought at test time, and it is the one deviation from the
-Android precedent that is a language limitation rather than a decision.
+**C# cannot check that a `switch` covers a closed hierarchy**, which is what makes that a real piece
+of work rather than a rename: the resolver has to end in a throwing default with a reflection test
+asserting every case has a resource key, buying at test time what Kotlin checks at compile time. It
+is the one deviation from the Android precedent that is a language limitation rather than a
+decision, and it is the reason this is written down before it is built.
 
 ## Building it
 
@@ -850,7 +853,7 @@ constructed, which is where the message can name the script.
 To hear the station and watch the phases, against a real one:
 
 ```bash
-dotnet run --project apps/desktop/spikes/PlayerSpike -- https://radio.deanhome.app 20
+dotnet run --project apps/desktop/spikes/PlayerSpike -- https://radio.example.com 20
 ```
 
 And the app itself:

@@ -37,9 +37,10 @@ HLS for one who does not. Do not read the latency numbers below as an argument a
 
 ## What the 2.3s is, and what it is not
 
-`StreamMonitor` reports `buffered.end - currentTime`
-([stream.monitor.tsx](../../apps/web/src/components/playout/stream.monitor.tsx)): audio the BROWSER
-has received and not yet played. It excludes the encoder and Icecast entirely, which is what its own
+`StreamMonitor` reported `buffered.end - currentTime` — audio the BROWSER
+has received and not yet played. **The component is gone**: the console deliberately does not play
+the mount, which [playout.md](../internals/playout.md) records. The measurement below is kept
+because it is about what such a number can and cannot mean, not about the component. It excludes the encoder and Icecast entirely, which is what its own
 tooltip says. So it is a reading of one browser's media buffer, not of end-to-end lag, and the true
 end-to-end figure is that number plus a term nobody has measured.
 

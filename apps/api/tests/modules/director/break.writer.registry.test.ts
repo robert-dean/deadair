@@ -7,6 +7,8 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { PluginError } from '@deadair/plugin-sdk';
+
 import { BreakWriter, type BreakWriteRequest, type WrittenBreak } from '../../../src/modules/director/break.writer.js';
 import { BreakWriterRegistry, isWritten } from '../../../src/modules/director/break.writer.registry.js';
 
@@ -28,6 +30,10 @@ const words = (script: string) => async () => ({ script, label: 'a break' });
 const nothing = async () => undefined;
 const throws = (message: string) => async () => {
     throw new Error(message);
+};
+/** A writer that hit something it can describe: the gate, an upstream, a timeout. */
+const fails = (message: string, code: 'timeout' | 'unavailable' | 'upstream') => async () => {
+    throw new PluginError(message).withCode(code);
 };
 
 const logger = () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() });
@@ -213,5 +219,68 @@ describe('BreakWriterRegistry', () => {
             expect(registry.writersFor('talkbreak')).toEqual(['stub']);
             expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('talkbreak'));
         });
+    });
+});
+
+// A `failed` attempt is the station absorbing something, and the two things it absorbs are not alike:
+// a writer that broke is a fault, and a writer that lost the model to a refill is a Tuesday. Both
+// read identically as prose, which is why the code travels beside the sentence rather than instead
+// of it — a persona audition uses it to tell a busy minute from a bad character sheet.
+describe('BreakWriterRegistry: what kind of failure it was', () => {
+    it('keeps the code off a described failure', async () => {
+        const log = logger();
+        const registry = new BreakWriterRegistry(
+            [new StubWriter('talkbreak', 'model', fails('waited 30000ms for the model and it is still busy', 'timeout'))],
+            log as never,
+        );
+
+        const result = await registry.write({ kind: 'talkbreak' });
+
+        expect(result.attempts[0]?.outcome).toBe('failed');
+        expect(result.attempts[0]?.code).toBe('timeout');
+        // The sentence is still what a person reads, and still names the writer.
+        expect(result.attempts[0]?.reason).toContain('the model writer failed');
+    });
+
+    it('tells the station taking the model back from the model breaking', async () => {
+        const log = logger();
+        const preempted = new BreakWriterRegistry(
+            [new StubWriter('talkbreak', 'model', fails('the station needed the model, so this was stopped', 'unavailable'))],
+            log as never,
+        );
+        const broken = new BreakWriterRegistry([new StubWriter('talkbreak', 'model', throws('undefined is not a function'))], log as never);
+
+        expect((await preempted.write({ kind: 'talkbreak' })).attempts[0]?.code).toBe('unavailable');
+        // A bare Error carries no code, so there is nothing to claim about it.
+        expect((await broken.write({ kind: 'talkbreak' })).attempts[0]?.code).toBeUndefined();
+    });
+
+    it('claims nothing about a writer that declined', async () => {
+        // Declining is a decision, not something the writer hit.
+        const log = logger();
+        const registry = new BreakWriterRegistry([new StubWriter('talkbreak', 'model', nothing)], log as never);
+
+        const result = await registry.write({ kind: 'talkbreak' });
+
+        expect(result.attempts[0]?.outcome).toBe('declined');
+        expect(result.attempts[0]?.code).toBeUndefined();
+    });
+
+    it('still falls through to the floor, whatever the code said', async () => {
+        const log = logger();
+        const registry = new BreakWriterRegistry(
+            [
+                new StubWriter('talkbreak', 'model', fails('the station needed the model, so this was stopped', 'unavailable')),
+                new StubWriter('talkbreak', 'deterministic', words('That was Green Onions.')),
+            ],
+            log as never,
+        );
+
+        const result = await registry.write({ kind: 'talkbreak' });
+
+        // The floor cannot fail, and that is unchanged: on air a lost model slot still costs a
+        // better sentence rather than silence. Only a caller that is MEASURING wants to know.
+        expect(result.written?.script).toBe('That was Green Onions.');
+        expect(result.writer).toBe('deterministic');
     });
 });

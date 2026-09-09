@@ -62,7 +62,7 @@ const DEFAULT_PAD_LIBRARY_DIR = './media/pads';
  * `media/segments/` is not. It is copied into the library once, on a station that has never held a
  * pad, and never read again.
  *
- * Empty today. `docs/decisions/pad-licensing.md` is why: everything this repository redistributes
+ * Empty today. `docs/internals/render.md` § "Pads" is why: everything this repository redistributes
  * has to be CC0, attribution-requiring audio is refused rather than credited, and sourcing verified
  * public-domain audio properly is a research task nobody has done yet.
  */
@@ -233,7 +233,7 @@ export const RenderModule: ServerKitModule = {
                 const library = scope.get(PadLibrary);
 
                 // Before the scan, and only into a library that has never held anything. See
-                // `PadLibrary.seed` for both halves of that, and `docs/decisions/pad-licensing.md`
+                // `PadLibrary.seed` for both halves of that, and `docs/internals/render.md` § "Pads"
                 // for why the directory it copies from is empty today.
                 await library.seed(scope.get(AppConfig).get('PAD_ASSETS_DIR', DEFAULT_PAD_ASSETS_DIR));
                 await library.scan();

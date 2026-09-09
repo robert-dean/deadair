@@ -82,7 +82,8 @@ export class ArtCacheService {
      *
      * `http(s)` only: these URLs come from plugins, which are trusted in-process code but are also
      * the least reviewed code in the tree, and `file:` would turn a bad mapping into a local file
-     * read. This is a guard against a mistake, not a sandbox — see docs/decisions/plugin-isolation.
+     * read. This is a guard against a mistake, not a sandbox — see `packages/plugin-sdk/CLAUDE.md` §
+     * "Trust and egress".
      */
     private async download(sourceUrl: string, signal?: AbortSignal): Promise<{ body: Buffer; ext: ArtExtension; contentType: string }> {
         const url = new URL(sourceUrl);

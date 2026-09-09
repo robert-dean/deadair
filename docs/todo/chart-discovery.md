@@ -2,8 +2,11 @@
 
 **Written:** 2026-08-13, from the question "how would an operator fetch the top hits and have the DJ
 build a lineup out of them".
-**State of the tree:** none of this exists. Everything it stands on does — that is the reason to
-write it down now rather than design it later.
+**State of the tree:** **BUILT.** There is a `charts` capability in the plugin SDK
+(`capabilities/charts.ts`), a `ChartsModule` and `ChartsService` in the API, and `ChartSetGenerator`
+is the generator this file asked for. What is kept below is the reasoning: which chart services
+answer without authentication, why Billboard is a name to reach rather than a first plugin, and the
+three seams the capability was shaped to drop into.
 
 ---
 
@@ -137,5 +140,5 @@ Each leaves the tree working and is one commit.
   §2 for the budget that is deliberately not built.
 - [director-and-lineups.md](director-and-lineups.md) for "plugins that programme the station", which
   is the general case of this file.
-- `docs/decisions/plugin-trust.md` for why a plugin fetching somebody else's chart in the host realm
-  is unremarkable.
+- `packages/plugin-sdk/CLAUDE.md` § "Trust and egress" for why a plugin fetching somebody else's
+  chart in the host realm is unremarkable.

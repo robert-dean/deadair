@@ -58,7 +58,7 @@ export class DeadairEmailFactorRepository extends DataRepository implements Emai
         return this.toModel(row);
     }
 
-    async isDomainInviteOnly(domain: string): Promise<boolean> {
+    async isDomainInviteOnly(_domain: string): Promise<boolean> {
         return Promise.resolve(false);
     }
 

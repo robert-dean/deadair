@@ -15,11 +15,11 @@ namespace MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.Tests;
 public sealed class LsdpPacketTests
 {
     /// <summary>
-    /// A real announce from a NAD C388: node 90:56:82:0e:1b:00 at 10.0.1.36, saying it is a player
+    /// A real announce from a NAD C388: node 90:56:82:0a:1b:0d at 192.0.2.36, saying it is a player
     /// called SEALPLAYER on port 11000, and separately something else on port 11431.
     /// </summary>
     private const string CapturedAnnounce =
-        "064c534450016a41069056820e1b00040a0001240200010504" +
+        "064c534450016a41069056820a1b0d04c00002240200010504" +
         "6e616d650a5345414c504c4159455204706f72740531313030" +
         "30056d6f64656c04433338380776657273696f6e06332e3136" +
         "2e35027a730130000402046e616d650a5345414c504c415945" +
@@ -30,8 +30,8 @@ public sealed class LsdpPacketTests
     {
         var announce = Assert.IsType<LsdpAnnounce>(Assert.Single(LsdpPacket.Parse(Bytes(CapturedAnnounce))));
 
-        Assert.Equal("90:56:82:0e:1b:00", announce.NodeId);
-        Assert.Equal(IPAddress.Parse("10.0.1.36"), announce.Address);
+        Assert.Equal("90:56:82:0a:1b:0d", announce.NodeId);
+        Assert.Equal(IPAddress.Parse("192.0.2.36"), announce.Address);
         Assert.Equal(2, announce.Records.Count);
 
         var player = announce.Records[0];
@@ -123,11 +123,11 @@ public sealed class LsdpPacketTests
     public void ReadsANodeSayingItHasGone()
     {
         // A header, then [len][D][6 bytes of node][one class][class 1].
-        var packet = Bytes("064c53445001" + "0c44" + "069056820e1b00" + "01" + "0001");
+        var packet = Bytes("064c53445001" + "0c44" + "069056820a1b0d" + "01" + "0001");
 
         var gone = Assert.IsType<LsdpDelete>(Assert.Single(LsdpPacket.Parse(packet)));
 
-        Assert.Equal("90:56:82:0e:1b:00", gone.NodeId);
+        Assert.Equal("90:56:82:0a:1b:0d", gone.NodeId);
         Assert.Equal(LsdpPacket.PlayerClass, Assert.Single(gone.Classes));
     }
 

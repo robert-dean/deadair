@@ -21,6 +21,10 @@
  * station that widened the list for somebody else.
  */
 
+// `SPEECH_CUES` is referenced by `{@link}` twice above and deliberately never read: the header
+// says reaching for the whole vocabulary here is how a presenter starts coughing on a station
+// that widened the list for somebody else. The rule counts identifiers rather than doc links.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { SPEECH_CUES, type SpeechCue } from '@deadair/plugin-sdk';
 import { keepPads, MAX_PADS } from './pad.cues.js';
 

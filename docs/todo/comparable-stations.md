@@ -66,12 +66,11 @@ levels, a persona that accumulates, one row per write attempt. Nothing here is a
 That divergence is why the gaps below cluster so tightly into two piles: **how the station sounds
 between records**, and **what the operator can see**. It is also why several things the other station
 has are listed at the bottom as deliberately unwanted rather than deferred.
-
 Two places this tree is ahead are worth recording, because both were arrived at the hard way and
-should not be traded away for anything in the list below. **A record is not committed until its audio
-is local** ([bytes-before-air.md](../decisions/bytes-before-air.md)) removes a whole class of fault
-the other station instead detects after the fact, with a probe id per handover and a telnet query to
-find out whether the thing it pushed ever resolved. And **a claim with no source is not
+should not be traded away for anything in the list below. **A record is not committed until its
+audio is local** ([the bytes-before-air rule](../internals/director.md#nothing-airs-until-its-bytes-are-here)) removes a whole class of
+fault the other station instead detects after the fact, with a probe id per handover and a telnet
+query to find out whether the thing it pushed ever resolved. And **a claim with no source is not
 expressible**, where the comparable station reached the same problem from the other end and added an
 abstain rule after a web search made its host invent facts on air.
 
@@ -139,14 +138,12 @@ of which look like polish and are not:
 - Ambiguity returns **null, never a middle bucket**. Bucketing an unclear result to "medium" replaces
   one guess with another and then calls it evidence. Null leaves the existing value alone, so
   mistuning costs coverage instead of correctness.
-
 **What it would cost here is not small and should be counted before anyone starts.** There is no
-vector column and no pgvector in the migrations. The sidecar would grow a second model, which puts it
-straight into [analysis-licensing.md](../decisions/analysis-licensing.md), and the licence that
-matters there is the **weights'**, which is not in the package metadata. And the embedding text has
-one rule that has to be got right on the first pass: the tagger's own output must never be part of
-what gets embedded, because the labels are derived *from* the vectors and feeding them back is
-circular.
+vector column and no pgvector in the migrations. The sidecar would grow a second model, which puts
+it straight into [the analysis licence rule](../../analysis/README.md#the-rule-stated-once), and the licence that matters there is the
+**weights'**, which is not in the package metadata. And the embedding text has one rule that has to
+be got right on the first pass: the tagger's own output must never be part of what gets embedded,
+because the labels are derived *from* the vectors and feeding them back is circular.
 
 ## The three the operator would feel, none of which exist here
 
@@ -832,33 +829,33 @@ through the new `LiveOrder.markSpokenOver` — `handed → played` for `fired`, 
 with `over` set alone when it sits after the outgoing item, since it is riding the record that is
 just starting rather than something the station passed over; one sitting before it is still swept,
 which is what catches a reading that never arrives.
-
-**The sidecar.** ~~Three, and the first corrects a number in its own README. `analysis/README.md` and
-`app.py:59-65` size the worker ceiling on a five-minute track being about 115 MB resident. Measured
-here with the tree's own functions on a five-minute stereo signal, the 106 MB decoded buffer held:
-`to_mono` peaks 191 MB above it, the cue points 359 MB, integrated loudness 253 MB, true peak 116 MB.
-**One decode peaks between 500 and 750 MB**, the default ceiling of four is a few GB, and a file at
-the accepted 1800-second maximum is several GB on its own. The cost is `loudness.py:133`, where
-`np.square` over a 75%-overlapping strided view materialises it dense in float64, four copies of
-every frame. A cumulative sum of squares is exact and linear.~~ **BUILT 2026-09-02**, as described:
-`integrated_lufs` sums with a running total instead of materialising the strided view, `to_mono` folds
-into one preallocated buffer instead of three full-size copies, `true_peak_db` casts per chunk instead
-of per column, and the re-measured figure (~800 MB peak resident, not 115 MB) is now what
-`analysis/README.md` and `app.py` quote. ~~Second, the memory-growth shape the
-fourth pass named is present and unmitigated: a thread pool in a glibc image, one arena per thread,
-no `MALLOC_ARENA_MAX`, no trim, no recycling, and the `rssMb` reading the sidecar already computes is
-read only by the connection test. Two lines.~~ **BUILT 2026-09-02**. ~~Third, and the one that crash-loops: the two image
-definitions have diverged on the beat layer. `analysis/Dockerfile:38` installs the beat tracker with
-`--no-deps`; the production `Dockerfile:338-341` installs `requirements.txt` and never installs it.
-The root Dockerfile's own comment says the analysis block is the one that gets forgotten, and the log
-shows it forgotten twice already. The day `beats.py` lands, the dev container imports and the
-production sidecar dies at start, which the console shows as "engine off". Beside it, no CI job runs
-the sidecar's five test files or starts the built image before pushing it; the `generated` job was
-added for exactly this class of drift on the TypeScript side and the Python side got nothing.~~
-**BUILT 2026-09-02**: `analysis/requirements.nodeps.txt` is the one pin file both Dockerfiles read
-for the beat tracker now, so there is nothing left for either to forget. A `sidecar` job in
-`build.yml` runs `python3 -m pytest analysis/`, and `images.yml` loads the built image and runs
-`import app` against its own venv before anything is pushed.
+**The sidecar.** ~~Three, and the first corrects a number in its own README. `analysis/README.md`
+and `app.py:59-65` size the worker ceiling on a five-minute track being about 115 MB resident.
+Measured here with the tree's own functions on a five-minute stereo signal, the 106 MB decoded
+buffer held: `to_mono` peaks 191 MB above it, the cue points 359 MB, integrated loudness 253 MB,
+true peak 116 MB. **One decode peaks between 500 and 750 MB**, the default ceiling of four is a few
+GB, and a file at the accepted 1800-second maximum is several GB on its own. The cost is
+`loudness.py:133`, where `np.square` over a 75%-overlapping strided view materialises it dense in
+float64, four copies of every frame. A cumulative sum of squares is exact and linear.~~ **BUILT
+2026-09-02**, as described: `integrated_lufs` sums with a running total instead of materialising the
+strided view, `to_mono` folds into one preallocated buffer instead of three full-size copies,
+`true_peak_db` casts per chunk instead of per column, and the re-measured figure (~800 MB peak
+resident, not 115 MB) is now what `analysis/README.md` and `app.py` quote. ~~Second, the
+memory-growth shape the fourth pass named is present and unmitigated: a thread pool in a glibc
+image, one arena per thread, no `MALLOC_ARENA_MAX`, no trim, no recycling, and the `rssMb` reading
+the sidecar already computes is read only by the connection test. Two lines.~~ **BUILT 2026-09-02**.
+~~Third, and the one that crash-loops: the two image definitions have diverged on the beat layer.
+`analysis/Dockerfile:38` installs the beat tracker with `--no-deps`; the production
+`Dockerfile:338-341` installs `requirements.txt` and never installs it. The root Dockerfile's own
+comment says the analysis block is the one that gets forgotten, and the log shows it forgotten twice
+already. The day `beats.py` lands, the dev container imports and the production sidecar dies at
+start, which the console shows as "engine off". Beside it, no CI job runs the sidecar's five test
+files or starts the built image before pushing it; the `generated` job was added for exactly this
+class of drift on the TypeScript side and the Python side got nothing.~~ **BUILT 2026-09-02**:
+`analysis/requirements.nodeps.txt` is the one pin file both Dockerfiles read for the beat tracker
+now, so there is nothing left for either to forget. A `sidecar` job in `build.yml` runs `python3 -m
+pytest analysis/`, and `images.yml` loads the built image and runs `import app` against its own venv
+before anything is pushed.
 
 **Enrichment.** ~~A provider's config change never reaches what is already stored. Last.fm's tag
 switches are applied at map time, the stripped payload is saved under a 90-day TTL

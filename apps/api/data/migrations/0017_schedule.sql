@@ -8,11 +8,11 @@
 -- settles it either way — personas do not exist until 0012, so a table in 0007 could not reference
 -- one, which is exactly why `station_lineup.persona_id` had to arrive separately in 0013.
 --
--- **This table is read by a pure resolver and by nothing else.** `docs/decisions/on-air-ownership.md`
--- is explicit that the schedule must be a document, a resolver and a timer that posts commands, and
--- must never become a second stateful owner of what airs. So there is no "current slot" column here
--- and there never should be: the running order carries which slot it belongs to, and the director is
--- its only writer.
+-- **This table is read by a pure resolver and by nothing else.** The ownership rule
+-- (`docs/internals/director.md` § "Who owns the running order") is explicit that the schedule must be
+-- a document, a resolver and a timer that posts commands, and must never become a second stateful
+-- owner of what airs. So there is no "current slot" column here and there never should be: the
+-- running order carries which slot it belongs to, and the director is its only writer.
 create table deadair.schedule_slots (
     id uuid not null default gen_random_uuid() primary key,
     created_at timestamptz not null default now(),

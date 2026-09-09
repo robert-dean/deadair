@@ -151,8 +151,8 @@ Read this rather than the design above it, which is kept for its reasoning.
 - **The audio streams.** `speak()` returns a `ReadableStream<Uint8Array>`, not bytes, and it is
   usually the engine's own `host.fetch` body forwarded straight through. `ContentStore.writeStream`
   hashes as it writes, so a long break never exists whole in the process. This first shipped as
-  `docs/decisions/plugin-streaming.md`'s handle-and-base64-chunks protocol and was cut back to a
-  plain stream once the subprocess option closed; see `docs/decisions/plugin-trust.md`.
+  a handle-and-base64-chunks protocol and was cut back to a plain stream once the subprocess option
+  closed; see `packages/plugin-sdk/CLAUDE.md` § "Trust and egress".
 - **A voice is an opaque station-level id.** The host passes `host` or `newsreader` and never
   interprets it; each plugin maps it in its own config. That is v1's engine-agnostic ref kept and
   v1's host-side per-provider matrix left behind.
@@ -173,7 +173,7 @@ one is deliberately not; the point of writing it down is that the ordering does 
 again.
 
 **1. Finish the settings layer, which is half built. BUILT.** `apps/api/data/contracts/settings` and
-`apps/web/src/routes/settings.tsx` both exist, so each new knob is one descriptor entry in
+`apps/web/src/routes/settings/` both exist, so each new knob is one descriptor entry in
 `settings.registry.ts` as intended. The rest of this item is kept for its reasoning.
 
 `SettingsService.set` already reloads

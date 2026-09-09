@@ -1,7 +1,7 @@
 import { Registry } from 'injectkit';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { AppConfig } from '@maroonedsoftware/appconfig';
-import { buildRevision } from '#modules/shared/build.revision.js';
+import { buildRevision, buildVersion } from '#modules/shared/build.revision.js';
 import { HealthService } from './health.service.js';
 
 /**
@@ -25,7 +25,7 @@ export const HealthModule: ServerKitModule = {
         // dependency on the one service in the tree whose whole claim is that it has none.
         registry
             .register(HealthService)
-            .useFactory(() => new HealthService(buildRevision(config)))
+            .useFactory(() => new HealthService(buildRevision(config), buildVersion(config)))
             .asSingleton();
     },
 };

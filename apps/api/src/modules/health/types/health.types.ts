@@ -21,5 +21,13 @@ export const Health = z.strictObject({
         .describe(
             "The commit this station was built from, as the image's `org.opencontainers.image.revision` label says it. Absent when nothing set one, which is what a development tree and a hand-built image both honestly are",
         ),
+    version: z
+        .string()
+        .min(1)
+        .max(50)
+        .optional()
+        .describe(
+            "The release this station is, as the image's `org.opencontainers.image.version` label says it. Absent on every build that is not a tagged release, which is most of them: `latest` follows main, so a station tracking it honestly has a commit and no version",
+        ),
 });
 export type Health = z.infer<typeof Health>;

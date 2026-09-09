@@ -261,9 +261,10 @@ export class DirectorConsoleService {
      * ## It lives on the running order, and that is not an implementation detail
      *
      * The tick READS this and declines; it does not own it. A hold held beside the schedule would be
-     * a second stateful owner of what airs, which is the thing `docs/decisions/on-air-ownership.md`
-     * exists to prevent. `putOnAir` clears it by construction, because a new broadcast is a new
-     * decision and its binding is built fresh.
+     * a second stateful owner of what airs, which is the thing the ownership rule
+     * (`docs/internals/director.md` § "Who owns the running order") exists to prevent. `putOnAir`
+     * clears it by construction, because a new broadcast is a new decision and its binding is built
+     * fresh.
      */
     async holdAgainstSchedule(input: HoldStationInput): Promise<StationAir> {
         const until = input.minutes === undefined ? Infinity : Date.now() + input.minutes * 60_000;

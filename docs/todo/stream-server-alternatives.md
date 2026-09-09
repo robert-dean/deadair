@@ -89,7 +89,7 @@ free tier only.
 or later. The stream image is already custom, so this is ordinary work, but it is work that has to be
 maintained. The docs carry **no licence and no redistribution terms**, which is a live question the
 moment a closed-source binary is baked into an image that might be published, and a larger version of
-the norm `docs/decisions/analysis-licensing.md` sets for the analysis path.
+the norm `analysis/README.md` § "The rule, stated once" sets for the analysis path.
 
 One promising detail: `GET /admin/metadata?mount=&mode=updinfo&song=` exists with the shape
 Liquidsoap already uses, so the ICY path the template's long `<username>`/`<password>` comment was

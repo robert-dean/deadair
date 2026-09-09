@@ -166,6 +166,11 @@ public sealed record StationCheckup
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Revision { get; init; }
 
+    /// <summary>The release this station is, as the image's `org.opencontainers.image.version` label says it. Absent on the same terms as `revision` and for a second reason: only a tagged build carries one, so a station following `latest` reports a commit and no version</summary>
+    [JsonPropertyName("version")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Version { get; init; }
+
     [JsonPropertyName("heartbeats")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<StationHeartbeat>? Heartbeats { get; init; }

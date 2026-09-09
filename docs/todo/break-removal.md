@@ -31,7 +31,7 @@ reaches `breakEveryMinutes`. That is what makes a second pass over an order it h
 find every gap short and plant nothing.
 
 `StationLineup.remove` splices the item out and leaves no trace of it
-([station.lineup.ts:530](../../apps/api/src/modules/director/station.lineup.ts:530)). So the walk
+([station.lineup.ts:530](../../apps/api/src/modules/director/station.lineup.ts#L530)). So the walk
 that runs a moment later sees an order with a full interval of records and no segment in it, which
 is indistinguishable from an order that was never planted into, and it does the correct thing for
 that order: it plants a break. The operator's delete is not being overruled, it is being forgotten.

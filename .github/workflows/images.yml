@@ -7,6 +7,13 @@ on:
                 description: Publish the images, rather than only proving they build.
                 type: boolean
                 default: false
+            version:
+                description: >-
+                    The release these images are, without a leading v. Empty on every run that is
+                    not a tag, which is most of them: an ordinary push publishes a commit tag and
+                    nothing claiming to be a release.
+                type: string
+                default: ''
 permissions:
     contents: read
 
@@ -116,14 +123,35 @@ jobs:
             #
             # `latest` is the default variant, so its commit tag is the bare sha; the other two
             # prefix theirs, because a sha alone would not say which station it was.
+            #
+            # A tag run also publishes the VERSION tag here rather than leaving it to `promote`,
+            # and that is deliberate: an exact version is immutable, so it belongs with the commit
+            # tag that is also immutable. Only the tags that MOVE — `latest`, `slim`, `full` and
+            # the major.minor line — wait for the tests, because those are the ones somebody pulls
+            # by name.
             - name: Work out the tags
               id: tags
+              env:
+                  VERSION: ${{ inputs.version }}
               run: |
+                  set -eu
                   if [ "${{ matrix.variant }}" = "latest" ]; then
-                      echo "value=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+                      prefix=""
                   else
-                      echo "value=${IMAGE}:${{ matrix.variant }}-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+                      prefix="${{ matrix.variant }}-"
                   fi
+
+                  # Written a line at a time rather than built as one multi-line string: a
+                  # continuation line inside this block carries the YAML's own indentation, which
+                  # would end up INSIDE the tag.
+                  {
+                      echo "value<<TAGS"
+                      echo "${IMAGE}:${prefix}${GITHUB_SHA}"
+                      if [ -n "${VERSION}" ]; then
+                          echo "${IMAGE}:${prefix}${VERSION}"
+                      fi
+                      echo "TAGS"
+                  } >> "$GITHUB_OUTPUT"
 
             - name: Build${{ inputs.push && ' and push' || '' }}
               uses: docker/build-push-action@v7
@@ -142,6 +170,7 @@ jobs:
                   build-args: |
                       ${{ matrix.args }}
                       REVISION=${{ github.sha }}
+                      VERSION=${{ inputs.version }}
                   tags: ${{ steps.tags.outputs.value }}
                   # The cache lives in the registry beside the images rather than in the Actions
                   # cache, which holds ten gigabytes for the whole repository — less than these

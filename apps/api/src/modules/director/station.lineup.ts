@@ -7,13 +7,12 @@ import { MEASUREMENT_FIELDS, type TrackMeasurement } from './track.measurement.j
  * The station's live running order: every item it means to air, in order, each
  * carrying its own state.
  *
- * **One per station, and it is not a library.** That is the whole difference
- * between this and {@link Lineup}, which it takes over from. A lineup was asked to
- * be a reusable named list AND the broadcast in progress, and every mechanism that
- * reconciled the two — the cursor, the revision, compaction — was a bug rather
- * than a feature. Prepared material is a PLAYLIST: a provider's, a model's output,
- * eventually `deadair.playlists`. This is built from one when the station goes on
- * air, and it is consumed. See `docs/decisions/on-air-ownership.md`.
+ * **One per station, and it is not a library.** That is the whole difference between this and {@link
+ * Lineup}, which it takes over from. A lineup was asked to be a reusable named list AND the broadcast
+ * in progress, and every mechanism that reconciled the two — the cursor, the revision, compaction — was
+ * a bug rather than a feature. Prepared material is a PLAYLIST: a provider's, a model's output,
+ * eventually `deadair.playlists`. This is built from one when the station goes on air, and it is
+ * consumed. See `docs/internals/director.md` § "Who owns the running order".
  *
  * ## The position is derived, not counted
  *
@@ -267,11 +266,11 @@ export interface StationLineupBinding {
      * WHICH slot of the station's day this broadcast belongs to.
      *
      * It rides the running order for the same reason {@link brief} and {@link personaId} do, and it
-     * does one more job than either: it is how the schedule's tick knows whether the station is
-     * already airing what it should be. Comparing the resolved slot's id against this is the whole
-     * of the idempotence, which is why the fact lives HERE rather than beside the schedule — a
-     * "current slot" held over there would be a second stateful owner of what airs, and
-     * `docs/decisions/on-air-ownership.md` exists to remove exactly that.
+     * does one more job than either: it is how the schedule's tick knows whether the station is already
+     * airing what it should be. Comparing the resolved slot's id against this is the whole of the
+     * idempotence, which is why the fact lives HERE rather than beside the schedule — a "current slot"
+     * held over there would be a second stateful owner of what airs, and `docs/internals/director.md` §
+     * "Who owns the running order" exists to remove exactly that.
      *
      * **An operator's own `putOnAir` stamps it too**, with whichever slot is in force at that
      * moment, which is what makes a manual takeover hold until the NEXT slot begins rather than

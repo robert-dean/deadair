@@ -25,6 +25,10 @@
  */
 
 import { preoccupationOf, type PersonaSheet } from '#modules/personas/persona.sheet.js';
+// `TURN_BAND` is referenced by `{@link}` below, on the line warning that the weights here have to
+// move whenever it does. Dropping the import would take that link with it, which is the one
+// thing standing between a reader and a coupling the file says is not obvious.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { CALLER_TURN_WEIGHT, HOST_TURN_WEIGHT, TURN_BAND } from './production.plan.js';
 
 /** What a member of a cast is doing here. */

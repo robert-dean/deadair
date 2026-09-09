@@ -44,6 +44,7 @@ import { CacheProvider } from '@maroonedsoftware/cache';
 import { PolicyService } from '@maroonedsoftware/policies';
 import { SessionActivityService } from './session.activity.service.js';
 import { MailService } from '#modules/mail/mail.service.js';
+import { SignInMailLimiter } from './sign.in.mail.limiter.js';
 import { expirationMinutes } from '#modules/mail/mail.expiry.js';
 
 type RegisterFactorHandler = (actorId: string, request: AuthenticationFactorRegistration) => Promise<AuthenticationFactorRegistrationResponse>;
@@ -72,6 +73,7 @@ export class AuthenticationRegistrationService {
         private readonly emailFactorService: EmailFactorService,
         private readonly emailFactorServiceOptions: EmailFactorServiceOptions,
         private readonly mailService: MailService,
+        private readonly signInMailLimiter: SignInMailLimiter,
         private readonly passwordFactorService: PasswordFactorService,
         private readonly authenticatorFactorService: AuthenticatorFactorService,
         private readonly fidoFactorService: FidoFactorService,
@@ -150,7 +152,21 @@ export class AuthenticationRegistrationService {
         return actor;
     }
 
+    /**
+     * Register a whole login: an address, optionally a password, and the code that confirms the
+     * address is real.
+     *
+     * Asserts mail is configured for the reason {@link registerEmailFactor} does — a registration
+     * cached against a send that then failed hands the same undelivered code back for ten minutes —
+     * but unlike that one it still SUPPRESSES the send on a repeat, and the difference is the route
+     * rather than an inconsistency. This one takes no session, so a repeat is somebody typing an
+     * address that is not theirs, and one message per address per registration window is a tighter
+     * bound than any limiter. Enrolment is behind a session and has a "send it again" button, so it
+     * resends and pays for that with the address limiter instead.
+     */
     async registerLogin(request: AuthenticationRegistrationInput): Promise<AuthenticationRegistration> {
+        this.mailService.assertConfigured();
+
         if (request.password) {
             await this.passwordFactorService.ensurePasswordStrength(request.password);
         }
@@ -325,26 +341,61 @@ export class AuthenticationRegistrationService {
         };
     }
 
+    /**
+     * Begin binding an email address to the account: cache a pending registration and mail the code
+     * that proves the operator can read the inbox.
+     *
+     * Shaped like `handleCodeStartLogin` rather than like its own thing, because the three things
+     * that path does in front of the send are the three this one needs and did not have. This was
+     * the last email path written before the station could send at all.
+     *
+     * **The address is rate-limited first.** Enrolment takes a session where `/auth/login/start`
+     * does not, so the caller is known — but the address is not, and the harm is to whoever owns
+     * the one that gets typed. An operator can name any address, so a shell loop against this route
+     * fills a stranger's inbox exactly as well as one against the anonymous route does.
+     *
+     * **Then mail is asserted configured, BEFORE anything is issued.** `registerEmailFactor`
+     * upstream is idempotent for the length of the registration: a second call inside the window
+     * returns the FIRST call's code and reports `alreadyRegistered`. So a send that failed after
+     * the registration was cached cannot be retried into a delivery — every later attempt hands
+     * back the same code that was never sent. Asserting first is what keeps a station with no mail
+     * server from writing a ten-minute dead registration on the operator's first attempt, which is
+     * the attempt they make just before they go and configure one.
+     *
+     * **And the send is unconditional**, where it used to be skipped on `alreadyRegistered`. That
+     * flag is upstream's hint for suppressing a duplicate "we just emailed you" notification, and
+     * reading it as "do not send" makes the console's "Send it again" answer 200 and do nothing —
+     * silence being the one answer somebody waiting on a code cannot tell from success. The code
+     * that goes out is the same code, which is the point: the challenge is idempotent, so a resend
+     * is a second copy of one message rather than a second credential. `handleCodeStartLogin`
+     * ignores the same flag for the same reason, and the limiter above is what bounds the resend.
+     */
     private async registerEmailFactor(actorId: string, request: EmailFactorRegistration): Promise<EmailFactorRegistrationResponse> {
+        await this.signInMailLimiter.consume(request.value);
+        this.mailService.assertConfigured();
+
         const registration = await this.lookupRegistrationByValue(actorId, 'email');
 
         const result = await this.emailFactorService.registerEmailFactor(request.value, 'code', registration?.registrationId);
 
         await this.cacheRegistration(actorId, result.registrationId, 'email', result.expiresAt.diffNow());
 
-        if (!result.alreadyRegistered) {
-            await this.pkceProvider.storeChallenge(request.codeChallenge, result.registrationId, result.expiresAt.diffNow());
+        // Stored on every attempt rather than only on a fresh registration. The cache is keyed by
+        // the CHALLENGE and holds the registration id, so a second attempt from a second tab adds
+        // its own verifier beside the first rather than overwriting it, and both resolve to the
+        // same registration. Skipping this on a repeat was what left that second tab holding a
+        // verifier the API had never been told about.
+        await this.pkceProvider.storeChallenge(request.codeChallenge, result.registrationId, result.expiresAt.diffNow());
 
-            // Send kept last, after the cache writes: it is the one step here with no undo, so
-            // anything that can still fail goes in front of it. A registration cached and then not
-            // delivered is a ten-minute wait the operator can end by asking again; a delivered code
-            // whose registration failed to cache is a code that verifies against nothing.
-            await this.mailService.send({
-                to: request.value,
-                template: 'VerifyEmail',
-                data: { code: result.code, minutes: expirationMinutes(this.emailFactorServiceOptions.otpExpiration) },
-            });
-        }
+        // Send kept last, after the cache writes: it is the one step here with no undo, so
+        // anything that can still fail goes in front of it. A registration cached and then not
+        // delivered is a ten-minute wait the operator can end by asking again; a delivered code
+        // whose registration failed to cache is a code that verifies against nothing.
+        await this.mailService.send({
+            to: request.value,
+            template: 'VerifyEmail',
+            data: { code: result.code, minutes: expirationMinutes(this.emailFactorServiceOptions.otpExpiration) },
+        });
 
         return {
             method: 'email',

@@ -13,10 +13,10 @@ import { sdk } from './client';
 import { queryKeys } from './query.keys';
 
 /**
- * How the operator signs in, and the two things that change it: enrolling an authenticator and
- * removing one. Every mutation here is `retry: false` for the reason `auth.mutations.ts` gives:
- * a refused code is a verdict, and a rate limit is a wait the page should report rather than sit
- * through behind the operator's back.
+ * How the operator signs in, and the things that change it: enrolling an authenticator or an email
+ * address, and removing one. Every mutation here is `retry: false` for the reason
+ * `auth.mutations.ts` gives: a refused code is a verdict, and a rate limit is a wait the page should
+ * report rather than sit through behind the operator's back.
  */
 
 export const factorsOptions = queryOptions({
@@ -94,6 +94,66 @@ export function useVerifyAuthenticator() {
     });
 }
 
+/** A pending email enrolment, plus the verifier only this browser holds. */
+export interface EmailRegistration {
+    registrationId: string;
+    /** The address the code went to, normalised the way the operator typed it. */
+    value: string;
+    /** Sent back with the code; see `auth/pkce.ts`. */
+    codeVerifier: string;
+}
+
+/**
+ * Starts enrolling an email address: the API mails a code to it and answers with the registration
+ * the code is bound to.
+ *
+ * Takes an optional `codeVerifier` so a resend can carry the FIRST one. The verifier has to survive
+ * the resend because the code does: the API's pending registration is idempotent for its whole life
+ * and re-sends the same code, so a resend that minted a fresh verifier would ask the operator to
+ * spend a code bound to the verifier it just threw away. Minting one only on the first call is what
+ * keeps the pair together.
+ *
+ * Every failure here is the operator's to see rather than to retry through — no mail server, a
+ * server that refused, an address already enrolled, too many asked for at once — so `retry: false`
+ * as everywhere else in this file.
+ */
+export function useRegisterEmail() {
+    return useMutation({
+        retry: false,
+        mutationFn: async ({ value, codeVerifier: existing }: { value: string; codeVerifier?: string }): Promise<EmailRegistration> => {
+            const codeVerifier = existing ?? generateCodeVerifier();
+            const codeChallenge = await generateCodeChallenge(codeVerifier);
+            const address = value.trim();
+            const response = await sdk.authentication.factors.registerFactor({ method: 'email', codeChallenge, value: address });
+            if (response.method !== 'email') {
+                throw new Error(`Expected an email registration, got ${response.method}`);
+            }
+            return { registrationId: response.registrationId, value: address, codeVerifier };
+        },
+    });
+}
+
+/**
+ * Finishes enrolling: the emailed code proves the operator can read the inbox, and the API answers
+ * with a fresh token whose session now carries the address as a verified factor.
+ *
+ * Stores that token for the reason {@link useVerifyAuthenticator} does — it is what lets the next
+ * enrolment or removal pass the recent-factor gate without a separate step-up — and invalidates the
+ * factor list, which is what draws the new address into the card above.
+ */
+export function useVerifyEmail() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        retry: false,
+        mutationFn: ({ registrationId, code, codeVerifier }: { registrationId: string; code: string; codeVerifier: string }) =>
+            sdk.authentication.factors.verifyFactorRegistration({ method: 'email', registrationId, code, codeVerifier }),
+        onSuccess: token => {
+            setSession(token.access_token, token.expires_in);
+            void queryClient.invalidateQueries({ queryKey: queryKeys.auth.factors() });
+        },
+    });
+}
+
 /**
  * Removes a factor. Answers 403 with a step-up requirement when the session's strong factor is
  * older than the gate allows; the caller reads that with `stepUpRequirement()` and re-verifies.
@@ -133,7 +193,9 @@ export function authenticatorFactors(challenge: MfaChallenge): MfaChallengeFacto
  */
 export function presentableFactors(challenge: MfaChallenge): MfaChallengeFactorOutput[] {
     const rank = (method: string): number => (method === 'authenticator' ? 0 : 1);
-    return challenge.factors.filter(factor => factor.method === 'authenticator' || factor.method === 'email').sort((a, b) => rank(a.method) - rank(b.method));
+    return challenge.factors
+        .filter(factor => factor.method === 'authenticator' || factor.method === 'email')
+        .sort((a, b) => rank(a.method) - rank(b.method));
 }
 
 /**

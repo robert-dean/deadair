@@ -359,7 +359,7 @@ export type PadUpload = z.infer<typeof PadUpload>;
  *
  * The operator names the address, so this is them choosing a file exactly as dropping one in the
  * library is. Nothing inspects what comes back and nothing records a claim about its licence -- see
- * `docs/decisions/pad-licensing.md`, whose line is redistribution rather than use
+ * `docs/internals/render.md` under "Pads", whose line is redistribution rather than use
  * generated from [PadFetch](../../../../data/contracts/render/render.types.ck#L220)
  */
 export const PadFetch = z.strictObject({

@@ -55,7 +55,8 @@
             "deadair.persona_stories.origin": "'operator' | 'model'",
             "deadair.persona_story_details.state": "'active' | 'suggested' | 'rejected'",
             "deadair.persona_story_details.origin": "'operator' | 'model'",
-            "deadair.pads.state": "Generated<'active' | 'rejected'>"
+            "deadair.pads.state": "Generated<'active' | 'rejected'>",
+            "deadair.persona_auditions.state": "Generated<'queued' | 'running' | 'done' | 'failed' | 'cancelled'>"
         }
     },
     "partitions": false,

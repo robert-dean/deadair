@@ -343,6 +343,39 @@ export interface DeadairPermissionsRelationTuples {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairPersonaAuditionBreaks {
+  attempts: Json;
+  auditionId: string;
+  createdAt: Generated<DateTime>;
+  id: Generated<string>;
+  next: Json;
+  ordinal: number;
+  previous: Json;
+  reason: string | null;
+  script: string | null;
+  writer: string | null;
+}
+
+export interface DeadairPersonaAuditions {
+  actorId: string | null;
+  cancelledAt: DateTime | null;
+  createdAt: Generated<DateTime>;
+  cursor: Generated<number>;
+  error: string | null;
+  finishedAt: DateTime | null;
+  id: Generated<string>;
+  personaId: string;
+  personaKey: string;
+  records: Json;
+  sourceName: string | null;
+  sourcePlaylistId: string;
+  sourcePluginId: string;
+  state: Generated<"queued" | "running" | "done" | "failed" | "cancelled">;
+  stationKey: Generated<string>;
+  transitions: number;
+  updatedAt: Generated<DateTime>;
+}
+
 export interface DeadairPersonaNotePasses {
   personaKey: string;
   ranAt: Generated<DateTime>;
@@ -809,6 +842,8 @@ export interface DB {
   "deadair.padSetMembers": DeadairPadSetMembers;
   "deadair.padSets": DeadairPadSets;
   "deadair.permissionsRelationTuples": DeadairPermissionsRelationTuples;
+  "deadair.personaAuditionBreaks": DeadairPersonaAuditionBreaks;
+  "deadair.personaAuditions": DeadairPersonaAuditions;
   "deadair.personaNotePasses": DeadairPersonaNotePasses;
   "deadair.personaNotes": DeadairPersonaNotes;
   "deadair.personas": DeadairPersonas;

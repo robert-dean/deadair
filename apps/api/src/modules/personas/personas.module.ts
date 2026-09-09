@@ -2,6 +2,7 @@ import { Container, Registry } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { PersonaRepository } from './persona.repository.js';
+import { PersonaAuditionRepository } from './persona.audition.repository.js';
 import { PersonaDistilService } from './persona.distil.service.js';
 import { PersonaExportService } from './persona.export.service.js';
 import { PersonaImportService } from './persona.import.service.js';
@@ -36,6 +37,10 @@ export const PersonasModule: ServerKitModule = {
         registry.register(PersonaRepository).useClass(PersonaRepository).asScoped();
         registry.register(PersonaNotesRepository).useClass(PersonaNotesRepository).asScoped();
         registry.register(PersonaStoriesRepository).useClass(PersonaStoriesRepository).asScoped();
+        // Scoped like the rest, and resolved from two places rather than one: the request that opens
+        // a run, and the scope each transition's job runs in. Nothing about it can air — see the
+        // class note and migration 0024.
+        registry.register(PersonaAuditionRepository).useClass(PersonaAuditionRepository).asScoped();
         registry.register(PersonasService).useClass(PersonasService).asScoped();
         registry.register(PersonaNotesService).useClass(PersonaNotesService).asScoped();
         registry.register(PersonaStoriesService).useClass(PersonaStoriesService).asScoped();

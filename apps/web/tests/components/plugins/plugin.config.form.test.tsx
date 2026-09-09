@@ -259,6 +259,45 @@ describe('PluginConfigForm', () => {
             }
         });
 
+        // A card is one row's own, so unlike the table there is no shared heading to keep: a cell
+        // that does not apply is simply not on the card, and a dash there would be a control-shaped
+        // thing on a screen with no room for one.
+        it('leaves a cell that does not apply off a phone card entirely', () => {
+            const restore = stubPhoneMedia();
+            try {
+                const KINDED: ConfigFieldDescriptor = {
+                    key: 'providers',
+                    label: 'Providers',
+                    type: 'list',
+                    columns: [
+                        { key: 'kind', label: 'Kind', type: 'string' },
+                        { key: 'baseUrl', label: 'Address', type: 'url', dependsOn: 'kind', dependsOnValues: ['server'] },
+                    ],
+                };
+
+                render(
+                    <PluginConfigForm
+                        plugin={pluginDetail({
+                            configFields: [KINDED],
+                            config: {
+                                providers: JSON.stringify([
+                                    { kind: 'server', baseUrl: 'http://localhost:11434/v1' },
+                                    { kind: 'vendor', baseUrl: 'http://stale.example.com/v1' },
+                                ]),
+                            },
+                        })}
+                    />,
+                );
+
+                expect(screen.getByText('Row 1')).toBeInTheDocument();
+                expect(screen.getByText('Row 2')).toBeInTheDocument();
+                expect(screen.getAllByLabelText('Address')).toHaveLength(1);
+                expect(screen.queryByLabelText('Address does not apply to row 2')).not.toBeInTheDocument();
+            } finally {
+                restore();
+            }
+        });
+
         it("offers the station's own categories in a column that asked for them", async () => {
             listTopics.mockResolvedValue({
                 topics: [

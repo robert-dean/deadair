@@ -230,3 +230,141 @@ describe('a credential inside a row', () => {
         ]);
     });
 });
+
+// A table whose columns are not all about the same row: a provider reached at an address the
+// operator runs, beside one reached where its vendor lives. What matters here is not only that the
+// cell stops being drawn but that it stops being SENT — a stale address left behind by a change of
+// kind is read straight into the plugin's network allowlist, so hiding it and storing it anyway
+// would fix the half nobody was complaining about.
+describe('a column that only some rows have', () => {
+    const KINDED: ConfigFieldDescriptor = {
+        key: 'providers',
+        label: 'Providers',
+        type: 'list',
+        columns: [
+            { key: 'name', label: 'Name', type: 'string' },
+            {
+                key: 'kind',
+                label: 'Kind',
+                type: 'select',
+                options: [
+                    { value: 'server', label: 'Server' },
+                    { value: 'vendor', label: 'Vendor' },
+                ],
+            },
+            { key: 'baseUrl', label: 'Address', type: 'url', dependsOn: 'kind', dependsOnValues: ['server'] },
+        ],
+    };
+
+    function drawKinded(rows: Record<string, unknown>[]) {
+        const onSubmit = vi.fn(async () => {});
+
+        render(
+            <ConfigFieldsForm
+                fields={[KINDED]}
+                stored={{ providers: JSON.stringify(rows) }}
+                secretsConfigured={{}}
+                onSubmit={onSubmit}
+                pending={false}
+                succeeded={false}
+                submitLabel="Save"
+                failureTitle="It could not be saved"
+                failureMessage="Nothing was written."
+            />,
+        );
+
+        return { onSubmit, user: setupUser() };
+    }
+
+    const sent = (onSubmit: ReturnType<typeof vi.fn>): Record<string, unknown>[] =>
+        JSON.parse((onSubmit.mock.calls.at(-1)?.[0] as { providers: string }).providers);
+
+    it('draws the cell on a row it applies to', () => {
+        drawKinded([{ name: 'ollama', kind: 'server', baseUrl: 'http://localhost:11434/v1' }]);
+
+        expect(screen.getByLabelText('Address')).toHaveValue('http://localhost:11434/v1');
+    });
+
+    it('draws a dash instead on a row it does not', () => {
+        drawKinded([{ name: 'claude', kind: 'vendor' }]);
+
+        expect(screen.queryByLabelText('Address')).not.toBeInTheDocument();
+        expect(screen.getByLabelText('Address does not apply to row 1')).toBeInTheDocument();
+    });
+
+    it('still draws the cell while the row is unclassified, which is every row just added', () => {
+        // The load-bearing case. A column has no default, so a new row holds nothing in its Kind
+        // cell, and a rule that hid the Address there would hide it on the one row most in need of
+        // filling in.
+        drawKinded([{ name: 'ollama' }]);
+
+        expect(screen.getByLabelText('Address')).toBeInTheDocument();
+    });
+
+    it('tells one row from another rather than hiding a column outright', () => {
+        drawKinded([
+            { name: 'ollama', kind: 'server', baseUrl: 'http://localhost:11434/v1' },
+            { name: 'claude', kind: 'vendor' },
+        ]);
+
+        expect(screen.getByLabelText('Address')).toHaveValue('http://localhost:11434/v1');
+        expect(screen.getByLabelText('Address does not apply to row 2')).toBeInTheDocument();
+        // The heading stays: the column belongs to the table, not to the row that happens to want it.
+        expect(screen.getByRole('columnheader', { name: 'Address' })).toBeInTheDocument();
+    });
+
+    it('leaves a cell that does not apply out of the row it sends', async () => {
+        // The point of the whole declaration. This row's address was typed before its kind was
+        // changed, and the host reads the url column of every stored row into the allowlist.
+        const { onSubmit, user } = drawKinded([{ $id: 'r1', name: 'claude', kind: 'vendor', baseUrl: 'http://stale.example.com/v1' }]);
+
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+        expect(sent(onSubmit)).toEqual([{ $id: 'r1', name: 'claude', kind: 'vendor' }]);
+    });
+
+    it('keeps sending the cells either side of a hidden one, which are addressed by position', async () => {
+        // The trap this guards: a cell is named by its column's position, so filtering the columns
+        // rather than asking per cell would write every later cell under its neighbour's key.
+        const { onSubmit, user } = drawKinded([
+            { $id: 'r1', name: 'claude', kind: 'vendor', baseUrl: 'http://stale.example.com/v1' },
+            { $id: 'r2', name: 'ollama', kind: 'server', baseUrl: 'http://localhost:11434/v1' },
+        ]);
+
+        await user.click(screen.getByRole('button', { name: 'Save' }));
+
+        await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+        expect(sent(onSubmit)).toEqual([
+            { $id: 'r1', name: 'claude', kind: 'vendor' },
+            { $id: 'r2', name: 'ollama', kind: 'server', baseUrl: 'http://localhost:11434/v1' },
+        ]);
+    });
+
+    it('shows the cell when the condition names a column the list does not declare', () => {
+        // Forgiving for the reason the field-level rule is: a condition nobody can resolve should
+        // not be the thing that hides a control.
+        render(
+            <ConfigFieldsForm
+                fields={[
+                    {
+                        key: 'providers',
+                        label: 'Providers',
+                        type: 'list',
+                        columns: [{ key: 'baseUrl', label: 'Address', type: 'url', dependsOn: 'kind', dependsOnValues: ['server'] }],
+                    },
+                ]}
+                stored={{ providers: JSON.stringify([{ baseUrl: 'http://localhost:11434/v1' }]) }}
+                secretsConfigured={{}}
+                onSubmit={vi.fn(async () => {})}
+                pending={false}
+                succeeded={false}
+                submitLabel="Save"
+                failureTitle="It could not be saved"
+                failureMessage="Nothing was written."
+            />,
+        );
+
+        expect(screen.getByLabelText('Address')).toBeInTheDocument();
+    });
+});

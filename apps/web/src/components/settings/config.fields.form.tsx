@@ -138,6 +138,18 @@ const isBlankRow = (row: FieldRow): boolean => Object.entries(row).every(([name,
  * it. Absent keeps whatever is stored, which is what lets an operator rename a row without retyping
  * the key beside it. `null` clears it — present and explicitly empty, rather than `''`, which is
  * what a half-typed field looks like. A row is only ever emptied of its credential deliberately.
+ *
+ * A cell that does not apply to its row ({@link appliesToRow}) is left out on the same footing as
+ * one nobody filled in, which is the point of the declaration rather than a tidiness: an address
+ * typed before a row's kind was changed would otherwise be stored and read straight into the
+ * plugin's network allowlist. A `secret` that stops applying is passed over entirely rather than
+ * cleared, because absent means "keep it" and destroying a credential is not what a rule about
+ * which cells apply should be taken to mean.
+ *
+ * `columns` stays the FULL declared list here and the visibility question is asked per cell. It has
+ * to: a cell is named by its column's POSITION (see {@link cellNameOf}), so filtering the array
+ * would shift every index after the first hidden column and write cells under their neighbours'
+ * keys, in silence.
  */
 const rowsForSubmission = (
     rows: readonly FieldRow[],
@@ -152,6 +164,8 @@ const rowsForSubmission = (
             const submitted: Record<string, unknown> = rowId === undefined ? {} : { [ROW_ID_KEY]: rowId };
 
             for (const [at, column] of columns.entries()) {
+                if (!appliesToRow(column, columns, row)) continue;
+
                 const cell = (row[cellNameOf(at)] ?? '').trim();
 
                 if (column.type === 'secret') {
@@ -342,6 +356,40 @@ function isVisible(field: ConfigFieldDescriptor, fields: readonly ConfigFieldDes
     const target = fields.findIndex(candidate => candidate.key === field.dependsOn);
     if (target === -1) return true;
     return isAnswered(values[nameOf(target)]);
+}
+
+/**
+ * {@link isVisible}'s twin one level down: whether a COLUMN applies to this particular row.
+ *
+ * The case it exists for is a table whose columns are not all about the same row — a provider list
+ * where one kind is reached at an address the operator runs and another at its vendor's. Drawing
+ * every column on every row puts a cell in front of somebody that their row has no use for, with
+ * nothing to tell it from one they simply have not filled in.
+ *
+ * It says more than the field-level rule does, which is why the answer is also consulted by
+ * {@link rowsForSubmission} rather than only by the drawing: a cell that does not apply is not sent
+ * at all. A stale address left behind by a change of kind would otherwise still be stored, and the
+ * host reads the `url` column of every row into the plugin's network allowlist.
+ *
+ * Forgiving three times over, and each one for {@link isVisible}'s reason — a rule about drawing
+ * should never be the thing that hides the control somebody needs:
+ *
+ * - a target this list does not declare shows the cell;
+ * - a target cell that is EMPTY shows the cell, which is the load-bearing one. A column has no
+ *   `default`, so every cell of a row just added is empty, and the alternative hides a cell on the
+ *   one row most in need of filling in;
+ * - values with no target are ignored.
+ */
+function appliesToRow(column: ConfigFieldColumn, columns: readonly ConfigFieldColumn[], row: FieldRow): boolean {
+    if (column.dependsOn === undefined) return true;
+
+    const target = columns.findIndex(candidate => candidate.key === column.dependsOn);
+    if (target === -1) return true;
+
+    const value = (row[cellNameOf(target)] ?? '').trim();
+    if (value.length === 0) return true;
+
+    return column.dependsOnValues === undefined ? true : column.dependsOnValues.includes(value);
 }
 
 /**
@@ -1020,17 +1068,22 @@ function RowsField({
                                 action={<RowControls index={index} last={rows.length - 1} disabled={disabled} onRemove={onRemove} onMove={onMove} />}
                                 below={
                                     <Stack gap="xs" mt="xs">
-                                        {columns.map((column, at) => (
-                                            <RowCell
-                                                key={column.key}
-                                                column={column}
-                                                labelled
-                                                choices={optionsFor(column)}
-                                                disabled={disabled}
-                                                cell={cellProps(`${name}.${index}.${cellNameOf(at)}`)}
-                                                secret={secretCell(row, column)}
-                                            />
-                                        ))}
+                                        {/* A card is one row's own, so a cell that does not apply
+                                            to it is simply not here — unlike the table below,
+                                            where the column belongs to every row at once. */}
+                                        {columns.map((column, at) =>
+                                            appliesToRow(column, columns, row) ? (
+                                                <RowCell
+                                                    key={column.key}
+                                                    column={column}
+                                                    labelled
+                                                    choices={optionsFor(column)}
+                                                    disabled={disabled}
+                                                    cell={cellProps(`${name}.${index}.${cellNameOf(at)}`)}
+                                                    secret={secretCell(row, column)}
+                                                />
+                                            ) : undefined,
+                                        )}
                                     </Stack>
                                 }
                             />
@@ -1054,13 +1107,28 @@ function RowsField({
                                     <Table.Tr key={cellKey(`${name}.${index}`)}>
                                         {columns.map((column, at) => (
                                             <Table.Td key={column.key}>
-                                                <RowCell
-                                                    column={column}
-                                                    choices={optionsFor(column)}
-                                                    disabled={disabled}
-                                                    cell={cellProps(`${name}.${index}.${cellNameOf(at)}`)}
-                                                    secret={secretCell(row, column)}
-                                                />
+                                                {appliesToRow(column, columns, row) ? (
+                                                    <RowCell
+                                                        column={column}
+                                                        choices={optionsFor(column)}
+                                                        disabled={disabled}
+                                                        cell={cellProps(`${name}.${index}.${cellNameOf(at)}`)}
+                                                        secret={secretCell(row, column)}
+                                                    />
+                                                ) : (
+                                                    // The header belongs to every row, so the column is not
+                                                    // absent here — only inapplicable to this one. A dash says
+                                                    // that, where an empty box would read as a cell somebody
+                                                    // forgot and a disabled input as one they could still fill.
+                                                    <Text
+                                                        size="sm"
+                                                        c="dimmed"
+                                                        ta="center"
+                                                        aria-label={`${column.label} does not apply to row ${index + 1}`}
+                                                    >
+                                                        —
+                                                    </Text>
+                                                )}
                                             </Table.Td>
                                         ))}
                                         <Table.Td>

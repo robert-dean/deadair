@@ -39,6 +39,10 @@ jobs:
                   BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
               run: |
                   set -u
+                  # A TAG push lands here too, and lands in this branch: `github.event.before` is
+                  # all zeros for one, so there is nothing to diff against and everything runs.
+                  # That is what a release wants — the one build nobody checked should not be the
+                  # one that gets a version number.
                   if [ -z "${BASE:-}" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
                       echo "No usable base commit, so running the Android jobs."
                       echo "changed=true" >> "$GITHUB_OUTPUT"

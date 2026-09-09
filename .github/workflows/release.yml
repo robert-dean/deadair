@@ -4,6 +4,11 @@ on:
     push:
         branches:
             - main
+        # A release is a tag. The branch trigger above keeps publishing the moving tags off `main`
+        # exactly as before — an operator on `latest` is meant to follow it — and a `v*` tag adds
+        # the version tags and a GitHub release on top. Both run the same build first.
+        tags:
+            - 'v[0-9]*'
 
 # One release at a time, and never cancelled: a run interrupted between two variants
 # leaves the registry holding half a release with nothing saying so.
@@ -15,6 +20,31 @@ permissions:
     contents: read
 
 jobs:
+    # `v0.1.0` becomes `0.1.0`, and a branch push becomes the empty string. Everything downstream
+    # branches on whether this is empty rather than re-testing `github.ref` in five places.
+    version:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        outputs:
+            value: ${{ steps.read.outputs.value }}
+            line: ${{ steps.read.outputs.line }}
+        steps:
+            - name: Read it off the ref
+              id: read
+              run: |
+                  set -eu
+                  if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+                      version="${GITHUB_REF_NAME#v}"
+                      # The major.minor line, which is the tag an operator pins to follow releases
+                      # without pinning a single one.
+                      line="${version%.*}"
+                  else
+                      version=""
+                      line=""
+                  fi
+                  echo "value=${version}" >> "$GITHUB_OUTPUT"
+                  echo "line=${line}" >> "$GITHUB_OUTPUT"
+
     build:
         uses: ./.github/workflows/build.yml
         secrets: inherit
@@ -26,9 +56,11 @@ jobs:
     # waits: this publishes the commit sha alone and `promote` moves `latest`, `slim` and `full`
     # once the tests have passed. An immutable tag nobody pulls by name is free if they do not.
     images:
+        needs: [version]
         uses: ./.github/workflows/images.yml
         with:
             push: true
+            version: ${{ needs.version.outputs.value }}
         secrets: inherit
 
     # A registry-side retag: `imagetools create` copies a manifest between tags in the registry,
@@ -41,7 +73,7 @@ jobs:
     # is the lesser problem, and it is not a silent one — a name that drifts from the images
     # workflow's names a tag that was never pushed, and `imagetools` fails on the spot.
     promote:
-        needs: [build, images]
+        needs: [version, build, images]
         runs-on: ubuntu-latest
         timeout-minutes: 10
         env:
@@ -60,3 +92,65 @@ jobs:
                   docker buildx imagetools create --tag "${IMAGE}:latest" "${IMAGE}:${GITHUB_SHA}"
                   docker buildx imagetools create --tag "${IMAGE}:slim" "${IMAGE}:slim-${GITHUB_SHA}"
                   docker buildx imagetools create --tag "${IMAGE}:full" "${IMAGE}:full-${GITHUB_SHA}"
+
+            # The release LINE — `0.1`, `slim-0.1`, `full-0.1` — which is the tag to pin to follow
+            # releases without pinning one. It moves, so it waits for the tests here rather than
+            # being published beside the exact version in the images job, which does not.
+            - name: Move the release line onto this commit
+              if: needs.version.outputs.line != ''
+              env:
+                  LINE: ${{ needs.version.outputs.line }}
+              run: |
+                  set -eux
+                  docker buildx imagetools create --tag "${IMAGE}:${LINE}" "${IMAGE}:${GITHUB_SHA}"
+                  docker buildx imagetools create --tag "${IMAGE}:slim-${LINE}" "${IMAGE}:slim-${GITHUB_SHA}"
+                  docker buildx imagetools create --tag "${IMAGE}:full-${LINE}" "${IMAGE}:full-${GITHUB_SHA}"
+
+    # The GitHub release, on a tag run only. Last, because a release entry pointing at images that
+    # failed their tests would be worse than no entry at all.
+    publish:
+        needs: [version, promote]
+        if: needs.version.outputs.value != ''
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            # The one job that writes anything to the repository, and the only reason the
+            # workflow-level `contents: read` is widened at all.
+            contents: write
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            # The notes are the changelog entry for this version, and nothing generates them from
+            # commit subjects: those are prose written for a person, so a generated list of them
+            # would be strictly worse than the section somebody already wrote. A tag whose version
+            # has no entry fails here rather than publishing an empty release.
+            - name: Take the notes out of the changelog
+              env:
+                  VERSION: ${{ needs.version.outputs.value }}
+              run: |
+                  set -euo pipefail
+                  awk -v v="## [${VERSION}]" '
+                      index($0, v) == 1 { found = 1; next }
+                      found && /^## \[/ { exit }
+                      found && /^\[[^]]+\]: / { exit }
+                      found { print }
+                  ' CHANGELOG.md > notes.md
+                  if [ ! -s notes.md ]; then
+                      echo "::error::CHANGELOG.md has no entry for ${VERSION}. Add one before tagging."
+                      exit 1
+                  fi
+                  cat notes.md
+
+            - name: Publish it
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  VERSION: ${{ needs.version.outputs.value }}
+              run: |
+                  set -euo pipefail
+                  gh release create "${GITHUB_REF_NAME}" \
+                      --verify-tag \
+                      --title "deadair ${VERSION}" \
+                      --notes-file notes.md

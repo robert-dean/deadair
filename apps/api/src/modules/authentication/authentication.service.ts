@@ -14,6 +14,7 @@ import {
     BaseAuthenticationRequest,
     ClientCredentialsAuthenticationRequest,
     EnrollmentRequiredResponse,
+    FactorChallengeEmailStartResponse,
     FactorChallengeFidoStart,
     FactorChallengeFidoStartResponse,
     FactorChallengeStartRequest,
@@ -62,7 +63,7 @@ import { ResponseCookieJar } from './response.cookie.jar.js';
 // `format(output=snake)` schemas). The public methods `requestToken` and `startFactorChallenge`
 // run `parseAndValidate` to flip these to the snake_case wire shape.
 type AuthenticationTokenInternal = AuthenticationTokenIssued | MfaRequiredResponse;
-type FactorChallengeStartInternal = FactorChallengeFidoStartResponse;
+type FactorChallengeStartInternal = FactorChallengeFidoStartResponse | FactorChallengeEmailStartResponse;
 type AuthenticateHandler = (request: BaseAuthenticationRequest) => Promise<AuthenticationTokenInternal>;
 type StartLoginHandler = (request: BaseAuthenticationLoginStart) => Promise<AuthenticationLoginStartResponse>;
 
@@ -174,11 +175,20 @@ export class AuthenticationService {
         return await parseAndValidateArray(factors, AuthenticationFactor);
     }
 
+    // The `default` arm is load-bearing rather than defensive. This switch answered `fido` alone and
+    // fell off the end for the other two, and the `undefined` that produced went into the RESPONSE
+    // `parseAndValidate` below — which reported `400 {"_root":"Expected object"}`, the same shape a
+    // malformed REQUEST body gets. So a well-formed email challenge, the one input that gets past
+    // request validation and into the hole, looked exactly like a client sending nothing, and the
+    // reported bug was a day spent in the body parser and the middleware chain. An unimplemented
+    // method has to say so in its own status.
     async startFactorChallenge(request: FactorChallengeStartRequest): Promise<FactorChallengeStartResponse> {
-        const internal = await (async (): Promise<FactorChallengeStartInternal | undefined> => {
+        const internal = await (async (): Promise<FactorChallengeStartInternal> => {
             switch (request.method) {
                 case 'fido':
                     return this.startFidoFactorChallenge(request);
+                default:
+                    throw httpError(501).withDetails({ method: `${request.method} factor challenges are not implemented` });
             }
         })();
         return await parseAndValidate(internal, FactorChallengeStartResponse);

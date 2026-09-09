@@ -11,6 +11,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
+import type { Duration } from 'luxon';
 
 import { PersonaAuditionJob, type AuditionPayload } from '../../../src/modules/personas/persona.audition.job.js';
 import type { Audition, AuditionRecord } from '../../../src/modules/personas/persona.audition.js';
@@ -118,7 +119,8 @@ function build(
     });
     const writers = { write } as never;
 
-    const send = vi.fn(async () => {});
+    // Typed by its parameters, so a test can read the payload and the send options off the call.
+    const send = vi.fn(async (_name: string, _payload: AuditionPayload, _options?: { startAfter?: Duration }) => {});
     const jobs = { send } as never;
 
     const config = { get: (_key: string, fallback: unknown) => fallback } as unknown as AppConfig;
@@ -411,6 +413,81 @@ describe('PersonaAuditionJob: the facts and the stories', () => {
         await run({ auditionId: 'audition-1', ordinal: 0 });
 
         expect(seen[0]?.story?.title).toBe('The Barstow lights');
+    });
+});
+
+describe('PersonaAuditionJob: a busy station', () => {
+    /** The model lost to the station, and the floor covering for it — which on air is a good outcome. */
+    const PREEMPTED = {
+        written: { script: 'Bill Withers there.' },
+        writer: 'deterministic',
+        attempts: [
+            {
+                writer: 'model',
+                outcome: 'failed',
+                durationMs: 30_000,
+                reason: 'the model writer failed: the station needed the model',
+                code: 'unavailable',
+            },
+            { writer: 'deterministic', outcome: 'written', durationMs: 1, written: { script: 'Bill Withers there.' } },
+        ],
+    };
+
+    it('waits and asks again rather than recording the floor', async () => {
+        const { run, recordBreak, send } = build({ claimed: audition(), result: PREEMPTED });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        // Recording this would tell an operator the floor covered a transition their character was
+        // never asked about — a fact about a busy Tuesday reported as a fact about the sheet.
+        expect(recordBreak).not.toHaveBeenCalled();
+        expect(send).toHaveBeenCalledWith('personas.audition', { auditionId: 'audition-1', ordinal: 0, waited: 1 }, expect.anything());
+    });
+
+    it('leaves the model alone for a while before trying again', async () => {
+        const { run, send } = build({ claimed: audition(), result: PREEMPTED });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        // What is being waited out is a busy station rather than a queue, so it is longer than the
+        // gate's own patience — asking again the moment the queue clears just loses the race again.
+        expect(send.mock.calls[0]![2]?.startAfter?.as('seconds')).toBeGreaterThan(30);
+    });
+
+    it('takes the answer as it stands once it has waited long enough', async () => {
+        const { run, recordBreak, send } = build({ claimed: audition(), result: PREEMPTED });
+
+        await run({ auditionId: 'audition-1', ordinal: 0, waited: 3 });
+
+        // There is no state that means "and it will be free eventually". A station busy for three
+        // quarters of an hour is one to read the floor's lines from, with the reason saying so.
+        expect(recordBreak).toHaveBeenCalled();
+        expect(send).toHaveBeenCalledWith('personas.audition', { auditionId: 'audition-1', ordinal: 1 });
+    });
+
+    it('records a model that DECLINED rather than waiting for it', async () => {
+        // Declining is the reading an audition exists to collect: the model had the slot and chose
+        // to say nothing.
+        const { run, recordBreak, send } = build({ claimed: audition(), result: NOTHING });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(recordBreak).toHaveBeenCalled();
+        expect(send).toHaveBeenCalledWith('personas.audition', { auditionId: 'audition-1', ordinal: 1 });
+    });
+
+    it('records a writer that actually broke rather than waiting for it', async () => {
+        const broken = {
+            attempts: [{ writer: 'model', outcome: 'failed', durationMs: 12, reason: 'the model writer failed: undefined is not a function' }],
+            reason: 'every writer had nothing to say',
+        };
+        const { run, recordBreak } = build({ claimed: audition(), result: broken });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        // No code, so nothing says this was the station's doing. Waiting on it would hide a fault
+        // behind a run that never finishes.
+        expect(recordBreak).toHaveBeenCalled();
     });
 });
 

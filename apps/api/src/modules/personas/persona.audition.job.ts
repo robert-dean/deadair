@@ -2,6 +2,7 @@ import { Container, Injectable } from 'injectkit';
 import { JobContext } from '@maroonedsoftware/jobbroker';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { AppConfig } from '@maroonedsoftware/appconfig';
+import { Duration } from 'luxon';
 import { Logger } from '@maroonedsoftware/logger';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { BreakWriterRegistry } from '#modules/director/break.writer.registry.js';
@@ -31,7 +32,43 @@ export interface AuditionPayload {
     auditionId?: string;
     /** Which transition, from 0. Absent means the first, which is what the opening send means. */
     ordinal?: number;
+    /**
+     * How many times this transition has already been put off because the station wanted the model.
+     *
+     * In the payload rather than on the row, because it is a fact about this attempt at one
+     * transition and not about the run: a transition that eventually writes leaves nothing behind,
+     * and a row carrying a counter would need clearing every time the cursor moved. Absent is the
+     * first go.
+     */
+    waited?: number;
 }
+
+/**
+ * How long to leave the model alone before trying a transition again.
+ *
+ * Longer than the gate's own patience (`patienceFor`'s 30-second default), because what this is
+ * waiting out is not a queue but a busy STATION: a refill, a break being written, a production pass.
+ * Trying again the moment the queue clears would just lose the race again.
+ */
+const WAIT_FOR_THE_MODEL = Duration.fromObject({ seconds: 45 });
+
+/**
+ * How many times a transition may be put off before its answer is taken as it stands.
+ *
+ * A bound rather than a rule about the station's state, because there is no state that means "and
+ * it will be free eventually". A station busy for three quarters of an hour is one an operator
+ * should be reading the floor's lines from, with the run saying plainly that is what happened.
+ */
+const MOST_WAITS = 3;
+
+/**
+ * The failures that are facts about the minute rather than about the sheet.
+ *
+ * `timeout` is the gate's queue running out of patience; `unavailable` is the station taking the
+ * model back mid-generation, which is `preview` being preempted and is the ordinary outcome of
+ * auditioning while the station is working. Neither says anything about the character.
+ */
+const BUSY: ReadonlySet<string> = new Set(['timeout', 'unavailable']);
 
 /**
  * One transition of an audition: write the break, record it, and send the next.
@@ -92,6 +129,7 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
 
         const { auditionId } = payload;
         const ordinal = payload.ordinal ?? 0;
+        const waited = payload.waited ?? 0;
 
         // The claim is the whole of the concurrency story: it moves nothing unless this job's
         // transition is still the one the run is waiting for, and it refuses a settled row. A
@@ -104,7 +142,7 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
         }
 
         try {
-            const wrote = await this.writeTransition(audition, ordinal);
+            const wrote = await this.writeTransition(audition, ordinal, waited);
             if (!wrote) return;
 
             if (ordinal + 1 < audition.transitions) {
@@ -135,7 +173,7 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
      * started, is FAILED rather than carried on: both are states the console has to be able to
      * explain, and a run that quietly stopped at transition four of twenty is one nobody can read.
      */
-    private async writeTransition(audition: Audition, ordinal: number): Promise<boolean> {
+    private async writeTransition(audition: Audition, ordinal: number, waited: number): Promise<boolean> {
         const transition = transitionAt(audition.records, ordinal);
         if (transition === undefined) {
             await this.auditions.fail(audition.id, `this audition has no records for transition ${ordinal}`);
@@ -178,6 +216,19 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
                 now: Date.now(),
             }),
         );
+
+        // The station wanted the model back, or never let it go. Nothing is recorded and the cursor
+        // does not move: the same transition is sent again in a minute, and the run simply takes
+        // longer. See {@link busyModel}.
+        if (waited < MOST_WAITS && busyModel(result.attempts)) {
+            await this.jobs.send('personas.audition', { auditionId: audition.id, ordinal, waited: waited + 1 }, { startAfter: WAIT_FOR_THE_MODEL });
+            this.logger.info('personas: the station wanted the model, so this transition waits', {
+                audition: audition.id,
+                ordinal,
+                waited: waited + 1,
+            });
+            return false;
+        }
 
         await this.auditions.recordBreak(audition.id, ordinal, {
             previous: transition.previous,
@@ -269,12 +320,36 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
 }
 
 /**
+ * Whether the model was lost to the station rather than having nothing to say.
+ *
+ * **This is what stops an audition measuring the wrong thing.** A run at the `preview` tier gives the
+ * model up to every refill, every real break and every production pass, and when it does the registry
+ * falls through to the floor and produces a perfectly good line in the character's voice. On air that
+ * is the arrangement working. In a MEASUREMENT it is a lie: an operator reading "the floor covered
+ * eight of ten" would take a fact about a busy Tuesday for a fact about their character sheet, and
+ * would go and rewrite a sheet that was never asked.
+ *
+ * So a transition whose model attempt failed on `timeout` or `unavailable` is not recorded at all —
+ * it is put off and asked again. Any other failure IS about the writer and is recorded as it stands.
+ *
+ * Only the attempts that FAILED are examined: a model that declined had the slot and made a
+ * decision, which is exactly the reading an audition exists to collect.
+ */
+const busyModel = (attempts: readonly { outcome: string; code?: string }[]): boolean =>
+    attempts.some(attempt => attempt.outcome === 'failed' && attempt.code !== undefined && BUSY.has(attempt.code));
+
+/**
  * One writer's turn, as the row keeps it.
  *
  * Every attempt is kept and not only the winner, on the registry's own argument: a model that
  * declined and a floor that covered for it are two facts, and the second alone reads as a station
  * that never had a model. Over a run those attempts are the measurement — the decline RATE is what
  * `break.declines.ts` reports after the fact, and this is the same thing before it.
+ *
+ * `WriteAttempt.code` is deliberately not kept. It exists so {@link busyModel} can tell a lost model
+ * slot from a broken writer, which is a decision made before anything is recorded; by the time a row
+ * is written the reason already says what happened in words, and a code on the row would be a second
+ * spelling of it for nobody.
  */
 function toAttempt(attempt: { writer: string; outcome: string; written?: { script: string }; reason?: string; durationMs: number }): AuditionAttempt {
     return {

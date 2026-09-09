@@ -1,5 +1,6 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
+import { isPluginError } from '@deadair/plugin-sdk';
 import type { BreakWriteRequest, BreakWriter, WriteDetail, WrittenBreak } from './break.writer.js';
 import { errorText } from '#modules/shared/error.text.js';
 
@@ -50,6 +51,19 @@ export interface WriteAttempt {
     written?: WrittenBreak;
     /** Why it did not, when it did not. A sentence, because its destination is a person. */
     reason?: string;
+    /**
+     * What KIND of failure it was, when the writer threw a described one.
+     *
+     * The reason beside it is a sentence for a person; this is for a caller that has to decide
+     * something. The two cases that matter are `timeout` and `unavailable`, which is how the gate
+     * reports "the queue ran out of patience" and "the station took the model back" — both of them
+     * facts about the MINUTE rather than about the writer, and both indistinguishable from a real
+     * fault if all you have is prose.
+     *
+     * Present only on a `failed` attempt whose error carried a code. A writer that declined made a
+     * decision rather than hitting something, so there is nothing to classify.
+     */
+    code?: string;
     /**
      * How long it took.
      *
@@ -145,6 +159,7 @@ export class BreakWriterRegistry {
 
         let written: WrittenBreak | undefined;
         let failure: string | undefined;
+        let code: string | undefined;
         try {
             written = await writer.write(request);
         } catch (error) {
@@ -153,6 +168,9 @@ export class BreakWriterRegistry {
             // even though the station absorbs it. A writer declining is not.
             this.logger.warn(`director: a break writer failed (${request.kind}/${writer.name}: ${message})`);
             failure = `the ${writer.name} writer failed: ${message}`;
+            // Kept beside the sentence rather than instead of it: what an operator reads is the
+            // prose, and what a caller can act on is this. See `WriteAttempt.code`.
+            code = isPluginError(error) ? error.code : undefined;
         }
 
         // Asked on every branch, because a model that produced a script and a model that spent forty
@@ -167,7 +185,8 @@ export class BreakWriterRegistry {
         }
         const kept = detail === undefined ? {} : { detail };
 
-        if (failure !== undefined) return { writer: writer.name, outcome: 'failed', reason: failure, durationMs: took(), ...kept };
+        if (failure !== undefined)
+            return { writer: writer.name, outcome: 'failed', reason: failure, durationMs: took(), ...(code === undefined ? {} : { code }), ...kept };
 
         if (written === undefined) {
             // The writer's own reason where it has one. This class knows which writer declined and

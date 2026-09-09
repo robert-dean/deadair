@@ -2029,7 +2029,7 @@ export class DirectorService {
      * thing in the pass whose entire purpose is to make a failure more bearable, so it must not be
      * able to cause one.
      */
-    private async holdWarmUp(lineup: StationLineup, rules: ResolvedRules): Promise<void> {
+    private async holdWarmUp(lineup: StationLineup, _rules: ResolvedRules): Promise<void> {
         // Everything is inside the try, guards included. This is the one step in the pass whose
         // entire purpose is to make a bad moment more bearable, so it must not be able to make one:
         // a throw out of the cheapest-looking condition here would take the commit pass with it and

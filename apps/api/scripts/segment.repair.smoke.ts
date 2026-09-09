@@ -23,7 +23,7 @@
  *   node --import @swc-node/register/esm-register ./scripts/segment.repair.smoke.ts
  */
 import { AppConfigBuilder, AppConfigResolverEnv, AppConfigSourceDotenv } from '@maroonedsoftware/appconfig';
-import { Kysely, PostgresDialect, sql } from 'kysely';
+import { Kysely, PostgresDialect } from 'kysely';
 import { KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroonedsoftware/kysely';
 
 import type { DB } from '../src/modules/data/db.js';

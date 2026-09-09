@@ -33,9 +33,6 @@ import {
     FidoFactorRegistrationVerification,
     PasswordFactorRegistration,
     PasswordFactorRegistrationResponse,
-    PhoneFactorRegistration,
-    PhoneFactorRegistrationResponse,
-    PhoneFactorRegistrationVerification,
 } from './types/registration.types.js';
 import { httpError, unauthorizedError } from '@maroonedsoftware/errors';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';

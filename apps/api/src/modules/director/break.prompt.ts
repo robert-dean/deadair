@@ -36,7 +36,7 @@
 
 import { sentencesWithin, withoutCues, type LlmMessage, type SpeechCue } from '@deadair/plugin-sdk';
 import { padCue, withoutPads } from '#modules/render/pad.cues.js';
-import { MAX_REACTIONS, speakableScript, stripWrapping } from '#modules/render/speakable.script.js';
+import { MAX_REACTIONS, speakableScript } from '#modules/render/speakable.script.js';
 import {
     characterFault,
     latitudeOf,

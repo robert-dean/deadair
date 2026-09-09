@@ -32,13 +32,13 @@ window" checkbox alone changes nothing an operator would notice, because the coo
 actually refusing the records.
 
 ## What is already in the tree, and what it costs to reach
-
 **`resolveRules` is the whole evaluation path and it needs no change.**
 [rotation.rules.ts](../../apps/api/src/modules/director/rotation.rules.ts) resolves tightest-last:
-the mode's baseline (`station` for a `rotation`, `NO_RULES` for a `setlist` or a `feature`), then the
-lineup's own overrides field by field. An overrule is an override, so this is already the code that
-applies it. Nothing new judges anything, which keeps `docs/decisions/on-air-ownership.md` intact:
-the schedule stays a document, a resolver and a timer that posts commands.
+the mode's baseline (`station` for a `rotation`, `NO_RULES` for a `setlist` or a `feature`), then
+the lineup's own overrides field by field. An overrule is an override, so this is already the code
+that applies it. Nothing new judges anything, which keeps `docs/internals/director.md` § "Who owns
+the running order" intact: the schedule stays a document, a resolver and a timer that posts
+commands.
 
 **The row already holds it.** `station.lineup.repository.ts` selects and writes `rules` as jsonb, and
 `StationLineup.rules` reads it back. The column has been round-tripping an empty bag since it was
@@ -176,4 +176,5 @@ never the reverse.
   argument about a stale draw and is deliberately a different mechanism.
 - [director-and-lineups.md](director-and-lineups.md) for the daypart schedule this hangs off, built
   2026-08-19.
-- `docs/decisions/on-air-ownership.md` for why the schedule may never evaluate a rule itself.
+- `docs/internals/director.md` § "Who owns the running order" for why the schedule may never
+  evaluate a rule itself.

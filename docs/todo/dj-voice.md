@@ -151,8 +151,8 @@ Read this rather than the design above it, which is kept for its reasoning.
 - **The audio streams.** `speak()` returns a `ReadableStream<Uint8Array>`, not bytes, and it is
   usually the engine's own `host.fetch` body forwarded straight through. `ContentStore.writeStream`
   hashes as it writes, so a long break never exists whole in the process. This first shipped as
-  `docs/decisions/plugin-streaming.md`'s handle-and-base64-chunks protocol and was cut back to a
-  plain stream once the subprocess option closed; see `docs/decisions/plugin-trust.md`.
+  a handle-and-base64-chunks protocol and was cut back to a plain stream once the subprocess option
+  closed; see `packages/plugin-sdk/CLAUDE.md` § "Trust and egress".
 - **A voice is an opaque station-level id.** The host passes `host` or `newsreader` and never
   interprets it; each plugin maps it in its own config. That is v1's engine-agnostic ref kept and
   v1's host-side per-provider matrix left behind.

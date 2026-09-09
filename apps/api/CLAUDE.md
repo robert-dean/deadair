@@ -167,6 +167,20 @@ disk the operator's uptime has earned. The route is `platform.manage` rather tha
 on `traces.ck`'s argument plus a concrete case: at `LOG_LEVEL=4` the harbor logs every header of
 every control call, so the bridge secret can be in `liquidsoap.log` in plain text.
 
+## How work is dispatched
+
+**Four mechanisms, and which one a piece of work takes is decided by its properties rather than by taste.**
+
+A **director command** on `DirectorMailbox` for anything that changes what airs. One at a time and in order, because the whole of `docs/internals/director.md`'s ownership rule is that there is one writer of the running order; a second path into it is the bug that file enumerates four times.
+
+A **pg-boss job** (`jobs.send`) for work that is slow, outbound, wants retries, and that nobody is waiting on. The worked example is `onAired`: the rundown's own event records what a listener actually heard and hands everything downstream of that — the scrobble, the history write's followers — to jobs, deliberately NOT to a director command, because none of it changes what is on air and a slow destination must not sit in front of the thing that does.
+
+**`AfterCommit`** for work that must see its own row durable and would read it too early inline. A settings reload (Postgres holds `NOTIFY` until COMMIT), a plugin reinit (`PluginLifecycleManager` reads that row on its own pooled connection and would otherwise wait on the lock the request is holding), a `recast`. The rule of thumb: if the work re-reads what the request just wrote, it is this one.
+
+A **plain call** for anything synchronous the caller is actually waiting on. Most code.
+
+**There is no event bus, and the absence is deliberate.** `@maroonedsoftware/eventbus` is a dependency this app declares and never imports. A synchronous fail-fast bus on the aired edge makes one slow or broken subscriber — a push destination, a scrobble — cost the station the top-up that should have followed, unless every subscriber is defensively wrapped, which is a discipline rather than a structure. The four above already say where each of those belongs. And **admission control is not a dispatch mechanism**: whether a production is admitted as a PASS or a BEAT is a decision about content, it is argued in `docs/todo/produced-episodes.md`, and building it as a fifth channel here is the shape to refuse.
+
 ## Plugins, from the host side
 
 **A capability with several plugins and no setting picks the FIRST, and says so.** `selectPlugin`

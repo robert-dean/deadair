@@ -10,8 +10,9 @@ Two rules for this directory:
 
 - **A file here describes the current tree**, with two exceptions: `from-v1.md`, which is explicitly
   a map of the pre-re-scaffold station and says so on every claim, and `todo.md`, which is the raw
-  idea list and is scoped against nothing. See `docs/decisions/` for calls that were made and
-  closed, and the run directories under `.claude/handoffs/` for work that was decomposed and built.
+  idea list and is scoped against nothing. Calls that were made and closed are argued in the scoped
+  files themselves — `docs/internals/`, `apps/api/CLAUDE.md`, `packages/plugin-sdk/CLAUDE.md` — under
+  the headings the root `CLAUDE.md` lists.
 - **Verify before building.** These notes name tables, columns and modules as they stood on the date
   in each file's header. Check `apps/api/src/modules/modules.ts` and the migrations before relying
   on any of it.
@@ -167,8 +168,8 @@ any feature:
 1. ~~**[provider-audio-failures.md](provider-audio-failures.md)**~~, called the blocker under three
    other files and with the worst numbers on this page: 13 of 581 tracks measured, four of eight
    skipped in a hand-built order, two seconds of digital silence on air. **Defused 2026-08-14** by
-   `docs/decisions/bytes-before-air.md`: a record is not committed until its audio is local, so the
-   silence this describes is no longer reachable by that path.
+   `docs/internals/director.md` § "Nothing airs until its bytes are here": a record is not committed
+   until its audio is local, so the silence this describes is no longer reachable by that path.
 2. ~~**[render-plugin-readiness.md](render-plugin-readiness.md)**~~, a break written off for a plugin
    three hundred milliseconds from being up. **Pieces 1 and 2 built 2026-08-21**, which that file
    says are the two worth having; piece 3 is deferred on its own argument and it calls it the weakest

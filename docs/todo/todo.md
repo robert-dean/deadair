@@ -60,32 +60,29 @@ points at that file. Checked against the tree on 2026-08-11.
 - [ ] more music sources (pandora, ?): youtube music and apple music appear to be hard to impossible
     - scoped since: `youtube-music.md` splits it into a catalog half that is ordinary plugin code
       and an audio half that is a second track fetcher and a sidecar
-- [~] add foley, sounds, etc (especially useful for "callers" so you hear background noise like a dog
-      barking) — the callers are real, the DELIVERY half came with them (`SPEECH_CUES` is eight, and
-      a caller may cough, clear its throat, sniff or groan where a presenter keeps the original
+- [~] add foley, sounds, etc (especially useful for "callers" so you hear background noise like a
+      dog barking) — the callers are real, the DELIVERY half came with them (`SPEECH_CUES` is eight,
+      and a caller may cough, clear its throat, sniff or groan where a presenter keeps the original
       four), and the SOUNDBOARD landed 2026-08-26: `deadair.pads`, a board per persona, `[sfx:name]`
       in a script, and the render path splitting at the marker to join the takes around the sound.
       The mixing that was blocking this happens in the `analysis/` sidecar, as predicted, and never
-      in Node.
-      A production BEAT carries one too, host-only: a caller is never offered a board, because the
-      board is in the studio and they are on a telephone, and the programme's ceiling is two rather
-      than the break's one-per-segment. And a pad belongs to the LIBRARY with named SETS over it
-      (`deadair.pad_sets`, `topics`' shape), so one air horn serves six characters without six copies
-      and one library can be cut two ways.
-      **No stock pack ships**, and that is a decision rather than a gap:
-      `docs/decisions/pad-licensing.md` refuses attribution-requiring audio outright, because a radio
-      station has nowhere to put a credit and the obligation would travel silently to whoever
-      installed this. What is built is the machinery — `assets/pads/MANIFEST.json` for per-file
-      provenance including a checksum and the uploader who ASSERTED the licence, and a first-boot
-      copy guarded on the library being empty so a stock sound thrown away stays thrown away. What is
-      left is sourcing verified CC0 audio, which is a research task with a legal edge rather than a
-      coding one.
-      What is still open is the thing this line was actually asking for. A dog barking BEHIND
-      somebody is not a pad: a
-      pad is a sound at a MOMENT, and this is a bed running under a whole turn, so it wants
-      `AudioJoin.overlays` given a SPAN instead of an anchor. `MAX_OFFSET_MS` names that boundary in
-      as many words — past about three seconds a sound starting before the words end has stopped
-      being the same moment and become a second thing happening
+      in Node. A production BEAT carries one too, host-only: a caller is never offered a board,
+      because the board is in the studio and they are on a telephone, and the programme's ceiling is
+      two rather than the break's one-per-segment. And a pad belongs to the LIBRARY with named SETS
+      over it (`deadair.pad_sets`, `topics`' shape), so one air horn serves six characters without
+      six copies and one library can be cut two ways. **No stock pack ships**, and that is a
+      decision rather than a gap: `docs/internals/render.md` § "Pads" refuses attribution-requiring
+      audio outright, because a radio station has nowhere to put a credit and the obligation would
+      travel silently to whoever installed this. What is built is the machinery —
+      `assets/pads/MANIFEST.json` for per-file provenance including a checksum and the uploader who
+      ASSERTED the licence, and a first-boot copy guarded on the library being empty so a stock
+      sound thrown away stays thrown away. What is left is sourcing verified CC0 audio, which is a
+      research task with a legal edge rather than a coding one. What is still open is the thing this
+      line was actually asking for. A dog barking BEHIND somebody is not a pad: a pad is a sound at
+      a MOMENT, and this is a bed running under a whole turn, so it wants `AudioJoin.overlays` given
+      a SPAN instead of an anchor. `MAX_OFFSET_MS` names that boundary in as many words — past about
+      three seconds a sound starting before the words end has stopped being the same moment and
+      become a second thing happening
 - [x] console/logs/activity feed — built 2026-08-13, with the silence diagnosis it was paired with
       in `station-intelligence.md` §8. `GET /activity` unions `station_events`, `segment_events` and
       `play_history`; the console draws it at `/activity`

@@ -137,5 +137,5 @@ Each leaves the tree working and is one commit.
   §2 for the budget that is deliberately not built.
 - [director-and-lineups.md](director-and-lineups.md) for "plugins that programme the station", which
   is the general case of this file.
-- `docs/decisions/plugin-trust.md` for why a plugin fetching somebody else's chart in the host realm
-  is unremarkable.
+- `packages/plugin-sdk/CLAUDE.md` § "Trust and egress" for why a plugin fetching somebody else's
+  chart in the host realm is unremarkable.

@@ -55,14 +55,13 @@ Everything below is what lyrics ARE for, given that.
 | The DJ knowing what a song is about | yes | into a prompt | real, and the only risky one |
 | An excerpt in the similarity embedding text | no | into a vector | small, nearly free, and it was missed |
 | A lyrics panel in the console | no | yes | not scoped here |
-
 **The vocal onset is the one that pays for the feature**, and it needs no intelligence at all.
 `track-analysis.md` defers a beat layer whose `vocal_onset` field has one consumer, the talk-up
 limit, and the four measured cue points only approximate it: `introEnd` is "the beat established, OR
 the vocal in", which is a detector's guess about two different events. A synced lyric already
 carries the answer as a timestamp somebody typed while listening, and it arrives with no decoder, no
-model, and none of the licence exposure that made `docs/decisions/analysis-licensing.md` necessary
-(the toolkits that do vocal separation are largely copyleft; a `[00:12.40]` is a number).
+model, and none of the licence exposure that made `analysis/README.md` § "The rule, stated once"
+necessary (the toolkits that do vocal separation are largely copyleft; a `[00:12.40]` is a number).
 
 Three things keep that honest and all three belong in the code that reads it. **Read the marker
 section after them**: it is what this use turned out to be once somebody had built it, and the first
@@ -501,6 +500,6 @@ feature justified by a talk-up limit.
   is recorded from the other side.
 - [pick-artist-matching.md](pick-artist-matching.md) for what a near-miss match costs when nothing
   errors.
-- `docs/decisions/analysis-licensing.md` for the shape of the licence argument this file makes a
-  different version of: there the rule was about what enters the analysis path, here it is about
-  what leaves the station's mouth.
+- `analysis/README.md` § "The rule, stated once" for the shape of the licence argument this file
+  makes a different version of: there the rule was about what enters the analysis path, here it is
+  about what leaves the station's mouth.

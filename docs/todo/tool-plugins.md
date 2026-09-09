@@ -168,5 +168,5 @@ Both of the following were re-read on 2026-08-28, when one was built. What happe
 - [dj-voice.md](dj-voice.md) for the writers that would use tools, and for the bulletin kind that news
   and weather feed.
 - [station-moment.md](station-moment.md) for weather's other consumer.
-- `docs/decisions/plugin-trust.md` for why a plugin is trusted code, which is what makes `execute`
-  running in the host realm unremarkable.
+- `packages/plugin-sdk/CLAUDE.md` § "Trust and egress" for why a plugin is trusted code, which is
+  what makes `execute` running in the host realm unremarkable.

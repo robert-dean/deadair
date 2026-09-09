@@ -15,13 +15,12 @@ notebook it created has no way to lose a line except an operator's hand.
 They are ordered by what blocks what. §1 is a schema change §2 wants to be made before it writes its
 own; §3 needs both; §4 needs neither and can be taken on any afternoon. §5 needs §3 to exist and
 nothing else.
-
 **That ordering was wrong about §3, which landed first (2026-08-19) and needed neither §1 nor §2.**
 The blocker it was waiting on was the daypart schedule rather than anything about personas: a slot
 carries a `persona_id` and the changeover copies it onto the running order, which is all this ever
 was. §5 is therefore unblocked and is now the one to take, and its rule is already written down in
-`docs/decisions/on-air-ownership.md` — a clock-fired changeover defers its spoken half to the next
-track boundary, where an operator's airs at once.
+`docs/internals/director.md` § "Who owns the running order" — a clock-fired changeover defers its
+spoken half to the next track boundary, where an operator's airs at once.
 
 ## 1. One station, one persona, and the newsreader is the case that broke it
 
@@ -391,4 +390,5 @@ operator opts into, not the behaviour of a fresh install.
   Deleting the field deleted the rule, and `SetInputs.persona` went with it: the record chooser no
   longer learns who is presenting. **A persona is a voice.** What an hour plays is the brief, plus
   the one structured half a brief can have — `era_from`/`era_to`, which is what lets a decade reach
-  the deterministic draw as well as the model. See `docs/internals/personas.md` and the period rule in `docs/internals/director.md`.
+  the deterministic draw as well as the model. See `docs/internals/personas.md` and the period rule
+  in `docs/internals/director.md`.

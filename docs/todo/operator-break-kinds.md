@@ -49,14 +49,14 @@ Two rules to copy exactly, both of which are decisions rather than details:
 ## What has to be decided before it is built
 
 Three, and the first is the one that decides whether this is a weekend or a month.
-
 **Does an authored kind run code?** Their optional module fetches live data and may decline. Here
 that is a plugin, and this tree has an entire trust decision about plugins already
-(`docs/decisions/plugin-trust.md`): they run in-process, permanently, and the rate limiting,
-redirect chasing and breaker exist because of it. **A kind that is prose only is a file an operator
-edits; a kind that fetches is a plugin wearing a different name.** The honest first version is
-prose-only, with "and it may name an existing topic kind for its subjects" as the escape hatch —
-which covers the poem, the taping note and the memory, and covers none of the live-data ones.
+(`packages/plugin-sdk/CLAUDE.md` § "Trust and egress"): they run in-process, permanently, and the
+rate limiting, redirect chasing and breaker exist because of it. **A kind that is prose only is a
+file an operator edits; a kind that fetches is a plugin wearing a different name.** The honest first
+version is prose-only, with "and it may name an existing topic kind for its subjects" as the escape
+hatch — which covers the poem, the taping note and the memory, and covers none of the live-data
+ones.
 
 **Where does a kind live?** A directory beside the plugins is the obvious answer and drags in
 loading, watching and reload. A row in a table is duller and reuses `deadair.settings`'s deferred

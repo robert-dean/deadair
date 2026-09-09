@@ -42,10 +42,9 @@ library where two thirds of everything is energetic, and the station will act on
 - **There is no vector column and no pgvector.** Nothing in `apps/api/data/migrations` declares
   either. That is a migration and an extension, and the extension is an operator's problem on every
   install rather than only on this one — which matters more since the repository is meant to ship.
-- **The sidecar grows a second model**, which puts it straight into
-  [`docs/decisions/analysis-licensing.md`](../decisions/analysis-licensing.md). The licence that
-  matters there is the **weights'**, and it is not in the package metadata. That file is not optional
-  reading for this.
+- **The sidecar grows a second model**, which puts it straight into [the analysis licence rule](../../analysis/README.md#the-rule-stated-once). The licence that matters there
+  is the **weights'**, and it is not in the package metadata. That file is not optional reading for
+  this.
 - **`ANALYSIS_SCHEMA_VERSION` absorbs the output shape for free.** `track_analysis.data` is jsonb
   with a version, and `0005_music.sql` says in as many words that this is what lets a deferred layer
   land with no schema change. The EMBEDDING itself is the part that wants a column, because a blob in

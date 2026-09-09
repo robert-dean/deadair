@@ -31,12 +31,30 @@ the diff.
 
 **It is not here for licence reasons**, which is the half that was wrong. The second reason used to
 be that a separate program speaking HTTP is a materially different position from linking a copyleft
-toolkit into the API process. True, and irrelevant:
-[`docs/decisions/analysis-licensing.md`](../docs/decisions/analysis-licensing.md) decided that
-nothing copyleft or non-commercial enters the analysis path at all, weights included, so the boundary
-never has to carry that weight and must not be spent as if it could. Today's dependencies are a
+toolkit into the API process. True, and irrelevant: nothing copyleft or non-commercial enters the
+analysis path at all, weights included (the rule below), so the boundary never has to carry that
+weight and must not be spent as if it could. Today's dependencies are a
 decoder invoked as a binary and two permissively licensed array libraries; the beat layer's will be
 permissive too, or it will not be pinned.
+
+### The rule, stated once
+
+**Nothing copyleft and nothing non-commercial enters this path — code, transitive dependencies, or
+model WEIGHTS — and this process boundary is never spent as a workaround for one.**
+
+The weights are the half a scanner misses, and they are the reason this is read by hand rather than
+generated. A permissively licensed package can wrap non-commercial checkpoints and the metadata will
+not say so: madmom is BSD and its checkpoints are CC BY-NC-SA, which is why it is not here. A package
+can also declare nothing at all. So the licence that decides a pin is the one in the project's own
+licence file, read before the line is added, or the line is not added.
+
+Transitive entries count for the same reason. `beat_this` is MIT with MIT checkpoints and requires
+`soxr`, which is LGPL, so it is installed `--no-deps` out of `requirements.nodeps.txt` with the one
+resample it wanted soxr for done in scipy instead. `requirements.txt` carries the evidence per line,
+which is the place to add to when something new is pinned.
+
+The four cue points and the vocal fields are outside the question entirely — band-limited energy
+between 200 Hz and 4 kHz, no toolkit — which is why this only ever came up for the beat layer.
 
 ## The contract
 

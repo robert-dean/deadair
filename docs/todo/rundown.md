@@ -13,7 +13,7 @@ list below is what was consciously left out of that pass. **Do not assume any of
 The running order is durable, because it stopped being the rundown's. `deadair.station_lineup` holds
 it as one document of stateful items, written on a throttle by the director, and the rundown keeps
 only what a restart is allowed to lose: each item's playable form, when it was handed over, and the
-playhead. See `docs/decisions/on-air-ownership.md`.
+playhead. See `docs/internals/director.md` § "Who owns the running order".
 
 What that bought is the thing this file called deferred: **item ids survive a restart**, so an app
 that comes back recognises the record Liquidsoap is still producing instead of standing its clock

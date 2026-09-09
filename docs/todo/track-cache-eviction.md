@@ -9,12 +9,11 @@ through `TrackStore`, content-addressed, and `deadair.track_audio` held one row 
 which file. **Nothing ever deleted either.** `TRACKS_DIR` grew for as long as the station ran.
 
 ## Why the switch that used to cover this is gone
-
 `playout.trackCache` was a boolean: off meant the station neither served from the cache nor filled
 it, and a fetched record went into a small bounded in-memory hold instead of onto disk. It was
 removed rather than defaulted, because its off state stopped being expressible. A record may not
-enter the committable window until its audio is on this machine
-(`docs/decisions/bytes-before-air.md`), so a station keeping nothing would have nothing ready and
+enter the committable window until its audio is on this machine (`docs/internals/director.md` §
+"Nothing airs until its bytes are here"), so a station keeping nothing would have nothing ready and
 would never commit anything at all — the switch had become a way to make the station silent.
 
 What it was actually reached for was A/B-ing a suspected bad cached file, and that is better served

@@ -191,10 +191,10 @@ them; CI regenerates all three and fails on anything that moved.
 
 [`CLAUDE.md`](CLAUDE.md) is the deep reference: every non-obvious constraint, with the measured
 failure behind it. Read the part covering whatever you are about to touch — most of those paragraphs
-exist because the obvious fix was shipped first and was wrong. [`docs/decisions/`](docs/decisions)
-holds the long-form arguments and [`docs/todo/`](docs/todo) holds work that was designed against the
-real tree and then deliberately deferred, which is worth reading before designing a feature from
-scratch: the call may already have been made.
+exist because the obvious fix was shipped first and was wrong. [`docs/internals/`](docs/internals)
+holds the long-form arguments, one file per subsystem, and [`docs/todo/`](docs/todo) holds work that
+was designed against the real tree and then deliberately deferred, which is worth reading before
+designing a feature from scratch: the call may already have been made.
 
 ## Licence
 

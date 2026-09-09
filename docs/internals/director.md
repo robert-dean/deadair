@@ -2,9 +2,10 @@
 
 One running order per station, owned by the director, and everything that decides what is on it: the
 broadcast's identity, the brief and the period it carries, what comes out of it, and the rule that a
-record is not committed until its audio is on this machine. Read
-[`../decisions/on-air-ownership.md`](../decisions/on-air-ownership.md) and
-[`../decisions/bytes-before-air.md`](../decisions/bytes-before-air.md) first.
+record is not committed until its audio is on this machine. The two arguments the rest of the tree
+cites by name live here rather than anywhere else: [who owns the running
+order](#who-owns-the-running-order) and [bytes before air](#nothing-airs-until-its-bytes-are-here).
+Read both before changing either.
 
 Every paragraph here records a measured failure and the fix that was chosen over the obvious one.
 Read the ones covering whatever you are about to change. The always-loaded index is
@@ -22,6 +23,23 @@ it is a playlist. Memory is the authority and the row is the record: an acknowle
 through before its caller is answered, everything the transport does rides a throttle, and a
 graceful shutdown flushes. `station_air` says only whether the station is driving. Every writer
 posts a command to `DirectorService`; nothing else may write it.
+
+**It was four bugs before it was one rule.** A `lineups` table tried to be a reusable named list AND
+the broadcast in progress, and every mechanism that reconciled the two was a defect wearing a
+feature's name: the CURSOR, an integer position that could disagree with what had actually aired; the
+REVISION, a second version of the order minted so a request could edit one; COMPACTION, a repair pass
+over the drift the first two produced; and `Rundown`'s own `queue`/`served`/`airing`, a second copy of
+the order made per play. All four were the same bug — a second writer of what airs — so they were
+removed rather than fixed, and migration 0007 drops `deadair.lineups` on the way down. Three things
+follow and are why this is a rule rather than a tidy-up. A producer says WHAT and HOW SOON and only
+the director says WHERE, so a `BreakRequest` names no position. **The schedule is a stored document, a
+pure resolver and a timer that posts the operator's own `putOnAir` — never an actor**: it says what
+should be on air and never when the changeover happens, because only the director knows where the
+track boundaries are. That is why `schedule_slots` has no "current slot" column, why the slot stamp
+and `hold_until` live on `station_lineup` (migration 0017), why `ScheduleModule` owns no loop, and why
+a clock-fired changeover defers its spoken half to the next track boundary where an operator's own
+takes effect at once. And a console state like "who is driving" is DERIVED from facts the director
+holds rather than stored beside them, because a second copy is a second writer wearing a third name.
 
 **A broadcast has an IDENTITY, and everything written while it runs carries it.**
 `station_lineup.broadcast_id` is minted when a running order is built and kept for as long as it
@@ -154,7 +172,7 @@ the ordinary unmarked shape of every remaster a provider sells.
 commit pass's candidates at the first record `TrackAudioService.readyFor` does not answer for, so Liquidsoap's
 resolve is a read from this app rather than a provider download inside the request it is waiting on — which is
 what produced the 2.16 seconds of digital silence in `docs/todo/provider-audio-failures.md`. Four things are
-load-bearing and `docs/decisions/bytes-before-air.md` argues each: it CUTS rather than filters, because
+load-bearing and each is argued here: it CUTS rather than filters, because
 filtering would commit the warm items and leave the cold one behind them, reordering an operator's sequence by
 which downloads finished first; a cold record is HELD rather than skipped, which is the exact opposite of the
 segment rule beside it (a break is disposable and a record is not); `readyFor` demands the row's checksum AND
@@ -162,6 +180,12 @@ the file, since a row whose file was deleted is repaired by re-fetching on the a
 because a gate that could not read its own answer would take the station off air within three items over a
 transient database fault. `order.waitingOnAudio` is on the feed for a station that has been unable to commit
 for `WAITING_ON_AUDIO_MS`, written once on the edge.
+
+**The held-versus-skipped asymmetry is the general rule rather than a record-only one.** A production
+block is inserted whole or not at all on the same argument, and the console answers 422 rather than
+accepting a record whose audio is not local — so the gate never silently holds a slot open behind an
+operator's own add, which is the one way a rule about the commit pass could have reached a page and
+lied there.
 
 **With the bytes local the commitment horizon collapsed to ONE**: `COMMIT_LEAD` and `PLAYOUT_LEAD` are both 1
 and move together — the pusher can only hand over what the director prepared, and Liquidsoap's `prefetch` is

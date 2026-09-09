@@ -123,5 +123,10 @@ twice — as the standard `org.opencontainers.image.revision` label, which `dock
 starting anything, and as `BUILD_REVISION` in the environment, which the API reads at boot. The second is what
 makes "is the station running what I committed" answerable from the console: `/health` reports it for a probe,
 `/station/checkup` carries it for the check-up page, and both hand on one string read once by
-`modules/shared/build.revision.ts`. An image built by hand has no argument to pass and reports nothing, which
+`modules/shared/build.revision.ts`. The two differ in who can reach them, and deliberately: `/health` is
+anonymous because a probe holds no session, so the EDGE refuses it (`/api/health` and `/api/healthcheck` answer
+404 in every nginx config) and the probe reaches it in-container on loopback, the way the Dockerfile's own
+`HEALTHCHECK` does. Otherwise the commit a station is built from is a build fingerprint readable by anybody who
+can reach the station at all. `/station/checkup` is the one that answers this for a person, behind
+`platform.view`, which is why the field is on that contract as well as on `Health`. An image built by hand has no argument to pass and reports nothing, which
 is the honest answer for something built from a working tree rather than from a commit.

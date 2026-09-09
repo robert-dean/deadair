@@ -691,8 +691,21 @@ const HOSTS = [
             // preoccupation, and in both of her seeded stories — and four statements of one fact is
             // why the model reached for it as the nearest concrete image and turned it into a
             // simile about other records: "clean enough to make even a garden phone-in feel at
-            // home", "outplay a garden phone-in with cosmic ambition", both aired. It survives in
-            // the three places that still hold it.
+            // home", "outplay a garden phone-in with cosmic ambition", both aired.
+            //
+            // **Three homes was still one too many, and an audition said so.** "would make a
+            // gardening call-in seem more earnest" came back in a break about Black Sabbath, which
+            // is the same simile from the same reach after the quirk had already gone. So the
+            // PREOCCUPATION has gone too, and the argument for taking that one is the `background`
+            // rule two screens up read across a field: the subject and the story told one fact
+            // twice, both of them rotate, and a break that drew both landed the anecdote beside
+            // itself. What is left is `style`, which is what she IS and is rendered every break,
+            // and the story, which is the richer telling and only fires when a story is drawn.
+            //
+            // Two homes rather than none, deliberately. The six weeks is the fact this whole
+            // character came out of — the file's own note on why three sheets stopped being a
+            // register and became a PERSON — and a sheet that stopped stating it would be back to
+            // the slot it was rescued from.
             //
             // What replaces it is the engine she actually needs. A quirk reaches EVERY break where
             // a preoccupation reaches one in six, and the thing she is short of is not a subject to
@@ -731,7 +744,11 @@ const HOSTS = [
             // always given and the only thing on this sheet that uses it.
             'the meeting at which that band name was agreed on, and who was outvoted',
             'your taste, and the fact that you have chosen to spend the evening with it rather than fix it',
-            'the six weeks, and the gardening phone-in that replaced you and is somehow still going',
+            // The six weeks and the gardening phone-in were here and are not replaced. Five
+            // subjects that are five things beat six that are four, which is this file's own rule
+            // about a rotation buying nothing, and the obvious sixth — the two written complaints —
+            // is the BACKGROUND, so writing it here would be the exact mistake the background note
+            // records. The quirk block above has why this one went rather than one of the others.
             'the tote bag from a competition nobody entered, which is still on the back of the door',
         ],
         // The one seed pointed at the LISTENER, which is a deliberate exception to the fence this

@@ -109,7 +109,7 @@ internal static class Pages
     private static Border SignIn(bool revealed)
     {
         var login = Fakes.Shell(operatorSignedIn: false).Login;
-        login.Email = "marla@deanhome.app";
+        login.Email = "operator@example.com";
 
         // A real one's length, so the box is shown holding what somebody actually pasted into it.
         login.Password = "correct-horse-battery-staple";

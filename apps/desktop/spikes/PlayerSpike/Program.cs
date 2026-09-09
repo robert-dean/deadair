@@ -12,7 +12,7 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 // before any UI depends on it: whether AVFoundation behind a C shim actually plays this station — an
 // ICY MP3 mount and an HLS playlist — and what warm-up looks like from outside.
 //
-//     dotnet run --project apps/desktop/spikes/PlayerSpike -- https://radio.deanhome.app [seconds]
+//     dotnet run --project apps/desktop/spikes/PlayerSpike -- https://radio.example.com [seconds]
 //
 // NOTHING in this file may `await`. AVFoundation services its player from the MAIN thread's run
 // loop, and an `await` in a console app resumes on a thread-pool thread — after which the main
@@ -20,7 +20,7 @@ using MaroonedSoftware.Deadair.Sdk.Runtime;
 // plays. Measured, twice, before the cause was found. So every call here is synchronous and the run
 // loop is pumped on the same thread that built the player.
 
-var origin = args.Length > 0 ? args[0].TrimEnd('/') : "https://radio.deanhome.app";
+var origin = args.Length > 0 ? args[0].TrimEnd('/') : "https://radio.example.com";
 var seconds = args.Length > 1 && int.TryParse(args[1], out var parsed) ? parsed : 45;
 
 const string UserAgent = "deadair-desktop/0.1.0";

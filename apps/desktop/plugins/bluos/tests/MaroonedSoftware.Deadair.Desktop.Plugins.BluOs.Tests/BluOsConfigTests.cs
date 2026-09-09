@@ -10,8 +10,8 @@ namespace MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.Tests;
 public sealed class BluOsConfigTests
 {
     [Theory]
-    [InlineData("10.0.1.36", "10.0.1.36", 11000)]
-    [InlineData("10.0.1.36:11010", "10.0.1.36", 11010)]
+    [InlineData("192.0.2.36", "192.0.2.36", 11000)]
+    [InlineData("192.0.2.36:11010", "192.0.2.36", 11010)]
     [InlineData("kitchen.local", "kitchen.local", 11000)]
     [InlineData("  kitchen.local:11000  ", "kitchen.local", 11000)]
     public void ReadsAnAddressWithOrWithoutAPort(string text, string host, int port)
@@ -23,10 +23,10 @@ public sealed class BluOsConfigTests
     }
 
     [Theory]
-    [InlineData("10.0.1.36:")]
-    [InlineData("10.0.1.36:nope")]
-    [InlineData("10.0.1.36:0")]
-    [InlineData("10.0.1.36:99999")]
+    [InlineData("192.0.2.36:")]
+    [InlineData("192.0.2.36:nope")]
+    [InlineData("192.0.2.36:0")]
+    [InlineData("192.0.2.36:99999")]
     [InlineData(":11000")]
     public void RefusesSomethingThatIsNotAnAddress(string text)
     {
@@ -40,10 +40,10 @@ public sealed class BluOsConfigTests
     [Fact]
     public void WritesItselfWithThePortAndBuildsAPlainHttpAddress()
     {
-        var endpoint = new BluOsEndpoint("10.0.1.36");
+        var endpoint = new BluOsEndpoint("192.0.2.36");
 
-        Assert.Equal("10.0.1.36:11000", endpoint.ToString());
-        Assert.Equal("http://10.0.1.36:11000/", endpoint.BaseAddress.ToString());
+        Assert.Equal("192.0.2.36:11000", endpoint.ToString());
+        Assert.Equal("http://192.0.2.36:11000/", endpoint.BaseAddress.ToString());
     }
 
     /// <summary>
@@ -54,13 +54,13 @@ public sealed class BluOsConfigTests
     {
         var settings = Read(new()
         {
-            ["players"] = "10.0.1.36, kitchen.local:11010\n10.0.1.40\n\n  10.0.1.40  ",
+            ["players"] = "192.0.2.36, kitchen.local:11010\n192.0.2.40\n\n  192.0.2.40  ",
         });
 
         Assert.Equal(3, settings.Players.Count);
-        Assert.Equal(new BluOsEndpoint("10.0.1.36"), settings.Players[0]);
+        Assert.Equal(new BluOsEndpoint("192.0.2.36"), settings.Players[0]);
         Assert.Equal(new BluOsEndpoint("kitchen.local", 11010), settings.Players[1]);
-        Assert.Equal(new BluOsEndpoint("10.0.1.40"), settings.Players[2]);
+        Assert.Equal(new BluOsEndpoint("192.0.2.40"), settings.Players[2]);
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public sealed class BluOsConfigTests
     [Fact]
     public void OneUnreadableAddressDoesNotCostTheOthers()
     {
-        var settings = Read(new() { ["players"] = "10.0.1.36\n:::\n10.0.1.40" });
+        var settings = Read(new() { ["players"] = "192.0.2.36\n:::\n192.0.2.40" });
 
         Assert.Equal(2, settings.Players.Count);
     }

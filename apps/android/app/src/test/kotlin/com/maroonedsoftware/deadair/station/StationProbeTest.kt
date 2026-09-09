@@ -83,7 +83,7 @@ class StationProbeTest {
 
     @Test
     fun `tells an older station apart from something that is not a station`() = runTest {
-        // Exactly what `radio.robertdean.dev` answers until it is redeployed: a real station,
+        // Exactly what a station on an older build answers until it is redeployed: a real station,
         // whose `/nowplaying` predates `mounts[]`. Reporting that as "not a station" would send
         // somebody to check an address that was right all along.
         val engine =

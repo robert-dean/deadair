@@ -21,7 +21,7 @@
             "key": "players",
             "label": "Players",
             "type": "text",
-            "placeholder": "10.0.1.36\nkitchen.local:11000",
+            "placeholder": "192.0.2.36\nkitchen.local:11000",
             "help": "Addresses to use whether or not they were found, one per line. Port 11000 is assumed."
         },
         {

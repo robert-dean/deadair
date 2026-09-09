@@ -13,15 +13,15 @@ namespace MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.Tests;
 /// </summary>
 public sealed class BluOsUrlsTests
 {
-    private static readonly BluOsEndpoint Player = new("10.0.1.36");
-    private static readonly Uri Mount = new("https://radio.deanhome.app/live.mp3");
+    private static readonly BluOsEndpoint Player = new("192.0.2.36");
+    private static readonly Uri Mount = new("https://radio.example.com/live.mp3");
 
     [Fact]
     public void AMountIsEscapedIntoTheQueryAndComesBackOutWhole()
     {
         var url = BluOsUrls.Play(Player, Mount);
 
-        Assert.StartsWith("http://10.0.1.36:11000/Play?url=", url.ToString(), StringComparison.Ordinal);
+        Assert.StartsWith("http://192.0.2.36:11000/Play?url=", url.ToString(), StringComparison.Ordinal);
 
         var escaped = url.Query["?url=".Length..];
         Assert.DoesNotContain("/", escaped, StringComparison.Ordinal);
@@ -32,7 +32,7 @@ public sealed class BluOsUrlsTests
     [Fact]
     public void AMountWithAQueryOfItsOwnSurvives()
     {
-        var mount = new Uri("https://radio.deanhome.app/live.mp3?token=a&b=c");
+        var mount = new Uri("https://radio.example.com/live.mp3?token=a&b=c");
 
         var url = BluOsUrls.Play(Player, mount);
 
@@ -46,13 +46,13 @@ public sealed class BluOsUrlsTests
     [Fact]
     public void ACaptionWithAnAmpersandDoesNotBecomeASecondArgument()
     {
-        var url = BluOsUrls.Play(Player, Mount, "Marla & Robert's station", new Uri("https://radio.deanhome.app/logo.png"));
+        var url = BluOsUrls.Play(Player, Mount, "The Example Station", new Uri("https://radio.example.com/logo.png"));
 
         var arguments = url.Query.TrimStart('?').Split('&');
         Assert.Equal(3, arguments.Length);
 
         var title = arguments.Single(argument => argument.StartsWith("title1=", StringComparison.Ordinal));
-        Assert.Equal("Marla & Robert's station", Uri.UnescapeDataString(title["title1=".Length..]));
+        Assert.Equal("The Example Station", Uri.UnescapeDataString(title["title1=".Length..]));
     }
 
     [Fact]
@@ -71,22 +71,22 @@ public sealed class BluOsUrlsTests
     [Fact]
     public void StoppingIsStoppingAndNotPausing()
     {
-        Assert.Equal("http://10.0.1.36:11000/Stop", BluOsUrls.Stop(Player).ToString());
+        Assert.Equal("http://192.0.2.36:11000/Stop", BluOsUrls.Stop(Player).ToString());
     }
 
     [Fact]
     public void AsksForTheStatusPlainlyOrWaitsForAChange()
     {
-        Assert.Equal("http://10.0.1.36:11000/Status", BluOsUrls.Status(Player).ToString());
-        Assert.Equal("http://10.0.1.36:11000/Status?etag=4e8b1a2c&timeout=60", BluOsUrls.Status(Player, "4e8b1a2c", 60).ToString());
+        Assert.Equal("http://192.0.2.36:11000/Status", BluOsUrls.Status(Player).ToString());
+        Assert.Equal("http://192.0.2.36:11000/Status?etag=4e8b1a2c&timeout=60", BluOsUrls.Status(Player, "4e8b1a2c", 60).ToString());
     }
 
     [Fact]
     public void ReadsAndSetsTheVolume()
     {
-        Assert.Equal("http://10.0.1.36:11000/Volume", BluOsUrls.Volume(Player).ToString());
-        Assert.Equal("http://10.0.1.36:11000/Volume?level=0", BluOsUrls.Volume(Player, 0).ToString());
-        Assert.Equal("http://10.0.1.36:11000/Volume?level=100", BluOsUrls.Volume(Player, 100).ToString());
+        Assert.Equal("http://192.0.2.36:11000/Volume", BluOsUrls.Volume(Player).ToString());
+        Assert.Equal("http://192.0.2.36:11000/Volume?level=0", BluOsUrls.Volume(Player, 0).ToString());
+        Assert.Equal("http://192.0.2.36:11000/Volume?level=100", BluOsUrls.Volume(Player, 100).ToString());
     }
 
     /// <summary>
@@ -97,7 +97,7 @@ public sealed class BluOsUrlsTests
     public void APlayerOnAnotherPortIsAskedThere()
     {
         Assert.Equal(
-            "http://10.0.1.40:11020/SyncStatus",
-            BluOsUrls.SyncStatus(new BluOsEndpoint("10.0.1.40", 11020)).ToString());
+            "http://192.0.2.40:11020/SyncStatus",
+            BluOsUrls.SyncStatus(new BluOsEndpoint("192.0.2.40", 11020)).ToString());
     }
 }

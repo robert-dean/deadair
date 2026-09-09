@@ -1,4 +1,6 @@
-import { defineConfig } from 'vite';
+import { resolve } from 'node:path';
+
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 
@@ -25,7 +27,7 @@ const ICECAST_TARGET = 'http://127.0.0.1:8000';
  */
 const MOUNT_PATTERN = '^/[^/]+\\.(mp3|opus|aac|flac)$';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
     plugins: [
         // Must precede react() so the generated route tree is in place before JSX transforms.
         tanstackRouter({ target: 'react', autoCodeSplitting: true }),
@@ -40,7 +42,18 @@ export default defineConfig({
         host: true,
         // Vite rejects any Host header it was not told about, so a tunnel that forwards
         // the public hostname through gets a 403 before any route or proxy is consulted.
-        allowedHosts: ['radio.robertdean.dev'],
+        // The hostname is one developer's arrangement rather than the project's, so it comes
+        // from the environment: put `VITE_ALLOWED_HOSTS=radio.example.com` (comma-separated for
+        // more than one) in `apps/web/.env.local`, which is gitignored. Empty means Vite's own
+        // default, which is every localhost form and nothing else.
+        //
+        // Read through `loadEnv` rather than `process.env`: a config module is evaluated BEFORE
+        // Vite loads any `.env` file, so `process.env` is still the bare shell environment here
+        // and a value set in `.env.local` would silently not arrive.
+        allowedHosts: loadEnv(mode, resolve(import.meta.dirname), 'VITE_')
+            .VITE_ALLOWED_HOSTS?.split(',')
+            .map(host => host.trim())
+            .filter(host => host !== ''),
         proxy: {
             // The API mounts its routers at the root, so the /api prefix is stripped here.
             // 127.0.0.1 rather than localhost: the latter resolves to IPv6 and is refused.
@@ -84,4 +97,4 @@ export default defineConfig({
             },
         },
     },
-});
+}));

@@ -11,7 +11,7 @@ namespace MaroonedSoftware.Deadair.Desktop.Core.Tests;
 /// </summary>
 public sealed class OutputCatalogTests : IDisposable
 {
-    private static readonly Output Kitchen = new("deadair.bluos", "90:56:82:00:bc:99", "Kitchen", "N130", "10.0.1.36:11000");
+    private static readonly Output Kitchen = new("deadair.bluos", "90:56:82:0a:bc:0d", "Kitchen", "N130", "192.0.2.36:11000");
 
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"deadair-outputs-{Guid.NewGuid():N}");
     private readonly FakeOutputs _plugins = new();
@@ -58,8 +58,8 @@ public sealed class OutputCatalogTests : IDisposable
 
         var remembered = _settings.Current.Output;
         Assert.NotNull(remembered);
-        Assert.Equal("90:56:82:00:bc:99", remembered.DeviceId);
-        Assert.Equal("10.0.1.36:11000", remembered.Address);
+        Assert.Equal("90:56:82:0a:bc:0d", remembered.DeviceId);
+        Assert.Equal("192.0.2.36:11000", remembered.Address);
     }
 
     [Fact]
@@ -115,11 +115,11 @@ public sealed class OutputCatalogTests : IDisposable
     public async Task ADeviceThatMovedIsStillTheSameDevice()
     {
         await Remember(Kitchen);
-        _plugins.Found = [Kitchen with { Address = "10.0.1.99:11000" }];
+        _plugins.Found = [Kitchen with { Address = "192.0.2.99:11000" }];
         var catalog = Catalog();
 
         Assert.Equal(OutputRestore.Restored, await catalog.RestoreAsync(Station(), TestContext.Current.CancellationToken));
-        Assert.Equal("10.0.1.99:11000", catalog.Active.Address);
+        Assert.Equal("192.0.2.99:11000", catalog.Active.Address);
     }
 
     /// <summary>

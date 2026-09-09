@@ -93,3 +93,11 @@ apps/desktop/artifacts/
 # published app can never be updated again, only replaced under a new application id.
 *.jks
 *.keystore
+
+# Robert's own working notes, which name this install and this operator rather than the project.
+# The `.local.md` suffix is the convention for exactly that and this file was tracked against it.
+CLAUDE.local.md
+
+# A per-developer Vite override: `VITE_ALLOWED_HOSTS` names whatever hostname a tunnel forwards
+# through, which is one machine's arrangement rather than the project's.
+.env.local

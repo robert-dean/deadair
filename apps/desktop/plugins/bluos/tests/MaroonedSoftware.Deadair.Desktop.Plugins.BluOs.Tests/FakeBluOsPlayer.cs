@@ -42,7 +42,7 @@ internal sealed class FakeBluOsPlayer : HttpMessageHandler
     public void Next(string xml) => _statuses.Enqueue(xml);
 
     /// <summary>Queues one built from the parts a phase turns on.</summary>
-    public void Next(string state, int? secs, string? streamUrl = "https://radio.deanhome.app/live.mp3", int volume = 20) =>
+    public void Next(string state, int? secs, string? streamUrl = "https://radio.example.com/live.mp3", int volume = 20) =>
         _statuses.Enqueue(Status(state, secs, streamUrl, volume));
 
     public static string Status(string state, int? secs, string? streamUrl = null, int volume = 20)

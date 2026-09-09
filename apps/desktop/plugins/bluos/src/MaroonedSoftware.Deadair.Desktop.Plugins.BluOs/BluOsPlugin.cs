@@ -57,7 +57,7 @@ public sealed class BluOsPlugin : IDeadairPlugin, IOutputTargetProvider
     /// <para>
     /// A typed player is ASKED WHAT IT IS, rather than listed as a bare address. It is one request
     /// to a machine the operator named, and the difference on the picker is between "Office" and
-    /// "10.0.1.36". A player that does not answer is still listed: it may be switched off tonight,
+    /// "192.0.2.36". A player that does not answer is still listed: it may be switched off tonight,
     /// and leaving it out would make the operator's own list disappear when they most want to see
     /// why it is not working.
     /// </para>

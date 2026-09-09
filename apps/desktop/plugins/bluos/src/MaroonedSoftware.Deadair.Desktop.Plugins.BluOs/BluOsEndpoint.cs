@@ -33,7 +33,7 @@ public sealed record BluOsEndpoint(string Host, int Port = BluOsEndpoint.Default
 
         if (host.Length == 0 || !int.TryParse(port, NumberStyles.None, CultureInfo.InvariantCulture, out var number) || number is < 1 or > 65535)
         {
-            throw new FormatException($"""{text} is not an address: it should be a host, or a host and a port like "10.0.1.36:11000".""");
+            throw new FormatException($"""{text} is not an address: it should be a host, or a host and a port like "192.0.2.36:11000".""");
         }
 
         return new BluOsEndpoint(host, number);

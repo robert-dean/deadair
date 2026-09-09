@@ -22,7 +22,7 @@ public sealed class BluOsXmlTests
         Assert.Equal("stream", status.State);
         Assert.Equal(692, status.Secs);
         Assert.Equal(18, status.Volume);
-        Assert.Equal("TuneIn:https://radio.deanhome.app/live.mp3", status.StreamUrl);
+        Assert.Equal("TuneIn:https://radio.example.com/live.mp3", status.StreamUrl);
         Assert.Equal("TuneIn", status.Service);
         Assert.Equal("Deadair", status.Title1);
 
@@ -41,7 +41,7 @@ public sealed class BluOsXmlTests
 
         // Present here, which the earlier probe had never seen and the spike measured: the player
         // names the mount from the moment it is asked for it, not from the moment it plays it.
-        Assert.Equal("https://radio.deanhome.app/live.mp3", status.StreamUrl);
+        Assert.Equal("https://radio.example.com/live.mp3", status.StreamUrl);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public sealed class BluOsXmlTests
 
         // Upper case here and lower in the LSDP announcement, from the same player. Anything that
         // ever compared the two would have to fold the case first; the device's id comes from LSDP.
-        Assert.Equal("90:56:82:00:BC:99", sync.Mac);
+        Assert.Equal("90:56:82:0A:BC:0D", sync.Mac);
     }
 
     [Fact]
@@ -139,7 +139,7 @@ public sealed class BluOsXmlTests
 
         Assert.Equal("stream", status.State);
         Assert.Equal("https", status.Service);
-        Assert.Equal("https://radio.deanhome.app/live.mp3", status.StreamUrl);
+        Assert.Equal("https://radio.example.com/live.mp3", status.StreamUrl);
         Assert.Equal(7, status.Secs);
     }
 

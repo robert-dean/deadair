@@ -180,7 +180,7 @@ was tried against the live player. The fields ARE accepted and echoed back — b
 ```
 BEFORE:  secs>4056  service>TuneIn  state>stream     title1>Deadair
 AFTER:   secs>0     service>https   state>connecting title1>Ghost Town DJs
-                    image>https://radio.robertdean.dev/art.jpg
+                    image>https://radio.example.com/art.jpg
 ```
 
 `secs` reset to zero, `state` went to `connecting`, the station was re-filed from TuneIn to a raw
@@ -191,7 +191,7 @@ every three minutes that is not a feature, it is a fault with a nice display.
 260 seconds and several records later, still on the raw `https` path:
 
 ```
-image>https://radio.robertdean.dev/art.jpg  secs>260  state>stream
+image>https://radio.example.com/art.jpg  secs>260  state>stream
 title1>Ghost Town DJs                       title2>Dwight Yoakam - Suspicious Minds
 ```
 
@@ -243,7 +243,7 @@ A static station logo. There are two ways to get it and they land in the same pl
   preset rather than a custom URL puts a logo on the display. The spec is explicit that "presets
   must be added and deleted using the BluOS Controller app", so this is the operator's job and not
   something to automate. It wants a name and an absolute image URL; the station's is
-  `https://radio.robertdean.dev/logo.png`, which is `apps/web/public/logo.png` reaching the edge
+  `https://radio.example.com/logo.png`, which is `apps/web/public/logo.png` reaching the edge
   through nginx's SPA root, 512×512 and publicly fetchable. Worth knowing if that ever 404s: the
   console's built assets are what nginx serves, so the file has to be in `dist`, and a probe from
   outside a browser may be answered 403 by the edge while a real client gets 200.

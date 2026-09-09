@@ -9,7 +9,7 @@
     <serviceType>RadioService</serviceType>
     <stationImage>http://cdn-radiotime-logos.tunein.com/s0q.png</stationImage>
     <streamFormat>MP3 128 kb/s</streamFormat>
-    <streamUrl>TuneIn:https://radio.deanhome.app/live.mp3</streamUrl>
+    <streamUrl>TuneIn:https://radio.example.com/live.mp3</streamUrl>
     <title1>Deadair</title1>
     <title2>Warren G, Nate Dogg - Regulate</title2>
     <secs>692</secs>

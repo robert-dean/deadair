@@ -14,7 +14,7 @@ namespace MaroonedSoftware.Deadair.Desktop.Plugins.BluOs.Tests;
 /// </summary>
 public sealed class BluOsStationPlayerTests : IDisposable
 {
-    private static readonly Uri Mount = new("https://radio.deanhome.app/live.mp3");
+    private static readonly Uri Mount = new("https://radio.example.com/live.mp3");
 
     private readonly FakeBluOsPlayer _device = new();
     private readonly RecordingLogger _logger = new();
@@ -136,7 +136,7 @@ public sealed class BluOsStationPlayerTests : IDisposable
         var failures = seen.Where(status => status.Phase == PlayerPhase.Failed).ToList();
         Assert.Single(failures);
         Assert.Contains("stopped answering", failures[0].Detail, StringComparison.Ordinal);
-        Assert.Contains("10.0.1.36:11000", failures[0].Detail, StringComparison.Ordinal);
+        Assert.Contains("192.0.2.36:11000", failures[0].Detail, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -317,7 +317,7 @@ public sealed class BluOsStationPlayerTests : IDisposable
             Timeout = clientSeconds == 0 ? Timeout.InfiniteTimeSpan : TimeSpan.FromSeconds(clientSeconds),
         };
 
-        var client = new BluOsClient(http, new BluOsEndpoint("10.0.1.36"), _logger);
+        var client = new BluOsClient(http, new BluOsEndpoint("192.0.2.36"), _logger);
 
         Assert.Equal(expected, (int)client.LongPollTimeout.TotalSeconds);
     }
@@ -325,7 +325,7 @@ public sealed class BluOsStationPlayerTests : IDisposable
     public void Dispose() => _http.Dispose();
 
     private BluOsStationPlayer Player() => new(
-        new BluOsClient(_http, new BluOsEndpoint("10.0.1.36"), _logger),
+        new BluOsClient(_http, new BluOsEndpoint("192.0.2.36"), _logger),
         new BluOsSettings(Discover: true, Players: [], Caption: null, Logo: null),
         TimeProvider.System,
         _logger);

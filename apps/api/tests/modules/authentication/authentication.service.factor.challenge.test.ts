@@ -42,16 +42,12 @@ const statusOf = async (promise: Promise<unknown>): Promise<number | undefined> 
     return IsHttpError(error) ? error.statusCode : undefined;
 };
 
+// `phone` is the one left. There is no phone factor in `ActorsRepository.listFactors`, so no
+// challenge can offer one and nothing can select it — but the contract still names it, and the
+// point of this arm is that a method the contract names and the service cannot answer says so in
+// its own status rather than through a failed response validation.
 describe('starting a factor challenge for a method that is not implemented', () => {
-    it('answers 501 for email rather than a validation failure against its own response', async () => {
-        const { service } = build();
-
-        const status = await statusOf(service.startFactorChallenge({ method: 'email', mfa_challenge_id: CHALLENGE_ID }));
-
-        expect(status).toBe(501);
-    });
-
-    it('answers 501 for phone', async () => {
+    it('answers 501 for phone rather than a validation failure against its own response', async () => {
         const { service } = build();
 
         const status = await statusOf(service.startFactorChallenge({ method: 'phone', transport: 'sms', mfa_challenge_id: CHALLENGE_ID }));
@@ -62,15 +58,15 @@ describe('starting a factor challenge for a method that is not implemented', () 
     it('names the method it cannot answer for, so the caller is not left reading it as a bad body', async () => {
         const { service } = build();
 
-        const error = await service.startFactorChallenge({ method: 'email', mfa_challenge_id: CHALLENGE_ID }).catch((e: unknown) => e);
+        const error = await service.startFactorChallenge({ method: 'phone', transport: 'sms', mfa_challenge_id: CHALLENGE_ID }).catch((e: unknown) => e);
 
-        expect(IsHttpError(error) ? error.details : undefined).toEqual({ method: 'email factor challenges are not implemented' });
+        expect(IsHttpError(error) ? error.details : undefined).toEqual({ method: 'phone factor challenges are not implemented' });
     });
 
     it('refuses before looking the MFA challenge up, since the answer cannot depend on it', async () => {
         const { service, mfaChallengeService } = build();
 
-        await statusOf(service.startFactorChallenge({ method: 'email', mfa_challenge_id: CHALLENGE_ID }));
+        await statusOf(service.startFactorChallenge({ method: 'phone', transport: 'sms', mfa_challenge_id: CHALLENGE_ID }));
 
         expect(mfaChallengeService.peek).not.toHaveBeenCalled();
     });

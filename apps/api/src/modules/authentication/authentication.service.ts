@@ -14,6 +14,7 @@ import {
     BaseAuthenticationRequest,
     ClientCredentialsAuthenticationRequest,
     EnrollmentRequiredResponse,
+    FactorChallengeEmailStart,
     FactorChallengeEmailStartResponse,
     FactorChallengeFidoStart,
     FactorChallengeFidoStartResponse,
@@ -44,6 +45,7 @@ import {
     AuthenticatorFactorService,
     AuthMfaRequiredPolicyFactor,
     EmailFactorRepository,
+    EmailFactorServiceOptions,
     FidoFactorService,
     HtmlRedirectProvider,
     MfaChallengeService,
@@ -58,6 +60,8 @@ import { AuthorizationContext } from '#modules/permissions/authorization.context
 import { SessionActivityService } from './session.activity.service.js';
 import { RequestCookieJar } from './request.cookie.jar.js';
 import { ResponseCookieJar } from './response.cookie.jar.js';
+import { MailService } from '#modules/mail/mail.service.js';
+import { expirationMinutes } from '#modules/mail/mail.expiry.js';
 
 // Internal-handler unions: camelCase pre-transform shape (matches the `z.input` side of the
 // `format(output=snake)` schemas). The public methods `requestToken` and `startFactorChallenge`
@@ -111,6 +115,8 @@ export class AuthenticationService {
         private readonly actorsRepository: ActorsRepository,
         private readonly sessionService: AuthenticationSessionService,
         private readonly emailFactorRepository: EmailFactorRepository,
+        private readonly emailFactorServiceOptions: EmailFactorServiceOptions,
+        private readonly mailService: MailService,
         private readonly passwordFactorService: PasswordFactorService,
         private readonly passwordHashProvider: PasswordHashProvider,
         private readonly fidoFactorService: FidoFactorService,
@@ -187,6 +193,8 @@ export class AuthenticationService {
             switch (request.method) {
                 case 'fido':
                     return this.startFidoFactorChallenge(request);
+                case 'email':
+                    return this.startEmailFactorChallenge(request);
                 default:
                     throw httpError(501).withDetails({ method: `${request.method} factor challenges are not implemented` });
             }
@@ -611,6 +619,58 @@ export class AuthenticationService {
             fidoChallengeId: challenge.challengeId,
             assertion: challenge.assertion,
             expiresAt: challenge.expiresAt,
+        };
+    }
+
+    /**
+     * Issue and deliver the one-time code for an email factor on a pending MFA round.
+     *
+     * Always a code, never a magic link. A link token is 43 base64url characters and the `code`
+     * grant that redeems an MFA challenge takes `code(min=6, max=10)`, so a link cannot complete a
+     * round even if one were sent — which is why `issueMethod` came off the contract rather than
+     * being defaulted here.
+     */
+    private async startEmailFactorChallenge(request: FactorChallengeEmailStart): Promise<FactorChallengeStartInternal> {
+        const mfa = await this.mfaChallengeService.peek(request.mfa_challenge_id);
+        if (!mfa) {
+            throw unauthorizedError('Bearer error="invalid_challenge"');
+        }
+        const emailFactor = mfa.eligibleFactors.find(f => f.method === 'email');
+        if (!emailFactor) {
+            throw httpError(404).withDetails({ method: 'email factor not enrolled' });
+        }
+
+        // Before issuing, not after. `issueEmailChallenge` is idempotent per actor, factor and
+        // method for the life of the challenge, so a code issued and then not delivered leaves the
+        // operator waiting ten minutes for a message that is never coming while every retry hands
+        // back the same unsent code. Refusing first leaves nothing behind to get stuck on.
+        this.mailService.assertConfigured();
+
+        const issued = await this.mfaOrchestrator.issueFactorChallenge(request.mfa_challenge_id, {
+            method: 'email',
+            methodId: emailFactor.methodId,
+            issueMethod: 'code',
+        });
+        if (issued.method !== 'email') {
+            throw httpError(500).withInternalDetails({ method: `orchestrator answered ${issued.method} for an email challenge` });
+        }
+
+        // Sent on every call, including one the orchestrator reports as `alreadyIssued`. That flag
+        // means the code is unchanged, not that it arrived — and the caller here is the operator
+        // pressing "send it again" because it did not. Re-sending an identical code costs them a
+        // duplicate in the inbox; suppressing it costs them the sign-in. This is safe to repeat in
+        // a way registration is not: the round is already bound to a challenge somebody proved a
+        // password against, so it cannot be aimed at an address by a stranger.
+        await this.mailService.send({
+            to: issued.emailAddress,
+            template: 'SignInCode',
+            data: { code: issued.code, minutes: expirationMinutes(this.emailFactorServiceOptions.otpExpiration) },
+        });
+
+        return {
+            method: 'email',
+            emailChallengeId: issued.challengeId,
+            expiresAt: issued.expiresAt,
         };
     }
 

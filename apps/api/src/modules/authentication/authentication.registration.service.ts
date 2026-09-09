@@ -11,6 +11,7 @@ import {
     AuthenticationSessionService,
     AuthenticatorFactorService,
     EmailFactorService,
+    EmailFactorServiceOptions,
     FidoFactorService,
     PasswordFactorService,
     PkceProvider,
@@ -42,6 +43,8 @@ import { AuthorizationContext } from '#modules/permissions/authorization.context
 import { CacheProvider } from '@maroonedsoftware/cache';
 import { PolicyService } from '@maroonedsoftware/policies';
 import { SessionActivityService } from './session.activity.service.js';
+import { MailService } from '#modules/mail/mail.service.js';
+import { expirationMinutes } from '#modules/mail/mail.expiry.js';
 
 type RegisterFactorHandler = (actorId: string, request: AuthenticationFactorRegistration) => Promise<AuthenticationFactorRegistrationResponse>;
 type VerifyFactorRegistrationHandler = (
@@ -67,6 +70,8 @@ export class AuthenticationRegistrationService {
         private readonly sessionService: AuthenticationSessionService,
         private readonly actorsRepository: ActorsRepository,
         private readonly emailFactorService: EmailFactorService,
+        private readonly emailFactorServiceOptions: EmailFactorServiceOptions,
+        private readonly mailService: MailService,
         private readonly passwordFactorService: PasswordFactorService,
         private readonly authenticatorFactorService: AuthenticatorFactorService,
         private readonly fidoFactorService: FidoFactorService,
@@ -156,12 +161,16 @@ export class AuthenticationRegistrationService {
             await this.passwordFactorService.registerPasswordFactor(request.password, result.registrationId);
         }
 
+        // Only on a first registration. `registerEmailFactor` is idempotent for the life of the
+        // pending registration and hands back the SAME code on a repeat, so a second send would be
+        // a second copy of a code the person already has — and a resend they did not ask for is how
+        // an unauthenticated endpoint becomes somebody else's mail bomb.
         if (!result.alreadyRegistered) {
-            // await this.messagingService.sendEmail({
-            //     to: request.email,
-            //     template: 'EmailVerification',
-            //     data: { code: result.code },
-            // });
+            await this.mailService.send({
+                to: request.email,
+                template: 'VerifyEmail',
+                data: { code: result.code, minutes: expirationMinutes(this.emailFactorServiceOptions.otpExpiration) },
+            });
         }
 
         return await parseAndValidate(
@@ -326,12 +335,15 @@ export class AuthenticationRegistrationService {
         if (!result.alreadyRegistered) {
             await this.pkceProvider.storeChallenge(request.codeChallenge, result.registrationId, result.expiresAt.diffNow());
 
-            // Send kept last (see registerPhoneFactor for the transaction/TTL ordering rationale).
-            // await this.messagingService.sendEmail({
-            //     to: request.value,
-            //     template: 'EmailVerification',
-            //     data: { code: result.code },
-            // });
+            // Send kept last, after the cache writes: it is the one step here with no undo, so
+            // anything that can still fail goes in front of it. A registration cached and then not
+            // delivered is a ten-minute wait the operator can end by asking again; a delivered code
+            // whose registration failed to cache is a code that verifies against nothing.
+            await this.mailService.send({
+                to: request.value,
+                template: 'VerifyEmail',
+                data: { code: result.code, minutes: expirationMinutes(this.emailFactorServiceOptions.otpExpiration) },
+            });
         }
 
         return {

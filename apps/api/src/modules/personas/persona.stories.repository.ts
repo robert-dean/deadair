@@ -136,6 +136,46 @@ export class PersonaStoriesRepository extends DataRepository {
     }
 
     /**
+     * Every story this character could tell, least recently told first.
+     *
+     * {@link forPrompt}'s answer widened to the whole shelf, for a caller writing SEVERAL breaks in
+     * one pass. That caller cannot use `forPrompt`: it answers the same story every time until
+     * somebody stamps it, and stamping is exactly what a caller that is not on air must not do — so
+     * an audition of twenty transitions would otherwise offer one story twenty times and report a
+     * character with one anecdote.
+     *
+     * Same filter and same order as `forPrompt`, so the story an audition sees first is the story
+     * the next real break would get. Only `active` rows, so a proposal nobody has looked at cannot
+     * reach even a preview.
+     */
+    async tellable(personaKey: string, limit = 20): Promise<PersonaStoryForPrompt[]> {
+        const rows = await this.db
+            .selectFrom('deadair.personaStories')
+            .select(['id', 'title', 'story', 'timesTold'])
+            .where('stationKey', '=', this.station.stationKey)
+            .where('personaKey', '=', personaKey)
+            .where('state', '=', 'active')
+            .orderBy(sql`last_told_at asc nulls first`)
+            .orderBy('createdAt', 'asc')
+            .limit(limit)
+            .execute();
+
+        if (rows.length === 0) return [];
+
+        const details = await this.detailsFor(
+            rows.map(row => row.id),
+            'active',
+        );
+
+        return rows.map(row => ({
+            title: row.title,
+            story: row.story,
+            details: (details.get(row.id) ?? []).slice(0, PERSONA_STORY_DETAIL_LIMIT).map(detail => detail.detail),
+            timesTold: Number(row.timesTold),
+        }));
+    }
+
+    /**
      * Rest the story that was just carried into a break, and count the telling.
      *
      * Separate from the read so a caller that is not on air spends nothing. See the class note.

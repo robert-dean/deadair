@@ -6,14 +6,19 @@ import { Logger } from '@maroonedsoftware/logger';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { BreakWriterRegistry } from '#modules/director/break.writer.registry.js';
 import { stationZone } from '#modules/director/clock.words.js';
+import { EnrichmentReadService } from '#modules/enrichment/enrichment.read.service.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
+import { rotationOf } from '#modules/shared/rotation.js';
 import { transitionAt, type Audition, type AuditionAttempt } from './persona.audition.js';
 import { auditionRequest } from './persona.audition.request.js';
+import { storytellingOf } from './persona.sheet.js';
 import { PersonaAuditionRepository } from './persona.audition.repository.js';
 import { PersonaRepository } from './persona.repository.js';
 import { PersonaNotesRepository } from './persona.notes.repository.js';
 import { PersonaStoriesRepository } from './persona.stories.repository.js';
+import type { Persona } from './persona.js';
+import type { PersonaStoryForPrompt } from './persona.story.js';
 
 /** Which run, and which transition of it. */
 export interface AuditionPayload {
@@ -67,6 +72,8 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
         // Both read through their reading halves only. See the class note.
         private readonly notes: PersonaNotesRepository,
         private readonly stories: PersonaStoriesRepository,
+        // What the station knows about the records, read without spending the claims' cooldown.
+        private readonly enrichment: EnrichmentReadService,
         private readonly writers: BreakWriterRegistry,
         private readonly jobs: PgBossJobBroker,
         private readonly config: AppConfig,
@@ -146,7 +153,11 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
         // Read and NOT rested, which is the whole reason the repositories split the two. See the
         // class note.
         const { notes } = await this.notes.forPrompt(persona.key);
-        const story = await this.stories.forPrompt(persona.key);
+
+        // Before the story, because the rung that decides whether there is one is keyed on whether
+        // the station knows anything about these records.
+        const facts = await this.factsFor(audition.id, ordinal, transition);
+        const story = await this.storyFor(persona, ordinal, facts);
 
         const recent = await this.auditions.recentScripts(audition.id);
 
@@ -154,9 +165,10 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
             auditionRequest({
                 persona,
                 notebook: notes,
-                ...(story === undefined ? {} : { story: story.story }),
+                ...(story === undefined ? {} : { story }),
                 previous: transition.previous,
                 next: transition.next,
+                ...(facts === undefined ? {} : { facts }),
                 recent,
                 // Stable and unique per transition, so re-reading a run reports the break it
                 // actually wrote rather than one spread over a different subject.
@@ -177,6 +189,82 @@ export class PersonaAuditionJob extends PlainJob<AuditionPayload> {
         });
 
         return true;
+    }
+
+    /**
+     * The short true things the station knows about this transition's two records.
+     *
+     * Unstamped, which is the whole reason `factsForTracks` takes the option: a claim is on a
+     * week-long cooldown once it is handed over, and a run of twenty transitions that stamped would
+     * put a week of the station's best claims out of reach of the breaks that were going to say
+     * them. The audition is a measurement; the cooldown belongs to the broadcast.
+     *
+     * Rotated over the transition rather than a segment id, which is `rotationOf`'s own rule read
+     * one caller further out: the rotation has to be STABLE for a given break, so re-reading a run
+     * reports the facts the host was actually shown.
+     *
+     * Best-effort, like every other substrate read here: facts that could not be read cost the
+     * transition its facts and never its break.
+     */
+    private async factsFor(
+        auditionId: string,
+        ordinal: number,
+        transition: { previous: { trackId?: string }; next: { trackId?: string } },
+    ): Promise<{ previous?: readonly string[]; next?: readonly string[] } | undefined> {
+        const ids = [transition.previous.trackId, transition.next.trackId].filter((id): id is string => id !== undefined);
+        if (ids.length === 0) return undefined;
+
+        try {
+            const found = await this.enrichment.factsForTracks(ids, rotationOf(`${auditionId}:${ordinal}`), { stamp: false });
+            const previous = transition.previous.trackId === undefined ? undefined : found.get(transition.previous.trackId);
+            const next = transition.next.trackId === undefined ? undefined : found.get(transition.next.trackId);
+
+            if (previous === undefined && next === undefined) return undefined;
+
+            return { ...(previous === undefined ? {} : { previous }), ...(next === undefined ? {} : { next }) };
+        } catch (error) {
+            this.logger.warn(`personas: could not read what the station knows about these records (${errorText(error)})`, { audition: auditionId });
+            return undefined;
+        }
+    }
+
+    /**
+     * The one story this transition may draw on, or nothing.
+     *
+     * The rung is `storytellingOf`, applied exactly where `WriteBreakJob` applies it and keyed on
+     * the same fact: `occasionally` fires when the station knows nothing about the records, because
+     * that is the moment the prompt hands a model a prohibition and nothing else — and what filled
+     * that silence when it was measured was invented pressing plants.
+     *
+     * Which story is picked spreads over the ORDINAL rather than being the least-recently-told one
+     * every time. `forPrompt` would answer the same story at every transition, since nothing here
+     * stamps: a shelf of six read twenty times unstamped is one anecdote told twenty times, which
+     * would be a fact about the audition rather than about the character.
+     *
+     * Best-effort, like the facts and the notebook.
+     */
+    private async storyFor(
+        persona: Persona,
+        ordinal: number,
+        facts: { previous?: readonly string[]; next?: readonly string[] } | undefined,
+    ): Promise<PersonaStoryForPrompt | undefined> {
+        const rung = storytellingOf(persona);
+        if (rung === 'never') return undefined;
+
+        // Every record this break was shown carries something to say, so there is no silence for a
+        // story to fill.
+        const knownAbout = (facts?.previous?.length ?? 0) > 0 || (facts?.next?.length ?? 0) > 0;
+        if (rung === 'occasionally' && knownAbout) return undefined;
+
+        try {
+            const shelf = await this.stories.tellable(persona.key);
+            if (shelf.length === 0) return undefined;
+
+            return shelf[ordinal % shelf.length];
+        } catch (error) {
+            this.logger.warn(`personas: could not read this character's own stories (${errorText(error)})`, { persona: persona.key });
+            return undefined;
+        }
     }
 }
 

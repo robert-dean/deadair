@@ -78,7 +78,9 @@ const NOTHING = {
     reason: 'every writer had nothing to say',
 };
 
-function build(options: { claimed?: Audition; result?: unknown; found?: Persona; recent?: string[] } = {}) {
+function build(
+    options: { claimed?: Audition; result?: unknown; found?: Persona; recent?: string[]; facts?: Map<string, string[]>; shelf?: unknown[] } = {},
+) {
     const claim = vi.fn(async () => options.claimed);
     // Typed by its parameters rather than as a bare `vi.fn`, so the assertions below can read the
     // recorded break off the call rather than casting it back out of an empty tuple.
@@ -96,10 +98,18 @@ function build(options: { claimed?: Audition; result?: unknown; found?: Persona;
     const notes = { forPrompt: vi.fn(async () => ({ notes: { trait: ['keeps a logbook'], said: [] }, ids: ['n1'] })), markUsed } as never;
 
     const markTold = vi.fn(async () => {});
-    const stories = {
-        forPrompt: vi.fn(async () => ({ id: 's1', story: { title: 'The Barstow lights', story: 'Three lights.', details: [], timesTold: 1 } })),
-        markTold,
-    } as never;
+    // `forPrompt` is here so a test can assert the job does NOT use it: it answers the same story
+    // until somebody stamps, and stamping is the one thing an audition must not do.
+    const forPrompt = vi.fn(async () => ({ id: 's1', story: { title: 'The Barstow lights', story: 'Three lights.', details: [], timesTold: 1 } }));
+    const tellable = vi.fn(async () => options.shelf ?? [{ title: 'The Barstow lights', story: 'Three lights.', details: [], timesTold: 1 }]);
+    const stories = { forPrompt, tellable, markTold } as never;
+
+    // Typed by its parameters, so the assertions below can read the ids and the options off the
+    // call rather than casting them back out of an empty tuple.
+    const factsForTracks = vi.fn(
+        async (_ids: readonly string[], _rotate?: number, _options?: { stamp?: boolean }) => options.facts ?? new Map<string, string[]>(),
+    );
+    const enrichment = { factsForTracks } as never;
 
     const seen: BreakWriteRequest[] = [];
     const write = vi.fn(async (request: BreakWriteRequest) => {
@@ -118,6 +128,7 @@ function build(options: { claimed?: Audition; result?: unknown; found?: Persona;
         personas,
         notes,
         stories,
+        enrichment,
         writers,
         jobs,
         config,
@@ -128,7 +139,7 @@ function build(options: { claimed?: Audition; result?: unknown; found?: Persona;
 
     const run = (payload?: AuditionPayload) => (job as unknown as { execute: (input?: AuditionPayload) => Promise<void> }).execute(payload);
 
-    return { run, claim, recordBreak, finish, fail, recentScripts, find, markUsed, markTold, write, send, seen };
+    return { run, claim, recordBreak, finish, fail, recentScripts, find, markUsed, markTold, forPrompt, tellable, factsForTracks, write, send, seen };
 }
 
 describe('PersonaAuditionJob: the claim', () => {
@@ -280,6 +291,126 @@ describe('PersonaAuditionJob: the chain', () => {
 
         expect(fail).toHaveBeenCalledWith('audition-1', 'this audition has no records for transition 9');
         expect(write).not.toHaveBeenCalled();
+    });
+});
+
+describe('PersonaAuditionJob: the facts and the stories', () => {
+    it('asks only about the records the station actually holds', async () => {
+        const withIds = audition({
+            records: [record({ trackId: 't1' }), record({ externalId: 'track-2' }), record({ externalId: 'track-3', trackId: 't3' })],
+        });
+        const { run, factsForTracks } = build({ claimed: withIds });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        // One side is in the catalog and the other is not, which is the ordinary case on a
+        // provider playlist.
+        expect(factsForTracks.mock.calls[0]?.[0]).toEqual(['t1']);
+    });
+
+    it('never asks at all when neither record is in the catalog', async () => {
+        const { run, factsForTracks } = build({ claimed: audition() });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(factsForTracks).not.toHaveBeenCalled();
+    });
+
+    it('reads the facts WITHOUT spending their cooldown', async () => {
+        const withIds = audition({ records: [record({ trackId: 't1' }), record({ externalId: 'track-2', trackId: 't2' })] });
+        const { run, factsForTracks } = build({ claimed: withIds });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        // A claim handed over is on a week-long cooldown. A run of twenty transitions that stamped
+        // would put a week of the station's best claims out of reach of the breaks meant to say them.
+        expect(factsForTracks.mock.calls[0]?.[2]).toEqual({ stamp: false });
+    });
+
+    it('shows each side its own facts', async () => {
+        const withIds = audition({ records: [record({ trackId: 't1' }), record({ externalId: 'track-2', trackId: 't2' })] });
+        const { run, seen } = build({
+            claimed: withIds,
+            facts: new Map([
+                ['t1', ['Cut in a single afternoon.']],
+                ['t2', ['Written in one sitting.']],
+            ]),
+        });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(seen[0]?.previous?.facts).toEqual(['Cut in a single afternoon.']);
+        expect(seen[0]?.next?.facts).toEqual(['Written in one sitting.']);
+    });
+
+    it('writes the break anyway when the facts cannot be read', async () => {
+        const withIds = audition({ records: [record({ trackId: 't1' }), record({ externalId: 'track-2', trackId: 't2' })] });
+        const { run, factsForTracks, recordBreak } = build({ claimed: withIds });
+        factsForTracks.mockRejectedValueOnce(new Error('the enrichment tables are unreachable'));
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        // Best-effort: facts that could not be read cost the transition its facts, never its break.
+        expect(recordBreak).toHaveBeenCalled();
+    });
+
+    it('reads the whole shelf rather than the one story a break would rest', async () => {
+        const { run, tellable, forPrompt } = build({ claimed: audition() });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(tellable).toHaveBeenCalledWith('pirate');
+        // `forPrompt` answers the same story until somebody stamps it, and stamping is the one
+        // thing an audition must not do — so using it would tell one anecdote at every transition.
+        expect(forPrompt).not.toHaveBeenCalled();
+    });
+
+    it('offers a different story as the run goes on', async () => {
+        const shelf = [
+            { title: 'The Barstow lights', story: 'Three lights.', details: [], timesTold: 1 },
+            { title: 'The night shift', story: 'Nobody came in.', details: [], timesTold: 0 },
+        ];
+
+        const first = build({ claimed: audition(), shelf });
+        await first.run({ auditionId: 'audition-1', ordinal: 0 });
+
+        const second = build({ claimed: audition(), shelf });
+        await second.run({ auditionId: 'audition-1', ordinal: 1 });
+
+        expect(first.seen[0]?.story?.title).toBe('The Barstow lights');
+        expect(second.seen[0]?.story?.title).toBe('The night shift');
+    });
+
+    it('offers no story to a character that never tells one', async () => {
+        const { run, tellable, seen } = build({ claimed: audition(), found: persona({ storytelling: 'never' }) });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(tellable).not.toHaveBeenCalled();
+        expect(Object.keys(seen[0]!)).not.toContain('story');
+    });
+
+    it('withholds the story from an occasional teller when the records already have something to say', async () => {
+        // The default rung fires exactly where the prompt would otherwise hand a model a
+        // prohibition and nothing else — the moment that produced invented pressing plants.
+        const withIds = audition({ records: [record({ trackId: 't1' }), record({ externalId: 'track-2', trackId: 't2' })] });
+        const { run, seen } = build({
+            claimed: withIds,
+            found: persona({ storytelling: 'occasionally' }),
+            facts: new Map([['t1', ['Cut in a single afternoon.']]]),
+        });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(Object.keys(seen[0]!)).not.toContain('story');
+    });
+
+    it('offers one to an occasional teller when the station knows nothing about the records', async () => {
+        const { run, seen } = build({ claimed: audition(), found: persona({ storytelling: 'occasionally' }) });
+
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        expect(seen[0]?.story?.title).toBe('The Barstow lights');
     });
 });
 

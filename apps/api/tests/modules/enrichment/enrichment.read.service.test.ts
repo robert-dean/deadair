@@ -449,6 +449,29 @@ describe('EnrichmentReadService', () => {
 
                 await expect(read.factsForTracks([TRACK_ID])).resolves.toEqual(new Map([[TRACK_ID, ['It was used in a film.']]]));
             });
+
+            it('hands the claim over without stamping it for a caller that is not airing anything', async () => {
+                // A persona audition reads the facts so a run hears what a real break would hear.
+                // The cooldown belongs to the broadcast: a run of twenty transitions that stamped
+                // would put a week of the station's best claims out of reach of the breaks that
+                // were going to say them.
+                const facts = fakeFacts([], believed('It was used in a film.'));
+                const read = new EnrichmentReadService(fakeRepository({}, factRows({})), fakeService([MUSICBRAINZ]), facts);
+
+                await expect(read.factsForTracks([TRACK_ID], 0, { stamp: false })).resolves.toEqual(
+                    new Map([[TRACK_ID, ['It was used in a film.']]]),
+                );
+                expect(facts.markUsed).not.toHaveBeenCalled();
+            });
+
+            it('stamps by default, so only a caller that says otherwise skips it', async () => {
+                const facts = fakeFacts([], believed('It was used in a film.'));
+                const read = new EnrichmentReadService(fakeRepository({}, factRows({})), fakeService([MUSICBRAINZ]), facts);
+
+                await read.factsForTracks([TRACK_ID], 0, {});
+
+                expect(facts.markUsed).toHaveBeenCalledWith(['fact-0']);
+            });
         });
     });
 });

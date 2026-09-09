@@ -86,6 +86,17 @@ const notes = new PersonaNotesRepository(db, station);
 const stories = new PersonaStoriesRepository(db, station);
 const auditions = new PersonaAuditionRepository(db, station);
 
+/**
+ * The enrichment read, stubbed, and it is the one thing here that is not the real object.
+ *
+ * The records below carry no `trackId` — a fresh development station has an empty catalog, and
+ * inventing rows in `deadair.tracks` to hang facts off would be a larger fixture than the thing it
+ * checks. So `factsFor` short-circuits before this is ever reached, and the promise that matters —
+ * that an audition reads the facts with `stamp: false` and never moves `facts.last_used_at` — is
+ * pinned in `persona.audition.job.test.ts` instead. The stub is here so the job can be built.
+ */
+const enrichment = { factsForTracks: async () => new Map<string, string[]>() } as never;
+
 // The floor alone. It cannot fail, it needs no plugin, and it writes from the station's own
 // phrasings — which is everything this script needs and nothing it does not.
 const writers = new BreakWriterRegistry([new TalkBreakWriter(config, quiet)], quiet);
@@ -98,7 +109,19 @@ const jobs = {
     },
 } as never;
 
-const job = new PersonaAuditionJob(auditions, personas, notes, stories, writers, jobs, config, { id: 'smoke' } as never, {} as never, quiet);
+const job = new PersonaAuditionJob(
+    auditions,
+    personas,
+    notes,
+    stories,
+    enrichment,
+    writers,
+    jobs,
+    config,
+    { id: 'smoke' } as never,
+    {} as never,
+    quiet,
+);
 const runJob = (auditionId: string, ordinal: number) =>
     (job as unknown as { execute: (payload: { auditionId: string; ordinal: number }) => Promise<void> }).execute({ auditionId, ordinal });
 

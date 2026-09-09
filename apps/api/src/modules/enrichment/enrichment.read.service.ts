@@ -232,11 +232,16 @@ export class EnrichmentReadService {
      * break can still be dropped before its slot, and a reader of `segment_events` is a great deal
      * of machinery for the difference between "used" and "used and heard".
      *
+     * `stamp: false` is for a caller that is not putting anything to air. It is the same split the
+     * notebook and the stories make between their reading and their resting halves, and it is here
+     * for the same reason: a persona audition reads the facts so a run hears what a real break would
+     * hear, and must not spend a week of the station's best claims to do it.
+     *
      * Only tracks with something to say appear in the answer. Absent is the ordinary case: on a
      * fresh install nothing has been enriched at all, and a station with no facts talks perfectly
      * well.
      */
-    async factsForTracks(trackIds: readonly string[], rotate = 0): Promise<Map<string, string[]>> {
+    async factsForTracks(trackIds: readonly string[], rotate = 0, options: { stamp?: boolean } = {}): Promise<Map<string, string[]>> {
         const facts = new Map<string, string[]>();
         if (trackIds.length === 0) return facts;
 
@@ -281,7 +286,13 @@ export class EnrichmentReadService {
 
         // Deliberately not awaited into the answer's critical path, and deliberately caught: a
         // failed stamp costs a fact its rest, and nothing here may cost a break its notes.
-        void this.factRepository.markUsed(used).catch(() => undefined);
+        //
+        // Skipped entirely for a caller that is not putting anything to air, which is the same split
+        // `PersonaNotesRepository` makes between `forPrompt` and `markUsed` one module over. The
+        // cooldown exists so a claim said on air is not said again for a week; an audition says
+        // nothing on air, and a run of twenty transitions that stamped would put a week's worth of
+        // the station's best claims out of reach of the breaks that were going to use them.
+        if (options.stamp !== false) void this.factRepository.markUsed(used).catch(() => undefined);
 
         return facts;
     }

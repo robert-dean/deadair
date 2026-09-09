@@ -12,4 +12,6 @@ data class Health(
     val uptimeMs: Long,
     /** The commit this station was built from, as the image's `org.opencontainers.image.revision` label says it. Absent when nothing set one, which is what a development tree and a hand-built image both honestly are */
     val revision: String? = null,
+    /** The release this station is, as the image's `org.opencontainers.image.version` label says it. Absent on every build that is not a tagged release, which is most of them: `latest` follows main, so a station tracking it honestly has a commit and no version */
+    val version: String? = null,
 )

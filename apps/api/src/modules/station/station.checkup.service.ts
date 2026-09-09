@@ -63,6 +63,7 @@ export class StationCheckupService {
             // every other field means the reader broke — which is why the contract says so on that
             // field rather than leaving it to the shared rule.
             ...(this.revision.value === undefined ? {} : { revision: this.revision.value }),
+            ...(this.revision.version === undefined ? {} : { version: this.revision.version }),
             ...(heartbeats === undefined ? {} : { heartbeats }),
             ...(backlog === undefined ? {} : { backlog }),
         };

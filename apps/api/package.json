@@ -1,6 +1,7 @@
 {
     "name": "@deadair/api",
     "private": true,
+    "license": "MIT",
     "type": "module",
     "main": "index.ts",
     "imports": {

@@ -1,6 +1,7 @@
 {
     "name": "deadair",
     "private": true,
+    "license": "MIT",
     "scripts": {
         "build": "turbo run build",
         "build:all": "turbo run codegen && turbo run build",

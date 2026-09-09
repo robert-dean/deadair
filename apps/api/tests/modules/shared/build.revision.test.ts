@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
-import { buildRevision } from '../../../src/modules/shared/build.revision.js';
+import { buildRevision, buildVersion } from '../../../src/modules/shared/build.revision.js';
 
 /** A config whose layer holds exactly what the process environment would put there. */
 const config = (rows: Record<string, unknown>): AppConfig =>
@@ -41,5 +41,31 @@ describe('buildRevision', () => {
         // Nothing here parses the value. A tag or a branch is a legitimate answer to "what was
         // this built from", and a validator would reject one for looking wrong.
         expect(buildRevision(config({ BUILD_REVISION: 'v1.4.0' }))).toBe('v1.4.0');
+    });
+});
+
+describe('buildVersion', () => {
+    it('answers the release the image is', () => {
+        expect(buildVersion(config({ BUILD_VERSION: '0.1.0' }))).toBe('0.1.0');
+    });
+
+    it('answers nothing on a build that is not a release, which is the ordinary case', () => {
+        // Unlike the revision, this is absent for every push to main and not only for a hand-built
+        // image: `latest` follows main and CI passes `VERSION` on a tag run alone. A station
+        // tracking `latest` therefore reports a commit and no version, honestly.
+        expect(buildVersion(config({}))).toBeUndefined();
+        expect(buildVersion(config({ BUILD_VERSION: '' }))).toBeUndefined();
+        expect(buildVersion(config({ BUILD_VERSION: '   ' }))).toBeUndefined();
+    });
+
+    it('does not parse what it is given', () => {
+        // Same argument as the revision's last case: a release name is whoever tagged it's to
+        // choose, and a validator here would reject a legitimate one for looking wrong.
+        expect(buildVersion(config({ BUILD_VERSION: '0.2.0-rc.1' }))).toBe('0.2.0-rc.1');
+    });
+
+    it('is read independently of the revision, so one can be present without the other', () => {
+        expect(buildRevision(config({ BUILD_VERSION: '0.1.0' }))).toBeUndefined();
+        expect(buildVersion(config({ BUILD_REVISION: 'abc1234' }))).toBeUndefined();
     });
 });

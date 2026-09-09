@@ -33,8 +33,13 @@ export class HealthService {
      * @param revision What this build was made from, or `undefined` when nothing said. Resolved
      *                 once by the module rather than read per request, because it cannot change
      *                 while the process is running.
+     * @param version  Which release this build is, on exactly the same terms. Absent far more often
+     *                 than `revision` is: only a tagged build carries one.
      */
-    constructor(private readonly revision?: string) {}
+    constructor(
+        private readonly revision?: string,
+        private readonly version?: string,
+    ) {}
 
     /** 200 or nothing: a process that cannot serve this never reaches it. */
     liveness(): Health {
@@ -45,6 +50,7 @@ export class HealthService {
             // on the contract and absent means nobody stamped this build, which is the true answer
             // for a development tree.
             ...(this.revision === undefined ? {} : { revision: this.revision }),
+            ...(this.version === undefined ? {} : { version: this.version }),
         };
     }
 }

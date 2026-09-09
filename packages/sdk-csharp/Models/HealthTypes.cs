@@ -25,4 +25,9 @@ public sealed record Health
     [JsonPropertyName("revision")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Revision { get; init; }
+
+    /// <summary>The release this station is, as the image's `org.opencontainers.image.version` label says it. Absent on every build that is not a tagged release, which is most of them: `latest` follows main, so a station tracking it honestly has a commit and no version</summary>
+    [JsonPropertyName("version")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Version { get; init; }
 }

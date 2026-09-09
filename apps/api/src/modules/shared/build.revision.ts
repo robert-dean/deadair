@@ -37,7 +37,27 @@ export function buildRevision(config: AppConfig): string | undefined {
 }
 
 /**
- * The same answer, as something a service can be handed.
+ * Which RELEASE this station is, as one string, or nothing.
+ *
+ * The same shape as {@link buildRevision} and read from the same place — `ENV BUILD_VERSION`, set
+ * from the `VERSION` build argument beside `REVISION` — for all the same reasons: absent is a real
+ * answer, the empty string is folded into `undefined`, it is read once at boot, and it is a fact
+ * about the binary rather than a setting an operator could edit.
+ *
+ * ## Absent is the COMMON answer here, not the edge case
+ *
+ * A revision is missing only for a hand-built image. A version is missing for every build that is
+ * not a tagged release, which is every push to main — `latest` follows main, so the ordinary
+ * station reports a commit and no version, and that is the honest reading rather than a gap. A page
+ * showing both says "0.1.0, built from abc1234"; a page showing one says only what it knows.
+ */
+export function buildVersion(config: AppConfig): string | undefined {
+    const version = String(config.get('BUILD_VERSION', '')).trim();
+    return version === '' ? undefined : version;
+}
+
+/**
+ * Both answers, as something a service can be handed.
  *
  * `HealthService` takes the bare string, because `HealthModule` is registered THIRD and must keep
  * depending on nothing — a token registered by a module further down the list would resolve fine
@@ -51,5 +71,8 @@ export function buildRevision(config: AppConfig): string | undefined {
  * behaviour.
  */
 export class BuildRevision {
-    constructor(readonly value?: string) {}
+    constructor(
+        readonly value?: string,
+        readonly version?: string,
+    ) {}
 }

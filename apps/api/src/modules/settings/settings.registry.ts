@@ -67,6 +67,7 @@ import {
     MAX_ANALYSIS_PACE_MS,
 } from '#modules/analysis/analysis.settings.js';
 import { MIXER_PLUGIN_KEY } from '#modules/render/mixer.settings.js';
+import { MAIL_DEFAULTS, MAIL_KEYS, MAX_MAIL_PORT, MIN_MAIL_PORT } from '#modules/mail/mail.settings.js';
 import {
     PAD_DUCK_KEY,
     PAD_EVERY_BOUNDS,
@@ -162,6 +163,7 @@ export const SETTING_GROUPS = [
     'stream',
     'housekeeping',
     'secrets',
+    'mail',
     'rotation',
     'playout',
     'render',
@@ -1276,6 +1278,70 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'Playout bridge secret',
         type: 'secret',
         help: 'Gates the control endpoints in both directions. Without it the running order never airs.',
+    },
+
+    // ── mail ───────────────────────────────────────────────────────────────────
+    // The only thing the station sends email for is signing in, so this page is worth visiting
+    // exactly once. The password is a `secret` like the four above it but is NOT in that group:
+    // those are seeded on first boot and an operator only ever comes to read one back, while this
+    // one is typed, belongs with the server it authenticates to, and is useless three fields away
+    // from the host it goes with.
+    //
+    // Everything below hangs off the host through `dependsOn`, which is what makes the page a
+    // single question — "where does this station send mail" — rather than six unrelated ones. The
+    // host is also the switch: there is no `mail.enabled` (see `mail.settings.ts` for why).
+    {
+        group: 'mail',
+        key: MAIL_KEYS.host,
+        label: 'SMTP server',
+        type: 'string',
+        default: '',
+        help: 'The mail server the station signs people in through. Leave it empty and the station sends nothing, and says so plainly rather than failing quietly.',
+    },
+    {
+        group: 'mail',
+        key: MAIL_KEYS.port,
+        label: 'Port',
+        type: 'number',
+        default: MAIL_DEFAULTS.port,
+        min: MIN_MAIL_PORT,
+        max: MAX_MAIL_PORT,
+        dependsOn: MAIL_KEYS.host,
+        help: '587 for STARTTLS, which is the common one. 465 wants the setting below turned on too.',
+    },
+    {
+        group: 'mail',
+        key: MAIL_KEYS.secure,
+        label: 'TLS from the first byte',
+        type: 'boolean',
+        default: MAIL_DEFAULTS.secure,
+        dependsOn: MAIL_KEYS.host,
+        help: 'On for port 465, off for 587. Turning it on against a server expecting STARTTLS does not fail, it hangs: both ends wait for the other to speak first.',
+    },
+    {
+        group: 'mail',
+        key: MAIL_KEYS.user,
+        label: 'Username',
+        type: 'string',
+        default: '',
+        dependsOn: MAIL_KEYS.host,
+        help: 'Leave empty for a relay that takes no credentials, which a mail server on the same machine usually does.',
+    },
+    {
+        group: 'mail',
+        key: MAIL_KEYS.password,
+        label: 'Password',
+        type: 'secret',
+        dependsOn: MAIL_KEYS.host,
+    },
+    {
+        group: 'mail',
+        key: MAIL_KEYS.from,
+        label: 'Sends from',
+        type: 'string',
+        default: '',
+        dependsOn: MAIL_KEYS.host,
+        help: 'The address sign-in emails come from. Needed as much as the server is: most providers refuse an envelope whose sender is not one of theirs.',
     },
 ];
 

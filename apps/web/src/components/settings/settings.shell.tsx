@@ -20,6 +20,7 @@ export type SettingsSectionId =
     | 'stream'
     | 'housekeeping'
     | 'secrets'
+    | 'mail'
     | 'appearance'
     | 'security'
     | 'rotation'
@@ -111,6 +112,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         group: 'secrets',
         blurb: 'Seeded with strong random values on first boot, so this is a page an operator visits only to match a password something else already has.',
     },
+    // Beside Secrets because it is the other page of credentials, and immediately before Security
+    // because it is what makes Security's second half work: the codes and sign-in links this
+    // station sends go out through whatever is set here, and until something is, they do not go.
+    {
+        id: 'mail',
+        label: 'Mail',
+        hint: 'Where it sends sign-in codes from',
+        group: 'mail',
+        blurb: 'The mail server the station signs people in through. Without one it cannot send a code or a sign-in link, and it says so rather than failing quietly.',
+    },
     // Second, and the only one on this page that changes nothing about the station. It is here
     // because "how do I make this readable in daylight" is a question an operator brings to
     // Settings, and the card itself says plainly that it is remembered on this browser alone.
@@ -175,6 +186,7 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/stream'
     | '/settings/housekeeping'
     | '/settings/secrets'
+    | '/settings/mail'
     | '/settings/appearance'
     | '/settings/security'
     | '/settings/rotation'
@@ -190,6 +202,7 @@ export const SETTINGS_ROUTES: Record<
     stream: '/settings/stream',
     housekeeping: '/settings/housekeeping',
     secrets: '/settings/secrets',
+    mail: '/settings/mail',
     appearance: '/settings/appearance',
     security: '/settings/security',
     rotation: '/settings/rotation',

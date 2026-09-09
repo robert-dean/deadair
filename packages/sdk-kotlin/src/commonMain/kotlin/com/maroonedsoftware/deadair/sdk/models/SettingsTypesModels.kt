@@ -16,6 +16,8 @@ enum class SettingGroup {
     HOUSEKEEPING,
     @SerialName("secrets")
     SECRETS,
+    @SerialName("mail")
+    MAIL,
     @SerialName("rotation")
     ROTATION,
     @SerialName("playout")

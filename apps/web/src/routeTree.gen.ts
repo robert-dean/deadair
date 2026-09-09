@@ -29,6 +29,7 @@ import { Route as SettingsAppearanceRouteImport } from './routes/settings/appear
 import { Route as SettingsGrantsRouteImport } from './routes/settings/grants'
 import { Route as SettingsHousekeepingRouteImport } from './routes/settings/housekeeping'
 import { Route as SettingsLlmRouteImport } from './routes/settings/llm'
+import { Route as SettingsMailRouteImport } from './routes/settings/mail'
 import { Route as SettingsPlayoutRouteImport } from './routes/settings/playout'
 import { Route as SettingsRenderRouteImport } from './routes/settings/render'
 import { Route as SettingsRotationRouteImport } from './routes/settings/rotation'
@@ -145,6 +146,11 @@ const SettingsLlmRoute = SettingsLlmRouteImport.update({
   path: '/settings/llm',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsMailRoute = SettingsMailRouteImport.update({
+  id: '/settings/mail',
+  path: '/settings/mail',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsPlayoutRoute = SettingsPlayoutRouteImport.update({
   id: '/settings/playout',
   path: '/settings/playout',
@@ -239,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/llm': typeof SettingsLlmRoute
+  '/settings/mail': typeof SettingsMailRoute
   '/settings/playout': typeof SettingsPlayoutRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
@@ -276,6 +283,7 @@ export interface FileRoutesByTo {
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/llm': typeof SettingsLlmRoute
+  '/settings/mail': typeof SettingsMailRoute
   '/settings/playout': typeof SettingsPlayoutRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
@@ -314,6 +322,7 @@ export interface FileRoutesById {
   '/settings/grants': typeof SettingsGrantsRoute
   '/settings/housekeeping': typeof SettingsHousekeepingRoute
   '/settings/llm': typeof SettingsLlmRoute
+  '/settings/mail': typeof SettingsMailRoute
   '/settings/playout': typeof SettingsPlayoutRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
@@ -353,6 +362,7 @@ export interface FileRouteTypes {
     | '/settings/grants'
     | '/settings/housekeeping'
     | '/settings/llm'
+    | '/settings/mail'
     | '/settings/playout'
     | '/settings/render'
     | '/settings/rotation'
@@ -390,6 +400,7 @@ export interface FileRouteTypes {
     | '/settings/grants'
     | '/settings/housekeeping'
     | '/settings/llm'
+    | '/settings/mail'
     | '/settings/playout'
     | '/settings/render'
     | '/settings/rotation'
@@ -427,6 +438,7 @@ export interface FileRouteTypes {
     | '/settings/grants'
     | '/settings/housekeeping'
     | '/settings/llm'
+    | '/settings/mail'
     | '/settings/playout'
     | '/settings/render'
     | '/settings/rotation'
@@ -465,6 +477,7 @@ export interface RootRouteChildren {
   SettingsGrantsRoute: typeof SettingsGrantsRoute
   SettingsHousekeepingRoute: typeof SettingsHousekeepingRoute
   SettingsLlmRoute: typeof SettingsLlmRoute
+  SettingsMailRoute: typeof SettingsMailRoute
   SettingsPlayoutRoute: typeof SettingsPlayoutRoute
   SettingsRenderRoute: typeof SettingsRenderRoute
   SettingsRotationRoute: typeof SettingsRotationRoute
@@ -628,6 +641,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsLlmRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/mail': {
+      id: '/settings/mail'
+      path: '/settings/mail'
+      fullPath: '/settings/mail'
+      preLoaderRoute: typeof SettingsMailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/playout': {
       id: '/settings/playout'
       path: '/settings/playout'
@@ -753,6 +773,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsGrantsRoute: SettingsGrantsRoute,
   SettingsHousekeepingRoute: SettingsHousekeepingRoute,
   SettingsLlmRoute: SettingsLlmRoute,
+  SettingsMailRoute: SettingsMailRoute,
   SettingsPlayoutRoute: SettingsPlayoutRoute,
   SettingsRenderRoute: SettingsRenderRoute,
   SettingsRotationRoute: SettingsRotationRoute,

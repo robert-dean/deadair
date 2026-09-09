@@ -30,6 +30,26 @@ services:
             - REDIS_PORT=6379
         command: redis-server
 
+    # Somewhere for sign-in mail to go in development. Mailpit is an SMTP server that accepts
+    # everything and delivers nothing, holding each message in a web inbox on :8025 instead — so the
+    # email-factor and magic-link flows can be walked end to end without a real mail server and
+    # without a code or a sign-in link leaving this machine.
+    #
+    # Point Settings → Mail at host `localhost`, port 1025, TLS off, no username, and any from
+    # address. It takes no credentials, which is exactly the relay-on-the-same-box case the
+    # username field is allowed to be empty for.
+    mailpit:
+        image: axllent/mailpit
+        container_name: deadair-mailpit
+        restart: unless-stopped
+        ports:
+            # 1025 is SMTP, 8025 is the inbox to read it in.
+            - '1025:1025'
+            - '8025:8025'
+        environment:
+            - MP_SMTP_AUTH_ACCEPT_ANY=1
+            - MP_SMTP_AUTH_ALLOW_INSECURE=1
+
     # Local Kokoro TTS for the render pipeline: an OpenAI-compatible
     # /v1/audio/speech endpoint that turns generated scripts into voice segments.
     # The render pipeline points TTS_BASE_URL at it (http://kokoro:8880/v1 in a

@@ -9,6 +9,7 @@ import { CatalogModule } from './catalog/catalog.module.js';
 import { OnboardingModule } from './onboarding/onboarding.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { StreamModule } from './stream/stream.module.js';
+import { MailModule } from './mail/mail.module.js';
 import { PluginsModule } from './plugins/plugins.module.js';
 import { PlaylistsModule } from './playlists/playlists.module.js';
 import { ChartsModule } from './charts/charts.module.js';
@@ -92,6 +93,12 @@ const ordered: ServerKitModule[] = [
     // `stream.*` settings, and seeds the secrets those settings hold. Nothing
     // else depends on it.
     StreamModule,
+    // After SettingsModule for the same reason StreamModule is: everything it does is read `mail.*`
+    // rows, which are a layer of the config that module owns. That it sits AFTER
+    // AuthenticationModule, which is the only thing that sends, is not a problem — this list is a
+    // lifecycle order rather than a resolution one, and nothing sends at boot. The first message
+    // goes out on a request.
+    MailModule,
     // Last: a plugin's host reaches into the chassis (data, crypto, logging),
     // so everything it depends on must already be registered.
     PluginsModule,

@@ -9,6 +9,7 @@ contract SettingGroup: enum(
     stream,
     housekeeping,
     secrets,
+    mail,
     rotation,
     playout,
     render,

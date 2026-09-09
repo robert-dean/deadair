@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Group, Select, Stack, Text } from '@mantine/core';
 import type { MfaChallengeFactorOutput, MfaRequiredResponseOutput } from '@deadair/sdk';
 
-import { presentableFactors, useEmailCodeMutation, useMfaCodeMutation, useStartEmailChallenge } from '../../api/auth.factors.queries';
+import { presentableFactors, startEmailChallenge, useEmailCodeMutation, useMfaCodeMutation } from '../../api/auth.factors.queries';
 import { isRateLimited, retryAfterMs } from '../../api/retry.policy';
 import { apiErrorMessage, authChallenge, isInvalidToken } from '../../api/sdk.error';
 import { ErrorAlert } from '../shared/error.alert';
@@ -67,7 +67,6 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
     const factors = presentableFactors({ challengeId: challenge.challenge_id, factors: challenge.factors });
     const submitAuthenticatorCode = useMfaCodeMutation();
     const submitEmailCode = useEmailCodeMutation();
-    const startEmail = useStartEmailChallenge();
 
     const [code, setCode] = useState('');
     const [methodId, setMethodId] = useState<string | undefined>(factors[0]?.method_id);
@@ -78,18 +77,39 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
 
     const selected = factors.find(factor => factor.method_id === methodId);
     const isEmail = selected?.method === 'email';
-    const emailChallengeId = startEmail.data?.email_challenge_id;
+
+    // Held here rather than in a mutation, for the reason `startEmailChallenge` gives: the first
+    // send has to come from an effect, and a mutation observer does not survive StrictMode's
+    // double-invoke of one — the request settles against nobody and the panel is stuck pending with
+    // every control disabled. Three pieces of plain state and a promise cannot get into that state.
+    const [emailChallengeId, setEmailChallengeId] = useState<string>();
+    const [sendingCode, setSendingCode] = useState(false);
+    const [sendFailed, setSendFailed] = useState<unknown>();
+
+    const sendCode = useCallback(async (): Promise<void> => {
+        setSendingCode(true);
+        setSendFailed(undefined);
+        try {
+            const issued = await startEmailChallenge(challenge.challenge_id);
+            setEmailChallengeId(issued.email_challenge_id);
+        } catch (caught) {
+            setSendFailed(caught);
+        } finally {
+            setSendingCode(false);
+        }
+    }, [challenge.challenge_id]);
 
     // Asking for a code is what SENDS the email, so it happens when the operator lands on the email
     // factor rather than when they press something — there is nothing to type until it has been
     // sent. Keyed on the selected factor so switching to email asks once, and switching away and
-    // back does not ask again while the first code is still good.
+    // back does not ask again while the first code is still good. The ref survives StrictMode's
+    // second run of this effect, which is what stops it sending twice.
     const requestedFor = useRef<string | undefined>(undefined);
     useEffect(() => {
         if (!isEmail || methodId === undefined || requestedFor.current === methodId) return;
         requestedFor.current = methodId;
-        startEmail.mutate({ challengeId: challenge.challenge_id });
-    }, [isEmail, methodId, challenge.challenge_id, startEmail]);
+        void sendCode();
+    }, [isEmail, methodId, sendCode]);
 
     const pending = submitAuthenticatorCode.isPending || submitEmailCode.isPending;
 
@@ -131,7 +151,7 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
     const failure = submitError && !challengeExpired(submitError) ? codeError(submitError) : undefined;
     // The station could not send the code at all — an unconfigured mail server, or one that
     // refused. Reported as its own thing rather than as a bad code, because no code was typed.
-    const sendFailure = startEmail.error ? apiErrorMessage(startEmail.error, 'Could not send a code to your email. Try again.') : undefined;
+    const sendFailure = sendFailed ? apiErrorMessage(sendFailed, 'Could not send a code to your email. Try again.') : undefined;
     const response = submitEmailCode.data ?? submitAuthenticatorCode.data;
     const anotherFactor = response?.result === 'mfa_required' ? 'The station asked for yet another factor, which this console cannot present.' : undefined;
 
@@ -170,7 +190,7 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
                     value={code}
                     onChange={setCode}
                     onComplete={value => void verify(value)}
-                    disabled={pending || startEmail.isPending || !codeReady}
+                    disabled={pending || sendingCode || !codeReady}
                 />
                 <Button type="submit" loading={pending} disabled={code.length !== ONE_TIME_CODE_LENGTH || !codeReady} fullWidth>
                     Verify
@@ -180,9 +200,9 @@ export function ChallengePanel({ challenge, onComplete, onExpired, onStartOver, 
                         <Button
                             variant="subtle"
                             size="compact-sm"
-                            loading={startEmail.isPending}
+                            loading={sendingCode}
                             disabled={pending}
-                            onClick={() => startEmail.mutate({ challengeId: challenge.challenge_id })}
+                            onClick={() => void sendCode()}
                         >
                             Send it again
                         </Button>

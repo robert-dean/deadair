@@ -128,6 +128,24 @@ describe('a challenge offering an email factor', () => {
 
         expect(await screen.findByText('No code sent')).toBeInTheDocument();
     });
+
+    // Measured live rather than reasoned about: with the send held in a mutation, StrictMode's
+    // double-invoke of the effect left the observer tracking nothing, so a 503 never landed and the
+    // panel sat pending with the code field AND "Send it again" both disabled and no error shown.
+    // Somebody in that state can neither sign in nor see why.
+    it('lets the operator try again after a failed send, rather than sitting disabled forever', async () => {
+        startFactorChallenge.mockRejectedValue(new Error('Email is not configured.'));
+        draw([EMAIL_FACTOR]);
+        await screen.findByText('No code sent');
+
+        expect(screen.getByRole('button', { name: 'Send it again' })).toBeEnabled();
+
+        startFactorChallenge.mockResolvedValue({ method: 'email', email_challenge_id: 'email-challenge-1' });
+        await setupUser().click(screen.getByRole('button', { name: 'Send it again' }));
+
+        expect(await screen.findByText(/a\*\*\*@example\.com/)).toBeInTheDocument();
+        expect(screen.getByLabelText('Emailed code')).toBeEnabled();
+    });
 });
 
 describe('a challenge offering both', () => {

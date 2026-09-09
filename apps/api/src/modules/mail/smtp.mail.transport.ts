@@ -66,7 +66,7 @@ export class SmtpMailTransport extends MailTransport {
                 subject: envelope.subject,
             });
             throw httpError(502)
-                .withDetails({ mail: 'The station could not send that email. Check the mail settings and the server they point at.' })
+                .withDetails({ message: 'The station could not send that email. Check the mail settings and the server they point at.' })
                 .withInternalDetails({ host: settings.host, port: settings.port, to: envelope.to })
                 .withCause(error as Error);
         } finally {

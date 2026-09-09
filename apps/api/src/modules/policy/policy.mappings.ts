@@ -19,7 +19,6 @@ import {
     RecoveryAllowedPolicyContext,
     DefaultAssuranceLevelPolicy,
     AuthAssuranceLevelPolicyContext,
-    DefaultMfaRequiredPolicy,
     SupportVerificationAllowedPolicy,
     SupportVerificationAllowedPolicyContext,
 } from '@maroonedsoftware/authentication';
@@ -28,6 +27,7 @@ import { AuthenticationSession } from '@maroonedsoftware/authentication';
 import { Injectable } from 'injectkit';
 import { PLATFORM_NAMESPACE, rolesGrant } from '#modules/permissions/platform.roles.js';
 import { ServerPolicyEnvelope } from './policy.envelope.js';
+import { DeadairMfaRequiredPolicy } from '#modules/authentication/mfa.required.policy.js';
 
 /**
  * Policy names this application adds on top of the authentication library's.
@@ -107,7 +107,7 @@ export const ServerPolicyMappings: Record<AuthenticationPolicyNames | DeadairPol
     // nothing today and would turn an omitted security block into an MFA gate tomorrow, which is
     // exactly the trap `authentication.ck` already warns about. Gating ROUTES on a second factor is
     // a separate decision from asking for one at sign-in, and it has not been taken.
-    'auth.session.mfa.required': DefaultMfaRequiredPolicy,
+    'auth.session.mfa.required': DeadairMfaRequiredPolicy,
     'auth.session.mfa.satisfied': AlwaysAllowPolicy,
     'auth.recovery.allowed': RecoveryAllowedPolicy,
     'auth.support.verification.allowed': SupportVerificationAllowedPolicy,

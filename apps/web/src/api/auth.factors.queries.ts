@@ -2,6 +2,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import type {
     AuthenticationFactorMethod,
     AuthenticationTokenResponseOutput,
+    FactorChallengeEmailStartResponseOutput,
     MfaChallengeFactorOutput,
     StepUpStartResponseOutput,
 } from '@deadair/sdk';
@@ -138,19 +139,22 @@ export function presentableFactors(challenge: MfaChallenge): MfaChallengeFactorO
 /**
  * Asks the API to send a one-time code to the email factor on a pending challenge.
  *
- * Answers the `email_challenge_id` the code grant has to echo back. Deliberately not cached and
- * deliberately re-runnable: calling it again is the operator pressing "send it again", and the API
- * re-sends the same code rather than suppressing it.
+ * Answers the `email_challenge_id` the code grant has to echo back. Deliberately re-runnable:
+ * calling it again is the operator pressing "send it again", and the API re-sends the same code
+ * rather than suppressing it.
+ *
+ * A plain async function rather than a `useMutation`, and the difference is one measured live. The
+ * first send has to happen when the panel is shown — there is nothing to type until it has — which
+ * means firing it from an effect, and under StrictMode an effect runs, is cleaned up, and runs
+ * again. A mutation observer churned like that stops tracking the request it started: the 503 came
+ * back, the panel stayed `isPending` forever, and both the code field and "Send it again" were
+ * disabled with no error shown. Somebody in that state cannot sign in and cannot see why. A promise
+ * the caller owns has no observer to lose.
  */
-export function useStartEmailChallenge() {
-    return useMutation({
-        retry: false,
-        mutationFn: async ({ challengeId }: { challengeId: string }) => {
-            const response = await sdk.authentication.factors.startFactorChallenge({ method: 'email', mfa_challenge_id: challengeId });
-            if (response.method !== 'email') throw new Error('The station answered with a factor this console did not ask for.');
-            return response;
-        },
-    });
+export async function startEmailChallenge(challengeId: string): Promise<FactorChallengeEmailStartResponseOutput> {
+    const response = await sdk.authentication.factors.startFactorChallenge({ method: 'email', mfa_challenge_id: challengeId });
+    if (response.method !== 'email') throw new Error('The station answered with a factor this console did not ask for.');
+    return response;
 }
 
 /**

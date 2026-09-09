@@ -13,6 +13,12 @@ import { resolveMailSettings } from './mail.settings.js';
  *
  * Names the page, because the operator reading it is the person who can fix it — this is a
  * single-operator station and the sign-in that just failed is theirs.
+ *
+ * Under `message` rather than a `mail` key, which is not cosmetic: the console reads a sentence out
+ * of `details.message` and falls back to a generic one otherwise, so a field-keyed detail would
+ * have shown the operator "Service Unavailable" and left the actionable half in the response body
+ * where only a network tab would find it. `details.message` is the established key for a sentence
+ * that is about the request rather than about a field — see `startStepUpChallenge`.
  */
 const NOT_CONFIGURED = 'Email is not configured. Set a mail server under Settings → Mail.';
 
@@ -51,7 +57,7 @@ export class MailService {
     /** Refuse with the 503 {@link send} would throw, for a caller checking before it commits to anything. */
     assertConfigured(): void {
         if (!this.isConfigured()) {
-            throw httpError(503).withDetails({ mail: NOT_CONFIGURED });
+            throw httpError(503).withDetails({ message: NOT_CONFIGURED });
         }
     }
 
@@ -63,7 +69,7 @@ export class MailService {
     async send(message: MailMessage): Promise<void> {
         const settings = resolveMailSettings(this.config, this.encryption);
         if (!settings) {
-            throw httpError(503).withDetails({ mail: NOT_CONFIGURED });
+            throw httpError(503).withDetails({ message: NOT_CONFIGURED });
         }
 
         const envelope = renderMail(message, this.stationName());

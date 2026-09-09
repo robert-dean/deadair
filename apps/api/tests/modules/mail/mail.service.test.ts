@@ -44,12 +44,14 @@ describe('sending station mail', () => {
         expect(transport.send).not.toHaveBeenCalled();
     });
 
-    it('names the page an operator can fix it on, since that operator is who is reading it', async () => {
+    // Under `message` on purpose: the console reads its sentence out of `details.message`, so a
+    // field-keyed detail would have shown 'Service Unavailable' and hidden the actionable half.
+    it('names the page an operator can fix it on, under the key the console actually reads', async () => {
         const { service } = build({});
 
         const error = await service.send(MESSAGE).catch((e: unknown) => e);
 
-        expect(IsHttpError(error) ? error.details : undefined).toEqual({ mail: expect.stringContaining('Settings → Mail') });
+        expect(IsHttpError(error) ? error.details : undefined).toEqual({ message: expect.stringContaining('Settings → Mail') });
     });
 
     it('hands the transport a rendered envelope and the settings to send it with', async () => {

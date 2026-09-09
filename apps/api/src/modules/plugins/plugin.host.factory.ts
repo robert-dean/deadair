@@ -3,6 +3,7 @@ import { RateLimiterMemory, RateLimiterQueue, RateLimiterQueueError } from 'rate
 import { PluginError, isPluginError, parseRows } from '@deadair/plugin-sdk';
 import type {
     ConfigField,
+    ConfigFieldColumn,
     HostFetchInit,
     HostFetchMethod,
     PluginConfigAccess,
@@ -238,11 +239,46 @@ const hostnamesFromSetting = (value: unknown, field?: ConfigField): string[] => 
  * `parseRows` is the SDK's own reader, so the host and the plugin read one encoding: a list the
  * plugin serves and the allowlist refuses is a plugin that looks broken rather than a row somebody
  * got wrong.
+ *
+ * And by the ROW as well as by the column, wherever a `url` column declared which rows it applies
+ * to. A providers table holding one row reached at an address the operator runs and another reached
+ * where its vendor lives has an address cell that means nothing on the second, and an address left
+ * in it — typed before the row's kind was changed, or hand-edited into `plugin_configs` — would
+ * otherwise put a host on the allowlist that the plugin can never call. The console declines to
+ * send such a cell, but the console is not what decides this: a row can reach here without ever
+ * having been through it.
  */
 const addressCells = (value: unknown, field: ConfigField): unknown[] => {
-    const columns = (field.columns ?? []).filter(column => column.type === 'url').map(column => column.key);
+    const columns = field.columns ?? [];
+    const urls = columns.filter(column => column.type === 'url');
 
-    return parseRows(value).flatMap(row => columns.map(key => row[key]));
+    return parseRows(value).flatMap(row => urls.filter(column => columnAppliesToRow(column, columns, row)).map(column => row[column.key]));
+};
+
+/**
+ * Whether a column applies to one row, per its own `dependsOn`.
+ *
+ * The host's copy of the console's rule (`appliesToRow` in `config.fields.form.tsx`), and it has to
+ * agree with it: a cell the form declines to send and one the allowlist declines to read are the
+ * same claim made in two places, and a plugin whose address is refused by one and accepted by the
+ * other looks broken rather than misconfigured.
+ *
+ * Forgiving in exactly the three places the console's is, and here that is the conservative
+ * direction rather than the lenient one: an unresolvable condition leaves the address contributing
+ * a host, which is what it did before any of this existed. Narrowing an allowlist is a thing to do
+ * on a declaration that plainly says so, not on one nothing can make sense of.
+ */
+const columnAppliesToRow = (column: ConfigFieldColumn, columns: readonly ConfigFieldColumn[], row: Record<string, unknown>): boolean => {
+    if (column.dependsOn === undefined) return true;
+
+    const target = columns.find(candidate => candidate.key === column.dependsOn);
+    if (target === undefined) return true;
+
+    const cell = row[target.key];
+    const value = typeof cell === 'string' ? cell.trim() : '';
+    if (value.length === 0) return true;
+
+    return column.dependsOnValues === undefined ? true : column.dependsOnValues.includes(value);
 };
 
 /**

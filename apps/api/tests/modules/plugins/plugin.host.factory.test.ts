@@ -1149,6 +1149,52 @@ describe('PluginHostFactory config-derived allowlist', () => {
         await expectPluginError(host.fetch('https://leaked.example.net/x'), 'forbidden', /not allowed to reach/);
     });
 
+    it('takes no address from a url column that does not apply to the row', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        // The second row is reached where its vendor lives, so its address cell means nothing —
+        // and the address in it was left behind by a change of kind, or hand-edited into
+        // `plugin_configs`, which is a row that never went through the console at all. The console
+        // declines to send such a cell; this is what makes that a rule rather than a habit.
+        const { service } = configured(
+            rows({ kind: 'server', url: 'https://mine.example.com/v1' }, { kind: 'vendor', url: 'https://stale.example.net/v1' }),
+        );
+        const host = factory(undefined, service).createHost(
+            fromRows(
+                { key: 'kind', label: 'Kind', type: 'string' },
+                { key: 'url', label: 'Address', type: 'url', dependsOn: 'kind', dependsOnValues: ['server'] },
+            ),
+        );
+
+        await expect(host.fetch('https://mine.example.com/v1')).resolves.toMatchObject({ status: 200 });
+        await expectPluginError(host.fetch('https://stale.example.net/v1'), 'forbidden', /not allowed to reach/);
+    });
+
+    it('still takes the address while a row says nothing about its kind', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        // The console's rule, kept in step: an empty target cell shows the cell, because a row
+        // just added has nothing in any of them. Narrowing an allowlist happens on a declaration
+        // that plainly says so, never on one nothing can make sense of.
+        const { service } = configured(rows({ url: 'https://mine.example.com/v1' }));
+        const host = factory(undefined, service).createHost(
+            fromRows(
+                { key: 'kind', label: 'Kind', type: 'string' },
+                { key: 'url', label: 'Address', type: 'url', dependsOn: 'kind', dependsOnValues: ['server'] },
+            ),
+        );
+
+        await expect(host.fetch('https://mine.example.com/v1')).resolves.toMatchObject({ status: 200 });
+    });
+
+    it('still takes the address when the condition names a column the list does not declare', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
+        const { service } = configured(rows({ kind: 'vendor', url: 'https://mine.example.com/v1' }));
+        const host = factory(undefined, service).createHost(
+            fromRows({ key: 'url', label: 'Address', type: 'url', dependsOn: 'missing', dependsOnValues: ['server'] }),
+        );
+
+        await expect(host.fetch('https://mine.example.com/v1')).resolves.toMatchObject({ status: 200 });
+    });
+
     it('lets one bad row cost its own upstream and no other', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })));
         const { service } = configured(rows({ url: '' }, { url: 'https://*.example.org' }, { url: 'https://good.example.com/feed.xml' }));

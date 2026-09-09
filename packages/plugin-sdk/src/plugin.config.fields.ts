@@ -185,6 +185,44 @@ export interface ConfigFieldColumn {
 
     /** Choices only the station can enumerate. See {@link ConfigFieldOptionSource}. */
     optionsFrom?: ConfigFieldOptionSource;
+
+    /**
+     * Key of another column in the same list. This cell only applies to a row whose cell there
+     * holds one of {@link dependsOnValues}.
+     *
+     * For the table whose columns are not all about the same row: a provider list where the
+     * address belongs to a self-hosted server and the API key to a vendor, a supplier list where
+     * one kind is reached by URL and another by account id. Without it every column is drawn on
+     * every row, so an operator meets a cell their row has no use for, with no way to tell it from
+     * one they have not filled in yet.
+     *
+     * **This is not the rendering hint {@link ConfigField.dependsOn} is**, and the difference is
+     * the whole reason it is here. A field-level `dependsOn` hides a control and the server never
+     * reads it. This says the cell DOES NOT APPLY, so the console declines to send it and the host
+     * declines to derive anything from it — which for a `url` column means the row contributes no
+     * hostname to the plugin's allowlist (`addressCells` in `plugin.host.factory.ts`). An address
+     * typed on a row before its kind was changed would otherwise widen the allowlist by a host the
+     * plugin can never call, which is exactly the quiet widening that path exists to refuse.
+     *
+     * Forgiving in three places, all of them the same instinct as `isVisible` in the console's
+     * form: a target this list does not declare shows the cell, a target cell that is EMPTY shows
+     * the cell, and values without a target are ignored. The empty case is the load-bearing one. A
+     * column has no `default`, so a row somebody has just added holds `''` in every cell, and a
+     * rule that hid a cell there would hide it on the one row that most needs filling in.
+     *
+     * A `secret` cell that does not apply keeps whatever is stored rather than being cleared.
+     * Absent already means "keep it" in `plugin.config.rows.ts`, and reading a visibility rule as
+     * an instruction to destroy a credential would be a surprise nobody asked for.
+     */
+    dependsOn?: string;
+
+    /**
+     * The values of the {@link dependsOn} cell that this one applies to. Ignored without a target.
+     *
+     * Omitted means "any value at all", which is what a field-level `dependsOn` already means, so
+     * an author who knows that one knows this.
+     */
+    dependsOnValues?: string[];
 }
 
 /**
@@ -458,6 +496,16 @@ export const configFieldColumnSchema = z.object({
     placeholder: z.string().optional(),
     options: z.array(configFieldOptionSchema).optional(),
     optionsFrom: configFieldOptionSourceSchema.optional(),
+    // Named here or dropped: `plugin.loader.ts` stores the zod OUTPUT of this schema as the
+    // manifest, and a `z.object` strips what it does not name. A column declaring a condition this
+    // schema had not been told about would lose it at load, in silence, and present as a console
+    // that ignores the declaration.
+    //
+    // No refinement tying the values to a target. The `.ck` contract mirroring this cannot express
+    // one, and a schema that refuses what the contract accepts is the drift the generated-output
+    // rule exists to prevent; values without a target are documented as ignored instead.
+    dependsOn: z.string().min(1).optional(),
+    dependsOnValues: z.array(z.string().min(1)).optional(),
 });
 
 export const configFieldSchema = z.object({

@@ -928,6 +928,37 @@ One constraint falls out of that: a field key and a column key may not contain a
 `/`, because `rowSecretKey` joins on it. The manifest schema refuses one, so you
 find out at load rather than at save.
 
+### A column that only some rows have
+
+Where a table's columns are not all about the same row — a provider reached at an
+address the operator runs, beside one reached where its vendor lives — a column
+says which rows it applies to:
+
+```ts
+{ key: 'kind', label: 'Kind', type: 'select', options: [...] },
+{ key: 'baseUrl', label: 'Address', type: 'url', dependsOn: 'kind', dependsOnValues: ['server'] },
+```
+
+`dependsOn` names another column in the same list and `dependsOnValues` the values
+of that cell this one applies to; omit the values and any non-empty value will do,
+which is what a field's `dependsOn` already means.
+
+This says more than the field-level `dependsOn` does, and the difference is worth
+knowing. A field's `dependsOn` hides a control and the server never reads it. A
+column's says the cell **does not apply**: the console will not draw it or send
+it, and the host will not derive anything from it — so a `url` column that does
+not apply to a row contributes no hostname to your `network` allowlist. An
+address left behind on a row whose kind was changed would otherwise widen that
+allowlist by a host you can never call.
+
+Forgiving where being strict would cost you: a target the list does not declare
+shows the cell, a target cell that is still empty shows the cell, and values with
+no target are ignored. The empty case is the one to keep in mind — a column has
+no `default`, so a row somebody has just added has an empty cell everywhere, and
+the whole row stays fillable until they say what kind of thing it is. A `secret`
+cell that stops applying keeps whatever is stored; nothing here deletes a
+credential.
+
 ### Asking for a better control
 
 `control` says how a field should be DRAWN where the ordinary input for its type

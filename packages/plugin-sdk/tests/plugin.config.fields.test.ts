@@ -110,6 +110,53 @@ describe('configFieldSchema', () => {
         expect(parsed.success).toBe(true);
     });
 
+    it('carries a column condition through rather than stripping it, which is new', () => {
+        // The schema's OUTPUT is what `plugin.loader.ts` stores as the manifest, and a `z.object`
+        // strips what it does not name. So the assertion that matters is not that this parses but
+        // that both properties survive the parse: a column condition the schema had not been told
+        // about would be gone by the time the console asked for the form.
+        const parsed = configFieldSchema.safeParse({
+            key: 'providers',
+            label: 'Providers',
+            type: 'list',
+            columns: [
+                { key: 'kind', label: 'Kind', type: 'select', options: [{ value: 'server', label: 'Server' }] },
+                { key: 'baseUrl', label: 'Address', type: 'url', dependsOn: 'kind', dependsOnValues: ['server'] },
+            ],
+        });
+
+        expect(parsed.success).toBe(true);
+        expect(parsed.data?.columns?.[1]).toMatchObject({ dependsOn: 'kind', dependsOnValues: ['server'] });
+    });
+
+    it('accepts a column condition with no values, which means any value at all', () => {
+        const parsed = configFieldSchema.safeParse({
+            key: 'providers',
+            label: 'Providers',
+            type: 'list',
+            columns: [
+                { key: 'kind', label: 'Kind', type: 'string' },
+                { key: 'baseUrl', label: 'Address', type: 'url', dependsOn: 'kind' },
+            ],
+        });
+
+        expect(parsed.success).toBe(true);
+        expect(parsed.data?.columns?.[1]?.dependsOnValues).toBeUndefined();
+    });
+
+    it('refuses an empty column condition, which would name a column that cannot exist', () => {
+        const column = (condition: Record<string, unknown>) =>
+            configFieldSchema.safeParse({
+                key: 'providers',
+                label: 'Providers',
+                type: 'list',
+                columns: [{ key: 'baseUrl', label: 'Address', type: 'url', ...condition }],
+            }).success;
+
+        expect(column({ dependsOn: '' })).toBe(false);
+        expect(column({ dependsOn: 'kind', dependsOnValues: [''] })).toBe(false);
+    });
+
     it('refuses a key holding the one character a secret cell key is joined on', () => {
         // Otherwise a cell's ciphertext could be addressed two ways, and the host would have two
         // answers to "is this configured".

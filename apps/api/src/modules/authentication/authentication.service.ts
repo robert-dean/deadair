@@ -13,6 +13,7 @@ import {
     BaseAuthenticationLoginStart,
     BaseAuthenticationRequest,
     ClientCredentialsAuthenticationRequest,
+    CodeAuthenticationRequest,
     EnrollmentRequiredResponse,
     FactorChallengeEmailStart,
     FactorChallengeEmailStartResponse,
@@ -45,6 +46,7 @@ import {
     AuthenticatorFactorService,
     AuthMfaRequiredPolicyFactor,
     EmailFactorRepository,
+    EmailFactorService,
     EmailFactorServiceOptions,
     FidoFactorService,
     HtmlRedirectProvider,
@@ -53,6 +55,7 @@ import {
     OidcFactorService,
     PasswordFactorService,
     PasswordHashProvider,
+    PkceProvider,
     TargetActor,
 } from '@maroonedsoftware/authentication';
 import { DateTime } from 'luxon';
@@ -115,6 +118,8 @@ export class AuthenticationService {
         private readonly actorsRepository: ActorsRepository,
         private readonly sessionService: AuthenticationSessionService,
         private readonly emailFactorRepository: EmailFactorRepository,
+        private readonly emailFactorService: EmailFactorService,
+        private readonly pkceProvider: PkceProvider,
         private readonly emailFactorServiceOptions: EmailFactorServiceOptions,
         private readonly mailService: MailService,
         private readonly passwordFactorService: PasswordFactorService,
@@ -143,6 +148,9 @@ export class AuthenticationService {
         this.authenticateHandlerMap.set('fido', {
             authenticate: (request: BaseAuthenticationRequest) => this.handleFido(request as FidoAuthenticationRequest),
             startLogin: (request: BaseAuthenticationLoginStart) => this.handleFidoStartLogin(request as FidoAuthenticationLoginStart),
+        });
+        this.authenticateHandlerMap.set('code', {
+            authenticate: (request: BaseAuthenticationRequest) => this.handleCode(request as CodeAuthenticationRequest),
         });
         this.authenticateHandlerMap.set('authenticator', {
             authenticate: (request: BaseAuthenticationRequest) => this.handleAuthenticator(request as AuthenticatorAuthenticationRequest),
@@ -555,6 +563,116 @@ export class AuthenticationService {
         };
 
         return await this.issueTokenFor({ kind: 'user', actorId: result.actorId }, proofFactor);
+    }
+
+    /**
+     * The one-time code grant, which serves two flows that share nothing but a six-digit field.
+     *
+     * With `mfa_challenge_id` it completes a pending MFA round: the password (or whatever was
+     * primary) is already proved, and the code proves the inbox. With `code_verifier` it IS the
+     * sign-in — no password at all — and PKCE is what binds the code back to the device that asked
+     * for it. Exactly one of the two, because they are different claims about who is asking and a
+     * request carrying both is a request that has answered neither.
+     */
+    private async handleCode(request: CodeAuthenticationRequest): Promise<AuthenticationTokenInternal> {
+        const hasMfa = request.mfa_challenge_id !== undefined;
+        const hasPkce = request.code_verifier !== undefined;
+        if (hasMfa === hasPkce) {
+            throw httpError(400).withDetails({ binding: 'exactly one of code_verifier or mfa_challenge_id must be set' });
+        }
+        if (hasMfa && request.challenge_id === undefined) {
+            // The MFA arm has no verifier to resolve the email challenge from, so the caller has to
+            // name it — it is the id `POST /auth/factors/start` just answered with.
+            throw httpError(400).withDetails({ binding: 'challenge_id is required when mfa_challenge_id is set' });
+        }
+
+        return hasMfa ? await this.completeMfaWithCode(request) : await this.signInWithCode(request);
+    }
+
+    /** The second half of a sign-in that stopped at `mfa_required`, satisfied by an emailed code. */
+    private async completeMfaWithCode(request: CodeAuthenticationRequest): Promise<AuthenticationTokenInternal> {
+        const mfaChallengeId = request.mfa_challenge_id!;
+        const challengeId = request.challenge_id!;
+
+        // Eligibility is checked here rather than left to the orchestrator, for the reason
+        // `handleAuthenticator` states and one more. `completeMfa` verifies the proof BEFORE it
+        // checks the factor against the challenge's eligible list, and verifying an email challenge
+        // consumes it — so a challenge id from one round could be spent against another round that
+        // never offered email, burning the operator's code on a request that then fails anyway.
+        const mfa = await this.mfaChallengeService.peek(mfaChallengeId);
+        if (!mfa) {
+            throw unauthorizedError('Bearer error="invalid_challenge"');
+        }
+        if (!mfa.eligibleFactors.some(f => f.method === 'email')) {
+            throw unauthorizedError('Bearer error="invalid_factor"');
+        }
+
+        try {
+            const result = await this.mfaOrchestrator.completeMfa<ActorType>(mfaChallengeId, {
+                method: 'email',
+                challengeId,
+                code: request.code,
+                // The method the challenge must have been issued under. Without it a magic-link
+                // token issued for a passwordless sign-in could be redeemed here as if it were an
+                // MFA code — a different flow, a different proof, and a 30-minute window rather
+                // than a 10-minute one.
+                issueMethod: 'code',
+            });
+            return await this.issueTokenFor(result.actor, [result.primaryFactor, result.secondaryFactor]);
+        } catch (error) {
+            await this.recordEmailFactorFailure(mfa.actor.actorId, error);
+            throw error;
+        }
+    }
+
+    /** A whole sign-in on an emailed code, with PKCE standing in for a password. */
+    private async signInWithCode(request: CodeAuthenticationRequest): Promise<AuthenticationTokenInternal> {
+        const codeVerifier = request.code_verifier!;
+
+        // The verifier resolves to the challenge id stashed at `/auth/login/start`, which is what
+        // proves this request comes from the device that asked for the code. A `challenge_id` in
+        // the body is ignored here on purpose: honouring it would let anyone who intercepted a code
+        // complete the sign-in from their own device.
+        const challengeId = await this.pkceProvider.getVerifier(codeVerifier);
+        if (!challengeId) {
+            throw unauthorizedError('Bearer error="invalid_grant"');
+        }
+
+        let verified;
+        try {
+            verified = await this.emailFactorService.verifyEmailChallenge(challengeId, request.code, 'code');
+        } catch (error) {
+            await this.recordEmailFactorFailure(undefined, error);
+            throw error;
+        }
+
+        await this.pkceProvider.deleteVerifier(codeVerifier);
+
+        const now = DateTime.utc();
+        // Through `issueOrChallenge` rather than straight to a token: an emailed code is a PRIMARY
+        // factor here, so an account with an authenticator enrolled still has to produce it. The
+        // policy already declines to offer the same email factor as its own second step.
+        return await this.issueOrChallenge({
+            actor: { kind: 'user', actorId: verified.actorId },
+            primaryFactor: { issuedAt: now, authenticatedAt: now, method: 'email', methodId: verified.id, kind: 'possession' },
+        });
+    }
+
+    /**
+     * Record a refused code the way the password path records a refused password.
+     *
+     * Only the verdicts that are about the CODE. A 503 from an unconfigured mailer or a driver
+     * throw is not somebody failing a factor, and counting it as one would fill the operator's
+     * activity feed with their own infrastructure.
+     */
+    private async recordEmailFactorFailure(actorId: string | undefined, error: unknown): Promise<void> {
+        if (!IsHttpError(error) || error.statusCode >= 500) return;
+        await this.sessionActivity.recordFactorFailure({
+            identifier: actorId ?? 'unknown',
+            factorType: 'email',
+            actorId: actorId ?? null,
+            lastReason: error.statusCode === 429 ? 'too_many_attempts' : 'invalid_code',
+        });
     }
 
     private async handleAuthenticator(request: AuthenticatorAuthenticationRequest): Promise<AuthenticationTokenInternal> {

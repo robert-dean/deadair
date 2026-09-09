@@ -1693,6 +1693,22 @@ export interface AnswerGuard {
      * break that does not allow one.
      */
     pads?: readonly string[];
+    /**
+     * Every year this break was actually given, and so the only ones it may say.
+     *
+     * {@link inventedFigure}'s doctrine carried across to the music path, and it arrives here rather
+     * than in the weather writer because a DATE is the one claim about a record that a model will
+     * fill in without any sense of having invented anything — exactly what that function says about
+     * a plausible temperature. Build it with {@link permittedYears}, from the same records the
+     * prompt was built from, so a script is refused only for a year it was never shown.
+     *
+     * Absent asks nothing, on {@link AnswerGuard.recent}'s bargain and every other field's here. An
+     * EMPTY list is a different statement and is the one a factless break makes: the station was
+     * given no year, so every year in the answer is one the model brought with it. That is the same
+     * sentence `break.prompt.ts` already puts in the prompt — "the station knows nothing about X
+     * beyond what is listed above" — read back off the answer instead of only asked for.
+     */
+    years?: readonly number[];
 }
 
 /**
@@ -1742,6 +1758,12 @@ export function readAnswer(text: string, guard: AnswerGuard = {}): string | unde
     // — and above the character check for the reason that one sits below the others: being out of
     // character is a question worth asking only about a script the station could otherwise say.
     if (wrongDayPartIn(words, guard) !== undefined) return undefined;
+
+    // A break that dated a record to a year the station never held. Last of the factual checks and
+    // in the same position `writeDecline` checks it, on the rule those two orders are kept by: they
+    // are one story, and a script the one of them airs is a script the other has to be able to
+    // refuse. See `inventedYearIn`.
+    if (inventedYearIn(words, guard) !== undefined) return undefined;
 
     // A correct sentence that is not this character speaking, which is the failure a persona is
     // asked for and the one a model handed a page of content rules actually makes — in flat plain
@@ -1917,6 +1939,214 @@ const withoutRecordNames = (script: string, guard: AnswerGuard): string => {
 };
 
 /**
+ * A year written in digits, bounded to the range a record can plausibly carry.
+ *
+ * 1800 to 2099. The bound is what keeps this a check on DATES rather than on arithmetic: a break is
+ * shown a length and a chart position and may say either, and `503` and `1,750,000` are numbers a
+ * script is entitled to. Four digits in that range is the shape a year takes and almost nothing else
+ * a presenter says does.
+ */
+const DIGIT_YEAR = /\b(1[89]\d{2}|20\d{2})\b/g;
+
+/** The century a spoken year opens with. `two thousand` is handled on its own, below. */
+const SPOKEN_CENTURY: Record<string, number> = { nineteen: 1900, twenty: 2000 };
+
+const SPOKEN_TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+
+// Ten to nineteen as the whole of a year's second half — "nineteen seventeen" — plus the units that
+// follow a tens word and the `oh` that stands in for a zero decade. One table, because every one of
+// them is a number word and the parser's rules are about POSITION rather than about which list a
+// word came from.
+const SPOKEN_UNITS: Record<string, number> = {
+    oh: 0,
+    zero: 0,
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+    eleven: 11,
+    twelve: 12,
+    thirteen: 13,
+    fourteen: 14,
+    fifteen: 15,
+    sixteen: 16,
+    seventeen: 17,
+    eighteen: 18,
+    nineteen: 19,
+};
+
+/**
+ * The years a script says out loud, as the words a presenter actually uses.
+ *
+ * **This is the half {@link inventedFigure} deliberately does without, and the music path cannot.**
+ * That function documents a spelled-out number getting through as an accepted gap, which is right
+ * where the substrate is a temperature: nobody says "twenty-three degrees" as words in a forecast
+ * this station writes. A year is the opposite — of the ungrounded dates this station has actually
+ * aired, "formed in Hannover nineteen sixty-five", "born in Ho-Ho-Kus back in nineteen seventy-two"
+ * and "launched in Los Angeles back in two thousand" are all words, and only "born in Brooklyn,
+ * 1989" is digits. A digits-only check would have caught one of the four.
+ *
+ * ## What it will not read as a year, on purpose
+ *
+ * A century word with nothing that completes it. `twenty minutes`, `nineteen records` and a bare
+ * `twenty` at the end of a sentence are not dates, and the parser requires the second half to be
+ * there before it calls anything a year: a tens word (`nineteen sixty`), a ten-to-nineteen word
+ * (`nineteen seventeen`), or an `oh` and a unit (`nineteen oh five`). `twenty two people` is
+ * therefore not 2022, because a bare unit after a century completes nothing.
+ *
+ * A bare decade with no century — "back in seventy-two" — is a year to a listener and is not read as
+ * one here. Catching it means reading every two-digit number word as a date, which refuses "forty
+ * five seconds" and "the last twenty minutes" on a station whose breaks are full of both. That is
+ * the same trade `withoutRecordNames` takes and in the same direction: a narrow miss is survivable
+ * where a wrong refusal costs the station a sentence it wanted.
+ */
+function spokenYearsIn(words: readonly string[]): number[] {
+    const found: number[] = [];
+
+    for (let i = 0; i < words.length; i++) {
+        // `two thousand` and everything hanging off it: the plain year, and the `and` a presenter
+        // puts in the middle of "two thousand and four" but a model often leaves out.
+        if (words[i] === 'two' && words[i + 1] === 'thousand') {
+            const rest = words[i + 2] === 'and' ? i + 3 : i + 2;
+            const tens = SPOKEN_TENS[words[rest] ?? ''];
+            const unit = SPOKEN_UNITS[words[rest] ?? ''];
+
+            if (tens !== undefined) found.push(2000 + tens + (SPOKEN_UNITS[words[rest + 1] ?? ''] ?? 0));
+            else if (unit !== undefined) found.push(2000 + unit);
+            else found.push(2000);
+            continue;
+        }
+
+        const century = SPOKEN_CENTURY[words[i] ?? ''];
+        if (century === undefined) continue;
+
+        const next = words[i + 1] ?? '';
+        const tens = SPOKEN_TENS[next];
+        if (tens !== undefined) {
+            found.push(century + tens + (SPOKEN_UNITS[words[i + 2] ?? ''] ?? 0));
+            continue;
+        }
+
+        // `nineteen seventeen` and `nineteen oh five`. A unit below ten only counts behind an `oh`,
+        // which is what keeps `twenty two` from being read as a year.
+        const unit = SPOKEN_UNITS[next];
+        if (unit !== undefined && unit >= 10) found.push(century + unit);
+        else if (next === 'oh' || next === 'zero') found.push(century + (SPOKEN_UNITS[words[i + 2] ?? ''] ?? 0));
+    }
+
+    return found;
+}
+
+/** Every year a text states, in digits and in words, which is what both sides of the check read. */
+export function yearsIn(text: string): number[] {
+    const words = bareWords(text).toLowerCase().split(/\s+/).filter(Boolean);
+
+    return [...[...text.matchAll(DIGIT_YEAR)].map(match => Number(match[0])), ...spokenYearsIn(words)];
+}
+
+/**
+ * The years a break may say: every one the station put in front of it.
+ *
+ * The record's own three are each something the writer was handed — the year on the listing, any
+ * year inside the album title beside it, and any year inside a fact the enrichment path supplied.
+ * The album is permitted rather than stripped because {@link withoutRecordNames} takes the title and
+ * the artist out of a script and not the album: `Blizzard Of Ozz (40th Anniversary Expanded Edition)`
+ * is on the prompt, so a break may repeat it, and refusing that would be the station refusing its
+ * own note.
+ *
+ * `now` is the moment the break airs and permits the year it airs IN, which is the one date a
+ * presenter can state from the booth with no note in front of them.
+ *
+ * ## `shown` is the prompt itself, and leaving it out made this a trick question
+ *
+ * **A persona's own material carries dates, and the station asks for them.** Measured over the 748
+ * aired talk breaks this station has written: without this argument the check refuses 23 of them,
+ * and 5 are the `conspiracy` host telling his own seeded story, which opens "Nineteen ninety-seven.
+ * I was driving home". The prompt prints that story, the sheet asks him to bring it up, and the
+ * break said it — so refusing it is the station asking for something and then declining a script for
+ * doing it, which is the one thing every guard in this file is built not to do. See
+ * {@link AnswerGuard.recent}, which is on the same bargain for the same reason.
+ *
+ * Passing the whole rendered prompt rather than enumerating the fields it came from is deliberate.
+ * A sheet grows fields — `background`, the stories, the preoccupations, and whatever is added next —
+ * and a list here would be right until the day somebody adds one, which is how a rule in this file
+ * becomes a lie. What the model was SHOWN is the thing the bargain is actually about, and the prompt
+ * is that, exactly, with nothing to keep in step.
+ *
+ * The one path it widens is {@link AnswerGuard.recent}: an invented year in a break that already
+ * aired is quoted back in the next prompt and would be permitted there. That closes itself the
+ * moment this check is on, because the break carrying it is now refused before it can become recent
+ * — it is a hole in the history this ships against and not in the rule.
+ */
+export function permittedYears(
+    records: readonly (BreakTrack | undefined)[],
+    now?: { at: number; zone: string },
+    shown: readonly string[] = [],
+): number[] {
+    const years = new Set<number>();
+
+    for (const record of records) {
+        if (record === undefined) continue;
+        if (record.year !== undefined) years.add(record.year);
+        for (const year of yearsIn(record.album ?? '')) years.add(year);
+        for (const fact of record.facts ?? []) for (const year of yearsIn(fact)) years.add(year);
+    }
+
+    for (const text of shown) for (const year of yearsIn(text)) years.add(year);
+
+    if (now !== undefined) {
+        const airs = Number(new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: now.zone }).format(new Date(now.at)));
+        if (Number.isFinite(airs)) years.add(airs);
+    }
+
+    return [...years];
+}
+
+/**
+ * The year a script stated that it was never given, or `undefined` when every date in it is one.
+ *
+ * The record names come out first, through the same {@link withoutRecordNames} the clock checks use
+ * and for the same reason one word along: `1979`, `1999` and `Miami Nights 1984` are a title, a title
+ * and an artist, and a break that back-announces one has made no claim about a date at all. That
+ * artist is not hypothetical — it is on this station, and it aired.
+ *
+ * The album's years are permitted rather than stripped, which is {@link permittedYears}' note.
+ */
+/**
+ * What it does to the station's own output, which is the only measurement that settles a guard here.
+ *
+ * Replayed over the 748 aired model talk breaks in `script_history`, with each break's records, its
+ * facts as the store holds them now, and its persona's sheet as {@link permittedYears}' `shown`: it
+ * refuses 21, which is 2.8%. Every one is a date nothing in front of the model carried, and they are
+ * the shapes this file has been describing in prose — "the Scorpions' anthem born from Hannover in
+ * 1965", "a band that launched in Los Angeles back in two thousand", "The band born in Brooklyn,
+ * 1989" — plus the two the same mechanism produces when the recall is wrong rather than right: "the
+ * Chicago band from twenty-seventy" and "The band formed in Seattle in sixteen seventy-four".
+ *
+ * There were 23 before `shown` existed, and the two it gave back are the whole argument for it.
+ */
+const inventedYearIn = (script: string, guard: AnswerGuard): string | undefined => {
+    if (guard.years === undefined) return undefined;
+
+    const permitted = new Set(guard.years);
+    const spoken = withoutRecordNames(script, guard);
+
+    // The DIGITS are reported as they were written and a spoken year as the number it parsed to,
+    // because the two answer different questions for whoever reads the row: a digit year is the text
+    // to search the capture for, and "nineteen sixty-five" is three tokens that were never adjacent
+    // in the original. `scripts/break.declines.ts` groups on the reason, so both stay one fault.
+    for (const year of yearsIn(spoken)) if (!permitted.has(year)) return String(year);
+
+    return undefined;
+};
+
+/**
  * Why a cleaned script is not the persona speaking, or `undefined` when it is.
  *
  * The same judgement {@link readAnswer} makes, exported so a writer can log WHICH of the four faults
@@ -1948,6 +2178,12 @@ const FAULT_REASONS: Record<WriteFault, string> = {
     'named-nothing': 'the model wrote a break about neither of the records it was shown, so a listener could not tell what was playing',
     'cued-wrong': 'the model announced a record on the wrong side of the break, telling a listener something had played when it had not',
     'wrong-daypart': 'the model called it the wrong half of the day, which a listener hears immediately and the station cannot take back',
+    // Not "dated a RECORD", though that is almost always what happened: of the 21 aired breaks this
+    // refuses, one is the paranormal host dating his own life to a year his sheet does not carry.
+    // A fault sentence that named the record would send an operator to the listing for a break whose
+    // fault was in the persona.
+    'invented-year':
+        'the model stated a year the station never gave it, which a listener cannot check and the station cannot tell from one it made up',
     'quoted-sample': 'the model read one of the persona’s own sample lines back rather than writing in its voice',
     'spent-catchphrase': 'the model reached for a signature the station had just used',
     'avoided-wording': 'the model used wording the persona forbids',
@@ -1970,7 +2206,8 @@ const FAULT_REASONS: Record<WriteFault, string> = {
  * those five send an operator to a persona sheet that is working, when what wants changing is a model
  * writing four times the length it was given.
  */
-export type WriteFault = CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing' | 'cued-wrong' | 'wrong-daypart' | 'character-trimmed';
+export type WriteFault =
+    CharacterFault | 'nothing-said' | 'ran-long' | 'named-nothing' | 'cued-wrong' | 'wrong-daypart' | 'invented-year' | 'character-trimmed';
 
 /**
  * Why a raw answer was refused, for a writer that wants to say so, or `undefined` when it was not.
@@ -2019,6 +2256,13 @@ export function writeDecline(text: string, guard: AnswerGuard): { fault: WriteFa
     if (cuesWrongly(speakable, guard)) return reasoned('cued-wrong');
     const daypart = wrongDayPartIn(speakable, guard);
     if (daypart !== undefined) return reasoned('wrong-daypart', daypart);
+    // Last of the factual checks and still ahead of the character ones, on the order's own argument:
+    // a break that told the listener the record was made in a year the station never heard of is not
+    // worth asking whether it did so in voice. It sits after the daypart rather than before because
+    // the clock checks read a script the record names have been taken out of, and this one wants the
+    // same treatment for the same reason — a title full of digits is not a claim about a date.
+    const year = inventedYearIn(speakable, guard);
+    if (year !== undefined) return reasoned('invented-year', year);
 
     const fault = faultIn(speakable, guard);
     if (fault === undefined) return undefined;

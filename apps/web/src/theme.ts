@@ -301,6 +301,22 @@ export function consoleTheme(colors: ConsolePalettes, faces: ConsoleFaces, signa
                     type: 'native',
                 },
             },
+            // A field's help text gets a measure, because a full-width field's does not have one.
+            //
+            // The settings and plugin forms put a `list`, a `note` and a `multiselect` across the
+            // whole card, and their `help` goes with them: the llm plugin's providers table was
+            // measured at 1307px, which is about 180 characters a line and past the point where an
+            // eye finds the start of the next one. Everything above 90 is uncomfortable and this
+            // console has no page narrow enough to save it — removing the plugin page's own 720px
+            // cap is what exposed it.
+            //
+            // 70ch rather than a pixel figure so it tracks the font, and it lands at ~85 real
+            // characters because prose averages narrower than the `0` that `ch` measures. It bites
+            // ONLY where a description is already wider: every ordinary field in this console sits
+            // in half a grid column and is unaffected.
+            InputWrapper: {
+                styles: { description: { maxWidth: '70ch' } },
+            },
             Skeleton: {
                 defaultProps: { radius: 'sm' },
             },

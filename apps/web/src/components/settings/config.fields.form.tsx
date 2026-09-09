@@ -980,6 +980,35 @@ export function ConfigFieldsForm({
  */
 const FULL_WIDTH_TYPES = new Set(['note', 'list', 'rows', 'multiselect']);
 
+/**
+ * How wide each column of a rows table is drawn, as a share of the row.
+ *
+ * Declared rather than left to the browser, because `table-layout: auto` decides from what a cell
+ * CONTAINS and one of these cells contains something different. A `secret` sits in a `Stack` (the
+ * input plus its "Stored — clear it" link), and a flex column reports a smaller min-content width
+ * than the bare input wrapper every other cell holds — so auto layout starved it. Measured on the
+ * llm plugin's providers table: Name, Kind and Address took 358px each and the API key column was
+ * left 124, which truncated its own placeholder to "For Anthr".
+ *
+ * A `url` gets half again as much as the rest because it holds the longest value in the row — an
+ * address is a whole URL where a name is a word — and everything else shares equally. Weights
+ * rather than fixed pixels so a table of two columns and one of six both fill the card, and so the
+ * shares survive the card getting narrower.
+ *
+ * Only the table shape asks: a phone draws each row as a stack of full-width controls, where there
+ * is nothing to apportion.
+ */
+const COLUMN_WEIGHTS: Record<string, number> = { url: 3 };
+const DEFAULT_COLUMN_WEIGHT = 2;
+
+const columnWidths = (columns: readonly ConfigFieldColumn[]): string[] => {
+    const weights = columns.map(column => COLUMN_WEIGHTS[column.type] ?? DEFAULT_COLUMN_WEIGHT);
+    const total = weights.reduce((sum, weight) => sum + weight, 0);
+
+    // A list with no columns draws nothing, so there is no row to divide and no division to do.
+    return total === 0 ? columns.map(() => '') : weights.map(weight => `${((weight / total) * 100).toFixed(2)}%`);
+};
+
 interface RowsFieldProps {
     field: ConfigFieldDescriptor;
     /** The field's name inside the form, which every cell path is built from. */
@@ -1051,6 +1080,7 @@ function RowsField({
     onMove,
 }: RowsFieldProps) {
     const columns = columnsOf(field);
+    const widths = columnWidths(columns);
 
     return (
         <Input.Wrapper label={field.label} description={field.help} withAsterisk={field.required} error={error}>
@@ -1094,8 +1124,10 @@ function RowsField({
                         <Table verticalSpacing="xs" horizontalSpacing="xs" withRowBorders={false}>
                             <Table.Thead>
                                 <Table.Tr>
-                                    {columns.map(column => (
-                                        <Table.Th key={column.key}>{column.label}</Table.Th>
+                                    {columns.map((column, at) => (
+                                        <Table.Th key={column.key} w={widths[at]}>
+                                            {column.label}
+                                        </Table.Th>
                                     ))}
                                     {/* The row controls' column. Headed by nothing, because a heading
                                     over a row of buttons reads as a third piece of data. */}

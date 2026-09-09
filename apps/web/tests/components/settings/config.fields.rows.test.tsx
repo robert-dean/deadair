@@ -368,3 +368,67 @@ describe('a column that only some rows have', () => {
         expect(screen.getByLabelText('Address')).toBeInTheDocument();
     });
 });
+
+// `table-layout: auto` sizes a column from what its cells CONTAIN, and a `secret` cell contains
+// something different — the input plus its "Stored — clear it" link, in a Stack, whose min-content
+// width is smaller than the bare wrapper every other cell holds. Measured on the llm plugin's
+// providers table, that left Name, Kind and Address 358px each and the API key column 124, which
+// truncated its own placeholder. Declared widths are what stop the browser guessing.
+describe('a rows table apportions its columns', () => {
+    const PROVIDERS: ConfigFieldDescriptor = {
+        key: 'providers',
+        label: 'Providers',
+        type: 'list',
+        columns: [
+            { key: 'name', label: 'Name', type: 'string' },
+            { key: 'kind', label: 'Kind', type: 'select', options: [{ value: 'server', label: 'Server' }] },
+            { key: 'baseUrl', label: 'Address', type: 'url' },
+            { key: 'apiKey', label: 'API key', type: 'secret' },
+        ],
+    };
+
+    const drawn = (field: ConfigFieldDescriptor, rows: Record<string, unknown>[]) => {
+        render(
+            <ConfigFieldsForm
+                fields={[field]}
+                stored={{ [field.key]: JSON.stringify(rows) }}
+                secretsConfigured={{}}
+                onSubmit={vi.fn(async () => {})}
+                pending={false}
+                succeeded={false}
+                submitLabel="Save"
+                failureTitle="It could not be saved"
+                failureMessage="Nothing was written."
+            />,
+        );
+
+        return screen.getAllByRole('columnheader').map(th => th.style.width);
+    };
+
+    it('gives every column a declared width rather than letting the content decide', () => {
+        const widths = drawn(PROVIDERS, [{ name: 'ollama' }]);
+
+        // Four data columns plus the row controls, which keep their own fixed width.
+        expect(widths).toHaveLength(5);
+        expect(widths.slice(0, 4).every(width => width.endsWith('%'))).toBe(true);
+    });
+
+    it('gives the address more of the row than the cells either side of it', () => {
+        const [name, kind, address, apiKey] = drawn(PROVIDERS, [{ name: 'ollama' }]).map(w => parseFloat(w));
+
+        expect(address).toBeGreaterThan(name!);
+        expect(address).toBeGreaterThan(kind!);
+        expect(address).toBeGreaterThan(apiKey!);
+        // The three that are not an address share equally: none of them holds a longer value than
+        // the others, so a table that guessed between them would only ever guess wrong.
+        expect(name).toBe(kind);
+        expect(kind).toBe(apiKey);
+    });
+
+    it('fills the row whatever columns a list declares', () => {
+        const two = drawn({ key: 'a', label: 'A', type: 'list', columns: PROVIDERS.columns!.slice(0, 2) }, [{}]);
+        const total = two.slice(0, 2).reduce((sum, width) => sum + parseFloat(width), 0);
+
+        expect(Math.round(total)).toBe(100);
+    });
+});

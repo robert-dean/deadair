@@ -4,6 +4,9 @@ import {
     AuthenticationHandlerMap,
     AuthenticationSchemeHandler,
     AuthenticationSessionService,
+    AuditOptions,
+    AuditRecorder,
+    AuditSink,
     AuthenticationSessionServiceOptions,
     AuthenticatorFactorRepository,
     AuthenticatorFactorService,
@@ -50,6 +53,7 @@ import { DeadairPasswordFactorRepository } from './repositories/password.factor.
 import { AuthenticationService } from './authentication.service.js';
 import { AuthenticationServiceOptions } from './authentication.options.js';
 import { SessionActivityService } from './session.activity.service.js';
+import { SessionAuditSink } from './session.audit.sink.js';
 import { SessionEventRepository } from './repositories/session.event.repository.js';
 import { LoginActivityRepository } from './repositories/login.activity.repository.js';
 import { SessionsService } from './sessions.service.js';
@@ -136,20 +140,15 @@ export const AuthenticationModule: ServerKitModule = {
 
         registry
             .register(AuthenticationSessionServiceOptions)
-            .useFactory(container => {
-                // Hooks delegate to the scoped SessionActivityService so each request's
-                // hook closure captures the per-request authorization context (IP, UA).
-                // The service swallows DB errors internally — hook failures must not
-                // break the auth flow.
-                return new AuthenticationSessionServiceOptions('deadair', 'deadair', Duration.fromMillis(1000 * 60 * 60 * 24 * 30), undefined, {
-                    onSessionCreated: session => container.get(SessionActivityService).onSessionCreated(session),
-                    onSessionRefreshed: session => container.get(SessionActivityService).onSessionRefreshed(session),
-                    onSessionRevoked: (session, meta) => container.get(SessionActivityService).onSessionRevoked(session, meta),
-                    onValidationFailed: (token, meta) => container.get(SessionActivityService).onValidationFailed(token, meta),
-                    onRefreshReuseDetected: meta => container.get(SessionActivityService).onRefreshReuseDetected(meta),
-                });
-            })
-            .asScoped();
+            .useValue(new AuthenticationSessionServiceOptions('deadair', 'deadair', Duration.fromMillis(1000 * 60 * 60 * 24 * 30)));
+
+        // Audit. Scoped, so the sink sees this request's IP and User-Agent — which
+        // is what the hook factory above existed to arrange. ServerKit swallows a
+        // sink failure and logs `audit.sink_failed`, so a database blip cannot fail
+        // a login; alert on that event rather than reading silence as health.
+        registry.register(AuditOptions).useValue(new AuditOptions());
+        registry.register(AuditSink).useClass(SessionAuditSink).asScoped();
+        registry.register(AuditRecorder).useClass(AuditRecorder).asScoped();
         registry.register(AuthenticationSessionService).useClass(AuthenticationSessionService).asScoped();
 
         registry.register(PasswordStrengthProvider).useClass(PasswordStrengthProvider).asSingleton();

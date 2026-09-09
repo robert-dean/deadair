@@ -52,6 +52,22 @@ export class DeadairAuthenticatorFactorRepository extends DataRepository impleme
         return this.toModel(row);
     }
 
+    /**
+     * Advance the stored counter past the step that just validated.
+     *
+     * Required by ServerKit v5. Without it an HOTP code stays valid forever,
+     * since nothing else moves the counter, and the TOTP replay guard has no
+     * high-water mark to compare against.
+     */
+    async updateFactorCounter(actorId: string, factorId: string, counter: number): Promise<void> {
+        await this.db
+            .updateTable('deadair.actorsAuthenticatorFactors')
+            .set({ counter })
+            .where('actorId', '=', actorId)
+            .where('id', '=', factorId)
+            .execute();
+    }
+
     async deleteFactor(actorId: string, factorId: string): Promise<void> {
         await this.db
             .updateTable('deadair.actorsAuthenticatorFactors')

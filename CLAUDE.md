@@ -72,9 +72,10 @@ pointing at something that has never existed:
   and an uploader: `docs/internals/render.md` § "Pads".
 - **How work is dispatched** — the four mechanisms, which properties choose between them, and why
   there is no event bus: `apps/api/CLAUDE.md` § "How work is dispatched".
-- `apps/api/README.md` for the boot sequence, DI scoping convention and middleware. **Read its
-  module and route tables as the target design, not the tree**; verify against
-  `src/modules/modules.ts` before relying on any entry.
+- `apps/api/README.md` for the boot sequence, DI scoping convention and middleware. Its module and
+  route tables were checked against `src/modules/modules.ts` and `src/routes/routes.setup.ts` on
+  2026-09-09 and list all 37 modules and all 29 routers in registration order. Those two files stay
+  the source of truth: verify against them before relying on an entry.
 - `README.md` and `docs/licensing.md` are written for whoever RUNS this rather than for whoever
   works on it. Keep them true.
 

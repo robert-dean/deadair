@@ -243,7 +243,7 @@ export const llmManifest: PluginManifest = {
             // required field before it will submit the form at all, and a table it refuses to
             // submit is a table an operator cannot fix. The schema's own refine says the same
             // thing where it can be read: on the field, in a sentence.
-            help: 'Every provider the station can ask for words, and the name you give each one is how a model is addressed: a model on the row called "ollama" is named ollama:gpt-oss. Add as many as you like, including two of the same kind — a local server and a hosted one are two rows. Anthropic and Gemini are reached where they live, so those rows want a key and no address. OpenAI, Groq, Mistral and OpenRouter are not missing kinds: they are the OpenAI-compatible kind with their own address, which the Address cell offers.',
+            help: 'Every provider the station can ask for words, and the name you give each one is how a model is addressed: a model on the row called "ollama" is named ollama:gpt-oss. Add as many as you like, including two of the same kind — a local server and a hosted one are two rows. OpenAI, Groq, Mistral and OpenRouter are not missing kinds: they are the OpenAI-compatible kind with their own address, which the Address cell offers.',
             columns: [
                 {
                     key: 'name',
@@ -283,7 +283,7 @@ export const llmManifest: PluginManifest = {
                     key: 'apiKey',
                     label: 'API key',
                     type: 'secret',
-                    placeholder: 'For Anthropic, Gemini or a hosted server',
+                    placeholder: 'For a hosted provider',
                 },
             ],
         },
@@ -303,7 +303,7 @@ export const llmManifest: PluginManifest = {
             key: 'models',
             label: 'Tool-capable models',
             type: 'multiselect',
-            help: 'For the server URL only: which of ITS models can be given tools. No such endpoint reports it and it cannot be guessed from a name, so it is the one thing here you have to know, and a model not ticked is never sent any. Claude and Gemini answer this themselves and are not listed here.',
+            help: 'For OpenAI-compatible providers only: which of their models can be given tools. No such endpoint reports it and it cannot be guessed from a name, so it is the one thing here you have to know, and a model not ticked is never sent any. Claude and Gemini answer this themselves and are not listed here.',
         },
     ],
     configSchema,

@@ -13,6 +13,7 @@ import { DirectorRouter } from './director.router.js';
 import { PlaylistsRouter } from './playlists.router.js';
 import { NowplayingRouter } from './nowplaying.router.js';
 import { PersonasRouter } from './personas.router.js';
+import { PersonasAuditionsRouter } from './personas.auditions.router.js';
 import { ProductionsRouter } from './productions.router.js';
 import { PlayoutRouter } from './playout.router.js';
 import { PluginsRouter } from './plugins.router.js';
@@ -45,6 +46,7 @@ export const routers = [
     ClockRouter,
     RenderRouter,
     PersonasRouter,
+    PersonasAuditionsRouter,
     ScheduleRouter,
     ProductionsRouter,
     PluginsRouter,

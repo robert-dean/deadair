@@ -345,6 +345,55 @@ export const PersonaRehearsalAttempt = z.strictObject({
 export type PersonaRehearsalAttempt = z.infer<typeof PersonaRehearsalAttempt>;
 
 /**
+ * What an operator asks for when they put a character through a playlist. The playlist is READ at the
+ * moment of asking and its records are stored on the run, so a list edited at the provider afterwards
+ * does not change what was measured
+ * generated from [PersonaAuditionRequest](../../../../data/contracts/personas/personas.types.ck#L265)
+ */
+export const PersonaAuditionRequest = z.strictObject({
+    pluginId: z.string().min(1).max(200).describe('Which catalog plugin the playlist belongs to'),
+    playlistId: z.string().min(1).max(400),
+    name: z
+        .string()
+        .max(400)
+        .optional()
+        .describe(
+            'What the playlist is called, kept as a caption for the run. The console already holds it, and a run whose playlist is later renamed or deleted stays readable',
+        ),
+    limit: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(1).max(50))
+        .default(10)
+        .describe('How many breaks to write. One more record than this is taken off the playlist, since a break sits between two'),
+});
+export type PersonaAuditionRequest = z.infer<typeof PersonaAuditionRequest>;
+
+/**
+ * Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
+ * or deleted at the provider leaves a finished audition readable
+ * generated from [PersonaAuditionSource](../../../../data/contracts/personas/personas.types.ck#L274)
+ */
+export const PersonaAuditionSource = z.strictObject({
+    pluginId: z.string().min(1).max(200),
+    playlistId: z.string().min(1).max(400),
+    name: z.string().max(400).optional(),
+});
+export type PersonaAuditionSource = z.infer<typeof PersonaAuditionSource>;
+
+/**
+ * One record, exactly as the writers were shown it
+ * generated from [PersonaAuditionRecord](../../../../data/contracts/personas/personas.types.ck#L281)
+ */
+export const PersonaAuditionRecord = z.strictObject({
+    title: z.string().min(1).max(500),
+    artist: z.string().max(500).describe('The lead, as it should be read'),
+    trackId: z.string().max(100).optional().describe('The catalog row, when the station holds this copy. Absent for a record it has never seen'),
+    year: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0).max(3000)).optional(),
+    album: z.string().max(500).optional(),
+    durationMs: z.preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0)).optional(),
+});
+export type PersonaAuditionRecord = z.infer<typeof PersonaAuditionRecord>;
+
+/**
  * generated from [PersonaList](../../../../data/contracts/personas/personas.types.ck#L33)
  */
 export const PersonaList = z.strictObject({
@@ -502,6 +551,48 @@ export const PersonaRehearsal = z.strictObject({
 export type PersonaRehearsal = z.infer<typeof PersonaRehearsal>;
 
 /**
+ * A run of one character over one playlist, without its breaks: what a list draws
+ * generated from [PersonaAuditionSummary](../../../../data/contracts/personas/personas.types.ck#L304)
+ */
+export const PersonaAuditionSummary = z.strictObject({
+    id: z.string().min(1).max(100),
+    personaId: z.string().min(1).max(100),
+    personaKey: z.string().min(1).max(100).describe("The character's own key, as `script_history` records it"),
+    source: PersonaAuditionSource,
+    state: z.enum(['queued', 'running', 'done', 'failed', 'cancelled']).describe('`cancelled` keeps whatever breaks were already written'),
+    transitions: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How many breaks this run writes in total'),
+    written: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('How many it has written so far, which is how far along it is'),
+    error: z.string().max(2000).optional().describe('Why writing it stopped, when it did'),
+    cancelledAt: z.string().max(40).optional().describe('ISO-8601'),
+    finishedAt: z.string().max(40).optional().describe('ISO-8601, whichever way the run ended'),
+    createdAt: z.string().min(1).max(40).describe('ISO-8601'),
+});
+export type PersonaAuditionSummary = z.infer<typeof PersonaAuditionSummary>;
+
+/**
+ * One transition, and everything the writers said about it. Every writer asked is reported and not
+ * only the one that won, on the rehearsal's own argument: a model that declined and a floor that
+ * covered for it are two facts
+ * generated from [PersonaAuditionBreak](../../../../data/contracts/personas/personas.types.ck#L293)
+ */
+export const PersonaAuditionBreak = z.strictObject({
+    ordinal: z
+        .preprocess(v => (typeof v === 'string' && v.trim() !== '' ? Number(v) : v), z.number().int().min(0))
+        .describe('Which transition, from 0'),
+    previous: PersonaAuditionRecord.describe('The record this break follows'),
+    next: PersonaAuditionRecord.describe('The one it leads into'),
+    attempts: z.array(PersonaRehearsalAttempt),
+    script: z.string().max(5000).optional().describe('The words a listener would have heard, from whichever writer answered first'),
+    writer: z.string().min(1).max(100).optional().describe('Which one that was. Present exactly when `script` is'),
+    reason: z.string().max(1000).optional().describe('Why there are none, when every writer had nothing. On air this break is skipped'),
+});
+export type PersonaAuditionBreak = z.infer<typeof PersonaAuditionBreak>;
+
+/**
  * Every story one character holds, oldest first, in every state
  * generated from [PersonaStoryList](../../../../data/contracts/personas/personas.types.ck#L131)
  */
@@ -561,6 +652,23 @@ export type PersonaImportPlan = z.infer<typeof PersonaImportPlan>;
 
 export const PersonaImportPlanInput = z.strictObject({});
 export type PersonaImportPlanInput = z.infer<typeof PersonaImportPlanInput>;
+
+/**
+ * generated from [PersonaAuditionList](../../../../data/contracts/personas/personas.types.ck#L323)
+ */
+export const PersonaAuditionList = z.strictObject({
+    auditions: z.array(PersonaAuditionSummary),
+});
+export type PersonaAuditionList = z.infer<typeof PersonaAuditionList>;
+
+/**
+ * The same run with every break it has written so far, in order
+ * generated from [PersonaAudition](../../../../data/contracts/personas/personas.types.ck#L319)
+ */
+export const PersonaAudition = PersonaAuditionSummary.extend({
+    breaks: z.array(PersonaAuditionBreak),
+});
+export type PersonaAudition = z.infer<typeof PersonaAudition>;
 
 /**
  * A character as a file: everything somebody would have to send to put this presenter on another

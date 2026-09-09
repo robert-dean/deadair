@@ -265,6 +265,46 @@ data class PersonaRehearsalAttempt(
     val reason: String? = null,
 )
 
+/**
+ * What an operator asks for when they put a character through a playlist. The playlist is READ at the
+ * moment of asking and its records are stored on the run, so a list edited at the provider afterwards
+ * does not change what was measured
+ */
+@Serializable
+data class PersonaAuditionRequest(
+    /** Which catalog plugin the playlist belongs to */
+    val pluginId: String,
+    val playlistId: String,
+    /** What the playlist is called, kept as a caption for the run. The console already holds it, and a run whose playlist is later renamed or deleted stays readable */
+    val name: String? = null,
+    /** How many breaks to write. One more record than this is taken off the playlist, since a break sits between two */
+    val limit: Long? = 10L,
+)
+
+/**
+ * Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
+ * or deleted at the provider leaves a finished audition readable
+ */
+@Serializable
+data class PersonaAuditionSource(
+    val pluginId: String,
+    val playlistId: String,
+    val name: String? = null,
+)
+
+/** One record, exactly as the writers were shown it */
+@Serializable
+data class PersonaAuditionRecord(
+    val title: String,
+    /** The lead, as it should be read */
+    val artist: String,
+    /** The catalog row, when the station holds this copy. Absent for a record it has never seen */
+    val trackId: String? = null,
+    val year: Long? = null,
+    val album: String? = null,
+    val durationMs: Long? = null,
+)
+
 @Serializable
 data class PersonaList(
     val personas: List<Persona>,
@@ -396,6 +436,52 @@ data class PersonaRehearsal(
     val reason: String? = null,
 )
 
+/** A run of one character over one playlist, without its breaks: what a list draws */
+@Serializable
+data class PersonaAuditionSummary(
+    val id: String,
+    val personaId: String,
+    /** The character's own key, as `script_history` records it */
+    val personaKey: String,
+    val source: PersonaAuditionSource,
+    /** `cancelled` keeps whatever breaks were already written */
+    val state: PersonaAuditionSummaryState,
+    /** How many breaks this run writes in total */
+    val transitions: Long,
+    /** How many it has written so far, which is how far along it is */
+    val written: Long,
+    /** Why writing it stopped, when it did */
+    val error: String? = null,
+    /** ISO-8601 */
+    val cancelledAt: String? = null,
+    /** ISO-8601, whichever way the run ended */
+    val finishedAt: String? = null,
+    /** ISO-8601 */
+    val createdAt: String,
+)
+
+/**
+ * One transition, and everything the writers said about it. Every writer asked is reported and not
+ * only the one that won, on the rehearsal's own argument: a model that declined and a floor that
+ * covered for it are two facts
+ */
+@Serializable
+data class PersonaAuditionBreak(
+    /** Which transition, from 0 */
+    val ordinal: Long,
+    /** The record this break follows */
+    val previous: PersonaAuditionRecord,
+    /** The one it leads into */
+    val next: PersonaAuditionRecord,
+    val attempts: List<PersonaRehearsalAttempt>,
+    /** The words a listener would have heard, from whichever writer answered first */
+    val script: String? = null,
+    /** Which one that was. Present exactly when `script` is */
+    val writer: String? = null,
+    /** Why there are none, when every writer had nothing. On air this break is skipped */
+    val reason: String? = null,
+)
+
 /** Every story one character holds, oldest first, in every state */
 @Serializable
 data class PersonaStoryList(
@@ -471,6 +557,36 @@ data class PersonaImportPlan(
  */
 @Serializable
 class PersonaImportPlanInput
+
+@Serializable
+data class PersonaAuditionList(
+    val auditions: List<PersonaAuditionSummary>,
+)
+
+/** The same run with every break it has written so far, in order */
+@Serializable
+data class PersonaAudition(
+    val id: String,
+    val personaId: String,
+    /** The character's own key, as `script_history` records it */
+    val personaKey: String,
+    val source: PersonaAuditionSource,
+    /** `cancelled` keeps whatever breaks were already written */
+    val state: PersonaAuditionSummaryState,
+    /** How many breaks this run writes in total */
+    val transitions: Long,
+    /** How many it has written so far, which is how far along it is */
+    val written: Long,
+    /** Why writing it stopped, when it did */
+    val error: String? = null,
+    /** ISO-8601 */
+    val cancelledAt: String? = null,
+    /** ISO-8601, whichever way the run ended */
+    val finishedAt: String? = null,
+    /** ISO-8601 */
+    val createdAt: String,
+    val breaks: List<PersonaAuditionBreak>,
+)
 
 /**
  * A character as a file: everything somebody would have to send to put this presenter on another
@@ -767,4 +883,19 @@ enum class PersonaImportNoticeKind {
     PHRASING,
     @SerialName("markers")
     MARKERS,
+}
+
+/** `cancelled` keeps whatever breaks were already written */
+@Serializable
+enum class PersonaAuditionSummaryState {
+    @SerialName("queued")
+    QUEUED,
+    @SerialName("running")
+    RUNNING,
+    @SerialName("done")
+    DONE,
+    @SerialName("failed")
+    FAILED,
+    @SerialName("cancelled")
+    CANCELLED,
 }

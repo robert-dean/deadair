@@ -2,6 +2,10 @@ import type { SdkFetch } from '../sdk-options.js';
 import { bigIntReplacer, parseJson } from '../sdk-options.js';
 import type {
     GeneratedPersona,
+    PersonaAudition,
+    PersonaAuditionList,
+    PersonaAuditionRequest,
+    PersonaAuditionSummary,
     PersonaFile,
     PersonaImportPlan,
     PersonaImportResult,
@@ -20,6 +24,46 @@ import type {
 
 export class PersonasClient {
     constructor(private fetch: SdkFetch) {}
+
+    /**
+     * @name List persona auditions
+     * @description Every audition of this character, newest first, without their breaks
+     */
+    async listPersonaAuditions(id: string): Promise<PersonaAuditionList> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/auditions`, { method: 'GET' });
+        return await parseJson<PersonaAuditionList>(result);
+    }
+
+    /**
+     * @name Start persona audition
+     * @description Asks the station to put this character through a playlist. It is queued, not written
+     */
+    async startPersonaAudition(id: string, body: PersonaAuditionRequest): Promise<PersonaAudition> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/auditions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body, bigIntReplacer),
+        });
+        return await parseJson<PersonaAudition>(result);
+    }
+
+    /**
+     * @name Get persona audition
+     * @description One audition with every break it has written so far, in order
+     */
+    async getPersonaAudition(id: string, auditionId: string): Promise<PersonaAudition> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/auditions/${encodeURIComponent(auditionId)}`, { method: 'GET' });
+        return await parseJson<PersonaAudition>(result);
+    }
+
+    /**
+     * @name Cancel persona audition
+     * @description Stops an audition where it stands, keeping the breaks it has already written
+     */
+    async cancelPersonaAudition(id: string, auditionId: string): Promise<PersonaAuditionSummary> {
+        const result = await this.fetch(`/personas/${encodeURIComponent(id)}/auditions/${encodeURIComponent(auditionId)}/cancel`, { method: 'POST' });
+        return await parseJson<PersonaAuditionSummary>(result);
+    }
 
     /**
      * @name List personas

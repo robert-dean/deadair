@@ -32,6 +32,7 @@ public sealed class DeadairSdk : IDisposable
         News = new NewsClient(Http);
         Nowplaying = new NowplayingClient(Http);
         Onboarding = new OnboardingClient(Http);
+        PersonasAuditions = new PersonasAuditionsClient(Http);
         Personas = new PersonasClient(Http);
         Playlists = new PlaylistsClient(Http);
         Playout = new PlayoutClient(Http);
@@ -75,6 +76,8 @@ public sealed class DeadairSdk : IDisposable
     public NowplayingClient Nowplaying { get; }
 
     public OnboardingClient Onboarding { get; }
+
+    public PersonasAuditionsClient PersonasAuditions { get; }
 
     public PersonasClient Personas { get; }
 

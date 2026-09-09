@@ -3,6 +3,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ServerKitModule } from '@maroonedsoftware/koa';
 import { PersonaRepository } from './persona.repository.js';
 import { PersonaAuditionRepository } from './persona.audition.repository.js';
+import { PersonaAuditionService } from './persona.audition.service.js';
 import { PersonaDistilService } from './persona.distil.service.js';
 import { PersonaExportService } from './persona.export.service.js';
 import { PersonaImportService } from './persona.import.service.js';
@@ -66,6 +67,12 @@ export const PersonasModule: ServerKitModule = {
         // costs nothing. The list is a lifecycle order (start, ready, shutdown), not a resolution
         // order, and nothing here reaches into the director at boot.
         registry.register(PersonaRehearsalService).useClass(PersonaRehearsalService).asScoped();
+        // The rehearsal's other half, and it reaches further: the playlists service, which is scoped
+        // over the operator's own access control, and the catalog's tracks. Both are resolved at
+        // REQUEST time like everything above, so this module sitting before either of theirs in
+        // `modules.ts` costs nothing — the list is a lifecycle order, not a resolution order. It
+        // writes no break itself; the job does, one transition at a time.
+        registry.register(PersonaAuditionService).useClass(PersonaAuditionService).asScoped();
     },
 
     ready: async (container: Container, signal: AbortSignal) => {

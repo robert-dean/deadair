@@ -503,6 +503,75 @@ public sealed record PersonaRehearsalAttempt
     public string? Reason { get; init; }
 }
 
+/// <summary>
+/// What an operator asks for when they put a character through a playlist. The playlist is READ at the
+/// moment of asking and its records are stored on the run, so a list edited at the provider afterwards
+/// does not change what was measured
+/// </summary>
+public sealed record PersonaAuditionRequest
+{
+    /// <summary>Which catalog plugin the playlist belongs to</summary>
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
+
+    [JsonPropertyName("playlistId")]
+    public required string PlaylistId { get; init; }
+
+    /// <summary>What the playlist is called, kept as a caption for the run. The console already holds it, and a run whose playlist is later renamed or deleted stays readable</summary>
+    [JsonPropertyName("name")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; init; }
+
+    /// <summary>How many breaks to write. One more record than this is taken off the playlist, since a break sits between two</summary>
+    [JsonPropertyName("limit")]
+    public long Limit { get; init; } = 10L;
+}
+
+/// <summary>
+/// Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
+/// or deleted at the provider leaves a finished audition readable
+/// </summary>
+public sealed record PersonaAuditionSource
+{
+    [JsonPropertyName("pluginId")]
+    public required string PluginId { get; init; }
+
+    [JsonPropertyName("playlistId")]
+    public required string PlaylistId { get; init; }
+
+    [JsonPropertyName("name")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Name { get; init; }
+}
+
+/// <summary>One record, exactly as the writers were shown it</summary>
+public sealed record PersonaAuditionRecord
+{
+    [JsonPropertyName("title")]
+    public required string Title { get; init; }
+
+    /// <summary>The lead, as it should be read</summary>
+    [JsonPropertyName("artist")]
+    public required string Artist { get; init; }
+
+    /// <summary>The catalog row, when the station holds this copy. Absent for a record it has never seen</summary>
+    [JsonPropertyName("trackId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TrackId { get; init; }
+
+    [JsonPropertyName("year")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? Year { get; init; }
+
+    [JsonPropertyName("album")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Album { get; init; }
+
+    [JsonPropertyName("durationMs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? DurationMs { get; init; }
+}
+
 public sealed record PersonaList
 {
     [JsonPropertyName("personas")]
@@ -714,6 +783,92 @@ public sealed record PersonaRehearsal
     public string? Reason { get; init; }
 }
 
+/// <summary>A run of one character over one playlist, without its breaks: what a list draws</summary>
+public sealed record PersonaAuditionSummary
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    /// <summary>The character's own key, as `script_history` records it</summary>
+    [JsonPropertyName("personaKey")]
+    public required string PersonaKey { get; init; }
+
+    [JsonPropertyName("source")]
+    public required PersonaAuditionSource Source { get; init; }
+
+    /// <summary>`cancelled` keeps whatever breaks were already written</summary>
+    [JsonPropertyName("state")]
+    public required PersonaAuditionSummaryState State { get; init; }
+
+    /// <summary>How many breaks this run writes in total</summary>
+    [JsonPropertyName("transitions")]
+    public required long Transitions { get; init; }
+
+    /// <summary>How many it has written so far, which is how far along it is</summary>
+    [JsonPropertyName("written")]
+    public required long Written { get; init; }
+
+    /// <summary>Why writing it stopped, when it did</summary>
+    [JsonPropertyName("error")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Error { get; init; }
+
+    /// <summary>ISO-8601</summary>
+    [JsonPropertyName("cancelledAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CancelledAt { get; init; }
+
+    /// <summary>ISO-8601, whichever way the run ended</summary>
+    [JsonPropertyName("finishedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FinishedAt { get; init; }
+
+    /// <summary>ISO-8601</summary>
+    [JsonPropertyName("createdAt")]
+    public required string CreatedAt { get; init; }
+}
+
+/// <summary>
+/// One transition, and everything the writers said about it. Every writer asked is reported and not
+/// only the one that won, on the rehearsal's own argument: a model that declined and a floor that
+/// covered for it are two facts
+/// </summary>
+public sealed record PersonaAuditionBreak
+{
+    /// <summary>Which transition, from 0</summary>
+    [JsonPropertyName("ordinal")]
+    public required long Ordinal { get; init; }
+
+    /// <summary>The record this break follows</summary>
+    [JsonPropertyName("previous")]
+    public required PersonaAuditionRecord Previous { get; init; }
+
+    /// <summary>The one it leads into</summary>
+    [JsonPropertyName("next")]
+    public required PersonaAuditionRecord Next { get; init; }
+
+    [JsonPropertyName("attempts")]
+    public required List<PersonaRehearsalAttempt> Attempts { get; init; }
+
+    /// <summary>The words a listener would have heard, from whichever writer answered first</summary>
+    [JsonPropertyName("script")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Script { get; init; }
+
+    /// <summary>Which one that was. Present exactly when `script` is</summary>
+    [JsonPropertyName("writer")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Writer { get; init; }
+
+    /// <summary>Why there are none, when every writer had nothing. On air this break is skipped</summary>
+    [JsonPropertyName("reason")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Reason { get; init; }
+}
+
 /// <summary>Every story one character holds, oldest first, in every state</summary>
 public sealed record PersonaStoryList
 {
@@ -863,6 +1018,63 @@ public sealed record PersonaImportPlan
 /// characters are new here and which would be rewritten, and what this station cannot honour about them
 /// </summary>
 public sealed record PersonaImportPlanInput;
+
+public sealed record PersonaAuditionList
+{
+    [JsonPropertyName("auditions")]
+    public required List<PersonaAuditionSummary> Auditions { get; init; }
+}
+
+/// <summary>The same run with every break it has written so far, in order</summary>
+public sealed record PersonaAudition
+{
+    [JsonPropertyName("id")]
+    public required string Id { get; init; }
+
+    [JsonPropertyName("personaId")]
+    public required string PersonaId { get; init; }
+
+    /// <summary>The character's own key, as `script_history` records it</summary>
+    [JsonPropertyName("personaKey")]
+    public required string PersonaKey { get; init; }
+
+    [JsonPropertyName("source")]
+    public required PersonaAuditionSource Source { get; init; }
+
+    /// <summary>`cancelled` keeps whatever breaks were already written</summary>
+    [JsonPropertyName("state")]
+    public required PersonaAuditionSummaryState State { get; init; }
+
+    /// <summary>How many breaks this run writes in total</summary>
+    [JsonPropertyName("transitions")]
+    public required long Transitions { get; init; }
+
+    /// <summary>How many it has written so far, which is how far along it is</summary>
+    [JsonPropertyName("written")]
+    public required long Written { get; init; }
+
+    /// <summary>Why writing it stopped, when it did</summary>
+    [JsonPropertyName("error")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Error { get; init; }
+
+    /// <summary>ISO-8601</summary>
+    [JsonPropertyName("cancelledAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CancelledAt { get; init; }
+
+    /// <summary>ISO-8601, whichever way the run ended</summary>
+    [JsonPropertyName("finishedAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FinishedAt { get; init; }
+
+    /// <summary>ISO-8601</summary>
+    [JsonPropertyName("createdAt")]
+    public required string CreatedAt { get; init; }
+
+    [JsonPropertyName("breaks")]
+    public required List<PersonaAuditionBreak> Breaks { get; init; }
+}
 
 /// <summary>
 /// A character as a file: everything somebody would have to send to put this presenter on another
@@ -1246,4 +1458,24 @@ public enum PersonaImportNoticeKind
 
     [JsonStringEnumMemberName("markers")]
     Markers,
+}
+
+/// <summary>`cancelled` keeps whatever breaks were already written</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PersonaAuditionSummaryState>))]
+public enum PersonaAuditionSummaryState
+{
+    [JsonStringEnumMemberName("queued")]
+    Queued,
+
+    [JsonStringEnumMemberName("running")]
+    Running,
+
+    [JsonStringEnumMemberName("done")]
+    Done,
+
+    [JsonStringEnumMemberName("failed")]
+    Failed,
+
+    [JsonStringEnumMemberName("cancelled")]
+    Cancelled,
 }

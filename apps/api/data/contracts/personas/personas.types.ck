@@ -258,3 +258,68 @@ contract PersonaRehearsal: {
     writer?: string(min=1, max=100) # Which one that was. Present exactly when `script` is
     reason?: string(max=1000) # Why there are no words, when every writer had nothing. Not a fault: a break nothing could write is one the station does not take
 }
+
+# What an operator asks for when they put a character through a playlist. The playlist is READ at the
+# moment of asking and its records are stored on the run, so a list edited at the provider afterwards
+# does not change what was measured
+contract PersonaAuditionRequest: {
+    pluginId: string(min=1, max=200) # Which catalog plugin the playlist belongs to
+    playlistId: string(min=1, max=400)
+    name?: string(max=400) # What the playlist is called, kept as a caption for the run. The console already holds it, and a run whose playlist is later renamed or deleted stays readable
+    limit: int(min=1, max=50) = 10 # How many breaks to write. One more record than this is taken off the playlist, since a break sits between two
+}
+
+# Where the records came from. A snapshot of the name rather than a reference, so a playlist renamed
+# or deleted at the provider leaves a finished audition readable
+contract PersonaAuditionSource: {
+    pluginId: string(min=1, max=200)
+    playlistId: string(min=1, max=400)
+    name?: string(max=400)
+}
+
+# One record, exactly as the writers were shown it
+contract PersonaAuditionRecord: {
+    title: string(min=1, max=500)
+    artist: string(max=500) # The lead, as it should be read
+    trackId?: string(max=100) # The catalog row, when the station holds this copy. Absent for a record it has never seen
+    year?: int(min=0, max=3000)
+    album?: string(max=500)
+    durationMs?: int(min=0)
+}
+
+# One transition, and everything the writers said about it. Every writer asked is reported and not
+# only the one that won, on the rehearsal's own argument: a model that declined and a floor that
+# covered for it are two facts
+contract PersonaAuditionBreak: {
+    ordinal: int(min=0) # Which transition, from 0
+    previous: PersonaAuditionRecord # The record this break follows
+    next: PersonaAuditionRecord # The one it leads into
+    attempts: array(PersonaRehearsalAttempt)
+    script?: string(max=5000) # The words a listener would have heard, from whichever writer answered first
+    writer?: string(min=1, max=100) # Which one that was. Present exactly when `script` is
+    reason?: string(max=1000) # Why there are none, when every writer had nothing. On air this break is skipped
+}
+
+# A run of one character over one playlist, without its breaks: what a list draws
+contract PersonaAuditionSummary: {
+    id: string(min=1, max=100)
+    personaId: string(min=1, max=100)
+    personaKey: string(min=1, max=100) # The character's own key, as `script_history` records it
+    source: PersonaAuditionSource
+    state: enum(queued, running, done, failed, cancelled) # `cancelled` keeps whatever breaks were already written
+    transitions: int(min=0) # How many breaks this run writes in total
+    written: int(min=0) # How many it has written so far, which is how far along it is
+    error?: string(max=2000) # Why writing it stopped, when it did
+    cancelledAt?: string(max=40) # ISO-8601
+    finishedAt?: string(max=40) # ISO-8601, whichever way the run ended
+    createdAt: string(min=1, max=40) # ISO-8601
+}
+
+# The same run with every break it has written so far, in order
+contract PersonaAudition: PersonaAuditionSummary & {
+    breaks: array(PersonaAuditionBreak)
+}
+
+contract PersonaAuditionList: {
+    auditions: array(PersonaAuditionSummary)
+}

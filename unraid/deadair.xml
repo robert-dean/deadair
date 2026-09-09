@@ -88,6 +88,13 @@
     <Config Name="Database password" Target="DATABASE_PASSWORD" Default="" Mode=""
         Description="" Type="Variable" Display="always" Required="false" Mask="true"></Config>
 
+    <Config Name="Runtime database user" Target="DATABASE_APP_USER" Default="" Mode=""
+        Description="Optional, and both this and the password below have to be filled in for either to take effect. A second, non-owner role for the request path, holding DML grants only, so a request cannot alter the schema — migrations still run as the owner above. Leave both empty to run everything as the owner, which is what happens today."
+        Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+
+    <Config Name="Runtime database password" Target="DATABASE_APP_PASSWORD" Default="" Mode=""
+        Description="" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+
     <Config Name="Cache host" Target="REDIS_HOST" Default="" Mode=""
         Description="Your Redis server. Sessions live here rather than in the database, so losing it signs everybody out and costs nothing else."
         Type="Variable" Display="always" Required="false" Mask="false"></Config>

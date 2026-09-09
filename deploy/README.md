@@ -12,6 +12,10 @@ in front of that port carries the station too.
 | `deadair/deadair:full`   | a voice, PostgreSQL, Redis | nothing                            |
 | `deadair/deadair:slim`   | —                          | PostgreSQL, Redis, a speech server |
 
+Those three follow `main` and move on every push. A release publishes `0.1.0` and `0.1` beside
+them, so **pin `deadair/deadair:0.1` if you want releases only**. Images are built for `linux/amd64`;
+there is no arm64 build yet.
+
 `full` is the one to start with if the machine has nothing on it. `latest` is the one to run if
 the machine already has a database you keep backups of, which is the better place for this
 station's to live. `slim` is for pointing the speech plugin at a machine with a graphics card in
@@ -162,52 +166,29 @@ Liquidsoap writes it and nginx serves it, and both of those live here.
 
 ## Upgrading
 
-Ordinarily nothing: the schema is applied before the station starts and a new migration is picked up
-on the next boot.
+Pull the new image and bring the stack back up:
 
-The exception is a migration that was EDITED rather than added, which this project does deliberately
-while nothing has shipped — the migration file is the recipe for a new database, and a running one is
-data. dbmate tracks versions rather than checksums, so it will not notice the file changed and will
-not re-apply it. When that happens, the release says so and gives the SQL. Run it as the OWNER (the
-`postgres` role, not `app_user`, which holds DML only) and run it BEFORE starting the new image.
-
-**Callers (2026-08-25).** Two columns, both idempotent, and safe to run twice if you are unsure
-whether you already did:
-
-```sql
-begin;
-
--- personas: a character can be a caller, which is a character that can never go on air by itself
-alter table deadair.personas add column if not exists kind text not null default 'host';
-
-alter table deadair.personas drop constraint if exists personas_kind_check;
-alter table deadair.personas add constraint personas_kind_check check (kind in ('host', 'caller'));
-
-alter table deadair.personas drop constraint if exists personas_caller_inactive_check;
-alter table deadair.personas add constraint personas_caller_inactive_check check (not (active and kind <> 'host'));
-
--- productions: `voices` becomes the cast it was always being held open for. Nothing ever read or
--- wrote it, so no row holds one; the guard is for a database that has not reached that migration at
--- all, or that got the edited version on a fresh install.
-do $$
-begin
-    if exists (
-        select 1 from information_schema.columns
-        where table_schema = 'deadair' and table_name = 'productions' and column_name = 'voices'
-    ) and not exists (
-        select 1 from information_schema.columns
-        where table_schema = 'deadair' and table_name = 'productions' and column_name = 'casting'
-    ) then
-        alter table deadair.productions rename column voices to casting;
-    end if;
-end $$;
-
-commit;
+```bash
+docker compose pull
+docker compose up -d
 ```
 
-Afterwards, press **Restore built-ins** on the personas page. The five callers ship as seeds, and
-seeding is guarded on the station having no personas at all — so an existing station reaches them
-through that button, which writes only what is missing and puts nothing on air.
+On Unraid, the template checks for a new image and the update is a button.
+
+The schema looks after itself: migrations are applied before the station starts, so a new one is
+picked up on the next boot and there is nothing to run by hand.
+
+**Which tag you are on decides what you get.** `latest`, `slim` and `full` follow `main`, so pulling
+one gets you whatever was last merged. Pinning `0.1` gets you releases on that line and nothing
+else, and the release notes for each are in the repository's `CHANGELOG.md`. If you want a station
+that only changes when you decide it does, pin the exact version.
+
+**From 0.1.0 onward a migration is added, never edited.** Before the first release this project
+edited them in place, which is right when the only database in the world is the author's and wrong
+the moment somebody else has one: dbmate tracks versions rather than checksums, so an edited file is
+silently not re-applied on a database that already ran it. If a release ever does need a step run by
+hand, that step is in the changelog entry for that version, and it says so there rather than living
+here forever.
 
 ## Backing it up
 

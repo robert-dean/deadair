@@ -121,10 +121,24 @@ account asks for the code after the password. Remove it and sign-in goes back to
 alone. Either change asks for a fresh code first if the one you signed in with is more than a few
 minutes old.
 
+**Settings → Mail** is what makes the other half work. Point it at any SMTP server and the station
+can send a sign-in code to your email address as a second factor, and a sign-in link as a first one
+— "Email me a sign-in link" on the sign-in page, no password at all. Until a mail server is set the
+station sends nothing, and it says so plainly rather than failing quietly: it will not offer you an
+emailed code it cannot deliver, so a station with no mail configured signs you in on the password
+alone. That is deliberate. The alternative is arriving at a fresh install that asks for a code it
+cannot send, on the account that would have configured the sending.
+
+A sign-in link is worth one warning: **it is the whole of the sign-in**, so anybody who can read
+that message can get in. It works once, it expires in half an hour, and it should not be forwarded.
+An account with an authenticator enrolled is still asked for the code afterwards — a link proves
+the inbox, which is one factor and not two.
+
 ### If you lose your authenticator
 
-There is no recovery code yet, so a lost phone means nobody can sign in. From the box, against
-the station's database:
+If you have a mail server configured, you do not need this: ask for a sign-in link, or sign in with
+the password and take the emailed code as the second factor. This is the way in when there is no
+mail either. From the box, against the station's database:
 
 ```sql
 update deadair.actors_authenticator_factors set active = false;
@@ -167,13 +181,19 @@ shown again, and never returned by the API.
 
 ```bash
 pnpm install
-docker compose up -d              # Postgres, Redis, Icecast, Liquidsoap, a voice, the sidecar
+docker compose up -d              # Postgres, Redis, Icecast, Liquidsoap, a voice, the sidecar, Mailpit
 pnpm --filter @deadair/api migrate:up
 pnpm dev
 ```
 
 Node 26+, pnpm, Turborepo. `pnpm test`, `pnpm lint` and `pnpm build` run through turbo; per package,
 `pnpm --filter @deadair/api test`.
+
+Mailpit is in that stack so the sign-in flows can be walked end to end without a real mail server
+and without a code leaving the machine: point Settings → Mail at `localhost`, port 1025, TLS off, no
+username, any from address, and read what the station sent at <http://localhost:8025>. With it
+configured, `OTP_DEV_BYPASS` is no longer needed to get through an email challenge — the code is in
+the inbox.
 
 ```
 apps/api               the station: Koa, ContractKit routers, dbmate migrations

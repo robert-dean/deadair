@@ -68,6 +68,7 @@ import { RequestCookieJar } from './request.cookie.jar.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
 import { readSessionKey } from './session.key.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
+import { SignInMailLimiter } from './sign.in.mail.limiter.js';
 
 let otpDevBypassEnabled = false;
 
@@ -190,6 +191,11 @@ export const AuthenticationModule: ServerKitModule = {
         registry.register(PhoneFactorService).useClass(PhoneFactorService).asScoped();
 
         registry.register(PkceProvider).useClass(PkceProvider).asScoped();
+        // Keyed on the address rather than the caller, which is what the global per-caller limiter
+        // in `setup.middleware.ts` cannot do: `/auth/login/start` takes no session and mails
+        // whatever address it is handed, so the thing worth bounding is how often one inbox can be
+        // made to receive.
+        registry.register(SignInMailLimiter).useFactory(container => new SignInMailLimiter(container.get(Redis))).asSingleton();
         registry.register(HtmlRedirectProvider).useClass(HtmlRedirectProvider).asScoped();
 
         registry.register(FidoFactorRepository).useClass(DeadairFidoFactorRepository).asScoped();

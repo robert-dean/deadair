@@ -13,6 +13,7 @@ import {
     BaseAuthenticationLoginStart,
     BaseAuthenticationRequest,
     ClientCredentialsAuthenticationRequest,
+    CodeAuthenticationLoginStart,
     CodeAuthenticationRequest,
     EnrollmentRequiredResponse,
     FactorChallengeEmailStart,
@@ -24,6 +25,8 @@ import {
     FidoAuthenticationLoginStart,
     FidoAuthenticationLoginStartResponse,
     FidoAuthenticationRequest,
+    LinkAuthenticationLoginStart,
+    LinkAuthenticationRequest,
     MfaRequiredResponse,
     OidcAuthenticationLoginStart,
     OidcAuthenticationRequest,
@@ -58,13 +61,15 @@ import {
     PkceProvider,
     TargetActor,
 } from '@maroonedsoftware/authentication';
-import { DateTime } from 'luxon';
+import { randomBytes } from 'node:crypto';
+import { DateTime, Duration } from 'luxon';
 import { AuthorizationContext } from '#modules/permissions/authorization.context.js';
 import { SessionActivityService } from './session.activity.service.js';
 import { RequestCookieJar } from './request.cookie.jar.js';
 import { ResponseCookieJar } from './response.cookie.jar.js';
 import { MailService } from '#modules/mail/mail.service.js';
 import { expirationMinutes } from '#modules/mail/mail.expiry.js';
+import { SignInMailLimiter } from './sign.in.mail.limiter.js';
 
 // Internal-handler unions: camelCase pre-transform shape (matches the `z.input` side of the
 // `format(output=snake)` schemas). The public methods `requestToken` and `startFactorChallenge`
@@ -120,6 +125,7 @@ export class AuthenticationService {
         private readonly emailFactorRepository: EmailFactorRepository,
         private readonly emailFactorService: EmailFactorService,
         private readonly pkceProvider: PkceProvider,
+        private readonly signInMailLimiter: SignInMailLimiter,
         private readonly emailFactorServiceOptions: EmailFactorServiceOptions,
         private readonly mailService: MailService,
         private readonly passwordFactorService: PasswordFactorService,
@@ -149,8 +155,13 @@ export class AuthenticationService {
             authenticate: (request: BaseAuthenticationRequest) => this.handleFido(request as FidoAuthenticationRequest),
             startLogin: (request: BaseAuthenticationLoginStart) => this.handleFidoStartLogin(request as FidoAuthenticationLoginStart),
         });
+        this.authenticateHandlerMap.set('link', {
+            authenticate: (request: BaseAuthenticationRequest) => this.handleLink(request as LinkAuthenticationRequest),
+            startLogin: (request: BaseAuthenticationLoginStart) => this.handleLinkStartLogin(request as LinkAuthenticationLoginStart),
+        });
         this.authenticateHandlerMap.set('code', {
             authenticate: (request: BaseAuthenticationRequest) => this.handleCode(request as CodeAuthenticationRequest),
+            startLogin: (request: BaseAuthenticationLoginStart) => this.handleCodeStartLogin(request as CodeAuthenticationLoginStart),
         });
         this.authenticateHandlerMap.set('authenticator', {
             authenticate: (request: BaseAuthenticationRequest) => this.handleAuthenticator(request as AuthenticatorAuthenticationRequest),
@@ -563,6 +574,129 @@ export class AuthenticationService {
         };
 
         return await this.issueTokenFor({ kind: 'user', actorId: result.actorId }, proofFactor);
+    }
+
+    /**
+     * Start a passwordless sign-in by emailing a link.
+     *
+     * The link goes to the console rather than to a route here, and carries the challenge id beside
+     * the token. Both halves are needed: the token is the one-time secret and the challenge id is
+     * what it is bound to, which is what makes a link that crosses devices work — somebody opening
+     * their mail on a phone and finishing on a laptop has no per-device verifier to resolve it from.
+     */
+    private async handleLinkStartLogin(request: LinkAuthenticationLoginStart): Promise<AuthenticationLoginStartResponse> {
+        await this.signInMailLimiter.consume(request.email);
+        this.mailService.assertConfigured();
+
+        const factor = await this.emailFactorRepository.findFactor(request.email);
+        if (!factor || !factor.active) {
+            return this.unknownAddressAnswer('link', this.emailFactorServiceOptions.magiclinkExpiration);
+        }
+
+        const challenge = await this.emailFactorService.issueEmailChallenge(factor.actorId, factor.id, 'magiclink');
+
+        const link = new URL(`${this.spaBaseUrl()}/auth/callback`);
+        link.searchParams.set('token', challenge.code);
+        link.searchParams.set('challenge_id', challenge.challengeId);
+
+        await this.mailService.send({
+            to: request.email,
+            template: 'SignInLink',
+            data: { link: link.toString(), minutes: expirationMinutes(this.emailFactorServiceOptions.magiclinkExpiration) },
+        });
+
+        return { grant_type: 'link', challengeId: challenge.challengeId, expiresAt: challenge.expiresAt };
+    }
+
+    /**
+     * Start a passwordless sign-in by emailing a code.
+     *
+     * The caller's PKCE `code_challenge` is stashed against the email challenge id, so the code
+     * that arrives can only be spent by the device that asked for it. That is the difference
+     * between this and the link: a code is short enough to read aloud down a phone line, so it
+     * needs a second thing the caller has, where a 43-character link token is the secret itself.
+     */
+    private async handleCodeStartLogin(request: CodeAuthenticationLoginStart): Promise<AuthenticationLoginStartResponse> {
+        await this.signInMailLimiter.consume(request.email);
+        this.mailService.assertConfigured();
+
+        const factor = await this.emailFactorRepository.findFactor(request.email);
+        if (!factor || !factor.active) {
+            // The client-supplied `code_challenge` is dropped rather than stashed: there is nothing
+            // to bind it to, and storing it would leave a Redis key whose presence answers the same
+            // question this branch exists to refuse.
+            return this.unknownAddressAnswer('code', this.emailFactorServiceOptions.otpExpiration);
+        }
+
+        const challenge = await this.emailFactorService.issueEmailChallenge(factor.actorId, factor.id, 'code');
+
+        await this.pkceProvider.storeChallenge(request.code_challenge, challenge.challengeId, this.emailFactorServiceOptions.otpExpiration);
+
+        await this.mailService.send({
+            to: request.email,
+            template: 'SignInCode',
+            data: { code: challenge.code, minutes: expirationMinutes(this.emailFactorServiceOptions.otpExpiration) },
+        });
+
+        return { grant_type: 'code', challengeId: challenge.challengeId, expiresAt: challenge.expiresAt };
+    }
+
+    /**
+     * What `/auth/login/start` answers for an address with no active account.
+     *
+     * Indistinguishable from the real answer, on purpose. The id is the same 32 random bytes the
+     * factor service mints, and the expiry is computed from now rather than echoed from a stored
+     * challenge — echoing is a second oracle, because a pending challenge's expiry is in the past
+     * relative to `now + TTL` and two requests would tell the two apart.
+     *
+     * This route is unauthenticated and takes an arbitrary address, so without this it is a public
+     * "does this person have an account here" endpoint.
+     */
+    private unknownAddressAnswer(grantType: 'link' | 'code', expiration: Duration): AuthenticationLoginStartResponse {
+        return {
+            grant_type: grantType,
+            challengeId: randomBytes(32).toString('base64url'),
+            expiresAt: DateTime.utc().plus(expiration),
+        };
+    }
+
+    /**
+     * Finish a magic-link sign-in.
+     *
+     * The token is the one-time bearer and the challenge id is what binds it, so a link lifted out
+     * of a forwarded message without the id it was issued with is useless. No PKCE, deliberately:
+     * email links cross devices constantly, and a stashed verifier would not be on the machine that
+     * finishes.
+     */
+    private async handleLink(request: LinkAuthenticationRequest): Promise<AuthenticationTokenInternal> {
+        // `'magiclink'` is the method the challenge must have been issued under. Without it, a
+        // six-digit OTP issued for the code flow could be redeemed through this route, which takes
+        // an arbitrary `link` string and so would accept five guesses at six digits.
+        const verified = await this.emailFactorService.verifyEmailChallenge(request.challenge_id, request.link, 'magiclink');
+
+        const now = DateTime.utc();
+        // Through `issueOrChallenge`, so an account with an authenticator enrolled still has to
+        // produce it: a link proves the inbox, which is one factor and not two. The policy already
+        // declines to offer the same email factor as its own second step.
+        return await this.issueOrChallenge({
+            actor: { kind: 'user', actorId: verified.actorId },
+            primaryFactor: { issuedAt: now, authenticatedAt: now, method: 'email', methodId: verified.id, kind: 'possession' },
+        });
+    }
+
+    /**
+     * Where the console lives, refused rather than guessed at when nothing set it.
+     *
+     * An unset `SPA_BASE_URL` would make `new URL()` throw on a relative path, which surfaces as a
+     * 500 with no explanation halfway through a sign-in. Said plainly here instead, and internally
+     * so the operator reads it in the log rather than an anonymous caller reading it in a response.
+     */
+    private spaBaseUrl(): string {
+        const base = this.options.spaBaseUrl.trim();
+        if (base.length === 0) {
+            throw httpError(500).withInternalDetails({ spaBaseUrl: 'SPA_BASE_URL is not set, so a sign-in link cannot be addressed' });
+        }
+        return base.replace(/\/$/, '');
     }
 
     /**

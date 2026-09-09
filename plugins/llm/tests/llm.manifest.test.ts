@@ -29,6 +29,29 @@ describe('the settings form', () => {
         expect(llmManifest.configFields.filter(field => field.type === 'secret')).toEqual([]);
     });
 
+    it('puts the Address cell only on the kind that has one', () => {
+        // Anthropic and Gemini are reached where they live, so an Address on those rows is a
+        // question with no answer — and one left behind by a change of Kind would name a host on
+        // this plugin's allowlist that it can never call, since `addressCells` reads the `url`
+        // column of every row.
+        const columns = llmManifest.configFields.find(field => field.key === 'providers')?.columns ?? [];
+        const address = columns.find(column => column.key === 'baseUrl');
+
+        expect(address?.dependsOn).toBe('kind');
+        expect(address?.dependsOnValues).toEqual(['openai-compat']);
+
+        // The condition has to name a column this same list declares, or it is a rule that resolves
+        // to nothing and shows the cell anyway. The station settings make the field-level version of
+        // this check in `settings.registry.test.ts`; a table needs its own.
+        expect(columns.map(column => column.key)).toContain(address?.dependsOn);
+
+        // And a value it names has to be a kind that exists, or the cell is hidden on every row.
+        expect(Object.keys(PROVIDER_KINDS)).toEqual(expect.arrayContaining(address?.dependsOnValues ?? []));
+
+        // The credential is NOT conditional: a hosted OpenAI-compatible server wants one too.
+        expect(columns.find(column => column.key === 'apiKey')?.dependsOn).toBeUndefined();
+    });
+
     it('offers every kind the plugin can actually speak', () => {
         const kinds = llmManifest.configFields.find(field => field.key === 'providers')?.columns?.find(column => column.key === 'kind');
 

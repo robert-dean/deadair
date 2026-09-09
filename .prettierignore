@@ -3,11 +3,10 @@
 # walks up to the workspace root. Keep patterns `**/`-anchored so they match the
 # same way whether Prettier runs from here or from a package directory.
 
-**/package-lock.json
-# NuGet writes this one, two-space, on every restore. Same argument as the lockfiles above it.
-**/packages.lock.json
 **/pnpm-lock.yaml
 **/yarn.lock
+# NuGet writes this one, two-space, on every restore. Same argument as the lockfiles above it.
+**/packages.lock.json
 **/node_modules/
 **/dist/
 **/routeTree.gen.ts

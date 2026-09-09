@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Button, Group, Stack, Text, Title, Tooltip } from '@mantine/core';
 import { Link } from '@tanstack/react-router';
 import { Anchor } from '@mantine/core';
@@ -70,7 +70,10 @@ export function DeskPage() {
     // dropped row held AT THE MOMENT of the click — the table redraws under an operator's hand
     // every five seconds, so a captured index from anywhere else risks naming a row that has moved.
     const loaded = order.data;
-    const items = loaded?.items ?? [];
+    // Memoised on the query's own data rather than recomputed: `?? []` mints a new array every
+    // render, and `onRemove` below closes over this one, so without it every poll hands the table a
+    // new handler and undoes the memoisation the rows are relying on.
+    const items = useMemo(() => loaded?.items ?? [], [loaded]);
 
     const shuffle = useShuffleOrder();
     const extend = useExtendOrder();

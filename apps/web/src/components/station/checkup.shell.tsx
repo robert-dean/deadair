@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Stack, Text, Title } from '@mantine/core';
+import { Stack, Title } from '@mantine/core';
 import { useNavigate } from '@tanstack/react-router';
 
 import { DestinationTabs, type DestinationTab } from '../shared/destination.tabs';

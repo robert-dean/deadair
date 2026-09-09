@@ -20,19 +20,16 @@
         "migrate:down": "turbo run migrate:down",
         "migrate:down:all": "turbo run migrate:down:all",
         "db:reset": "docker compose rm -sfv db && docker compose up -d --wait db && turbo run migrate:up && pnpm flush:sessions",
-        "flush:sessions": "docker compose exec -T redis redis-cli FLUSHALL",
-        "wizard": "wizard"
+        "flush:sessions": "docker compose exec -T redis redis-cli FLUSHALL"
     },
     "devDependencies": {
         "@contractkit/prettier-plugin": "^0.14.7",
         "@types/node": "^26.1.2",
-        "@vitest/coverage-v8": "^4.1.10",
         "eslint": "^10.8.0",
         "prettier": "^3.9.6",
         "tsup": "^8.5.1",
         "turbo": "^2.10.8",
         "typescript": "6.0.3",
-        "unplugin-swc": "^1.5.10",
         "vitest": "^4.1.10"
     },
     "packageManager": "pnpm@11.10.0",

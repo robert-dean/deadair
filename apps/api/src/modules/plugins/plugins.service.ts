@@ -14,7 +14,7 @@ import { OAUTH_SECRET_FIELD, PLUGIN_OAUTH_SECRET_KEY } from './plugin.oauth.secr
 import { PluginConfigService, type PluginConfigReadModel } from './plugin.config.service.js';
 import { asCatalogPlugin } from './plugin.capabilities.js';
 import { pluginHttpError } from './plugin.error.http.js';
-import { PluginInvoker } from './plugin.invoker.js';
+import { PROBE_OP, PluginInvoker } from './plugin.invoker.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginLog } from './plugin.log.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
@@ -458,7 +458,7 @@ export class PluginsService {
         if (!isCallable(instance.testConnection)) return { ok: false, message: 'not supported' };
 
         try {
-            const result = await this.pluginInvoker.probe(id, 'testConnection', async () => instance.testConnection!());
+            const result = await this.pluginInvoker.probe(id, PROBE_OP, async () => instance.testConnection!());
             return { ok: result.ok, message: result.message };
         } catch (error) {
             return { ok: false, message: serverkitErrorText(error) };

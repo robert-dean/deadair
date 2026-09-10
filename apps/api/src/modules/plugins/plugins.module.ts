@@ -154,6 +154,10 @@ export const PluginsModule: ServerKitModule = {
     shutdown: async (container: Container) => {
         const logger = container.get(Logger);
 
+        // First, so a quarantined plugin's recovery timer cannot start a probe against an instance
+        // the next line is disposing. Synchronous and cannot throw.
+        container.get(PluginInvoker).stopRecovery();
+
         try {
             await container.get(PluginLifecycleManager).disposeAll();
         } catch (error) {

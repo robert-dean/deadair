@@ -28,6 +28,27 @@ export const PLUGIN_INVOKE_TIMEOUT_MS = 8_000;
 export const PLUGIN_FAILURE_THRESHOLD = 3;
 
 /**
+ * How long a quarantined plugin waits before the host asks it again on its own. Doubles after every
+ * automatic probe that finds it still down, up to {@link PLUGIN_RECOVERY_MAX_MS}.
+ *
+ * A minute because the failure this is for is an upstream having a bad few minutes: Spotify
+ * answering 502 to three searches in a row. Sooner, and the probe lands in the same outage that
+ * tripped the breaker; much later, and a station that could have been playing from its main provider
+ * again spends the time on its fallbacks.
+ */
+export const PLUGIN_RECOVERY_FIRST_MS = 60_000;
+
+/**
+ * The longest gap between automatic probes, however long the plugin has been down. A long outage
+ * costs one `testConnection` per half hour, which no provider will notice, and a plugin that comes
+ * back after one is back within the half hour rather than whenever somebody looks.
+ */
+export const PLUGIN_RECOVERY_MAX_MS = 30 * 60_000;
+
+/** The op an automatic probe runs, and the one the Test connection route runs through `probe`. */
+export const PROBE_OP = 'testConnection';
+
+/**
  * The one op the breaker never refuses. Named here rather than at the lifecycle manager's call
  * site so the two cannot drift: the manager passes this constant, and `invoke` compares against it.
  */
@@ -90,6 +111,19 @@ const deadline = (timeoutMs: number, message: string): InvokeDeadline => {
  * something (a config change, a reinit) calls {@link PluginInvoker.reset}, or
  * a {@link PluginInvoker.probe} comes back healthy.
  *
+ * The breaker runs those probes itself when the failure that tripped it was
+ * one retrying can end, on a backoff from {@link PLUGIN_RECOVERY_FIRST_MS} to
+ * {@link PLUGIN_RECOVERY_MAX_MS}. It has to: every capability accessor skips a
+ * plugin whose status is not `active`, so no call ever arrives at a quarantined
+ * plugin for the textbook half-open breaker to let through. A quarantine the
+ * plugin declared permanent (`auth`, `config`) is not probed, because the
+ * plugin has already said the answer will not change; the operator's Test
+ * connection still asks it.
+ *
+ * The timers are in this process because the breaker is: a pg-boss cron would
+ * be claimed by whichever worker got there first, which is not necessarily the
+ * one holding the open breaker.
+ *
  * Resource-scoped failures are exempt from all of that (see
  * `isResourceScopedCode`). "That playlist is not yours" is a correct answer
  * from a healthy plugin, and counting correct answers as failures is how a
@@ -105,6 +139,18 @@ export class PluginInvoker {
 
     /** Plugins whose breaker is open, mapped to the reason it opened. */
     private readonly openBreakers = new Map<string, string>();
+
+    /** The pending automatic probe per quarantined plugin. At most one each. */
+    private readonly recoveryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+    /**
+     * Automatic probes scheduled since the breaker opened, which is what the backoff doubles on.
+     * Present exactly while the quarantine in force is one the breaker will probe its way out of.
+     */
+    private readonly recoveryAttempts = new Map<string, number>();
+
+    /** Set by {@link PluginInvoker.stopRecovery}, so nothing torn down later schedules another probe. */
+    private recoveryStopped = false;
 
     constructor(
         private readonly pluginRegistry: PluginRegistry,
@@ -145,8 +191,8 @@ export class PluginInvoker {
      * Asks a plugin whether it can reach its provider, whatever the breaker says, and lets the answer
      * decide the breaker.
      *
-     * This is the breaker's half-open probe, and it is the only one: nothing closes a tripped breaker
-     * on a timer. Without it the "Test connection" button on a quarantined plugin answered with the
+     * This is the breaker's half-open probe, run by the Test connection route and by the breaker's
+     * own recovery timer alike. Without it the button on a quarantined plugin answered with the
      * reason the breaker had stored (the director's third failed Spotify search in a row) and
      * `testConnection` never ran. The one control an operator reaches for to ask "is it
      * back?" could only repeat the old error, and the only way to un-quarantine a plugin whose
@@ -242,6 +288,17 @@ export class PluginInvoker {
     reset(pluginId: string): void {
         this.consecutiveFailures.delete(pluginId);
         this.openBreakers.delete(pluginId);
+        this.cancelRecovery(pluginId);
+    }
+
+    /**
+     * Cancels every pending automatic probe and schedules no more. Called on shutdown BEFORE the
+     * plugins are disposed, so a probe cannot start against an instance that is being let go of,
+     * and a dispose that fails on the way out cannot arm a fresh one.
+     */
+    stopRecovery(): void {
+        this.recoveryStopped = true;
+        for (const pluginId of [...this.recoveryTimers.keys()]) this.cancelRecovery(pluginId);
     }
 
     /** Whether calls to this plugin are currently short-circuiting. */
@@ -269,6 +326,67 @@ export class PluginInvoker {
         const record = this.pluginRegistry.get(pluginId);
         if (record?.status === 'failed' && record.instance !== undefined) this.pluginRegistry.setStatus(pluginId, 'active');
         this.pluginLog.for(pluginId).info('plugin passed its probe; quarantine lifted', { op });
+    }
+
+    /**
+     * Arms the next automatic probe, unless one is already pending: a failure arriving while one is
+     * (the operator's own test, say) must not keep pushing the station's recovery further out.
+     *
+     * Never sooner than the upstream asked for. A 429 with `Retry-After` is the provider stating
+     * when it will talk to us again, and a probe before then is a request it has said it will refuse.
+     */
+    private scheduleRecovery(pluginId: string, notBeforeMs?: number): void {
+        if (this.recoveryStopped || this.recoveryTimers.has(pluginId)) return;
+
+        const attempts = this.recoveryAttempts.get(pluginId) ?? 0;
+        const backoff = Math.min(PLUGIN_RECOVERY_FIRST_MS * 2 ** attempts, PLUGIN_RECOVERY_MAX_MS);
+        const delayMs = Math.max(backoff, notBeforeMs ?? 0);
+        this.recoveryAttempts.set(pluginId, attempts + 1);
+
+        const timer = setTimeout(() => void this.probeOnSchedule(pluginId), delayMs);
+        // A probe half an hour out is not a reason for a process to stay alive.
+        timer.unref();
+        this.recoveryTimers.set(pluginId, timer);
+        this.pluginLog.for(pluginId).info('plugin will be probed again on its own', { inMs: delayMs, attempt: attempts + 1 });
+    }
+
+    private cancelRecovery(pluginId: string): void {
+        const timer = this.recoveryTimers.get(pluginId);
+        if (timer !== undefined) clearTimeout(timer);
+        this.recoveryTimers.delete(pluginId);
+        this.recoveryAttempts.delete(pluginId);
+    }
+
+    /**
+     * The timer's half of recovery: ask the plugin, and go again later if it is still down.
+     *
+     * Only asks an instance that is still there. A plugin disabled or mid-reinit has none, and the
+     * reinit resets the breaker anyway. One with no `testConnection` has nothing to ask and waits
+     * for a reinit, which is also the only thing the Test connection button could offer it.
+     *
+     * Never rejects: this runs from a timer, where a rejection has no one to land on.
+     */
+    private async probeOnSchedule(pluginId: string): Promise<void> {
+        this.recoveryTimers.delete(pluginId);
+        if (this.recoveryStopped || !this.openBreakers.has(pluginId)) return;
+
+        const instance = this.pluginRegistry.instance(pluginId);
+        if (instance === undefined) return;
+        if (typeof instance.testConnection !== 'function') {
+            this.recoveryAttempts.delete(pluginId);
+            this.pluginLog.for(pluginId).warn('plugin has no testConnection to probe; it stays quarantined until it is reinitialized');
+            return;
+        }
+
+        try {
+            await this.probe(pluginId, PROBE_OP, async () => instance.testConnection!());
+        } catch {
+            // Recorded by `run`, and a retryable throw has already armed the next probe from there.
+        }
+
+        // `ok: false` arms nothing on its own path (the operator's test shares it), so the timer's
+        // half re-arms here. Still open and still a quarantine retrying can end: go again, later.
+        if (this.openBreakers.has(pluginId) && this.recoveryAttempts.has(pluginId)) this.scheduleRecovery(pluginId);
     }
 
     /**
@@ -315,6 +433,10 @@ export class PluginInvoker {
             this.openBreakers.set(pluginId, reason);
             this.pluginRegistry.setStatus(pluginId, 'failed', reason);
             this.pluginLog.for(pluginId).error('plugin quarantined', { op, failures, error: message });
+            // The latest failure decides, including one from a probe: a plugin that was merely
+            // unreachable and now answers `auth` has told us the answer will not change.
+            if (pluginError.retryable) this.scheduleRecovery(pluginId, pluginError.retryAfterMs);
+            else this.cancelRecovery(pluginId);
         } else {
             // Keep the current status (the plugin may still recover) but surface
             // the last error, so the settings UI can show what just went wrong.

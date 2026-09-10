@@ -25,6 +25,11 @@ export interface PluginLifecycle {
      * the breaker, so reach the provider with the saved credentials rather than
      * checking that a setting is present. Report a failure as `ok: false` with a
      * message: what the host counts as healthy is `ok`, not the call resolving.
+     *
+     * The host also calls it on its own while your plugin is quarantined by a
+     * failure retrying could end: after a minute, then on a backoff to one call
+     * every half hour. So keep it to one cheap request, and never to anything
+     * that changes state on the provider.
      */
     testConnection?(): Promise<PluginConnectionResult>;
 

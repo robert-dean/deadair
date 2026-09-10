@@ -2,7 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PluginError, isPluginError } from '@deadair/plugin-sdk';
 
 import { invocationRemainingMs } from '../../../src/modules/plugins/plugin.invocation.deadline.js';
-import { DISPOSE_OP, PLUGIN_FAILURE_THRESHOLD, PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
+import {
+    DISPOSE_OP,
+    PLUGIN_FAILURE_THRESHOLD,
+    PLUGIN_RECOVERY_FIRST_MS,
+    PLUGIN_RECOVERY_MAX_MS,
+    PROBE_OP,
+    PluginInvoker,
+} from '../../../src/modules/plugins/plugin.invoker.js';
 import { PluginRegistry } from '../../../src/modules/plugins/plugin.registry.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
@@ -381,6 +388,190 @@ describe('PluginInvoker.probe', () => {
 
         expect(registry.get('p')?.status).toBe('failed');
         expect(registry.get('p')?.error).toBe('init: bad client id');
+    });
+});
+
+/**
+ * A quarantined plugin gets no traffic (every capability accessor skips a status that is not
+ * `active`), so nothing would ever reach a textbook half-open breaker. The breaker asks on its own.
+ */
+describe('PluginInvoker automatic recovery', () => {
+    const MINUTE = 60_000;
+
+    type Check = () => Promise<{ ok: boolean; message?: string }>;
+
+    function setup(testConnection?: Check) {
+        vi.useFakeTimers();
+        const registry = new PluginRegistry();
+        registry.upsert(record({ instance: (testConnection ? { testConnection } : {}) as PluginRecord['instance'] }));
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        return { registry, invoker };
+    }
+
+    /** What the station did to Spotify: three 502s in a row, each one `unavailable`, which is retryable. */
+    async function tripOnOutage(invoker: PluginInvoker, error = () => new PluginError('HTTP 502').withCode('unavailable')) {
+        for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD; i++) {
+            await expect(
+                invoker.invoke('p', 'director.lookupTrack', () => {
+                    throw error();
+                }),
+            ).rejects.toThrow();
+        }
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+    }
+
+    it('asks a plugin quarantined by an outage again after a minute, and lets it back when it answers', async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: true, message: 'Connected.' }));
+        const { registry, invoker } = setup(testConnection);
+        await tripOnOutage(invoker);
+
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_FIRST_MS - 1);
+        expect(testConnection).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(testConnection).toHaveBeenCalledTimes(1);
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+        expect(registry.get('p')?.status).toBe('active');
+        expect(registry.get('p')?.error).toBeUndefined();
+
+        // Recovered is recovered: nothing is left armed to ask again.
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_MAX_MS * 2);
+        expect(testConnection).toHaveBeenCalledTimes(1);
+    });
+
+    it('backs off while the provider stays down, doubling to a ceiling', async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: false, message: 'Spotify replied HTTP 502.' }));
+        const { registry, invoker } = setup(testConnection);
+        await tripOnOutage(invoker);
+
+        const gaps = [1, 2, 4, 8, 16, 30, 30].map(minutes => minutes * MINUTE);
+        expect(gaps.at(-1)).toBe(PLUGIN_RECOVERY_MAX_MS);
+
+        for (const [index, gap] of gaps.entries()) {
+            await vi.advanceTimersByTimeAsync(gap - 1);
+            expect(testConnection).toHaveBeenCalledTimes(index);
+            await vi.advanceTimersByTimeAsync(1);
+            expect(testConnection).toHaveBeenCalledTimes(index + 1);
+        }
+
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+        expect(registry.get('p')?.error).toBe('testConnection: Spotify replied HTTP 502.');
+    });
+
+    it('does not probe a quarantine the plugin declared permanent', async () => {
+        // `auth` is the plugin saying the credential is dead. Asking again will not revive it, and
+        // the operator's own Test connection is still there for after they have fixed it.
+        const testConnection = vi.fn<Check>(async () => ({ ok: true }));
+        const { invoker } = setup(testConnection);
+        await expect(
+            invoker.invoke('p', 'op', () => {
+                throw new PluginError('token revoked').withCode('auth');
+            }),
+        ).rejects.toThrow();
+
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_MAX_MS * 2);
+
+        expect(testConnection).not.toHaveBeenCalled();
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+    });
+
+    it('stops probing once a probe answers with a failure retrying cannot end', async () => {
+        const testConnection = vi.fn<Check>(async () => {
+            throw new PluginError('token revoked').withCode('auth');
+        });
+        const { invoker } = setup(testConnection);
+        await tripOnOutage(invoker);
+
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_FIRST_MS);
+        expect(testConnection).toHaveBeenCalledTimes(1);
+
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_MAX_MS * 2);
+        expect(testConnection).toHaveBeenCalledTimes(1);
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+    });
+
+    it('keeps probing through a probe that throws something retryable', async () => {
+        const testConnection = vi.fn<Check>().mockRejectedValueOnce(new Error('socket hang up')).mockResolvedValue({ ok: true });
+        const { invoker } = setup(testConnection);
+        await tripOnOutage(invoker);
+
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_FIRST_MS);
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+
+        await vi.advanceTimersByTimeAsync(2 * MINUTE);
+        expect(testConnection).toHaveBeenCalledTimes(2);
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+    });
+
+    it('waits at least as long as the upstream asked', async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: true }));
+        const { invoker } = setup(testConnection);
+        await tripOnOutage(invoker, () => new PluginError('slow down').withCode('rate_limited').withRetry(5 * MINUTE));
+
+        await vi.advanceTimersByTimeAsync(5 * MINUTE - 1);
+        expect(testConnection).not.toHaveBeenCalled();
+
+        await vi.advanceTimersByTimeAsync(1);
+        expect(testConnection).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not let the operator's own test push the station's recovery further out", async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: false, message: 'still down' }));
+        const { invoker } = setup(testConnection);
+        await tripOnOutage(invoker);
+
+        await vi.advanceTimersByTimeAsync(MINUTE / 2);
+        await invoker.probe('p', PROBE_OP, testConnection);
+        expect(testConnection).toHaveBeenCalledTimes(1);
+
+        await vi.advanceTimersByTimeAsync(MINUTE / 2);
+        expect(testConnection).toHaveBeenCalledTimes(2);
+    });
+
+    it('forgets a pending probe when the plugin is reset, which is what every reinit does', async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: true }));
+        const { invoker } = setup(testConnection);
+        await tripOnOutage(invoker);
+
+        invoker.reset('p');
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_MAX_MS * 2);
+
+        expect(testConnection).not.toHaveBeenCalled();
+    });
+
+    it('starts nothing once recovery is stopped for shutdown, including for a plugin that fails after', async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: true }));
+        const { invoker } = setup(testConnection);
+        await tripOnOutage(invoker);
+
+        invoker.stopRecovery();
+        // A dispose failing on the way out goes through the same accounting, and must not re-arm.
+        invoker.reset('p');
+        await tripOnOutage(invoker);
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_MAX_MS * 2);
+
+        expect(testConnection).not.toHaveBeenCalled();
+    });
+
+    it('leaves a plugin with nothing to ask quarantined, without asking again', async () => {
+        const { registry, invoker } = setup();
+        await tripOnOutage(invoker);
+
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_MAX_MS * 2);
+
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+        expect(registry.get('p')?.status).toBe('failed');
+    });
+
+    it('asks nothing of a quarantined plugin whose instance is gone', async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: true }));
+        const { registry, invoker } = setup(testConnection);
+        await tripOnOutage(invoker);
+
+        registry.get('p')!.instance = undefined;
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_MAX_MS * 2);
+
+        expect(testConnection).not.toHaveBeenCalled();
     });
 });
 

@@ -56,6 +56,16 @@ static void *kItemStatusContext = &kItemStatusContext;
                   forKeyPath:@"timeControlStatus"
                      options:NSKeyValueObservingOptionNew
                      context:kTimeControlContext];
+
+        // AVFoundation does not reliably report a failure of its own when the Mac sleeps mid-stream,
+        // so a player left `PLAYING` or `BUFFERING` at wake looks fine to anything only watching the
+        // phase. Reporting the wake itself as a failure is what lets the conductor's scheduled retry
+        // restart the stream at the live edge instead of leaving a stalled player nobody notices.
+        // Posted on the workspace's own notification centre, NOT the default one.
+        [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:self
+                                                                selector:@selector(workspaceDidWake:)
+                                                                    name:NSWorkspaceDidWakeNotification
+                                                                  object:nil];
     }
     return self;
 }
@@ -148,6 +158,14 @@ static void *kItemStatusContext = &kItemStatusContext;
     }
 }
 
+- (void)workspaceDidWake:(NSNotification *)note {
+    // Only a stream that was audibly playing, or trying to be, is worth restarting. One that was
+    // already stopped, ended or failed needs nothing further from a wake.
+    if (_phase == DA_PHASE_PLAYING || _phase == DA_PHASE_BUFFERING) {
+        [self report:DA_PHASE_FAILED detail:@"The Mac woke from sleep."];
+    }
+}
+
 - (void)observeValueForKeyPath:(NSString *)keyPath
                       ofObject:(id)object
                         change:(NSDictionary *)change
@@ -187,6 +205,7 @@ static void *kItemStatusContext = &kItemStatusContext;
     [self stop];
     [_player removeObserver:self forKeyPath:@"timeControlStatus" context:kTimeControlContext];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [[[NSWorkspace sharedWorkspace] notificationCenter] removeObserver:self];
     _callback = NULL;
     _player = nil;
 }

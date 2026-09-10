@@ -72,7 +72,9 @@ inherited from the dislike path, never added beside it.
   a generator produced without touching the catalog.
 - [pick.resolver.ts](../../apps/api/src/modules/director/pick.resolver.ts): `judge` for a generated
   set and `vet` for a playlist put on air, both of which reach `rejectDisliked` over `ratingsFor`.
-  Nothing reaches the running order by a third route.
+  The third route in (`DirectorConsoleService.addTrackToOrder`, an operator inserting one catalog
+  record into the running order at a position) passes the record through the same `vet` rather than
+  going around it.
 - [tracks.repository.ts](../../apps/api/src/modules/catalog/tracks.repository.ts): four reads the
   model's `search_music` tool sits on, each with its own copy of the dislike predicate —
   `searchPlayable`, `ownership`, `dislikedArtistKeys` and `styleVocabulary`.

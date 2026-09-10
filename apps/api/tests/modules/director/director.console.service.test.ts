@@ -801,7 +801,9 @@ describe('DirectorConsoleService editing the running order', () => {
     // at-the-door refusals `addSegmentToOrder` does, for the same reason: an operator should be
     // told a record cannot play yet, not watch it accepted and quietly held or skipped later.
     describe('DirectorConsoleService.addTrackToOrder', () => {
-        const TRACK = { id: 'trk-1', title: 'A Record', artists: 'The Artist' };
+        // `artists` is the whole credit line and `artistName` is the LEAD the catalog joined in
+        // separately; the two are made to differ here so a test that reads the wrong one is caught.
+        const TRACK = { id: 'trk-1', title: 'A Record', artists: 'The Artist, Someone Else', artistName: 'The Artist' };
         const BINDING = { pluginId: 'deadair.spotify', externalId: 'ext-1' };
 
         it('refuses a record the catalog does not hold', async () => {
@@ -828,6 +830,55 @@ describe('DirectorConsoleService editing the running order', () => {
             expect(director.applyEdit).not.toHaveBeenCalled();
         });
 
+        // The same veto a playlist put on air already runs through: an operator picking one record
+        // by hand is not an instruction that gets to route around a dislike, the broadcast's period
+        // or the advisory policy.
+        it('refuses a disliked record, posting no edit', async () => {
+            const { service, director } = build({
+                order: onAirWith(2),
+                catalogTrack: TRACK,
+                trackBinding: BINDING,
+                vet: () => [],
+            });
+
+            expect(await statusOf(service.addTrackToOrder({ trackId: 'trk-1' }))).toBe(422);
+            expect(director.applyEdit).not.toHaveBeenCalled();
+        });
+
+        it("runs the record through the veto with the current broadcast's own period, and refuses one outside it", async () => {
+            const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import', eraFrom: 1980, eraTo: 1989 });
+            order.append([{ pluginId: 'p', externalId: 't0', title: 'T0', artists: ['X'], artist: 'X' }]);
+            const { service, director, resolver } = build({
+                order,
+                catalogTrack: TRACK,
+                trackBinding: BINDING,
+                vet: () => [],
+            });
+
+            expect(await statusOf(service.addTrackToOrder({ trackId: 'trk-1' }))).toBe(422);
+            expect(resolver.vet).toHaveBeenCalledWith([expect.objectContaining({ trackId: 'trk-1' })], {
+                era: { from: 1980, to: 1989 },
+                preference: ['deadair.spotify'],
+            });
+            expect(director.applyEdit).not.toHaveBeenCalled();
+        });
+
+        // On a clean-only station the advisory policy is part of what `vet` reads for itself; this
+        // exercises the console's side of that refusal rather than the policy's own logic, which is
+        // `PickResolver`'s test file's business.
+        it('refuses a record only an explicit copy exists for, on a clean-only station', async () => {
+            const { service, director } = build({
+                order: onAirWith(2),
+                catalogTrack: TRACK,
+                trackBinding: BINDING,
+                settings: { 'rotation.advisory': 'clean-only' },
+                vet: () => [],
+            });
+
+            expect(await statusOf(service.addTrackToOrder({ trackId: 'trk-1' }))).toBe(422);
+            expect(director.applyEdit).not.toHaveBeenCalled();
+        });
+
         it('puts a ready record into the order at the position asked for', async () => {
             const { service } = build({ order: onAirWith(2), catalogTrack: TRACK, trackBinding: BINDING });
 
@@ -843,6 +894,21 @@ describe('DirectorConsoleService editing the running order', () => {
 
             expect(director.applyEdit).toHaveBeenCalledWith(
                 expect.objectContaining({ kind: 'insertTrack', track: expect.objectContaining({ trackId: 'trk-1' }) }),
+            );
+        });
+
+        // Identity is the LEAD, never the whole credit line, so history and the artist cooldown key
+        // on the same thing a generator-produced item's does.
+        it('inserts an accepted record with the lead artist as identity, not the whole credit line', async () => {
+            const { service, director } = build({ order: onAirWith(1), catalogTrack: TRACK, trackBinding: BINDING });
+
+            await service.addTrackToOrder({ trackId: 'trk-1' });
+
+            expect(director.applyEdit).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    kind: 'insertTrack',
+                    track: expect.objectContaining({ artist: 'The Artist', artists: ['The Artist'] }),
+                }),
             );
         });
     });

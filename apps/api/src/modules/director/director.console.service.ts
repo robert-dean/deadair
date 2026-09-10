@@ -771,7 +771,11 @@ export class DirectorConsoleService {
      *   all. @throws 422 when a provider CAN serve it but the audio is not on this machine yet — the
      *   same distinction {@link addSegmentToOrder} draws, and the same reason: an operator asking
      *   for a specific record should be told why it cannot play yet, not watch the order accept it
-     *   and the commit gate quietly hold the slot open behind it. See `bytes-before-air.md`.
+     *   and the commit gate quietly hold the slot open behind it. See `bytes-before-air.md`. @throws
+     *   422 when {@link PickResolver.vet} drops the record: a dislike, outside the broadcast's
+     *   period, or no copy the advisory policy allows. An operator picking one record by hand gets
+     *   the same veto a playlist put on air does (see {@link sourceTracks}) because a person at
+     *   the console is not an instruction the station's own rules get to be routed around.
      */
     async addTrackToOrder(input: AddStationTrackInput): Promise<StationOrder> {
         const row = await this.tracks.findTrack(input.trackId);
@@ -785,17 +789,14 @@ export class DirectorConsoleService {
             throw httpError(422).withDetails({ message: 'the station does not have this record’s audio locally yet' });
         }
 
-        // The catalog's own `artists` column is the credit line as one string ("Tyler, The
-        // Creator, Kali Uchis"), not a parsed array — the same shape a generator-produced item
-        // has always carried it in, per `artistKey`'s own note on this. `artist` is the whole
-        // line too, on the same convention: it is what identity is taken from, and this record
-        // has no more specific lead to prefer over it.
+        // Identity is the LEAD artist, exactly as every generator-produced item's is, so history
+        // and the artist cooldown key on the lead rather than the whole credit line.
         const track: RundownTrack = {
             pluginId: binding.pluginId,
             externalId: binding.externalId,
             title: row.title,
-            artists: [row.artists],
-            artist: row.artists,
+            artists: [row.artistName],
+            artist: row.artistName,
             trackId: row.id,
             ...(binding.durationMs === undefined ? {} : { durationMs: binding.durationMs }),
             // `== null` rather than `=== undefined`: a SQL NULL reads back as `undefined` at
@@ -804,6 +805,14 @@ export class DirectorConsoleService {
             ...(row.albumImageUrl == null ? {} : { artworkUrl: row.albumImageUrl }),
             ...(row.year == null ? {} : { year: row.year }),
         };
+
+        const order = this.director.order();
+        const vetted = await this.resolver.vet([track], { era: { from: order?.eraFrom, to: order?.eraTo }, preference: [binding.pluginId] });
+        if (vetted.length === 0) {
+            throw httpError(422).withDetails({
+                message: 'this station will not play that record: a dislike, the period, or the advisory policy',
+            });
+        }
 
         return await this.editOrder({
             kind: 'insertTrack',

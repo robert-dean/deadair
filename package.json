@@ -24,7 +24,7 @@
         "flush:sessions": "docker compose exec -T redis redis-cli FLUSHALL"
     },
     "devDependencies": {
-        "@contractkit/prettier-plugin": "^0.14.7",
+        "@contractkit/prettier-plugin": "^0.14.9",
         "@types/node": "^26.1.2",
         "eslint": "^10.8.0",
         "prettier": "^3.9.6",

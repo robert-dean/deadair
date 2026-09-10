@@ -1,0 +1,8 @@
+{
+    "label": "Nowplaying",
+    "position": 8,
+    "link": {
+        "type": "generated-index",
+        "title": "Nowplaying"
+    }
+}

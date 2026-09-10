@@ -33,6 +33,23 @@
             "baseDir": "packages/sdk-csharp/",
             "namespace": "MaroonedSoftware.Deadair.Sdk",
             "sdkName": "DeadairSdk"
+        },
+        "@contractkit/plugin-docs": {
+            "docusaurus": {
+                "baseDir": "apps/site/docs/",
+                "label": "API Reference",
+                "position": 3
+            },
+            "openapi": {
+                "baseDir": "apps/site/static/",
+                "output": "openapi.yaml",
+                "info": {
+                    "title": "deadair",
+                    "version": "main",
+                    "description": "The HTTP API of a deadair station. Every station is self-hosted, so the address is your own: the API is served under /api on the station's one published port. This document follows the main branch."
+                },
+                "servers": [{ "url": "http://localhost:8080/api", "description": "A station on its default port. Substitute your own address." }]
+            }
         }
     }
 }

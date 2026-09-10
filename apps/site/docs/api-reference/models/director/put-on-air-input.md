@@ -1,0 +1,28 @@
+---
+title: 'PutOnAirInput'
+sidebar_position: 13
+mdx:
+    format: 'md'
+---
+
+> Put the station on air, building its running order from the top
+
+<details>
+<summary>Attributes (12)</summary>
+
+| Attribute    | Type                                     | Required | Description                                                                                                                                                                                                                                                                                                                       |
+| ------------ | ---------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pluginId`   | `string`                                 | No       | The plugin whose playlist to build from. Absent starts empty and lets the station generate its own programming                                                                                                                                                                                                                    |
+| `playlistId` | `string`                                 | No       | Required alongside `pluginId`. The playlist is READ at this moment rather than copied, so it is never edited by having been aired                                                                                                                                                                                                 |
+| `chartId`    | `string`                                 | No       | A published chart to build from instead, as `pluginId:chartId`. An ALTERNATIVE to `pluginId` and `playlistId` rather than a companion: a chart names records where a playlist names copies, so its entries are looked up and ingested before they can air, and a station with `rotation.discover` off can play almost none of one |
+| `chartOrder` | `'countdown' \| 'ranked' \| 'unordered'` | No       | Which way round to play it. `countdown` opens on the lowest rank and ends on number one, which is the shape a chart show has; `ranked` walks the published document from the top; `unordered` leaves the sequence to the station's own artist spacing. Absent is `countdown`. Ignored without `chartId`                           |
+| `name`       | `string`                                 | No       | What to call this broadcast. Absent names it after the chart, or after the plugin, since only the surface that listed the source knows its own name for it                                                                                                                                                                        |
+| `brief`      | `string`                                 | No       | What the station should play, in your own words: "heavy metal hits". It steers every refill for as long as this broadcast runs, not just the first batch, and it needs a model to programme with. Absent programmes the station the way its own rules do                                                                          |
+| `personaId`  | `string`                                 | No       | Who is hosting this broadcast. It rides the running order for as long as the broadcast does, so the presenter cannot drift back mid-show. Absent uses whichever persona the station has on air                                                                                                                                    |
+| `eraFrom`    | `number`                                 | No       | The earliest release year this broadcast plays. Absent means no lower bound, and a record whose year the catalog does not know is played whatever the period                                                                                                                                                                      |
+| `eraTo`      | `number`                                 | No       | The latest release year, on the same terms. Set with `eraFrom` for a decade; either may stand alone                                                                                                                                                                                                                               |
+| `callins`    | `boolean`                                | No       | Whether somebody phones in during this broadcast. A call is a short programme rather than a break: a few turns in a few voices, entering the running order as one block, spaced by `rotation.callinEveryMinutes`. Absent takes the station's own setting, which is off                                                            |
+| `mode`       | `StationMode`                            | No       |                                                                                                                                                                                                                                                                                                                                   |
+| `onEnd`      | `StationOnEnd`                           | No       |                                                                                                                                                                                                                                                                                                                                   |
+
+</details>

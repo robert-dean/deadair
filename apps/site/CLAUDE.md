@@ -32,6 +32,15 @@ are gitignored. Edit the source files. Neither carries a relative link, which is
 plain copy is safe: add one and the site's build fails on it until the script learns to rewrite it.
 `turbo.json` lists both sources as inputs of this package's `build`, since they live outside it.
 
+**The API reference is generated, and committed.** Everything under `docs/api-reference/`, and
+`static/openapi.yaml` beside it, is written
+by `pnpm build:contracts` (`@contractkit/plugin-docs`, configured in `apps/api/contractkit.config.json`)
+and is covered by the generated-output rule: never edit it, and CI's `generated` job fails if it
+disagrees with the contracts. The one exception is `docs/api-reference/index.md`, which the plugin
+writes once and never touches again, so it is ours. That is also why `editUrl` in
+`docusaurus.config.ts` sends a generated page's "Edit this page" to the contracts for its area rather
+than to a file the next regeneration would overwrite.
+
 **The colours are the console's carbon theme, copied.** `src/css/custom.css` restates the surfaces,
 the phosphor accent and the faces from `apps/web/src/tokens.css` and `theme.ts`, because the console
 publishes them through Mantine and this site does not load Mantine. The brand images are served

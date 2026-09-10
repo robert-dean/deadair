@@ -40,6 +40,16 @@ Given `apps/api/data/contracts/<area>/<filename>.ck`, per `apps/api/contractkit.
 | SDK aggregator + barrel | `packages/sdk/src/deadair.sdk.ts`, `packages/sdk/src/index.ts` |
 | Kotlin models + clients | `packages/sdk-kotlin/src/commonMain/kotlin/com/maroonedsoftware/deadair/sdk/{models,clients}/` |
 | Kotlin runtime + aggregator | `.../sdk/runtime/{SdkRuntime,Serializers}.kt`, `.../sdk/DeadairSdk.kt` |
+| Website API reference | `apps/site/docs/api-reference/{area}/*.md`, `.../models/{area}/*.md`, `_category_.json` per folder |
+| OpenAPI 3.1 spec | `apps/site/static/openapi.yaml`, served at `deadair.radio/openapi.yaml` |
+
+The website pages come from `@contractkit/plugin-docs`'s `docusaurus` target. `index.md` in that
+folder is written once and then left alone, so it is the one hand-edited file there. The pages are
+Markdown, which Prettier ignores here, but the `_category_.json` files and `openapi.yaml` are not, so
+they come out of the generator already in Prettier's form; if a version bump changes that, add them
+to the `prettier --write` roots in `build:contracts`. Both come from `@contractkit/plugin-docs`, which
+before 0.3.1 wrote a spec no YAML parser accepted, named SDK methods the SDK does not have, and left
+a file-level `security` floor off the pages: do not pin it below that.
 
 `{area}` comes from the file's own `options { keys: { area: ... } }` block, so that key decides
 which module directory the types land in and which `sdk.<area>` namespace the client hangs off.

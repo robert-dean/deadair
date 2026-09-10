@@ -1,0 +1,8 @@
+{
+    "label": "News",
+    "position": 8,
+    "link": {
+        "type": "generated-index",
+        "title": "News"
+    }
+}

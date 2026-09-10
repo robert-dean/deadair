@@ -126,7 +126,8 @@ Everything else is scoped. These five are not, and each one is cheap to break fr
 **Generated output.** ContractKit routers and types are generated from `.ck` files in
 `apps/api/data/contracts` (`pnpm build:contracts`), and so are the Kotlin SDK in
 `packages/sdk-kotlin` that the Android listener compiles and the C# SDK in `packages/sdk-csharp` that
-the desktop app compiles. Permission types in
+the desktop app compiles, and so is the website's API reference under `apps/site/docs/api-reference`
+(its `index.md` aside). Permission types in
 `apps/api/src/modules/permissions/generated` come from `apps/api/data/permissions/*.perm` via pdsl
 (`pnpm build:permissions`). Kysely types come from `pnpm build:datatypes` (enum override sync, then
 kysely-codegen). `pnpm rebuild:data` rolls the schema all the way down and back up. Never hand-edit

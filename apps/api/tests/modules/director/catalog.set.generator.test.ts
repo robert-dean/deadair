@@ -166,7 +166,7 @@ describe('CatalogSetGenerator', () => {
         const { generator, candidates } = build({ sample: [candidate('A', 'One')], settings: { [ADVISORY_KEY]: 'clean-only' } });
         await generator.generate({ count: 1, rules: rotation });
 
-        expect(candidates.sample).toHaveBeenCalledWith(1, 'clean-only', undefined);
+        expect(candidates.sample).toHaveBeenCalledWith(1, 'clean-only', undefined, {});
     });
 
     it('narrows the draw by the PERIOD, which is the one thing the floor honours', async () => {
@@ -178,7 +178,7 @@ describe('CatalogSetGenerator', () => {
 
         await generator.generate({ count: 1, rules: rotation, era: { from: 1970, to: 1979 } });
 
-        expect(candidates.sample).toHaveBeenCalledWith(1, 'prefer-explicit', { from: 1970, to: 1979 });
+        expect(candidates.sample).toHaveBeenCalledWith(1, 'prefer-explicit', { from: 1970, to: 1979 }, {});
     });
 
     it('still ignores the brief beside it', async () => {

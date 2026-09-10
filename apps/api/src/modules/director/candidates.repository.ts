@@ -5,6 +5,7 @@ import { normalizeKey } from '#modules/catalog/catalog.keys.js';
 import { creditedDislikeExists, noCreditedDislike } from '#modules/catalog/credited.dislike.js';
 import { releasedYear } from '#modules/shared/release.year.js';
 import { ADVISORY_DEFAULT, advisoryRank, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
+import type { TrackLengthBounds } from './track.length.js';
 
 /**
  * The catalog, read the way the director needs it: tracks that can actually be
@@ -176,8 +177,14 @@ export class CandidatesRepository extends DataRepository {
      * `order by random()` reads the whole candidate set, which is honest at the
      * scale this runs at — a station's library is thousands of rows, and this runs
      * once per refill in a background job, not per request.
+     *
+     * A LENGTH bound narrows the same `exists` subquery the live-binding test already runs, on the
+     * same column {@link bindingsFor} reads its own `durationMs` from, so the draw and the
+     * resolver's later judgement of a chosen binding agree on the same fact rather than two callers
+     * reading two different columns. A copy with no measured duration is never excluded by it: see
+     * `track.length.ts`.
      */
-    async sample(count: number, policy: AdvisoryPolicy = ADVISORY_DEFAULT, era?: EraWindow): Promise<CandidateTrack[]> {
+    async sample(count: number, policy: AdvisoryPolicy = ADVISORY_DEFAULT, era?: EraWindow, bounds?: TrackLengthBounds): Promise<CandidateTrack[]> {
         const limit = Math.min(SAMPLE_CEILING, Math.max(1, count) * SAMPLE_MULTIPLIER);
 
         const rows = await this.db
@@ -202,7 +209,26 @@ export class CandidatesRepository extends DataRepository {
                         .whereRef('deadair.trackSources.trackId', '=', 'deadair.tracks.id')
                         .where('deadair.trackSources.missingAt', 'is', null)
                         // A POSITIVE 'clean'. Null is "the provider did not say", never consent.
-                        .$if(demandsClean(policy), qb => qb.where('deadair.trackSources.advisory', '=', 'clean')),
+                        .$if(demandsClean(policy), qb => qb.where('deadair.trackSources.advisory', '=', 'clean'))
+                        // Unmeasured passes: `duration_ms is null` beside the bound rather than instead
+                        // of it, so a copy nothing has measured is never excluded for a fact nobody
+                        // reported. See `track.length.ts`.
+                        .$if(bounds?.minMs !== undefined, qb =>
+                            qb.where(inner =>
+                                inner.or([
+                                    inner('deadair.trackSources.durationMs', 'is', null),
+                                    inner('deadair.trackSources.durationMs', '>=', bounds!.minMs!),
+                                ]),
+                            ),
+                        )
+                        .$if(bounds?.maxMs !== undefined, qb =>
+                            qb.where(inner =>
+                                inner.or([
+                                    inner('deadair.trackSources.durationMs', 'is', null),
+                                    inner('deadair.trackSources.durationMs', '<=', bounds!.maxMs!),
+                                ]),
+                            ),
+                        ),
                 ),
             )
             .where('deadair.tracks.rating', '<>', -1)

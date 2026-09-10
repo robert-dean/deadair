@@ -10,6 +10,7 @@ import {
 } from '#modules/playout/gain.js';
 import { DEFAULT_TRACK_CACHE_MAX_BYTES, TRACK_CACHE_MAX_BYTES_KEY } from '#modules/playout/audio/track.cache.limit.js';
 import { DEFAULT_AUTO_EXTEND, DEFAULT_RULES, ROTATION_KEYS } from '#modules/director/rotation.rules.js';
+import { DEFAULT_MAX_TRACK_SECONDS, DEFAULT_MIN_TRACK_SECONDS, TRACK_LENGTH_KEYS } from '#modules/director/track.length.js';
 import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_VOCABULARY } from '#modules/director/break.templates.js';
 import { WELCOME_KEYS, WELCOME_TEMPLATES } from '#modules/director/welcome.writer.js';
 import { NEWS_KEYS, NEWS_TEMPLATES } from '#modules/director/news.break.writer.js';
@@ -474,6 +475,22 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'number',
         default: DEFAULT_RULES.maxPerAlbum,
         help: '0 turns the cap off.',
+    },
+    {
+        group: 'rotation',
+        key: TRACK_LENGTH_KEYS.minTrackSeconds,
+        label: 'Shortest record the station will play (seconds)',
+        type: 'number',
+        default: DEFAULT_MIN_TRACK_SECONDS,
+        help: 'A record shorter than this is not drawn and not aired, even by name. 60 is a reasonable floor against an interlude or a jingle nobody meant to programme. 0 turns it off.',
+    },
+    {
+        group: 'rotation',
+        key: TRACK_LENGTH_KEYS.maxTrackSeconds,
+        label: 'Longest record the station will play (seconds)',
+        type: 'number',
+        default: DEFAULT_MAX_TRACK_SECONDS,
+        help: 'A record longer than this is not drawn and not aired, even by name. 900 is a reasonable ceiling against an hour-long mix or a DJ set the catalog mistook for a single track. A record of unknown length is always let through. 0 turns it off.',
     },
     {
         group: 'rotation',

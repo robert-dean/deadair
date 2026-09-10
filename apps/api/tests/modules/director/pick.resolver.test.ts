@@ -18,6 +18,7 @@ import type { PlayHistoryRepository } from '../../../src/modules/director/play.h
 import { artistKey } from '../../../src/modules/director/rotation.keys.js';
 import { DEFAULT_RULES, type ResolvedRules } from '../../../src/modules/director/rotation.rules.js';
 import type { TrackPick } from '../../../src/modules/director/set.generator.js';
+import { TRACK_LENGTH_KEYS } from '../../../src/modules/director/track.length.js';
 import type { TracksRepository } from '../../../src/modules/catalog/tracks.repository.js';
 import type { AnalysisRepository, StoredAnalysis } from '../../../src/modules/analysis/analysis.repository.js';
 import { StationIdentity } from '../../../src/modules/shared/station.identity.js';
@@ -757,6 +758,35 @@ describe('PickResolver rules', () => {
     });
 });
 
+// A9: two settings bound how long a record may be, agreeing across the draw's SQL, `resolve`'s
+// binding loop and `vet`. Only the resolver half lives here: see `candidates.repository.test.ts`
+// for the SQL and `track.length.test.ts` for the predicate itself.
+describe('PickResolver track length', () => {
+    it('drops a chosen track longer than the station will play, when a max is set', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1', 'deadair.spotify', 1_000_000) },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+            settings: { [TRACK_LENGTH_KEYS.maxTrackSeconds]: '900' },
+        });
+
+        const resolved = await resolve(resolver, [{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).toEqual([]);
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('length bounds'), expect.anything());
+    });
+
+    it('keeps the same track when the bound is off', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1', 'deadair.spotify', 1_000_000) },
+            metadata: { 'track-1': { title: 'A', credit: 'One' } },
+        });
+
+        const resolved = await resolve(resolver, [{ title: 'A', artist: 'One', trackId: 'track-1' }]);
+
+        expect(resolved).toHaveLength(1);
+    });
+});
+
 describe('PickResolver cue points', () => {
     it('snapshots all four measured cue points onto the item', async () => {
         // Four rather than two: the outer pair trims the record and the inner pair is
@@ -1067,6 +1097,20 @@ describe('PickResolver.vet', () => {
         const vetted = await resolver.vet(tracks, { era: { from: 1990 } });
 
         expect(vetted.map(t => t.trackId)).toEqual(['track-2']);
+    });
+
+    it('drops a playlist track shorter than the station will play, when a min is set', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1', 'deadair.spotify', 30_000), 'track-2': binding('track-2') },
+            settings: { [TRACK_LENGTH_KEYS.minTrackSeconds]: '60' },
+        });
+
+        const tracks = [track({ trackId: 'track-1' }), track({ externalId: 'ext-2', trackId: 'track-2' })];
+
+        const vetted = await resolver.vet(tracks, {});
+
+        expect(vetted.map(t => t.trackId)).toEqual(['track-2']);
+        expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('length bounds'), expect.anything());
     });
 
     it('drops a record with no clean copy under clean-only', async () => {

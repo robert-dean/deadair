@@ -442,7 +442,7 @@ export class DirectorConsoleService {
             // overruled. The wording names the veto rather than the playlist, because the playlist
             // is fine and the station's own rules are what emptied it.
             throw httpError(422).withDetails({
-                message: 'every record on that playlist is one this station will not play: a dislike, the period, or the advisory policy',
+                message: 'every record on that playlist is one this station will not play: a dislike, the period, the advisory policy, or its length',
             });
         }
         return vetted;
@@ -798,7 +798,8 @@ export class DirectorConsoleService {
      *   for a specific record should be told why it cannot play yet, not watch the order accept it
      *   and the commit gate quietly hold the slot open behind it. See `bytes-before-air.md`. @throws
      *   422 when {@link PickResolver.vet} drops the record: a dislike, outside the broadcast's
-     *   period, or no copy the advisory policy allows. An operator picking one record by hand gets
+     *   period, no copy the advisory policy allows, or a length outside the station's bounds. An
+     *   operator picking one record by hand gets
      *   the same veto a playlist put on air does (see {@link sourceTracks}) because a person at
      *   the console is not an instruction the station's own rules get to be routed around.
      */
@@ -835,7 +836,7 @@ export class DirectorConsoleService {
         const vetted = await this.resolver.vet([track], { era: { from: order?.eraFrom, to: order?.eraTo }, preference: [binding.pluginId] });
         if (vetted.length === 0) {
             throw httpError(422).withDetails({
-                message: 'this station will not play that record: a dislike, the period, or the advisory policy',
+                message: 'this station will not play that record: a dislike, the period, the advisory policy, or its length',
             });
         }
 

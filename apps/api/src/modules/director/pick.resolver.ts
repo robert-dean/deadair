@@ -14,6 +14,7 @@ import { ProviderTrackLookup } from './provider.track.lookup.js';
 import { artistKey, songKey } from './rotation.keys.js';
 import { applyRules, rejectDisliked, spaceArtists, type ResolvedRules, type RotationCandidate } from './rotation.rules.js';
 import type { TrackPick } from './set.generator.js';
+import { fitsLength, trackLengthBounds } from './track.length.js';
 import { measurementOf } from './track.measurement.js';
 import { errorText } from '#modules/shared/error.text.js';
 import { StationIdentity } from '#modules/shared/station.identity.js';
@@ -242,6 +243,7 @@ export class PickResolver {
             this.analysis.trustedAnalysisFor(trackIds, ANALYSIS_SCHEMA_VERSION),
         ]);
 
+        const bounds = trackLengthBounds(this.config);
         const resolved: Airable[] = [];
         for (const entry of eligible) {
             const { pick, trackId } = entry;
@@ -260,6 +262,17 @@ export class PickResolver {
                         : 'director: no provider still serves a chosen track; skipping it',
                     { track: `${pick.artist} — ${pick.title}` },
                 );
+                continue;
+            }
+
+            // Judged on the same binding the item is about to be built from, so the draw's SQL and
+            // this step read the same fact about the same copy. A binding with no measured duration
+            // always fits: see `track.length.ts`.
+            if (!fitsLength(binding.durationMs, bounds)) {
+                this.logger.warn("director: a chosen track is outside the station's length bounds; skipping it", {
+                    track: `${pick.artist}: ${pick.title}`,
+                    seconds: Math.round(binding.durationMs! / 1000),
+                });
                 continue;
             }
 
@@ -325,6 +338,7 @@ export class PickResolver {
 
         const { era, preference = [] } = options;
         const policy = advisoryPolicy(this.config);
+        const bounds = trackLengthBounds(this.config);
         const trackIds = tracks.flatMap(track => (track.trackId === undefined ? [] : [track.trackId]));
 
         const [ratings, years, bindings] = await Promise.all([
@@ -358,6 +372,13 @@ export class PickResolver {
                     });
                     continue;
                 }
+                if (!fitsLength(track.durationMs, bounds)) {
+                    this.logger.warn("director: a chosen track is outside the station's length bounds; skipping it", {
+                        track: `${track.artist}: ${track.title}`,
+                        seconds: Math.round(track.durationMs! / 1000),
+                    });
+                    continue;
+                }
                 vetted.push(track);
                 continue;
             }
@@ -369,6 +390,18 @@ export class PickResolver {
                         : 'director: no provider still serves a chosen track; skipping it',
                     { track: `${track.artist} — ${track.title}` },
                 );
+                continue;
+            }
+
+            // The airing duration: the track's own, when the provider that listed it already said (
+            // a playlist read straight off a provider carries this before any binding is chosen),
+            // else the binding's. See `track.length.ts`.
+            const durationMs = track.durationMs ?? bindings.get(track.trackId)?.durationMs;
+            if (!fitsLength(durationMs, bounds)) {
+                this.logger.warn("director: a chosen track is outside the station's length bounds; skipping it", {
+                    track: `${track.artist}: ${track.title}`,
+                    seconds: Math.round(durationMs! / 1000),
+                });
                 continue;
             }
 

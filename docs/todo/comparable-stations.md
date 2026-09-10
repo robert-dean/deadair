@@ -915,8 +915,12 @@ keyboard path through the slot editor is fine, and the fix is the library's.
   capability has no language field, and a French host is a sheet workaround. The fifth pass covered
   the non-Latin SPEECH half; this is the prompt half, and the first thing a non-English self-hoster
   hits.
-- **A maximum record length.** Nothing bounds duration; the 64 MB fetch cap passes an hour-long mix
-  at 128 kbps. One setting applied in the draw's SQL and in `judge`, so both agree.
+~~**A maximum record length.** Nothing bounds duration; the 64 MB fetch cap passes an hour-long mix
+  at 128 kbps. One setting applied in the draw's SQL and in `judge`, so both agree.~~ **BUILT
+  2026-09-10**: two settings, `rotation.minTrackSeconds` and `rotation.maxTrackSeconds` (both `0`,
+  off, by default), applied in `CandidatesRepository.sample`'s SQL, in `PickResolver.resolve`'s
+  binding loop, and in `PickResolver.vet`: the third place the plan's own wording left unnamed. A
+  record of unknown length passes everywhere.
 - **Library selection.** The sync walks every readable playlist and the library server always
   appends "Everything", so the whole server is ingested unconditionally; an audiobook shelf cannot be
   excluded even by playlist choice. A multiselect over the server's folders.

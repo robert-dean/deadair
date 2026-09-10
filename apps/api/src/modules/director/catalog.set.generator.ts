@@ -9,6 +9,7 @@ import { PlayHistoryRepository } from './play.history.repository.js';
 import { albumKey, artistKey, songKey } from './rotation.keys.js';
 import { applyRules, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
+import { trackLengthBounds } from './track.length.js';
 
 /**
  * The station's own taste, for now: a weighted draw from the catalog, shaped by
@@ -85,7 +86,7 @@ export class CatalogSetGenerator extends SetGenerator {
         // that it is not an instruction: a year range is exact, so narrowing on it costs the floor
         // none of the guarantee that keeps it the floor. The brief beside it stays unread.
         const era = inputs.era;
-        const sampled = await this.candidates.sample(count, policy, era);
+        const sampled = await this.candidates.sample(count, policy, era, trackLengthBounds(this.config));
         await this.watchStarvation(policy, era, count, sampled.length);
         const scored = sampled.map(toRotationCandidate);
 

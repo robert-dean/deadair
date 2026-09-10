@@ -55,6 +55,47 @@ describe('CandidatesRepository.sample', () => {
     });
 });
 
+describe('CandidatesRepository.sample length bounds', () => {
+    // A9: the same `exists` subquery the live-binding test already runs also carries the length
+    // bound, on the same `duration_ms` column `bindingsFor` reads its own from -- so the draw and
+    // the resolver's later judgement of a chosen binding agree on the same fact.
+    it('carries no duration predicate when no bound is set', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).sample(10);
+
+        const [statement] = captured.statements;
+        expect(statement?.sql).not.toContain('duration_ms');
+    });
+
+    it('carries the floor, unmeasured passing beside it, when a minimum is set', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).sample(10, undefined, undefined, { minMs: 60_000 });
+
+        const [statement] = captured.statements;
+        expect(statement?.sql).toContain('duration_ms');
+        expect(statement?.sql).toContain('is null');
+        expect(statement?.parameters).toContain(60_000);
+    });
+
+    it('carries the ceiling when a maximum is set', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).sample(10, undefined, undefined, { maxMs: 900_000 });
+
+        const [statement] = captured.statements;
+        expect(statement?.sql).toContain('duration_ms');
+        expect(statement?.parameters).toContain(900_000);
+    });
+
+    it('carries both ends when both are set', async () => {
+        const captured: Captured = { statements: [] };
+        await new CandidatesRepository(fakeDb(captured)).sample(10, undefined, undefined, { minMs: 60_000, maxMs: 900_000 });
+
+        const [statement] = captured.statements;
+        expect(statement?.parameters).toContain(60_000);
+        expect(statement?.parameters).toContain(900_000);
+    });
+});
+
 describe('CandidatesRepository.ratingsFor', () => {
     it('folds the same credited-artist veto into the effective rating it computes', async () => {
         const captured: Captured = { statements: [] };

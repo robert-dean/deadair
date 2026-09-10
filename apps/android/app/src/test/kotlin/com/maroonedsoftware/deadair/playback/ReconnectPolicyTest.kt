@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.playback
 
+import android.os.Bundle
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,9 +22,10 @@ import org.junit.Test
 class ReconnectPolicyTest {
     // The public 3-arg constructor stamps the exception with `Clock.DEFAULT.elapsedRealtime()`,
     // which reaches `android.os.SystemClock` and throws "not mocked" in a plain JVM test. The
-    // protected 4-arg constructor takes the timestamp explicitly instead, so an anonymous subclass
-    // through it never touches the clock.
-    private fun error() = object : PlaybackException("boom", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED, 0L) {}
+    // protected 5-arg constructor takes the extras and the timestamp explicitly instead, so an
+    // anonymous subclass through it never touches the clock. It only stores the `Bundle`, so the
+    // stub jar's `Bundle.EMPTY` is enough.
+    private fun error() = object : PlaybackException("boom", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED, Bundle.EMPTY, 0L) {}
 
     private fun TestScope.policy(
         wantsPlay: () -> Boolean,
@@ -32,10 +34,9 @@ class ReconnectPolicyTest {
         backoff: Backoff = Backoff(),
     ) = ReconnectPolicy(
         backoff = backoff,
-        schedule = { ms, run ->
-            val job = backgroundScope.launch { delay(ms); run() }
-            { job.cancel() }
-        },
+        // `.let` rather than a `{ job.cancel() }` on a line of its own, which Kotlin reads as a
+        // trailing lambda passed to the `launch` above it.
+        schedule = { ms, run -> backgroundScope.launch { delay(ms); run() }.let { job -> { job.cancel() } } },
         wantsPlay = wantsPlay,
         reconnect = reconnect,
         stop = stop,

@@ -31,10 +31,9 @@ class NowPlayingGateTest {
 
     private fun TestScope.gate(push: (NowPlaying?) -> Unit) =
         NowPlayingGate(
-            schedule = { ms, run ->
-                val job = backgroundScope.launch { delay(ms); run() }
-                { job.cancel() }
-            },
+            // `.let` rather than a `{ job.cancel() }` on a line of its own, which Kotlin reads as a
+            // trailing lambda passed to the `launch` above it.
+            schedule = { ms, run -> backgroundScope.launch { delay(ms); run() }.let { job -> { job.cancel() } } },
             push = push,
         )
 

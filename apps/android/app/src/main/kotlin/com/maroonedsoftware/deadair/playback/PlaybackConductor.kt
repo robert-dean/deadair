@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
  * Everything here runs on the main looper, because that is where a `Player` must be touched.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 class PlaybackConductor(private val player: Player, private val graph: AppGraph, private val offAir: String) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
@@ -68,7 +69,6 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
      * questions.
      */
     private val gate = NowPlayingGate(schedule = ::schedule, push = ::pushMetadata)
-    @androidx.annotation.OptIn(UnstableApi::class)
     private val metadataListener =
         object : Player.Listener {
             override fun onMetadata(metadata: Metadata) {

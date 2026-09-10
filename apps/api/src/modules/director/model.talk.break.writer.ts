@@ -11,6 +11,7 @@ import {
     offeredPads,
     permittedYears,
     readAnswer,
+    shownWithoutRecent,
     TALK_BREAK_SHAPE,
     writeDecline,
     writeTrim,
@@ -263,11 +264,13 @@ export class ModelTalkBreakWriter extends BreakWriter {
             // persona's story, background and preoccupations carry dates the station ASKED to hear,
             // and five of the aired breaks this was measured on are the paranormal host telling his
             // own seeded story, which opens on a year. See `permittedYears`.
-            years: permittedYears(
-                [request.previous, request.next],
-                request.moment,
-                messages.map(message => message.content),
-            ),
+            //
+            // `recent` is stripped back out of it first, through `shownWithoutRecent`: it is quoted
+            // verbatim into this same prompt's "You said these recently" block, and `recent` is
+            // filled from every writer's scripts (including a kind with no year guard at all), so an
+            // invented year sitting in one of those quoted scripts would otherwise be permitted here
+            // on no more authority than having been echoed back.
+            years: permittedYears([request.previous, request.next], request.moment, shownWithoutRecent(messages, request.recent)),
         };
         const script = readAnswer(result.text, guard);
 

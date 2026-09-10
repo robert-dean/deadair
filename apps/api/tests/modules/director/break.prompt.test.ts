@@ -15,6 +15,7 @@ import {
     overusedWords,
     permittedYears,
     readAnswer,
+    shownWithoutRecent,
     TALK_BREAK_SHAPE,
     writeDecline,
     writeTrim,
@@ -1903,6 +1904,20 @@ describe('permittedYears', () => {
 
     it('answers nothing for records that carried no date at all', () => {
         expect(permittedYears([{ title: 'Solid Air', artist: 'John Martyn' }, undefined])).toEqual([]);
+    });
+
+    it('does not permit a year that appears only inside a quoted recent script, once that script is stripped', () => {
+        const recent = ['The band formed in Seattle in nineteen ninety-two.'];
+        const shown = shownWithoutRecent([{ content: `You said these recently:\n- ${recent[0]}` }], recent);
+
+        expect(permittedYears([], undefined, shown)).toEqual([]);
+    });
+
+    it('still permits a year that is in the sheet itself rather than only in a quoted recent script', () => {
+        const recent = ['The band formed in Seattle in nineteen ninety-two.'];
+        const shown = shownWithoutRecent([{ content: `Background: you were born in 1965.\nYou said these recently:\n- ${recent[0]}` }], recent);
+
+        expect(permittedYears([], undefined, shown)).toEqual([1965]);
     });
 });
 

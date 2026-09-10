@@ -2079,11 +2079,28 @@ export function yearsIn(text: string): number[] {
  * becomes a lie. What the model was SHOWN is the thing the bargain is actually about, and the prompt
  * is that, exactly, with nothing to keep in step.
  *
- * The one path it widens is {@link AnswerGuard.recent}: an invented year in a break that already
- * aired is quoted back in the next prompt and would be permitted there. That closes itself the
- * moment this check is on, because the break carrying it is now refused before it can become recent
- * — it is a hole in the history this ships against and not in the rule.
+ * The one path it widens is {@link AnswerGuard.recent}: `recent` is filled from EVERY writer's
+ * scripts, including a kind with no year guard at all, so a year one of them invented is quoted back
+ * into the next prompt's "You said these recently" block and would be permitted here on the strength
+ * of having been shown it. The station is asking about a year IT put there. Callers close this by
+ * stripping `recent` back out of the messages before they reach `shown`; see {@link shownWithoutRecent}.
  */
+/**
+ * The prompt's own messages, with every script named in `recent` taken back out of each one's text.
+ *
+ * Built for {@link permittedYears}'s `shown` argument, and only for that: `recent` is quoted verbatim
+ * into the "You said these recently" block of the user turn (see {@link AnswerGuard.recent}), which
+ * means it is IN the text `permittedYears` reads. Since `recent` is filled from every writer's
+ * scripts (including a kind that carries no year guard of its own), an invented year sitting in one
+ * of those quoted scripts would otherwise be permitted here on no more authority than having been
+ * echoed back. `String.replaceAll` per script rather than a single pass, because a persona can have
+ * repeated one: the block lists each script once, but a run of them share an opening the same way
+ * `spentOpenings` measures.
+ */
+export function shownWithoutRecent(messages: readonly Pick<LlmMessage, 'content'>[], recent: readonly string[] = []): string[] {
+    return messages.map(message => recent.reduce((text, script) => text.replaceAll(script, ''), message.content));
+}
+
 export function permittedYears(
     records: readonly (BreakTrack | undefined)[],
     now?: { at: number; zone: string },

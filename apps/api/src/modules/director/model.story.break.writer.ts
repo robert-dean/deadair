@@ -5,7 +5,17 @@ import { advisoryPolicy, speaksClean } from './advisory.policy.js';
 import { LlmService } from '#modules/llm/llm.service.js';
 import { captureWrites } from '#modules/render/script.history.settings.js';
 import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js';
-import { breakPrompt, maxWordsFor, readAnswer, writeDecline, writeTrim, type AnswerGuard, type PromptSettings } from './break.prompt.js';
+import {
+    breakPrompt,
+    maxWordsFor,
+    permittedYears,
+    readAnswer,
+    shownWithoutRecent,
+    writeDecline,
+    writeTrim,
+    type AnswerGuard,
+    type PromptSettings,
+} from './break.prompt.js';
 import { resolveStoryWords } from './break.words.js';
 import { TEMPLATE_KEYS } from './break.templates.js';
 import { timeClaimIn } from './clock.words.js';
@@ -123,6 +133,12 @@ export class ModelStoryBreakWriter extends BreakWriter {
             // Beside the daypart and off the same instant: the words are what the prompt stated and
             // this is what the clock says, which is the half of the question a stretch cannot answer.
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            // The talk break's own guard, carried over: `STORY_SHAPE` never shows a previous record
+            // (`showsPrevious: false`), so the only one a story is ever handed is `request.next`, and
+            // `recent` is stripped out of the prompt before it reaches `shown` for `permittedYears`'
+            // own reason: a year another writer invented is quoted back into this prompt's "You said
+            // these recently" block too. See `ModelTalkBreakWriter.write`.
+            years: permittedYears([request.next], request.moment, shownWithoutRecent(messages, request.recent)),
         };
         const script = readAnswer(result.text, guard);
 

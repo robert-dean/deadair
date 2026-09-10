@@ -126,4 +126,10 @@ describe('ModelWelcomeWriter', () => {
 
         expect(await writer.write({ kind: WELCOME_KIND, next, station: 'Deadair' })).toBeUndefined();
     });
+
+    it('refuses a year the prompt never gave', async () => {
+        const { writer } = build({ answer: 'This one was recorded back in nineteen seventy-four.' });
+
+        expect(await writer.write({ kind: WELCOME_KIND, next, station: 'Deadair' })).toBeUndefined();
+    });
 });

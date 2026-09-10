@@ -8,7 +8,9 @@ import { STREAM_DEFAULTS, STREAM_KEYS } from '#modules/stream/stream.settings.js
 import {
     breakPrompt,
     maxWordsFor,
+    permittedYears,
     readAnswer,
+    shownWithoutRecent,
     writeDecline,
     writeTrim,
     type AnswerGuard,
@@ -173,6 +175,12 @@ export class ModelWelcomeWriter extends BreakWriter {
             // Beside the daypart and off the same instant: the words are what the prompt stated and
             // this is what the clock says, which is the half of the question a stretch cannot answer.
             ...(request.moment === undefined ? {} : { moment: request.moment }),
+            // The talk break's own guard, carried over: `WELCOME_SHAPE` never shows a previous
+            // record (`showsPrevious: false`), so the only one a greeting is ever handed is
+            // `request.next`, and `recent` is stripped out of the prompt before it reaches `shown`
+            // for `permittedYears`' own reason: a year another writer invented is quoted back into
+            // this prompt's "You said these recently" block too. See `ModelTalkBreakWriter.write`.
+            years: permittedYears([request.next], request.moment, shownWithoutRecent(messages, request.recent)),
         };
         const script = readAnswer(result.text, guard);
 

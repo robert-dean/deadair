@@ -110,4 +110,10 @@ describe('ModelStoryBreakWriter', () => {
         expect(await writer.write(request())).toBeUndefined();
         expect(converse).not.toHaveBeenCalled();
     });
+
+    it('refuses a year the prompt never gave', async () => {
+        const { writer } = build('It happened again in nineteen eighty-two, though nobody believed me that time either.');
+
+        expect(await writer.write(request())).toBeUndefined();
+    });
 });

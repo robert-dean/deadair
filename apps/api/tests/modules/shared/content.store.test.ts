@@ -83,6 +83,22 @@ describe('ContentStore', () => {
         expect(await store.read(sha256(Buffer.from('x')), '../../etc/passwd')).toBeUndefined();
     });
 
+    // `write` now lands through the same temp-file-then-rename as `writeStream`, so a write that
+    // fails partway must leave the same nothing behind: no file at the final path, and no `.tmp-`
+    // left over. Forced by making the destination's shard directory a file, so `mkdir` fails without
+    // any mocking.
+    it('leaves nothing behind when a buffered write fails partway through', async () => {
+        const bytes = Buffer.from('some bytes');
+        const checksum = sha256(bytes);
+
+        await writeFile(join(root, checksum.slice(0, 2)), 'in the way');
+
+        await expect(store.write(bytes, 'one')).rejects.toThrow();
+
+        expect(await store.exists(checksum, 'one')).toBe(false);
+        expect(await readdir(root)).toEqual([checksum.slice(0, 2)]);
+    });
+
     it('answers what it holds and what each format is served as', () => {
         expect(store.extensions).toEqual(['one', 'two']);
         expect(store.contentTypeFor('two')).toBe('application/two');

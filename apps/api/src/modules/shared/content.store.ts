@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, readdir, rename, rm, stat } from 'node:fs/promises';
 import { createWriteStream } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
@@ -81,17 +81,21 @@ export class ContentStore<Ext extends string> {
     /**
      * Writes the bytes and answers where they went.
      *
+     * Lands through the same temp-file-then-rename as {@link ContentStore.writeStream}, for the same
+     * reason: a crash or a failed disk write partway through must not leave a partial file under a
+     * name that claims to be the whole of something, and a buffered write is no less exposed to that
+     * than a streamed one.
+     *
      * Idempotent: the same bytes hash to the same name, so a rewrite is the same file with the same
      * contents.
      */
     async write(bytes: Buffer, ext: Ext): Promise<string> {
-        const checksum = createHash('sha256').update(bytes).digest('hex');
-        const path = this.pathFor(checksum, ext);
-
-        await mkdir(join(this.root, checksum.slice(0, 2)), { recursive: true });
-        await writeFile(path, bytes);
-
-        return checksum;
+        return await this.writeStreamInternal(
+            (async function* () {
+                yield bytes;
+            })(),
+            ext,
+        );
     }
 
     /**

@@ -1,0 +1,260 @@
+.page {
+    background: radial-gradient(ellipse 120% 60% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
+    padding-bottom: 6rem;
+}
+
+.page h2 {
+    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2.1rem);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+/* The hero. */
+
+.hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 3rem;
+    align-items: center;
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 6rem 1.5rem 4rem;
+}
+
+.eyebrow,
+.label {
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--da-phosphor);
+    margin-bottom: 0.75rem;
+}
+
+.headline {
+    font-size: clamp(2.4rem, 1.6rem + 3.4vw, 4.2rem);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin-bottom: 1.25rem;
+}
+
+.lede {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: var(--da-text-secondary);
+    max-width: 38rem;
+    margin-bottom: 2rem;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.primary,
+.secondary {
+    display: inline-block;
+    padding: 0.7rem 1.4rem;
+    border-radius: 4px;
+    font-family: var(--da-font-display);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition:
+        background-color 120ms ease,
+        border-color 120ms ease;
+}
+
+.primary {
+    background: var(--da-phosphor);
+    color: #050706;
+    border: 1px solid var(--da-phosphor);
+}
+
+.primary:hover {
+    background: var(--ifm-color-primary-light);
+    color: #050706;
+    text-decoration: none;
+}
+
+.secondary {
+    color: var(--da-text);
+    border: 1px solid var(--da-border-strong);
+}
+
+.secondary:hover {
+    border-color: var(--da-phosphor);
+    color: var(--da-text);
+    text-decoration: none;
+}
+
+.mark {
+    width: 280px;
+    height: 280px;
+    filter: drop-shadow(0 0 48px var(--da-phosphor-glow));
+}
+
+/* The one-line statement under the hero. */
+
+.statement {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 3rem;
+    border-top: 1px solid var(--da-border);
+}
+
+.statement p {
+    font-size: 1.1rem;
+    color: var(--da-text-secondary);
+    max-width: 40rem;
+}
+
+/* What it does. */
+
+.features {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 1px;
+    /* The other sections are 72rem with 1.5rem of padding each side, so this lines up with their text. */
+    width: calc(100% - 3rem);
+    max-width: 69rem;
+    margin: 0 auto;
+    background: var(--da-border);
+    border: 1px solid var(--da-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.feature {
+    background: var(--da-panel);
+    padding: 1.75rem 1.5rem;
+}
+
+.feature h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+}
+
+.feature p:last-child {
+    color: var(--da-text-secondary);
+    line-height: 1.6;
+    margin-bottom: 0;
+}
+
+/* The two long sections. */
+
+.section {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 5rem 1.5rem 0;
+}
+
+.sectionLede {
+    color: var(--da-text-secondary);
+    font-size: 1.05rem;
+    line-height: 1.6;
+    max-width: 44rem;
+    margin-bottom: 2rem;
+}
+
+.diagram {
+    overflow-x: auto;
+    background: var(--da-panel);
+    border: 1px solid var(--da-border);
+    border-radius: 4px;
+}
+
+.diagram pre {
+    margin: 0;
+    padding: 1.5rem;
+    background: none;
+    color: var(--da-text-secondary);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.tags {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.tag {
+    background: var(--da-panel);
+    border: 1px solid var(--da-border);
+    border-radius: 4px;
+    padding: 1.25rem 1.5rem;
+}
+
+.tag code {
+    display: block;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 1rem;
+    color: var(--da-phosphor);
+    font-size: 0.95rem;
+}
+
+.tag dl {
+    margin: 0;
+}
+
+.tag dt {
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--da-text-dimmed);
+}
+
+.tag dd {
+    margin: 0.2rem 0 0.9rem;
+    color: var(--da-text);
+}
+
+.tag dd:last-child {
+    margin-bottom: 0;
+}
+
+.note {
+    color: var(--da-text-secondary);
+    max-width: 44rem;
+}
+
+/* The licensing warning, which is the one thing on the page that is a warning. */
+
+.callout {
+    width: calc(100% - 3rem);
+    max-width: 69rem;
+    margin: 5rem auto 0;
+    padding: 2rem 1.5rem;
+    border: 1px solid var(--da-border);
+    border-left: 3px solid var(--da-tally);
+    border-radius: 4px;
+    background: var(--da-panel);
+}
+
+.callout p {
+    color: var(--da-text-secondary);
+    max-width: 48rem;
+    margin-bottom: 0;
+}
+
+@media (max-width: 800px) {
+    .hero {
+        grid-template-columns: 1fr;
+        padding-top: 3rem;
+        gap: 2rem;
+    }
+
+    .mark {
+        order: -1;
+        width: 160px;
+        height: 160px;
+    }
+}

@@ -1,0 +1,77 @@
+/*
+ * The site in the console's carbon theme: the same surfaces, the same phosphor accent and the same
+ * faces as `apps/web/src/tokens.css` and `theme.ts`, so the page someone reads before installing
+ * looks like the desk they get after. The values are copied rather than imported because the console
+ * publishes them through Mantine, which this site does not load. If carbon moves, move these with it.
+ *
+ * The site is dark only (`colorMode` in the config), and Infima states its dark palette on
+ * `[data-theme='dark']`, which outranks a bare `:root`. Hence both selectors.
+ */
+
+:root,
+html[data-theme='dark'] {
+    --da-bg: #0c0e0d;
+    --da-panel: #121514;
+    --da-raised: #191d1b;
+    --da-border: #242927;
+    --da-border-strong: #313836;
+    --da-text: #e8edea;
+    --da-text-secondary: #a7b2ac;
+    --da-text-dimmed: #75817b;
+    --da-phosphor: #2fd98c;
+    --da-phosphor-glow: rgb(47 217 140 / 35%);
+    --da-tally: #ff4b4b;
+    --da-bg-glow: #10130f;
+
+    --da-font-display: 'Chakra Petch', 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+
+    /* Phosphor, anchored at the console's index 4. */
+    --ifm-color-primary: #2fd98c;
+    --ifm-color-primary-dark: #21c57c;
+    --ifm-color-primary-darker: #14b36d;
+    --ifm-color-primary-darkest: #0b9459;
+    --ifm-color-primary-light: #5ce2ab;
+    --ifm-color-primary-lighter: #93ebc7;
+    --ifm-color-primary-lightest: #c8f5e2;
+
+    --ifm-background-color: var(--da-bg);
+    --ifm-background-surface-color: var(--da-panel);
+    --ifm-font-color-base: var(--da-text);
+    --ifm-font-color-secondary: var(--da-text-secondary);
+    --ifm-heading-color: var(--da-text);
+    --ifm-link-color: var(--da-phosphor);
+    --ifm-hr-background-color: var(--da-border);
+    --ifm-toc-border-color: var(--da-border);
+    --ifm-table-border-color: var(--da-border-strong);
+    --ifm-table-stripe-background: var(--da-panel);
+    --ifm-code-background: var(--da-raised);
+    --ifm-menu-color-background-active: rgb(47 217 140 / 10%);
+    --ifm-menu-color-background-hover: var(--da-raised);
+
+    --ifm-font-family-base: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --ifm-font-family-monospace: 'IBM Plex Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    --ifm-heading-font-family: var(--da-font-display);
+    --ifm-code-font-size: 90%;
+
+    --ifm-global-radius: 4px;
+    --ifm-navbar-shadow: none;
+    --docusaurus-highlighted-code-line-bg: rgb(47 217 140 / 12%);
+}
+
+.navbar {
+    border-bottom: 1px solid var(--da-border);
+}
+
+.navbar__title {
+    font-family: var(--da-font-display);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.footer--dark {
+    --ifm-footer-background-color: var(--da-panel);
+    --ifm-footer-link-color: var(--da-text-secondary);
+    --ifm-footer-title-color: var(--da-text);
+    border-top: 1px solid var(--da-border);
+}

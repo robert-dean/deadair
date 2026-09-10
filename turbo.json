@@ -8,6 +8,11 @@
             "inputs": ["$TURBO_DEFAULT$", ".env*"],
             "outputs": ["dist/**"]
         },
+        "@deadair/site#build": {
+            "dependsOn": ["^build"],
+            "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/deploy/README.md", "$TURBO_ROOT$/docs/licensing.md", "$TURBO_ROOT$/apps/web/public/**"],
+            "outputs": ["dist/**"]
+        },
         "format": {
             "dependsOn": ["^format"]
         },

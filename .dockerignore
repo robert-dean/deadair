@@ -17,6 +17,13 @@
 stream/music/*
 !stream/music/.gitkeep
 
+# The public website, which the image never builds and never serves. Its manifest stays, because the
+# install is `--frozen-lockfile` against a lockfile that names it as a member; everything else goes,
+# so that editing a page of the site does not invalidate the workspace copy and rebuild the station.
+# Its dependencies are all devDependencies for the same reason: the prod prune removes them.
+apps/site/*
+!apps/site/package.json
+
 # The tests, which the image has no way to run and no reason to hold. Every package keeps them in
 # a top-level `tests/` beside `src/`, and every build tsconfig includes `src` alone, so this costs
 # the build nothing and stops a test-only commit from invalidating the workspace copy.

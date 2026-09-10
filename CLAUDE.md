@@ -22,6 +22,7 @@ was shipped first and was wrong.
 | --- | --- |
 | `apps/api/src/**` (lifecycle, config, settings, DI, connections) | [`apps/api/CLAUDE.md`](apps/api/CLAUDE.md) |
 | `apps/web/**` | [`apps/web/CLAUDE.md`](apps/web/CLAUDE.md) |
+| `apps/site/**` | [`apps/site/CLAUDE.md`](apps/site/CLAUDE.md) |
 | `plugins/**`, `packages/plugin-sdk/**` | [`packages/plugin-sdk/CLAUDE.md`](packages/plugin-sdk/CLAUDE.md), then its [`README.md`](packages/plugin-sdk/README.md) |
 | `apps/android/**`, `packages/sdk-kotlin/**` | [`apps/android/CLAUDE.md`](apps/android/CLAUDE.md) |
 | `apps/desktop/**`, `packages/sdk-csharp/**` | [`apps/desktop/CLAUDE.md`](apps/desktop/CLAUDE.md) |
@@ -84,6 +85,7 @@ pointing at something that has never existed:
 ```
 apps/api          Koa server, ContractKit routers, dbmate migrations
 apps/web          React console (Vite, TanStack Router, Mantine)
+apps/site         the public website at deadair.radio (Docusaurus). Never in the image
 apps/android      Kotlin/Compose listener app (Media3). Its own Gradle build and CI job; no
                   package.json, on the same footing as analysis/
 packages/plugin-sdk   the plugin contract and host capabilities

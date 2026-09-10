@@ -202,6 +202,7 @@ the inbox.
 ```
 apps/api               the station: Koa, ContractKit routers, dbmate migrations
 apps/web               the console: React, Vite, TanStack Router, Mantine
+apps/site              the website at deadair.radio: Docusaurus
 packages/plugin-sdk    the plugin contract and the host capabilities
 packages/sdk           a typed client, generated from the contracts
 plugins/*              spotify, navidrome, musicbrainz, lastfm, wikipedia, rss,

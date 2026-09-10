@@ -98,6 +98,12 @@ apps/desktop/artifacts/
 # The `.local.md` suffix is the convention for exactly that and this file was tracked against it.
 CLAUDE.local.md
 
+# The website's build droppings: Docusaurus's generated modules, and the two operator docs the build
+# copies in from `deploy/README.md` and `docs/licensing.md` (apps/site/scripts/docs.sync.mjs).
+.docusaurus/
+apps/site/docs/install.md
+apps/site/docs/licensing.md
+
 # A per-developer Vite override: `VITE_ALLOWED_HOSTS` names whatever hostname a tunnel forwards
 # through, which is one machine's arrangement rather than the project's.
 .env.local

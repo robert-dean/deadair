@@ -6,6 +6,8 @@ packages:
 allowBuilds:
     '@swc/core': true
     cbor-extract: true
+    # Pulled in by the site's Docusaurus. Its postinstall prints a funding banner and builds nothing.
+    core-js: false
     esbuild: true
     protobufjs: true
 

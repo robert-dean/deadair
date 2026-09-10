@@ -24,6 +24,12 @@
             "runtimeExecutable": "pnpm",
             "runtimeArgs": ["--filter", "@deadair/web", "dev", "--port", "3033"],
             "port": 3033
+        },
+        {
+            "name": "site",
+            "runtimeExecutable": "pnpm",
+            "runtimeArgs": ["--filter", "@deadair/site", "start", "--port", "3100", "--no-open"],
+            "port": 3100
         }
     ]
 }

@@ -10,11 +10,20 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import type { Kysely } from 'kysely';
+import type { Logger } from '@maroonedsoftware/logger';
 import type { ProviderTrack } from '@deadair/plugin-sdk';
 
 import { CatalogResolverService } from '../../../../src/modules/catalog/ingest/catalog.resolver.service.js';
-import type { CatalogResolverRepository } from '../../../../src/modules/catalog/ingest/catalog.resolver.repository.js';
+import { CatalogResolverRepository } from '../../../../src/modules/catalog/ingest/catalog.resolver.repository.js';
 import type { DB } from '../../../../src/modules/data/db.js';
+
+const stubLogger = (): Logger => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    trace: vi.fn(),
+});
 
 const track = (overrides: Partial<ProviderTrack> = {}): ProviderTrack => ({
     id: 'ext-1',
@@ -50,6 +59,9 @@ function fakeRepository(options: { failOn?: 'artist' | 'track' | 'binding' } = {
             if (options.failOn === 'track') throw new Error('track write failed');
             return { id: 'track-1', created: true };
         }),
+        upsertTrackArtists: vi.fn(async () => {
+            onTransaction.push('upsertTrackArtists');
+        }),
         upsertTrackSource: vi.fn(async () => {
             onTransaction.push('upsertTrackSource');
             if (options.failOn === 'binding') throw new Error('binding write failed');
@@ -72,6 +84,9 @@ function fakeRepository(options: { failOn?: 'artist' | 'track' | 'binding' } = {
         resolveTrack: vi.fn(async () => {
             onPool.push('resolveTrack');
             return { id: 'track-pool', created: true };
+        }),
+        upsertTrackArtists: vi.fn(async () => {
+            onPool.push('upsertTrackArtists');
         }),
         upsertTrackSource: vi.fn(async () => {
             onPool.push('upsertTrackSource');
@@ -135,7 +150,7 @@ describe('CatalogResolverService.ingestTrack', () => {
         const result = await new CatalogResolverService(db, repository).ingestTrack('deadair.spotify', track());
 
         expect(result).toEqual({ status: 'ingested', trackId: 'track-1', created: true });
-        expect(onTransaction).toEqual(['resolveArtist', 'resolveAlbum', 'resolveTrack', 'upsertTrackSource']);
+        expect(onTransaction).toEqual(['resolveArtist', 'resolveAlbum', 'resolveTrack', 'upsertTrackArtists', 'upsertTrackSource']);
         expect(onPool).toEqual([]);
         expect(state).toEqual({ opened: 1, committed: 1, rolledBack: 0 });
     });
@@ -151,7 +166,7 @@ describe('CatalogResolverService.ingestTrack', () => {
         const result = await new CatalogResolverService(db, repository).ingestTrack('deadair.spotify', track(), 'discovered');
 
         expect(result).toEqual({ status: 'ingested', trackId: 'track-1', created: true });
-        expect(onTransaction).toEqual(['resolveArtist', 'resolveAlbum', 'resolveTrack', 'upsertTrackSource']);
+        expect(onTransaction).toEqual(['resolveArtist', 'resolveAlbum', 'resolveTrack', 'upsertTrackArtists', 'upsertTrackSource']);
         expect(onPool).toEqual([]);
         // The caller's transaction itself, so the writes land inside it rather than beside it.
         expect(repository.withTransaction).toHaveBeenCalledWith(db);
@@ -175,6 +190,28 @@ describe('CatalogResolverService.ingestTrack', () => {
 
         expect(onTransaction.indexOf('resolveArtist')).toBeLessThan(onTransaction.indexOf('resolveAlbum'));
         expect(onTransaction.indexOf('resolveTrack')).toBeLessThan(onTransaction.indexOf('upsertTrackSource'));
+    });
+
+    it('writes the credits only once the track row exists', async () => {
+        // track_artists.track_id references deadair.tracks, so the row it credits has to be there
+        // first.
+        const { repository, onTransaction } = fakeRepository();
+        const { db } = fakeDb();
+
+        await new CatalogResolverService(db, repository).ingestTrack('deadair.spotify', track());
+
+        expect(onTransaction.indexOf('resolveTrack')).toBeLessThan(onTransaction.indexOf('upsertTrackArtists'));
+    });
+
+    it('hands every credited artist to the join-table write, lead first', async () => {
+        // The service does not decide who is credited; it passes the provider's own order through,
+        // which is what keeps position 0 meaning "lead" rather than "first resolved".
+        const { repository, bound } = fakeRepository();
+        const { db } = fakeDb();
+
+        await new CatalogResolverService(db, repository).ingestTrack('deadair.spotify', track({ artists: ['Sigur Rós', 'Jónsi'] }));
+
+        expect(bound.upsertTrackArtists).toHaveBeenCalledWith('track-1', ['Sigur Rós', 'Jónsi']);
     });
 
     it('leaves the binding at the walk’s origin when nobody says otherwise', async () => {
@@ -205,7 +242,7 @@ describe('CatalogResolverService.ingestTrack', () => {
         await new CatalogResolverService(db, repository).ingestTrack('deadair.spotify', track({ album: undefined }));
 
         expect(bound.resolveAlbum).not.toHaveBeenCalled();
-        expect(onTransaction).toEqual(['resolveArtist', 'resolveTrack', 'upsertTrackSource']);
+        expect(onTransaction).toEqual(['resolveArtist', 'resolveTrack', 'upsertTrackArtists', 'upsertTrackSource']);
     });
 
     it.each([
@@ -269,5 +306,100 @@ describe('CatalogResolverService.markMissing', () => {
         });
         expect(repository.markMissingTrackSources).toHaveBeenCalledWith('deadair.spotify', ['a', 'b'], 50);
         expect(state.opened).toBe(0);
+    });
+});
+
+/**
+ * A `Kysely` double for {@link CatalogResolverRepository.upsertTrackArtists}, standing in for both
+ * tables it touches: `deadair.artists`, through the same `resolveArtist` every other ingest write
+ * shares, and `deadair.trackArtists`, whose one insert this records.
+ *
+ * `resolveArtist`'s own SQL is exercised against a real database elsewhere; what is worth a fake
+ * here is what `upsertTrackArtists` does BEFORE any SQL runs (dedupe, drop blanks, keep the given
+ * order), since that is a decision rather than a query.
+ */
+function fakeArtistJoinDb(): { db: Kysely<DB>; inserted: () => readonly { trackId: string; artistId: string; position: number }[] } {
+    const artistIdByKey = new Map<string, string>();
+    let nextArtistId = 1;
+    let inserted: readonly { trackId: string; artistId: string; position: number }[] = [];
+
+    const db = {
+        selectFrom: (table: string) => {
+            if (table !== 'deadair.artists') throw new Error(`unexpected selectFrom ${table}`);
+            return {
+                select: () => ({
+                    where: (_column: string, _op: string, artistKey: string) => ({
+                        executeTakeFirst: async () => {
+                            const id = artistIdByKey.get(artistKey);
+                            return id ? { id, mergedIntoId: null } : undefined;
+                        },
+                    }),
+                }),
+            };
+        },
+        insertInto: (table: string) => {
+            if (table === 'deadair.artists') {
+                return {
+                    values: (values: { artistKey: string }) => ({
+                        onConflict: () => ({
+                            returning: () => ({
+                                executeTakeFirst: async () => {
+                                    const id = `artist-${nextArtistId++}`;
+                                    artistIdByKey.set(values.artistKey, id);
+                                    return { id };
+                                },
+                            }),
+                        }),
+                    }),
+                };
+            }
+            if (table === 'deadair.trackArtists') {
+                return {
+                    values: (rows: readonly { trackId: string; artistId: string; position: number }[]) => ({
+                        onConflict: () => ({
+                            execute: async () => {
+                                inserted = rows;
+                            },
+                        }),
+                    }),
+                };
+            }
+            throw new Error(`unexpected insertInto ${table}`);
+        },
+    };
+
+    return { db: db as unknown as Kysely<DB>, inserted: () => inserted };
+}
+
+describe('CatalogResolverRepository.upsertTrackArtists', () => {
+    it('writes every credited artist, lead first at position 0', async () => {
+        const { db, inserted } = fakeArtistJoinDb();
+        const repository = new CatalogResolverRepository(db, stubLogger());
+
+        await repository.upsertTrackArtists('track-1', ['Sigur Rós', 'Jónsi']);
+
+        expect(inserted()).toEqual([
+            { trackId: 'track-1', artistId: 'artist-1', position: 0 },
+            { trackId: 'track-1', artistId: 'artist-2', position: 1 },
+        ]);
+    });
+
+    it('skips a blank credit without skipping the track', async () => {
+        const { db, inserted } = fakeArtistJoinDb();
+        const repository = new CatalogResolverRepository(db, stubLogger());
+
+        await repository.upsertTrackArtists('track-1', ['Sigur Rós', '', 'Jónsi']);
+
+        expect(inserted().map(row => row.position)).toEqual([0, 1]);
+    });
+
+    it('credits a repeated name once, however its case or spacing differs', async () => {
+        const { db, inserted } = fakeArtistJoinDb();
+        const repository = new CatalogResolverRepository(db, stubLogger());
+
+        await repository.upsertTrackArtists('track-1', ['Sigur Rós', ' SIGUR   RÓS ']);
+
+        expect(inserted()).toHaveLength(1);
+        expect(inserted()[0]).toMatchObject({ trackId: 'track-1', position: 0 });
     });
 });

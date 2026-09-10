@@ -391,6 +391,45 @@ export class CatalogResolverRepository extends DataRepository {
             .execute();
     }
 
+    /**
+     * Writes one row per distinct credited artist, lead first at `position` 0.
+     *
+     * Every ingest calls this, not only the first: providers reorder credits and add or drop
+     * guests between walks, and `on conflict do nothing` on `(track_id, artist_id)` means a
+     * previously unseen credit is added while an existing one is left exactly as first written:
+     * never repositioned, on the migration's argument that `position` is not the pair this table
+     * treats as identity.
+     *
+     * `resolveArtist` runs for every name, guest included, which is the point: a featured artist
+     * with no row of their own could not be the target of a dislike, so this is what lets one
+     * arrive here from nothing but a walk noticing the credit.
+     *
+     * Blanks and duplicates are dropped before anything is resolved. A name that differs from an
+     * earlier one only by case or spacing collapses to the same {@link normalizeKey} and so the
+     * same artist row; keeping both would either violate the primary key or silently pick whichever
+     * insert order Postgres reads the pair in.
+     */
+    async upsertTrackArtists(trackId: string, artists: readonly string[]): Promise<void> {
+        const seen = new Set<string>();
+        const credited: string[] = [];
+        for (const name of artists) {
+            if (!name) continue;
+            const key = normalizeKey(name);
+            if (key.length === 0 || seen.has(key)) continue;
+            seen.add(key);
+            credited.push(name);
+        }
+        if (credited.length === 0) return;
+
+        const rows = await Promise.all(credited.map(async (name, position) => ({ trackId, artistId: await this.resolveArtist(name), position })));
+
+        await this.db
+            .insertInto('deadair.trackArtists')
+            .values(rows)
+            .onConflict(oc => oc.columns(['trackId', 'artistId']).doNothing())
+            .execute();
+    }
+
     /** The track a provider's id is already bound to, if this is not the first sighting. */
     async findTrackSource(pluginId: string, externalId: string): Promise<string | undefined> {
         const row = await this.db

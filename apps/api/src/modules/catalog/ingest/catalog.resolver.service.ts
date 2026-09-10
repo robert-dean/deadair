@@ -96,6 +96,7 @@ export class CatalogResolverService {
             // an album already dated by enrichment is left alone.
             const albumId = track.album ? await resolver.resolveAlbum(artistId, track.album, track.artworkUrl, track.year) : undefined;
             const resolved = await resolver.resolveTrack(artistId, albumId, track);
+            await resolver.upsertTrackArtists(resolved.id, track.artists);
             await resolver.upsertTrackSource(resolved.id, pluginId, track, origin);
             return { status: 'ingested', trackId: resolved.id, created: resolved.created };
         };

@@ -744,6 +744,13 @@ export interface DeadairTrackAnalysis {
   updatedAt: Generated<DateTime>;
 }
 
+export interface DeadairTrackArtists {
+  artistId: string;
+  createdAt: Generated<DateTime>;
+  position: number;
+  trackId: string;
+}
+
 export interface DeadairTrackAudio {
   attempts: Generated<number>;
   byteSize: number | null;
@@ -869,6 +876,7 @@ export interface DB {
   "deadair.stationLineup": DeadairStationLineup;
   "deadair.topics": DeadairTopics;
   "deadair.trackAnalysis": DeadairTrackAnalysis;
+  "deadair.trackArtists": DeadairTrackArtists;
   "deadair.trackAudio": DeadairTrackAudio;
   "deadair.trackEnrichment": DeadairTrackEnrichment;
   "deadair.tracks": DeadairTracks;

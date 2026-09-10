@@ -18,6 +18,13 @@ import { jsonSchema, tool, type AssistantContent, type ModelMessage, type Provid
  * same id. Losing either one leaves the model reading an answer to a question it
  * cannot see, which it handles by inventing what the question was.
  *
+ * The result also carries the NAME of the tool that produced it, recovered from
+ * the assistant turn's call rather than trusted from the station's message. Some
+ * providers require it outright (Gemini rejects a `functionResponse` with no
+ * `name`) and the id is the only thing the two turns are guaranteed to agree
+ * on, so the name is looked up rather than carried twice. A result whose call
+ * isn't in view falls back to an empty name instead of failing the turn.
+ *
  * @throws {PluginError} `config` for a `tool` turn with no `toolCallId`. That is
  * a caller's bug rather than a model's, and failing here names it while the
  * stack still points at whoever built the conversation.
@@ -43,6 +50,15 @@ export function splitSystemPrompt(messages: readonly LlmMessage[]): { system?: s
 }
 
 export function toModelMessages(messages: readonly LlmMessage[]): ModelMessage[] {
+    // Call id to the tool that made it, filled in as assistant turns go by. A
+    // provider may require the name on the result that answers a call (Gemini's
+    // `functionResponse.name` is rejected without one) and the station's `tool`
+    // turn carries only the id, so this is where the name is recovered. A tool
+    // turn whose id was never seen (a transcript trimmed ahead of it, a call this
+    // file doesn't know about) falls back to `''` rather than failing the whole
+    // conversation over one unnamed result.
+    const toolNames = new Map<string, string>();
+
     return messages.map(message => {
         switch (message.role) {
             case 'system':
@@ -66,6 +82,8 @@ export function toModelMessages(messages: readonly LlmMessage[]): ModelMessage[]
                 // provider's rather than a preference: Anthropic reads a thinking block
                 // that arrives after the `tool_use` it belongs to as a turn out of order
                 // and refuses it.
+                for (const call of message.toolCalls ?? []) toolNames.set(call.id, call.name);
+
                 const content: AssistantContent = [
                     ...signed.reasoning.map(part => ({
                         type: 'reasoning' as const,
@@ -99,10 +117,12 @@ export function toModelMessages(messages: readonly LlmMessage[]): ModelMessage[]
                         {
                             type: 'tool-result' as const,
                             toolCallId: message.toolCallId,
-                            // Not carried on the station's message, and not needed: the id is
-                            // what the model matches on, and a name that disagreed with the id
-                            // would be a second source of truth for the same link.
-                            toolName: '',
+                            // Recovered from the assistant turn that made the call, keyed by id
+                            // rather than trusted from the station's message: the id is what the
+                            // two turns actually agree on, and a name carried alongside it would
+                            // be a second source of truth for the same link. Falls back to ''
+                            // only when the call that produced this result isn't in view.
+                            toolName: toolNames.get(message.toolCallId) ?? '',
                             output: { type: 'text' as const, value: message.content },
                         },
                     ],

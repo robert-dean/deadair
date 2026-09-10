@@ -132,7 +132,7 @@ describe('toModelMessages', () => {
         expect(toModelMessages(messages)).toHaveLength(1);
     });
 
-    it('answers a tool turn against the call id it names', () => {
+    it('answers a lone tool turn with an empty name when no call is in view', () => {
         const messages: LlmMessage[] = [{ role: 'tool', toolCallId: 'call_1', content: '[{"title":"Roygbiv"}]' }];
 
         expect(toModelMessages(messages)).toEqual([
@@ -141,6 +141,22 @@ describe('toModelMessages', () => {
                 content: [{ type: 'tool-result', toolCallId: 'call_1', toolName: '', output: { type: 'text', value: '[{"title":"Roygbiv"}]' } }],
             },
         ]);
+    });
+
+    it('names a tool result after the call that produced it', () => {
+        const messages: LlmMessage[] = [
+            { role: 'assistant', content: '', toolCalls: [{ id: 'call_1', name: 'search_music', arguments: {} }] },
+            { role: 'tool', toolCallId: 'call_1', content: '[{"title":"Roygbiv"}]' },
+        ];
+
+        const [, toolMessage] = toModelMessages(messages);
+
+        expect(toolMessage).toEqual({
+            role: 'tool',
+            content: [
+                { type: 'tool-result', toolCallId: 'call_1', toolName: 'search_music', output: { type: 'text', value: '[{"title":"Roygbiv"}]' } },
+            ],
+        });
     });
 
     it('refuses a tool turn with no call id, naming it as a caller bug', () => {

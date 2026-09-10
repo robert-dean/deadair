@@ -175,6 +175,28 @@ describe('the signature on a function call', () => {
         });
     });
 
+    it('names the function response on a tool round trip, which Gemini requires', async () => {
+        const host = scriptedHost([() => sseResponse()]);
+        const plugin = await loadedPlugin(host);
+
+        await collectGeneration(
+            await plugin.generate({
+                messages: [
+                    { role: 'user', content: 'ask' },
+                    { role: 'assistant', content: '', toolCalls: [{ id: 'call_1', name: 'search_catalog', arguments: { query: 'boc' } }] },
+                    { role: 'tool', toolCallId: 'call_1', content: '[{"title":"Roygbiv"}]' },
+                ],
+                tools: [{ name: 'search_catalog', description: 'the records the station has', parameters: { type: 'object', properties: {} } }],
+            }),
+        );
+
+        const contents: { role: string; parts: Record<string, unknown>[] }[] = sentBody(host, 0).contents;
+        const toolContent = contents.find(entry => entry.parts.some(part => 'functionResponse' in part));
+        const functionResponse = toolContent?.parts.find((part): part is { functionResponse: { name: string } } => 'functionResponse' in part);
+
+        expect(functionResponse?.functionResponse.name).toBe('search_catalog');
+    });
+
     it('carries nothing back from a call the service did not sign', async () => {
         const host = scriptedHost([() => sseResponse({ call: { name: 'search_catalog' } })]);
         const plugin = await loadedPlugin(host);

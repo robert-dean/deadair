@@ -18,6 +18,13 @@
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
+            <!--
+                A self-hosted station behind a private CA is an ordinary install, not an attack:
+                the operator, or the listener, chose to install that CA on this phone. Honouring it
+                is what lets the setup screen say "not trusted" rather than "could not reach" for
+                exactly that case.
+            -->
+            <certificates src="user" />
         </trust-anchors>
     </base-config>
 </network-security-config>

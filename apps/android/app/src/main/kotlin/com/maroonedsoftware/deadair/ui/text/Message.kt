@@ -68,6 +68,8 @@ sealed interface Message {
 
     data object CouldNotReach : Message
 
+    data object Untrusted : Message
+
     // ── The account ───────────────────────────────────────────────────────────────────────
     data object BadCredentials : Message
 

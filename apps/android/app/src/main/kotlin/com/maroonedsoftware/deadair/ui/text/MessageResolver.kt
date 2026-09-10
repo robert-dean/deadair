@@ -60,6 +60,7 @@ fun Message.resolve(): String =
         Message.NotAStation -> stringResource(R.string.station_not_a_station)
         is Message.AnsweredStatus -> stringResource(R.string.station_answered_status, status)
         Message.CouldNotReach -> stringResource(R.string.station_could_not_reach)
+        Message.Untrusted -> stringResource(R.string.station_untrusted)
         Message.BadCredentials -> stringResource(R.string.account_bad_credentials)
         Message.CouldNotReachToSignIn -> stringResource(R.string.account_could_not_reach)
         Message.SecondFactorUnsupported -> stringResource(R.string.account_second_factor_unsupported)

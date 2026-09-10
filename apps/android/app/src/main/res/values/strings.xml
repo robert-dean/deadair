@@ -50,6 +50,7 @@
     <string name="station_not_a_station">Something answered, but not a station. Check the address.</string>
     <string name="station_answered_status">Answered %1$d, which is not a station. Check the address.</string>
     <string name="station_could_not_reach">Could not reach it. Check the address and that you are on the right network.</string>
+    <string name="station_untrusted">This phone does not trust the station\'s certificate. A certificate authority installed on this phone (Settings, Security, Encryption and credentials) is honoured.</string>
 
     <!-- Settings -->
     <string name="section_station">Station</string>

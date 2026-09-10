@@ -63,6 +63,13 @@ class StationEntryStateTest {
     }
 
     @Test
+    fun `names an untrusted certificate rather than saying the station could not be reached`() {
+        val state = StationEntryState.from("https://radio.example.com", StationCheck.Untrusted("PKIX path building failed"))
+
+        assertEquals(Message.Untrusted, state.error)
+    }
+
+    @Test
     fun `notes cleartext without treating it as an error`() {
         val state = StationEntryState.typing("http://10.0.2.2:8080")
 

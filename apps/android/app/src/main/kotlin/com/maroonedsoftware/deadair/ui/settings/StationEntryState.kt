@@ -67,6 +67,7 @@ data class StationEntryState(
                 is StationCheck.NotAStation ->
                     base.copy(error = if (check.status == null) Message.NotAStation else Message.AnsweredStatus(check.status))
                 is StationCheck.Unreachable -> base.copy(error = Message.CouldNotReach)
+                is StationCheck.Untrusted -> base.copy(error = Message.Untrusted)
             }
         }
     }

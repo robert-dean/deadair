@@ -15,6 +15,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.security.cert.CertificateException
+import javax.net.ssl.SSLHandshakeException
 
 /**
  * Whether an address is a station, before the app agrees to remember it.
@@ -107,5 +109,28 @@ class StationProbeTest {
         val result = probeAgainst(engine).check(station)
 
         assertTrue(result is StationCheck.Unreachable)
+    }
+
+    @Test
+    fun `names an untrusted certificate rather than reporting it unreachable`() = runTest {
+        val engine = MockEngine { throw SSLHandshakeException("PKIX path building failed") }
+
+        val result = probeAgainst(engine).check(station)
+
+        assertTrue("expected Untrusted, got $result", result is StationCheck.Untrusted)
+    }
+
+    @Test
+    fun `finds an untrusted certificate wrapped inside another failure`() = runTest {
+        // The SDK or Ktor may wrap the TLS failure rather than let it through as-is, so the cause
+        // chain has to be walked rather than the caught exception alone tested.
+        val engine =
+            MockEngine {
+                throw IOException("handshake failed", CertificateException("not trusted"))
+            }
+
+        val result = probeAgainst(engine).check(station)
+
+        assertTrue("expected Untrusted, got $result", result is StationCheck.Untrusted)
     }
 }

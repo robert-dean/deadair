@@ -8,6 +8,7 @@ import { collectGeneration, isPluginError } from '@deadair/plugin-sdk';
 import { createFakePluginHost, type FakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { LlmPlugin } from '../src/llm.plugin.js';
+import { takesBudget } from '../src/anthropic.provider.js';
 
 /** One streamed Messages response, in the shape `@ai-sdk/anthropic` parses. */
 function sseResponse(options: { text?: string; thinking?: { text: string; signature: string }; stopReason?: string } = {}): Response {
@@ -119,6 +120,24 @@ const ask = { messages: [{ role: 'user' as const, content: 'back-announce it' }]
 /** The JSON body of the nth call, for asserting what actually went on the wire. */
 const sentBody = (host: FakePluginHost, index: number): Record<string, unknown> => JSON.parse(String(host.calls[index]?.body ?? '{}'));
 
+describe('which models still take a thinking budget', () => {
+    it('takes a budget on the bare Haiku 4.5 alias, and on the pre-4.6 families', () => {
+        expect(takesBudget('claude-haiku-4-5')).toBe(true);
+        expect(takesBudget('claude-opus-4-1')).toBe(true);
+        expect(takesBudget('claude-3-opus-20240229')).toBe(true);
+        expect(takesBudget('claude-sonnet-4-5-20250929')).toBe(true);
+    });
+
+    it('thinks adaptively on 4.6 and later, alias or dated, not just the dated form', () => {
+        expect(takesBudget('claude-opus-4-6')).toBe(false);
+        expect(takesBudget('claude-sonnet-4-6')).toBe(false);
+        expect(takesBudget('claude-opus-4-6-20250915')).toBe(false);
+        expect(takesBudget('claude-sonnet-4-6-20250915')).toBe(false);
+        expect(takesBudget('claude-opus-4-7')).toBe(false);
+        expect(takesBudget('claude-opus-5')).toBe(false);
+    });
+});
+
 describe('speaking to Anthropic', () => {
     it('sends the key and the API version as this service wants them', async () => {
         const host = scriptedHost([() => sseResponse()]);
@@ -131,13 +150,24 @@ describe('speaking to Anthropic', () => {
         expect(host.calls[0]?.headers?.['anthropic-version']).toBe('2023-06-01');
     });
 
-    it('asks for thinking as a token budget, because that is the only dial this API has', async () => {
+    it('asks for thinking as a token budget on a model that predates adaptive thinking', async () => {
         const host = scriptedHost([() => sseResponse()]);
-        const plugin = await loadedPlugin(host, { reasoningEffort: 'high' });
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'high', model: 'anthropic:claude-haiku-4-5' });
 
         await collectGeneration(await plugin.generate(ask));
 
         expect(sentBody(host, 0).thinking).toEqual({ type: 'enabled', budget_tokens: 24_576 });
+        expect(sentBody(host, 0).output_config).toBeUndefined();
+    });
+
+    it('thinks adaptively and sends effort on a model that takes it', async () => {
+        const host = scriptedHost([() => sseResponse()]);
+        const plugin = await loadedPlugin(host, { reasoningEffort: 'medium', model: 'anthropic:claude-opus-5' });
+
+        await collectGeneration(await plugin.generate(ask));
+
+        expect(sentBody(host, 0).thinking).toEqual({ type: 'adaptive' });
+        expect(sentBody(host, 0).output_config).toEqual({ effort: 'medium' });
     });
 
     it('asks for no thinking by saying nothing, because the SDK will not carry a disabled block', async () => {

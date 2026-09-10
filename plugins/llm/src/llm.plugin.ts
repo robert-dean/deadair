@@ -374,7 +374,7 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         // until something reads the stream, which is what lets the fallback below build a second one
         // only if the first is refused.
         const buildAttempt = (effortField: string | undefined): Attempt => {
-            const reasoning = effortField === undefined ? undefined : arm.reasoningOptions(effortField);
+            const reasoning = effortField === undefined ? undefined : arm.reasoningOptions(effortField, model);
 
             // Aborted when the host cancels the text stream, and linked to the invocation signal so
             // that being abandoned before the first chunk still stops the request.

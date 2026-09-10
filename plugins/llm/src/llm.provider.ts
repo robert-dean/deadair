@@ -57,8 +57,14 @@ export interface ProviderArm {
      * for "say nothing about it", which every arm must answer `undefined` to.
      * The vocabulary is the station's rather than any service's, because it is
      * the one an operator picked from a list; translating it is the arm's job.
+     *
+     * `modelId` is the resolved id the call is actually addressed to, optional
+     * because most arms have one way of asking regardless of which model
+     * answers. An arm whose service asks differently by model (Anthropic's
+     * budget-vs-adaptive split is the one that exists today) reads it; an arm
+     * that ignores the parameter keeps compiling unchanged.
      */
-    reasoningOptions(effort: string | undefined): ProviderMetadata | undefined;
+    reasoningOptions(effort: string | undefined, modelId?: string): ProviderMetadata | undefined;
 
     /**
      * Whether a fault is this service refusing the thinking field itself, rather

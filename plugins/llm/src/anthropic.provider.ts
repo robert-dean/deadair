@@ -13,20 +13,31 @@ const PROVIDER_NAME = 'anthropic';
 const API_VERSION = '2023-06-01';
 
 /**
- * How much thinking each of the station's levels buys, in tokens.
+ * How much thinking each of the station's levels buys, in tokens, on a model that still takes a
+ * budget rather than a word.
  *
- * Tokens rather than a word, because that is the only dial this API has: there
- * is no `reasoning_effort` here. The minimum the service accepts is 1024, so
- * `low` sits above it with room rather than at the edge, and `high` is
- * deliberately short of the enormous budgets the API allows — a break is a
- * paragraph, and a model given tens of thousands of tokens to think about one
+ * Tokens rather than a word, because a budget is the only dial those models have: there is no
+ * `reasoning_effort` there. The minimum the service accepts is 1024, so `low` sits above it with
+ * room rather than at the edge, and `high` is deliberately short of the enormous budgets the API
+ * allows: a break is a paragraph, and a model given tens of thousands of tokens to think about one
  * spends them while a station waits with the model slot held.
- *
- * The SDK adds the budget to `max_tokens` itself and drops `temperature` with a
- * warning whenever thinking is on, so a caller that set both gets what it asked
- * for as far as the service allows and nothing here has to police it.
  */
 const THINKING_BUDGETS = { low: 2_048, medium: 8_192, high: 24_576 } as const;
+
+/**
+ * Whether a model id names one that still takes a thinking BUDGET rather than adaptive thinking
+ * plus an effort word.
+ *
+ * True for the `claude-3*` families and for a Claude 4 id whose minor version is absent (the
+ * `-YYYYMMDD`-dated ids, e.g. `claude-sonnet-4-20250514`), `0`, `1`, or `5`: Opus 4/4.1/4.5, Sonnet
+ * 4/4.5, Haiku 4.5. Everything else, 4.6 and later plus Claude 5 and Fable, thinks adaptively; a
+ * model id this rule has never seen defaults to adaptive too, because a new id only ever lands on
+ * that side of the line from here on.
+ */
+export function takesBudget(modelId: string): boolean {
+    if (modelId.includes('claude-3')) return true;
+    return /claude-(?:opus|sonnet|haiku)-4(?:-(?:0|1|5))?(?:-\d{8})?$/.test(modelId);
+}
 
 /**
  * Claude, over its own Messages API.
@@ -78,7 +89,7 @@ export function anthropicArm(host: PluginHost, options: { apiKey: string }): Pro
             return (body?.data ?? []).map(entry => (typeof entry.id === 'string' ? entry.id.trim() : '')).filter(id => id.length > 0);
         },
 
-        reasoningOptions(effort: string | undefined): ProviderMetadata | undefined {
+        reasoningOptions(effort: string | undefined, modelId?: string): ProviderMetadata | undefined {
             if (effort === undefined) return undefined;
 
             // Nothing at all, and this is the one place the arm cannot say what the station
@@ -87,14 +98,22 @@ export function anthropicArm(host: PluginHost, options: { apiKey: string }): Pro
             // `@ai-sdk/anthropic@2` `index.mjs`, where the whole field is spread behind
             // `isThinking` — so sending it would be a no-op dressed up as a setting, which
             // is worse than the gap. Omitting it is genuinely off on a model whose thinking
-            // is opt-in, and is NOT off on one that thinks adaptively by default; an
-            // operator who needs it off there has to pick a model that does not.
+            // is opt-in, and is NOT off on one that thinks adaptively by default (Opus 5, for
+            // one); an operator who needs it off there has to pick a model that does not.
             if (effort === 'none') return undefined;
 
-            const budgetTokens = THINKING_BUDGETS[effort as keyof typeof THINKING_BUDGETS];
-            if (budgetTokens === undefined) return undefined;
+            // `modelId` absent means a caller that has not been taught which model is asking:
+            // today's budget behaviour, unchanged, rather than a guess.
+            if (modelId === undefined || takesBudget(modelId)) {
+                const budgetTokens = THINKING_BUDGETS[effort as keyof typeof THINKING_BUDGETS];
+                if (budgetTokens === undefined) return undefined;
+                return { [PROVIDER_NAME]: { thinking: { type: 'enabled', budgetTokens } } };
+            }
 
-            return { [PROVIDER_NAME]: { thinking: { type: 'enabled', budgetTokens } } };
+            // 4.6 and later take no budget at all (`budget_tokens` is a 400) and think
+            // adaptively, with `low`/`medium`/`high` sent as the SDK's own `effort` instead.
+            if (effort !== 'low' && effort !== 'medium' && effort !== 'high') return undefined;
+            return { [PROVIDER_NAME]: { thinking: { type: 'adaptive' }, effort } };
         },
 
         /**

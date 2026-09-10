@@ -3,8 +3,8 @@
 # scoped to `apps/desktop` and to the generated SDK it builds against, which is emitted in the same
 # shape.
 #
-# `dotnet format --verify-no-changes` in CI is what enforces it, so a rule added here has to be one
-# the formatter can apply rather than only report.
+# `dotnet format --verify-no-changes` in CI is what checks it (as a warning, not a failure), so a
+# rule added here has to be one the formatter can apply rather than only report.
 
 [*.{cs,csx}]
 indent_style = space

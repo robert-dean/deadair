@@ -400,9 +400,10 @@ jobs:
               working-directory: apps/desktop
               run: dotnet test -c Release --no-build
 
+            # A warning rather than a failure, like the Prettier check in `build`.
             - name: Check formatting
               working-directory: apps/desktop
-              run: dotnet format --verify-no-changes --no-restore
+              run: dotnet format --verify-no-changes --no-restore || echo "::warning title=Formatting::dotnet format found unformatted files (listed in this step's log). Run dotnet format in apps/desktop to fix them."
 
     # Whether what is COMMITTED is what the inputs actually produce.
     #

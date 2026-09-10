@@ -35,6 +35,12 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private readonly DispatcherTicker _ticker;
 
     /// <summary>
+    /// Holds a new record's reading back until <see cref="NowPlayingHold.NowPlayingLead"/> has passed,
+    /// so the title changes when the audio does rather than the instant the station announces it.
+    /// </summary>
+    private readonly NowPlayingHold _hold = new();
+
+    /// <summary>
     /// Holds a volume change back until the hand stops moving.
     /// </summary>
     /// <remarks>
@@ -50,6 +56,8 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
     private DateTimeOffset? _readAt;
     private string? _artworkShowing;
     private byte[]? _artworkBytes;
+    private bool _hasAppliedItem;
+    private string? _appliedItemKey;
 
     public ListenerViewModel(
         OutputSwitch player,
@@ -77,6 +85,10 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         // The conductor's own retry, scheduled rather than merely computed. Requested() must not be
         // called here: that would reset the backoff the failure just advanced.
         _conductor.RetryDue += OnRetryDue;
+
+        // Raised on the hold's own timer thread, never the UI thread, exactly like the conductor's
+        // RetryDue above.
+        _hold.Released += OnHoldReleased;
 
         // The keyboard's play key and the widget's buttons reach the same commands the on-screen ones
         // do, so there is one path into the player rather than two that can disagree.
@@ -450,12 +462,39 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         OnAir = now.OnAir;
         OnPropertyChanged(nameof(AirTone));
 
-        // The mount named without asking one anything: `mounts[]` is carried for exactly this.
+        // The mount named without asking one anything: `mounts[]` is carried for exactly this. Not
+        // about the record currently on air, so it is applied on every reading rather than waiting on
+        // the hold.
         var mount = MountSelection.Choose(now.Mounts, _settings.Current.Format);
         FormatLabel = MountLabel.Name(mount.Format) + Rate(now.Mounts, mount);
         FormatFellBack = mount.FellBack;
         MountsChanged?.Invoke(now.Mounts);
 
+        // The record itself waits on the hold: a title that changed the instant the station announced
+        // it would be up to NowPlayingHold.NowPlayingLead ahead of what is actually coming out of the
+        // speakers. A same-item reading (or one still within the lead of the last new item) is held or
+        // passed straight through by the hold itself; either way, ApplyTrack is where it lands.
+        if (_hold.Offer(ItemKey(now), now) is { } released)
+        {
+            ApplyTrack(released);
+        }
+    }
+
+    /// <summary>The track's own identity, or null off air. There is no track id on the wire, so the
+    /// moment it started playing is what the hold keys a "new item" on.</summary>
+    private static string? ItemKey(NowPlayingReading now) =>
+        now.Track?.StartedAt.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>A reading the hold has released, raised on its own timer thread rather than the UI one.</summary>
+    private void OnHoldReleased(NowPlayingReading now) => _dispatcher.Post(() => ApplyTrack(now));
+
+    /// <summary>
+    /// Applies the fields that describe the record itself, and rewrites the system widget and
+    /// reloads artwork only when the item they describe is not the one already showing. So a poll
+    /// that merely confirms the same record is still playing does neither.
+    /// </summary>
+    private void ApplyTrack(NowPlayingReading now)
+    {
         var track = now.Track;
         Title = track?.Title;
         Artist = track?.Artist;
@@ -464,8 +503,17 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
 
         Duration = Playhead.Duration(track)?.TotalSeconds ?? 0;
         Tick();
-        PublishToSystem();
 
+        var itemKey = ItemKey(now);
+        if (_hasAppliedItem && itemKey == _appliedItemKey)
+        {
+            return;
+        }
+
+        _hasAppliedItem = true;
+        _appliedItemKey = itemKey;
+
+        PublishToSystem();
         _ = LoadArtworkAsync(track?.ArtworkUrl);
     }
 
@@ -582,6 +630,8 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _player.VolumeChanged -= OnDeviceVolumeChanged;
         _conductor.RetryDue -= OnRetryDue;
         _conductor.Dispose();
+        _hold.Released -= OnHoldReleased;
+        _hold.Dispose();
         _ticker.Stop();
         _volumeSettles.Stop();
         _systemNowPlaying.Clear();

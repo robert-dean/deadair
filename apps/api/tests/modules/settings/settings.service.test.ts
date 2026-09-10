@@ -88,7 +88,10 @@ describe('SettingsService.read', () => {
 
         for (const key of STREAM_SECRET_KEYS) {
             expect(model.configured[key], key).toBeUndefined();
-            expect(model.descriptors.some(descriptor => descriptor.key === key), key).toBe(false);
+            expect(
+                model.descriptors.some(descriptor => descriptor.key === key),
+                key,
+            ).toBe(false);
         }
     });
 

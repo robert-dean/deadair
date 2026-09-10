@@ -16,6 +16,14 @@ import { isTrackItem } from './station.lineup.js';
 export interface ReplanLineupPayload {
     /** How many tracks to programme. Absent means {@link DEFAULT_COUNT}. */
     count?: number;
+    /**
+     * The broadcast this send was asked on behalf of. Absent means whichever asked with no
+     * particular broadcast in mind, so the lineup this run loads is taken on trust. Present, it is
+     * checked against that same lineup before anything is generated: a changeover between the send
+     * and the run means the broadcast this was asked for has already ended, and paying for the model
+     * to replan it would be wasted before the director's own guard ever saw it.
+     */
+    broadcastId?: string;
 }
 
 /**
@@ -70,6 +78,17 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
             // The station has never been given anything to play. An ordinary race with a
             // stand-down, not a failure.
             this.logger.info('director: there is no running order to replan', { job: this.context.id });
+            return;
+        }
+        if (payload?.broadcastId !== undefined && payload.broadcastId !== lineup.broadcastId) {
+            // A changeover landed between the send and this run. Generating now would spend the
+            // model on a broadcast that has already ended, and `replaceTail` would only drop the
+            // result on arrival: cheaper to notice here, before any of that is paid for.
+            this.logger.info('director: the broadcast this replan was asked for has ended; skipping', {
+                job: this.context.id,
+                expected: payload.broadcastId,
+                current: lineup.broadcastId,
+            });
             return;
         }
 
@@ -166,7 +185,7 @@ export class ReplanLineupJob extends PlainJob<ReplanLineupPayload> {
         // is on air: a commit pass may already have gathered its material and be suspended in a
         // database read, and only the epoch can reach it. See `DirectorService.invalidate`.
         this.director.invalidate();
-        await this.director.post({ kind: 'replaceTail', tracks: planned.tracks });
+        await this.director.post({ kind: 'replaceTail', tracks: planned.tracks, broadcastId: lineup.broadcastId });
 
         this.logger.info('director: replanned the running order', {
             job: this.context.id,

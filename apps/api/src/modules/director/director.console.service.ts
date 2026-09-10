@@ -625,7 +625,14 @@ export class DirectorConsoleService {
 
     /** Add tracks to what is on air now, rather than waiting for it to run short. */
     async extendOrder(input: ExtendStationInput): Promise<void> {
-        await this.jobs.send('director.extend_lineup', { ...(input.count === undefined ? {} : { count: input.count }) });
+        // Stamped with the broadcast that is on air right now, if any, so the job can tell whether
+        // the one it loads when it finally runs is still the one this ask was about: see
+        // `ExtendLineupJob.execute`.
+        const broadcastId = this.director.order()?.broadcastId;
+        await this.jobs.send('director.extend_lineup', {
+            ...(input.count === undefined ? {} : { count: input.count }),
+            ...(broadcastId === undefined ? {} : { broadcastId }),
+        });
 
         // The ASK, not the outcome. What the refill actually found is the chain's own event, minutes
         // later and with no actor on it, so recording both is what tells "nobody asked for more
@@ -654,7 +661,13 @@ export class DirectorConsoleService {
      */
     async replanOrder(input: ReplanStationInput): Promise<void> {
         if (input.brief !== undefined) await this.director.post({ kind: 'rebrief', brief: input.brief });
-        await this.jobs.send('director.replan_lineup', { ...(input.count === undefined ? {} : { count: input.count }) });
+        // Stamped with the broadcast this ask is about, on `extendOrder`'s rule: see
+        // `ReplanLineupJob.execute`.
+        const broadcastId = this.director.order()?.broadcastId;
+        await this.jobs.send('director.replan_lineup', {
+            ...(input.count === undefined ? {} : { count: input.count }),
+            ...(broadcastId === undefined ? {} : { broadcastId }),
+        });
 
         void this.activity.record({
             module: 'director',

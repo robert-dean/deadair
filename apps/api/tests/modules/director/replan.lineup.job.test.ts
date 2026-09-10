@@ -271,3 +271,44 @@ describe('ReplanLineupJob', () => {
         await expect(job.run({ count: 3 })).rejects.toThrow('the database is gone');
     });
 });
+
+// A replan is generated against the broadcast this job loaded minutes earlier, and the director may
+// have moved on to a new one by the time this posts. `broadcastId` is what lets the director tell
+// the two apart, and what lets this job refuse to pay for the model at all once it already knows
+// the ask is stale.
+describe('ReplanLineupJob stamping the command it posts', () => {
+    it('posts the command carrying the broadcast it actually loaded', async () => {
+        const { job, seed, lineup, posted } = build({ existing: [track('Old A')] });
+        await seed();
+
+        await job.run({ count: 2 });
+
+        const [command] = posted();
+        expect(command).toMatchObject({ kind: 'replaceTail', broadcastId: lineup.broadcastId });
+    });
+
+    it('skips generating when the payload names a broadcast the loaded lineup is not', async () => {
+        const { job, generate, director } = build();
+
+        await job.run({ count: 2, broadcastId: 'a-broadcast-that-has-ended' });
+
+        expect(generate).not.toHaveBeenCalled();
+        expect(director.post).not.toHaveBeenCalled();
+    });
+
+    it('generates when the payload names no particular broadcast', async () => {
+        const { job, generate } = build();
+
+        await job.run({ count: 2 });
+
+        expect(generate).toHaveBeenCalled();
+    });
+
+    it('generates when the payload names the broadcast the loaded lineup is', async () => {
+        const { job, generate, lineup } = build();
+
+        await job.run({ count: 2, broadcastId: lineup.broadcastId });
+
+        expect(generate).toHaveBeenCalled();
+    });
+});

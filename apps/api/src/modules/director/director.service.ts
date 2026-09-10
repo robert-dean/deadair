@@ -724,11 +724,11 @@ export class DirectorService {
                 return undefined;
 
             case 'appendTracks':
-                await this.appendTracks(command.tracks);
+                await this.appendTracks(command.tracks, command.broadcastId);
                 return undefined;
 
             case 'replaceTail':
-                await this.replaceTail(command.tracks);
+                await this.replaceTail(command.tracks, command.broadcastId);
                 return undefined;
 
             case 'rebrief':
@@ -1233,6 +1233,11 @@ export class DirectorService {
         await inScope(this.container, async scope => scope.get(StationAirRepository).goOnAir());
         this.standingDown = false;
         this.airReadAt = 0;
+        // A refill sent for the outgoing broadcast is dropped on arrival now (see `appendTracks`),
+        // and a dropped refill is not evidence the new one has one coming: without this the new
+        // broadcast's first shortfall would sit behind whatever window the old request happened to
+        // still be holding.
+        this.extendSentAt = undefined;
         this.active = true;
 
         this.logger.info('director: put the station on air', { name: binding.name, items: tracks.length, source: binding.source });
@@ -1256,8 +1261,22 @@ export class DirectorService {
      * silently discarded, and the job logged the tracks it had just lost as `added`. Here there is
      * one instance and one writer, so there is nothing to lose a race to.
      */
-    private async appendTracks(tracks: readonly RundownTrack[]): Promise<void> {
-        if (tracks.length === 0 || !this.lineup) return;
+    private async appendTracks(tracks: readonly RundownTrack[], broadcastId: string): Promise<void> {
+        if (tracks.length === 0) return;
+        // The generator ran for long enough that a changeover could have landed first. A refill
+        // planned for a broadcast that has since ended (or for a station holding no order at all)
+        // is describing material for a show nobody is airing any more, and grafting it onto whatever
+        // replaced it is the bug this guards. No throw and no activity row: a retry would only
+        // re-load the new broadcast and extend it on an old ask, and the newer `air.on` row is
+        // already the intent that matters here.
+        if (!this.lineup || broadcastId !== this.lineup.broadcastId) {
+            this.logger.warn('director: a refill arrived for a broadcast that has ended; dropped', {
+                expected: broadcastId,
+                current: this.lineup?.broadcastId,
+                tracks: tracks.length,
+            });
+            return;
+        }
 
         this.lineup.append(tracks);
         // Breaks are NOT planted here. The next pass walks the whole tail and plants every slot
@@ -1280,8 +1299,19 @@ export class DirectorService {
      * twice on purpose: emptying the running order is exactly how the station loses its mount
      * lease, and this is the last place that can refuse to.
      */
-    private async replaceTail(tracks: readonly RundownTrack[]): Promise<void> {
-        if (!this.lineup) return;
+    private async replaceTail(tracks: readonly RundownTrack[], broadcastId: string): Promise<void> {
+        // Same guard as `appendTracks`, for the same reason: a replan that outlived the broadcast it
+        // was planned for (or that arrived once the station held no order at all) must not replace
+        // the tail of whatever replaced it. No throw and no activity row: a retry would land on the
+        // new broadcast, and the newer `air.on` row already says what happened.
+        if (!this.lineup || broadcastId !== this.lineup.broadcastId) {
+            this.logger.warn('director: a replan arrived for a broadcast that has ended; dropped', {
+                expected: broadcastId,
+                current: this.lineup?.broadcastId,
+                tracks: tracks.length,
+            });
+            return;
+        }
         if (tracks.length === 0) {
             this.logger.warn('director: a replan arrived with no records, so the running order was left alone');
             return;
@@ -2627,7 +2657,10 @@ export class DirectorService {
         // braces — the window expires either way — but it is the difference between the next
         // boundary and five minutes of a shortening order, and it costs one line.
         try {
-            await this.jobs.send('director.extend_lineup', {});
+            // Stamped with the broadcast this pass is actually looking at, so the job can tell a
+            // changeover apart from a genuine ask before it pays for the model: see
+            // `ExtendLineupJob.execute` and `appendTracks`.
+            await this.jobs.send('director.extend_lineup', { broadcastId: lineup.broadcastId });
         } catch (error) {
             // Swallowed on purpose, and the guard is left clear so the next boundary asks again.
             // A refill that could not be sent must not take the commit pass down with it: the

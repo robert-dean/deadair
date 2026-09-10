@@ -915,21 +915,23 @@ describe('DirectorConsoleService editing the running order', () => {
 
     it('queues an extend rather than making the operator wait for it', async () => {
         // Generating walks the catalog and, later, rate-limited providers.
-        const { service, jobs } = build({ order: onAirWith(2) });
+        const order = onAirWith(2);
+        const { service, jobs } = build({ order });
 
         await service.extendOrder({ count: 5 });
 
-        expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { count: 5 });
+        expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { count: 5, broadcastId: order.broadcastId });
     });
 
     it('queues a replan rather than emptying the order and making the operator wait', async () => {
         // The job generates a whole set BEFORE anything is dropped, which is what keeps the station
         // on air across the swap. Nothing is answered here but the ask.
-        const { service, jobs, director } = build({ order: onAirWith(3) });
+        const order = onAirWith(3);
+        const { service, jobs, director } = build({ order });
 
         await service.replanOrder({ count: 5 });
 
-        expect(jobs.send).toHaveBeenCalledWith('director.replan_lineup', { count: 5 });
+        expect(jobs.send).toHaveBeenCalledWith('director.replan_lineup', { count: 5, broadcastId: order.broadcastId });
         expect(director.applyEdit).not.toHaveBeenCalled();
     });
 

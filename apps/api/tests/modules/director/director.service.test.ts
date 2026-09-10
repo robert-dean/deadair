@@ -1613,12 +1613,12 @@ describe('DirectorService going on air', () => {
     it('asks again when a refill appends more, since that is where a discovered record arrives', async () => {
         // `PickResolver` looks a pick up at a provider and ingests it INSIDE the refill, so the
         // records that most need describing are the ones this command carries.
-        const { director, jobs, seed } = build();
+        const { director, jobs, seed, lineup } = build();
         await seed();
         await director.start();
         jobs.send.mockClear();
 
-        await director.post({ kind: 'appendTracks', tracks: [track('x'), track('y')] });
+        await director.post({ kind: 'appendTracks', tracks: [track('x'), track('y')], broadcastId: lineup.broadcastId });
 
         expect(jobs.send.mock.calls.filter(call => call[0] === 'catalog.enrich')).toHaveLength(1);
     });
@@ -1629,7 +1629,7 @@ describe('DirectorService going on air', () => {
         await director.start();
         jobs.send.mockRejectedValue(new Error('the broker is not available here'));
 
-        await director.post({ kind: 'appendTracks', tracks: [track('x'), track('y')] });
+        await director.post({ kind: 'appendTracks', tracks: [track('x'), track('y')], broadcastId: lineup.broadcastId });
 
         // The append landed. Nothing reads the enrichment send to decide anything and the cron is
         // still there, so a lost one costs a quarter hour and nothing else.
@@ -2505,7 +2505,7 @@ describe('DirectorService replacing the rest of the running order', () => {
         await director.start();
         await rundown.next();
 
-        await director.post({ kind: 'replaceTail', tracks: [track('x'), track('y')] });
+        await director.post({ kind: 'replaceTail', tracks: [track('x'), track('y')], broadcastId: lineup.broadcastId });
 
         expect(
             lineup
@@ -2523,7 +2523,7 @@ describe('DirectorService replacing the rest of the running order', () => {
         await director.start();
         await rundown.next();
 
-        await director.post({ kind: 'replaceTail', tracks: [track('x')] });
+        await director.post({ kind: 'replaceTail', tracks: [track('x')], broadcastId: lineup.broadcastId });
 
         expect(lineup.all()[0]?.state).not.toBe('planned');
         expect(
@@ -2541,29 +2541,29 @@ describe('DirectorService replacing the rest of the running order', () => {
         await seed();
         await director.start();
 
-        await director.post({ kind: 'replaceTail', tracks: [] });
+        await director.post({ kind: 'replaceTail', tracks: [], broadcastId: lineup.broadcastId });
 
         expect(lineup.size()).toBe(3);
     });
 
     it('writes the swap down before anything else happens to it', async () => {
-        const { director, lineups, seed } = build({ items: ['a', 'b'] });
+        const { director, lineups, lineup, seed } = build({ items: ['a', 'b'] });
         await seed();
         await director.start();
         vi.mocked(lineups.save).mockClear();
 
-        await director.post({ kind: 'replaceTail', tracks: [track('x')] });
+        await director.post({ kind: 'replaceTail', tracks: [track('x')], broadcastId: lineup.broadcastId });
 
         expect(lineups.save).toHaveBeenCalled();
     });
 
     it('asks for the new records to be described, since every one of them is new', async () => {
-        const { director, jobs, seed } = build({ items: ['a', 'b'] });
+        const { director, jobs, lineup, seed } = build({ items: ['a', 'b'] });
         await seed();
         await director.start();
         jobs.send.mockClear();
 
-        await director.post({ kind: 'replaceTail', tracks: [track('x'), track('y')] });
+        await director.post({ kind: 'replaceTail', tracks: [track('x'), track('y')], broadcastId: lineup.broadcastId });
 
         expect(jobs.send.mock.calls.filter(call => call[0] === 'catalog.enrich')).toHaveLength(1);
     });
@@ -2579,7 +2579,7 @@ describe('DirectorService replacing the rest of the running order', () => {
         await director.start();
         lineup.insertSegment('talk-1', lineup.size());
 
-        await director.post({ kind: 'replaceTail', tracks: [track('x')] });
+        await director.post({ kind: 'replaceTail', tracks: [track('x')], broadcastId: lineup.broadcastId });
 
         expect(segmentStub.markFailed).toHaveBeenCalledWith('talk-1', expect.stringContaining('replanned'), 'planned');
     });
@@ -2593,7 +2593,7 @@ describe('DirectorService replacing the rest of the running order', () => {
         await director.start();
         lineup.insertSegment('ident-1', lineup.size());
 
-        await director.post({ kind: 'replaceTail', tracks: [track('x')] });
+        await director.post({ kind: 'replaceTail', tracks: [track('x')], broadcastId: lineup.broadcastId });
 
         expect(segmentStub.markFailed).not.toHaveBeenCalled();
     });
@@ -2630,12 +2630,12 @@ describe('DirectorService replacing the rest of the running order', () => {
     });
 
     it('commits off the new tail, so the swap reaches the player without waiting for a boundary', async () => {
-        const { director, rundown, seed } = build({ items: ['a', 'b', 'c'] });
+        const { director, rundown, lineup, seed } = build({ items: ['a', 'b', 'c'] });
         await seed();
         await director.start();
         await airNext(rundown);
 
-        await director.post({ kind: 'replaceTail', tracks: [track('x'), track('y')] });
+        await director.post({ kind: 'replaceTail', tracks: [track('x'), track('y')], broadcastId: lineup.broadcastId });
         await settle();
 
         expect(idsOf(rundown.upcoming())).toContain('x');
@@ -2644,13 +2644,13 @@ describe('DirectorService replacing the rest of the running order', () => {
 
 describe('DirectorService asking for a refill', () => {
     it('sends the refill from a scope of its own', async () => {
-        const { director, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+        const { director, jobs, lineup, seed } = build({ items: ['a', 'b', 'c'] });
         await seed();
 
         await director.start();
         await settle();
 
-        expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', {});
+        expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { broadcastId: lineup.broadcastId });
     });
 
     // The one that turned a transient failure into a permanent one.
@@ -2687,7 +2687,7 @@ describe('DirectorService asking for a refill', () => {
     // be the only thing that cleared the guard. So the station asked once, was answered "nothing",
     // and never asked again while its order drained to silence.
     it('asks again after a refill that honestly came back with nothing', async () => {
-        const { director, rundown, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+        const { director, rundown, jobs, lineup, seed } = build({ items: ['a', 'b', 'c'] });
         await seed();
         await director.start();
         await settle();
@@ -2696,7 +2696,7 @@ describe('DirectorService asking for a refill', () => {
         expect(jobs.send).toHaveBeenCalledTimes(1);
 
         // The refill ran, found nothing, and handed back an empty batch.
-        await director.post({ kind: 'appendTracks', tracks: [] });
+        await director.post({ kind: 'appendTracks', tracks: [], broadcastId: lineup.broadcastId });
         await settle();
 
         // Past the window in which one send suppresses the next.
@@ -2709,13 +2709,13 @@ describe('DirectorService asking for a refill', () => {
     // The other half of the same rule: expiring must not turn the guard off. A burst of boundaries
     // inside the window is still one shortfall and still deserves one job.
     it('still asks only once for a burst inside the guard window', async () => {
-        const { director, rundown, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+        const { director, rundown, jobs, lineup, seed } = build({ items: ['a', 'b', 'c'] });
         await seed();
         await director.start();
         await settle();
 
         await wake(rundown);
-        await director.post({ kind: 'appendTracks', tracks: [] });
+        await director.post({ kind: 'appendTracks', tracks: [], broadcastId: lineup.broadcastId });
         await settle();
 
         vi.setSystemTime(Date.now() + Math.floor(EXTEND_GUARD_MS / 2));
@@ -2723,6 +2723,103 @@ describe('DirectorService asking for a refill', () => {
         await wake(rundown);
 
         expect(jobs.send).toHaveBeenCalledTimes(1);
+    });
+});
+
+// A refill or a replan is generated against the broadcast a job read minutes earlier, and the
+// mailbox being serial says nothing about whether that broadcast is still the one on air by the
+// time the finished command arrives. These are the two ways it can have moved on.
+describe('DirectorService dropping a refill or a replan planned for a broadcast that has ended', () => {
+    it('drops a stale appendTracks rather than grafting it onto the broadcast now on air', async () => {
+        const { director, lineup, seed } = build({ items: ['a', 'b'] });
+        await seed();
+        await director.start();
+
+        await director.post({ kind: 'appendTracks', tracks: [track('x')], broadcastId: 'a-broadcast-that-has-ended' });
+
+        expect(lineup.all().some(item => item.kind === 'track' && item.track.externalId === 'x')).toBe(false);
+        expect(logger.warn).toHaveBeenCalledWith(
+            'director: a refill arrived for a broadcast that has ended; dropped',
+            expect.objectContaining({ expected: 'a-broadcast-that-has-ended', current: lineup.broadcastId, tracks: 1 }),
+        );
+    });
+
+    it('applies an appendTracks command stamped for the broadcast still on air', async () => {
+        const { director, lineup, seed } = build({ items: ['a', 'b'] });
+        await seed();
+        await director.start();
+
+        await director.post({ kind: 'appendTracks', tracks: [track('x')], broadcastId: lineup.broadcastId });
+
+        expect(lineup.all().some(item => item.kind === 'track' && item.track.externalId === 'x')).toBe(true);
+    });
+
+    it('drops a stale replaceTail rather than swapping the tail of the broadcast now on air', async () => {
+        const { director, lineup, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+
+        await director.post({ kind: 'replaceTail', tracks: [track('x')], broadcastId: 'a-broadcast-that-has-ended' });
+
+        expect(
+            lineup
+                .all()
+                .filter(isTrackItem)
+                .map(item => item.track.externalId),
+        ).toEqual(['a', 'b', 'c']);
+        expect(logger.warn).toHaveBeenCalledWith(
+            'director: a replan arrived for a broadcast that has ended; dropped',
+            expect.objectContaining({ expected: 'a-broadcast-that-has-ended', current: lineup.broadcastId, tracks: 1 }),
+        );
+    });
+
+    it('applies a replaceTail command stamped for the broadcast still on air', async () => {
+        const { director, lineup, rundown, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+        await rundown.next();
+
+        await director.post({ kind: 'replaceTail', tracks: [track('x')], broadcastId: lineup.broadcastId });
+
+        expect(
+            lineup
+                .all()
+                .filter(isTrackItem)
+                .map(item => item.track.externalId),
+        ).toEqual(['a', 'x']);
+    });
+
+    // The bug this closes: a refill dropped for the old broadcast used to hold the new broadcast's
+    // first shortfall behind `EXTEND_GUARD_MS`, because nothing told the guard the send it was set
+    // for could never land. A changeover clears it instead.
+    it('clears the refill guard on a changeover, so the new broadcast asks for a refill at once', async () => {
+        const { director, jobs, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+        await director.start();
+        await settle();
+        expect(jobs.send).toHaveBeenCalledTimes(1);
+
+        jobs.send.mockClear();
+        await director.post({
+            kind: 'putOnAir',
+            binding: { name: 'Something else', mode: 'rotation', onEnd: 'extend', source: 'import' },
+            tracks: [track('x')],
+        });
+        await settle();
+
+        // Still well inside the window the OLD broadcast's send would have suppressed: the only way
+        // this lands is that the changeover cleared the guard rather than the window expiring.
+        expect(jobs.send).toHaveBeenCalled();
+    });
+
+    it('sends the extend job stamped with the lineup it is actually short on', async () => {
+        const { director, jobs, lineup, seed } = build({ items: ['a', 'b', 'c'] });
+        await seed();
+
+        await director.start();
+        await settle();
+
+        expect(jobs.send).toHaveBeenCalledWith('director.extend_lineup', { broadcastId: lineup.broadcastId });
     });
 });
 

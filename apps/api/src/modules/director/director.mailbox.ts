@@ -107,8 +107,13 @@ export type DirectorCommand =
      * history reads, and rate-limited providers to come. All this does is append,
      * which is what keeps a refill from holding the station's only decision-making
      * path for the length of a provider call.
+     *
+     * `broadcastId` names the broadcast the job read, not the one it hopes still exists. Generating
+     * takes long enough for a changeover to land first, and a refill that arrives after one is
+     * describing a station that is not airing any more: the handler drops it rather than grafting
+     * material planned for one show onto the next.
      */
-    | { kind: 'appendTracks'; tracks: readonly RundownTrack[] }
+    | { kind: 'appendTracks'; tracks: readonly RundownTrack[]; broadcastId: string }
     /**
      * A replan has finished generating: put these records where everything still planned was.
      *
@@ -117,8 +122,11 @@ export type DirectorCommand =
      * order the station is airing keeps its tail until there is a replacement to put there, so a
      * model that takes minutes costs the operator a wait rather than costing the station its
      * mount lease. See `ReplanLineupJob`.
+     *
+     * `broadcastId` is the same guard as {@link appendTracks}'s: a replan that outlived the
+     * broadcast it was planned for must not replace the tail of whatever replaced it.
      */
-    | { kind: 'replaceTail'; tracks: readonly RundownTrack[] }
+    | { kind: 'replaceTail'; tracks: readonly RundownTrack[]; broadcastId: string }
     /**
      * Change what the operator has asked this broadcast for. Absent or empty clears it.
      *

@@ -17,6 +17,15 @@ import { isTrackItem } from './station.lineup.js';
 export interface ExtendLineupPayload {
     /** How many tracks to add. Absent means {@link DEFAULT_COUNT}. */
     count?: number;
+    /**
+     * The broadcast this send was asked on behalf of. Absent means whichever asked with no
+     * particular broadcast in mind (an operator's "extend now") so the lineup this run loads is
+     * taken on trust. Present, it is checked against that same lineup before anything is generated:
+     * a changeover between the send and the run means the broadcast this was asked for has already
+     * ended, and paying for the model to extend it would be wasted before the director's own guard
+     * ever saw it.
+     */
+    broadcastId?: string;
 }
 
 /**
@@ -73,6 +82,17 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
             // The station has never been given anything to play. An ordinary race with a
             // stand-down, not a failure.
             this.logger.info('director: there is no running order to extend', { job: this.context.id });
+            return;
+        }
+        if (payload?.broadcastId !== undefined && payload.broadcastId !== lineup.broadcastId) {
+            // A changeover landed between the send and this run. Generating now would spend the
+            // model on a broadcast that has already ended, and `appendTracks` would only drop the
+            // result on arrival: cheaper to notice here, before any of that is paid for.
+            this.logger.info('director: the broadcast this refill was asked for has ended; skipping', {
+                job: this.context.id,
+                expected: payload.broadcastId,
+                current: lineup.broadcastId,
+            });
             return;
         }
 
@@ -162,7 +182,7 @@ export class ExtendLineupJob extends PlainJob<ExtendLineupPayload> {
         // Breaks are not planted from here either. The director's own pass walks the whole tail and
         // plants every slot it finds in one write, so doing it now would buy a boundary's latency
         // and cost the single writer this job just stopped being.
-        await this.director.post({ kind: 'appendTracks', tracks: added });
+        await this.director.post({ kind: 'appendTracks', tracks: added, broadcastId: lineup.broadcastId });
 
         this.logger.info('director: extended the running order', {
             job: this.context.id,

@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { httpError } from '@maroonedsoftware/errors';
 import { PgBossJobBroker } from '@maroonedsoftware/jobbroker/pgboss';
 import { Logger } from '@maroonedsoftware/logger';
+import { DateTime } from 'luxon';
 import { PLUGIN_CAPABILITY_OAUTH, type ConfigField, type ConfigFieldOption, type PluginManifest } from '@deadair/plugin-sdk';
 import { AfterCommit } from '#modules/data/after.commit.js';
 import { StationBus } from '#modules/shared/station.bus.js';
@@ -873,6 +874,7 @@ export class PluginsService {
 
     private toSummary(record: PluginRecord, readModel: PluginConfigReadModel): PluginSummary {
         const manifest = record.manifest;
+        const nextProbeAtMs = this.pluginInvoker.nextProbeAt(record.id);
         return {
             id: record.id,
             name: manifest?.name ?? record.id,
@@ -887,6 +889,8 @@ export class PluginsService {
             configFields: manifest?.configFields ?? [],
             secretsConfigured: readModel.configured,
             firstEnabledAt: readModel.firstEnabledAt,
+            lastError: record.error,
+            nextProbeAt: nextProbeAtMs === undefined ? undefined : DateTime.fromMillis(nextProbeAtMs),
         };
     }
 }

@@ -635,6 +635,35 @@ describe('PluginInvoker automatic recovery', () => {
         await vi.advanceTimersByTimeAsync(1);
         expect(testConnection).toHaveBeenCalledTimes(2);
     });
+
+    describe('nextProbeAt', () => {
+        it('is absent for a plugin with nothing scheduled', () => {
+            const { invoker } = setup();
+            expect(invoker.nextProbeAt('p')).toBeUndefined();
+        });
+
+        it('reports when the pending probe is due, and clears it once the probe runs', async () => {
+            const testConnection = vi.fn<Check>(async () => ({ ok: true }));
+            const { invoker } = setup(testConnection);
+            const trippedAt = Date.now();
+            await tripOnOutage(invoker);
+
+            expect(invoker.nextProbeAt('p')).toBe(trippedAt + MINUTE);
+
+            await vi.advanceTimersByTimeAsync(MINUTE);
+            expect(invoker.nextProbeAt('p')).toBeUndefined();
+        });
+
+        it('is cleared along with everything else once the plugin is reset', async () => {
+            const testConnection = vi.fn<Check>(async () => ({ ok: true }));
+            const { invoker } = setup(testConnection);
+            await tripOnOutage(invoker);
+
+            expect(invoker.nextProbeAt('p')).toBeDefined();
+            invoker.reset('p');
+            expect(invoker.nextProbeAt('p')).toBeUndefined();
+        });
+    });
 });
 
 /**

@@ -324,6 +324,10 @@ data class PluginSummary(
     val secretsConfigured: Map<String, Boolean>,
     /** When this plugin was first ever enabled. Absent means it never has been, so the console asks before it is */
     val firstEnabledAt: Instant? = null,
+    /** The last recorded failure. Absent means it is not currently unhappy */
+    val lastError: String? = null,
+    /** When the breaker will probe this plugin again on its own. Absent means no probe is pending */
+    val nextProbeAt: Instant? = null,
 )
 
 /** A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set */
@@ -340,9 +344,11 @@ data class PluginSummaryInput(
     val configFields: List<ConfigFieldDescriptor>,
     /** Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself */
     val secretsConfigured: Map<String, Boolean>,
+    /** The last recorded failure. Absent means it is not currently unhappy */
+    val lastError: String? = null,
 )
 
-/** A summary plus the stored NON-SECRET configuration and the last recorded failure */
+/** A summary plus the stored NON-SECRET configuration */
 @Serializable
 data class PluginDetail(
     val id: String,
@@ -358,13 +364,16 @@ data class PluginDetail(
     val secretsConfigured: Map<String, Boolean>,
     /** When this plugin was first ever enabled. Absent means it never has been, so the console asks before it is */
     val firstEnabledAt: Instant? = null,
-    val config: Map<String, JsonElement>,
+    /** The last recorded failure. Absent means it is not currently unhappy */
     val lastError: String? = null,
+    /** When the breaker will probe this plugin again on its own. Absent means no probe is pending */
+    val nextProbeAt: Instant? = null,
+    val config: Map<String, JsonElement>,
     val oauthConnected: Boolean? = null,
     val logLevel: PluginLogLevel,
 )
 
-/** A summary plus the stored NON-SECRET configuration and the last recorded failure */
+/** A summary plus the stored NON-SECRET configuration */
 @Serializable
 data class PluginDetailInput(
     val id: String,
@@ -378,8 +387,9 @@ data class PluginDetailInput(
     val configFields: List<ConfigFieldDescriptor>,
     /** Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself */
     val secretsConfigured: Map<String, Boolean>,
-    val config: Map<String, JsonElement>,
+    /** The last recorded failure. Absent means it is not currently unhappy */
     val lastError: String? = null,
+    val config: Map<String, JsonElement>,
     val oauthConnected: Boolean? = null,
     val logLevel: PluginLogLevel,
 )

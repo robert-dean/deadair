@@ -151,6 +151,9 @@ export class PluginInvoker {
     /** The pending automatic probe per quarantined plugin. At most one each. */
     private readonly recoveryTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
+    /** When {@link recoveryTimers}'s probe is due, kept for {@link nextProbeAt} to report. Deleted everywhere its timer is. */
+    private readonly recoveryDueAt = new Map<string, number>();
+
     /**
      * Automatic probes scheduled since the breaker opened, which is what the backoff doubles on.
      * Present exactly while the quarantine in force is one the breaker will probe its way out of, OR
@@ -384,7 +387,13 @@ export class PluginInvoker {
         // A probe half an hour out is not a reason for a process to stay alive.
         timer.unref();
         this.recoveryTimers.set(pluginId, timer);
+        this.recoveryDueAt.set(pluginId, Date.now() + delayMs);
         this.pluginLog.for(pluginId).info('plugin will be probed again on its own', { inMs: delayMs, attempt: attempts + 1 });
+    }
+
+    /** When the breaker will probe this plugin again on its own. Absent when no probe is pending. */
+    nextProbeAt(pluginId: string): number | undefined {
+        return this.recoveryDueAt.get(pluginId);
     }
 
     /**
@@ -396,6 +405,7 @@ export class PluginInvoker {
         const timer = this.recoveryTimers.get(pluginId);
         if (timer !== undefined) clearTimeout(timer);
         this.recoveryTimers.delete(pluginId);
+        this.recoveryDueAt.delete(pluginId);
     }
 
     private cancelRecovery(pluginId: string): void {
@@ -414,6 +424,7 @@ export class PluginInvoker {
      */
     private async probeOnSchedule(pluginId: string): Promise<void> {
         this.recoveryTimers.delete(pluginId);
+        this.recoveryDueAt.delete(pluginId);
         if (this.recoveryStopped || !this.openBreakers.has(pluginId)) return;
 
         const instance = this.pluginRegistry.instance(pluginId);

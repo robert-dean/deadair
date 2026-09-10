@@ -78,6 +78,8 @@ contract PluginSummary: {
     configFields: array(ConfigFieldDescriptor)
     secretsConfigured: record(string, boolean) # Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself
     firstEnabledAt?: readonly datetime # When this plugin was first ever enabled. Absent means it never has been, so the console asks before it is
+    lastError?: string(max=4000) # The last recorded failure. Absent means it is not currently unhappy
+    nextProbeAt?: readonly datetime # When the breaker will probe this plugin again on its own. Absent means no probe is pending
 }
 
 contract PluginLogLevel: enum(debug, info, warn, error)
@@ -103,10 +105,9 @@ contract PluginLogLevelInput: {
     level: PluginLogLevel
 }
 
-# A summary plus the stored NON-SECRET configuration and the last recorded failure
+# A summary plus the stored NON-SECRET configuration
 contract PluginDetail: PluginSummary & {
     config: record(string, unknown)
-    lastError?: string(max=4000)
     oauthConnected?: boolean
     logLevel: PluginLogLevel
 }

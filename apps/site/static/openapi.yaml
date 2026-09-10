@@ -7780,6 +7780,15 @@ components:
                     format: date-time
                     readOnly: true
                     description: 'When this plugin was first ever enabled. Absent means it never has been, so the console asks before it is'
+                lastError:
+                    type: string
+                    maxLength: 4000
+                    description: 'The last recorded failure. Absent means it is not currently unhappy'
+                nextProbeAt:
+                    type: string
+                    format: date-time
+                    readOnly: true
+                    description: 'When the breaker will probe this plugin again on its own. Absent means no probe is pending'
             required:
                 - id
                 - name
@@ -7844,9 +7853,6 @@ components:
                       config:
                           type: object
                           additionalProperties: {}
-                      lastError:
-                          type: string
-                          maxLength: 4000
                       oauthConnected:
                           type: boolean
                       logLevel:

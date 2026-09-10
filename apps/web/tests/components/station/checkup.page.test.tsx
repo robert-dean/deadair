@@ -9,6 +9,7 @@ import type { ReactNode } from 'react';
 import { CheckupPage } from '../../../src/components/station/checkup.page';
 import { stubPhoneMedia } from '../../utils/phone';
 import { playoutStatus, stationSilence } from '../../utils/playout.fixture';
+import { pluginSummary } from '../../utils/plugin.fixture';
 import { render, screen, within } from '../../utils/render';
 
 const getPlayoutStatus = vi.fn();
@@ -209,5 +210,46 @@ describe('CheckupPage', () => {
 
         expect(await screen.findByText('ready')).toBeInTheDocument();
         expect(screen.queryByText('noAudience')).not.toBeInTheDocument();
+    });
+
+    /**
+     * `lastError` and `nextProbeAt` ride on `PluginSummary` precisely so this row can draw them:
+     * why a plugin is unhappy, and when the breaker will ask it again on its own.
+     */
+    it('draws why an unhappy plugin is quarantined and when it will be asked again', async () => {
+        allWell();
+        listPlugins.mockResolvedValue([
+            pluginSummary({
+                status: 'failed',
+                lastError: 'catalog.search: HTTP 502',
+                nextProbeAt: DateTime.fromISO('2026-08-25T12:05:00.000Z'),
+            }),
+        ]);
+
+        render(<CheckupPage />);
+
+        expect(await screen.findByText('Spotify')).toBeInTheDocument();
+        expect(screen.getByText(/HTTP 502/)).toBeInTheDocument();
+        expect(screen.getByText(/asked again at \d{1,2}:\d{2}/)).toBeInTheDocument();
+    });
+
+    it('draws no probe time for an unhappy plugin the breaker has not scheduled one for', async () => {
+        allWell();
+        listPlugins.mockResolvedValue([pluginSummary({ status: 'failed', lastError: 'catalog.search: HTTP 502' })]);
+
+        render(<CheckupPage />);
+
+        expect(await screen.findByText(/HTTP 502/)).toBeInTheDocument();
+        expect(screen.queryByText(/asked again at/)).not.toBeInTheDocument();
+    });
+
+    it('draws no reason line at all for an unhappy plugin the breaker has never recorded one for', async () => {
+        allWell();
+        listPlugins.mockResolvedValue([pluginSummary({ status: 'failed' })]);
+
+        render(<CheckupPage />);
+
+        expect(await screen.findByText('Spotify')).toBeInTheDocument();
+        expect(screen.queryByText(/asked again at/)).not.toBeInTheDocument();
     });
 });

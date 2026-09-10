@@ -93,9 +93,9 @@ export function useDecidePluginGrant() {
     });
 }
 
-/** The list's view of a detail record: everything but the stored configuration and the last error. */
+/** The list's view of a detail record: everything but the stored configuration. */
 function toSummary(detail: PluginDetail): PluginSummary {
-    const { config: _config, lastError: _lastError, ...summary } = detail;
+    const { config: _config, ...summary } = detail;
     return summary;
 }
 

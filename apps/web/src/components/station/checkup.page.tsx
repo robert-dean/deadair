@@ -361,6 +361,11 @@ function ago(now: number, then: DateTime): string {
     return `${Math.round(seconds / 86_400)}d`;
 }
 
+/** The wall-clock hour and minute a scheduled probe is due, in the operator's own zone. */
+function clockTime(at: DateTime): string {
+    return at.toFormat('HH:mm');
+}
+
 /** Which plugins are unhappy, and a count of the ones that are fine. */
 function Plugins({ plugins }: { plugins: PluginSummary[] }) {
     const unhappy = plugins.filter(plugin => plugin.enabled && plugin.status !== 'active');
@@ -373,10 +378,18 @@ function Plugins({ plugins }: { plugins: PluginSummary[] }) {
             {/* Only the ones with something wrong get a row. A list of ten healthy plugins is the
                 plugins page, and repeating it here would bury the one that is not. */}
             {unhappy.map(plugin => (
-                <Group key={plugin.id} gap="sm">
-                    <StatusLamp tone={plugin.status === 'failed' ? 'fault' : 'standby'} label={plugin.status} />
-                    <Text size="sm">{plugin.name}</Text>
-                </Group>
+                <Stack key={plugin.id} gap={2}>
+                    <Group gap="sm">
+                        <StatusLamp tone={plugin.status === 'failed' ? 'fault' : 'standby'} label={plugin.status} />
+                        <Text size="sm">{plugin.name}</Text>
+                    </Group>
+                    {plugin.lastError !== undefined && (
+                        <Text size="xs" c="dimmed" truncate>
+                            {plugin.lastError}
+                            {plugin.nextProbeAt !== undefined ? ` · asked again at ${clockTime(plugin.nextProbeAt)}` : ''}
+                        </Text>
+                    )}
+                </Stack>
             ))}
         </Stack>
     );

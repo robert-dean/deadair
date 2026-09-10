@@ -149,6 +149,7 @@ interface Harness {
     configService: PluginConfigService;
     lifecycleManager: PluginLifecycleManager;
     registry: PluginRegistry;
+    invoker: PluginInvoker;
     afterCommit: AfterCommit;
     /** Only ever asked for a catalog sync after a provider's settings change. */
     jobs: { send: ReturnType<typeof vi.fn> };
@@ -198,10 +199,11 @@ function makeService(
     const afterCommit = new AfterCommit();
     // Only ever asked for a catalog sync after a provider's settings change.
     const jobs = { send: vi.fn(async () => 'job-1') };
+    const invoker = new PluginInvoker(registry, stubPluginLog().log);
     const service = new PluginsService(
         registry,
         configService,
-        new PluginInvoker(registry, stubPluginLog().log),
+        invoker,
         lifecycleManager,
         new PluginOAuthStateStore(),
         // What the operator has allowed. Nothing in this file asks about a grant.
@@ -215,7 +217,19 @@ function makeService(
         { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as never,
     );
 
-    return { service, accessControl, requireSpy, canAccessSpy, listVisibleIdsSpy, configService, lifecycleManager, registry, afterCommit, jobs };
+    return {
+        service,
+        accessControl,
+        requireSpy,
+        canAccessSpy,
+        listVisibleIdsSpy,
+        configService,
+        lifecycleManager,
+        registry,
+        invoker,
+        afterCommit,
+        jobs,
+    };
 }
 
 /** Asserts the rejection is a 403 `HttpError`. */
@@ -397,6 +411,38 @@ describe('PluginsService: oauthConnected on PluginDetail', () => {
         const detail = await service.getPlugin(OTHER_ID);
 
         expect(detail).not.toHaveProperty('oauthConnected');
+    });
+});
+
+describe('PluginsService: lastError and nextProbeAt on listPlugins', () => {
+    it('carries the quarantine reason and when the breaker will probe again, for a plugin the breaker opened', async () => {
+        const { service, invoker } = makeService(userActor('u-admin', ['admin']));
+
+        // Three retryable failures in a row is what `PluginInvoker` quarantines on, and a retryable
+        // reason is what arms an automatic probe.
+        for (let i = 0; i < 3; i++) {
+            await expect(
+                invoker.invoke(SPOTIFY_ID, 'catalog.search', () => {
+                    throw new PluginError('HTTP 502').withCode('unavailable');
+                }),
+            ).rejects.toThrow();
+        }
+
+        const list = await service.listPlugins();
+        const spotify = list.find(p => p.id === SPOTIFY_ID);
+
+        expect(spotify?.lastError).toMatch(/HTTP 502/);
+        expect(spotify?.nextProbeAt).toBeDefined();
+    });
+
+    it('carries neither for a plugin the breaker has never touched', async () => {
+        const { service } = makeService(userActor('u-admin', ['admin']));
+
+        const list = await service.listPlugins();
+        const spotify = list.find(p => p.id === SPOTIFY_ID);
+
+        expect(spotify?.lastError).toBeUndefined();
+        expect(spotify?.nextProbeAt).toBeUndefined();
     });
 });
 

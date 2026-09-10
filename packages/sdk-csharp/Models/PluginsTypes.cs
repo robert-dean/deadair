@@ -509,6 +509,16 @@ public sealed record PluginSummary
     [JsonPropertyName("firstEnabledAt")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateTimeOffset? FirstEnabledAt { get; init; }
+
+    /// <summary>The last recorded failure. Absent means it is not currently unhappy</summary>
+    [JsonPropertyName("lastError")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LastError { get; init; }
+
+    /// <summary>When the breaker will probe this plugin again on its own. Absent means no probe is pending</summary>
+    [JsonPropertyName("nextProbeAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? NextProbeAt { get; init; }
 }
 
 /// <summary>A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set</summary>
@@ -546,9 +556,14 @@ public sealed record PluginSummaryInput
     /// <summary>Whether a value is currently stored, per `secret` field under its own key and per `secret` cell under `field/rowId/column`. Never the value itself</summary>
     [JsonPropertyName("secretsConfigured")]
     public required Dictionary<string, bool> SecretsConfigured { get; init; }
+
+    /// <summary>The last recorded failure. Absent means it is not currently unhappy</summary>
+    [JsonPropertyName("lastError")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LastError { get; init; }
 }
 
-/// <summary>A summary plus the stored NON-SECRET configuration and the last recorded failure</summary>
+/// <summary>A summary plus the stored NON-SECRET configuration</summary>
 public sealed record PluginDetail
 {
     [JsonPropertyName("id")]
@@ -589,12 +604,18 @@ public sealed record PluginDetail
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateTimeOffset? FirstEnabledAt { get; init; }
 
-    [JsonPropertyName("config")]
-    public required Dictionary<string, JsonElement> Config { get; init; }
-
+    /// <summary>The last recorded failure. Absent means it is not currently unhappy</summary>
     [JsonPropertyName("lastError")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? LastError { get; init; }
+
+    /// <summary>When the breaker will probe this plugin again on its own. Absent means no probe is pending</summary>
+    [JsonPropertyName("nextProbeAt")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? NextProbeAt { get; init; }
+
+    [JsonPropertyName("config")]
+    public required Dictionary<string, JsonElement> Config { get; init; }
 
     [JsonPropertyName("oauthConnected")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -604,7 +625,7 @@ public sealed record PluginDetail
     public required PluginLogLevel LogLevel { get; init; }
 }
 
-/// <summary>A summary plus the stored NON-SECRET configuration and the last recorded failure</summary>
+/// <summary>A summary plus the stored NON-SECRET configuration</summary>
 public sealed record PluginDetailInput
 {
     [JsonPropertyName("id")]
@@ -640,12 +661,13 @@ public sealed record PluginDetailInput
     [JsonPropertyName("secretsConfigured")]
     public required Dictionary<string, bool> SecretsConfigured { get; init; }
 
-    [JsonPropertyName("config")]
-    public required Dictionary<string, JsonElement> Config { get; init; }
-
+    /// <summary>The last recorded failure. Absent means it is not currently unhappy</summary>
     [JsonPropertyName("lastError")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? LastError { get; init; }
+
+    [JsonPropertyName("config")]
+    public required Dictionary<string, JsonElement> Config { get; init; }
 
     [JsonPropertyName("oauthConnected")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

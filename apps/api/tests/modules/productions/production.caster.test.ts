@@ -25,7 +25,9 @@ const production = (over: Partial<Production> = {}): Production =>
         ...over,
     }) as Production;
 
-function build(options: { roster?: ReturnType<typeof caller>[]; heard?: Map<string, number>; rosterThrows?: boolean; kinds?: string } = {}) {
+function build(
+    options: { roster?: ReturnType<typeof caller>[]; heard?: Map<string, number>; rosterThrows?: boolean; kinds?: string; djName?: string } = {},
+) {
     const personas = {
         presenting: vi.fn(async () => ({ id: 'host-1', key: 'classic', kind: 'host', label: 'Classic', style: 'warm', voice: 'classic' })),
         castable: vi.fn(async () => {
@@ -36,7 +38,8 @@ function build(options: { roster?: ReturnType<typeof caller>[]; heard?: Map<stri
     const segments = { lastSpokenBy: vi.fn(async () => options.heard ?? new Map<string, number>()) };
     // Strings, because every layer of AppConfig holds strings. A double that answered a real value
     // here would prove nothing about how the setting is actually read.
-    const config = { get: (key: string, fallback: string) => (key === 'render.dialogueKinds' ? (options.kinds ?? fallback) : fallback) };
+    const settings: Record<string, string | undefined> = { 'render.dialogueKinds': options.kinds, 'station.djName': options.djName };
+    const config = { get: (key: string, fallback: string) => settings[key] ?? fallback };
 
     return { personas, segments, caster: new ProductionCaster(personas as never, segments as never, config as never, logger as never) };
 }
@@ -95,6 +98,15 @@ describe('casting a production', () => {
         const { caster } = build({ roster: [caller('skeptic')] });
 
         expect(await caster.cast(production(), 1)).toHaveLength(1);
+    });
+
+    it("names an unnamed presenter with the station's presenter name, and no caller with it", async () => {
+        const { caster } = build({ roster: [caller('skeptic')], djName: 'Casey' });
+
+        const cast = await caster.cast(production(), 9);
+
+        expect(cast[0]?.name).toBe('Casey');
+        expect(cast[1]?.name).toBeUndefined();
     });
 
     it('reads the kinds the operator actually named', async () => {

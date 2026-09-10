@@ -47,7 +47,7 @@ export interface CastMember {
     personaId?: string;
     /** The persona's key, which is what `script_history` and the notebook are keyed by. */
     personaKey?: string;
-    /** What this character is called on air. The host's `djName`, or the caller's. */
+    /** What this character is called on air: their `djName`, or for the host `station.djName` behind it. */
     name?: string;
     /** The station voice that speaks them. Absent means the speech plugin's own default. */
     voice?: string;
@@ -185,9 +185,18 @@ export const MAX_CALLERS = 3;
  * the next programme carries a different one. Both people on a call rotate over the SAME id, which
  * is deliberate and costs nothing: their lists are their own, so two characters landing on the same
  * index are still on about two different things.
+ *
+ * `stationName` is `station.djName`, and it names the presenter wherever the persona has no name of
+ * its own, which is the resolution every break writer applies. Without it the Classic host a fresh
+ * station starts with was called Casey in every break and nobody at all in a phone-in: one station
+ * with two presenters as far as a listener can tell. A caller never takes it, because a caller is
+ * not the station.
  */
-export function hostMember(persona: PersonaToCast | undefined, productionId: string): CastMember {
-    if (persona === undefined) return { role: 'host' };
+export function hostMember(persona: PersonaToCast | undefined, productionId: string, stationName?: string): CastMember {
+    const name = (persona?.djName ?? stationName)?.trim();
+    const named = name === undefined || name.length === 0 ? {} : { name };
+
+    if (persona === undefined) return { role: 'host', ...named };
 
     const preoccupation = preoccupationOf(persona, productionId);
 
@@ -195,7 +204,7 @@ export function hostMember(persona: PersonaToCast | undefined, productionId: str
         role: 'host',
         personaId: persona.id,
         personaKey: persona.key,
-        ...(persona.djName === undefined ? {} : { name: persona.djName }),
+        ...named,
         ...(persona.voice === undefined ? {} : { voice: persona.voice }),
         ...(preoccupation === undefined ? {} : { preoccupation }),
     };

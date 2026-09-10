@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
+import { TEMPLATE_KEYS } from '#modules/director/break.templates.js';
 import { PersonaRepository } from '#modules/personas/persona.repository.js';
 import { SegmentRepository } from '#modules/render/segment.repository.js';
 import { errorText } from '#modules/shared/error.text.js';
@@ -50,8 +51,9 @@ export class ProductionCaster {
      * be thrown away and recomputed once the cast is known.
      */
     async cast(production: Production, turns: number): Promise<ProductionCast> {
-        // Who is presenting, resolved the one way everything resolves it.
-        const host = hostMember(await this.personas.presenting(production.personaId), production.id);
+        // Who is presenting, resolved the one way everything resolves it, and called what the breaks
+        // around this programme call them.
+        const host = hostMember(await this.personas.presenting(production.personaId), production.id, this.config.get(TEMPLATE_KEYS.djName, ''));
         if (!this.wantsCallers(production.kind)) return [host];
 
         try {

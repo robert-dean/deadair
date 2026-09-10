@@ -78,6 +78,34 @@ describe('a cast', () => {
         // speech plugin's own default voice reads them.
         expect(hostMember(undefined, 'production-1')).toEqual({ role: 'host' });
     });
+
+    // The resolution every break writer applies. Without it, the Classic host a fresh station starts
+    // with was called by the station's name in every break and by nothing at all in a phone-in.
+    describe("the presenter's name", () => {
+        const unnamed = { id: 'id-classic', key: 'classic', voice: 'classic' };
+
+        it("is the station's own for a persona with none", () => {
+            expect(hostMember(unnamed, 'production-1', 'Casey').name).toBe('Casey');
+        });
+
+        it("is the station's own when the station is presenting as nobody", () => {
+            expect(hostMember(undefined, 'production-1', 'Casey')).toEqual({ role: 'host', name: 'Casey' });
+        });
+
+        it("gives way to the persona's own", () => {
+            expect(hostMember(persona('wisecrack'), 'production-1', 'Casey').name).toBe('WISECRACK');
+        });
+
+        it('is absent when neither has one, or the setting is blank', () => {
+            expect(hostMember(unnamed, 'production-1', '').name).toBeUndefined();
+            expect(hostMember(unnamed, 'production-1', '   ').name).toBeUndefined();
+            expect(hostMember(unnamed, 'production-1').name).toBeUndefined();
+        });
+
+        it('never reaches a caller, who is not the station', () => {
+            expect(callerMember(unnamed, 'production-1').name).toBeUndefined();
+        });
+    });
 });
 
 describe('speakerOrder', () => {

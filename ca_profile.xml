@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<CommunityApplications>
+    <Profile>
+**deadair** is an AI radio station you run yourself. It picks the records from your own Spotify account or Subsonic server, writes what the presenter says between them, speaks it in that presenter's voice, and streams the result. One mount, one running order, and everybody hears the same thing at the same moment.
+
+This repository ships one app, the station itself, as a single container in three variants:
+
+- `latest` brings a voice; you point it at your own PostgreSQL and Redis.
+- `full` brings its own database and cache as well. Start here on a server with nothing else on it.
+- `slim` has no voice, for pointing the speech plugin at a machine with a graphics card.
+
+deadair holds no music of its own and grants no rights to broadcast yours. Read the licensing notes before you publish an address.
+
+The install guide is at [deadair.radio](https://deadair.radio). Report problems on [GitHub](https://github.com/robert-dean/deadair/issues).
+    </Profile>
+    <Icon>https://raw.githubusercontent.com/robert-dean/deadair/main/apps/web/public/logo-mark.png</Icon>
+    <WebPage>https://deadair.radio</WebPage>
+</CommunityApplications>

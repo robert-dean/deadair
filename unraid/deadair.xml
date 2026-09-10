@@ -5,8 +5,11 @@
     <Registry>https://hub.docker.com/r/deadair/deadair</Registry>
     <Network>bridge</Network>
     <Privileged>false</Privileged>
+    <Shell>sh</Shell>
     <Support>https://github.com/robert-dean/deadair/issues</Support>
     <Project>https://github.com/robert-dean/deadair</Project>
+    <TemplateURL>https://raw.githubusercontent.com/robert-dean/deadair/main/unraid/deadair.xml</TemplateURL>
+    <License>MIT</License>
     <Overview>
         An AI radio station: it picks the records, writes what the presenter says between them,
         speaks it, and streams the result.
@@ -31,6 +34,21 @@
         failure — so copy that address out of the bar and paste it back into the console.
     </Overview>
     <Category>MediaApp:Music MediaServer:Music</Category>
+    <Requires>
+        An x86-64 server: there is no arm64 image yet. On the latest and slim tags, a PostgreSQL database that
+        already exists and a Redis server; the full tag brings both. On the slim tag, a speech server as well.
+        Music comes from your own Spotify account or Subsonic server, such as Navidrome, because the station
+        holds none of its own.
+    </Requires>
+    <DefaultTagDescription>A voice included. Bring your own PostgreSQL and Redis.</DefaultTagDescription>
+    <Branch>
+        <Tag>full</Tag>
+        <TagDescription>Brings its own database and cache as well. Nothing else needed.</TagDescription>
+    </Branch>
+    <Branch>
+        <Tag>slim</Tag>
+        <TagDescription>No voice. For pointing the speech plugin at a speech server on another machine.</TagDescription>
+    </Branch>
     <WebUI>http://[IP]:[PORT:80]/</WebUI>
     <Icon>https://raw.githubusercontent.com/robert-dean/deadair/main/apps/web/public/logo-mark.png</Icon>
     <ExtraParams></ExtraParams>

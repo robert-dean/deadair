@@ -98,6 +98,13 @@ apps/desktop/artifacts/
 # The `.local.md` suffix is the convention for exactly that and this file was tracked against it.
 CLAUDE.local.md
 
+# Claude Code's working space for multi-agent runs: the handoff packages a plan is split into, their
+# result files, and the isolated worktrees the builders run in. Scratch for one run on one machine,
+# and ignoring it matters beyond `git status`: Prettier reads this file, so without it `format:check`
+# walks every worktree's copy of the tree and reports each one.
+.claude/handoffs/
+.claude/worktrees/
+
 # The website's build droppings: Docusaurus's generated modules, and the two operator docs the build
 # copies in from `deploy/README.md` and `docs/licensing.md` (apps/site/scripts/docs.sync.mjs).
 .docusaurus/

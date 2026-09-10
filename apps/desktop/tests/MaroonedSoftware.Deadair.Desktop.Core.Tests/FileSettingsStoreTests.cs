@@ -103,6 +103,36 @@ public class FileSettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task RemembersThatTheSystemNextControlWasTurnedOn()
+    {
+        using var store = new FileSettingsStore(_directory);
+
+        await store.UpdateAsync(settings => settings with { NextSkips = true }, TestContext.Current.CancellationToken);
+
+        using var reopened = new FileSettingsStore(_directory);
+        await reopened.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(reopened.Current.NextSkips);
+    }
+
+    [Fact]
+    public async Task AFileWithoutTheSystemNextControlKeyReadsAsOff()
+    {
+        // Every settings file written before this setting existed is one of these, and the control
+        // must stay off for an install nobody has told to turn it on.
+        Directory.CreateDirectory(_directory);
+        await File.WriteAllTextAsync(
+            Path.Combine(_directory, "settings.json"),
+            """{"station":"https://radio.example.com","appearance":"Dark","volume":0.4}""",
+            TestContext.Current.CancellationToken);
+
+        using var store = new FileSettingsStore(_directory);
+        await store.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(store.Current.NextSkips);
+    }
+
+    [Fact]
     public async Task HasNoPreferencesBeforeAnythingIsSaved()
     {
         using var store = new FileSettingsStore(_directory);

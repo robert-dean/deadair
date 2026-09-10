@@ -4,6 +4,7 @@ using MaroonedSoftware.Deadair.Desktop.Core.Auth;
 using MaroonedSoftware.Deadair.Desktop.Core.Plugins;
 using MaroonedSoftware.Deadair.Desktop.Core.Settings;
 using MaroonedSoftware.Deadair.Desktop.Core.Station;
+using MaroonedSoftware.Deadair.Desktop.Core.Ui;
 using MaroonedSoftware.Deadair.Desktop.Themes;
 
 // The `Navigation` property below shadows the namespace of the same name, so the destination types
@@ -21,11 +22,19 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 /// do anything yet, and letting somebody navigate away from that is letting them reach screens with
 /// nothing behind them.
 /// </remarks>
-public sealed partial class ShellViewModel : ObservableObject
+public sealed partial class ShellViewModel : ObservableObject, IDisposable
 {
     private readonly ISettingsStore _settings;
     private readonly SessionManager _session;
     private readonly ThemeManager _themes;
+    private readonly IUiDispatcher _dispatcher;
+
+    /// <summary>
+    /// Kept so it can be unsubscribed: <see cref="NextSkips"/> lives in the settings file, so turning
+    /// it on or off has to reapply the system's Next button the same way signing in and out already
+    /// does.
+    /// </summary>
+    private readonly Action<DesktopSettings> _onSettingsChanged;
 
     /// <summary>
     /// Optional so that a shot can build a shell without one. Nothing about a rendered page needs
@@ -49,10 +58,12 @@ public sealed partial class ShellViewModel : ObservableObject
         SettingsViewModel stationSettings,
         VoiceViewModel voice,
         ThemeManager themes,
+        IUiDispatcher dispatcher,
         PluginManager? plugins = null)
     {
         _settings = settings;
         _session = session;
+        _dispatcher = dispatcher;
         Setup = setup;
         Listener = listener;
         Login = login;
@@ -70,7 +81,14 @@ public sealed partial class ShellViewModel : ObservableObject
 
         Setup.Connected += (station, name) => _ = AttachAsync(station, name);
         Login.SignedIn += () => ApplySession();
-        _session.Changed += _ => ApplySession();
+        _session.Changed += _ => _dispatcher.Post(ApplySession);
+
+        // NextSkips lives in the settings file rather than on the session, so turning it on or off
+        // has to reapply the system's Next button the same way signing in and out already does.
+        // FileSettingsStore raises Changed after a ConfigureAwait(false), on a pool thread, and
+        // ApplySession sets UI-bound properties.
+        _onSettingsChanged = _ => _dispatcher.Post(ApplySession);
+        _settings.Changed += _onSettingsChanged;
 
         // A media key's Next is the operator's Skip, so it goes through the desk rather than the
         // player: the player has no next track to move to.
@@ -219,8 +237,11 @@ public sealed partial class ShellViewModel : ObservableObject
 
         // The system's next button is a statement about the ACCOUNT rather than about the player: a
         // listener has no skip to make, and offering one would promise something the station refuses.
+        // It is also off by default even for the operator: a system Next key skips the record for
+        // every listener, with no second press to reconsider, so it stays off until NextSkips says
+        // the operator has turned it on.
         var isOperator = _session.State is SessionState.SignedIn { IsOperator: true };
-        Listener.SetCanSkip(isOperator);
+        Listener.SetCanSkip(isOperator && _settings.Current.NextSkips);
 
         // The rail hides what this account cannot reach, and sends somebody back to the desk rather
         // than leaving them on a page that has just become empty.
@@ -238,4 +259,6 @@ public sealed partial class ShellViewModel : ObservableObject
         await _session.SignOutAsync(cancellationToken).ConfigureAwait(true);
         ApplySession();
     }
+
+    public void Dispose() => _settings.Changed -= _onSettingsChanged;
 }

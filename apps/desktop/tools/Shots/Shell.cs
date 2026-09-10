@@ -60,7 +60,8 @@ internal static class Fakes
             new CheckupViewModel(actions, http),
             new SettingsViewModel(actions, http, settings, new ThemeManager(), PosedPlugins()),
             new VoiceViewModel(actions, http),
-            new ThemeManager())
+            new ThemeManager(),
+            dispatcher)
         {
             NeedsStation = false,
             SignedOut = !operatorSignedIn,

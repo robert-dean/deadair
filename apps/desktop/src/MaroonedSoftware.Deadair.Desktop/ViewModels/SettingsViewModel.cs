@@ -90,6 +90,17 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     private Appearance _appearance = Appearance.System;
 
+    /// <summary>
+    /// Whether the system's Next control (media keys, Control Centre) is offered to the operator.
+    /// </summary>
+    /// <remarks>
+    /// Off by default, saved at once like <see cref="Appearance"/>. The button itself is offered only
+    /// while the signed-in account is the operator; this is the second half of that gate, because a
+    /// system Next key skips the record for every listener with no second press to reconsider.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _nextSkips;
+
     [ObservableProperty]
     private bool _busy;
 
@@ -143,6 +154,7 @@ public sealed partial class SettingsViewModel(
     {
         _station = station;
         Appearance = settings.Current.Appearance;
+        NextSkips = settings.Current.NextSkips;
         MarkChosenFormat(settings.Current.Format);
     }
 
@@ -195,6 +207,8 @@ public sealed partial class SettingsViewModel(
         themes.Apply(value);
         _ = settings.UpdateAsync(current => current with { Appearance = value });
     }
+
+    partial void OnNextSkipsChanged(bool value) => _ = settings.UpdateAsync(current => current with { NextSkips = value });
 
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)

@@ -84,6 +84,19 @@ public sealed record DesktopSettings
     [JsonPropertyName("output")]
     public OutputMemory? Output { get; init; }
 
+    /// <summary>
+    /// Whether the system's Next control (media keys, Control Centre) is offered to the operator.
+    /// </summary>
+    /// <remarks>
+    /// Off by default. A live mount has no next track, so the button is really the operator's Skip,
+    /// and it skips the record for every listener with no second press to think in: the same reason
+    /// the Android app gives for gating its own head-unit button. It is offered at all only while the
+    /// signed-in account holds the operator role; this setting decides whether it is offered even
+    /// then. See <see cref="MaroonedSoftware.Deadair.Desktop.Core.Playback.RemoteCommand.Next"/>.
+    /// </remarks>
+    [JsonPropertyName("nextSkips")]
+    public bool NextSkips { get; init; }
+
     /// <summary>What has been decided about each plugin, keyed by its id.</summary>
     [JsonPropertyName("plugins")]
     public IReadOnlyDictionary<string, PluginSettings> Plugins { get; init; } = new Dictionary<string, PluginSettings>(StringComparer.Ordinal);

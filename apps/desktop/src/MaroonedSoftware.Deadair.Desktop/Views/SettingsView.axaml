@@ -95,6 +95,13 @@
                         </StackPanel>
 
                         <StackPanel Spacing="6">
+                            <TextBlock Classes="dimmed" Text="System Next control" />
+                            <CheckBox IsChecked="{Binding NextSkips}" Content="Let the Next key or Control Centre skip the record" />
+                            <TextBlock Classes="dimmed" TextWrapping="Wrap"
+                                       Text="Only offered while you are signed in as the operator. It skips the record for every listener, so it stays off until you turn it on here." />
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
                             <TextBlock Classes="dimmed" Text="Listen in" />
                             <!-- What the station PUBLISHES, read off the last reading. A format it
                                  is not publishing is drawn and disabled rather than hidden: a FLAC

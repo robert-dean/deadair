@@ -16,6 +16,15 @@ public enum RemoteCommand
     /// account holds the operator role, which is the same rule the Android listener applies to a head
     /// unit's next button — and the same reason. A skip somebody is not allowed to make would be
     /// refused by the station, so drawing the button would be promising something that cannot happen.
+    /// <para>
+    /// Being the operator is not enough on its own: it is offered only while
+    /// <c>DesktopSettings.NextSkips</c> is also on, which defaults to off. The button is kept rather
+    /// than removed because an operator working from the keyboard wants it, but a media key or
+    /// Control Centre tile is reachable by anybody at the machine, and pressing it skips the record
+    /// for every listener with no second press to think in: the same cost the Android app weighs
+    /// for its own head-unit button. Turning the setting on is the operator saying they accept that
+    /// risk for the convenience.
+    /// </para>
     /// </remarks>
     Next = 2,
 }

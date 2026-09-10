@@ -5,6 +5,7 @@ import type { DB } from '../data/db.js';
 import { CatalogListQuery, columnFor, directionFor, likeContains } from './catalog.query.js';
 import { catalogKey, normalizeKey } from './catalog.keys.js';
 import { artUrl } from './catalog.art.js';
+import { creditedDislikeExists, noCreditedDislike } from './credited.dislike.js';
 import { ratingFromColumn } from './rating.js';
 import { releasedYear } from '../shared/release.year.js';
 import type { Rating, TrackState } from './types/catalog.types.js';
@@ -451,7 +452,8 @@ export class TracksRepository extends DataRepository {
      * it, and this one answers "what could you play me" in one shot.
      *
      * **Bans narrow it; rotation rules do not**, and the line between them is the whole design.
-     * Anything with no live binding, anything merged away and anything DISLIKED is excluded, because
+     * Anything with no live binding, anything merged away and anything DISLIKED (including a record
+     * whose only disliked credit is a guest, see `noCreditedDislike`) is excluded, because
      * offering those is offering a record that cannot air or that the operator forbade outright. A
      * record inside the repeat window or an artist inside the cooldown is deliberately still
      * offered: those are enforced at the point of choice, and pre-filtering them returns a worse
@@ -556,6 +558,8 @@ export class TracksRepository extends DataRepository {
             .where('deadair.tracks.rating', '<>', -1)
             .where('deadair.artists.rating', '<>', -1)
             .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
+            // A disliked artist vetoes a record they only guest on too. See `noCreditedDislike`.
+            .where(eb => noCreditedDislike(eb))
             // Arbitrary, and stable per BROADCAST. Both halves are load-bearing and they used to be
             // one: this was `title asc`, which is stable forever, and forever is the half that was
             // wrong.
@@ -593,7 +597,8 @@ export class TracksRepository extends DataRepository {
      * else and the flag becomes a different claim from the one the station will act on.
      *
      * `banned` is the same read's other half, because the rows are already joined: a record whose
-     * track or album the operator has disliked. The ARTIST level is not here — see
+     * track or album the operator has disliked, or whose credited artist is: lead or guest, through
+     * `noCreditedDislike`. The LEAD artist's own name is not checked here directly: see
      * {@link dislikedArtistKeys}, which answers for records the station does not own at all and so
      * cannot reach through this join.
      *
@@ -619,6 +624,7 @@ export class TracksRepository extends DataRepository {
                 'deadair.tracks.rating as trackRating',
                 'deadair.albums.rating as albumRating',
             ])
+            .select(eb => [eb.not(noCreditedDislike(eb)).as('hasDislikedCredit')])
             .where('deadair.tracks.mergedIntoId', 'is', null)
             // A tuple `in`, so one round trip answers for the whole page. Written through `or` rather
             // than raw SQL because the pairs are model-supplied text and this keeps them parameters.
@@ -634,7 +640,7 @@ export class TracksRepository extends DataRepository {
         for (const row of rows) {
             const key = catalogKey(row.titleKey, row.artistKey);
             owned.add(key);
-            if (row.trackRating === -1 || row.albumRating === -1) banned.add(key);
+            if (row.trackRating === -1 || row.albumRating === -1 || row.hasDislikedCredit) banned.add(key);
         }
 
         return { owned, banned };
@@ -649,6 +655,11 @@ export class TracksRepository extends DataRepository {
      *
      * An artist the catalog has never heard of is simply absent, which is the right answer — the
      * operator cannot have disliked somebody they have never been shown.
+     *
+     * Needs no `noCreditedDislike` join of its own to make a guest's veto count: it answers by
+     * ARTIST IDENTITY, not by which record it is asked about, so a disliked act's guest-credited
+     * records already count here the moment their name is one of the ones asked after: the same
+     * name PickResolver.identify sends whether that act is the pick's lead or one of its guests.
      */
     async dislikedArtistKeys(names: readonly string[]): Promise<Set<string>> {
         const keys = [...new Set(names.map(normalizeKey).filter(key => key.length > 0))];
@@ -723,6 +734,7 @@ export class TracksRepository extends DataRepository {
               and t.rating <> -1
               and a.rating <> -1
               and (al.rating is null or al.rating <> -1)
+              and not ${creditedDislikeExists(sql`t.id`)}
               and exists (
                   select 1 from deadair.track_sources s
                   where s.track_id = t.id and s.missing_at is null

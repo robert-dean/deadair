@@ -563,6 +563,18 @@ describe('PickResolver rules', () => {
         expect(resolved.map(track => track.trackId)).toEqual(['track-2']);
     });
 
+    it('refuses "Y feat. X" when X, a guest rather than the lead, is disliked', async () => {
+        // The veto reads through `deadair.track_artists` inside `CandidatesRepository.ratingsFor`
+        // (see `candidates.repository.test.ts` for the SQL itself), so from here it looks exactly
+        // like an ordinary dislike: the fake answers -1 for the record because SOME credited
+        // artist is disliked, whether or not it is the one the pick names as lead.
+        const { resolver } = build({ ...twoTracks, ratings: { 'track-1': -1 } });
+
+        const resolved = await resolver.resolve([{ title: 'A', artist: 'One', trackId: 'track-1' }], rules());
+
+        expect(resolved).toEqual([]);
+    });
+
     it('refuses a disliked track a generator named without an id', async () => {
         // The actual attack surface: a model returns a title and an artist, so nothing upstream
         // of here has ever seen the rating.
@@ -1017,6 +1029,21 @@ describe('PickResolver.vet', () => {
     });
 
     it('drops a disliked record', async () => {
+        const { resolver } = build({
+            bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
+            ratings: { 'track-1': -1 },
+        });
+
+        const tracks = [track({ trackId: 'track-1' }), track({ externalId: 'ext-2', trackId: 'track-2' })];
+
+        const vetted = await resolver.vet(tracks, {});
+
+        expect(vetted.map(t => t.trackId)).toEqual(['track-2']);
+    });
+
+    it('drops "Y feat. X" from a playlist when X, a guest, is disliked', async () => {
+        // Same veto as `resolve`'s case above, reached through `vet` instead: an operator's own
+        // playlist is not exempt from an instruction about what the station may play.
         const { resolver } = build({
             bindings: { 'track-1': binding('track-1'), 'track-2': binding('track-2') },
             ratings: { 'track-1': -1 },

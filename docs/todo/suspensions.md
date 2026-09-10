@@ -88,10 +88,10 @@ deliberate difference below.
 
 **Three columns, not a table.** `suspended_until timestamptz` on `deadair.tracks`, `deadair.albums`
 and `deadair.artists`, beside the three `rating` columns they already carry. The reason is that
-`effectiveRating` collapses three levels with `least`/`greatest` and a suspension has to collapse
-across exactly the same three, in the same expression, or the two answers drift the first time
-somebody suspends a release and not its songs. A side table would be a fourth join to reproduce a
-collapse that already exists.
+`effectiveRating` collapses three levels plus every credited artist with `least`/`greatest` and a
+suspension has to collapse across exactly the same three, in the same expression, or the two answers
+drift the first time somebody suspends a release and not its songs. A side table would be a fourth
+join to reproduce a collapse that already exists.
 
 What a table would have bought is a reason string and a history of past suspensions. Neither is worth
 a join: the reason belongs on the activity feed, which is where every other operator action that

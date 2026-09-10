@@ -2,6 +2,7 @@ import { Injectable } from 'injectkit';
 import { sql } from 'kysely';
 import { DataRepository } from '#modules/data/data.repository.js';
 import { normalizeKey } from '#modules/catalog/catalog.keys.js';
+import { creditedDislikeExists, noCreditedDislike } from '#modules/catalog/credited.dislike.js';
 import { releasedYear } from '#modules/shared/release.year.js';
 import { ADVISORY_DEFAULT, advisoryRank, demandsClean, type AdvisoryPolicy } from './advisory.policy.js';
 
@@ -125,11 +126,17 @@ const SAMPLE_CEILING = 500;
  * An album is `coalesce(…, 0)` because `tracks.album_id` is nullable: a single ingested outside any
  * release has no record to have an opinion about, and that is "no opinion" rather than a missing
  * one.
+ *
+ * A fourth term folds into the `least()` alone: a track any credited artist is disliked on, lead or
+ * guest, veto's the same way the three stored columns do. It is not a fourth column because there is
+ * no fourth rating to read: `noCreditedDislike`'s doc comment says why the like half, `greatest()`,
+ * does not gain the same term: a guest's like is not more of the guest, so it must not raise a
+ * record it only appears on.
  */
 const RATING_COLUMNS = [sql.ref('deadair.tracks.rating'), sql`coalesce(${sql.ref('deadair.albums.rating')}, 0)`, sql.ref('deadair.artists.rating')];
 
 const effectiveRating = () => sql<number>`case
-    when least(${sql.join(RATING_COLUMNS)}) = -1 then -1
+    when least(${sql.join(RATING_COLUMNS)}, case when ${creditedDislikeExists(sql.ref('deadair.tracks.id'))} then -1 else 0 end) = -1 then -1
     else greatest(${sql.join(RATING_COLUMNS)})
 end`;
 
@@ -145,7 +152,8 @@ export class CandidatesRepository extends DataRepository {
      *   play; choosing it produces an item that fails to resolve and a gap.
      * - **Nothing merged away.** A merged row is the same work described twice,
      *   and the loser's metadata is the stale half.
-     * - **Nothing disliked**, at track, record or artist level. This is the same
+     * - **Nothing disliked**, at track, record or artist level, and no work with a disliked artist
+     *   only guesting on it (see `noCreditedDislike`). This is the same
      *   filter `rejectDisliked` applies in memory, and it is deliberately in both
      *   places: this one keeps a disliked track out of the sample at all, and that
      *   one catches anything arriving by another route.
@@ -200,6 +208,7 @@ export class CandidatesRepository extends DataRepository {
             .where('deadair.tracks.rating', '<>', -1)
             .where('deadair.artists.rating', '<>', -1)
             .where(eb => eb.or([eb('deadair.albums.rating', 'is', null), eb('deadair.albums.rating', '<>', -1)]))
+            .where(eb => noCreditedDislike(eb))
             .$if(bindsAnything(era), qb => qb.where(withinEra(era!)))
             .orderBy(sql`random()`)
             .limit(limit)

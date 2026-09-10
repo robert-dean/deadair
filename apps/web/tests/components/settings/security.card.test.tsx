@@ -262,6 +262,9 @@ describe('SecurityCard, enrolling an email address', () => {
             expect(registerFactor).toHaveBeenCalledTimes(2);
         });
         const [first, second] = registerFactor.mock.calls.map(call => call[0] as { value: string; codeChallenge: string });
+        if (!first || !second) {
+            throw new Error('registerFactor was not called twice');
+        }
         expect(second.value).toBe(first.value);
         expect(second.codeChallenge).toBe(first.codeChallenge);
     });

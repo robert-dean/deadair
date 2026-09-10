@@ -154,17 +154,17 @@ export interface SettingDescriptor extends ConfigField {
  * group that is not in that list is drawn by whoever claimed it, and a group in neither is a bug
  * `settings.registry.test.ts` cannot see. Adding one means deciding which page draws it.
  *
- * `station`, `stream`, `housekeeping` and `secrets` were one group until it grew to thirty-one
- * fields under a single save: ten identity fields, fifteen stream formats and HLS settings, two
- * pieces of housekeeping and four passwords, each of them a different reason to open the page.
- * Split along `SettingGroup` in `settings.types.ck`, so the wire enum and this list cannot disagree
- * about what a group is called.
+ * `station`, `stream` and `housekeeping` were one group until it grew to thirty-one fields under a
+ * single save: ten identity fields, fifteen stream formats and HLS settings, two pieces of
+ * housekeeping and four passwords, each of them a different reason to open the page. Split along
+ * `SettingGroup` in `settings.types.ck`, so the wire enum and this list cannot disagree about what
+ * a group is called. The passwords were a fourth group, `secrets`, until none of them was declared
+ * any more; the note above `mail` below says why.
  */
 export const SETTING_GROUPS = [
     'station',
     'stream',
     'housekeeping',
-    'secrets',
     'mail',
     'rotation',
     'playout',

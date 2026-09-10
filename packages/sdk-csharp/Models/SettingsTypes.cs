@@ -23,9 +23,6 @@ public enum SettingGroup
     [JsonStringEnumMemberName("housekeeping")]
     Housekeeping,
 
-    [JsonStringEnumMemberName("secrets")]
-    Secrets,
-
     [JsonStringEnumMemberName("mail")]
     Mail,
 

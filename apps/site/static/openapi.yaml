@@ -8962,7 +8962,6 @@ components:
                 - station
                 - stream
                 - housekeeping
-                - secrets
                 - mail
                 - rotation
                 - playout

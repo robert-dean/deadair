@@ -3,7 +3,10 @@ package com.maroonedsoftware.deadair.playback
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Metadata
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.extractor.metadata.icy.IcyInfo
 import com.maroonedsoftware.deadair.AppGraph
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
 import com.maroonedsoftware.deadair.sdk.models.NowPlaying
@@ -36,11 +39,7 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
     private val policy =
         ReconnectPolicy(
             backoff = Backoff(),
-            schedule = { ms, run ->
-                val r = Runnable(run)
-                handler.postDelayed(r, ms)
-                { handler.removeCallbacks(r) }
-            },
+            schedule = ::schedule,
             wantsPlay = { player.playWhenReady },
             reconnect = {
                 player.prepare()
@@ -61,16 +60,39 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
             }
         }
 
+    /**
+     * When the notification actually changes: the ICY title is the encoder telling the client it
+     * has moved to the next record, which happens on the audio's own schedule rather than the
+     * poll's. `NowPlayingGate` is the pure decision; this listener is only the glue that reaches it
+     * from `onMetadata`, kept separate from `policy` because the two listeners answer unrelated
+     * questions.
+     */
+    private val gate = NowPlayingGate(schedule = ::schedule, push = ::pushMetadata)
+    @androidx.annotation.OptIn(UnstableApi::class)
+    private val metadataListener =
+        object : Player.Listener {
+            override fun onMetadata(metadata: Metadata) {
+                for (i in 0 until metadata.length()) {
+                    (metadata.get(i) as? IcyInfo)?.let { gate.onIcyTitle(it.title) }
+                }
+            }
+        }
+
     private var station: StationUrl? = null
     private var format: StreamFormat = StreamFormat.MP3
     private var mounts: List<NowPlayingMount> = emptyList()
     private var current: MountChoice? = null
-    /** What was on air when the metadata was last pushed, so an unchanged track is not re-pushed. */
-    private var pushedFor: Long? = null
+
+    private fun schedule(ms: Long, run: () -> Unit): Cancel {
+        val r = Runnable(run)
+        handler.postDelayed(r, ms)
+        return { handler.removeCallbacks(r) }
+    }
 
     fun start() {
         player.addListener(policy)
         player.addListener(playWhenReadyListener)
+        player.addListener(metadataListener)
 
         // The settings and the station's own answer are read together, because the mount to play
         // is a function of both: which format the listener chose, and which paths the station says
@@ -92,7 +114,7 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
                 if (now != null) mounts = now.mounts
 
                 retarget()
-                pushMetadata(now)
+                gate.onPoll(now, player.totalBufferedDuration)
             }
             .launchIn(scope)
     }
@@ -100,7 +122,9 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
     fun stop() {
         player.removeListener(policy)
         player.removeListener(playWhenReadyListener)
+        player.removeListener(metadataListener)
         policy.cancel()
+        gate.cancel()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()
     }
@@ -126,7 +150,6 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
         format = settings.format
         val choice = chooseMount(mounts, settings.format)
         current = choice
-        pushedFor = null
         return MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, offAir))
     }
 
@@ -151,8 +174,8 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
 
         val wasPlaying = player.playWhenReady
         current = choice
-        pushedFor = null
         policy.cancel()
+        gate.cancel()
         player.setMediaItem(MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, offAir)))
         if (wasPlaying) {
             player.prepare()
@@ -165,16 +188,12 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
      *
      * Through `replaceMediaItem` with the same URI and only the metadata changed, which the media
      * sources treat as an update rather than as a new stream, so the audio is not interrupted.
-     * Pushed only when the TRACK changed — compared on `startedAt`, which is what identifies one —
-     * rather than on every poll, because three-second churn on a lock screen is visible.
+     * When this runs, and how often, is `NowPlayingGate`'s decision rather than this method's: the
+     * gate is what keeps three-second poll churn off a lock screen the listener is looking at.
      */
     private fun pushMetadata(now: NowPlaying?) {
         val where = station ?: return
         val item = player.currentMediaItem ?: return
-        val startedAt = now?.track?.startedAt
-        if (startedAt == pushedFor && now?.track != null) return
-
-        pushedFor = startedAt
         player.replaceMediaItem(0, item.buildUpon().setMediaMetadata(MediaItems.metadataFor(where, now, offAir)).build())
     }
 }

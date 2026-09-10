@@ -63,6 +63,11 @@ class PlaybackService : MediaSessionService() {
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(CONNECT_TIMEOUT_MS)
                 .setReadTimeoutMs(READ_TIMEOUT_MS)
+                // Asks Icecast to interleave the track title into the audio itself, which is what
+                // lets the conductor's gate drive the notification off the audio's own schedule
+                // instead of the poll's. Harmless on the artwork requests this factory also serves:
+                // `/api/art` ignores a header it does not understand.
+                .setDefaultRequestProperties(mapOf("Icy-MetaData" to "1"))
 
         val player =
             ExoPlayer.Builder(this)

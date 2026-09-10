@@ -7,6 +7,11 @@ Nothing here ships in the image and nothing in the station reads it.
 `pnpm --filter @deadair/site start` serves it on a dev server; `build` writes `dist/`. It is not a
 `dev` script on purpose, so `pnpm dev` does not start a docs server beside the station.
 
+**A push to `main` is the deploy.** `.github/workflows/site.yml` builds `dist/` and publishes it to
+GitHub Pages whenever a push touches the site or one of the files it reads from outside the package.
+The custom domain is set in the repository's Pages settings, not in a `CNAME` file: a Pages site
+deployed by an Actions workflow ignores that file, so adding one changes nothing.
+
 Every paragraph below is a failure that happened while setting it up, and each looks harmless to
 undo.
 

@@ -1,0 +1,88 @@
+name: Site
+
+# The public website at deadair.radio, published to GitHub Pages.
+#
+# Only on a push to `main` that can change what the site says. The API reference and the OpenAPI
+# spec are committed under `apps/site`, so a contract change reaches the site through the first path
+# below rather than through the contracts themselves; the two operator docs and the brand images are
+# read from outside the package, which is why they are listed too. Whether the site still BUILDS is
+# already proved on every pull request: `build.yml` runs `pnpm build`, which includes it, and a
+# broken link fails that build.
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - 'apps/site/**'
+            - 'apps/web/public/**'
+            - 'deploy/README.md'
+            - 'docs/licensing.md'
+            - 'pnpm-lock.yaml'
+            - '.github/workflows/site.yml'
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+# One deployment at a time, and a queued one is never cancelled: Pages publishes whichever finishes
+# last, so cancelling the older run is what could leave the older site up.
+concurrency:
+    group: pages
+    cancel-in-progress: false
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            # See `build.yml`: pnpm comes from this action because Node 26 ships no corepack.
+            - name: Install pnpm
+              uses: pnpm/action-setup@v6
+
+            - name: Setup Node
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 26
+                  cache: pnpm
+
+            # Fails here, with a message saying so, if Pages is not set to deploy from Actions.
+            - name: Configure Pages
+              uses: actions/configure-pages@v6
+
+            # The site and what it depends on, not the station: nothing here needs the API's
+            # dependencies, the plugins or the console.
+            - name: Install the site's dependencies
+              run: pnpm install --frozen-lockfile --filter '@deadair/site...'
+
+            - name: Build
+              run: pnpm --filter @deadair/site build
+
+            - name: Upload the site
+              uses: actions/upload-pages-artifact@v5
+              with:
+                  path: apps/site/dist
+
+    deploy:
+        needs: build
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+
+        # The only job with any write access, and only to Pages.
+        permissions:
+            pages: write
+            id-token: write
+
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+
+        steps:
+            - name: Deploy
+              id: deployment
+              uses: actions/deploy-pages@v5

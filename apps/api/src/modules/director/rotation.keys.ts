@@ -40,3 +40,13 @@ export const artistKey = (artists: readonly string[]): string => normalizeKey(ar
  * this rule exists to answer.
  */
 export const songKey = (title: string, artists: readonly string[]): string => `${artistKey(artists)}:${normalizeKey(title)}`;
+
+/**
+ * The release a track counts against for the per-batch album cap: its album, under its lead artist.
+ *
+ * Scoped by artist for the same reason {@link songKey} is: two different acts can share an album
+ * title, and capping one release because another of the same name filled its quota would be wrong.
+ * Nothing computes this for a candidate with no album (a track outside the catalog's own draw, or
+ * one whose release is unknown), so the cap simply has nothing to apply to it.
+ */
+export const albumKey = (artists: readonly string[], album: string): string => `${artistKey(artists)}:${normalizeKey(album)}`;

@@ -7,8 +7,10 @@
 import { settingsConfig } from '../../utils/settings.config.js';
 import { describe, expect, it } from 'vitest';
 
-import { artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
+import { albumKey, artistKey, songKey } from '../../../src/modules/director/rotation.keys.js';
 import {
+    applyRules,
+    capPerAlbum,
     capPerArtist,
     DEFAULT_AUTO_EXTEND,
     DEFAULT_RULES,
@@ -23,10 +25,11 @@ import {
     type RotationCandidate,
 } from '../../../src/modules/director/rotation.rules.js';
 
-const candidate = (title: string, artists: string[], rating?: number): RotationCandidate => ({
+const candidate = (title: string, artists: string[], rating?: number, album?: string): RotationCandidate => ({
     songKey: songKey(title, artists),
     artistKey: artistKey(artists),
     ...(rating === undefined ? {} : { rating }),
+    ...(album === undefined ? {} : { albumKey: albumKey(artists, album) }),
 });
 
 const none = { songKeys: new Set<string>(), artistKeys: new Set<string>() };
@@ -61,6 +64,10 @@ describe('rotation keys', () => {
         // all down together.
         expect(artistKey([])).toBe('');
     });
+
+    it('folds the same spellings and casing for an album key', () => {
+        expect(albumKey(['Beyoncé'], 'Lemonade')).toBe(albumKey(['Beyonce'], 'lemonade'));
+    });
 });
 
 describe('resolveRules', () => {
@@ -76,6 +83,7 @@ describe('resolveRules', () => {
             repeatWindowDays: 0,
             artistCooldownMinutes: 0,
             maxPerArtist: 0,
+            maxPerAlbum: 0,
             mayGenerate: false,
             // Somebody sequenced this list. Dropping an ident into the middle of their sequence is
             // undoing the work, which is the same argument the 0007 migration makes about a
@@ -216,6 +224,18 @@ describe('stationRules', () => {
         expect(stationRules(settingsConfig({ [ROTATION_KEYS.welcome]: 'off' }).config).welcome).toBe(false);
     });
 
+    it('reads the album cap as the string a settings row stores', () => {
+        const { config } = settingsConfig({ [ROTATION_KEYS.maxPerAlbum]: '2' });
+
+        expect(stationRules(config).maxPerAlbum).toBe(2);
+    });
+
+    it('falls back to the default album cap on an unparseable value', () => {
+        const { config } = settingsConfig({ [ROTATION_KEYS.maxPerAlbum]: 'banana' });
+
+        expect(stationRules(config).maxPerAlbum).toBe(DEFAULT_RULES.maxPerAlbum);
+    });
+
     it('does not read auto-extend, because that decides a default rather than a rule', () => {
         // `rotation.autoExtend` used to resolve into these rules, and both refill jobs read it as
         // permission to run — so turning it off silently took the console's Replan button with it.
@@ -283,6 +303,42 @@ describe('capPerArtist', () => {
         const picks = [candidate('A', ['One']), candidate('B', ['One'])];
 
         expect(capPerArtist(picks, 0)).toHaveLength(2);
+    });
+});
+
+describe('capPerAlbum', () => {
+    it('keeps the first N off a release and drops the rest', () => {
+        const picks = [
+            candidate('A', ['One'], undefined, 'Album'),
+            candidate('B', ['One'], undefined, 'Album'),
+            candidate('C', ['One'], undefined, 'Album'),
+            candidate('D', ['One'], undefined, 'Other Album'),
+        ];
+
+        expect(capPerAlbum(picks, 2).map(c => c.songKey)).toEqual([songKey('A', ['One']), songKey('B', ['One']), songKey('D', ['One'])]);
+    });
+
+    it('is disabled by zero', () => {
+        const picks = [candidate('A', ['One'], undefined, 'Album'), candidate('B', ['One'], undefined, 'Album')];
+
+        expect(capPerAlbum(picks, 0)).toHaveLength(2);
+    });
+
+    it('never drops a candidate with no album key', () => {
+        // Every `Identified` `PickResolver` judges carries none, since a pick names a work rather
+        // than a row until it has been matched, and this cap has nothing to apply to it.
+        const picks = [candidate('A', ['One']), candidate('B', ['One']), candidate('C', ['One'])];
+
+        expect(capPerAlbum(picks, 1)).toHaveLength(3);
+    });
+});
+
+describe('applyRules', () => {
+    it('enforces the album cap over the candidates it drops down to', () => {
+        const rules = { ...DEFAULT_RULES, maxPerArtist: 0, maxPerAlbum: 1 };
+        const picks = [candidate('A', ['One'], undefined, 'Album'), candidate('B', ['One'], undefined, 'Album')];
+
+        expect(applyRules(picks, rules, none).map(c => c.songKey)).toEqual([songKey('A', ['One'])]);
     });
 });
 

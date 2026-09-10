@@ -6,7 +6,7 @@ import { AdvisoryWatch } from './advisory.watch.js';
 import { EraWatch } from './era.watch.js';
 import { CandidatesRepository, bindsAnything, type CandidateTrack, type EraWindow } from './candidates.repository.js';
 import { PlayHistoryRepository } from './play.history.repository.js';
-import { artistKey, songKey } from './rotation.keys.js';
+import { albumKey, artistKey, songKey } from './rotation.keys.js';
 import { applyRules, spaceArtists, weightOf, type RotationCandidate } from './rotation.rules.js';
 import { SetGenerator, type SetInputs, type TrackPick } from './set.generator.js';
 
@@ -155,6 +155,7 @@ interface ScoredCandidate extends RotationCandidate {
 const toRotationCandidate = (track: CandidateTrack): ScoredCandidate => ({
     songKey: songKey(track.title, [track.artist]),
     artistKey: artistKey([track.artist]),
+    ...(track.album === undefined ? {} : { albumKey: albumKey([track.artist], track.album) }),
     rating: track.rating,
     track,
 });

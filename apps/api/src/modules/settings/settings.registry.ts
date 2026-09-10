@@ -469,6 +469,14 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'rotation',
+        key: ROTATION_KEYS.maxPerAlbum,
+        label: 'Most tracks off one release per batch',
+        type: 'number',
+        default: DEFAULT_RULES.maxPerAlbum,
+        help: '0 turns the cap off.',
+    },
+    {
+        group: 'rotation',
         key: ROTATION_KEYS.autoExtend,
         label: 'Keep the running order topped up',
         type: 'boolean',

@@ -1,6 +1,7 @@
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 import type { StationLineupMode, StationLineupRules } from './station.lineup.js';
 import { settingIsOn } from '#modules/shared/setting.flags.js';
+import { numberOr } from '#modules/shared/setting.numbers.js';
 
 /**
  * The rules that shape a generated set: what not to play again yet, and how not
@@ -24,6 +25,8 @@ export interface ResolvedRules {
     artistCooldownMinutes: number;
     /** Most tracks by one artist in a generated batch. `0` disables the cap. */
     maxPerArtist: number;
+    /** Most tracks off one release in a generated batch. `0` disables the cap. */
+    maxPerAlbum: number;
     /**
      * Whether the director may generate into this order at all.
      *
@@ -118,6 +121,10 @@ export const DEFAULT_RULES: ResolvedRules = {
     repeatWindowDays: 3,
     artistCooldownMinutes: 40,
     maxPerArtist: 2,
+    // One. A batch that plays two tracks off the same release back to back is not variety, it is an
+    // album side, which is a thing an operator asks for deliberately rather than something the
+    // rotation should produce on its own.
+    maxPerAlbum: 1,
     // A rotation is the mode the director programmes into. See {@link ResolvedRules.mayGenerate}
     // for why this is not the operator's auto-extend switch.
     mayGenerate: true,
@@ -158,6 +165,7 @@ export const ROTATION_KEYS = {
     repeatWindowDays: 'rotation.repeatWindowDays',
     artistCooldownMinutes: 'rotation.artistCooldownMinutes',
     maxPerArtist: 'rotation.maxPerArtist',
+    maxPerAlbum: 'rotation.maxPerAlbum',
     autoExtend: 'rotation.autoExtend',
     breaks: 'rotation.breaks',
     welcome: 'rotation.welcome',
@@ -212,6 +220,11 @@ export function stationRules(config: AppConfig): ResolvedRules {
         repeatWindowDays: number(ROTATION_KEYS.repeatWindowDays, DEFAULT_RULES.repeatWindowDays),
         artistCooldownMinutes: number(ROTATION_KEYS.artistCooldownMinutes, DEFAULT_RULES.artistCooldownMinutes),
         maxPerArtist: number(ROTATION_KEYS.maxPerArtist, DEFAULT_RULES.maxPerArtist),
+        // Through the shared reader rather than the local `number` helper above: this field has no
+        // per-lineup override to keep in sync with, so it does not need the same guard against a
+        // stored negative, and `numberOr` is what every other resolver in the codebase reaches for
+        // when a wrong answer is merely a default that was not taken.
+        maxPerAlbum: numberOr(config, ROTATION_KEYS.maxPerAlbum, DEFAULT_RULES.maxPerAlbum),
         // Not read from a setting, because it is not one: the mode decides it, and `resolveRules`
         // is where that happens. `rotation.autoExtend` is a different question with a similar name
         // — see {@link stationAutoExtends}.
@@ -240,6 +253,7 @@ export const NO_RULES: ResolvedRules = {
     repeatWindowDays: 0,
     artistCooldownMinutes: 0,
     maxPerArtist: 0,
+    maxPerAlbum: 0,
     mayGenerate: false,
     breaks: false,
     welcome: false,
@@ -289,6 +303,10 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
         repeatWindowDays: overrides?.repeatWindowDays ?? base.repeatWindowDays,
         artistCooldownMinutes: overrides?.artistCooldownMinutes ?? base.artistCooldownMinutes,
         maxPerArtist: overrides?.maxPerArtist ?? base.maxPerArtist,
+        // No per-lineup override: `StationLineupRules` carries none for this, and adding one would
+        // change a stored shape for a cap that a setlist or a feature already zeroes via `NO_RULES`
+        // (the same baseline mechanism every other rule here rides).
+        maxPerAlbum: base.maxPerAlbum,
         // The one rule a broadcast cannot override, because it is not a preference: nothing can
         // programme into a setlist, and a rotation is the mode that is programmed into. A broadcast
         // that wants to stop rather than top itself up says so with `onEnd`.
@@ -306,6 +324,13 @@ export const resolveRules = (mode: StationLineupMode, overrides?: StationLineupR
 export interface RotationCandidate {
     songKey: string;
     artistKey: string;
+    /**
+     * The release this candidate came from, when one is known. Absent for anything the catalog set
+     * generator did not draw from its own `albums` join (every `Identified` `PickResolver` judges,
+     * for one, since a pick names a work rather than a row until it has been matched) and a
+     * candidate with no album key is never capped by {@link capPerAlbum}.
+     */
+    albumKey?: string;
     /**
      * How the station feels about this work across all three levels: `-1`
      * disliked, `0` unrated, `1` liked. Absent for anything the catalog has no
@@ -386,13 +411,41 @@ export const capPerArtist = <T extends RotationCandidate>(candidates: readonly T
 };
 
 /**
+ * Keep at most `max` tracks off any one release, in the order they were offered.
+ *
+ * {@link capPerArtist}'s sibling, and deliberately the same shape: nothing here has aired yet, so
+ * the repeat window has nothing to say about a batch that happens to be three tracks off one album.
+ * A candidate with no {@link RotationCandidate.albumKey} is never dropped by this: it is skipped
+ * over rather than counted against an empty key, since an empty key would otherwise cap every
+ * album-less candidate as though they all came off the same release. `0` disables it.
+ */
+export const capPerAlbum = <T extends RotationCandidate>(candidates: readonly T[], max: number): T[] => {
+    if (max <= 0) return [...candidates];
+
+    const counts = new Map<string, number>();
+    const kept: T[] = [];
+    for (const candidate of candidates) {
+        if (candidate.albumKey === undefined) {
+            kept.push(candidate);
+            continue;
+        }
+        const seen = counts.get(candidate.albumKey) ?? 0;
+        if (seen >= max) continue;
+        counts.set(candidate.albumKey, seen + 1);
+        kept.push(candidate);
+    }
+    return kept;
+};
+
+/**
  * Every rule that decides WHETHER a candidate may air, in the order they are cheapest.
  *
- * The four functions above are each usable alone and two callers now want all of them, so the
+ * The functions above are each usable alone and two callers now want all of them, so the
  * ORDER is written down once here rather than being copied. It is the order
  * {@link CatalogSetGenerator} arrived at: dislikes first because they are absolute and cost nothing,
  * history next because it is the largest reduction and everything after it is cheaper on a smaller
- * set, then the cap.
+ * set, then the two caps, artist before album, though the two act on disjoint keys and no batch
+ * exercises both orders differently today.
  *
  * {@link spaceArtists} is deliberately NOT in here. Everything above answers "may this air"; spacing
  * answers "in what order", and it has to run after a caller has finished dropping things — a batch
@@ -401,7 +454,7 @@ export const capPerArtist = <T extends RotationCandidate>(candidates: readonly T
  * this one, drops what it must, and spaces last.
  */
 export const applyRules = <T extends RotationCandidate>(candidates: readonly T[], rules: ResolvedRules, recent: RecentlyAired): T[] =>
-    capPerArtist(filterByHistory(rejectDisliked(candidates), recent), rules.maxPerArtist);
+    capPerAlbum(capPerArtist(filterByHistory(rejectDisliked(candidates), recent), rules.maxPerArtist), rules.maxPerAlbum);
 
 /**
  * Reorder so the same artist is never back to back.

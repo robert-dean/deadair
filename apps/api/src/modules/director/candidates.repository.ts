@@ -26,6 +26,8 @@ export interface CandidateTrack {
     credit: string;
     /** How the station feels about this work once its record and its artist are taken into account: -1, 0 or 1. See {@link effectiveRating}. */
     rating: number;
+    /** The release this track came from, when the catalog has one. Absent for a single with no album row. */
+    album?: string;
 }
 
 /**
@@ -174,7 +176,13 @@ export class CandidatesRepository extends DataRepository {
             .selectFrom('deadair.tracks')
             .innerJoin('deadair.artists', 'deadair.artists.id', 'deadair.tracks.artistId')
             .leftJoin('deadair.albums', 'deadair.albums.id', 'deadair.tracks.albumId')
-            .select(['deadair.tracks.id as trackId', 'deadair.tracks.title', 'deadair.artists.name as artist', 'deadair.tracks.artists as credit'])
+            .select([
+                'deadair.tracks.id as trackId',
+                'deadair.tracks.title',
+                'deadair.artists.name as artist',
+                'deadair.tracks.artists as credit',
+                'deadair.albums.name as album',
+            ])
             // One number for "how does the station feel about this", across all three levels.
             .select(effectiveRating().as('rating'))
             .where('deadair.tracks.mergedIntoId', 'is', null)
@@ -197,12 +205,15 @@ export class CandidatesRepository extends DataRepository {
             .limit(limit)
             .execute();
 
+        // `== null` deliberately: the runtime driver hands back `undefined` for SQL NULL while the
+        // generated types say `null`. See the note in CLAUDE.md.
         return rows.map(row => ({
             trackId: row.trackId,
             title: row.title,
             artist: row.artist,
             credit: row.credit,
             rating: Number(row.rating),
+            ...(row.album == null ? {} : { album: row.album }),
         }));
     }
 

@@ -94,4 +94,18 @@ describe('spokenAnswer', () => {
     it('never recovers reasoning that the allowance cut off before any answer began', () => {
         expect(turn({ reasoningText: 'We need to check whether the te', finishReason: 'length' })).toBe('');
     });
+
+    it('never recovers from a generation the provider cut short as content-filter', () => {
+        // A filtered generation is exactly when a half-formed thought must not reach air in its
+        // place; the reasoning is a draft the model never chose to say.
+        expect(turn({ reasoningText: 'Considering how to phrase this.', finishReason: 'content-filter' })).toBe('');
+    });
+
+    it('never recovers from a generation that ended in an error', () => {
+        expect(turn({ reasoningText: 'Still working out the answer.', finishReason: 'error' })).toBe('');
+    });
+
+    it('still promotes an answer that arrived as reasoning on a normal stop', () => {
+        expect(turn({ reasoningText: '[{"title": "A", "artist": "One"}]', finishReason: 'stop' })).toBe('[{"title": "A", "artist": "One"}]');
+    });
 });

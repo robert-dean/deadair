@@ -201,7 +201,7 @@ export class ModelWelcomeWriter extends BreakWriter {
 
             this.logger.info(`director: ${declined?.reason ?? 'the model wrote nothing the station could greet a listener with'}`, {
                 finish: result.finishReason,
-                tokens: result.usage?.outputTokens,
+                tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
                 persona: request.persona?.key,
                 fault: declined?.fault,
             });

@@ -704,13 +704,18 @@ export interface SpokenCandidates {
  * nothing for as long as it existed, and nothing looked broken, because a wrong answer was being
  * manufactured out of a failure. An empty string would have been loud.
  *
+ * **`content-filter` and `error` disqualify too, for the same reason as `tool-calls`: the reasoning
+ * is a draft the model never chose to say.** A filtered or failed generation is exactly the moment a
+ * half-formed thought must not reach air in its place: promoting it would turn a refusal or a
+ * failure into something that sounds like an answer.
+ *
  * Text always wins where there is any, so a provider that reasons and then answers is untouched:
  * its reasoning is not its answer, and the fallback is reached only where there is no answer at all.
  */
 export function spokenAnswer({ text, reasoningText, toolCalls, finishReason }: SpokenCandidates): string {
     if (!isEmptyAnswer(text)) return text;
     if (toolCalls > 0 || finishReason === 'tool-calls') return text;
-    if (finishReason === 'length') return text;
+    if (finishReason === 'length' || finishReason === 'content-filter' || finishReason === 'error') return text;
     if ((reasoningText?.trim().length ?? 0) === 0) return text;
 
     return reasoningText!;

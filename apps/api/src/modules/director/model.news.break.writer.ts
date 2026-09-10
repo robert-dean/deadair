@@ -247,7 +247,7 @@ export class ModelNewsBreakWriter extends BreakWriter {
 
             this.logger.info(`director: ${declined?.reason ?? 'the model wrote nothing the station could read as news'}`, {
                 finish: result.finishReason,
-                tokens: result.usage?.outputTokens,
+                tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
                 stories: request.stories?.length,
                 persona: request.persona?.key,
                 fault: declined?.fault,

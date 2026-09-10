@@ -278,7 +278,7 @@ export class PersonasService {
             // that hit its ceiling mid-object want three different fixes and are one message
             // otherwise. Truncated, since the whole answer belongs in a capture rather than a log.
             this.logger.info('personas: the model answered with nothing a persona could be read from', {
-                tokens: result.usage?.outputTokens,
+                tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
                 finish: result.finishReason,
                 answer: result.text.trim().slice(0, 300),
             });
@@ -299,7 +299,7 @@ export class PersonasService {
             phrasings: (generated.draft.templates ?? '').split('\n').filter(line => line.trim().length > 0).length,
             droppedMarkers: generated.droppedMarkers.length,
             droppedTemplates: generated.droppedTemplates.length,
-            tokens: result.usage?.outputTokens,
+            tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
             finish: result.finishReason,
         });
 

@@ -310,7 +310,13 @@ export class ModelTalkBreakWriter extends BreakWriter {
                 words === 0 && result.finishReason === 'length'
                     ? 'director: the model used its whole answer thinking and never spoke; raise the token ceiling'
                     : `director: ${declined?.reason ?? 'the model wrote nothing the station could say'}`,
-                { finish: result.finishReason, words, tokens: result.usage?.outputTokens, persona: request.persona?.key, fault: declined?.fault },
+                {
+                    finish: result.finishReason,
+                    words,
+                    tokens: result.usage?.totalTokens ?? result.usage?.outputTokens,
+                    persona: request.persona?.key,
+                    fault: declined?.fault,
+                },
             );
             return undefined;
         }

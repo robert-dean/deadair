@@ -253,6 +253,13 @@ the column cannot make. `apps/api/scripts/traces.ts --ops` is the aggregate. **`
 is not fixed and does not need to be**: it is a per-attempt record of what a WRITE cost, the spans
 are the record of what the station spent, and a cap belongs on the second.
 
+**One more reason `usage.outputTokens` alone is the wrong field for a cap to read: it does not mean
+the same thing across providers.** A provider that reasons folds the thinking tokens into
+`outputTokens`; one that does not leaves them out of it entirely, so the same-shaped answer costs a
+different number on the field a naive cap would sum. `usage.totalTokens` is the one that includes
+whatever the provider billed, so a budget or a cap reads `totalTokens ?? outputTokens`, the same
+fallback the station's own log lines and `ModelSetGenerator` already use.
+
 This also revises the note in the second bullet above. That measurement said 17 of 24 `failed` rows
 were the writer giving up in the gate queue, which no token cap would have changed; on the current
 window there are 3 `failed` rows and one of them is that shape. The conclusion is unchanged and the

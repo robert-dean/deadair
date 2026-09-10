@@ -245,6 +245,146 @@ describe('PluginInvoker.invoke', () => {
 });
 
 /**
+ * The breaker's only way back short of a reinit. The case it exists for is the one an operator met:
+ * three failed Spotify searches quarantined the plugin, and "Test connection" answered with the
+ * search's stored error without ever asking Spotify anything.
+ */
+describe('PluginInvoker.probe', () => {
+    /** A running plugin: the probe only restores `active` over an instance it could have run against. */
+    const running = () => record({ instance: {} as PluginRecord['instance'] });
+
+    /** Trips the breaker in one call, with a reason the probe's own should visibly replace. */
+    const quarantine = async (invoker: PluginInvoker) => {
+        await expect(
+            invoker.invoke('p', 'director.lookupTrack', () => {
+                throw new PluginError('HTTP 502').withCode('auth');
+            }),
+        ).rejects.toThrow();
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+    };
+
+    const failing = () => {
+        throw new Error('down');
+    };
+
+    it('goes through an open breaker and actually asks the plugin', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(running());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        await quarantine(invoker);
+
+        const check = vi.fn(async () => ({ ok: false, message: 'Spotify replied HTTP 502.' }));
+        const result = await invoker.probe('p', 'testConnection', check);
+
+        expect(check).toHaveBeenCalledTimes(1);
+        expect(result).toEqual({ ok: false, message: 'Spotify replied HTTP 502.' });
+    });
+
+    it('lifts the quarantine on a healthy answer: breaker closed, status active, stale error gone', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(running());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        await quarantine(invoker);
+        expect(registry.get('p')?.status).toBe('failed');
+
+        await expect(invoker.probe('p', 'testConnection', async () => ({ ok: true, message: 'Connected.' }))).resolves.toEqual({
+            ok: true,
+            message: 'Connected.',
+        });
+
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+        expect(registry.get('p')?.status).toBe('active');
+        expect(registry.get('p')?.error).toBeUndefined();
+        await expect(invoker.invoke('p', 'director.lookupTrack', async () => 'found')).resolves.toBe('found');
+    });
+
+    it('keeps a quarantined plugin quarantined on an unhealthy answer, with that answer as the reason', async () => {
+        // `testConnection` says a connection failed by resolving `{ ok: false }`, never by throwing,
+        // so a probe judged on whether the call resolved would have let this one back on air.
+        const registry = new PluginRegistry();
+        registry.upsert(running());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        await quarantine(invoker);
+
+        await invoker.probe('p', 'testConnection', async () => ({ ok: false, message: 'Spotify replied HTTP 502.' }));
+
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+        expect(registry.get('p')?.status).toBe('failed');
+        expect(registry.get('p')?.error).toBe('testConnection: Spotify replied HTTP 502.');
+        await expect(invoker.invoke('p', 'director.lookupTrack', async () => 'never runs')).rejects.toThrow(
+            /is failed: testConnection: Spotify replied HTTP 502\./,
+        );
+    });
+
+    it('records a probe that throws like any other failure, so the reason is still the latest one', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(running());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        await quarantine(invoker);
+
+        await expect(invoker.probe('p', 'testConnection', failing)).rejects.toThrow(/failed during testConnection: down/);
+
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+        expect(registry.get('p')?.error).toBe('testConnection: down');
+    });
+
+    it('moves nothing on a healthy plugin that answers unhealthy: no quarantine, and no clean slate either', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(running());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        const unreachable = async () => ({ ok: false, message: 'no route to host' });
+
+        // Pressing the test button is not station traffic, so it cannot be what quarantines a plugin.
+        for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD * 2; i++) {
+            await invoker.probe('p', 'testConnection', unreachable);
+        }
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+        expect(registry.get('p')?.status).toBe('active');
+
+        // Nor is the plugin saying it cannot connect evidence that it can: the count toward tripping
+        // survives it, where a success would have cleared it.
+        for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD - 1; i++) {
+            await expect(invoker.invoke('p', 'op', failing)).rejects.toThrow();
+        }
+        await invoker.probe('p', 'testConnection', unreachable);
+        await expect(invoker.invoke('p', 'op', failing)).rejects.toThrow();
+        expect(invoker.isBreakerOpen('p')).toBe(true);
+    });
+
+    it('clears the count toward tripping on a healthy answer, as any success does', async () => {
+        const registry = new PluginRegistry();
+        registry.upsert(running());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+
+        for (let i = 0; i < PLUGIN_FAILURE_THRESHOLD - 1; i++) {
+            await expect(invoker.invoke('p', 'op', failing)).rejects.toThrow();
+        }
+        await invoker.probe('p', 'testConnection', async () => ({ ok: true }));
+        await expect(invoker.invoke('p', 'op', failing)).rejects.toThrow();
+
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+    });
+
+    it('closes the breaker but will not mark a plugin with no instance active', async () => {
+        // A reinit that failed while the probe was in flight has already written `failed` over a
+        // record with nothing in it. `active` there would advertise a plugin nothing can call.
+        const registry = new PluginRegistry();
+        registry.upsert(running());
+        const invoker = new PluginInvoker(registry, stubPluginLog().log);
+        await quarantine(invoker);
+
+        await invoker.probe('p', 'testConnection', async () => {
+            registry.setStatus('p', 'failed', 'init: bad client id');
+            registry.get('p')!.instance = undefined;
+            return { ok: true };
+        });
+
+        expect(registry.get('p')?.status).toBe('failed');
+        expect(registry.get('p')?.error).toBe('init: bad client id');
+    });
+});
+
+/**
  * The classification is the whole point of routing plugin failures through
  * `PluginError`: if it does not survive the invoker, the service can only
  * answer 500 and a message string.

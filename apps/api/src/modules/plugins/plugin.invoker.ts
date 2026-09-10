@@ -1,5 +1,5 @@
 import { Injectable } from 'injectkit';
-import { PluginError, isResourceScopedCode, toPluginError } from '@deadair/plugin-sdk';
+import { PluginError, isResourceScopedCode, toPluginError, type PluginConnectionResult } from '@deadair/plugin-sdk';
 import { runWithDeadline } from './plugin.invocation.deadline.js';
 import { PluginLog } from './plugin.log.js';
 import { PluginRegistry } from './plugin.registry.js';
@@ -87,7 +87,8 @@ const deadline = (timeoutMs: number, message: string): InvokeDeadline => {
  * calls that cannot succeed; after {@link PLUGIN_FAILURE_THRESHOLD} failures in
  * a row (or one failure the plugin itself declared non-retryable) it is
  * quarantined and further calls fail immediately with the reason, until
- * something (a config change, a reinit) calls {@link PluginInvoker.reset}.
+ * something (a config change, a reinit) calls {@link PluginInvoker.reset}, or
+ * a {@link PluginInvoker.probe} comes back healthy.
  *
  * Resource-scoped failures are exempt from all of that (see
  * `isResourceScopedCode`). "That playlist is not yours" is a correct answer
@@ -135,6 +136,63 @@ export class PluginInvoker {
             throw new PluginError(`plugin ${pluginId} is failed: ${openReason}`).withCode('unavailable');
         }
 
+        const result = await this.run(pluginId, op, fn, opts);
+        this.recordSuccess(pluginId);
+        return result;
+    }
+
+    /**
+     * Asks a plugin whether it can reach its provider, whatever the breaker says, and lets the answer
+     * decide the breaker.
+     *
+     * This is the breaker's half-open probe, and it is the only one: nothing closes a tripped breaker
+     * on a timer. Without it the "Test connection" button on a quarantined plugin answered with the
+     * reason the breaker had stored (the director's third failed Spotify search in a row) and
+     * `testConnection` never ran. The one control an operator reaches for to ask "is it
+     * back?" could only repeat the old error, and the only way to un-quarantine a plugin whose
+     * provider had merely had a bad few minutes was to re-save its settings.
+     *
+     * The verdict is the plugin's ANSWER rather than whether the call resolved, because
+     * `testConnection` reports a failing connection as `{ ok: false }` and never throws: every
+     * bundled plugin catches its own upstream error and says so in the message. So:
+     *
+     * - `ok: true` closes the breaker, and a plugin the breaker had quarantined is `active` again.
+     * - `ok: false` on a quarantined plugin keeps it quarantined and replaces the stored reason, so
+     *   the settings page shows what is wrong now rather than what was wrong when it tripped.
+     * - `ok: false` on a healthy plugin moves nothing. It used to count as a success and clear the
+     *   failure count, which is the plugin saying it cannot connect being read as evidence it can;
+     *   and counting it as a failure would let three presses of a test button quarantine a plugin
+     *   the station was still using.
+     * - A throw or a timeout is recorded exactly as {@link PluginInvoker.invoke} records one.
+     *
+     * @throws {PluginError} when `fn` rejects or times out, as `invoke` does. Never for an open
+     *   breaker: going through it is the point.
+     */
+    async probe(
+        pluginId: string,
+        op: string,
+        fn: (signal: AbortSignal) => Promise<PluginConnectionResult>,
+        opts?: PluginInvokeOptions,
+    ): Promise<PluginConnectionResult> {
+        const result = await this.run(pluginId, op, fn, opts);
+
+        if (result.ok) {
+            this.recover(pluginId, op);
+        } else if (this.openBreakers.has(pluginId)) {
+            const reason = `${op}: ${result.message ?? 'the plugin could not connect'}`;
+            this.openBreakers.set(pluginId, reason);
+            this.pluginRegistry.setStatus(pluginId, 'failed', reason);
+            this.pluginLog.for(pluginId).warn('plugin failed its probe; still quarantined', { op, error: reason });
+        }
+
+        return result;
+    }
+
+    /**
+     * The call itself, with the deadline, the failure accounting and the span, and without the
+     * breaker check or the success accounting: those are what `invoke` and `probe` disagree about.
+     */
+    private async run<T>(pluginId: string, op: string, fn: (signal: AbortSignal) => Promise<T>, opts?: PluginInvokeOptions): Promise<T> {
         const timeoutMs = opts?.timeoutMs ?? PLUGIN_INVOKE_TIMEOUT_MS;
         const timeout = deadline(timeoutMs, `plugin ${pluginId} timed out after ${timeoutMs}ms during ${op}`);
         // Started here rather than inside the `try`, so a synchronous throw out of `deadline` would
@@ -153,9 +211,7 @@ export class PluginInvoker {
             // itself can watch the same signal this races on rather than
             // polling a clock. See `plugin.invocation.deadline.ts`.
             const call = runWithDeadline(Date.now() + timeoutMs, timeout.signal, async () => fn(timeout.signal));
-            const result = await Promise.race([call, timeout.expiry]);
-            this.recordSuccess(pluginId);
-            return result;
+            return await Promise.race([call, timeout.expiry]);
         } catch (error) {
             failure = error;
             throw this.recordFailure(pluginId, op, error);
@@ -195,6 +251,24 @@ export class PluginInvoker {
 
     private recordSuccess(pluginId: string): void {
         this.consecutiveFailures.delete(pluginId);
+    }
+
+    /**
+     * Undoes a quarantine on the evidence of a healthy probe.
+     *
+     * The status goes back only if it is still the `failed` the breaker wrote and the instance the
+     * probe ran against is still there. A reinit can land while a probe is in flight, and one that
+     * failed has already written `failed` over a record with no instance: calling that `active`
+     * would advertise a plugin nothing can call.
+     */
+    private recover(pluginId: string, op: string): void {
+        const wasOpen = this.openBreakers.has(pluginId);
+        this.reset(pluginId);
+        if (!wasOpen) return;
+
+        const record = this.pluginRegistry.get(pluginId);
+        if (record?.status === 'failed' && record.instance !== undefined) this.pluginRegistry.setStatus(pluginId, 'active');
+        this.pluginLog.for(pluginId).info('plugin passed its probe; quarantine lifted', { op });
     }
 
     /**

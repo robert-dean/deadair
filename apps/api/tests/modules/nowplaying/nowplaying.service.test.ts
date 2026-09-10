@@ -157,29 +157,27 @@ describe('NowPlayingService', () => {
             expect(service.getNowPlaying().mounts).toEqual([MP3_MOUNT]);
         });
 
-        it('follows a renamed mount, because every path is derived from it', () => {
+        it('ignores a `stream.mount` row left from when the mount was a setting', () => {
+            // Nothing renders a renamed mount any more, so a client told about one would tune
+            // to a path Icecast does not serve.
             const { service } = build(undefined, 'Station', 0, {
-                [STREAM_KEYS.mount]: '/wireless.mp3',
+                'stream.mount': '/wireless.mp3',
                 [STREAM_KEYS.opusEnabled]: 'true',
             });
 
             expect(service.getNowPlaying().mounts).toEqual([
-                { format: 'mp3', path: '/wireless.mp3', bitrateKbps: 128 },
-                { format: 'opus', path: '/wireless.opus', bitrateKbps: 160 },
+                { format: 'mp3', path: '/live.mp3', bitrateKbps: 128 },
+                { format: 'opus', path: '/live.opus', bitrateKbps: 160 },
             ]);
         });
 
-        it('offers HLS at its own fixed path, which a renamed mount does not move', () => {
-            // `radio.liq` writes `playlist = "live.m3u8"` as a literal, so deriving this from
-            // the mount would name a playlist nothing writes: the edge would redirect and then
-            // 404, which looks like a working output right up to the point of playing nothing.
+        it('offers HLS at its own fixed path', () => {
             const { service } = build(undefined, 'Station', 0, {
-                [STREAM_KEYS.mount]: '/wireless.mp3',
                 [STREAM_KEYS.hlsEnabled]: 'true',
             });
 
             expect(service.getNowPlaying().mounts).toEqual([
-                { format: 'mp3', path: '/wireless.mp3', bitrateKbps: 128 },
+                { format: 'mp3', path: '/live.mp3', bitrateKbps: 128 },
                 // No bitrate: what a listener gets is the AAC variant's rate, and reporting the
                 // AAC setting here would state a figure for an output whose setting is not it.
                 { format: 'hls', path: '/live.m3u8' },

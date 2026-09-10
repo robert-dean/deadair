@@ -61,7 +61,7 @@ class StationUrlTest {
     fun `builds a mount URL whether or not the reported path has a leading slash`() {
         val station = parse("https://radio.example.com")
 
-        // `mounts[]` carries the slash, but `stream.mount` is text an operator typed.
+        // `mounts[]` carries the slash, but an older station's `stream.mount` was text an operator typed.
         assertEquals("https://radio.example.com/live.mp3", station.mountUrl("/live.mp3"))
         assertEquals("https://radio.example.com/live.mp3", station.mountUrl("live.mp3"))
     }

@@ -184,7 +184,7 @@ describe('SettingsService and the containers that cannot read the database', () 
     it('re-renders the stream config after a stream setting changes', async () => {
         const { service, materialize, afterCommit } = build();
 
-        await service.write({ [STREAM_KEYS.mount]: '/other.mp3' });
+        await service.write({ [STREAM_KEYS.bitrate]: '192' });
         expect(materialize).not.toHaveBeenCalled();
 
         await afterCommit.run();
@@ -203,7 +203,7 @@ describe('SettingsService and the containers that cannot read the database', () 
             return true;
         });
 
-        await service.write({ [STREAM_KEYS.mount]: '/other.mp3' });
+        await service.write({ [STREAM_KEYS.bitrate]: '192' });
         await afterCommit.run();
 
         expect(order).toEqual(['reload', 'materialize']);

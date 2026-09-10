@@ -44,9 +44,9 @@ always present.
 | FLAC mount | `stream.flacEnabled` | ~900 kbps | lossless transport, behind a lossless library |
 | HLS | `stream.hlsEnabled` | AAC 192 | one URL, and the only output that survives a phone changing networks |
 
-The mount PATHS are derived from `stream.mount` by swapping the extension, in `streamMounts`
-([stream.settings.ts](../../apps/api/src/modules/stream/stream.settings.ts)), which is the single
-place that knows which outputs exist. Four consumers read it — the config renderer, the audience
+The mount PATHS are fixed (`MOUNT_PATHS`, `/live.mp3` and its siblings), and `streamMounts`
+([stream.settings.ts](../../apps/api/src/modules/stream/stream.settings.ts)) is the single place
+that knows which outputs exist. Four consumers read it — the config renderer, the audience
 gate, the edge and the console — and any of them deriving the list separately is how a listener on a
 mount nobody counted stops holding the station on air.
 

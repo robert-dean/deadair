@@ -53,8 +53,8 @@ export class NowPlayingService {
      *
      * HLS is appended rather than coming out of `streamMounts`, and that is not an
      * oversight: it is not an Icecast mount. Nothing publishes it as one, the audience
-     * gate counts its listeners a different way, and its path is a constant rather than
-     * derived from `stream.mount` — see {@link HLS_PLAYLIST_PATH}. Its bitrate is left
+     * gate counts its listeners a different way, and its path is its own constant,
+     * {@link HLS_PLAYLIST_PATH}, rather than one of `MOUNT_PATHS`. Its bitrate is left
      * absent because the figure a listener would get is the AAC variant's, and reporting
      * the AAC setting here would state a rate for an output whose own setting is not it.
      */

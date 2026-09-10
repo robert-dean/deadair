@@ -8,7 +8,7 @@ import { HlsAudience } from './hls.audience.js';
 import { IcecastStatsClient } from './icecast.stats.client.js';
 import { SpotifyShimClient } from './spotify.shim.client.js';
 import { StreamService } from './stream.service.js';
-import { streamMounts } from './stream.settings.js';
+import { MOUNT_PATHS, streamMounts } from './stream.settings.js';
 import { StreamConfigWatch } from './stream.staleness.js';
 
 /**
@@ -99,7 +99,7 @@ export const StreamModule: ServerKitModule = {
             container.get(IcecastStatsClient).useMounts({
                 host: settings.icecastHost,
                 port: settings.icecastPort,
-                mount: settings.mount,
+                mount: MOUNT_PATHS.mp3,
                 alsoMounts: streamMounts(settings)
                     .slice(1)
                     .map(mount => mount.path),

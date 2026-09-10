@@ -115,7 +115,7 @@ describe('the settings registry', () => {
         // than literals in two files.
         expect(findDescriptor(AIR_MODE_KEY)!.default).toBe(DEFAULT_AIR_MODE);
         expect(findDescriptor(STREAM_KEYS.title)!.default).toBe(STREAM_DEFAULTS.title);
-        expect(findDescriptor(STREAM_KEYS.mount)!.default).toBe(STREAM_DEFAULTS.mount);
+        expect(findDescriptor(STREAM_KEYS.bitrate)!.default).toBe(STREAM_DEFAULTS.bitrate);
     });
 
     it('declares the range its own resolver clamps to', () => {

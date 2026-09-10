@@ -5,7 +5,7 @@ import { SettingsShell } from '../../components/settings/settings.shell';
 
 export const Route = createFileRoute('/settings/station')({ component: StationSettingsRoute });
 
-/** Station: the station itself: what it is called, where it publishes, and the credentials that get it there. */
+/** Station: the station itself: what it is called, where it is, and the clock it tells the time by. */
 function StationSettingsRoute() {
     return (
         <SettingsShell active="station">

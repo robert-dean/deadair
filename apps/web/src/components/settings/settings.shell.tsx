@@ -85,9 +85,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     {
         id: 'station',
         label: 'Station',
-        hint: 'Name, mount and where it publishes',
+        hint: 'Its name, where it is and its clock',
         group: 'station',
-        blurb: 'What the station is called and where it publishes. Icecast and Liquidsoap read these from files rendered on save, so a change reaches them on their next restart.',
+        blurb: 'What the station is called, where it is, and the clock it tells the time by. Icecast reads the name from a file rendered on save, so a new one reaches the stream on its next restart.',
     },
     // Split out of Station along with the two below it: one save under thirty-one fields, from the
     // station's own name to four passwords, was a lot of ground to cover for a visit that usually

@@ -243,14 +243,6 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         default: NAMES_THE_TIME_DEFAULT,
         help: 'A break that says "just after half past four" is only true for a few minutes, so the station checks the clock before airing it and drops it if the running order arrived early. While the order runs ahead of what the station projects, that check costs almost every break that names an hour. With this off the station still says "this afternoon", which stays true for hours. Turn it back on once breaks stop being dropped for reaching their slot early.',
     },
-    {
-        group: 'station',
-        key: STREAM_KEYS.mount,
-        label: 'Mount',
-        type: 'string',
-        default: STREAM_DEFAULTS.mount,
-        help: 'The Icecast mount point, including its leading slash and extension.',
-    },
 
     // ── stream ─────────────────────────────────────────────────────────────────
     {

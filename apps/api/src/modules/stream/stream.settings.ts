@@ -19,21 +19,17 @@ export const STREAM_KEYS = {
     description: 'stream.description',
     genre: 'stream.genre',
     publicUrl: 'stream.publicUrl',
-    mount: 'stream.mount',
     bitrate: 'stream.bitrate',
     /**
      * The optional format mounts, each off by default.
      *
-     * MP3 is unconditional and is `mount` above: a Sonos, a car head unit and a
-     * hardware radio take MP3, AAC or nothing, so it is the compatibility FLOOR
-     * rather than a preference. Everything here is an addition beside it, and each
-     * one costs an encoder running 24/7 in the stream container whether or not
-     * anybody is listening to it — which is why none of them is on for a station
-     * that never asked.
+     * MP3 is unconditional: a Sonos, a car head unit and a hardware radio take MP3,
+     * AAC or nothing, so it is the compatibility FLOOR rather than a preference.
+     * Everything here is an addition beside it, and each one costs an encoder running
+     * 24/7 in the stream container whether or not anybody is listening to it — which
+     * is why none of them is on for a station that never asked.
      *
-     * Their mount paths are DERIVED from `stream.mount` rather than being settings
-     * of their own; see {@link streamMounts}. Four more paths to keep in step by
-     * hand is four more ways for the edge and the renderer to disagree.
+     * No mount's PATH is a setting; see {@link MOUNT_PATHS}.
      */
     opusEnabled: 'stream.opusEnabled',
     opusBitrate: 'stream.opusBitrate',
@@ -128,8 +124,6 @@ export interface StreamSettings {
     description: string;
     genre: string;
     publicUrl: string;
-    /** The MP3 mount, which is always published. Every other mount's path is derived from it. */
-    mount: string;
     bitrate: string;
     opusEnabled: boolean;
     opusBitrate: string;
@@ -181,7 +175,6 @@ export const STREAM_DEFAULTS = {
     description: '',
     genre: 'Music',
     publicUrl: '',
-    mount: '/live.mp3',
     bitrate: '128',
     // Off, every one of them: an encoder the operator did not ask for is CPU spent
     // permanently on a mount nobody has been told exists.
@@ -242,9 +235,9 @@ export function resolveStreamSettings(config: AppConfig, encryption: EncryptionP
         description: values.get(STREAM_KEYS.description) ?? STREAM_DEFAULTS.description,
         genre: values.get(STREAM_KEYS.genre) ?? STREAM_DEFAULTS.genre,
         publicUrl: values.get(STREAM_KEYS.publicUrl) ?? STREAM_DEFAULTS.publicUrl,
-        // The eight keys that decide which mounts exist, through the one resolver that
+        // The seven keys that decide which mounts exist, through the one resolver that
         // reads them. Spread rather than repeated here because `/nowplaying` needs the
-        // same eight and cannot call this function: it holds no scope, and the
+        // same seven and cannot call this function: it holds no scope, and the
         // `EncryptionProvider` the secrets below need is scoped.
         ...resolveMountSettings(config),
         // Clamped rather than refused, on the resolver rule: this is reading a row that is
@@ -320,22 +313,25 @@ export interface StreamMount {
 export const FLAC_ASSUMED_KBPS = 900;
 
 /**
- * The mount path for a format, derived from the MP3 mount by swapping the extension.
+ * Where each format is published. Fixed, and not a setting.
  *
- * Derived rather than configured, and that is the whole design: four more settings
- * would be four more values for the renderer, the audience gate, the edge and the
- * console to disagree about, and an operator would have to keep them in step by hand
- * for no benefit anybody could name. A mount with no extension keeps its own name for
- * MP3 and gains one for the rest, which is the only sane reading of `/live`.
+ * The MP3 path was one (`stream.mount`), with the rest derived from it by swapping the
+ * extension, and nothing needed it to vary: the station runs its own Icecast, so there
+ * is no neighbouring station on it to collide with. What it did offer was a way to
+ * break every URL a listener had saved, applied only on the stream container's next
+ * restart. Three things already treated `/live` as fixed besides: the HLS playlist
+ * below, which `radio.liq` names as a literal, and both listener apps, which tune to
+ * `/live.mp3` before the station has told them its mounts.
+ *
+ * A stored `stream.mount` row from before is ignored rather than deleted, on the
+ * registry's rule for rows nobody declares.
  */
-export function mountPathFor(mount: string, format: StreamFormat): string {
-    if (format === 'mp3') return mount;
-
-    const cut = mount.lastIndexOf('.');
-    const slash = mount.lastIndexOf('/');
-    const stem = cut > slash + 1 ? mount.slice(0, cut) : mount;
-    return `${stem}.${format}`;
-}
+export const MOUNT_PATHS: Readonly<Record<StreamFormat, string>> = {
+    mp3: '/live.mp3',
+    opus: '/live.opus',
+    aac: '/live.aac',
+    flac: '/live.flac',
+};
 
 /**
  * The settings that decide which mounts exist, and nothing else.
@@ -350,7 +346,7 @@ export function mountPathFor(mount: string, format: StreamFormat): string {
  */
 export type MountSettings = Pick<
     StreamSettings,
-    'mount' | 'bitrate' | 'opusEnabled' | 'opusBitrate' | 'aacEnabled' | 'aacBitrate' | 'flacEnabled' | 'hlsEnabled'
+    'bitrate' | 'opusEnabled' | 'opusBitrate' | 'aacEnabled' | 'aacBitrate' | 'flacEnabled' | 'hlsEnabled'
 >;
 
 /**
@@ -366,7 +362,6 @@ export function resolveMountSettings(config: AppConfig): MountSettings {
     const text = (key: string, fallback: string): string => (config.has(key) ? config.get(key, '') : fallback);
 
     return {
-        mount: text(STREAM_KEYS.mount, STREAM_DEFAULTS.mount),
         bitrate: text(STREAM_KEYS.bitrate, STREAM_DEFAULTS.bitrate),
         opusEnabled: settingIsOn(config, STREAM_KEYS.opusEnabled, STREAM_DEFAULTS.opusEnabled),
         opusBitrate: text(STREAM_KEYS.opusBitrate, STREAM_DEFAULTS.opusBitrate),
@@ -378,14 +373,8 @@ export function resolveMountSettings(config: AppConfig): MountSettings {
 }
 
 /**
- * Where the HLS master playlist is, which is a CONSTANT and not derived from the mount.
- *
- * `radio.liq` writes `playlist = "live.m3u8"` as a literal, so the file on disk carries
- * that name whatever `stream.mount` is called. The nginx redirect matches any
- * single-segment `.m3u8` at the root by SHAPE, which makes a renamed mount look like it
- * would work here — it would redirect, and then 404, because nothing writes a playlist
- * under the new name. Deriving this from the mount is therefore the obvious move and the
- * wrong one; see `nginx/snippets/hls.conf` and `stream/radio.liq`.
+ * Where the HLS master playlist is. `radio.liq` writes `playlist = "live.m3u8"` as a
+ * literal; see `nginx/snippets/hls.conf` for how the edge reaches it.
  */
 export const HLS_PLAYLIST_PATH = '/live.m3u8';
 
@@ -408,22 +397,14 @@ export function streamMounts(settings: MountSettings): StreamMount[] {
         return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
     };
 
-    const mounts: StreamMount[] = [{ format: 'mp3', path: settings.mount, bitrateKbps: bitrate(settings.bitrate, Number(STREAM_DEFAULTS.bitrate)) }];
+    const mounts: StreamMount[] = [{ format: 'mp3', path: MOUNT_PATHS.mp3, bitrateKbps: bitrate(settings.bitrate, Number(STREAM_DEFAULTS.bitrate)) }];
     if (settings.opusEnabled) {
-        mounts.push({
-            format: 'opus',
-            path: mountPathFor(settings.mount, 'opus'),
-            bitrateKbps: bitrate(settings.opusBitrate, Number(STREAM_DEFAULTS.opusBitrate)),
-        });
+        mounts.push({ format: 'opus', path: MOUNT_PATHS.opus, bitrateKbps: bitrate(settings.opusBitrate, Number(STREAM_DEFAULTS.opusBitrate)) });
     }
     if (settings.aacEnabled) {
-        mounts.push({
-            format: 'aac',
-            path: mountPathFor(settings.mount, 'aac'),
-            bitrateKbps: bitrate(settings.aacBitrate, Number(STREAM_DEFAULTS.aacBitrate)),
-        });
+        mounts.push({ format: 'aac', path: MOUNT_PATHS.aac, bitrateKbps: bitrate(settings.aacBitrate, Number(STREAM_DEFAULTS.aacBitrate)) });
     }
-    if (settings.flacEnabled) mounts.push({ format: 'flac', path: mountPathFor(settings.mount, 'flac') });
+    if (settings.flacEnabled) mounts.push({ format: 'flac', path: MOUNT_PATHS.flac });
 
     return mounts;
 }

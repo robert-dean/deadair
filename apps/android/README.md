@@ -58,7 +58,7 @@ Against a dev stack from an emulator, that address is `http://10.0.2.2:8080`.
 
 ## The format picker
 
-MP3 is always there — `stream.mount` has no switch. The others are the operator's to enable, and
+MP3 is always there, with no switch. The others are the operator's to enable, and
 the picker greys out the ones this station does not publish, reading that from `/nowplaying`'s
 `mounts[]` rather than by connecting to each mount to see. That is not an optimisation: a
 connection is an audience, and an audience-gated station would be put on air for five minutes by

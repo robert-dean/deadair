@@ -4,7 +4,7 @@ import { Logger } from '@maroonedsoftware/logger';
 import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { StreamService } from '#modules/stream/stream.service.js';
-import { streamMounts } from '#modules/stream/stream.settings.js';
+import { MOUNT_PATHS, streamMounts } from '#modules/stream/stream.settings.js';
 import { StreamConfigWatch } from '#modules/stream/stream.staleness.js';
 import { TrackAudioService } from './audio/track.audio.service.js';
 import type { TrackContentType } from './audio/track.store.js';
@@ -118,7 +118,7 @@ export class PlayoutService {
         // actually airs next. Counted from the same list, so `queuedCount` and
         // `upNext` can never disagree about what is coming.
         const upcoming = this.rundown.upcoming();
-        // The mounts are settings, so the console follows them rather than keeping a second
+        // Which mounts exist is settings, so the console follows them rather than keeping a second
         // copy that drifts. PATHS, not URLs: `stream.icecastHost` names Icecast as the
         // app's containers see it, which is not an address a browser can reach.
         //
@@ -132,7 +132,7 @@ export class PlayoutService {
         return {
             // The MP3 mount, which is always published and is the one to name when only one
             // can be named. `mounts` carries the rest.
-            mountPath: settings.mount,
+            mountPath: MOUNT_PATHS.mp3,
             mounts,
             // Reachability is the honest answer to "can anything air right now".
             // A running order with no stream to hand it to plays nothing, and a

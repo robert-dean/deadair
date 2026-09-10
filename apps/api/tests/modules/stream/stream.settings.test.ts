@@ -11,7 +11,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
     ensureStreamSecrets,
-    mountPathFor,
     resolveStreamSettings,
     STREAM_KEYS,
     STREAM_SECRET_KEYS,
@@ -93,7 +92,6 @@ describe('resolveStreamSettings', () => {
     it('fills defaults matching the committed radio.default.env', () => {
         const settings = resolveStreamSettings(settingsConfig().config, encryption);
 
-        expect(settings.mount).toBe('/live.mp3');
         expect(settings.bitrate).toBe('128');
         expect(settings.icecastHost).toBe('icecast');
         expect(settings.icecastPort).toBe('8000');
@@ -124,36 +122,6 @@ describe('resolveStreamSettings', () => {
 
         expect(settings.title).toBe('Deadair');
         expect(settings.genre).toBe('');
-    });
-});
-
-describe('mountPathFor', () => {
-    it('swaps the extension of the MP3 mount', () => {
-        expect(mountPathFor('/live.mp3', 'opus')).toBe('/live.opus');
-        expect(mountPathFor('/live.mp3', 'aac')).toBe('/live.aac');
-        expect(mountPathFor('/live.mp3', 'flac')).toBe('/live.flac');
-    });
-
-    it('leaves the MP3 mount exactly as the operator wrote it', () => {
-        // It is the setting, not a derivation of one. A station whose mount is `/stream`
-        // must not have it silently become `/stream.mp3`.
-        expect(mountPathFor('/stream', 'mp3')).toBe('/stream');
-        expect(mountPathFor('/live.mp3', 'mp3')).toBe('/live.mp3');
-    });
-
-    it('follows a renamed mount, which is the whole reason it derives', () => {
-        expect(mountPathFor('/wbcn.mp3', 'opus')).toBe('/wbcn.opus');
-    });
-
-    it('appends rather than replacing when the mount has no extension', () => {
-        expect(mountPathFor('/live', 'opus')).toBe('/live.opus');
-    });
-
-    it('does not mistake a directory dot for an extension', () => {
-        // The `.` is before the last slash, so there is no extension to swap and the
-        // format is appended. Cutting at the last dot regardless would produce
-        // `/v1.opus` and lose the mount name entirely.
-        expect(mountPathFor('/v1.2/live', 'opus')).toBe('/v1.2/live.opus');
     });
 });
 
@@ -205,9 +173,12 @@ describe('streamMounts', () => {
         expect(streamMounts(resolveStreamSettings(config, encryption))[1]?.bitrateKbps).toBe(160);
     });
 
-    it('derives every mount from a renamed stream.mount', () => {
-        const { config } = settingsConfig({ [STREAM_KEYS.mount]: '/wbcn.mp3', [STREAM_KEYS.aacEnabled]: 'true' });
+    it('ignores a `stream.mount` row left from when the mount was a setting', () => {
+        // The row is not deleted, on the registry's rule for keys nobody declares. What matters
+        // is that it has no effect: honoured invisibly, it would rename every mount from a value
+        // the console no longer shows and nobody can change.
+        const { config } = settingsConfig({ 'stream.mount': '/wbcn.mp3', [STREAM_KEYS.aacEnabled]: 'true' });
 
-        expect(streamMounts(resolveStreamSettings(config, encryption)).map(mount => mount.path)).toEqual(['/wbcn.mp3', '/wbcn.aac']);
+        expect(streamMounts(resolveStreamSettings(config, encryption)).map(mount => mount.path)).toEqual(['/live.mp3', '/live.aac']);
     });
 });

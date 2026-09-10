@@ -59,7 +59,7 @@ class MountSelectionTest {
 
     @Test
     fun `guesses the default mount before the station has answered`() {
-        // Nothing else is knowable yet, and `/live.mp3` is the default `stream.mount`.
+        // Nothing else is knowable yet, and `/live.mp3` is where a station publishes MP3.
         val choice = chooseMount(emptyList(), StreamFormat.MP3)
 
         assertEquals("/live.mp3", choice.path)

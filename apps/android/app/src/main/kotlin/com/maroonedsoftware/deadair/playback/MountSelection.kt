@@ -14,9 +14,10 @@ data class MountChoice(
 /**
  * The mount to play, from what the station says it publishes.
  *
- * The paths come from `/nowplaying`'s `mounts[]` rather than being derived here, so an operator who
- * renamed `stream.mount` is followed rather than guessed at. Deriving them client-side would work
- * until somebody renamed one, and then fail in a way that looks like the stream being down.
+ * The paths come from `/nowplaying`'s `mounts[]` rather than being derived here. They are fixed on a
+ * current station, but an older one took the MP3 path from a setting (`stream.mount`) an operator
+ * could rename, and deriving them client-side would fail there in a way that looks like the stream
+ * being down.
  *
  * MP3 is the floor because it is the only mount with no switch: the contract says the list is
  * never empty and MP3 is first. So a format the operator has turned off degrades to something
@@ -24,8 +25,8 @@ data class MountChoice(
  * quietly given 128k MP3 has been lied to.
  */
 fun chooseMount(mounts: List<NowPlayingMount>, wanted: StreamFormat): MountChoice {
-    // Before the first reading there is nothing to choose from. `/live.mp3` is the default
-    // `stream.mount`, so it is the best guess available, and it is marked as a fallback whenever
+    // Before the first reading there is nothing to choose from. `/live.mp3` is where every
+    // current station publishes MP3, so it is the best guess available, and it is marked as a fallback whenever
     // it is not what was asked for.
     if (mounts.isEmpty()) return MountChoice(DEFAULT_MOUNT, StreamFormat.MP3, fellBack = wanted != StreamFormat.MP3)
 
@@ -42,5 +43,5 @@ fun chooseMount(mounts: List<NowPlayingMount>, wanted: StreamFormat): MountChoic
     }
 }
 
-/** The default `stream.mount`, and the only sensible guess before a station has answered. */
+/** Where a station publishes MP3, and the only sensible guess before it has answered. */
 const val DEFAULT_MOUNT: String = "/live.mp3"

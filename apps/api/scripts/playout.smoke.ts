@@ -27,7 +27,7 @@ import { KyselyDefaultPlugins, KyselyPgTypeOverrides, KyselyPool } from '@maroon
 import type { Logger } from '@maroonedsoftware/logger';
 import type { DB } from '../src/modules/data/db.js';
 import { settingsConfigSource } from '../src/server/settings.config.source.js';
-import { resolveStreamSettings, streamMounts } from '../src/modules/stream/stream.settings.js';
+import { MOUNT_PATHS, resolveStreamSettings, streamMounts } from '../src/modules/stream/stream.settings.js';
 import { IcecastStatsClient } from '../src/modules/stream/icecast.stats.client.js';
 import { IcecastEventFeed } from '../src/modules/stream/icecast.eventfeed.client.js';
 import { HlsAudience } from '../src/modules/stream/hls.audience.js';
@@ -106,7 +106,7 @@ const stats = new IcecastStatsClient(config, quiet);
 stats.useMounts({
     host: settings.icecastHost,
     port: settings.icecastPort,
-    mount: settings.mount,
+    mount: MOUNT_PATHS.mp3,
     alsoMounts: streamMounts(settings)
         .slice(1)
         .map(mount => mount.path),

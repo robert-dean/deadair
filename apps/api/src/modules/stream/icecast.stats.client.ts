@@ -249,9 +249,9 @@ export class IcecastStatsClient {
      * `icecast.xml` was built from, so the two cannot disagree about it.
      *
      * `alsoMounts` are the optional format mounts, which may be empty and usually
-     * are. They are deduplicated against the primary rather than trusted, because
-     * they are DERIVED from `stream.mount` and a mount whose name already ends in
-     * one of the optional extensions would otherwise be counted twice.
+     * are. They are deduplicated against the primary rather than trusted, so a
+     * caller that hands over the whole mount list, primary included, does not have
+     * the primary's listeners counted twice.
      */
     useMounts(args: { host: string; port: string; mount: string; alsoMounts?: string[]; adminPassword?: string }): void {
         this.host = args.host || this.host;

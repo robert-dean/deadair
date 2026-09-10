@@ -18,8 +18,8 @@ value class StationUrl private constructor(val origin: String) {
     /**
      * A mount, from the same-origin path `/nowplaying` reports.
      *
-     * `mounts[]` carries a leading slash, but an operator's renamed `stream.mount` is text they
-     * typed, so the slash is enforced here rather than assumed.
+     * `mounts[]` carries a leading slash, but an older station took the MP3 path from text an operator
+     * typed (`stream.mount`), so the slash is enforced here rather than assumed.
      */
     fun mountUrl(path: String): String = "$origin/${path.trimStart('/')}"
 

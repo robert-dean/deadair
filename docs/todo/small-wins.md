@@ -31,8 +31,8 @@ does.
 tunnel** ([listening-loop.md](listening-loop.md)). That is the whole of why it is on the list: the
 work did not change and the reason for it appeared.
 
-Both files are a handful of lines built from `STREAM_KEYS.publicUrl` and `STREAM_KEYS.mount`, which
-the settings registry already holds and the console already edits. **They are public, so they name
+Both files are a handful of lines built from `STREAM_KEYS.publicUrl` and `MOUNT_PATHS`, the first of
+which the console already edits and the second of which is fixed. **They are public, so they name
 the public URL and never the compose service name** — the one way to get this wrong is to build them
 from `icecastHost`, which is the internal address and is right for Liquidsoap and wrong for everybody
 else.

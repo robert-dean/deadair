@@ -98,7 +98,7 @@ export function NavItem({ to, search, label, hint, hintText, attention, nested =
             // A DESCRIPTION rather than a second line of label, and the difference is the whole
             // reason the two attributes below exist: Mantine folds this into the link's accessible
             // name exactly as it folds the badge, so left alone "Station" is announced as "Station
-            // Name, mount and where it publishes" — the same fault this file already fixes twice.
+            // Its name, where it is and its clock" — the same fault this file already fixes twice.
             description={hintText === undefined || nested ? undefined : <span id={describedBy}>{hintText}</span>}
             aria-describedby={hintText === undefined || nested ? undefined : describedBy}
             // `aria-hidden` for the same reason the badge is: a section left visible is folded into

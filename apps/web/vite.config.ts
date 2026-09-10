@@ -14,12 +14,10 @@ const ICECAST_TARGET = 'http://127.0.0.1:8000';
  * The Icecast mounts, for the console's stream monitor.
  *
  * A REGEX rather than a path, which is what a `^`-prefixed proxy key means to
- * Vite. The station's real mount is the `stream.mount` setting (the API reports it
- * as `PlayoutStatus.mountPath`) and it can publish up to four of them — MP3 always,
- * plus Opus, AAC and FLAC as the operator switches them on, their paths derived
- * from `stream.mount` by swapping the extension. A dev proxy cannot read the
- * database, so matching the shape rather than the value is what stops this being a
- * hand-coupled copy of a setting that has to be edited alongside it.
+ * Vite. The station publishes up to four mounts (MP3 always, plus Opus, AAC and
+ * FLAC as the operator switches them on) at the fixed paths in `MOUNT_PATHS`, and
+ * the API reports which exist as `PlayoutStatus.mounts`. Matching the shape rather
+ * than listing them keeps this from being a hand-coupled copy of that table.
  *
  * The same expression, and the same reasoning, as `nginx/snippets/icecast.conf`.
  * Keep the two in step: this is the edge when the SPA is opened on :3002 directly,

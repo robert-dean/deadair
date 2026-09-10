@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type StreamMount, type StreamSettings, bytesPerSecond, streamMounts } from './stream.settings.js';
+import { type StreamMount, type StreamSettings, bytesPerSecond, MOUNT_PATHS, streamMounts } from './stream.settings.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -404,7 +404,7 @@ export function writeStreamConfig({
         ADMIN_PASSWORD: xml(adminPassword),
         ADMIN_EMAIL: xml(adminEmail),
         HOSTNAME: xml(hostnameFrom(settings.publicUrl, settings.hostname)),
-        MOUNT: xml(settings.mount),
+        MOUNT: xml(MOUNT_PATHS.mp3),
         STREAM_NAME: xml(settings.title),
         STREAM_DESCRIPTION: xml(settings.description),
         STREAM_GENRE: xml(settings.genre),
@@ -420,7 +420,7 @@ export function writeStreamConfig({
             `ICECAST_HOST=${shell(settings.icecastHost)}`,
             `ICECAST_PORT=${shell(settings.icecastPort)}`,
             `ICECAST_SOURCE_PASSWORD=${shell(sourcePassword)}`,
-            `STREAM_MOUNT=${shell(settings.mount)}`,
+            `STREAM_MOUNT=${shell(MOUNT_PATHS.mp3)}`,
             `STREAM_BITRATE=${shell(settings.bitrate)}`,
             // The optional format mounts, as a fixed pair each that radio.liq reads at startup.
             //

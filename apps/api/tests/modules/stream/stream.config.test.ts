@@ -47,7 +47,6 @@ const settings = (overrides: Partial<StreamSettings> = {}): StreamSettings => ({
     description: '',
     genre: 'Music',
     publicUrl: '',
-    mount: '/live.mp3',
     bitrate: '128',
     // The unconfigured station: MP3 alone, which is what every case here assumes unless
     // it says otherwise.
@@ -357,12 +356,12 @@ describe('writeStreamConfig', () => {
         expect(raw.indexOf('STREAM_MOUNT_AAC')).toBeLessThan(raw.indexOf('STREAM_MOUNT_FLAC'));
     });
 
-    it('hands liquidsoap the derived paths rather than making it derive them again', () => {
-        // Doing the extension swap twice, in two languages, is how the app comes to be
+    it('hands liquidsoap the paths rather than making it know them too', () => {
+        // A second copy of the table, in another language, is how the app comes to be
         // counting listeners on a mount Liquidsoap called something else.
         const { assetsDir, configDir } = dirs();
         writeStreamConfig({
-            settings: settings({ mount: '/wbcn.mp3', opusEnabled: true, flacEnabled: true }),
+            settings: settings({ opusEnabled: true, flacEnabled: true }),
             playout: playout(),
             assetsDir,
             configDir,
@@ -370,9 +369,10 @@ describe('writeStreamConfig', () => {
 
         const env = parseEnv(readFileSync(join(configDir, 'radio.env'), 'utf8'));
 
-        expect(env.get('STREAM_MOUNT_OPUS')).toBe('/wbcn.opus');
+        expect(env.get('STREAM_MOUNT')).toBe('/live.mp3');
+        expect(env.get('STREAM_MOUNT_OPUS')).toBe('/live.opus');
         expect(env.get('STREAM_OPUS_BITRATE')).toBe('160');
-        expect(env.get('STREAM_MOUNT_FLAC')).toBe('/wbcn.flac');
+        expect(env.get('STREAM_MOUNT_FLAC')).toBe('/live.flac');
         // Lossless: there is no bitrate to set, and an empty value says so.
         expect(env.get('STREAM_FLAC_BITRATE')).toBe('');
         // Off, and an empty path is how that is spelled.

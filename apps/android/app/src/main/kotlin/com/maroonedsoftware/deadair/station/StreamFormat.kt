@@ -12,7 +12,7 @@ import com.maroonedsoftware.deadair.sdk.models.NowPlayingMountFormat
  * mount everyone has, then the one that survives a network change, then the better codecs.
  */
 enum class StreamFormat(val wire: NowPlayingMountFormat, val label: String, val mime: String) {
-    /** Always published. `stream.mount` has no switch, so this is the only format guaranteed to exist. */
+    /** Always published. MP3 has no switch, so this is the only format guaranteed to exist. */
     MP3(NowPlayingMountFormat.MP3, "MP3", "audio/mpeg"),
 
     /**

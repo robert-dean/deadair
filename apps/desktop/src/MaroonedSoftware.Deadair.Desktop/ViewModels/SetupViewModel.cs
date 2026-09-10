@@ -10,9 +10,10 @@ namespace MaroonedSoftware.Deadair.Desktop.ViewModels;
 /// </summary>
 /// <remarks>
 /// The address is probed before it is saved, so somebody who mistypes finds out here rather than by
-/// staring at an empty player. The four outcomes get four different sentences: "not a station",
-/// "nothing answered" and "a station this build cannot read" are different problems with different
-/// remedies, and collapsing them into "could not connect" leaves people guessing.
+/// staring at an empty player. The outcomes get different sentences: "not a station", "nothing
+/// answered", "a station this build cannot read" and "a certificate this Mac does not trust" are
+/// different problems with different remedies, and collapsing them into "could not connect" leaves
+/// people guessing.
 /// </remarks>
 public sealed partial class SetupViewModel(ISettingsStore settings, StationProbe probe) : ObservableObject
 {
@@ -62,6 +63,11 @@ public sealed partial class SetupViewModel(ISettingsStore settings, StationProbe
 
                 case StationProbeResult.Incompatible:
                     Problem = "That station speaks a version this app does not know. Update the app.";
+                    break;
+
+                case StationProbeResult.Untrusted:
+                    Problem = "This Mac does not trust that station's certificate. Add the certificate "
+                        + "authority to the system keychain and mark it trusted there, then try again.";
                     break;
 
                 default:

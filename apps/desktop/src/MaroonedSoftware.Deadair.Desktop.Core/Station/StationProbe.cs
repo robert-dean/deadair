@@ -1,3 +1,4 @@
+using System.Security.Authentication;
 using System.Text.Json;
 using MaroonedSoftware.Deadair.Sdk.Models;
 using MaroonedSoftware.Deadair.Sdk.Runtime;
@@ -22,6 +23,9 @@ public enum StationProbeResult
 
     /// <summary>Nothing answered.</summary>
     Unreachable,
+
+    /// <summary>A station answered, but this Mac does not trust its certificate.</summary>
+    Untrusted,
 }
 
 /// <param name="Result">What was found.</param>
@@ -42,10 +46,11 @@ public readonly record struct StationProbeReading(
 /// called, and how to listen to it.
 /// </para>
 /// <para>
-/// The four outcomes are kept apart because they need different sentences. Somebody who typed their
+/// The five outcomes are kept apart because they need different sentences. Somebody who typed their
 /// router's address wants to be told it is not a station; somebody whose station is asleep wants to
-/// be told nothing answered; and somebody whose station is newer than their app should be told THAT
-/// rather than that their address is wrong.
+/// be told nothing answered; somebody whose station is newer than their app should be told THAT
+/// rather than that their address is wrong; and somebody whose station's certificate this Mac does
+/// not trust needs to hear about the certificate rather than being told nothing answered.
 /// </para>
 /// </remarks>
 public sealed class StationProbe(HttpClient http)
@@ -73,10 +78,17 @@ public sealed class StationProbe(HttpClient http)
         {
             throw;
         }
+        catch (HttpRequestException e) when (e.InnerException is AuthenticationException)
+        {
+            // Something answered, over TLS, with a certificate this Mac does not trust. Told apart
+            // from "nothing answered" because the remedy is different: this one needs a certificate
+            // authority added to the system keychain and trusted there, not a different address.
+            return new StationProbeReading(StationProbeResult.Untrusted);
+        }
         catch (Exception)
         {
-            // A DNS failure, a refused connection, a timeout, a TLS error. All of them mean the same
-            // thing to somebody typing an address: nothing answered.
+            // A DNS failure, a refused connection, a timeout. All of them mean the same thing to
+            // somebody typing an address: nothing answered.
             return new StationProbeReading(StationProbeResult.Unreachable);
         }
 

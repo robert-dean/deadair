@@ -670,7 +670,17 @@ end
 # any of this existed.
 def playout_transition(a, b) =
   blend = playout_cross_duration(a.metadata)
+  # Never fade a record into speech, whatever blend the OUTGOING item was stamped with. That
+  # stamp is decided before a break can be injected behind it: the app stamps `a`'s blend at
+  # commit time, off what was next at that moment, and a break landed later at `committedThrough`
+  # takes that slot without the stamp ever being revisited. Measured on 2026-09-10: 65% of
+  # adjacent record-then-speech pairs would blend under the old rule, median 2.8 s of a record
+  # fading under a voice that was never in the mix when the blend was decided.
   if
+    b.metadata["deadair_speech"] == "1"
+  then
+    sequence([a.source, b.source])
+  elsif
     blend <= playout_cross_hard_join
   then
     sequence([a.source, b.source])

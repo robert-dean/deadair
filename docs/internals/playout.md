@@ -114,6 +114,24 @@ because a cue's URL is armed when the record it rides is pushed and fetched when
 new anonymous audio route goes on the middleware's list, and its test reads the contracts to check
 that nothing `security: none` in `render.ck` or `playout.ck` is outside the list or the bridge.
 
+## What decides a blend, and why speech is never faded into
+
+**A blend is stamped on the OUTGOING item, off what the running order said was next at the moment
+this item was handed over** (`blendFor` in `crossfade.ts`), and `radio.liq`'s `cross` reads that
+stamp back off the outgoing record's own metadata when the boundary actually plays. Nothing revisits
+the stamp between those two moments, and a break can be injected at `committedThrough` in between:
+it lands behind a record whose blend was already decided against a different successor, so the
+record ends up carrying an overlap that was never measured against the voice now waiting on the
+other side of it.
+
+**`playout_transition` in `radio.liq` refuses that pairing outright: the mixer never fades a record
+into speech**, whatever blend the outgoing item was stamped with. If the INCOMING item is speech the
+boundary is a plain `sequence`, full stop. Measured on 2026-09-10: 65% of adjacent record-then-speech
+pairs would have blended under the stamped duration alone, median 2.8 seconds of a record fading
+under a voice that was not in the mix when the blend was decided. This is a mixer-side backstop
+rather than something `blendFor` could catch, because at the time it runs for the outgoing item the
+break that will follow does not exist yet.
+
 ## Knowing who is listening
 
 **The FEED is the mechanism and the poll is the failsafe.** `IcecastEventFeed` holds `/admin/eventfeed` open

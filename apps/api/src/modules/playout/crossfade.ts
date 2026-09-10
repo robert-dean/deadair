@@ -88,6 +88,15 @@ export interface BlendRules {
  * computed for a record nobody heard. One slightly wrong overlap, and the
  * alternative is holding the stamp until the successor is certain, which is never:
  * by then this item has already been pushed.
+ *
+ * The successor can also change AFTER hand-over in the other direction: a break
+ * injected at `committedThrough` lands behind a record whose blend was already
+ * stamped off whatever WAS next at commit time, and that stamp is never revisited.
+ * This function has no way to refuse that pairing, because at the time it runs the
+ * break does not exist yet. `playout_transition` in `stream/radio.liq` is the
+ * backstop: the mixer itself refuses to fade a record into speech, whatever this
+ * returned, so a stamped blend that turns out to precede a break plays as a plain
+ * sequence instead.
  */
 export function blendFor(outgoing: MeasuredCuePoints, incoming: MeasuredCuePoints | undefined, { crossfade }: BlendRules): number {
     if (!crossfade || incoming === undefined) return 0;

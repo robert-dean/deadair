@@ -24,8 +24,9 @@ describe('the settings form', () => {
         // of the same kind, so one key per protocol was never going to be enough.
         const columns = llmManifest.configFields.find(field => field.key === 'providers')?.columns ?? [];
 
-        expect(columns.map(column => column.key)).toEqual(['name', 'kind', 'baseUrl', 'apiKey']);
+        expect(columns.map(column => column.key)).toEqual(['name', 'kind', 'baseUrl', 'apiKey', 'headers']);
         expect(columns.find(column => column.key === 'apiKey')?.type).toBe('secret');
+        expect(columns.find(column => column.key === 'headers')?.type).toBe('secret');
         expect(llmManifest.configFields.filter(field => field.type === 'secret')).toEqual([]);
     });
 

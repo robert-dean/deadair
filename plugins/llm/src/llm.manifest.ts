@@ -294,6 +294,21 @@ export const llmManifest: PluginManifest = {
                     type: 'secret',
                     placeholder: 'For a hosted provider',
                 },
+                // For a gateway sitting in front of the real endpoint that insists on a header of
+                // its own (an internal proxy's auth token, a routing hint) which is not the
+                // `apiKey` cell's job, since that one is sent as `Authorization: Bearer`. Kept
+                // `secret` for the same reason a key is: an operator's gateway token is a
+                // credential, not something to leave in a config row a backup or a screenshot
+                // carries in the clear. A column has no multi-line control, so more than one header
+                // is one per line typed into a single-line box; see the placeholder.
+                {
+                    key: 'headers',
+                    label: 'Extra headers',
+                    type: 'secret',
+                    placeholder: 'X-Gateway-Key: value',
+                    dependsOn: 'kind',
+                    dependsOnValues: ['openai-compat'],
+                },
             ],
         },
         {

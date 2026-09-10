@@ -30,6 +30,7 @@ import {
 } from './llm.manifest.js';
 import { buildArms, missingCredential, OPENAI_COMPATIBLE_ADDRESSES, type ProviderRow } from './llm.arms.js';
 import { qualify, readModelName } from './llm.names.js';
+import { parseHeaderLines } from './openai.compat.provider.js';
 import type { ProviderArm } from './llm.provider.js';
 
 export { llmManifest };
@@ -120,11 +121,14 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         const rows: ProviderRow[] = [];
         for (const row of parseRows(config.providers)) {
             const apiKey = await readRowSecret(this.host, 'providers', row, 'apiKey');
+            const headerLines = await readRowSecret(this.host, 'providers', row, 'headers');
+            const headers = parseHeaderLines(headerLines);
             rows.push({
                 name: row.name ?? '',
                 kind: readProviderKind(row.kind),
                 baseUrl: configBaseUrl(row.baseUrl),
                 ...(apiKey === undefined ? {} : { apiKey }),
+                ...(Object.keys(headers).length === 0 ? {} : { headers }),
             });
         }
 

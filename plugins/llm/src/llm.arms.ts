@@ -17,6 +17,12 @@ export interface ProviderRow {
 
     /** The key, out of the secrets store rather than out of the row. See `readRowSecret`. */
     apiKey?: string;
+
+    /**
+     * Headers a gateway in front of the OpenAI-compatible endpoint insists on, out of the secrets
+     * store the same way `apiKey` is. Only that kind reads it: the native arms have no header cell.
+     */
+    headers?: Record<string, string>;
 }
 
 /**
@@ -52,7 +58,11 @@ function buildArm(host: PluginHost, row: ProviderRow): ProviderArm | undefined {
         case 'openai-compat':
             return row.baseUrl.length === 0
                 ? undefined
-                : openAiCompatibleArm(host, { baseUrl: row.baseUrl, ...(hasKey(row.apiKey) ? { apiKey: row.apiKey } : {}) });
+                : openAiCompatibleArm(host, {
+                      baseUrl: row.baseUrl,
+                      ...(hasKey(row.apiKey) ? { apiKey: row.apiKey } : {}),
+                      ...(row.headers === undefined ? {} : { headers: row.headers }),
+                  });
 
         case 'anthropic':
             return hasKey(row.apiKey) ? anthropicArm(host, { apiKey: row.apiKey }) : undefined;

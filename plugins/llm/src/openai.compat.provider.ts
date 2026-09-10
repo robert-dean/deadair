@@ -14,6 +14,41 @@ import type { ProviderArm } from './llm.provider.js';
 const PROVIDER_NAME = 'openai-compatible';
 
 /**
+ * The `headers` cell of a provider row, one `Name: value` per line.
+ *
+ * A pure parse rather than something that reaches for the row itself, so it is testable on its own
+ * and so a hand-typed value that comes out empty (no colon, a blank line, a name with nothing before
+ * the colon) degrades to "no extra headers" rather than a load failure: the same tolerance
+ * `parseMultiSelect` and the rest of this plugin's config readers give a value an operator mistyped.
+ * Split at the FIRST colon only, so a header value that is itself a `Name: value` pair (a signed
+ * cookie, a scheme with a colon in it) keeps everything after the header's own name. A later line
+ * naming the same header, compared case-insensitively because HTTP header names are, replaces the
+ * earlier one rather than adding a second: there is one slot for a given header on the wire, so
+ * keeping both would just be silently picking whichever `fetch` happens to send last.
+ */
+export function parseHeaderLines(text: string | undefined): Record<string, string> {
+    if (text === undefined) return {};
+
+    const byLowerName = new Map<string, { name: string; value: string }>();
+    for (const line of text.split('\n')) {
+        const colon = line.indexOf(':');
+        if (colon === -1) continue;
+
+        const name = line.slice(0, colon).trim();
+        if (name.length === 0) continue;
+
+        byLowerName.set(name.toLowerCase(), { name, value: line.slice(colon + 1).trim() });
+    }
+
+    return Object.fromEntries([...byLowerName.values()].map(({ name, value }) => [name, value]));
+}
+
+/** Whether `headers` already names `header`, compared the way HTTP does: case-insensitively. */
+function hasHeaderNamed(headers: Record<string, string>, header: string): boolean {
+    return Object.keys(headers).some(name => name.toLowerCase() === header);
+}
+
+/**
  * Any endpoint speaking the OpenAI chat-completions protocol.
  *
  * The broad arm, and the one an operator reaches for most: a local Ollama or
@@ -26,13 +61,14 @@ const PROVIDER_NAME = 'openai-compatible';
  * tools": the protocol has no field for it and one endpoint commonly serves both
  * kinds at once, so that stays a question for the operator.
  */
-export function openAiCompatibleArm(host: PluginHost, options: { baseUrl: string; apiKey?: string }): ProviderArm {
-    const { baseUrl, apiKey } = options;
+export function openAiCompatibleArm(host: PluginHost, options: { baseUrl: string; apiKey?: string; headers?: Record<string, string> }): ProviderArm {
+    const { baseUrl, apiKey, headers: rowHeaders } = options;
 
     const provider = createOpenAICompatible({
         name: PROVIDER_NAME,
         baseURL: baseUrl,
         ...(apiKey === undefined ? {} : { apiKey }),
+        ...(rowHeaders === undefined ? {} : { headers: rowHeaders }),
         // Sends `stream_options: { include_usage: true }`. Without it a streaming
         // response carries no token counts at all — measured against Ollama, which
         // answers with usage only when asked — and `LlmResult.usage` comes back
@@ -53,7 +89,11 @@ export function openAiCompatibleArm(host: PluginHost, options: { baseUrl: string
         languageModel: (id: string): LanguageModel => provider.chatModel(id),
 
         async fetchModels(): Promise<string[]> {
-            const headers: Record<string, string> = apiKey === undefined || apiKey.length === 0 ? {} : { authorization: `Bearer ${apiKey}` };
+            // The row's own headers first, then the key-derived `authorization`, but only where the
+            // row did not set one itself. A gateway that wants its OWN bearer scheme in that header
+            // gets to have it; a row with no opinion falls back to the key exactly as it always has.
+            const headers: Record<string, string> = { ...rowHeaders };
+            if (apiKey !== undefined && apiKey.length > 0 && !hasHeaderNamed(headers, 'authorization')) headers.authorization = `Bearer ${apiKey}`;
             const response = await host.fetch(`${baseUrl}/models`, { headers, timeoutMs: PROBE_TIMEOUT_MS });
             if (!response.ok) {
                 await response.body?.cancel().catch(() => {});

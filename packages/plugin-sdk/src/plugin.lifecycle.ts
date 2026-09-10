@@ -17,7 +17,15 @@ export interface PluginConnectionResult {
 export interface PluginLifecycle {
     init(host: PluginHost): Promise<void>;
 
-    /** Called from the settings UI's "Test connection" button. */
+    /**
+     * Called from the settings UI's "Test connection" button.
+     *
+     * It is also how a quarantined plugin gets back on the station. The host
+     * runs it even while your plugin's breaker is open, and `ok: true` closes
+     * the breaker, so reach the provider with the saved credentials rather than
+     * checking that a setting is present. Report a failure as `ok: false` with a
+     * message: what the host counts as healthy is `ok`, not the call resolving.
+     */
     testConnection?(): Promise<PluginConnectionResult>;
 
     /**

@@ -186,10 +186,20 @@ export function useSetPluginLogLevel(id: string) {
 /**
  * Runs the plugin's own `testConnection()`. A failed connection comes back as `{ ok: false }` with
  * a reason rather than a rejection, so `mutation.error` here means the request itself failed.
+ *
+ * Refetches the record either way, because the test can change it: a healthy answer takes a
+ * quarantined plugin back to `active`, and an unhealthy one replaces its last error. The answer is
+ * a test result rather than a `PluginDetail`, so there is nothing to file and the refetch is the
+ * only way the status lamp hears about it.
  */
 export function useTestPlugin(id: string) {
+    const queryClient = useQueryClient();
     return useMutation({
         mutationFn: () => sdk.plugins.testPluginConnection(id),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.detail(id) });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.plugins.list() });
+        },
     });
 }
 

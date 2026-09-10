@@ -440,6 +440,10 @@ export class PluginsService {
      * an error, so it comes back as `{ ok: false }` with the reason rather than
      * a non-2xx.
      *
+     * Through `probe` rather than `invoke`, so a quarantined plugin is actually
+     * asked instead of answering with whatever tripped its breaker, and a
+     * healthy answer puts it back on the station. See `PluginInvoker.probe`.
+     *
      * @throws 404 when no plugin with that id is installed.
      */
     async testPlugin(id: string): Promise<PluginTestResult> {
@@ -454,7 +458,7 @@ export class PluginsService {
         if (!isCallable(instance.testConnection)) return { ok: false, message: 'not supported' };
 
         try {
-            const result = await this.pluginInvoker.invoke(id, 'testConnection', async () => instance.testConnection!());
+            const result = await this.pluginInvoker.probe(id, 'testConnection', async () => instance.testConnection!());
             return { ok: result.ok, message: result.message };
         } catch (error) {
             return { ok: false, message: serverkitErrorText(error) };

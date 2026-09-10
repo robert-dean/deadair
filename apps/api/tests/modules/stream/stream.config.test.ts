@@ -435,6 +435,28 @@ describe('writeStreamConfig', () => {
         expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).toContain('<hostname>radio.example.com</hostname>');
     });
 
+    it('advertises the configured hostname over the public URL, as both settings say it does', () => {
+        // It was the other way round: with both set, the public URL won and the hostname field was
+        // ignored, which neither setting's help text admitted.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({
+            settings: settings({ publicUrl: 'https://radio.example.com/live', hostname: 'icecast.example.net' }),
+            playout: playout(),
+            assetsDir,
+            configDir,
+        });
+
+        expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).toContain('<hostname>icecast.example.net</hostname>');
+    });
+
+    it('falls back to localhost when the public URL does not parse and no hostname is set', () => {
+        // A malformed URL is a setting to fix, not a reason to skip the render.
+        const { assetsDir, configDir } = dirs();
+        writeStreamConfig({ settings: settings({ publicUrl: 'not a url' }), playout: playout(), assetsDir, configDir });
+
+        expect(readFileSync(join(configDir, 'icecast.xml'), 'utf8')).toContain('<hostname>localhost</hostname>');
+    });
+
     it('renders a location only when the operator set one', () => {
         // "Earth" used to be hardcoded here, and it is the placeholder Icecast 2.5's
         // dashboard flags as unset. No location is more honest than a wrong one.

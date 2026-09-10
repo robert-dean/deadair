@@ -124,8 +124,15 @@ function extraMountBlocks(mounts: StreamMount[], sourcePassword: string, globalB
         .join('\n\n');
 }
 
-/** Hostname Icecast advertises: from the public URL, else the configured one, else localhost. */
+/**
+ * Hostname Icecast advertises: the configured one, else the public URL's, else localhost.
+ *
+ * The explicit setting first, which is what both settings' help text has always promised. It was
+ * the other way round, so an operator who filled in both got the public URL's hostname and a field
+ * that was silently ignored.
+ */
 function hostnameFrom(publicUrl: string, hostname: string): string {
+    if (hostname) return hostname;
     if (publicUrl) {
         try {
             return new URL(publicUrl).hostname;
@@ -133,7 +140,7 @@ function hostnameFrom(publicUrl: string, hostname: string): string {
             // A malformed public URL is a setting to fix, not a reason to skip the render.
         }
     }
-    return hostname || 'localhost';
+    return 'localhost';
 }
 
 /**

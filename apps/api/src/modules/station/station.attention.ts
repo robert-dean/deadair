@@ -113,6 +113,15 @@ export interface AttentionFacts {
      * answer, all have nothing to say here.
      */
     unauthorizedFetcher?: UnauthorizedFetcher;
+    /**
+     * A resolved caller address that looks like a proxy talking to itself, and how often this
+     * process has seen one.
+     *
+     * `undefined` in every ordinary case: a station with no second hop in front of nginx, or one
+     * where `REAL_IP_FROM` already tells nginx which address to trust. See `forwarded.reading.ts`
+     * for what puts this here and why it is process memory rather than a stored fact.
+     */
+    singleHop?: { address: string; count: number; lastSeenAt: string };
 }
 
 /**
@@ -197,6 +206,24 @@ function air(facts: AttentionFacts): AttentionItem[] {
             title: 'A stream container is running replaced config',
             detail: config.remedy === undefined ? config.detail : `${config.detail} Restart it with: ${config.remedy}`,
             route: '/settings',
+        });
+    }
+
+    // A warning rather than a failure: the station is still reachable, it is just crediting every
+    // listener to one bucket (the rate limiter's and the HLS audience register's alike), which is
+    // the edge quietly acting as though nobody had ever fixed the first-hop version of this problem.
+    if (facts.singleHop) {
+        const { address, count } = facts.singleHop;
+        items.push({
+            code: 'singleHopAddress',
+            severity: 'warning',
+            title: `Every listener arrives as ${address}`,
+            detail:
+                `Set REAL_IP_FROM to the proxy's address. ${address} is a private or loopback address, so it is nginx's own ` +
+                'hop rather than a caller, and a second proxy in front of it is reporting nginx as though it were every listener at once. ' +
+                'TRUST_PROXY must also be on for the station to read the real address once nginx is reporting it.',
+            route: '/settings',
+            count,
         });
     }
 

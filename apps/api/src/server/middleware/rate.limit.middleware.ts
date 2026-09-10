@@ -5,6 +5,7 @@ import { httpError } from '@maroonedsoftware/errors';
 import { RateLimiterRes, type RateLimiterAbstract } from 'rate-limiter-flexible';
 import { DateTime } from 'luxon';
 import { headerValue, trustsProxy } from '#modules/shared/request.trust.js';
+import { isPrivateOrLoopback, noteSingleHop } from '#modules/shared/forwarded.reading.js';
 
 // Re-exported because this is where the switch was first read and where its bucket-per-invented-
 // address argument is written down; the constant itself moved so the cookie's `secure` decision
@@ -89,6 +90,41 @@ export function clientAddress(ctx: Pick<Context, 'ip' | 'req'>, trustProxy: bool
 }
 
 /**
+ * Whether the RESOLVED caller looks like the proxy talking to itself, and recording it when it does.
+ *
+ * Only worth asking with `TRUST_PROXY` on. With it off, the resolved address is the raw socket peer
+ * (nginx's own container address, for every request that reaches the app through the edge at all),
+ * and every one of those would flag, which names the wrong knob (`REAL_IP_FROM`) for a station that
+ * has not yet turned the right one (`TRUST_PROXY`) on.
+ *
+ * The comparison itself is against the hop BEFORE nginx's own, not the last one. `docker/nginx.conf`
+ * sets `X-Real-IP` to `$remote_addr` and APPENDS `$remote_addr` as the last `X-Forwarded-For` hop, so
+ * the last hop and the resolved address are the same value by construction and a comparison against
+ * it never fires. The hop one before that is what nginx's own upstream (a tunnel, or another reverse
+ * proxy) claimed as the real caller, which is the one `REAL_IP_FROM` would have named if it were set.
+ * A single hop (no upstream proxy in front of nginx, the ordinary LAN install) has nothing before
+ * nginx's own and is not a fault. See `forwarded.reading.ts` for why this is process memory rather
+ * than a table.
+ */
+function noteSingleHopIfProxyIsHidingItself(ctx: Pick<Context, 'req'>, trustProxy: boolean, resolved: string): void {
+    if (!trustProxy) return;
+    if (!isPrivateOrLoopback(resolved)) return;
+
+    const forwarded = headerValue(ctx, 'x-forwarded-for');
+    if (forwarded === undefined) return;
+
+    const hops = forwarded
+        .split(',')
+        .map(hop => hop.trim())
+        .filter(hop => hop.length > 0);
+
+    if (hops.length < 2) return;
+
+    const claimed = hops.at(-2);
+    if (claimed !== undefined && claimed !== resolved) noteSingleHop(resolved);
+}
+
+/**
  * The same 429 ServerKit's own middleware answers with, headers included.
  *
  * Reproduced rather than wrapped because the key is the only thing being changed
@@ -103,9 +139,11 @@ export function clientAddress(ctx: Pick<Context, 'ip' | 'req'>, trustProxy: bool
 export const rateLimitMiddleware = (limiter: RateLimiterAbstract, config: AppConfig): ServerKitMiddleware => {
     return async (ctx, next) => {
         const trustProxy = trustsProxy(config);
+        const resolved = clientAddress(ctx, trustProxy);
+        noteSingleHopIfProxyIsHidingItself(ctx, trustProxy, resolved);
 
         try {
-            await limiter.consume(clientAddress(ctx, trustProxy));
+            await limiter.consume(resolved);
         } catch (error) {
             const refusal = httpError(429).withHeaders(limitHeaders(limiter, error));
 

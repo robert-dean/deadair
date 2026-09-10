@@ -303,4 +303,16 @@ describe('attention', () => {
     it('says one record rather than 1 records', () => {
         expect(attention(facts({ benched: 1 }))[0]?.title).toBe('1 record has no copy left that will play');
     });
+
+    it('reports a single-hop proxy reading as its own warning', () => {
+        const [item] = attention(facts({ singleHop: { address: '172.18.0.4', count: 12, lastSeenAt: '2026-09-10T00:00:00.000Z' } }));
+
+        expect(item).toMatchObject({ code: 'singleHopAddress', severity: 'warning', route: '/settings', count: 12 });
+        expect(item?.title).toBe('Every listener arrives as 172.18.0.4');
+        expect(item?.detail).toContain('REAL_IP_FROM');
+    });
+
+    it('says nothing about single-hop proxies when nothing has been noted', () => {
+        expect(attention(facts())).toEqual([]);
+    });
 });

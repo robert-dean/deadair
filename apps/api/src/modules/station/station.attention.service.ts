@@ -1,6 +1,7 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
 import { ANALYSIS_SCHEMA_VERSION, PLUGIN_CAPABILITY_STREAM } from '@deadair/plugin-sdk';
+import { readForwardedHop } from '#modules/shared/forwarded.reading.js';
 import { TracksRepository, type FaultingTrack } from '#modules/catalog/tracks.repository.js';
 import { DirectorConsoleService } from '#modules/director/director.console.service.js';
 import { PlayoutService } from '#modules/playout/playout.service.js';
@@ -73,6 +74,7 @@ export class StationAttentionService {
             // whose records come from somewhere else would otherwise be told to authorize a fetcher
             // it never uses, which is precisely the wrong entry that teaches an operator to skim.
             unauthorizedFetcher: await this.unauthorizedFetcher(plugins.fetches),
+            singleHop: readForwardedHop(),
         };
 
         return { items: attention(facts) };

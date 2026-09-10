@@ -3,10 +3,11 @@
 // anyone who can reach the API directly mints a fresh bucket per header they invent, which is
 // the limiter switched off while still appearing to run.
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppConfig } from '@maroonedsoftware/appconfig';
 
 import { TRUST_PROXY_KEY, clientAddress, rateLimitMiddleware } from '../../../src/server/middleware/rate.limit.middleware.js';
+import { readForwardedHop, resetForwardedHop } from '../../../src/modules/shared/forwarded.reading.js';
 
 const PEER = '172.18.0.4';
 
@@ -51,13 +52,13 @@ describe('clientAddress', () => {
     });
 });
 
-describe('rateLimitMiddleware', () => {
-    /** A limiter that records what it was asked about and always allows. */
-    const permissive = () => {
-        const keys: string[] = [];
-        return { keys, limiter: { points: 100, consume: async (key: string) => void keys.push(key) } };
-    };
+/** A limiter that records what it was asked about and always allows. */
+const permissive = () => {
+    const keys: string[] = [];
+    return { keys, limiter: { points: 100, consume: async (key: string) => void keys.push(key) } };
+};
 
+describe('rateLimitMiddleware', () => {
     it('keys on the peer while TRUST_PROXY is off, including when it is the STRING "false"', async () => {
         // `config.get(key, false)` answers the string 'false', which is truthy. A double that
         // coerced on the way out would hide that and this test would pass either way.
@@ -111,5 +112,71 @@ describe('rateLimitMiddleware', () => {
         await rateLimitMiddleware(permissive().limiter as never, configWith('false'))(request() as never, next);
 
         expect(next).toHaveBeenCalledOnce();
+    });
+});
+
+describe('rateLimitMiddleware recording a single-hop proxy', () => {
+    beforeEach(() => {
+        resetForwardedHop();
+    });
+
+    // nginx always sets X-Real-IP to $remote_addr and appends $remote_addr as the LAST
+    // X-Forwarded-For hop, so with TRUST_PROXY on the resolved address (read from X-Real-IP) and
+    // the last XFF hop are the same value by construction: a reading built on the last hop would
+    // never fire. The hop worth comparing is the one before it, which is what nginx's own
+    // upstream claimed, and it is only interesting when the resolved address turns out private.
+
+    it('flags a tunnel in front of nginx when REAL_IP_FROM is unset', async () => {
+        const { limiter } = permissive();
+
+        // REAL_IP_FROM unset, so nginx never rewrote $remote_addr: it is the tunnel's own private
+        // address, which is what X-Real-IP carries and what got appended as the last XFF hop. The
+        // hop before it is the real caller the tunnel itself forwarded.
+        await rateLimitMiddleware(limiter as never, configWith('true'))(
+            request({ 'x-real-ip': '172.17.0.1', 'x-forwarded-for': '203.0.113.9, 172.17.0.1' }) as never,
+            vi.fn(),
+        );
+
+        expect(readForwardedHop()).toMatchObject({ address: '172.17.0.1', count: 1 });
+    });
+
+    it('does not flag once REAL_IP_FROM has nginx rewrite $remote_addr to the real client', async () => {
+        const { limiter } = permissive();
+
+        // REAL_IP_FROM set to the tunnel's address, so nginx's realip module already resolved
+        // $remote_addr to the public client before X-Real-IP and the XFF append were written.
+        await rateLimitMiddleware(limiter as never, configWith('true'))(
+            request({ 'x-real-ip': '203.0.113.9', 'x-forwarded-for': '203.0.113.9' }) as never,
+            vi.fn(),
+        );
+
+        expect(readForwardedHop()).toBeUndefined();
+    });
+
+    it('does not flag a LAN install with no upstream proxy, which is a single XFF hop', async () => {
+        const { limiter } = permissive();
+
+        // Nothing sits in front of nginx, so $proxy_add_x_forwarded_for has only nginx's own
+        // appended hop. Private resolved address, but nothing before it to disagree with.
+        await rateLimitMiddleware(limiter as never, configWith('true'))(
+            request({ 'x-real-ip': '192.168.1.50', 'x-forwarded-for': '192.168.1.50' }) as never,
+            vi.fn(),
+        );
+
+        expect(readForwardedHop()).toBeUndefined();
+    });
+
+    it('does not read at all while TRUST_PROXY is off', async () => {
+        const { limiter } = permissive();
+
+        // Same headers as the tunnel case above: with TRUST_PROXY off the reading is not worth
+        // taking at all, because the resolved address is the raw socket peer rather than anything
+        // read from a header, and every request through the edge would otherwise flag.
+        await rateLimitMiddleware(limiter as never, configWith('false'))(
+            request({ 'x-real-ip': '172.17.0.1', 'x-forwarded-for': '203.0.113.9, 172.17.0.1' }, '172.18.0.4') as never,
+            vi.fn(),
+        );
+
+        expect(readForwardedHop()).toBeUndefined();
     });
 });

@@ -263,13 +263,22 @@ export function stationZone(config: AppConfig): string {
  */
 const HOURS: readonly string[] = ['midnight', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'midday'];
 
+/** Milliseconds in an hour, used to pick which of a band's wordings an hour gets. */
+const HOUR_MS = 3_600_000;
+
 /**
  * The phrasings, in minutes past the hour, each running until the next one starts.
  *
  * Two shapes alternating: `just after` a quarter that has passed, and `coming up to` one that has
- * not. That is the whole vocabulary, and it is deliberately small — every phrasing here has to be
- * true for its entire window, so a wording that pins the minute more tightly would buy precision
- * the projection cannot deliver and would expire before the audio finished rendering.
+ * not. That is the whole vocabulary, and it is deliberately small: every wording in a band has to
+ * be true for the band's entire window, so a wording that pins the minute more tightly would buy
+ * precision the projection cannot deliver and would expire before the audio finished rendering.
+ *
+ * Each band carries more than one wording rather than one, because a station that says exactly the
+ * same sentence every time it names the hour sounds like a station that has never once listened to
+ * itself. {@link roughTime} rotates the pick by the hour: consecutive breaks naming the same band
+ * do not repeat its phrase, and asking twice inside one hour gets the same words both times, because
+ * the rewrite path re-derives them from the same instant and has to agree with what already went out.
  *
  * Windows are seven or eight minutes. The projection they are checked against is exact over records
  * (every track in the catalog carries a duration) and loses only the unmeasured seconds of the
@@ -277,15 +286,15 @@ const HOURS: readonly string[] = ['midnight', 'one', 'two', 'three', 'four', 'fi
  * several. `next` marks the phrasings that name the hour AHEAD, which is what makes "coming up to
  * ten" arrive at ten to nine rather than ten to ten.
  */
-const PHRASINGS: readonly { from: number; words: (hour: string, next: string) => string }[] = [
-    { from: 0, words: hour => `just after ${hour}` },
-    { from: 7, words: hour => `coming up to quarter past ${hour}` },
-    { from: 15, words: hour => `just after quarter past ${hour}` },
-    { from: 22, words: hour => `coming up to half past ${hour}` },
-    { from: 30, words: hour => `just after half past ${hour}` },
-    { from: 37, words: (_hour, next) => `coming up to quarter to ${next}` },
-    { from: 45, words: (_hour, next) => `just after quarter to ${next}` },
-    { from: 52, words: (_hour, next) => `coming up to ${next}` },
+const PHRASINGS: readonly { from: number; wordings: readonly ((hour: string, next: string) => string)[] }[] = [
+    { from: 0, wordings: [hour => `just after ${hour}`, hour => `a little after ${hour}`, hour => `not long after ${hour}`] },
+    { from: 7, wordings: [hour => `coming up to quarter past ${hour}`, hour => `getting on for quarter past ${hour}`] },
+    { from: 15, wordings: [hour => `just after quarter past ${hour}`, hour => `a little after quarter past ${hour}`] },
+    { from: 22, wordings: [hour => `coming up to half past ${hour}`, hour => `getting on for half past ${hour}`] },
+    { from: 30, wordings: [hour => `just after half past ${hour}`, hour => `a little after half past ${hour}`] },
+    { from: 37, wordings: [(_hour, next) => `coming up to quarter to ${next}`, (_hour, next) => `getting on for quarter to ${next}`] },
+    { from: 45, wordings: [(_hour, next) => `just after quarter to ${next}`, (_hour, next) => `a little after quarter to ${next}`] },
+    { from: 52, wordings: [(_hour, next) => `coming up to ${next}`, (_hour, next) => `getting on for ${next}`] },
 ];
 
 /**
@@ -313,8 +322,12 @@ export function roughTime(at: number, zone: string): RoughTime {
     const phrasing = PHRASINGS[index]!;
     const ends = PHRASINGS[index + 1]?.from ?? 60;
 
+    // Rotates by the hour rather than the minute, so the rewrite path (which re-derives these words
+    // from the same `at`) always lands on the wording already stamped onto the row.
+    const wording = phrasing.wordings[Math.floor(at / HOUR_MS) % phrasing.wordings.length]!;
+
     return {
-        words: phrasing.words(spoken(hour), spoken(hour + 1)),
+        words: wording(spoken(hour), spoken(hour + 1)),
         validFrom: hourStart + phrasing.from * 60_000,
         validUntil: hourStart + ends * 60_000,
     };

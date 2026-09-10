@@ -14,6 +14,7 @@ import {
     dayPart,
     namesWrongTimeOfDay,
     roughTime,
+    saysTime,
     stationZone,
     timeClaimIn,
 } from '../../../src/modules/director/clock.words.js';
@@ -23,34 +24,56 @@ const at = (hour: number, minute: number, second = 0): number => Date.UTC(2026, 
 
 const UTC = 'UTC';
 
+// Every band now has more than one true-for-the-whole-window wording (see `clock.words.ts` §
+// `PHRASINGS`), so a test can no longer pin an instant to a single literal string: which of a
+// band's wordings comes back depends on the hour, by design. These tables name the band's whole
+// vocabulary, so a test can assert "one of these" and, separately, that the pick is stable inside
+// an hour and rotates across hours.
+const AT_HOUR = (hour: string): string[] => [`just after ${hour}`, `a little after ${hour}`, `not long after ${hour}`];
+const TO_QUARTER_PAST = (hour: string): string[] => [`coming up to quarter past ${hour}`, `getting on for quarter past ${hour}`];
+const AFTER_QUARTER_PAST = (hour: string): string[] => [`just after quarter past ${hour}`, `a little after quarter past ${hour}`];
+const TO_HALF_PAST = (hour: string): string[] => [`coming up to half past ${hour}`, `getting on for half past ${hour}`];
+const AFTER_HALF_PAST = (hour: string): string[] => [`just after half past ${hour}`, `a little after half past ${hour}`];
+const TO_QUARTER_TO = (next: string): string[] => [`coming up to quarter to ${next}`, `getting on for quarter to ${next}`];
+const AFTER_QUARTER_TO = (next: string): string[] => [`just after quarter to ${next}`, `a little after quarter to ${next}`];
+const TO_HOUR = (next: string): string[] => [`coming up to ${next}`, `getting on for ${next}`];
+
 describe('roughTime', () => {
     it('says the hour that has just passed', () => {
-        expect(roughTime(at(9, 1), UTC).words).toBe('just after nine');
-        expect(roughTime(at(9, 6), UTC).words).toBe('just after nine');
+        const words = roughTime(at(9, 1), UTC).words;
+        expect(AT_HOUR('nine')).toContain(words);
+        // Stable inside the hour: minute 1 and minute 6 fall in the same band and the same hour, so
+        // the rewrite path re-deriving these words from either instant has to agree.
+        expect(roughTime(at(9, 6), UTC).words).toBe(words);
     });
 
     it('looks forward to the quarter that has not arrived', () => {
-        expect(roughTime(at(9, 8), UTC).words).toBe('coming up to quarter past nine');
-        expect(roughTime(at(9, 25), UTC).words).toBe('coming up to half past nine');
+        expect(TO_QUARTER_PAST('nine')).toContain(roughTime(at(9, 8), UTC).words);
+        expect(TO_HALF_PAST('nine')).toContain(roughTime(at(9, 25), UTC).words);
+    });
+
+    it('says the quarter that has just passed', () => {
+        expect(AFTER_QUARTER_PAST('nine')).toContain(roughTime(at(9, 16), UTC).words);
+        expect(AFTER_HALF_PAST('nine')).toContain(roughTime(at(9, 31), UTC).words);
     });
 
     it('names the hour ahead once it is counting down to it', () => {
-        expect(roughTime(at(9, 40), UTC).words).toBe('coming up to quarter to ten');
-        expect(roughTime(at(9, 47), UTC).words).toBe('just after quarter to ten');
-        expect(roughTime(at(9, 55), UTC).words).toBe('coming up to ten');
+        expect(TO_QUARTER_TO('ten')).toContain(roughTime(at(9, 40), UTC).words);
+        expect(AFTER_QUARTER_TO('ten')).toContain(roughTime(at(9, 47), UTC).words);
+        expect(TO_HOUR('ten')).toContain(roughTime(at(9, 55), UTC).words);
     });
 
     it('reads midnight and midday as words rather than as twelve and zero', () => {
-        expect(roughTime(at(0, 2), UTC).words).toBe('just after midnight');
-        expect(roughTime(at(12, 2), UTC).words).toBe('just after midday');
+        expect(AT_HOUR('midnight')).toContain(roughTime(at(0, 2), UTC).words);
+        expect(AT_HOUR('midday')).toContain(roughTime(at(12, 2), UTC).words);
         // The wrap in both directions: the hour before each of them counts down to it.
-        expect(roughTime(at(23, 55), UTC).words).toBe('coming up to midnight');
-        expect(roughTime(at(11, 55), UTC).words).toBe('coming up to midday');
+        expect(TO_HOUR('midnight')).toContain(roughTime(at(23, 55), UTC).words);
+        expect(TO_HOUR('midday')).toContain(roughTime(at(11, 55), UTC).words);
     });
 
     it('uses the twelve-hour clock, so the evening reads like the morning', () => {
-        expect(roughTime(at(21, 1), UTC).words).toBe('just after nine');
-        expect(roughTime(at(13, 31), UTC).words).toBe('just after half past one');
+        expect(AT_HOUR('nine')).toContain(roughTime(at(21, 1), UTC).words);
+        expect(AFTER_HALF_PAST('one')).toContain(roughTime(at(13, 31), UTC).words);
     });
 
     it('answers a window that contains the instant it describes, at every minute of the day', () => {
@@ -87,8 +110,8 @@ describe('roughTime', () => {
         // setting: the same moment is "just after nine" in London and "just after four" in New York.
         const instant = Date.UTC(2026, 7, 13, 20, 2);
 
-        expect(roughTime(instant, 'Europe/London').words).toBe('just after nine');
-        expect(roughTime(instant, 'America/New_York').words).toBe('just after four');
+        expect(AT_HOUR('nine')).toContain(roughTime(instant, 'Europe/London').words);
+        expect(AT_HOUR('four')).toContain(roughTime(instant, 'America/New_York').words);
     });
 
     it('keeps the window aligned to the station hour in a zone offset by part of an hour', () => {
@@ -97,10 +120,60 @@ describe('roughTime', () => {
         const instant = Date.UTC(2026, 7, 13, 3, 33); // 09:03 where the station is
         const { words, validFrom, validUntil } = roughTime(instant, 'Asia/Kolkata');
 
-        expect(words).toBe('just after nine');
+        expect(AT_HOUR('nine')).toContain(words);
         // The station's hour starts at :30 past UTC's, and the window has to start with it.
         expect(validFrom).toBe(Date.UTC(2026, 7, 13, 3, 30));
         expect(validUntil).toBe(Date.UTC(2026, 7, 13, 3, 37));
+    });
+
+    // The rotation itself: a band with more than one wording must not always answer the same one,
+    // or the whole point of having several is lost, and it must answer the SAME one for two asks at
+    // the same hour, or the rewrite path (which re-derives these words independently) could disagree
+    // with what a segment already claims.
+    describe('rotation across the wordings', () => {
+        it('is stable inside one hour, at any minute in the band', () => {
+            const first = roughTime(at(9, 1), UTC).words;
+            for (const minute of [1, 2, 3, 4, 5, 6]) {
+                expect(roughTime(at(9, minute), UTC).words).toBe(first);
+            }
+        });
+
+        it('picks a different wording for the same band an hour later, when the band has more than one', () => {
+            // Adjacent hour indices always land on adjacent (wrapping) positions in a band's wording
+            // list, so for a band with more than one wording the pick can never repeat hour to hour.
+            const thisHour = roughTime(at(9, 1), UTC).words;
+            const nextHour = roughTime(at(10, 1), UTC).words;
+
+            expect(AT_HOUR('nine')).toContain(thisHour);
+            expect(AT_HOUR('ten')).toContain(nextHour);
+            expect(nextHour).not.toBe(thisHour);
+        });
+
+        it('produces every wording of every band over enough hours, each one true for its window', () => {
+            // One representative minute per band, walked over two full days so every band's wording
+            // list (the longest has three entries) is guaranteed to cycle at least once.
+            const representativeMinutes = [1, 8, 16, 23, 31, 38, 46, 53];
+
+            for (const minute of representativeMinutes) {
+                const seen = new Set<string>();
+
+                for (let hoursFromEpoch = 0; hoursFromEpoch < 48; hoursFromEpoch++) {
+                    const instant = Date.UTC(2026, 7, 13, 0, minute, 30) + hoursFromEpoch * 3_600_000;
+                    const time = roughTime(instant, UTC);
+
+                    // True for its own window: the words this instant produced are what a script
+                    // claiming them right now would be believed for.
+                    expect(saysTime(`It's ${time.words}, on Deadair.`, time)).toBe(true);
+                    expect(time.validFrom).toBeLessThanOrEqual(instant);
+                    expect(time.validUntil).toBeGreaterThan(instant);
+
+                    seen.add(time.words);
+                }
+
+                // Every band here has at least two wordings, so 48 hours must have shown more than one.
+                expect(seen.size).toBeGreaterThanOrEqual(2);
+            }
+        });
     });
 });
 

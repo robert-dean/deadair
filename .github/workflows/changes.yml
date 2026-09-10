@@ -1,0 +1,68 @@
+name: Changes
+
+# Which parts of the tree this push or pull request changed, for the callers to gate their jobs on.
+#
+# A workflow of its own, called FIRST by `pr.yml` and `release.yml`, rather than a job inside
+# `build.yml`: the image jobs are deliberately not behind the build (see `release.yml`), so the
+# answer has to be available to both without either waiting on the other. It takes seconds.
+#
+# The rules, and why they fail open, are in `.github/scripts/changes.sh`.
+on:
+    workflow_call:
+        outputs:
+            tree:
+                description: Anything but prose changed
+                value: ${{ jobs.changes.outputs.tree }}
+            node:
+                description: The TypeScript workspace the test suite covers
+                value: ${{ jobs.changes.outputs.node }}
+            generated:
+                description: Anything codegen reads or writes
+                value: ${{ jobs.changes.outputs.generated }}
+            sidecar:
+                description: The measurement sidecar
+                value: ${{ jobs.changes.outputs.sidecar }}
+            android:
+                description: The Android listener or its SDK
+                value: ${{ jobs.changes.outputs.android }}
+            desktop:
+                description: The desktop app or its SDK
+                value: ${{ jobs.changes.outputs.desktop }}
+            image:
+                description: Anything the station image is built from
+                value: ${{ jobs.changes.outputs.image }}
+
+permissions:
+    contents: read
+
+jobs:
+    changes:
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        outputs:
+            tree: ${{ steps.detect.outputs.tree }}
+            node: ${{ steps.detect.outputs.node }}
+            generated: ${{ steps.detect.outputs.generated }}
+            sidecar: ${{ steps.detect.outputs.sidecar }}
+            android: ${{ steps.detect.outputs.android }}
+            desktop: ${{ steps.detect.outputs.desktop }}
+            image: ${{ steps.detect.outputs.image }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  # The whole history, because the diff is against a commit this run was handed
+                  # rather than against the tip's parent: a push of several commits, or a pull
+                  # request's merge commit against its base.
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            # `github.event` is the CALLER's event, so this is the pull request's base on a pull
+            # request and the commit the branch pointed at before this push otherwise. A tag push has
+            # an all-zero `before`, and a manual run has none; the script turns everything on for both.
+            - name: Work out what changed
+              id: detect
+              env:
+                  BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+              run: .github/scripts/changes.sh

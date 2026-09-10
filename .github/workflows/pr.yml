@@ -7,8 +7,15 @@ permissions:
     contents: read
 
 jobs:
+    # Which parts of the tree this pull request changed. Seconds, and everything below reads it.
+    changes:
+        uses: ./.github/workflows/changes.yml
+
     build:
+        needs: [changes]
         uses: ./.github/workflows/build.yml
+        with:
+            android: ${{ needs.changes.outputs.android == 'true' }}
         secrets: inherit
 
     # Built and thrown away. A Dockerfile that has stopped building is worth knowing about

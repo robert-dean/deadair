@@ -45,8 +45,16 @@ jobs:
                   echo "value=${version}" >> "$GITHUB_OUTPUT"
                   echo "line=${line}" >> "$GITHUB_OUTPUT"
 
+    # Which parts of the tree this push changed. A tag push has no base to diff against, so on a
+    # release every flag is on and everything builds.
+    changes:
+        uses: ./.github/workflows/changes.yml
+
     build:
+        needs: [changes]
         uses: ./.github/workflows/build.yml
+        with:
+            android: ${{ needs.changes.outputs.android == 'true' }}
         secrets: inherit
 
     # Deliberately NOT `needs: [build]`. It was, and the cost was the whole of the build job on

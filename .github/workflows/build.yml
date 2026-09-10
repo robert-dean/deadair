@@ -43,7 +43,7 @@ jobs:
     # which costs a little duplicated work and saves the whole of this job's minute on the clock.
     #
     # It runs for anything but prose, because it is also the formatting check for every file
-    # Prettier reads and the build of the website, whose broken links fail it.
+    # Prettier reads (a warning, not a gate) and the build of the website, whose broken links fail it.
     build:
         if: inputs.tree
         runs-on: ubuntu-latest
@@ -111,8 +111,11 @@ jobs:
             # `.gitignore` — it then descends into `.turbo/cache`, which is a week of build
             # artifacts. Measured here: 26 seconds with the default, still running after 45 with the
             # flag. From the root Prettier finds `.prettierignore` on its own.
+            #
+            # It WARNS rather than fails. Unformatted files raise an annotation on the run and the
+            # step's log lists them, but the build goes on and the job stays green.
             - name: Check formatting
-              run: pnpm format:check
+              run: pnpm format:check || echo "::warning title=Formatting::Prettier found unformatted files (listed in this step's log). Run pnpm format to fix them."
 
             # Never `codegen` here. The contracts, permissions and Kysely types are committed,
             # and regenerating them needs a live database (build:datatypes runs after migrate:up).

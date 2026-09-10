@@ -103,7 +103,7 @@ told.** The tree is several apps in several languages, and until this rule each 
 them: over sixty commits the macOS desktop build ran sixty times with sixteen changes to check, and
 the sidecar's tests ran sixty times for one. `.github/scripts/changes.sh` diffs the push (or the pull
 request's merge commit) against its base and answers one flag per part: `tree` (anything but prose,
-which gates the build and formatting check), `node` (the TypeScript workspace, which gates the test
+which gates the build and the formatting check, a warning rather than a failure), `node` (the TypeScript workspace, which gates the test
 shards), `generated`, `sidecar`, `android`, `desktop` and `image`. `changes.yml` runs it first in
 both `pr.yml` and `release.yml`, and `build.yml` takes the flags as inputs that default to true.
 

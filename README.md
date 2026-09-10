@@ -97,9 +97,11 @@ library.
 | `deadair/deadair:full` | a voice, PostgreSQL, Redis | nothing |
 | `deadair/deadair:slim` | — | PostgreSQL, Redis, a speech server |
 
-Those three tags follow `main`, so they move on every push. A release is a `v*` tag, and it
-publishes `0.1.0` and `0.1` alongside them: **pin `deadair/deadair:0.1` to track releases only**,
-and read [CHANGELOG.md](CHANGELOG.md) for what changed between them. Images are `linux/amd64`.
+Those three tags follow `main`, so they move on every push that changes the station; a push that
+touches only the docs, the website or a listener app leaves them where they are. A release is a
+`v*` tag, and it publishes `0.1.0` and `0.1` alongside them: **pin `deadair/deadair:0.1` to track
+releases only**, and read [CHANGELOG.md](CHANGELOG.md) for what changed between them. Images are
+`linux/amd64`.
 
 On Unraid, install the template in [`unraid/deadair.xml`](unraid/deadair.xml). Anywhere else,
 [`deploy/docker-compose.yml`](deploy/docker-compose.yml) is the same container written for Compose.

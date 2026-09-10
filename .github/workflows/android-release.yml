@@ -1,11 +1,11 @@
 # Publishing the Android listener to Google Play.
 #
 # Deliberately `workflow_dispatch` and NOT a push trigger, which is the one real decision in this
-# file. `release.yml` publishes Docker images on every push to main and that is right for images: a
-# tag is overwritten and nobody downstream is counting them. A Play upload is not like that. Every
-# upload burns a version code permanently, appears in the console's release history for good, and
-# on a track with real testers reaches their phones. `versionCode` is the commit count, so a push
-# trigger would technically work and would also ship a build for every README typo.
+# file. `release.yml` publishes Docker images on every push to main that changes them, and that is
+# right for images: a tag is overwritten and nobody downstream is counting them. A Play upload is not
+# like that. Every upload burns a version code permanently, appears in the console's release history
+# for good, and on a track with real testers reaches their phones. `versionCode` is the commit count,
+# so a push trigger would technically work and would also ship a build for every README typo.
 #
 # So this runs when somebody asks for it. Adding `on: push: tags: ['v*']` later is one line, once
 # the manual path has been walked enough times to trust it.

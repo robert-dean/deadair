@@ -24,8 +24,11 @@ jobs:
         secrets: inherit
 
     # Built and thrown away. A Dockerfile that has stopped building is worth knowing about
-    # before it is merged, not on the release that needed it.
+    # before it is merged, not on the release that needed it; a pull request that changes nothing
+    # the image is built from cannot stop it building.
     images:
+        needs: [changes]
+        if: needs.changes.outputs.image == 'true'
         uses: ./.github/workflows/images.yml
         with:
             push: false

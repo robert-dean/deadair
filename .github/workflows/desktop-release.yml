@@ -1,10 +1,10 @@
 # Building the desktop listener and desk as something somebody can download.
 #
 # Deliberately `workflow_dispatch` and NOT a push trigger, for the same reason `android-release.yml`
-# is: `release.yml` publishes Docker images on every push to main, which is right for images because
-# a tag is overwritten and nobody downstream counts them. A GitHub release is not like that. It is a
-# permanent entry with a version somebody may already have downloaded, and a push trigger would cut
-# one for every README typo.
+# is: `release.yml` publishes Docker images on every push to main that changes them, which is right
+# for images because a tag is overwritten and nobody downstream counts them. A GitHub release is not
+# like that. It is a permanent entry with a version somebody may already have downloaded, and a push
+# trigger would cut one for every README typo.
 #
 # The tag it cuts is `desktop-v<version>`, NOT `v<version>`. The bare `v*` namespace belongs to the
 # station's own releases, which are what an operator means by "a deadair release"; a macOS listener

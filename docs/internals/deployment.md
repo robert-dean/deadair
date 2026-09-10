@@ -104,8 +104,16 @@ them: over sixty commits the macOS desktop build ran sixty times with sixteen ch
 the sidecar's tests ran sixty times for one. `.github/scripts/changes.sh` diffs the push (or the pull
 request's merge commit) against its base and answers one flag per part: `tree` (anything but prose,
 which gates the build and formatting check), `node` (the TypeScript workspace, which gates the test
-shards), `generated`, `sidecar`, `android` and `desktop`. `changes.yml` runs it first in both
-`pr.yml` and `release.yml`, and `build.yml` takes the flags as inputs that default to true.
+shards), `generated`, `sidecar`, `android`, `desktop` and `image`. `changes.yml` runs it first in
+both `pr.yml` and `release.yml`, and `build.yml` takes the flags as inputs that default to true.
+
+**`image` is the one that deploys.** It is what the Dockerfile copies in, less what `.dockerignore`
+keeps out, and without it neither workflow builds the three variants and `release.yml` does not
+`promote`: the mutable tags stay on the last commit that changed the image, so a push of docs, the
+website or a listener app no longer redeploys every station following `latest`. That is also the
+commit a station reports as its revision, which stays honest because it is the commit the running
+image was built from. `release.yml`'s manual trigger rebuilds and republishes everything, for when
+the image should move although the tree did not (a base image's security fix).
 
 **It fails open, and that is the part not to weaken.** No usable base commit (a tag push, a manual run,
 a new branch, a force push) turns every flag on, so a release always builds everything. A change to a

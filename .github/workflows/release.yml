@@ -9,6 +9,10 @@ on:
         # the version tags and a GitHub release on top. Both run the same build first.
         tags:
             - 'v[0-9]*'
+    # A full rebuild and republish of `main` on demand. A manual run has no base commit to diff
+    # against, so `changes.yml` turns every flag on: the way to rebuild the images when nothing in
+    # the tree changed, say for a base image's security update.
+    workflow_dispatch:
 
 # One release at a time, and never cancelled: a run interrupted between two variants
 # leaves the registry holding half a release with nothing saying so.
@@ -68,8 +72,14 @@ jobs:
     # dependency actually protected was the MUTABLE tags, not the images, so that is what still
     # waits: this publishes the commit sha alone and `promote` moves `latest`, `slim` and `full`
     # once the tests have passed. An immutable tag nobody pulls by name is free if they do not.
+    #
+    # Only when the push changed something the image is built from. The station follows `latest`, so
+    # an image built for a README typo was a redeploy of every station for nothing; now `latest`
+    # stays on the last commit that changed what is in it, which is also the commit a running
+    # station reports as its revision. Waiting on `changes` costs seconds.
     images:
-        needs: [version]
+        needs: [version, changes]
+        if: needs.changes.outputs.image == 'true'
         uses: ./.github/workflows/images.yml
         with:
             push: true
@@ -85,6 +95,9 @@ jobs:
     # since it may contain secret") and the job receives an empty string. Two copies of a constant
     # is the lesser problem, and it is not a silent one — a name that drifts from the images
     # workflow's names a tag that was never pushed, and `imagetools` fails on the spot.
+    #
+    # Skipped whenever `images` is, since a job whose need was skipped is skipped too: there is no
+    # new image to move the tags onto, and the old one keeps them.
     promote:
         needs: [version, build, images]
         runs-on: ubuntu-latest

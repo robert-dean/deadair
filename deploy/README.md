@@ -12,7 +12,8 @@ in front of that port carries the station too.
 | `deadair/deadair:full`   | a voice, PostgreSQL, Redis | nothing                            |
 | `deadair/deadair:slim`   | —                          | PostgreSQL, Redis, a speech server |
 
-Those three follow `main` and move on every push. A release publishes `0.1.0` and `0.1` beside
+Those three follow `main` and move on every push that changes the station, not on one that only
+touches the docs, the website or a listener app. A release publishes `0.1.0` and `0.1` beside
 them, so **pin `deadair/deadair:0.1` if you want releases only**. Images are built for `linux/amd64`;
 there is no arm64 build yet.
 

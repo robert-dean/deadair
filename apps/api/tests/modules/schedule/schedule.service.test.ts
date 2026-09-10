@@ -13,6 +13,7 @@ import { ScheduleService } from '../../../src/modules/schedule/schedule.service.
 import type { ScheduleRepository } from '../../../src/modules/schedule/schedule.repository.js';
 import type { DirectorService } from '../../../src/modules/director/director.service.js';
 import type { ScheduleSlot } from '../../../src/modules/director/schedule.js';
+import type { ScheduleSlotInput } from '../../../src/modules/schedule/types/schedule.types.js';
 
 const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } as unknown as Logger;
 
@@ -27,7 +28,13 @@ const slot = (id: string, startsAtMinutes: number, endsAtMinutes: number, days: 
 });
 
 function build(options: { slots?: ScheduleSlot[]; airing?: string; settings?: Record<string, string> } = {}) {
-    const slots = { list: vi.fn(async () => options.slots ?? []) } as unknown as ScheduleRepository;
+    const slots = {
+        list: vi.fn(async () => options.slots ?? []),
+        update: vi.fn(async (id: string, draft: Partial<ScheduleSlot>) => {
+            const existing = (options.slots ?? []).find(candidate => candidate.id === id);
+            return existing === undefined ? undefined : { ...existing, ...draft };
+        }),
+    } as unknown as ScheduleRepository;
     const director = {
         status: vi.fn(() => ({
             active: true,
@@ -176,6 +183,50 @@ describe('ScheduleService.timetable', () => {
 
         expect(drawn.from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
         expect(drawn.occurrences.length).toBeGreaterThan(0);
+    });
+});
+
+describe('ScheduleService.update', () => {
+    // What an edit to the airing slot does NOT do: it never touches what is on air now. The log line
+    // this test pins is the reason a station that looks unchanged after a save is not a bug: the
+    // running order belongs to this slot until it next comes round, and the log says so beside the
+    // ordinary "an operator edited a slot" line rather than in place of it.
+    //
+    // Cleared per case because `logger.info` is one mock shared across this whole file: without this
+    // the second case below would see the first case's own "on air" call and pass for the wrong
+    // reason.
+    beforeEach(() => {
+        vi.mocked(logger.info).mockClear();
+    });
+
+    const body = (over: Partial<ScheduleSlotInput> = {}): ScheduleSlotInput => ({
+        label: 'Late Night',
+        startsAtMinutes: 22 * 60,
+        endsAtMinutes: 2 * 60,
+        mode: 'rotation',
+        onEnd: 'extend',
+        ...over,
+    });
+
+    it('names the slot as on air when the running order belongs to it', async () => {
+        const service = build({ slots: [slot('evening', 18 * 60, 22 * 60)], airing: 'evening' });
+
+        await service.update('evening', body({ label: 'Evening Drive' }));
+
+        expect(logger.info).toHaveBeenCalledWith('schedule: the edited slot is on air; the change applies at its next occurrence', {
+            slot: 'evening',
+        });
+    });
+
+    it('says nothing about being on air for a slot that is not the one airing', async () => {
+        const service = build({ slots: [slot('evening', 18 * 60, 22 * 60)], airing: 'daytime' });
+
+        await service.update('evening', body({ label: 'Evening Drive' }));
+
+        expect(logger.info).not.toHaveBeenCalledWith(
+            'schedule: the edited slot is on air; the change applies at its next occurrence',
+            expect.anything(),
+        );
     });
 });
 

@@ -294,6 +294,7 @@ export function SchedulePage({ tab, onSelect }: SchedulePageProps) {
                 // spelling as the persona editor.
                 key={keyOf(editing)}
                 target={editing}
+                airing={editing?.kind === 'edit' && editing.slot.id === airingId}
                 onClose={close}
                 onSubmit={submit}
                 onDelete={id => remove.mutate(id, { onSuccess: close })}

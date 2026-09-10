@@ -80,6 +80,42 @@ describe('SlotEditor', () => {
         expect(screen.getByRole('combobox', { name: 'When it runs out' })).toHaveValue('Start again');
     });
 
+    it('says the slot is on air only when it is the one the running order belongs to', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+
+        const { rerender } = render(
+            <SlotEditor target={{ kind: 'edit', slot: slot() }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} />,
+        );
+
+        await screen.findByRole('combobox', { name: 'Mode' });
+        expect(screen.queryByText(/This slot is on air/)).toBeNull();
+
+        rerender(
+            <SlotEditor
+                target={{ kind: 'edit', slot: slot() }}
+                onClose={noop}
+                onSubmit={noop}
+                onDelete={noop}
+                saving={false}
+                deleting={false}
+                airing
+            />,
+        );
+
+        expect(await screen.findByText('This slot is on air. Changes apply the next time it comes round.')).toBeInTheDocument();
+    });
+
+    it('does not say a new slot is on air', async () => {
+        listImportablePlaylists.mockResolvedValue(PLAYLISTS);
+        listPersonas.mockResolvedValue(PERSONAS);
+
+        render(<SlotEditor target={{ kind: 'new' }} onClose={noop} onSubmit={noop} onDelete={noop} saving={false} deleting={false} airing />);
+
+        await screen.findByRole('combobox', { name: 'Mode' });
+        expect(screen.queryByText(/This slot is on air/)).toBeNull();
+    });
+
     it('says starting again replays what already aired, and nothing about a dislike', async () => {
         // The lift-does-not-reach-a-dislike copy from docs/todo/repeat-overrules.md phase 3: a
         // record kept off the air for that reason stays off it whether the block is on its first

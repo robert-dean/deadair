@@ -327,6 +327,14 @@ export class ScheduleService {
         if (updated === undefined) throw httpError(404).withDetails({ message: `schedule slot "${id}" does not exist` });
 
         this.logger.info('schedule: an operator edited a slot', { slot: id, label: updated.label, startsAt: updated.startsAtMinutes });
+
+        // Named separately from the line above, because it answers a different question: not what
+        // changed, but why nothing on air changed with it. The running order belongs to this slot
+        // until it next comes round, whatever was just written to the row underneath it.
+        if (this.director.status().slotId === id) {
+            this.logger.info('schedule: the edited slot is on air; the change applies at its next occurrence', { slot: id });
+        }
+
         return this.answer();
     }
 

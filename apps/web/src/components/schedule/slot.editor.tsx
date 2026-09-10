@@ -51,7 +51,7 @@ import { DAY_LABELS, minutesToClock, clockToMinutes } from './schedule.day';
  * Nothing on this form changes what is on air now. That is the invariant the schedule lives inside
  * rather than a limitation of the page, and the page says so where an operator will read it.
  */
-export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleting, error }: Props) {
+export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleting, error, airing }: Props) {
     const opened = target !== undefined;
     const slot = target?.kind === 'edit' ? target.slot : undefined;
 
@@ -108,6 +108,14 @@ export function SlotEditor({ target, onClose, onSubmit, onDelete, saving, deleti
             <form onSubmit={submit}>
                 <Stack gap="md">
                     {error ? <ErrorAlert title="That slot could not be saved" error={error} fallback="Nothing was written." /> : undefined}
+
+                    {/* The slot the running order belongs to right now: saving it is real, but the
+                        station does not hear it until this block comes round again. Told here,
+                        beside the form it is about, rather than left for the caption at the
+                        bottom of the modal to cover on its own. */}
+                    {slot && airing ? (
+                        <ErrorAlert tone="notice">This slot is on air. Changes apply the next time it comes round.</ErrorAlert>
+                    ) : undefined}
 
                     {/* The when-half as one sentence. Four fields that only make sense together read
                         as four fields when they are stacked and as one statement when they are not,
@@ -239,6 +247,8 @@ interface Props {
     saving: boolean;
     deleting: boolean;
     error?: unknown;
+    /** Whether `target` is the slot the running order currently belongs to. Undefined for a new slot. */
+    airing?: boolean;
 }
 
 interface FormValues {

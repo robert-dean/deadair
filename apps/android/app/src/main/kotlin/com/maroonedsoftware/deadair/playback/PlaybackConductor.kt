@@ -3,7 +3,6 @@ package com.maroonedsoftware.deadair.playback
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import com.maroonedsoftware.deadair.AppGraph
 import com.maroonedsoftware.deadair.nowplaying.NowPlayingState
@@ -29,7 +28,21 @@ import kotlinx.coroutines.launch
 class PlaybackConductor(private val player: Player, private val graph: AppGraph, private val offAir: String) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
-    private val backoff = Backoff()
+    private val policy =
+        ReconnectPolicy(
+            backoff = Backoff(),
+            schedule = { ms, run ->
+                val r = Runnable(run)
+                handler.postDelayed(r, ms)
+                { handler.removeCallbacks(r) }
+            },
+            wantsPlay = { player.playWhenReady },
+            reconnect = {
+                player.prepare()
+                player.play()
+            },
+            stop = { player.stop() },
+        )
 
     private var station: StationUrl? = null
     private var format: StreamFormat = StreamFormat.MP3
@@ -38,21 +51,8 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
     /** What was on air when the metadata was last pushed, so an unchanged track is not re-pushed. */
     private var pushedFor: Long? = null
 
-    private val listener =
-        object : Player.Listener {
-            override fun onPlayerError(error: PlaybackException) {
-                retryLater()
-            }
-
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                // A stream that is playing has earned a fresh budget: the next failure should wait
-                // a second, not the half-minute the last outage ended on.
-                if (playbackState == Player.STATE_READY) backoff.reset()
-            }
-        }
-
     fun start() {
-        player.addListener(listener)
+        player.addListener(policy)
 
         // The settings and the station's own answer are read together, because the mount to play
         // is a function of both: which format the listener chose, and which paths the station says
@@ -71,7 +71,8 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
     }
 
     fun stop() {
-        player.removeListener(listener)
+        player.removeListener(policy)
+        policy.cancel()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()
     }
@@ -123,6 +124,7 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
         val wasPlaying = player.playWhenReady
         current = choice
         pushedFor = null
+        policy.cancel()
         player.setMediaItem(MediaItems.forMount(where, choice, MediaItems.metadataFor(where, null, offAir)))
         if (wasPlaying) {
             player.prepare()
@@ -146,20 +148,5 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
 
         pushedFor = startedAt
         player.replaceMediaItem(0, item.buildUpon().setMediaMetadata(MediaItems.metadataFor(where, now, offAir)).build())
-    }
-
-    /** Try the stream again after a wait, for as long as that is worth doing. */
-    private fun retryLater() {
-        if (!player.playWhenReady) return
-        val wait = backoff.next() ?: return
-        handler.postDelayed(
-            {
-                if (player.playWhenReady) {
-                    player.prepare()
-                    player.play()
-                }
-            },
-            wait,
-        )
     }
 }

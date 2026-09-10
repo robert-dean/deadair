@@ -34,6 +34,10 @@ class Backoff(
         waitedMs = 0
     }
 
+    /** Whether this has been trying for longer than it is worth, i.e. `next()` would answer `null`. */
+    val exhausted: Boolean
+        get() = waitedMs >= giveUpAfterMs
+
     private companion object {
         const val MAX_DOUBLINGS = 5
     }

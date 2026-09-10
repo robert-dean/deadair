@@ -1,7 +1,9 @@
 package com.maroonedsoftware.deadair.playback
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** How long the player waits before trying a failed stream again. */
@@ -31,5 +33,20 @@ class BackoffTest {
         backoff.reset()
 
         assertEquals(1_000L, backoff.next())
+    }
+
+    @Test
+    fun `exhausted flips exactly when next starts answering null`() {
+        val backoff = Backoff()
+
+        // `exhausted` can flip true on the very call whose `next()` is still the last non-null one,
+        // so asserting on it AFTER that call (as a loop condition on `next() != null` would) catches
+        // the flip a beat too late. Loop on `exhausted` instead and assert every `next()` along the
+        // way is non-null.
+        while (!backoff.exhausted) assertNotNull(backoff.next())
+
+        assertTrue(backoff.exhausted)
+        assertNull(backoff.next())
+        assertTrue(backoff.exhausted)
     }
 }

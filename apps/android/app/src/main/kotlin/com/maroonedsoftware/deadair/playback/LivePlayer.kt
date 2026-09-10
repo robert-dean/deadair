@@ -95,7 +95,9 @@ class LivePlayer(player: Player, private val onSkip: () -> Unit = {}) : Forwardi
     }
 
     override fun play() {
-        if (playbackState == Player.STATE_IDLE) prepare()
+        // ENDED is a stream that dropped rather than one that finished (a live stream never ends
+        // on purpose) so play() has to prepare from there just as it does from IDLE.
+        if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) prepare()
         super.play()
     }
 

@@ -12,10 +12,14 @@ import com.maroonedsoftware.deadair.station.StationUrl
 import com.maroonedsoftware.deadair.station.StreamFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -25,6 +29,7 @@ import kotlinx.coroutines.launch
  *
  * Everything here runs on the main looper, because that is where a `Player` must be touched.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class PlaybackConductor(private val player: Player, private val graph: AppGraph, private val offAir: String) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
@@ -43,6 +48,18 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
             },
             stop = { player.stop() },
         )
+    /**
+     * Mirrors `player.playWhenReady`, so the poll below can be gated on it. A separate listener
+     * rather than a hook on `policy`: `ReconnectPolicy` is pure reconnect decision-making and
+     * knows nothing of the poll it happens to run beside.
+     */
+    private val playWhenReady = MutableStateFlow(player.playWhenReady)
+    private val playWhenReadyListener =
+        object : Player.Listener {
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                this@PlaybackConductor.playWhenReady.value = playWhenReady
+            }
+        }
 
     private var station: StationUrl? = null
     private var format: StreamFormat = StreamFormat.MP3
@@ -53,11 +70,21 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
 
     fun start() {
         player.addListener(policy)
+        player.addListener(playWhenReadyListener)
 
         // The settings and the station's own answer are read together, because the mount to play
         // is a function of both: which format the listener chose, and which paths the station says
-        // it publishes.
-        combine(graph.settings.settings, graph.nowPlaying.state) { settings, state -> settings to state }
+        // it publishes. Collected only while `playWhenReady`: `NowPlayingRepository.state` is
+        // `WhileSubscribed`, so a stopped player (nobody listening) lets that poll stop too, rather
+        // than this subscription holding it open for the service's whole life.
+        playWhenReady
+            .flatMapLatest { isPlaying ->
+                if (isPlaying) {
+                    combine(graph.settings.settings, graph.nowPlaying.state) { settings, state -> settings to state }
+                } else {
+                    emptyFlow()
+                }
+            }
             .onEach { (settings, state) ->
                 station = settings.station
                 format = settings.format
@@ -72,6 +99,7 @@ class PlaybackConductor(private val player: Player, private val graph: AppGraph,
 
     fun stop() {
         player.removeListener(policy)
+        player.removeListener(playWhenReadyListener)
         policy.cancel()
         handler.removeCallbacksAndMessages(null)
         scope.cancel()

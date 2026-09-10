@@ -208,4 +208,64 @@ class ReconnectPolicyTest {
 
         assertEquals(0, reconnects)
     }
+
+    @Test
+    fun `audio focus loss stops`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS)
+
+        assertEquals(1, stops)
+    }
+
+    @Test
+    fun `audio becoming noisy stops`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY)
+
+        assertEquals(1, stops)
+    }
+
+    @Test
+    fun `a user's own pause does not stop`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `becoming ready again does not stop`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlayWhenReadyChanged(true, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST)
+
+        assertEquals(0, stops)
+    }
+
+    @Test
+    fun `suppression stops`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS)
+
+        assertEquals(1, stops)
+    }
+
+    @Test
+    fun `suppression clearing back to NONE does not stop`() = runTest {
+        var stops = 0
+        val policy = policy(wantsPlay = { true }, stop = { stops += 1 })
+
+        policy.onPlaybackSuppressionReasonChanged(Player.PLAYBACK_SUPPRESSION_REASON_NONE)
+
+        assertEquals(0, stops)
+    }
 }

@@ -43,7 +43,26 @@ class ReconnectPolicy(
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-        if (!playWhenReady) cancel()
+        if (playWhenReady) return
+        cancel()
+        // A pause the listener pressed already stops through LivePlayer's pause-is-stop override.
+        // These two reasons are pauses Media3 makes INTERNALLY (audio focus lost, headphones
+        // unplugged) which never reach that override, so the socket (and the audience gate's
+        // count of a listener) is released here instead.
+        when (reason) {
+            Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS,
+            Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY,
+            -> stop()
+        }
+    }
+
+    override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
+        // Suppressed playback (a transient focus loss with no pause, an unsuitable route, ...)
+        // still holds a connected socket open for nobody, which the audience gate counts as a
+        // listener the same as an unwanted pause does.
+        if (playbackSuppressionReason == Player.PLAYBACK_SUPPRESSION_REASON_NONE) return
+        cancel()
+        stop()
     }
 
     /** Drop the pending retry, if there is one. */

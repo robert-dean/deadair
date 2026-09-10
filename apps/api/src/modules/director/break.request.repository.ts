@@ -79,6 +79,10 @@ export class BreakRequestRepository extends DataRepository {
      * has to be retired, not left pending forever.
      *
      * Oldest first because two requests waiting is a queue and the earlier one asked first.
+     *
+     * Unfiltered by broadcast, deliberately: a filtered read would strand a row asked for by a
+     * broadcast that has since ended in `pending` forever, since nothing else would ever come back
+     * to retire it. The caller decides what a stale broadcast means for a waiting request.
      */
     async waiting(): Promise<StoredBreakRequest[]> {
         const rows = await this.db
@@ -142,7 +146,7 @@ export class BreakRequestRepository extends DataRepository {
     }
 }
 
-const COLUMNS = ['id', 'kind', 'urgency', 'source', 'state', 'reason', 'context', 'dedupeKey', 'expiresAt', 'segmentId'] as const;
+const COLUMNS = ['id', 'kind', 'urgency', 'source', 'state', 'reason', 'context', 'dedupeKey', 'expiresAt', 'segmentId', 'broadcastId'] as const;
 
 interface RequestRow {
     id: string;
@@ -155,6 +159,7 @@ interface RequestRow {
     dedupeKey: string | null;
     expiresAt: DateTime | null;
     segmentId: string | null;
+    broadcastId: string | null;
 }
 
 /**
@@ -191,6 +196,7 @@ function toRequest(row: RequestRow): StoredBreakRequest {
         ...(row.dedupeKey == null ? {} : { key: row.dedupeKey }),
         ...(millisOf(row.expiresAt) === undefined ? {} : { expiresAt: millisOf(row.expiresAt)! }),
         ...(row.segmentId == null ? {} : { segmentId: row.segmentId }),
+        ...(row.broadcastId == null ? {} : { broadcastId: row.broadcastId }),
     };
 }
 

@@ -1067,6 +1067,15 @@ export class DirectorService {
                 let placed = 0;
 
                 for (const request of waiting) {
+                    // Asked for by a broadcast that has since ended. A null `broadcastId` means it was
+                    // asked for while nothing was on and is left alone: there is no programme for it
+                    // to have outlived. Checked before the expiry clock below, because a request can be
+                    // both stale and unexpired and the programme having moved on is the more specific
+                    // reason.
+                    if (request.broadcastId !== undefined && request.broadcastId !== lineup.broadcastId) {
+                        await this.expire(requests, segments, request, 'the programme changed before this break could air');
+                        continue;
+                    }
                     if (request.expiresAt !== undefined && Date.now() >= request.expiresAt) {
                         await this.expire(requests, segments, request);
                         continue;
@@ -1155,8 +1164,19 @@ export class DirectorService {
         }
     }
 
-    /** Retire a request whose moment has passed, and the break that was being made for it. */
-    private async expire(requests: BreakRequestRepository, segments: SegmentRepository, request: StoredBreakRequest): Promise<void> {
+    /**
+     * Retire a request whose moment has passed, and the break that was being made for it.
+     *
+     * `because` is the sentence written onto the failed segment and the activity feed, so a caller
+     * with a more specific reason than "not ready in time" (a broadcast that ended under it) can say
+     * so instead of quietly reusing wording that would be misleading.
+     */
+    private async expire(
+        requests: BreakRequestRepository,
+        segments: SegmentRepository,
+        request: StoredBreakRequest,
+        because = 'this break was not ready before the moment it was asked for had passed',
+    ): Promise<void> {
         if (!(await requests.moveTo(request.id, 'expired', ['pending', 'ready']))) return;
 
         if (request.segmentId !== undefined) {
@@ -1164,7 +1184,7 @@ export class DirectorService {
             // Failed from wherever it got to. A break nobody will hear should not sit in the console's
             // library looking like one that is still coming.
             if (segment !== undefined && segment.state !== 'failed') {
-                await segments.markFailed(request.segmentId, 'this break was not ready before the moment it was asked for had passed', segment.state);
+                await segments.markFailed(request.segmentId, because, segment.state);
             }
         }
 

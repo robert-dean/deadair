@@ -3094,6 +3094,56 @@ describe('DirectorService opening a database scope', () => {
 
             expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'failed', ['pending', 'ready']);
         });
+
+        it('expires a waiting request left over from a broadcast that has ended, instead of injecting it', async () => {
+            // The programme moved on while this was still waiting for its audio. Its moment does not
+            // come round again, so it is retired rather than handed to whatever is on air now.
+            const { director, seed, requests, segmentStub, activity, lineup } = build({
+                canTalk: true,
+                waiting: [inFlight({ broadcastId: 'a-broadcast-that-has-ended' })],
+                segments: [{ id: 'seg-ready', kind: 'talkbreak', state: 'ready', label: 'Talk break' }],
+            });
+            await seed();
+
+            await director.start();
+
+            expect(lineup.all().some(item => item.kind === 'segment' && item.segmentId === 'seg-ready')).toBe(false);
+            expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'expired', ['pending', 'ready']);
+            expect(segmentStub.markFailed).toHaveBeenCalledWith('seg-ready', expect.stringContaining('programme changed'), 'ready');
+            expect(activity.record).toHaveBeenCalledWith(expect.objectContaining({ kind: 'break.expired' }));
+        });
+
+        it('places a waiting request asked for by the current broadcast as before', async () => {
+            const { director, seed, requests, lineup } = build({
+                canTalk: true,
+                segments: [{ id: 'seg-ready', kind: 'talkbreak', state: 'ready', label: 'Talk break' }],
+            });
+            requests.waiting.mockImplementation(async () => [inFlight({ broadcastId: lineup.broadcastId })]);
+            await seed();
+
+            await director.start();
+
+            const at = lineup.all().findIndex(item => item.kind === 'segment' && item.segmentId === 'seg-ready');
+            expect(at).toBeGreaterThanOrEqual(0);
+            expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'placed', 'ready');
+        });
+
+        it('leaves a request with no broadcast of its own alone, injecting it as before', async () => {
+            // Asked for while nothing was on: there is no programme it could have outlived, so a
+            // null `broadcastId` is not a reason to expire it.
+            const { director, seed, requests, lineup } = build({
+                canTalk: true,
+                waiting: [inFlight()],
+                segments: [{ id: 'seg-ready', kind: 'talkbreak', state: 'ready', label: 'Talk break' }],
+            });
+            await seed();
+
+            await director.start();
+
+            const at = lineup.all().findIndex(item => item.kind === 'segment' && item.segmentId === 'seg-ready');
+            expect(at).toBeGreaterThanOrEqual(0);
+            expect(requests.moveTo).toHaveBeenCalledWith('req-1', 'placed', 'ready');
+        });
     });
 });
 

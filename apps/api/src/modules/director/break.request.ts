@@ -163,6 +163,11 @@ export interface StoredBreakRequest {
     expiresAt?: number;
     /** The break it became. Absent only in the instant between writing the row and planning it. */
     segmentId?: string;
+    /**
+     * The broadcast that asked for it, stamped from the station's identity at the moment the request
+     * was opened. Absent when it was asked for while nothing was on.
+     */
+    broadcastId?: string;
 }
 
 /** Whether this urgency waits for its audio before it takes a slot. See {@link BreakUrgency}. */

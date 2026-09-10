@@ -56,7 +56,8 @@ const SETTINGS: StationSettings = {
     descriptors: [
         { group: 'station', key: 'stream.title', label: 'Station name', type: 'string', default: 'Deadair' },
         { group: 'stream', key: 'stream.bitrate', label: 'Bitrate (kbps)', type: 'string', default: '128' },
-        { group: 'station', key: 'stream.sourcePassword', label: 'Icecast source password', type: 'secret' },
+        { group: 'mail', key: 'mail.host', label: 'SMTP server', type: 'string', default: '' },
+        { group: 'mail', key: 'mail.password', label: 'Password', type: 'secret' },
         { group: 'rotation', key: 'rotation.breakEveryMinutes', label: 'Minutes between breaks', type: 'number', default: 15 },
         {
             group: 'playout',
@@ -70,8 +71,14 @@ const SETTINGS: StationSettings = {
             ],
         },
     ],
-    values: { 'stream.title': 'Old FM', 'stream.bitrate': '192', 'rotation.breakEveryMinutes': 15, 'playout.airMode': 'audience' },
-    configured: { 'stream.sourcePassword': true },
+    values: {
+        'stream.title': 'Old FM',
+        'stream.bitrate': '192',
+        'mail.host': 'smtp.example.org',
+        'rotation.breakEveryMinutes': 15,
+        'playout.airMode': 'audience',
+    },
+    configured: { 'mail.password': true },
 };
 
 const settingsOf = (overrides: Partial<StationSettings> = {}): StationSettings => ({ ...SETTINGS, ...overrides });
@@ -114,12 +121,12 @@ describe('SettingsSectionPage', () => {
 
     it('never puts a stored secret on the screen', async () => {
         // The API reports one as a boolean and no more, and this is the surface where forgetting
-        // that would print an Icecast password into somebody's browser.
+        // that would print a mail password into somebody's browser.
         getSettings.mockResolvedValue(settingsOf());
 
-        render(<SettingsSectionPage section="station" />);
+        render(<SettingsSectionPage section="mail" />);
 
-        const secret = await screen.findByLabelText('Icecast source password');
+        const secret = await screen.findByLabelText('Password');
         expect(secret).toHaveValue('');
         expect(screen.getByText('Stored — leave blank to keep it.')).toBeInTheDocument();
     });
@@ -172,22 +179,22 @@ describe('SettingsSectionPage', () => {
     });
 
     it('leaves an untouched secret out of the submission entirely', async () => {
-        // So an operator can rename the station without retyping the Icecast password.
+        // So an operator can move the station to a new mail server without retyping its password.
         getSettings.mockResolvedValue(settingsOf());
         updateSettings.mockResolvedValue(settingsOf());
-        render(<SettingsSectionPage section="station" />);
+        render(<SettingsSectionPage section="mail" />);
         const user = setupUser();
-        await user.clear(await screen.findByLabelText('Station name'));
-        await user.type(screen.getByLabelText('Station name'), 'New FM');
+        await user.clear(await screen.findByLabelText('SMTP server'));
+        await user.type(screen.getByLabelText('SMTP server'), 'mail.example.org');
 
-        await user.click(screen.getByRole('button', { name: 'Save station' }));
+        await user.click(screen.getByRole('button', { name: 'Save mail' }));
 
         await waitFor(() => {
             expect(updateSettings).toHaveBeenCalledTimes(1);
         });
         const sent = (updateSettings.mock.calls[0]?.[0] as { values: Record<string, unknown> }).values;
-        expect(sent['stream.title']).toBe('New FM');
-        expect('stream.sourcePassword' in sent).toBe(false);
+        expect(sent['mail.host']).toBe('mail.example.org');
+        expect('mail.password' in sent).toBe(false);
     });
 
     it('says a section is empty rather than drawing a heading over nothing', async () => {

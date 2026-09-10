@@ -34,7 +34,6 @@ import { Route as SettingsMailRouteImport } from './routes/settings/mail'
 import { Route as SettingsPlayoutRouteImport } from './routes/settings/playout'
 import { Route as SettingsRenderRouteImport } from './routes/settings/render'
 import { Route as SettingsRotationRouteImport } from './routes/settings/rotation'
-import { Route as SettingsSecretsRouteImport } from './routes/settings/secrets'
 import { Route as SettingsSecurityRouteImport } from './routes/settings/security'
 import { Route as SettingsStationRouteImport } from './routes/settings/station'
 import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
@@ -172,11 +171,6 @@ const SettingsRotationRoute = SettingsRotationRouteImport.update({
   path: '/settings/rotation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsSecretsRoute = SettingsSecretsRouteImport.update({
-  id: '/settings/secrets',
-  path: '/settings/secrets',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsSecurityRoute = SettingsSecurityRouteImport.update({
   id: '/settings/security',
   path: '/settings/security',
@@ -256,7 +250,6 @@ export interface FileRoutesByFullPath {
   '/settings/playout': typeof SettingsPlayoutRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
-  '/settings/secrets': typeof SettingsSecretsRoute
   '/settings/security': typeof SettingsSecurityRoute
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
@@ -295,7 +288,6 @@ export interface FileRoutesByTo {
   '/settings/playout': typeof SettingsPlayoutRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
-  '/settings/secrets': typeof SettingsSecretsRoute
   '/settings/security': typeof SettingsSecurityRoute
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
@@ -335,7 +327,6 @@ export interface FileRoutesById {
   '/settings/playout': typeof SettingsPlayoutRoute
   '/settings/render': typeof SettingsRenderRoute
   '/settings/rotation': typeof SettingsRotationRoute
-  '/settings/secrets': typeof SettingsSecretsRoute
   '/settings/security': typeof SettingsSecurityRoute
   '/settings/station': typeof SettingsStationRoute
   '/settings/storage': typeof SettingsStorageRoute
@@ -376,7 +367,6 @@ export interface FileRouteTypes {
     | '/settings/playout'
     | '/settings/render'
     | '/settings/rotation'
-    | '/settings/secrets'
     | '/settings/security'
     | '/settings/station'
     | '/settings/storage'
@@ -415,7 +405,6 @@ export interface FileRouteTypes {
     | '/settings/playout'
     | '/settings/render'
     | '/settings/rotation'
-    | '/settings/secrets'
     | '/settings/security'
     | '/settings/station'
     | '/settings/storage'
@@ -454,7 +443,6 @@ export interface FileRouteTypes {
     | '/settings/playout'
     | '/settings/render'
     | '/settings/rotation'
-    | '/settings/secrets'
     | '/settings/security'
     | '/settings/station'
     | '/settings/storage'
@@ -494,7 +482,6 @@ export interface RootRouteChildren {
   SettingsPlayoutRoute: typeof SettingsPlayoutRoute
   SettingsRenderRoute: typeof SettingsRenderRoute
   SettingsRotationRoute: typeof SettingsRotationRoute
-  SettingsSecretsRoute: typeof SettingsSecretsRoute
   SettingsSecurityRoute: typeof SettingsSecurityRoute
   SettingsStationRoute: typeof SettingsStationRoute
   SettingsStorageRoute: typeof SettingsStorageRoute
@@ -689,13 +676,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRotationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/secrets': {
-      id: '/settings/secrets'
-      path: '/settings/secrets'
-      fullPath: '/settings/secrets'
-      preLoaderRoute: typeof SettingsSecretsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings/security': {
       id: '/settings/security'
       path: '/settings/security'
@@ -798,7 +778,6 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsPlayoutRoute: SettingsPlayoutRoute,
   SettingsRenderRoute: SettingsRenderRoute,
   SettingsRotationRoute: SettingsRotationRoute,
-  SettingsSecretsRoute: SettingsSecretsRoute,
   SettingsSecurityRoute: SettingsSecurityRoute,
   SettingsStationRoute: SettingsStationRoute,
   SettingsStorageRoute: SettingsStorageRoute,

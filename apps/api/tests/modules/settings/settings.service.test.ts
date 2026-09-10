@@ -13,7 +13,8 @@ import { SettingsService } from '../../../src/modules/settings/settings.service.
 import type { SettingsRepository } from '../../../src/modules/settings/settings.repository.js';
 import { AfterCommit } from '../../../src/modules/data/after.commit.js';
 import { AIR_MODE_KEY } from '../../../src/modules/playout/air.mode.js';
-import { STREAM_KEYS } from '../../../src/modules/stream/stream.settings.js';
+import { STREAM_KEYS, STREAM_SECRET_KEYS } from '../../../src/modules/stream/stream.settings.js';
+import { MAIL_KEYS } from '../../../src/modules/mail/mail.settings.js';
 import { settingsConfig } from '../../utils/settings.config.js';
 import type { StreamService } from '../../../src/modules/stream/stream.service.js';
 
@@ -61,15 +62,34 @@ describe('SettingsService.read', () => {
 
     it('reports a secret as whether it is stored, never as what it is', () => {
         const ciphertext = encryption.encrypt('hunter2');
-        const { service } = build({ [STREAM_KEYS.sourcePassword]: ciphertext });
+        const { service } = build({ [MAIL_KEYS.password]: ciphertext });
 
         const model = service.read();
 
-        expect(model.configured[STREAM_KEYS.sourcePassword]).toBe(true);
-        expect(model.configured[STREAM_KEYS.adminPassword]).toBe(false);
+        expect(model.configured[MAIL_KEYS.password]).toBe(true);
         // Neither the plaintext nor the ciphertext is anywhere in the answer.
         expect(JSON.stringify(model)).not.toContain(ciphertext);
         expect(JSON.stringify(model)).not.toContain('hunter2');
+    });
+
+    it('reports a secret nobody stored as not configured', () => {
+        const { service } = build();
+
+        expect(service.read().configured[MAIL_KEYS.password]).toBe(false);
+    });
+
+    it('says nothing at all about the secrets the stream seeds for itself', () => {
+        // Stored, and not the operator's: the console has nothing to draw for them, so the read
+        // model does not so much as admit they exist.
+        const stored = Object.fromEntries(STREAM_SECRET_KEYS.map(key => [key, encryption.encrypt('seeded')]));
+        const { service } = build(stored);
+
+        const model = service.read();
+
+        for (const key of STREAM_SECRET_KEYS) {
+            expect(model.configured[key], key).toBeUndefined();
+            expect(model.descriptors.some(descriptor => descriptor.key === key), key).toBe(false);
+        }
     });
 
     it('carries the descriptors, so a console needs nothing else to draw the form', () => {
@@ -117,7 +137,7 @@ describe('SettingsService.write', () => {
     it('encrypts a secret on the way in', async () => {
         const { service, written } = build();
 
-        await service.write({ [STREAM_KEYS.sourcePassword]: 'hunter2' });
+        await service.write({ [MAIL_KEYS.password]: 'hunter2' });
 
         expect(written[0]!.value).not.toBe('hunter2');
         expect(encryption.decrypt(written[0]!.value!)).toBe('hunter2');
@@ -128,9 +148,21 @@ describe('SettingsService.write', () => {
         // as "configured" and decrypt to nothing.
         const { service, written } = build();
 
-        await service.write({ [STREAM_KEYS.adminPassword]: '   ' });
+        await service.write({ [MAIL_KEYS.password]: '   ' });
 
-        expect(written).toEqual([{ key: STREAM_KEYS.adminPassword, value: null }]);
+        expect(written).toEqual([{ key: MAIL_KEYS.password, value: null }]);
+    });
+
+    it('refuses to change a secret the stream seeds for itself', async () => {
+        // A changed one is adopted by Icecast and Liquidsoap only on their next restart, and a
+        // cleared one stops the stream config rendering at all, so neither is on offer.
+        const { service, written } = build();
+
+        for (const key of STREAM_SECRET_KEYS) {
+            await expect(service.write({ [key]: 'chosen' }), key).rejects.toThrow();
+            await expect(service.write({ [key]: null }), key).rejects.toThrow();
+        }
+        expect(written).toEqual([]);
     });
 
     it('puts a setting back to its default when it is explicitly cleared', async () => {
@@ -163,10 +195,10 @@ describe('SettingsService.write', () => {
         // would hand the console the value the operator has just replaced.
         const { service } = build();
 
-        const model = await service.write({ [AIR_MODE_KEY]: 'always', [STREAM_KEYS.sourcePassword]: 'hunter2' });
+        const model = await service.write({ [AIR_MODE_KEY]: 'always', [MAIL_KEYS.password]: 'hunter2' });
 
         expect(model.values[AIR_MODE_KEY]).toBe('always');
-        expect(model.configured[STREAM_KEYS.sourcePassword]).toBe(true);
+        expect(model.configured[MAIL_KEYS.password]).toBe(true);
         // And still nothing about what the secret is.
         expect(JSON.stringify(model)).not.toContain('hunter2');
     });

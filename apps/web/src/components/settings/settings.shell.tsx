@@ -19,7 +19,6 @@ export type SettingsSectionId =
     | 'station'
     | 'stream'
     | 'housekeeping'
-    | 'secrets'
     | 'mail'
     | 'appearance'
     | 'security'
@@ -89,9 +88,11 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         group: 'station',
         blurb: 'What the station is called, where it is, and the clock it tells the time by. Icecast reads the name from a file rendered on save, so a new one reaches the stream on its next restart.',
     },
-    // Split out of Station along with the two below it: one save under thirty-one fields, from the
+    // Split out of Station along with Housekeeping: one save under thirty-one fields, from the
     // station's own name to four passwords, was a lot of ground to cover for a visit that usually
-    // wants one of them. `SettingGroup` in `settings.types.ck` carries the same four-way split.
+    // wants one of them. `SettingGroup` in `settings.types.ck` carries the same split. The
+    // passwords had a Secrets page of their own until nothing was left on it: the station seeds
+    // them, nothing outside it holds one, and `settings.registry.ts` says why none is declared.
     {
         id: 'stream',
         label: 'Stream',
@@ -106,16 +107,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         group: 'housekeeping',
         blurb: 'How long the station keeps its own history, and how much of a library sync it will trust before it refuses rather than throwing the rest away.',
     },
-    {
-        id: 'secrets',
-        label: 'Secrets',
-        hint: 'The passwords it was seeded with',
-        group: 'secrets',
-        blurb: 'Seeded with strong random values on first boot, so this is a page an operator visits only to match a password something else already has.',
-    },
-    // Beside Secrets because it is the other page of credentials, and immediately before Security
-    // because it is what makes Security's second half work: the codes and sign-in links this
-    // station sends go out through whatever is set here, and until something is, they do not go.
+    // Immediately before Security because it is what makes Security's second half work: the codes
+    // and sign-in links this station sends go out through whatever is set here, and until something
+    // is, they do not go.
     {
         id: 'mail',
         label: 'Mail',
@@ -143,7 +137,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: 'Playout',
         hint: 'What puts it on air',
         group: 'playout',
-        blurb: 'What puts the station on air, and the secret the playout bridge is gated on.',
+        blurb: 'What puts the station on air.',
     },
     {
         id: 'render',
@@ -186,7 +180,6 @@ export const SETTINGS_ROUTES: Record<
     | '/settings/station'
     | '/settings/stream'
     | '/settings/housekeeping'
-    | '/settings/secrets'
     | '/settings/mail'
     | '/settings/appearance'
     | '/settings/security'
@@ -202,7 +195,6 @@ export const SETTINGS_ROUTES: Record<
     station: '/settings/station',
     stream: '/settings/stream',
     housekeeping: '/settings/housekeeping',
-    secrets: '/settings/secrets',
     mail: '/settings/mail',
     appearance: '/settings/appearance',
     security: '/settings/security',

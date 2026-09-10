@@ -431,8 +431,8 @@ function strongSecret(): string {
  * login secret) — three separate silent failures whose only fix is manual setup
  * of secrets nobody needs to choose.
  *
- * Idempotent: only a missing key is filled, so an operator-chosen password is
- * never overwritten. Returns true when it seeded at least one.
+ * Idempotent: only a missing key is filled, so a value set by hand is never
+ * overwritten. Returns true when it seeded at least one.
  *
  * NB: these differ from the committed dev defaults, so an Icecast that already
  * started on `icecast.default.xml` has to be restarted once to adopt them.

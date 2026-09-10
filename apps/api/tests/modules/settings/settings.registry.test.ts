@@ -90,11 +90,13 @@ describe('the settings registry', () => {
         }
     });
 
-    it('describes every stream secret as a secret', () => {
-        // The stream module decides which keys hold ciphertext. A key it encrypts and this
-        // declares as a `string` would be rendered in the console, in a text input, as base64.
+    it('declares none of the secrets the stream seeds for itself', () => {
+        // Nothing outside the station holds one, so there is nothing for an operator to match, and
+        // editing one was only ever a way off the air: Icecast and Liquidsoap adopt a new value on
+        // their next restart, and a cleared one stops the stream config rendering. Declared as a
+        // `string` it would be worse still, drawn in a text input as base64.
         for (const key of STREAM_SECRET_KEYS) {
-            expect(isSecretField(findDescriptor(key)!)).toBe(true);
+            expect(findDescriptor(key), key).toBeUndefined();
         }
     });
 

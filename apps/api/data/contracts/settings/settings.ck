@@ -36,8 +36,8 @@ operation /settings: {
         name: Update settings
         service: SettingsService.writeSubmitted
         security: {
-            # Above the file's read floor: these are the operator's own knobs, and several of them
-            # (the mount, the bridge secret) decide whether the station airs at all.
+            # Above the file's read floor: these are the operator's own knobs, and some of them
+            # (the air mode above all) decide whether the station airs at all.
             policy: platform.manage
         }
         request: {

@@ -181,8 +181,8 @@ export type SettingGroup = (typeof SETTING_GROUPS)[number];
  * Every station setting there is.
  *
  * Ordered as an operator should meet them: what the station IS, then what puts
- * it on air, then how it speaks. Secrets come last within their group, because
- * they are seeded automatically and most operators never touch them.
+ * it on air, then how it speaks. The secrets the station seeds for itself are
+ * deliberately absent; see the note where they used to be, above `mail`.
  */
 export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     // ── station ────────────────────────────────────────────────────────────────
@@ -1253,49 +1253,23 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
             'phrasings that ask for a name and tells the model what it is called. Leave it empty and neither happens.',
     },
 
-    // ── secrets ────────────────────────────────────────────────────────────────
-    // Seeded with strong random values on first boot, so an operator only ever
-    // comes here to match a password something else already has. Write-only:
-    // the read model reports whether one is stored and never what it is.
-    {
-        group: 'secrets',
-        key: STREAM_KEYS.sourcePassword,
-        label: 'Icecast source password',
-        type: 'secret',
-        help: 'Changing this needs Icecast restarted to adopt it.',
-    },
-    {
-        group: 'secrets',
-        key: STREAM_KEYS.adminPassword,
-        label: 'Icecast admin password',
-        type: 'secret',
-    },
-    {
-        group: 'secrets',
-        key: STREAM_KEYS.harborPassword,
-        label: 'Harbor push password',
-        type: 'secret',
-    },
-    {
-        group: 'secrets',
-        key: STREAM_KEYS.spotifyShimSecret,
-        label: 'Track shim secret',
-        type: 'secret',
-    },
-    {
-        group: 'playout',
-        key: STREAM_KEYS.playoutBridgeSecret,
-        label: 'Playout bridge secret',
-        type: 'secret',
-        help: 'Gates the control endpoints in both directions. Without it the running order never airs.',
-    },
+    // ── the stream's own secrets are NOT here ─────────────────────────────────
+    // `STREAM_SECRET_KEYS` (the Icecast source and admin passwords, the harbor password, the shim
+    // secret and the playout bridge secret) were declared here and editable from the console for as
+    // long as the console existed, on the premise that an operator might need to match one to
+    // something else. Nothing else ever holds one: `ensureStreamSecrets` seeds all five on first
+    // boot, both ends of each are rendered from the same row, and the image publishes nothing but
+    // port 80. What the field did offer was a way off the air: a changed value is adopted by Icecast
+    // and Liquidsoap only on their next restart, the bridge secret is read once at `ready`, and a
+    // cleared source or admin password stops the materializer rendering at all. Undeclared, `PUT
+    // /settings` refuses a write to one like any other key nobody declared. The rows are untouched,
+    // and one set by hand with psql is honoured: `resolveStreamSettings` accepts plaintext for it.
 
     // ── mail ───────────────────────────────────────────────────────────────────
     // The only thing the station sends email for is signing in, so this page is worth visiting
-    // exactly once. The password is a `secret` like the four above it but is NOT in that group:
-    // those are seeded on first boot and an operator only ever comes to read one back, while this
-    // one is typed, belongs with the server it authenticates to, and is useless three fields away
-    // from the host it goes with.
+    // exactly once. The password is the only `secret` the station declares: typed by the operator,
+    // because nothing can mint it, and drawn beside the server it authenticates to, since it is
+    // useless three fields away from the host it goes with.
     //
     // Everything below hangs off the host through `dependsOn`, which is what makes the page a
     // single question — "where does this station send mail" — rather than six unrelated ones. The

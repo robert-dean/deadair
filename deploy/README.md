@@ -30,10 +30,11 @@ Two secrets, generated once and kept:
 openssl rand -hex 32
 ```
 
-That is `KMS_LOCAL_ROOT_KEY`, and it encrypts every credential the station stores — your music
-provider's tokens, the stream's own passwords. Losing it means entering all of them again. It has
-to be hex: the station reads it as hex bytes, so a base64 key of the same length is quietly a
-different and much weaker key than you meant to generate.
+That is `KMS_LOCAL_ROOT_KEY`, and it encrypts every credential the station stores: your music
+provider's tokens, your mail password, the stream's own passwords. Losing it means entering the ones
+you typed again. The stream's passwords need nothing from you, because the station made them and
+both ends read the same stored value. It has to be hex: the station reads it as hex bytes, so a
+base64 key of the same length is quietly a different and much weaker key than you meant to generate.
 
 ```bash
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 | base64 -w0

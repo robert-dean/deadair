@@ -373,9 +373,9 @@ export function writeStreamConfig({
 }: WriteStreamConfigArgs): StreamConfigRender | undefined {
     const { sourcePassword, adminPassword } = settings;
     if (!sourcePassword || !adminPassword) {
-        // Only reachable when the secrets were deliberately cleared: `ensureStreamSecrets`
-        // seeds both on first boot.
-        log('not configured (set stream.sourcePassword + stream.adminPassword); skipping config');
+        // Only reachable when a row was deleted by hand since boot: `ensureStreamSecrets` seeds
+        // both at startup, and nothing the console offers can clear one.
+        log('not configured (no stream.sourcePassword or stream.adminPassword stored; a restart seeds any that are missing); skipping config');
         return undefined;
     }
 

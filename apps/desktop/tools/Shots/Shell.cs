@@ -395,7 +395,12 @@ internal static class Fakes
         [
             Field("playout.airMode", "Air mode", "Audience: the station goes on air when somebody connects.", "true", ConfigFieldType.Boolean),
             Field("playout.linger", "Linger after the last listener", "Milliseconds. Five minutes by default.", "300000", ConfigFieldType.Number),
-            Field("stream.adminPassword", "Icecast admin password", "Never sent back. An empty box leaves it alone.", "", ConfigFieldType.Secret),
+        ]));
+
+        settings.Groups.Add(new SettingGroupViewModel("Mail",
+        [
+            Field("mail.host", "SMTP server", "The mail server the station signs people in through.", "smtp.example.org", ConfigFieldType.String),
+            Field("mail.password", "Password", "Never sent back. An empty box leaves it alone.", "", ConfigFieldType.Secret),
         ]));
     }
 

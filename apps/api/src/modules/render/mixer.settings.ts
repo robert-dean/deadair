@@ -53,7 +53,12 @@ export function explainNoMixer(candidates: readonly MixerPlugin[], configured: s
     return explainNoPlugin(candidates, configured, MIXER_WORDING);
 }
 
-/** That the station chose its own mixer, and which others it could have used. */
-export function explainDefaultMixer(chosen: MixerPlugin, candidates: readonly MixerPlugin[]): string {
-    return explainDefaultPick(chosen, candidates, MIXER_WORDING);
+/**
+ * That the station chose its own mixer, and which others it could have used.
+ *
+ * `quarantined` names installed, enabled mixer plugins that are currently `failed`, so the sentence
+ * can say why they are not among the alternatives listed.
+ */
+export function explainDefaultMixer(chosen: MixerPlugin, candidates: readonly MixerPlugin[], quarantined: readonly string[] = []): string {
+    return explainDefaultPick(chosen, candidates, MIXER_WORDING, quarantined);
 }

@@ -69,13 +69,15 @@ describe('selectPlugin', () => {
 });
 
 describe('pickedByDefault', () => {
-    it('is true only when the station had a choice and made none', () => {
+    it('is true whenever the station had a choice and made none, including a single candidate', () => {
+        // A single candidate counts too: a quarantine that leaves a capability with exactly one
+        // plugin standing changes the station's pick as surely as an install or uninstall does.
         expect(pickedByDefault([first, second], undefined)).toBe(true);
         expect(pickedByDefault([first, second], '')).toBe(true);
+        expect(pickedByDefault([first], undefined)).toBe(true);
     });
 
-    it('is false for a single candidate, which is not a decision anybody needs telling about', () => {
-        expect(pickedByDefault([first], undefined)).toBe(false);
+    it('is false when there is nothing to choose from', () => {
         expect(pickedByDefault([], undefined)).toBe(false);
     });
 
@@ -107,6 +109,27 @@ describe('explainDefaultPick', () => {
         expect(said).toContain('zeta.second');
         expect(said).toContain('render.speechPluginId is unset');
     });
+
+    it('says nothing else could, rather than printing an empty list, when chosen alone', () => {
+        const said = explainDefaultPick(first, [first], WORDING);
+
+        expect(said).not.toContain('could too;');
+        expect(said).toContain('nothing else currently could');
+    });
+
+    it('names the quarantine when a single candidate is left because the rest failed', () => {
+        const said = explainDefaultPick(first, [first], WORDING, ['zeta.second']);
+
+        expect(said).toContain('"acme.first"');
+        expect(said).toContain('zeta.second');
+        expect(said).toContain('quarantined');
+    });
+
+    it('joins several quarantined ids with "are"', () => {
+        const said = explainDefaultPick(first, [first], WORDING, ['zeta.second', 'mid.third']);
+
+        expect(said).toContain('zeta.second, mid.third are quarantined');
+    });
 });
 
 describe('defaultPickIsNews', () => {
@@ -126,8 +149,17 @@ describe('defaultPickIsNews', () => {
         expect(defaultPickIsNews(second, [first, second, plugin('mid.third')], WORDING.key, undefined)).toBe(true);
     });
 
-    it('says nothing about a single candidate', () => {
+    it('is news for a single candidate with the key unset, once, then not again', () => {
+        // Every change to the candidate set is reported once, and a single candidate is no
+        // exception: a quarantine that leaves exactly one plugin standing changes the station's
+        // default pick as surely as an install does.
+        expect(defaultPickIsNews(first, [first], WORDING.key, undefined)).toBe(true);
         expect(defaultPickIsNews(first, [first], WORDING.key, undefined)).toBe(false);
+    });
+
+    it('is news again when a quarantine shrinks two candidates down to one', () => {
+        expect(defaultPickIsNews(first, [first, second], WORDING.key, undefined)).toBe(true);
+        expect(defaultPickIsNews(first, [first], WORDING.key, undefined)).toBe(true);
     });
 
     // The case that was live and untested. A station whose operator named a plugin was told, once

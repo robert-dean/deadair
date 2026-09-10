@@ -129,11 +129,16 @@ describe('MixerService.mixer', () => {
         expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('deadair.zephyr'));
     });
 
-    it('says nothing about a default pick when there is only one candidate', async () => {
-        // Not a decision anybody needs telling about, and `mixer()` runs often enough that a line
-        // per call would be noise.
+    it('reports a default pick with one candidate once, and stays quiet on the next call', async () => {
+        // A single plugin left standing is still a default, and a quarantine narrowing two down to
+        // one is exactly the silent switch this reports on. But `mixer()` runs on every commit
+        // pass, so the same candidate set is news only the first time.
         const { service, logger } = build();
 
+        expect(service.mixer()?.record.id).toBe('deadair.analyzer');
+        expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('deadair.analyzer'));
+
+        vi.mocked(logger.info).mockClear();
         expect(service.mixer()?.record.id).toBe('deadair.analyzer');
         expect(logger.info).not.toHaveBeenCalled();
     });

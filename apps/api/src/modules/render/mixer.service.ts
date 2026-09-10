@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import type { AudioJoin, AudioOverlay, JoinedAudio } from '@deadair/plugin-sdk';
+import { PLUGIN_CAPABILITY_MIXER, type AudioJoin, type AudioOverlay, type JoinedAudio } from '@deadair/plugin-sdk';
 import { asMixerPlugin, type MixerPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -68,6 +68,22 @@ export class MixerService {
     }
 
     /**
+     * Mixer plugins that are installed and enabled but currently quarantined, for
+     * {@link explainDefaultMixer}'s sentence.
+     *
+     * Read straight from the registry rather than from {@link mixers}, which excludes them for an
+     * unrelated reason (`asMixerPlugin` declines anything not `active`), so a `failed` plugin never
+     * shows up in "X could too" on its own. Without naming it here, a quarantine that narrows the
+     * field to one mixer reads as though nothing else was ever installed.
+     */
+    private quarantinedMixers(): string[] {
+        return this.pluginRegistry
+            .list()
+            .filter(record => record.status === 'failed' && record.manifest?.capabilities.includes(PLUGIN_CAPABILITY_MIXER) === true)
+            .map(record => record.id);
+    }
+
+    /**
      * The plugin the station joins with, or `undefined` with a reason logged.
      *
      * **A station with no mixer is an ordinary state, not a fault**, the way one with no analyzer
@@ -88,7 +104,7 @@ export class MixerService {
         // `AnalysisService.analyzer`'s: nothing about a programme joined by a plugin nobody chose
         // looks wrong from the outside, so this line is the only place it is ever said.
         if (defaultPickIsNews(chosen, candidates, MIXER_PLUGIN_KEY, configured)) {
-            this.logger.info(`render: ${explainDefaultMixer(chosen, candidates)}`);
+            this.logger.info(`render: ${explainDefaultMixer(chosen, candidates, this.quarantinedMixers())}`);
         }
         return chosen;
     }

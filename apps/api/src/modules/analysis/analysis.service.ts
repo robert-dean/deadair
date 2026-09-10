@@ -1,7 +1,7 @@
 import { Injectable } from 'injectkit';
 import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
-import { ANALYSIS_SCHEMA_VERSION, type AnalysisRef, type TrackAnalysis } from '@deadair/plugin-sdk';
+import { ANALYSIS_SCHEMA_VERSION, PLUGIN_CAPABILITY_ANALYSIS, type AnalysisRef, type TrackAnalysis } from '@deadair/plugin-sdk';
 import { asAnalysisPlugin, type AnalysisPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -104,6 +104,22 @@ export class AnalysisService {
     }
 
     /**
+     * Analyzer plugins that are installed and enabled but currently quarantined, for
+     * {@link explainDefaultAnalyzer}'s sentence.
+     *
+     * Read straight from the registry rather than from {@link candidates}, which excludes them for
+     * an unrelated reason (`asAnalysisPlugin` declines anything not `active`), so a `failed` plugin
+     * never shows up in "X could too" on its own. Without naming it here, a quarantine that narrows
+     * the field to one analyzer reads as though nothing else was ever installed.
+     */
+    private quarantinedAnalyzers(): string[] {
+        return this.registry
+            .list()
+            .filter(record => record.status === 'failed' && record.manifest?.capabilities.includes(PLUGIN_CAPABILITY_ANALYSIS) === true)
+            .map(record => record.id);
+    }
+
+    /**
      * The analyzer to use, or `undefined` with the reason logged.
      *
      * **A station with no analyzer is an ordinary state, not a fault**, the way
@@ -125,7 +141,7 @@ export class AnalysisService {
         // because nothing about a station measured by an analyzer nobody chose looks wrong from the
         // outside: this line is the only place it is ever said.
         if (defaultPickIsNews(chosen, candidates, ANALYSIS_PLUGIN_KEY, configured)) {
-            this.logger.info(`analysis: ${explainDefaultAnalyzer(chosen, candidates)}`);
+            this.logger.info(`analysis: ${explainDefaultAnalyzer(chosen, candidates, this.quarantinedAnalyzers())}`);
         }
         return chosen;
     }

@@ -48,7 +48,12 @@ export function explainNoSpeaker(candidates: readonly SpeechPlugin[], configured
     return explainNoPlugin(candidates, configured, SPEECH_WORDING);
 }
 
-/** That the station chose its own voice, and which others it could have used. */
-export function explainDefaultSpeaker(chosen: SpeechPlugin, candidates: readonly SpeechPlugin[]): string {
-    return explainDefaultPick(chosen, candidates, SPEECH_WORDING);
+/**
+ * That the station chose its own voice, and which others it could have used.
+ *
+ * `quarantined` names installed, enabled TTS plugins that are currently `failed`, so the sentence
+ * can say why they are not among the alternatives listed.
+ */
+export function explainDefaultSpeaker(chosen: SpeechPlugin, candidates: readonly SpeechPlugin[], quarantined: readonly string[] = []): string {
+    return explainDefaultPick(chosen, candidates, SPEECH_WORDING, quarantined);
 }

@@ -1,6 +1,14 @@
 import { Injectable } from 'injectkit';
 import { Logger } from '@maroonedsoftware/logger';
-import { PluginError, withoutCues, type SpeechCue, type SpeechHandle, type SpeechRequest, type SpeechVoice } from '@deadair/plugin-sdk';
+import {
+    PLUGIN_CAPABILITY_SPEECH,
+    PluginError,
+    withoutCues,
+    type SpeechCue,
+    type SpeechHandle,
+    type SpeechRequest,
+    type SpeechVoice,
+} from '@deadair/plugin-sdk';
 import { asSpeechPlugin, type SpeechPlugin } from '#modules/plugins/plugin.capabilities.js';
 import { byPluginId, defaultPickIsNews, pluginsWith } from '#modules/plugins/plugin.selection.js';
 import { PluginInvoker } from '#modules/plugins/plugin.invoker.js';
@@ -110,6 +118,22 @@ export class SpeechService {
     }
 
     /**
+     * TTS plugins that are installed and enabled but currently quarantined, for
+     * {@link explainDefaultSpeaker}'s sentence.
+     *
+     * Read straight from the registry rather than from {@link speakers}, which excludes them for an
+     * unrelated reason (`asSpeechPlugin` declines anything not `active`), so a `failed` plugin never
+     * shows up in "X could too" on its own. Without naming it here, a quarantine that narrows the
+     * field to one voice reads as though nothing else was ever installed.
+     */
+    private quarantinedSpeakers(): string[] {
+        return this.pluginRegistry
+            .list()
+            .filter(record => record.status === 'failed' && record.manifest?.capabilities.includes(PLUGIN_CAPABILITY_SPEECH) === true)
+            .map(record => record.id);
+    }
+
+    /**
      * The plugin the station speaks with, or `undefined` with a reason logged.
      *
      * Not a throw, because every caller so far treats "nobody can speak" as a state rather than a
@@ -129,7 +153,7 @@ export class SpeechService {
         // line per track boundary for as long as the key stays unset — and saying it once is the
         // whole bargain that lets an unset key pick rather than refuse.
         if (defaultPickIsNews(chosen, candidates, SPEECH_PLUGIN_KEY, configured)) {
-            this.logger.info(`render: ${explainDefaultSpeaker(chosen, candidates)}`);
+            this.logger.info(`render: ${explainDefaultSpeaker(chosen, candidates, this.quarantinedSpeakers())}`);
         }
         return chosen;
     }

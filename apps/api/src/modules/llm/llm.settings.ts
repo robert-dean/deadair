@@ -59,7 +59,12 @@ export function explainNoGenerator(candidates: readonly LlmPlugin[], configured:
     return explainNoPlugin(candidates, configured, LLM_WORDING);
 }
 
-/** That the station chose its own model plugin, and which others it could have used. */
-export function explainDefaultGenerator(chosen: LlmPlugin, candidates: readonly LlmPlugin[]): string {
-    return explainDefaultPick(chosen, candidates, LLM_WORDING);
+/**
+ * That the station chose its own model plugin, and which others it could have used.
+ *
+ * `quarantined` names installed, enabled model plugins that are currently `failed`, so the sentence
+ * can say why they are not among the alternatives listed.
+ */
+export function explainDefaultGenerator(chosen: LlmPlugin, candidates: readonly LlmPlugin[], quarantined: readonly string[] = []): string {
+    return explainDefaultPick(chosen, candidates, LLM_WORDING, quarantined);
 }

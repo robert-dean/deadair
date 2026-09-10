@@ -75,9 +75,14 @@ export function explainNoAnalyzer(candidates: readonly AnalysisPlugin[], configu
     return explainNoPlugin(candidates, configured, ANALYSIS_WORDING);
 }
 
-/** That the station chose its own analyzer, and which others it could have used. */
-export function explainDefaultAnalyzer(chosen: AnalysisPlugin, candidates: readonly AnalysisPlugin[]): string {
-    return explainDefaultPick(chosen, candidates, ANALYSIS_WORDING);
+/**
+ * That the station chose its own analyzer, and which others it could have used.
+ *
+ * `quarantined` names installed, enabled analyzer plugins that are currently `failed`, so the
+ * sentence can say why they are not among the alternatives listed.
+ */
+export function explainDefaultAnalyzer(chosen: AnalysisPlugin, candidates: readonly AnalysisPlugin[], quarantined: readonly string[] = []): string {
+    return explainDefaultPick(chosen, candidates, ANALYSIS_WORDING, quarantined);
 }
 
 /**

@@ -3,6 +3,7 @@ import { AppConfig } from '@maroonedsoftware/appconfig';
 import { Logger } from '@maroonedsoftware/logger';
 import {
     collectGeneration,
+    PLUGIN_CAPABILITY_LLM,
     PluginError,
     type LlmFinishReason,
     type LlmHandle,
@@ -330,6 +331,22 @@ export class LlmService {
     }
 
     /**
+     * Model plugins that are installed and enabled but currently quarantined, for
+     * {@link explainDefaultGenerator}'s sentence.
+     *
+     * Read straight from the registry rather than from {@link generators}, which excludes them for
+     * an unrelated reason (`asLlmPlugin` declines anything not `active`), so a `failed` plugin is
+     * never a candidate and never shows up in "X could too" on its own. Without naming it here, a
+     * quarantine that narrows the field to one model reads as though nothing else was ever installed.
+     */
+    private quarantinedGenerators(): string[] {
+        return this.pluginRegistry
+            .list()
+            .filter(record => record.status === 'failed' && record.manifest?.capabilities.includes(PLUGIN_CAPABILITY_LLM) === true)
+            .map(record => record.id);
+    }
+
+    /**
      * The plugin the station thinks with, or `undefined` with a reason logged.
      *
      * Not a throw. Every caller treats "no model" as a state rather than a fault, because the
@@ -349,7 +366,7 @@ export class LlmService {
         // refusing is only honest if the choice is said out loud, and only bearable if it is said
         // once.
         if (defaultPickIsNews(chosen, candidates, LLM_PLUGIN_KEY, configured)) {
-            this.logger.info(`llm: ${explainDefaultGenerator(chosen, candidates)}`);
+            this.logger.info(`llm: ${explainDefaultGenerator(chosen, candidates, this.quarantinedGenerators())}`);
         }
         return chosen;
     }

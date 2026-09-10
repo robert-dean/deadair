@@ -103,13 +103,17 @@ export function selectPlugin<TPlugin extends SelectablePlugin>(candidates: reado
  *
  * Separate from {@link selectPlugin} because it is about REPORTING and the
  * selection is about choosing: folding it in would make every caller destructure
- * a pair to ask a question only one of them needs. True only when the station has
- * more than one candidate and named none of them — a single installed plugin is
- * not a decision anybody needs telling about.
+ * a pair to ask a question only one of them needs. True whenever the station had
+ * a candidate to choose from and named none. A SINGLE candidate counts too, on
+ * purpose: a quarantine that leaves a capability with exactly one plugin standing
+ * changes the station's pick as surely as an install or uninstall does, and it
+ * used to go unreported for that reason alone. `defaultPickIsNews` is what keeps
+ * that from being a line every time the caller asks; this only answers whether
+ * there was a choice to report at all.
  */
 export function pickedByDefault(candidates: readonly SelectablePlugin[], configured: string | undefined): boolean {
     const wanted = configured?.trim();
-    return (wanted === undefined || wanted.length === 0) && candidates.length > 1;
+    return (wanted === undefined || wanted.length === 0) && candidates.length > 0;
 }
 
 /** The words that make a refusal specific to one capability. */
@@ -162,10 +166,23 @@ export function explainNoPlugin(candidates: readonly SelectablePlugin[], configu
  * guarding against. Written for a log line and for the console beside the engine
  * it is actually using, which is why it names the alternatives — the operator's
  * next move is to set the key, and they need to know what to set it to.
+ *
+ * `quarantined` names plugins of this capability that ARE installed and enabled
+ * but currently `failed`, so they never reach `candidates` at all: without
+ * naming them here, a quarantine that narrows the field to one reads as though
+ * nothing else was ever installed, which is the opposite of what the operator
+ * needs to know to fix it.
  */
-export function explainDefaultPick(chosen: SelectablePlugin, candidates: readonly SelectablePlugin[], wording: CapabilityWording): string {
+export function explainDefaultPick(
+    chosen: SelectablePlugin,
+    candidates: readonly SelectablePlugin[],
+    wording: CapabilityWording,
+    quarantined: readonly string[] = [],
+): string {
     const others = candidates.filter(candidate => candidate.record.id !== chosen.record.id).map(candidate => candidate.record.id);
-    return `${wording.key} is unset, so "${chosen.record.id}" was chosen to ${wording.can}; ${others.join(', ')} could too`;
+    const rest = others.length > 0 ? `${others.join(', ')} could too` : `nothing else currently could`;
+    const because = quarantined.length > 0 ? `, because ${quarantined.join(', ')} ${quarantined.length > 1 ? 'are' : 'is'} quarantined` : '';
+    return `${wording.key} is unset, so "${chosen.record.id}" was chosen to ${wording.can}; ${rest}${because}`;
 }
 
 /**
@@ -188,8 +205,11 @@ const reportedDefaults = new Map<string, string>();
  * Whether this default pick is news, marking it reported if so.
  *
  * The edge, so a caller is one `if` rather than its own memory. Answers false for a station whose
- * key is set or which has only one candidate, because neither is a decision anybody needs telling
- * about — which is {@link pickedByDefault}, asked here rather than restated.
+ * key is set, or which has no candidate at all to have chosen among, which is
+ * {@link pickedByDefault}, asked here rather than restated. A SINGLE candidate is reported: once,
+ * on the dedupe below, exactly like every other candidate list, so a station that has always had
+ * one plugin says so on the first ask and stays quiet after, and a quarantine that narrows two
+ * candidates down to one is a change to that list and is news again.
  *
  * It took the setting's NAME and not its VALUE for as long as it existed, so it could not ask the
  * first of those questions and did not: a station that had named its plugin, with a second one

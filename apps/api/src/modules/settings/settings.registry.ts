@@ -136,10 +136,11 @@ export interface SettingDescriptor extends ConfigField {
     /**
      * Which part of the console owns this setting.
      *
-     * A section of the settings page for all but one of them. `schedule` is the exception and is
-     * deliberately not drawn there: what the station plays between blocks is a question about the
-     * timetable, so it is edited beside the timetable, by a panel that draws its own controls. See
-     * the group's own note below.
+     * A section of the settings page for all but two of them. `schedule` and `personas` are the
+     * exceptions and are deliberately not drawn there: what the station plays between blocks is a
+     * question about the timetable, and what an unnamed host is called is a question about the
+     * roster, so each is edited beside the thing it explains, by a panel that draws its own controls.
+     * See the groups' own note below.
      */
     group: SettingGroup;
 }
@@ -148,7 +149,8 @@ export interface SettingDescriptor extends ConfigField {
  * The groups there are, in the order the settings page draws the ones it draws.
  *
  * Not every group is a card on that page. `schedule` is owned by `SustainingPanel` on the schedule
- * page, which is why `GROUPS` in `settings.page.tsx` is a list of its own rather than this one: a
+ * page and `personas` by `PresenterNamePanel` on the characters page, which is why
+ * `SETTINGS_SECTIONS` in `settings.shell.tsx` is a list of its own rather than this one: a
  * group that is not in that list is drawn by whoever claimed it, and a group in neither is a bug
  * `settings.registry.test.ts` cannot see. Adding one means deciding which page draws it.
  *
@@ -170,6 +172,7 @@ export const SETTING_GROUPS = [
     'llm',
     'analysis',
     'schedule',
+    'personas',
 ] as const;
 
 export type SettingGroup = (typeof SETTING_GROUPS)[number];
@@ -190,14 +193,6 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: STREAM_DEFAULTS.title,
         help: 'What players and directories show. Icecast advertises it on the mount.',
-    },
-    {
-        group: 'station',
-        key: TEMPLATE_KEYS.djName,
-        label: 'Presenter name',
-        type: 'string',
-        default: '',
-        help: 'Who the station says it is when a phrasing asks for a name. Leave empty and the phrasings that use one simply are not used; every other one still is.',
     },
     {
         group: 'station',
@@ -1241,6 +1236,23 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         label: 'To year',
         type: 'number',
         help: 'The other end, on the same terms. Set both for a decade; either stands alone, so a lower bound on its own means "this year onwards".',
+    },
+
+    // ── personas ───────────────────────────────────────────────────────────────
+    // Drawn nowhere on the settings page, on the schedule group's terms:
+    // `PresenterNamePanel` owns it, above the roster on the characters page. It
+    // sat beside the station's name for as long as it existed, where it read as
+    // THE presenter's name, and any host with a name of its own overrides it,
+    // which nothing on that page could say.
+    {
+        group: 'personas',
+        key: TEMPLATE_KEYS.djName,
+        label: 'Presenter name',
+        type: 'string',
+        default: '',
+        help:
+            'What a host without a name of its own is called on air, and what the station is called while nobody is on air. It fills the ' +
+            'phrasings that ask for a name and tells the model what it is called. Leave it empty and neither happens.',
     },
 
     // ── secrets ────────────────────────────────────────────────────────────────

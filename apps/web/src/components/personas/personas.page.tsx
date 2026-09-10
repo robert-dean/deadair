@@ -36,6 +36,7 @@ import { PersonaImportModal } from './persona.import';
 import { PersonaNotesPanel } from './persona.notes';
 import { PersonaStoriesPanel } from './persona.stories';
 import { PersonaRehearsalPanel } from './persona.rehearsal';
+import { PresenterNamePanel } from './presenter.name.panel';
 import { PresentingBanner } from './presenting.banner';
 
 /**
@@ -198,6 +199,10 @@ export function PersonasPage() {
             {/* Draws itself only when the show on air named a host of its own, which is the one
                 state where the "On air" badge below is not who is speaking. */}
             <PresentingBanner />
+
+            {/* What an unnamed host is called. Above the roster rather than on the station card,
+                because every host below with a name of its own overrides it. */}
+            <PresenterNamePanel hosts={all.filter(persona => kindOf(persona) === 'host')} />
 
             {/* The one failure that stays page-level, because the button that asks for it is up
                 here and it is about the list rather than about any row in it. Putting one on air,

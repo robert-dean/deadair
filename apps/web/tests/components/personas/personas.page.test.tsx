@@ -17,6 +17,7 @@ vi.mock('../../../src/api/client', () => ({
     sdk: {
         personas: { listPersonas: () => listPersonas() },
         render: { listVoices: () => Promise.resolve({ voices: [] }), readScriptSummary: () => Promise.resolve({ rows: [] }) },
+        settings: { getSettings: () => Promise.resolve({ descriptors: [], values: {}, configured: {} }) },
     },
 }));
 

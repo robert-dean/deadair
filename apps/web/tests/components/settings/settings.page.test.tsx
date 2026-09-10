@@ -209,6 +209,9 @@ describe('SettingsSectionPage', () => {
         // the thing that explains it. Asserted against the list rather than a render, because the
         // list is now what decides: there is no route that could draw it.
         expect(SETTINGS_SECTIONS.some(section => section.group === 'schedule')).toBe(false);
+        // `personas` is the presenter name, edited above the roster by `PresenterNamePanel`, where
+        // the hosts whose own names override it are in view.
+        expect(SETTINGS_SECTIONS.some(section => section.group === 'personas')).toBe(false);
     });
 
     it('round-trips a dot-keyed setting, which the form library reads as a nested path', async () => {

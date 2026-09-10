@@ -44,6 +44,12 @@ describe('the settings registry', () => {
         }
     });
 
+    it('leaves the presenter name in the group the characters page draws', () => {
+        // Edited by `PresenterNamePanel`, above the roster whose names override it. Back on the
+        // station card it reads as THE presenter's name, which it is only for a host with none.
+        expect(findDescriptor('station.djName')?.group).toBe('personas');
+    });
+
     it('only makes a descriptor depend on a key that exists', () => {
         // A `dependsOn` naming a key nothing declares is a field the console hides forever, which
         // reads to an operator as a setting that was never built rather than as a typo.

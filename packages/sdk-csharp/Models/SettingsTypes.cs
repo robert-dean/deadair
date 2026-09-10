@@ -10,7 +10,7 @@ using System.Text.Json.Serialization;
 
 namespace MaroonedSoftware.Deadair.Sdk.Models;
 
-/// <summary>Which part of the console owns a setting. Every one of these but `schedule` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes.</summary>
+/// <summary>Which part of the console owns a setting. Every one of these but `schedule` and `personas` is a section of the settings page; `schedule` is edited on the schedule page, beside the timetable it describes, and `personas` on the characters page, beside the names it stands behind.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<SettingGroup>))]
 public enum SettingGroup
 {
@@ -46,6 +46,9 @@ public enum SettingGroup
 
     [JsonStringEnumMemberName("schedule")]
     Schedule,
+
+    [JsonStringEnumMemberName("personas")]
+    Personas,
 }
 
 /// <summary>

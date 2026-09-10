@@ -72,9 +72,10 @@ export interface SettingsSection {
  * page drew what its own list named, so a group nothing named simply never appeared.
  *
  * Not every declared group is here, and the omission is still the mechanism: a group this list does
- * not name is drawn by whichever page claimed it. `schedule` is the one — what the station plays
+ * not name is drawn by whichever page claimed it. `schedule` is one — what the station plays
  * between blocks is edited beside the timetable that makes sense of it, by `SustainingPanel`, so
- * naming it here would draw those five settings twice.
+ * naming it here would draw those settings twice. `personas` is the other: the presenter name is
+ * edited above the roster whose own names override it, by `PresenterNamePanel`.
  *
  * Plugins is a member rather than a special case appended at the end. It belongs under Settings by
  * subject — a plugin is a thing you configure — and it is why this list lives beside the shell

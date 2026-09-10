@@ -46,16 +46,29 @@ public enum ListeningState
 /// reconnecting, and only after <see cref="Backoff.GiveUpAfter"/> does it become unreachable.
 /// </para>
 /// </remarks>
-public sealed class PlaybackConductor
+public sealed class PlaybackConductor : IDisposable
 {
     private readonly Backoff _backoff = new();
+    private readonly TimeProvider _time;
     private bool _heardAudio;
     private bool _wantsToPlay;
+    private ITimer? _retryTimer;
+
+    public PlaybackConductor(TimeProvider? time = null)
+    {
+        _time = time ?? TimeProvider.System;
+    }
 
     public ListeningState State { get; private set; } = ListeningState.Stopped;
 
     /// <summary>How long to wait before the next attempt, or null when none is due.</summary>
     public TimeSpan? RetryIn { get; private set; }
+
+    /// <summary>
+    /// Raised on the thread the underlying <see cref="TimeProvider"/> fires its timer on, once
+    /// <see cref="RetryIn"/> has elapsed and the listener still wants to be playing.
+    /// </summary>
+    public event Action? RetryDue;
 
     /// <summary>The listener pressed play.</summary>
     public void Requested()
@@ -65,6 +78,7 @@ public sealed class PlaybackConductor
         _backoff.Reset();
         RetryIn = null;
         State = ListeningState.WarmingUp;
+        DisarmRetry();
     }
 
     /// <summary>The listener pressed stop.</summary>
@@ -75,6 +89,7 @@ public sealed class PlaybackConductor
         _backoff.Reset();
         RetryIn = null;
         State = ListeningState.Stopped;
+        DisarmRetry();
     }
 
     /// <summary>A reading from the player.</summary>
@@ -94,6 +109,7 @@ public sealed class PlaybackConductor
                 _backoff.Reset();
                 RetryIn = null;
                 State = ListeningState.Playing;
+                DisarmRetry();
                 break;
 
             case PlayerPhase.Opening:
@@ -111,6 +127,18 @@ public sealed class PlaybackConductor
                 State = _backoff.Exhausted
                     ? ListeningState.Unreachable
                     : _heardAudio ? ListeningState.Reconnecting : ListeningState.WarmingUp;
+
+                // Exhausted means the class has genuinely given up: arming another timer here would
+                // retry every 30 seconds forever under an "Unreachable" banner that says otherwise.
+                if (_backoff.Exhausted)
+                {
+                    DisarmRetry();
+                }
+                else
+                {
+                    ArmRetry(RetryIn.Value);
+                }
+
                 break;
 
             case PlayerPhase.Stopped:
@@ -120,9 +148,46 @@ public sealed class PlaybackConductor
                 {
                     RetryIn = _backoff.Next();
                     State = _backoff.Exhausted ? ListeningState.Unreachable : ListeningState.Reconnecting;
+
+                    if (_backoff.Exhausted)
+                    {
+                        DisarmRetry();
+                    }
+                    else
+                    {
+                        ArmRetry(RetryIn.Value);
+                    }
                 }
 
                 break;
         }
     }
+
+    /// <summary>
+    /// Arms a one-shot timer for the wait <see cref="Observed"/> just computed, replacing whichever
+    /// one is already pending: only the most recent failure's wait is worth honouring.
+    /// </summary>
+    private void ArmRetry(TimeSpan wait)
+    {
+        DisarmRetry();
+        _retryTimer = _time.CreateTimer(_ => OnRetryTimerElapsed(), null, wait, Timeout.InfiniteTimeSpan);
+    }
+
+    private void OnRetryTimerElapsed()
+    {
+        // The listener may have pressed stop, or the player may already have reconnected on its own,
+        // in the moment between the timer being armed and it firing.
+        if (_wantsToPlay)
+        {
+            RetryDue?.Invoke();
+        }
+    }
+
+    private void DisarmRetry()
+    {
+        _retryTimer?.Dispose();
+        _retryTimer = null;
+    }
+
+    public void Dispose() => DisarmRetry();
 }

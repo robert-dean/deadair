@@ -1,5 +1,6 @@
 using MaroonedSoftware.Deadair.Desktop.Core.Playback;
 using MaroonedSoftware.Deadair.Desktop.PluginSdk.Playback;
+using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
 namespace MaroonedSoftware.Deadair.Desktop.Core.Tests;
@@ -102,6 +103,31 @@ public class PlaybackConductorTests
     }
 
     [Fact]
+    public void OnceExhausted_AdvancingPastTheCeilingRaisesNoRetryDue()
+    {
+        // Unreachable is the class's own word for having given up. Arming another timer past that
+        // point would retry every 30 seconds forever under a banner that says otherwise.
+        var time = new FakeTimeProvider();
+        var conductor = new PlaybackConductor(time);
+        conductor.Requested();
+        conductor.Observed(new PlayerStatus(PlayerPhase.Playing));
+
+        for (var attempt = 0; attempt < 30; attempt++)
+        {
+            conductor.Observed(new PlayerStatus(PlayerPhase.Failed));
+        }
+
+        Assert.Equal(ListeningState.Unreachable, conductor.State);
+
+        var fired = 0;
+        conductor.RetryDue += () => fired++;
+
+        time.Advance(TimeSpan.FromSeconds(60));
+
+        Assert.Equal(0, fired);
+    }
+
+    [Fact]
     public void StoppingEndsIt_AndAPlayerStillSettlingDoesNotUndoThat()
     {
         var conductor = new PlaybackConductor();
@@ -129,5 +155,89 @@ public class PlaybackConductorTests
         conductor.Observed(new PlayerStatus(PlayerPhase.Stopped));
 
         Assert.Equal(ListeningState.Reconnecting, conductor.State);
+    }
+
+    [Fact]
+    public void FiresRetryDueOnceRetryInElapses_AndNotBefore()
+    {
+        var time = new FakeTimeProvider();
+        var conductor = new PlaybackConductor(time);
+        conductor.Requested();
+        conductor.Observed(new PlayerStatus(PlayerPhase.Playing));
+
+        conductor.Observed(new PlayerStatus(PlayerPhase.Failed));
+        var fired = 0;
+        conductor.RetryDue += () => fired++;
+
+        time.Advance(conductor.RetryIn!.Value - TimeSpan.FromMilliseconds(1));
+        Assert.Equal(0, fired);
+
+        time.Advance(TimeSpan.FromMilliseconds(1));
+        Assert.Equal(1, fired);
+    }
+
+    [Fact]
+    public void ReleasedBeforeTheRetryIsDue_MeansItNeverFires()
+    {
+        var time = new FakeTimeProvider();
+        var conductor = new PlaybackConductor(time);
+        conductor.Requested();
+        conductor.Observed(new PlayerStatus(PlayerPhase.Playing));
+        conductor.Observed(new PlayerStatus(PlayerPhase.Failed));
+
+        var fired = 0;
+        conductor.RetryDue += () => fired++;
+
+        conductor.Released();
+        time.Advance(TimeSpan.FromMinutes(1));
+
+        Assert.Equal(0, fired);
+    }
+
+    [Fact]
+    public void ReachingPlayingBeforeTheRetryIsDue_MeansItNeverFires()
+    {
+        var time = new FakeTimeProvider();
+        var conductor = new PlaybackConductor(time);
+        conductor.Requested();
+        conductor.Observed(new PlayerStatus(PlayerPhase.Playing));
+        conductor.Observed(new PlayerStatus(PlayerPhase.Failed));
+
+        var fired = 0;
+        conductor.RetryDue += () => fired++;
+
+        // Reconnected on its own before the scheduled retry: the timer that was counting down to a
+        // retry that is no longer needed must not go on to fire one anyway.
+        conductor.Observed(new PlayerStatus(PlayerPhase.Playing));
+        time.Advance(TimeSpan.FromMinutes(1));
+
+        Assert.Equal(0, fired);
+    }
+
+    [Fact]
+    public void ASecondFailureRearmsWithTheLongerBackoff()
+    {
+        var time = new FakeTimeProvider();
+        var conductor = new PlaybackConductor(time);
+        conductor.Requested();
+        conductor.Observed(new PlayerStatus(PlayerPhase.Playing));
+
+        conductor.Observed(new PlayerStatus(PlayerPhase.Failed));
+        var firstWait = conductor.RetryIn!.Value;
+
+        conductor.Observed(new PlayerStatus(PlayerPhase.Failed));
+        var secondWait = conductor.RetryIn!.Value;
+        Assert.True(secondWait > firstWait);
+
+        var fired = 0;
+        conductor.RetryDue += () => fired++;
+
+        // The first failure's wait has fully elapsed, but that timer was replaced rather than left to
+        // fire alongside the second one.
+        time.Advance(firstWait);
+        Assert.Equal(0, fired);
+
+        time.Advance(secondWait - firstWait);
+        Assert.Equal(1, fired);
     }
 }

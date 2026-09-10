@@ -74,6 +74,10 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _player.TargetChanged += OnTargetChanged;
         _player.VolumeChanged += OnDeviceVolumeChanged;
 
+        // The conductor's own retry, scheduled rather than merely computed. Requested() must not be
+        // called here: that would reset the backoff the failure just advanced.
+        _conductor.RetryDue += OnRetryDue;
+
         // The keyboard's play key and the widget's buttons reach the same commands the on-screen ones
         // do, so there is one path into the player rather than two that can disagree.
         _systemNowPlaying.Commanded += command => _dispatcher.Post(() => _ = OnCommandedAsync(command));
@@ -317,16 +321,13 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
             return;
         }
 
-        var mounts = _repository?.Current.Value?.Mounts;
-        if (mounts is null)
+        if (_repository?.Current.Value?.Mounts is null)
         {
             // No reading yet. Asking again is the right move: the address is known to be a station,
             // so the list is a moment away.
             _repository?.Kick();
             return;
         }
-
-        var choice = MountSelection.Choose(mounts, _settings.Current.Format);
 
         _conductor.Requested();
         Apply();
@@ -338,6 +339,23 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
             _player.Volume = Volume;
         }
 
+        await PlayChosenMountAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Chooses a mount from the station's own list and asks the player for it. Shared by the button
+    /// and by the conductor's own retry, neither of which should duplicate the other's copy of this.
+    /// </summary>
+    private async Task PlayChosenMountAsync()
+    {
+        var mounts = _repository?.Current.Value?.Mounts;
+        if (mounts is null)
+        {
+            return;
+        }
+
+        var choice = MountSelection.Choose(mounts, _settings.Current.Format);
+
         await _player.PlayAsync(_station.MountUrl(choice.Path)).ConfigureAwait(true);
         _ticker.Start();
     }
@@ -348,6 +366,13 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         Apply();
         PublishToSystem();
     });
+
+    /// <summary>
+    /// The conductor's own backoff has elapsed. Re-issues the play the listener already asked for;
+    /// <see cref="PlaybackConductor.Requested"/> is deliberately not called, since that would reset
+    /// the backoff the failure just advanced.
+    /// </summary>
+    private void OnRetryDue() => _dispatcher.Post(() => _ = PlayChosenMountAsync());
 
     /// <summary>Raised so the desk can act on a Skip asked for from outside the window.</summary>
     public event Func<Task>? SkipRequested;
@@ -555,6 +580,8 @@ public sealed partial class ListenerViewModel : ObservableObject, IAsyncDisposab
         _player.StatusChanged -= OnPlayerStatus;
         _player.TargetChanged -= OnTargetChanged;
         _player.VolumeChanged -= OnDeviceVolumeChanged;
+        _conductor.RetryDue -= OnRetryDue;
+        _conductor.Dispose();
         _ticker.Stop();
         _volumeSettles.Stop();
         _systemNowPlaying.Clear();

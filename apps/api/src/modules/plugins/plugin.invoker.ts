@@ -120,6 +120,14 @@ const deadline = (timeoutMs: number, message: string): InvokeDeadline => {
  * plugin has already said the answer will not change; the operator's Test
  * connection still asks it.
  *
+ * A passing probe lifts the quarantine but not the backoff. An engine that
+ * lists voices but cannot speak passes `testConnection` every time and fails
+ * every real call, and forgiving the count on that probe alone is what had it
+ * quarantined and reopened every single minute. The count only resets once
+ * {@link PluginInvoker.recordSuccess} has seen {@link PLUGIN_RECOVERY_FIRST_MS}
+ * pass with nothing failing, which is the plugin actually working rather than
+ * merely answering one question.
+ *
  * The timers are in this process because the breaker is: a pg-boss cron would
  * be claimed by whichever worker got there first, which is not necessarily the
  * one holding the open breaker.
@@ -145,9 +153,18 @@ export class PluginInvoker {
 
     /**
      * Automatic probes scheduled since the breaker opened, which is what the backoff doubles on.
-     * Present exactly while the quarantine in force is one the breaker will probe its way out of.
+     * Present exactly while the quarantine in force is one the breaker will probe its way out of, OR
+     * the plugin has passed a probe too recently for {@link recordSuccess} to have forgiven it yet.
      */
     private readonly recoveryAttempts = new Map<string, number>();
+
+    /**
+     * When this plugin last failed a call, the clock {@link recoveryAttempts} decays against.
+     * {@link recordSuccess} only forgives the backoff once this is more than
+     * {@link PLUGIN_RECOVERY_FIRST_MS} in the past, so a probe passing the moment the quarantine
+     * lifts does not, by itself, read as proof the trouble is over.
+     */
+    private readonly lastFailureAt = new Map<string, number>();
 
     /** Set by {@link PluginInvoker.stopRecovery}, so nothing torn down later schedules another probe. */
     private recoveryStopped = false;
@@ -288,6 +305,7 @@ export class PluginInvoker {
     reset(pluginId: string): void {
         this.consecutiveFailures.delete(pluginId);
         this.openBreakers.delete(pluginId);
+        this.lastFailureAt.delete(pluginId);
         this.cancelRecovery(pluginId);
     }
 
@@ -308,6 +326,16 @@ export class PluginInvoker {
 
     private recordSuccess(pluginId: string): void {
         this.consecutiveFailures.delete(pluginId);
+
+        // The backoff is not forgiven by the probe that closed the breaker (see `recover`); it is
+        // forgiven here, once PLUGIN_RECOVERY_FIRST_MS of ordinary calls have gone by without one
+        // failing. Before that, an engine that lists voices but cannot speak would pass its probe,
+        // fail on the first real call a moment later, and be right back on a one-minute backoff,
+        // which is indistinguishable from never having decayed at all.
+        if (this.recoveryAttempts.has(pluginId) && Date.now() - (this.lastFailureAt.get(pluginId) ?? 0) >= PLUGIN_RECOVERY_FIRST_MS) {
+            this.recoveryAttempts.delete(pluginId);
+            this.lastFailureAt.delete(pluginId);
+        }
     }
 
     /**
@@ -317,11 +345,20 @@ export class PluginInvoker {
      * probe ran against is still there. A reinit can land while a probe is in flight, and one that
      * failed has already written `failed` over a record with no instance: calling that `active`
      * would advertise a plugin nothing can call.
+     *
+     * This closes the breaker and the pending timer, but deliberately NOT `recoveryAttempts`: unlike
+     * {@link reset}, which is a config fix and gets the plugin's full forgiveness, a probe is only
+     * ever evidence that `testConnection` works. `recordSuccess` is what decides the trouble is
+     * actually over, once real calls have gone well for a while. What a probe closing the breaker
+     * DOES mean is that the plugin can fail again starting now, so the backoff's clock is set here.
      */
     private recover(pluginId: string, op: string): void {
         const wasOpen = this.openBreakers.has(pluginId);
-        this.reset(pluginId);
+        this.consecutiveFailures.delete(pluginId);
+        this.openBreakers.delete(pluginId);
+        this.clearRecoveryTimer(pluginId);
         if (!wasOpen) return;
+        this.lastFailureAt.set(pluginId, Date.now());
 
         const record = this.pluginRegistry.get(pluginId);
         if (record?.status === 'failed' && record.instance !== undefined) this.pluginRegistry.setStatus(pluginId, 'active');
@@ -350,10 +387,19 @@ export class PluginInvoker {
         this.pluginLog.for(pluginId).info('plugin will be probed again on its own', { inMs: delayMs, attempt: attempts + 1 });
     }
 
-    private cancelRecovery(pluginId: string): void {
+    /**
+     * Cancels the pending automatic probe without forgetting how many the breaker has already spent.
+     * {@link recover} uses this rather than {@link cancelRecovery}: a passing probe closes the timer
+     * but must not erase the count {@link recordSuccess} is still deciding whether to forgive.
+     */
+    private clearRecoveryTimer(pluginId: string): void {
         const timer = this.recoveryTimers.get(pluginId);
         if (timer !== undefined) clearTimeout(timer);
         this.recoveryTimers.delete(pluginId);
+    }
+
+    private cancelRecovery(pluginId: string): void {
+        this.clearRecoveryTimer(pluginId);
         this.recoveryAttempts.delete(pluginId);
     }
 
@@ -418,6 +464,12 @@ export class PluginInvoker {
             this.pluginLog.for(pluginId).info('plugin refused a resource', { op, code: pluginError.code, error: message });
             return this.asPluginError(pluginId, op, pluginError, message, error);
         }
+
+        // The clock `recordSuccess` decays the backoff against. Set for every real failure, not only
+        // the ones that quarantine, so a plugin that fails occasionally without ever tripping the
+        // breaker still resets its own recovery clock rather than accumulating decay it did nothing
+        // to earn.
+        this.lastFailureAt.set(pluginId, Date.now());
 
         const failures = (this.consecutiveFailures.get(pluginId) ?? 0) + 1;
         this.consecutiveFailures.set(pluginId, failures);

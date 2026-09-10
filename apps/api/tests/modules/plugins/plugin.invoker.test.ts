@@ -573,6 +573,68 @@ describe('PluginInvoker automatic recovery', () => {
 
         expect(testConnection).not.toHaveBeenCalled();
     });
+
+    /**
+     * The case B3 exists for: an engine that lists voices but cannot speak passes `testConnection`
+     * every time and fails every real call. Forgiving the backoff on the probe alone had this
+     * quarantining and reopening on the same one-minute timer forever, rather than backing off.
+     */
+    it('keeps doubling the backoff across quarantines a passing probe only just closed', async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: true }));
+        const { invoker } = setup(testConnection);
+
+        for (const minutes of [1, 2, 4]) {
+            await tripOnOutage(invoker);
+            await vi.advanceTimersByTimeAsync(minutes * MINUTE);
+            expect(invoker.isBreakerOpen('p')).toBe(false);
+
+            // One ordinary call succeeds right after recovery (nowhere near the decay window), so
+            // the next quarantine must not be forgiven back down to a minute.
+            await expect(invoker.invoke('p', 'director.lookupTrack', async () => 'ok')).resolves.toBe('ok');
+        }
+
+        expect(testConnection).toHaveBeenCalledTimes(3);
+    });
+
+    it('lets the backoff decay back to a minute once a recovered plugin has stayed healthy through the decay window', async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: true }));
+        const { invoker } = setup(testConnection);
+
+        await tripOnOutage(invoker);
+        await vi.advanceTimersByTimeAsync(MINUTE);
+        expect(testConnection).toHaveBeenCalledTimes(1);
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+
+        // Nothing fails for the whole decay window: the plugin has proven itself, not merely
+        // answered one probe.
+        await vi.advanceTimersByTimeAsync(PLUGIN_RECOVERY_FIRST_MS - 1);
+        await expect(invoker.invoke('p', 'director.lookupTrack', async () => 'ok')).resolves.toBe('ok');
+        await vi.advanceTimersByTimeAsync(1);
+        await expect(invoker.invoke('p', 'director.lookupTrack', async () => 'ok')).resolves.toBe('ok');
+
+        await tripOnOutage(invoker);
+        await vi.advanceTimersByTimeAsync(MINUTE - 1);
+        expect(testConnection).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(testConnection).toHaveBeenCalledTimes(2);
+    });
+
+    it('reset() forgets the backoff along with everything else, so a reinit starts a quarantine at a minute', async () => {
+        const testConnection = vi.fn<Check>(async () => ({ ok: true }));
+        const { invoker } = setup(testConnection);
+
+        await tripOnOutage(invoker);
+        await vi.advanceTimersByTimeAsync(MINUTE);
+        expect(invoker.isBreakerOpen('p')).toBe(false);
+
+        invoker.reset('p');
+
+        await tripOnOutage(invoker);
+        await vi.advanceTimersByTimeAsync(MINUTE - 1);
+        expect(testConnection).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(testConnection).toHaveBeenCalledTimes(2);
+    });
 });
 
 /**

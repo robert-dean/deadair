@@ -24,6 +24,7 @@ import {
     isReasoningEffortSetting,
     llmManifest,
     MODEL_CACHE_MS,
+    MODEL_FAILURE_CACHE_MS,
     readProviderKind,
     type ReasoningEffortSetting,
 } from './llm.manifest.js';
@@ -91,8 +92,14 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
      */
     private readonly reasoningRefused = new Set<string>();
 
-    /** What each arm's model listing last said, and when. See {@link fetchModels}. */
-    private readonly discovered = new Map<string, { at: number; ids: string[] }>();
+    /**
+     * What each arm's model listing last said, and when. See {@link fetchModels}.
+     *
+     * `ok: false` is a failure remembered rather than a list: `ids` is empty and
+     * `errorMessage` is what the arm said, kept only so a cached failure can be
+     * rethrown with the reason a fresh probe would have given.
+     */
+    private readonly discovered = new Map<string, { at: number; ok: boolean; ids: string[]; errorMessage?: string }>();
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
@@ -250,13 +257,35 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         return await this.describeEveryArm();
     }
 
-    /** {@link listModels}'s body, shared with the config suggestions so one round of listing serves both. */
+    /**
+     * {@link listModels}'s body, shared with the config suggestions so one round of listing serves
+     * both.
+     *
+     * The arms are asked together rather than one after another: each can take
+     * up to `PROBE_TIMEOUT_MS`, and a station with three configured is not worth
+     * three of those in a row on every call. One promise per arm, each catching
+     * its own failure rather than letting it reject: a listing failure must not
+     * cost the OTHER arms their turn, and it must not cost ITS OWN arm its turn
+     * at {@link describeModels} either: a provider config already trusts to have
+     * a default model keeps offering it with an empty id list, exactly like the
+     * answering arms, which is what a bare `Promise.allSettled` here would lose.
+     * `Promise.all` still returns in the arms' own order regardless of which one
+     * answered first, which is what keeps the output deterministic.
+     */
     private async describeEveryArm(): Promise<LlmModelInfo[]> {
+        const answers = await Promise.all(
+            [...this.arms].map(async ([provider, arm]) => {
+                try {
+                    return { provider, arm, ids: await this.fetchModels(provider) };
+                } catch (error) {
+                    this.host.logger.debug("llm could not list a provider's models", { provider, error: errorText(error) });
+                    return { provider, arm, ids: [] as string[] };
+                }
+            }),
+        );
+
         const described: LlmModelInfo[] = [];
-
-        for (const [provider, arm] of this.arms) {
-            const ids = await this.reachableModels(provider);
-
+        for (const { provider, arm, ids } of answers) {
             // One describer for every kind now. What differs is only who answers the tool
             // question: a vendor serving its own models answers it, and an OpenAI-compatible
             // server cannot, so there it comes from the operator's ticked list.
@@ -266,43 +295,45 @@ export class LlmPlugin extends Plugin implements LlmPluginInstance {
         return described;
     }
 
-    /** One arm's model ids, or none at all when it cannot be reached. */
-    private async reachableModels(provider: string): Promise<string[]> {
-        if (!this.arms.has(provider)) return [];
-
-        try {
-            return await this.fetchModels(provider);
-        } catch (error) {
-            this.host.logger.debug("llm could not list a provider's models", { provider, error: errorText(error) });
-            return [];
-        }
-    }
-
     /**
-     * What one provider has, cached briefly.
+     * What one provider has, cached briefly: a success for {@link MODEL_CACHE_MS},
+     * a failure for the much shorter {@link MODEL_FAILURE_CACHE_MS}.
      *
      * Cached because `listModels` is on the path of every conversation that might
      * use tools, and a round trip per break to learn something that changes when
-     * an operator installs a model is a poor trade. Short enough that pulling a
-     * new model shows up within a minute without a reload.
+     * an operator installs a model is a poor trade. A success is short enough that
+     * pulling a new model shows up within a minute without a reload; a failure is
+     * cached far more briefly, and still on purpose: a dead provider row should
+     * cost one probe per window rather than a full timeout inside every slot that
+     * asks in the meantime, but an operator who just fixed the row should not
+     * wait a full minute to see it again.
      *
      * Per arm rather than one slot, because three providers answer at three speeds
      * and one shared entry would have whichever asked last evicting the rest.
      *
      * @throws {Error} with a sentence a console can show, for a provider that
-     * refused or could not be reached.
+     * refused or could not be reached: freshly, or replayed from the failure
+     * cache within {@link MODEL_FAILURE_CACHE_MS}.
      */
     private async fetchModels(provider: string): Promise<string[]> {
         const arm = this.arms.get(provider);
         if (arm === undefined) throw new Error(`there is no provider called "${provider}"`);
 
         const cached = this.discovered.get(provider);
-        if (cached !== undefined && Date.now() - cached.at < MODEL_CACHE_MS) return cached.ids;
+        if (cached !== undefined) {
+            const age = Date.now() - cached.at;
+            if (cached.ok && age < MODEL_CACHE_MS) return cached.ids;
+            if (!cached.ok && age < MODEL_FAILURE_CACHE_MS) throw new Error(cached.errorMessage ?? `provider "${provider}" could not be reached`);
+        }
 
-        const ids = await arm.fetchModels();
-
-        this.discovered.set(provider, { at: Date.now(), ids });
-        return ids;
+        try {
+            const ids = await arm.fetchModels();
+            this.discovered.set(provider, { at: Date.now(), ok: true, ids });
+            return ids;
+        } catch (error) {
+            this.discovered.set(provider, { at: Date.now(), ok: false, ids: [], errorMessage: errorText(error) });
+            throw error;
+        }
     }
 
     async generate(request: LlmRequest): Promise<LlmHandle> {

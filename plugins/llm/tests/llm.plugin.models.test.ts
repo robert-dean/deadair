@@ -3,11 +3,12 @@
 // required default model asked for a name there was no way to find out. What replaces it is
 // "save the address, press Test, read the names, come back", and every claim below is a step of it.
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { collectGeneration, isPluginError } from '@deadair/plugin-sdk';
 import { createFakePluginHost } from '@deadair/plugin-sdk/testing';
 
 import { LlmPlugin } from '../src/llm.plugin.js';
+import { MODEL_FAILURE_CACHE_MS } from '../src/llm.manifest.js';
 
 interface HostOptions {
     /** `baseUrl` and `models` are shorthand for the one provider row most of these want. */
@@ -351,6 +352,86 @@ describe('listing what every provider has', () => {
         await plugin.init(host);
 
         expect((await plugin.listModels()).map(model => model.id)).toEqual(['srv:gpt-oss:20b']);
+    });
+
+    it('asks every arm at once rather than waiting for one before starting the next', async () => {
+        // Each arm can take up to the probe timeout on its own; two of them one after another
+        // would be roughly double this delay, and together roughly one.
+        const DELAY_MS = 50;
+        const host = createFakePluginHost();
+        host.setFetchImpl(async (url: string) => {
+            await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+            const ids = url.startsWith('https://api.anthropic.com') ? ['claude-x'] : ['gpt-oss:20b'];
+            return new Response(JSON.stringify({ data: ids.map(id => ({ id })) }), { status: 200, headers: { 'content-type': 'application/json' } });
+        });
+        host.seedConfig({
+            providers: JSON.stringify([
+                { $id: 'r1', name: 'srv', kind: 'openai-compat', baseUrl: 'https://models.test/v1' },
+                { $id: 'r2', name: 'claude', kind: 'anthropic' },
+            ]),
+        });
+        host.seedSecret('providers/r2/apiKey', 'sk-test');
+        const plugin = new LlmPlugin();
+        await plugin.init(host);
+
+        const started = Date.now();
+        await plugin.listModels();
+        const elapsed = Date.now() - started;
+
+        expect(elapsed).toBeLessThan(DELAY_MS * 1.6);
+    });
+
+    it('orders the answers by the arms’ own order, regardless of which one settled first', async () => {
+        const host = createFakePluginHost();
+        host.setFetchImpl(async (url: string) => {
+            if (url.startsWith('https://api.anthropic.com')) {
+                // The row registered second answers first.
+                return new Response(JSON.stringify({ data: [{ id: 'claude-x' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+            }
+            await new Promise(resolve => setTimeout(resolve, 30));
+            return new Response(JSON.stringify({ data: [{ id: 'gpt-oss:20b' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+        });
+        host.seedConfig({
+            providers: JSON.stringify([
+                { $id: 'r1', name: 'srv', kind: 'openai-compat', baseUrl: 'https://models.test/v1' },
+                { $id: 'r2', name: 'claude', kind: 'anthropic' },
+            ]),
+        });
+        host.seedSecret('providers/r2/apiKey', 'sk-test');
+        const plugin = new LlmPlugin();
+        await plugin.init(host);
+
+        expect((await plugin.listModels()).map(model => model.id)).toEqual(['srv:gpt-oss:20b', 'claude:claude-x']);
+    });
+});
+
+describe('remembering a failed listing', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('probes a dead provider once, answers from the failure cache inside the window, then probes again after it', async () => {
+        vi.useFakeTimers();
+
+        let fetchCount = 0;
+        const { host } = hostFor({ config: { baseUrl: 'https://models.test/v1' } });
+        host.setFetchImpl(async () => {
+            fetchCount += 1;
+            throw new Error('connect ECONNREFUSED');
+        });
+        const plugin = new LlmPlugin();
+        await plugin.init(host);
+
+        await plugin.listModels();
+        expect(fetchCount).toBe(1);
+
+        await plugin.listModels();
+        expect(fetchCount).toBe(1);
+
+        vi.setSystemTime(Date.now() + MODEL_FAILURE_CACHE_MS + 1);
+
+        await plugin.listModels();
+        expect(fetchCount).toBe(2);
     });
 });
 

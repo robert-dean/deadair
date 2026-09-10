@@ -102,6 +102,15 @@ export const PROBE_TIMEOUT_MS = 5_000;
 export const MODEL_CACHE_MS = 60_000;
 
 /**
+ * How long a failed listing is trusted before asking that provider again.
+ *
+ * Listing runs on the same path as a healthy provider's cache, so a dead row
+ * should cost one probe per window rather than the full round trip (and its
+ * timeout) inside every model slot that asks in the meantime.
+ */
+export const MODEL_FAILURE_CACHE_MS = 15_000;
+
+/**
  * Validated on the way in, so `onLoad` never has to defend against a half-typed
  * form.
  *

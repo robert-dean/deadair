@@ -163,12 +163,23 @@ export const DEFAULT_FORMAT: ResponseFormat = 'mp3';
 /** Off, so a station proves the engine works before anything starts dropping it. See the field's help. */
 export const DEFAULT_UNLOAD_AFTER_RENDER = false;
 
+/**
+ * Minutes of silence before the idle timer lets the model go, unless {@link DEFAULT_UNLOAD_AFTER_RENDER}
+ * already covers it or the operator sets this to `0`.
+ *
+ * Long enough that an ordinary gap between breaks never trips it, and short enough that a station left
+ * quiet overnight is not holding a GPU it is not using. `0` means never, which is the escape hatch for a
+ * card nothing else wants.
+ */
+export const DEFAULT_UNLOAD_AFTER_IDLE_MINUTES = 15;
+
 export const configSchema = z.object({
     baseUrl: z.string().min(1),
     apiKey: z.string().optional(),
     format: z.enum(Object.keys(RESPONSE_FORMATS) as [ResponseFormat, ...ResponseFormat[]]).optional(),
     defaultVoice: z.string().optional(),
     unloadAfterRender: z.union([z.boolean(), z.string()]).optional(),
+    unloadAfterIdleMinutes: z.union([z.number(), z.string()]).optional(),
     [VOICES_FIELD]: z.string().optional().refine(voiceRowsAreComplete, { message: 'every voice needs both a station name and an engine voice' }),
 });
 
@@ -265,6 +276,15 @@ export const chatterboxManifest: PluginManifest = {
                 'Drops the model out of the GPU after each break and loads it again for the next one. Worth it only when something else wants that card — a local language model, most likely. ' +
                 'Measured: an unload reclaims roughly 70% of what the model held, because the graphics runtime keeps the rest until the server exits, and the load before the next break is a new way for that break to be late or to fail. ' +
                 'Off unless you know the card is contended.',
+        },
+        {
+            key: 'unloadAfterIdleMinutes',
+            label: 'Free the GPU after a quiet spell',
+            type: 'number',
+            default: DEFAULT_UNLOAD_AFTER_IDLE_MINUTES,
+            help:
+                `Drops the model out of the GPU after this many minutes with nothing spoken. The next break loads it again, which costs that break some seconds. Set it to 0 to never unload this way. ` +
+                'Unlike "Free the GPU between breaks" above, which drops it after every single break, this only fires once the station has actually gone quiet for a while. An ordinary gap between breaks never trips it. Has no effect while that setting is on, since the model is already gone by then.',
         },
     ],
     configSchema,

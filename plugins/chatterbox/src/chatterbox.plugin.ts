@@ -15,6 +15,7 @@ import {
 } from '@deadair/plugin-sdk';
 import {
     DEFAULT_FORMAT,
+    DEFAULT_UNLOAD_AFTER_IDLE_MINUTES,
     DEFAULT_UNLOAD_AFTER_RENDER,
     DEFAULT_VOICE,
     PROBE_TIMEOUT_MS,
@@ -161,7 +162,13 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
     private defaultVoice = DEFAULT_VOICE;
     private voices: VoiceMap = {};
     private unloadAfterRender = DEFAULT_UNLOAD_AFTER_RENDER;
+    private unloadAfterIdleMinutes = DEFAULT_UNLOAD_AFTER_IDLE_MINUTES;
     private lifecycle?: ModelLifecycle;
+    // Rearmed after every synthesis ends and cleared the moment the next one starts, so the model is
+    // only ever let go once the station has genuinely gone quiet rather than merely between two
+    // breaks. `unref()`'d because a station with nothing left to say should not be kept alive by its
+    // own housekeeping.
+    private idleTimer?: ReturnType<typeof setTimeout>;
 
     protected async onLoad(): Promise<void> {
         const config = await this.host.config.get();
@@ -173,6 +180,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         // in, and for the row on THIS engine that proved it.
         this.voices = shippedUnlessMapped(config[VOICES_FIELD]);
         this.unloadAfterRender = isOn(config.unloadAfterRender);
+        this.unloadAfterIdleMinutes = minutesOrDefault(config.unloadAfterIdleMinutes);
         this.apiKey = await this.host.secrets.get('apiKey');
 
         this.lifecycle =
@@ -190,6 +198,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         // shutting down mid-hour, is exactly when a held card is least excusable — and it is a
         // no-op on a station that never turned the setting on.
         this.register(async () => {
+            this.clearIdleTimer();
             if (this.unloadAfterRender) await this.lifecycle?.unload();
         });
 
@@ -198,6 +207,7 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
             format: this.format,
             voices: Object.keys(this.voices).length,
             unloadAfterRender: this.unloadAfterRender,
+            unloadAfterIdleMinutes: this.unloadAfterIdleMinutes,
         });
     }
 
@@ -323,6 +333,10 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
         const text = request.text.trim();
         if (text.length === 0) throw new PluginError('chatterbox was asked to say nothing').withCode('config');
 
+        // A synthesis starting is proof the quiet spell is over, whether or not the timer had
+        // actually fired yet.
+        this.clearIdleTimer();
+
         // Before anything else, because a previous render's unload may have emptied the server and
         // synthesis against an empty one is a 503 rather than a wait. Throws `unavailable`, which is
         // the code that keeps the segment's words on its row for the next pass.
@@ -381,8 +395,34 @@ export class ChatterboxPlugin extends Plugin implements SpeechPluginInstance {
 
     /** Drop the model if the operator asked for that, and never let it cost the audio. */
     private releaseModel(): void {
-        if (!this.unloadAfterRender) return;
-        void this.lifecycle?.unload();
+        if (this.unloadAfterRender) {
+            void this.lifecycle?.unload();
+            return;
+        }
+
+        this.armIdleTimer();
+    }
+
+    /**
+     * Starts the countdown to letting the model go, from the moment a synthesis just ended.
+     *
+     * Skipped when `unloadAfterRender` is on, because {@link releaseModel} has already dropped the
+     * model by the time this would run, and when the minutes are `0`, which is the operator's "never".
+     * `unref()`'d so this timer alone never keeps the process alive.
+     */
+    private armIdleTimer(): void {
+        this.clearIdleTimer();
+        if (this.unloadAfterIdleMinutes === 0) return;
+
+        const timer = setTimeout(() => void this.lifecycle?.unload(), this.unloadAfterIdleMinutes * 60_000);
+        timer.unref?.();
+        this.idleTimer = timer;
+    }
+
+    private clearIdleTimer(): void {
+        if (this.idleTimer === undefined) return;
+        clearTimeout(this.idleTimer);
+        this.idleTimer = undefined;
     }
 
     /**
@@ -557,6 +597,26 @@ const isResponseFormat = (value: unknown): value is ResponseFormat => typeof val
  * exists for on the station's own settings, and it cost six switches there.
  */
 const isOn = (value: unknown): boolean => value === true || value === 'true';
+
+/**
+ * Minutes of idle time before the model is let go, defaulting on anything that is not a sane number.
+ *
+ * `0` is a real answer ("never") rather than a bad value, so it is the only number let through
+ * unchanged below the default; a negative number or anything that does not parse falls back the same
+ * way `isOn` falls back on a boolean field, and for the same reason: a row hand-edited in psql should
+ * not turn into a station holding a GPU it never lets go.
+ *
+ * `undefined` and a blank or whitespace-only string are checked before the conversion rather than
+ * after, because `Number('')` is `0`: a cleared field would otherwise read as the explicit "never"
+ * above rather than as nothing having been set, and the model would stay resident forever.
+ */
+const minutesOrDefault = (value: unknown): number => {
+    if (value === undefined) return DEFAULT_UNLOAD_AFTER_IDLE_MINUTES;
+    if (typeof value === 'string' && value.trim().length === 0) return DEFAULT_UNLOAD_AFTER_IDLE_MINUTES;
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : DEFAULT_UNLOAD_AFTER_IDLE_MINUTES;
+};
 
 /** What a mapping sounds like, for the console's list. The speed is only worth saying when set. */
 const describe = (mapping: VoiceMapping): string =>

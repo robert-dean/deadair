@@ -117,3 +117,23 @@ Three pieces, and the first two are worth having on their own.
 Put a break in the running order, and save any plugin's config (or `POST /plugins/:id/reload` on the
 speech plugin) in the second before its render job runs. On a station with the model writer on, the
 window is easy to hit by hand because the words take ten seconds and the render follows immediately.
+
+## Deferred: a host-side air-state hook for speech plugins
+
+`plugins/chatterbox` now lets its model go on its own after `unloadAfterIdleMinutes` of no synthesis
+(`ChatterboxPlugin.armIdleTimer`), which is a plugin guessing that the station has gone quiet from the
+one thing it can actually observe: how long since it was last asked to speak. That guess is a proxy.
+The station knows whether anyone is listening (`playout.airMode`, `docs/internals/playout.md`) and a
+plugin does not, so the timer can only ever approximate "the station stood down" with "nobody has
+spoken to me in a while," which are the same thing on an ordinary night and different the moment a
+break is deliberately paced further apart than the idle window, or the moment the station goes off air
+mid-break and the last render is still inside it.
+
+The more honest fix is a host-side hook: something that tells a speech plugin the station has stood
+down, the way `Plugin.register`'s teardown tells it the plugin itself is going away, so the plugin
+reacts to a fact rather than to elapsed time. It is not built here, for the reason pieces of this file
+already lean on: a general capability is a contract change (what counts as "stood down," which
+plugins want it, whether it fires on every audience-empty transition or only a sustained one) and this
+station has exactly one plugin that needs it today. The timer is enough for now because it is local,
+needs nothing from the host, and fails in the safe direction: a model let go too early costs one cold
+start, not a wrong answer on air.

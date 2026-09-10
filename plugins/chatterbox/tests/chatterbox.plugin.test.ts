@@ -2,7 +2,7 @@
 // there. What is tested here is what differs: a model that has to be put on the GPU before anything
 // can be said, and taken off it afterwards when the operator asked for that.
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFakePluginHost, type FakePluginHost, type RecordedFetchCall } from '@deadair/plugin-sdk/testing';
 
 import { ChatterboxPlugin } from '../src/chatterbox.plugin.js';
@@ -312,6 +312,134 @@ describe('freeing the GPU between breaks', () => {
     });
 });
 
+describe('freeing the GPU after a quiet spell', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('holds the model before the idle window has passed', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls } = await started();
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        vi.advanceTimersByTime(15 * 60_000 - 1);
+
+        expect(reached(calls)).not.toContain('unload');
+    });
+
+    it('lets the model go once the idle window has passed', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls } = await started();
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        vi.advanceTimersByTime(15 * 60_000);
+
+        expect(reached(calls)).toContain('unload');
+    });
+
+    it('restarts the idle window on a second synthesis inside it', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls } = await started({ loaded: [true] });
+
+        const first = await plugin.speak({ text: 'hello' });
+        await drain(first.audio);
+        vi.advanceTimersByTime(10 * 60_000);
+
+        const second = await plugin.speak({ text: 'hello again' });
+        await drain(second.audio);
+        vi.advanceTimersByTime(10 * 60_000);
+
+        // 20 minutes have passed since the first render, but only 10 since the second, so the
+        // window the second one restarted has not run out yet.
+        expect(reached(calls)).not.toContain('unload');
+
+        vi.advanceTimersByTime(5 * 60_000);
+        expect(reached(calls)).toContain('unload');
+    });
+
+    it('clears the idle timer the moment a new synthesis starts', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls } = await started({ loaded: [true] });
+
+        const first = await plugin.speak({ text: 'hello' });
+        await drain(first.audio);
+        vi.advanceTimersByTime(14 * 60_000);
+
+        await plugin.speak({ text: 'hello again' });
+        vi.advanceTimersByTime(2 * 60_000);
+
+        // 16 minutes have passed since the first render, but the second speak() cleared that timer
+        // before its own synthesis even reached the server.
+        expect(reached(calls)).not.toContain('unload');
+    });
+
+    it('never unloads on idle when set to 0', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls } = await started({ config: { unloadAfterIdleMinutes: 0 } });
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        vi.advanceTimersByTime(60 * 60_000);
+
+        expect(reached(calls)).not.toContain('unload');
+    });
+
+    it('falls back to the 15-minute default when the field was cleared to an empty string, rather than reading it as 0', async () => {
+        // Number('') is 0, so a cleared field would otherwise be indistinguishable from the explicit
+        // "never" above and the model would never be let go.
+        vi.useFakeTimers();
+        const { plugin, calls } = await started({ config: { unloadAfterIdleMinutes: '' } });
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        vi.advanceTimersByTime(15 * 60_000);
+
+        expect(reached(calls)).toContain('unload');
+    });
+
+    it('does not arm the idle timer on top of dropping the model after every render', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls } = await started({ config: { unloadAfterRender: true } });
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        calls.length = 0; // The render's own unload already happened; only the idle timer matters from here.
+        vi.advanceTimersByTime(60 * 60_000);
+
+        expect(reached(calls)).not.toContain('unload');
+    });
+
+    it('reloads the model on the next speak after an idle unload', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls } = await started({ loaded: [true, false, true] });
+
+        const first = await plugin.speak({ text: 'hello' });
+        await drain(first.audio);
+        vi.advanceTimersByTime(15 * 60_000);
+        expect(reached(calls)).toContain('unload');
+
+        const second = await plugin.speak({ text: 'hello again' });
+        await drain(second.audio);
+
+        expect(reached(calls).filter(call => call === 'load')).toHaveLength(1);
+    });
+
+    it('clears the idle timer on dispose so a torn-down plugin cannot still unload a reloaded one', async () => {
+        vi.useFakeTimers();
+        const { plugin, calls } = await started();
+
+        const handle = await plugin.speak({ text: 'hello' });
+        await drain(handle.audio);
+        await plugin.dispose();
+        calls.length = 0;
+        vi.advanceTimersByTime(60 * 60_000);
+
+        expect(reached(calls)).not.toContain('unload');
+    });
+});
+
 describe('ChatterboxPlugin.suggestConfigOptions', () => {
     it('offers the clip as the value and its name as the label', async () => {
         // The filename is what the request needs; the name is what a person is choosing between.
@@ -536,7 +664,7 @@ describe('the manifest and the plugin agree', () => {
         const { chatterboxManifest } = await import('../src/chatterbox.manifest.js');
         const declared = new Set(chatterboxManifest.configFields?.map(field => field.key));
 
-        for (const key of ['baseUrl', 'apiKey', 'format', 'defaultVoice', 'voices', 'unloadAfterRender']) {
+        for (const key of ['baseUrl', 'apiKey', 'format', 'defaultVoice', 'voices', 'unloadAfterRender', 'unloadAfterIdleMinutes']) {
             expect(declared.has(key), `${key} is read but not declared`).toBe(true);
         }
     });

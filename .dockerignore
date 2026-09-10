@@ -24,6 +24,17 @@ stream/music/*
 apps/site/*
 !apps/site/package.json
 
+# The two listener apps and the SDKs generated for them, none of which the station runs. None is a
+# workspace member, so the install never sees them either; they reached the image only through
+# `COPY apps` and `COPY packages`, which made an Android-only commit rebuild the JavaScript workspace
+# in all three variants and shipped the Kotlin and C# sources inside it. On a developer's machine the
+# context also carried their build output, which is ignored by git and was not ignored here: 2.6GB of
+# MSBuild under `apps/desktop` and 400MB of Gradle under `apps/android`, measured.
+apps/android
+apps/desktop
+packages/sdk-kotlin
+packages/sdk-csharp
+
 # The tests, which the image has no way to run and no reason to hold. Every package keeps them in
 # a top-level `tests/` beside `src/`, and every build tsconfig includes `src` alone, so this costs
 # the build nothing and stops a test-only commit from invalidating the workspace copy.

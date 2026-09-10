@@ -84,7 +84,9 @@ makes installing before the source is there safe; one that needs its own source 
 installed after the source copy instead. The copy over the top is the MEMBERS, `turbo.json` and
 `link-peers.mjs` and nothing else, for the fence's own reason one stage out: it was `COPY . .`, which made a
 JavaScript rebuild a function of every file in the tree, so editing an nginx snippet rebuilt all fifteen
-packages from nothing. Images are built and published by `.github/workflows/`, three variants from two build
+packages from nothing. The same argument is why `.dockerignore` keeps out everything under `apps/` and
+`packages/` that the station does not run: the website's source, and the two listener apps with their
+generated Kotlin and C# SDKs, which `COPY apps` and `COPY packages` otherwise carried in whole. Images are built and published by `.github/workflows/`, three variants from two build
 args plus a third that selects nothing, and `codegen` is never run there for the reason it is never run
 anywhere automated: its outputs are committed and regenerating them needs a live database.
 

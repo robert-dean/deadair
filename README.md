@@ -11,6 +11,10 @@ order, everybody hears the same thing at the same moment.
 It is a radio station rather than a playlist. There is no per-listener shuffle and no skip button:
 what is on is what is on, and the station decides.
 
+**[deadair.radio](https://deadair.radio)** is the website: the install guide, the music licensing
+notes and the API reference, with the API also described as an OpenAPI 3.1 document at
+[deadair.radio/openapi.yaml](https://deadair.radio/openapi.yaml) for anyone generating a client.
+
 > **It plays your music, not its own.** deadair holds no catalogue. It programmes what your provider
 > already gives you — a Spotify account or a Subsonic server such as Navidrome — and it grants you no
 > rights to broadcast any of it. Read [docs/licensing.md](docs/licensing.md) before you publish an

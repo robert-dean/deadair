@@ -31,10 +31,11 @@ unchanged.
 ## The rules that will bounce a change
 
 **Generated output is never hand-edited.** ContractKit routers and types come from the `.ck` files
-in `apps/api/data/contracts`, and so do the TypeScript, Kotlin and C# SDKs. Permission types come
-from `apps/api/data/permissions/*.perm`. Database types come from the schema. If you want to change
-an endpoint or a shape, edit the `.ck` and run `pnpm build:contracts`, then commit the regenerated
-files alongside it. **CI regenerates all three and fails on anything that moved**, so an edited
+in `apps/api/data/contracts`, and so do the TypeScript, Kotlin and C# SDKs and the website's API
+reference and OpenAPI spec (`apps/site/docs/api-reference`, `apps/site/static/openapi.yaml`).
+Permission types come from `apps/api/data/permissions/*.perm`. Database types come from the
+schema. If you want to change an endpoint or a shape, edit the `.ck` and run `pnpm build:contracts`,
+then commit the regenerated files alongside it. **CI regenerates all three and fails on anything that moved**, so an edited
 contract merged without its output is a red check rather than a runtime surprise.
 
 **A setting is a string.** Every layer of `AppConfig` holds text, so read an on/off setting through

@@ -202,11 +202,21 @@ export class PickResolver {
              * away two thirds of the document the operator chose and said so only at `info`.
              */
             discoveries?: number;
+            /**
+             * Skip {@link spaceArtists} and hand back the resolved batch in input order.
+             *
+             * For a document whose order IS the content (a chart countdown), where respacing
+             * would move the most frequent act to the front of the order rather than leaving it
+             * at whatever position the countdown put it. Nothing else changes: the drops, the
+             * veto and the bindings above still run: this only decides what the LAST step does
+             * with what survived them.
+             */
+            keepOrder?: boolean;
         } = {},
     ): Promise<RundownTrack[]> {
         if (picks.length === 0) return [];
 
-        const { preference = [], era, avoidArtistKeys, seedArtistKey, discoveries } = options;
+        const { preference = [], era, avoidArtistKeys, seedArtistKey, discoveries, keepOrder } = options;
         const policy = advisoryPolicy(this.config);
 
         const identified = await this.identify(picks, discoveries);
@@ -283,6 +293,10 @@ export class PickResolver {
         // own heels, which is the one thing this rule exists to prevent. The seed extends that
         // guarantee across the batch boundary: without it the first placement is compared against
         // nothing, and a refill can open with whoever the tail just closed on.
+        //
+        // `keepOrder` skips all of that: a chart countdown's order is the content, and respacing
+        // it would pull the most frequent act forward, which is exactly what reorders a countdown.
+        if (keepOrder) return resolved.map(toRundownTrack);
         return spaceArtists(resolved, seedArtistKey).map(toRundownTrack);
     }
 

@@ -681,6 +681,40 @@ describe('PickResolver rules', () => {
         expect(resolved.map(track => track.artists[0])).toEqual(['One', 'Three', 'One']);
     });
 
+    it('keeps a countdown in exactly its input order under keepOrder, unlike the respacing above', async () => {
+        // A countdown where one act holds #7 and #3: ordinary spacing would pull it forward and
+        // reorder the document, which is the one thing a chart's order may not have happen to it.
+        const { resolver } = build({
+            bindings: {
+                'track-1': binding('track-1'),
+                'track-2': binding('track-2'),
+                'track-3': binding('track-3'),
+                'track-4': binding('track-4'),
+                'track-5': binding('track-5'),
+                'track-6': binding('track-6'),
+                'track-7': binding('track-7'),
+            },
+            metadata: {},
+        });
+
+        const countdown = [
+            { title: 'G', artist: 'Other', trackId: 'track-1' },
+            { title: 'F', artist: 'Other', trackId: 'track-2' },
+            { title: 'E', artist: 'Repeat', trackId: 'track-3' },
+            { title: 'D', artist: 'Other', trackId: 'track-4' },
+            { title: 'C', artist: 'Other', trackId: 'track-5' },
+            { title: 'B', artist: 'Other', trackId: 'track-6' },
+            { title: 'A', artist: 'Repeat', trackId: 'track-7' },
+        ];
+
+        const kept = await resolver.resolve(countdown, rules(), { keepOrder: true });
+        expect(kept.map(track => track.trackId)).toEqual(['track-1', 'track-2', 'track-3', 'track-4', 'track-5', 'track-6', 'track-7']);
+
+        // Control: without it, the existing respacing still applies and moves the repeated act.
+        const respaced = await resolver.resolve(countdown, rules());
+        expect(respaced.map(track => track.trackId)).not.toEqual(['track-1', 'track-2', 'track-3', 'track-4', 'track-5', 'track-6', 'track-7']);
+    });
+
     it('drops an artist the caller says is at the tail, even with every other rule open', async () => {
         // The batch seam: a caller scopes this to a narrow window, but `judge` itself just unions
         // it into the cooldown set. A dislike-free, cooldown-free artist still has to go if the

@@ -501,7 +501,9 @@ export class DirectorConsoleService {
      * window would suppress the very records it exists to play, which is the argument `resolveRules`
      * already makes for a setlist and {@link PickResolver.vet} already makes for a playlist. What
      * stays on is the veto: `resolve` applies the dislike, the period and the advisory policy
-     * whatever rules it is handed, and those are instructions rather than preferences.
+     * whatever rules it is handed, and those are instructions rather than preferences. `keepOrder`
+     * relaxes one more thing NO_RULES does not touch on its own: a countdown's order is its content,
+     * and the respacing `resolve` otherwise ends with would pull the most frequent act to the front.
      *
      * Everything AFTER the seeding is an ordinary rotation. A chart is forty records and an evening
      * is more than forty, so the broadcast is topped up by the generators like any other — the
@@ -520,7 +522,12 @@ export class DirectorConsoleService {
         // `MAX_CHART_ENTRIES`. Held to it, a hundred-record chart got 32 lookups and aired the
         // remainder as "not in the catalog" without a provider ever being asked about them, which
         // reads from the console exactly like a chart service that carried nothing.
-        const tracks = await this.resolver.resolve(picks, NO_RULES, { era, preference: [address.pluginId], discoveries: picks.length });
+        const tracks = await this.resolver.resolve(picks, NO_RULES, {
+            era,
+            preference: [address.pluginId],
+            discoveries: picks.length,
+            keepOrder: true,
+        });
         if (tracks.length === 0) {
             // Said in the operator's terms rather than the resolver's, and the two cases are named
             // apart because they want opposite fixes. With discovery off this is not a fault at all

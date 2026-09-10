@@ -603,9 +603,14 @@ export class DirectorConsoleService {
         // call is for is refusing at the door rather than accepting an ask that cannot land.
         await this.readChart(input.chartId);
 
+        // Stamped with the broadcast that is on air right now, if any, so the job can tell whether
+        // the one on air when it finally runs is still the one this press was about: see
+        // `AirChartJob.execute`.
+        const broadcastId = this.director.order()?.broadcastId;
         await this.jobs.send('director.air_chart', {
             chartId: input.chartId,
             ...(input.chartOrder === undefined ? {} : { chartOrder: input.chartOrder }),
+            ...(broadcastId === undefined ? {} : { broadcastId }),
         });
 
         void this.activity.record({

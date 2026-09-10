@@ -3,8 +3,10 @@ import { JobContext } from '@maroonedsoftware/jobbroker';
 import { Logger } from '@maroonedsoftware/logger';
 import { PlainJob } from '#modules/jobs/plain.job.js';
 import { PlayoutPusher } from '#modules/playout/playout.pusher.js';
+import { ActivityRecorder } from '#modules/activity/activity.recorder.js';
 import type { ChartOrder } from './chart.picks.js';
 import { DirectorConsoleService } from './director.console.service.js';
+import { DirectorService } from './director.service.js';
 
 export interface AirChartPayload {
     /**
@@ -18,6 +20,13 @@ export interface AirChartPayload {
     chartId?: string;
     /** Which way round to play it. Absent means `DEFAULT_CHART_ORDER`. */
     chartOrder?: ChartOrder;
+    /**
+     * The broadcast on air when the operator pressed, absent when the station was stood down at
+     * the time. Compared against the broadcast on air when this job actually runs: a Stop pressed
+     * meanwhile, a changeover, or a station that came on air by other means since all mean the
+     * press is no longer about the broadcast this job would put it on.
+     */
+    broadcastId?: string;
 }
 
 /**
@@ -48,7 +57,9 @@ export interface AirChartPayload {
  * about at the door — an id that names no chart, a chart that could not be read — are still raised
  * there, by `DirectorConsoleService.airChart`, which reads the chart before enqueuing anything.
  * What is left to land here is "nothing on that chart can be played", which needs the lookups to
- * know and so reaches the operator through the activity feed instead.
+ * know and so reaches the operator through the activity feed instead, as does a press that
+ * arrives to find the station has moved on since it was made, which the feed learns of as
+ * `air.chartStale` rather than the button, for the same reason.
  *
  * ## Not retried
  *
@@ -69,6 +80,12 @@ export class AirChartJob extends PlainJob<AirChartPayload> {
         // A singleton, like the director the other two director jobs reach: handing the first item
         // over now rather than waiting out the reconcile tick is what `playChart` used to do inline.
         private readonly pusher: PlayoutPusher,
+        // The same singleton, read a second time here rather than trusted from the send: it says
+        // whether the station is still on the broadcast this press was about.
+        private readonly director: DirectorService,
+        // A singleton, like the director above it: a stale press is a fact about the station rather
+        // than about this run, and the feed is where an operator meets it.
+        private readonly activity: ActivityRecorder,
         context: JobContext,
         container: Container,
         logger: Logger,
@@ -81,6 +98,28 @@ export class AirChartJob extends PlainJob<AirChartPayload> {
         // validated id — so it says so and stops rather than throwing into a retry it does not have.
         if (!payload?.chartId) {
             this.logger.warn('director: an air-chart job arrived with no chart on it; nothing to put on air');
+            return;
+        }
+
+        if (this.director.order()?.broadcastId !== payload.broadcastId) {
+            // A Stop pressed meanwhile, a changeover, or a station that came on air by other means:
+            // whichever it was, the broadcast this press was about is not the one running now, and
+            // putting the chart on air would end a broadcast the operator never meant this press to
+            // touch. This is the outcome an operator watching `/playout/status` never sees (the
+            // console already answered "queued") so it lands on the activity feed instead, the way
+            // `readChart`'s own late failures do.
+            this.logger.warn('director: the broadcast an air-chart press was about has ended; refusing to put it on air', {
+                chartId: payload.chartId,
+                expected: payload.broadcastId,
+                current: this.director.order()?.broadcastId,
+            });
+            void this.activity.record({
+                module: 'director',
+                kind: 'air.chartStale',
+                severity: 'warn',
+                detail: 'A published chart was not put on air because the station had moved on since the press that asked for it.',
+                data: { chartId: payload.chartId, expected: payload.broadcastId, current: this.director.order()?.broadcastId },
+            });
             return;
         }
 

@@ -1079,6 +1079,22 @@ describe('DirectorConsoleService building a running order from a chart', () => {
     const posted0 = (posted: DirectorCommand[]) => (posted[0]?.kind === 'putOnAir' ? posted[0] : undefined);
     const titles = (posted: DirectorCommand[]) => (posted0(posted)?.tracks ?? []).map(track => track.title);
 
+    // A broadcast that is on air, for the ask stamped with it: see `AirChartJob.execute`, which
+    // checks a press against whatever this same call answers by the time the job runs.
+    const onAirWith = (count: number): StationLineup => {
+        const order = new StationLineup({ name: 'Afternoons', mode: 'rotation', onEnd: 'extend', source: 'import' });
+        order.append(
+            Array.from({ length: count }, (_, index) => ({
+                pluginId: 'p',
+                externalId: `t${index}`,
+                title: `T${index}`,
+                artists: ['X'],
+                artist: 'X',
+            })),
+        );
+        return order;
+    };
+
     const TOP_THREE = [
         { rank: 1, title: 'Glory Box', artist: 'Portishead' },
         { rank: 2, title: 'Windowlicker', artist: 'Aphex Twin' },
@@ -1123,6 +1139,26 @@ describe('DirectorConsoleService building a running order from a chart', () => {
 
             expect(await statusOf(service.airChart({ chartId: 'deadair.lastfm:top-100' }))).toBe(422);
             expect(jobs.send).not.toHaveBeenCalled();
+        });
+
+        it('stamps the ask with the broadcast on air right now, so the job can tell a changeover from a stale press', async () => {
+            const order = onAirWith(2);
+            const { service, jobs } = build({ chart: TOP_THREE, order });
+
+            await service.airChart({ chartId: 'deadair.lastfm:top-100' });
+
+            expect(jobs.send).toHaveBeenCalledWith('director.air_chart', {
+                chartId: 'deadair.lastfm:top-100',
+                broadcastId: order.broadcastId,
+            });
+        });
+
+        it('carries no broadcastId when the station is stood down at the press', async () => {
+            const { service, jobs } = build({ chart: TOP_THREE });
+
+            await service.airChart({ chartId: 'deadair.lastfm:top-100' });
+
+            expect(jobs.send).toHaveBeenCalledWith('director.air_chart', { chartId: 'deadair.lastfm:top-100' });
         });
     });
 

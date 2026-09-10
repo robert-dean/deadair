@@ -116,7 +116,8 @@ station fetch audio. With only the first, your playlists list correctly and ever
 ## The console
 
 A broadcast desk rather than a player. It deliberately does not play the mount: the listener surface
-is the mount itself.
+is the mount itself, plus the Android app (`apps/android`) and the desktop app (`apps/desktop`) if
+you build and run either one.
 
 **On Air** is the running order, live, with the playhead and every item's state. **Schedule** is the
 format clock and the weekly grid — which hour is which, what it is briefed to play, which period it

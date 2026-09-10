@@ -72,6 +72,15 @@ the naive implementation rather than bad luck, and both are cheap to hold and ex
   that depended on it.** `vocal_onset` feeds the talk-up limit, so a false early onset is a station
   that stops talking before the singing starts — which reads as a bug in the talk-up rule and is not
   one. Whatever threshold this ships with is a measured number on this library, not a default.
+- **The beat pass gets its own try, and leaves its fields out on failure rather than failing the
+  whole measurement.** `bpm`, `beat_confidence` and `downbeats` sit behind one `try`/`except` of
+  their own; a beat-tracking failure on one record answers with the four cue points and the loudness
+  figures still present and the beat fields simply absent, rather than the row failing outright and
+  taking a working measurement of the rest of the track down with it. `_analyze` today has no reason
+  to isolate a failure this way (cue points and loudness both come off the same decode, and either
+  one raising is genuinely fatal to the row), but the beat layer is a second, riskier detector added
+  later on top of a row that already works, and the negative result above is the reminder of how
+  wrong a detector in this exact spot can be while still returning a number.
 
 **One operational note for the sidecar, same layer.** A long-running Python process that decodes
 whole records accumulates resident memory the allocator does not return, independent of any leak in

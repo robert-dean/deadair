@@ -405,6 +405,12 @@ already work) but that nothing knows how long the intro is. Every break today is
 number the planner chose, and over a record with a four-second intro that number is wrong in a way a
 listener hears immediately.
 
+**Measured against this library, 2026-09-10**: 79 of 101 rendered talk-up segments outlast the intro
+they were written to fill, so the record's own vocal arrives while the DJ is still talking more often
+than not. There is also no way to check the timed number after the fact: `segments.duration_ms` is
+null on 160 of 161 rows. A clip longer than the runway airs into the gap rather than being cut, which
+is the softer failure mode and still not a free one.
+
 [station-intelligence.md](station-intelligence.md) §3 already calls `intro_end` "the talk-up limit"
 and measures it as where the record is fully underway. The sharper version, and the one worth asking
 for while the measurement is being built anyway, is **the first sustained vocal**. A per-instant

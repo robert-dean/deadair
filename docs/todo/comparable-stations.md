@@ -34,6 +34,12 @@ classified against this tree by reading the code path. Nineteen are live here to
 are claims made in this directory that the code contradicts, which no amount of reading the other
 tree could have found because the docs were what got read.
 
+**Eighth pass:** 2026-09-10, over code written here since the seventh: the two listener apps, the
+multi-provider LLM plugin, insert-at-position, chart airing, the year guard and the plugin
+quarantine. It is the first pass that did not stop at a list: the operator asked for every fault
+found to be fixed in the same run, so its own section, near the bottom, is a record of what shipped
+rather than a survey of what to build next.
+
 **Status: three of these are built now, and the rest is still a survey.** It was written down for the reason
 [stream-server-alternatives.md](stream-server-alternatives.md) is: the pass was done once and should
 not have to be done again. The findings are stated on their own terms rather than as a comparison,
@@ -678,7 +684,9 @@ showed the docs can be wrong.
 
 The counts govern how to read it. **Nineteen faults are live here today.** About 150 are guarded,
 most of them by a decision this directory already records the reasoning for; about 50 are deferred
-design in this directory; the rest belong to a listener product and do not apply. Nineteen after six
+design in this directory; the rest belong to a listener product and do not apply. As of the eighth
+pass that bucket is no longer hypothetical: a listener product is exactly what the two apps below
+are. Nineteen after six
 passes is the measure of the method: reading a tree finds what it has, and reading its fault list
 finds what breaks in a station of this SHAPE, which is a different set. The previous passes caught
 four of the nineteen in passing (the sidecar's memory, the artist seam, the talk-over stamp, the
@@ -943,13 +951,272 @@ keyboard path through the slot editor is fine, and the fix is the library's.
 - **Units in `saySymbols`.** `°`, `km/h` and `mph` reach the engine as written, and the weather tool
   hands the model exactly those. 0 aired scripts carry them; structural.
 
+## The eighth pass, which was asked to fix everything it found
+
+**2026-09-10.** The pass looked at code written here since 2026-09-02: the two listener apps, the
+multi-provider LLM plugin, insert-at-position, chart airing, the year guard and the plugin
+quarantine. It found nine faults that would break or mislead a running station outright and about
+sixteen smaller ones beside them, and rather than filing them for later the operator asked for all
+of them fixed in the same run. **Status: all twenty-five findings below are built.** The four in the
+Android app and the five in the desktop app are unverified in one specific way, noted at the end of
+each and again in its own paragraph after the list.
+
+### The running order and what airs
+
+~~**A record inserted at a position passed no vet at all.**~~ **BUILT 2026-09-10**:
+`addTrackToOrder` built its `RundownTrack` straight off the console's own row and inserted it, so an
+insert took a different path than a playlist did, and a disliked or out-of-period record dropped at
+one position aired exactly as if nobody had ever disliked it. `addTrackToOrder` now runs the same
+`PickResolver.vet` a playlist runs (era, dislike, advisory policy) and answers 422 naming the
+possible reasons when it drops the record; the inserted row's identity is built from the lead artist
+name rather than the whole credit line.
+
+~~**A chart put on air came out in a different order than the chart.**~~ **BUILT 2026-09-10**:
+airing a chart ran it through the ordinary resolver, whose last step, `spaceArtists`, reorders for
+artist spacing, so position one through forty did not survive being aired. `PickResolver.resolve`
+gains a `keepOrder` option that skips that step and keeps the input order, and the chart-airing path
+passes it.
+
+~~**The year guard only knew what its own writer had said.**~~ **BUILT 2026-09-10**: only the talk
+writer called `permittedYears` at all, and even there `shown` was built from every prompt message's
+raw text, `recent` included, so a year one writer invented and then had quoted back at it in the next
+prompt's "You said these recently" block counted as permitted on no more than having been echoed. A
+new `shownWithoutRecent` in `break.prompt.ts` strips every script named in `recent` back out of a
+prompt's messages before `permittedYears` reads them, so an echoed year is no longer permitted on
+that strength; the welcome and story writers, which had no year guard of their own before this, now
+call `permittedYears` through it too.
+
+~~**A refill or a replan planned for one broadcast could land in the next.**~~ **BUILT 2026-09-10**:
+neither the `appendTracks`/`replaceTail` commands nor the extend and replan lineup jobs carried a
+broadcast id, so a refill computed for a period, era or artist mix that had already ended could still
+be applied once the next broadcast had started. Both command variants and both job payloads now carry
+an optional `broadcastId`, and `putOnAir` clears the guard so a stale command is dropped instead of
+applied.
+
+~~**Airing a chart later did not check the station was still where it was when pressed.**~~ **BUILT
+2026-09-10**: pressing "air chart" queued a job that could run well after the press, by which point
+the station might be off air or on a different broadcast entirely: the job aired into whatever the
+running order happened to be at that later moment. `AirChartPayload` now carries an optional
+`broadcastId` stamped at press time when the station is on air, and the job declines with
+`air.chartStale` when the broadcast has moved on.
+
+~~**A waiting break could outlive the broadcast that asked for it.**~~ **BUILT 2026-09-10**: a break
+request left waiting past the end of its broadcast could still be picked up and injected into the
+next one, saying something that belonged to a moment already gone. `StoredBreakRequest` carries an
+optional `broadcastId`; the waiting-request repository and `DirectorService` now expire a request
+once its broadcast has ended, with the sentence "the programme changed before this break could air"
+rather than airing it late.
+
+~~**Editing the airing slot looked immediate and was not.**~~ **BUILT 2026-09-10**: the schedule
+only re-resolves an occurrence at its own next start, so an edit made to the slot currently on air
+took effect quietly at the slot's NEXT run rather than the one already playing. `SlotEditor` takes an
+`airing` prop naming the slot the running order currently belongs to and shows a notice that the
+change waits for the next occurrence; `ScheduleService.update` logs the case.
+
+~~**Nothing capped how often one release repeated.**~~ **BUILT 2026-09-10**: rotation capped one
+ARTIST repeating but had nothing for one ALBUM, so a multi-disc reissue or a deluxe edition could put
+several tracks off the same release back to back while the artist-spacing rule was perfectly
+satisfied. A new `albumKey`, a `maxPerAlbum` rotation rule (default 1, a new
+`rotation.maxPerAlbum` setting) and `capPerAlbum` now run in the catalog draw right after the
+existing per-artist cap.
+
+~~A maximum record length~~ is recorded in place, above, under "Absent, and worth a line each": two
+settings, `rotation.minTrackSeconds` and `rotation.maxTrackSeconds`, both off by default, enforced in
+the catalog draw's SQL, the resolver's binding loop and `vet`.
+
+~~**A credit line was one string, and a dislike only ever reached its lead artist.**~~ **BUILT
+2026-09-10**: a track's artist credit lived as a single field, so a feature or a collaboration
+credited to three names was invisible to anything walking "an artist's tracks" by anyone but the
+lead, and disliking a featured artist did nothing to a record where they only guest. Migration 0025
+adds `deadair.trackArtists`, one row per credited artist per track, written by the catalog resolver
+on ingest; a new `noCreditedDislike`/`creditedDislikeExists` predicate makes a dislike on any
+credited artist, not only the lead, veto the record in the candidate draw.
+
+### Plugins, the render path, and the pieces around them
+
+~~**The clock said each hour the same way, every day.**~~ **BUILT 2026-09-10**: hour-naming was one
+fixed template per time-of-day band, so the station used the exact same words at (say) ten o'clock
+every single broadcast. Each band in `clock.words.ts` now carries two or three wordings, picked by
+hour, so the same band rotates through its options rather than repeating one line forever.
+
+~~**A quarantine that left one candidate said nothing about it.**~~ **BUILT 2026-09-10**:
+`explainDefaultPick`'s log line only spoke when there was more than one candidate to choose among, so
+an operator watching the log after a plugin was quarantined could not tell "there was only ever one"
+from "the others just got quarantined". `pickedByDefault` now reports true for a single candidate
+too, and `explainDefaultPick` and its four capability wrappers (generator, analyzer, mixer, speaker)
+take an optional list of quarantined ids and name them in the sentence.
+
+~~**A passing probe forgave the whole failure history.**~~ **BUILT 2026-09-10**: the recovery timer
+reset a plugin's failure count to zero on one passing probe, so a plugin failing constantly but
+occasionally answering a health check looked, to the breaker, indistinguishable from one that had
+genuinely recovered. A new `lastFailureAt` map lets `PluginInvoker` track recency apart from the
+count reset, so one passing probe no longer forgives an ongoing pattern of failure.
+
+~~**The console said a plugin was quarantined and nothing else.**~~ **BUILT 2026-09-10**: not what
+it last failed with, not when the breaker would try it again. `PluginSummary` gains `lastError` and
+`nextProbeAt`, regenerated through both SDKs; `PluginInvoker.nextProbeAt` reports the epoch ms of the
+breaker's next automatic probe, and the check-up page draws both.
+
+~~**A dead provider was asked for its model list on every request that needed one.**~~ **BUILT
+2026-09-10**: serially, so one unreachable arm slowed down every generation that had to enumerate
+models. Model-list failures are now cached for 15 seconds (`MODEL_FAILURE_CACHE_MS`), and arms are
+asked concurrently rather than one after another.
+
+~~**The mixer blended a record's tail under the start of a break.**~~ **BUILT 2026-09-10**: a speech
+segment was treated like any other source in the crossfade, so the outgoing record could duck or
+blur the break's first words the same way two records blend into each other. `playout_transition` in
+`radio.liq` gains a branch that recognises the `deadair_speech` metadata flag and sequences into it
+rather than blending, before the ordinary blend test runs.
+
+~~**A buffered write landed straight on the path everything else trusts as complete.**~~ **BUILT
+2026-09-10**: a write that failed partway through `ContentStore.write` left a corrupt, partial file
+sitting at its final, checksum-named path. `write` now goes through the same private
+`writeStreamInternal` the streaming path already used: bytes spill to a `.tmp-*` file, are hashed,
+and are renamed onto the final path only once whole. A failed write now leaves nothing at the final
+path.
+
+~~**Nothing said when every listener looked like the same address.**~~ **BUILT 2026-09-10**: a
+reverse proxy misconfigured in the specific way that makes every request look like it came from one
+loopback or private address silently breaks per-listener accounting and rate limiting, and the
+check-up said nothing about it. `forwarded.reading.ts` tracks the single hop actually seen (address,
+count, last seen); the rate-limit middleware writes it, and `station.attention` surfaces a
+`singleHopAddress` check-up item when it fires. The comparison itself was wrong on the first pass: it
+matched against the LAST forwarded hop, which nginx appends as its own `$remote_addr` and which is
+therefore always the resolved address by construction. It was corrected to run only with
+`TRUST_PROXY` on and to compare the hop before nginx's own instead.
+
+~~**A model loaded for a render stayed resident while the station was quiet, unless
+unload-after-render was already on.**~~ **BUILT 2026-09-10**: on the default (`unloadAfterRender`
+off), a render that finished left the model in memory, and on a GPU depending on the install, through
+hours with nothing to say. A new `unloadAfterIdleMinutes` config field (default 15, `0` for never)
+arms a timer once a render ends and `unloadAfterRender` has not already dropped the model; speaking
+cancels the timer, and it calls `lifecycle.unload()` once the idle window passes.
+
+### The model
+
+~~**Every model got the same reasoning-effort handling.**~~ **BUILT 2026-09-10**: regardless of
+family, so a model whose provider only accepts a fixed token budget rather than an effort keyword
+either got the wrong shape of request or adaptive thinking it cannot use. A new `takesBudget(modelId)`
+recognises the pre-4.6 Claude families, 4.0 and 4.1 included, as needing a budget rather than an
+effort keyword; `reasoningOptions` takes the model id and shapes the request either way.
+
+~~**A tool result carried no record of which tool produced it.**~~ **BUILT 2026-09-10**: a model
+juggling several tool calls in flight had to infer which result answered which call from position
+alone. `toModelMessages` now looks up the producing tool's name from a call-id-to-name map filled by
+the preceding assistant turn and attaches it to the tool-result part, falling back to an empty string
+only when genuinely unknown.
+
+~~**A gateway header had nowhere to go.**~~ **BUILT 2026-09-10**: an operator running an
+OpenAI-compatible model behind a gateway that insists on its own header (a tenant id, a second key)
+had no field for it; only the ordinary API key reached the request. A new `headers` secret column on
+the providers list, parsed by `parseHeaderLines`, is threaded through `ProviderRow`, `buildArm` and
+`openAiCompatibleArm` into every request that provider makes.
+
+~~**Reasoning text could still be spoken in place of a refusal.**~~ **BUILT 2026-09-10**: `spokenAnswer`
+refused to promote the reasoning channel only on a tool-calls or length stop, so a call that stopped
+for content-filter or error reasons could still have its reasoning text promoted and aired, spoken in
+the model's own reasoning voice. It now refuses promotion on content-filter and error finish reasons
+too, and a budget log site reads `totalTokens`.
+
+### The Android app
+
+~~**A stream that ended cleanly was not a drop.**~~ **BUILT 2026-09-10**: `STATE_ENDED` was read as
+ordinary completion, so a listener whose connection was quietly cut by the server sat on a dead
+player with nothing reconnecting it. A new pure `ReconnectPolicy` (`Backoff`, a schedule function, a
+`wantsPlay` check, `reconnect`, `stop`) is a `Player.Listener` that reconnects from `STATE_IDLE` or
+`STATE_ENDED` the same way it reconnects from an error, with a testable `Backoff.exhausted`.
+
+~~**A pause the listener did not ask for still left reconnection armed.**~~ **BUILT 2026-09-10**: an
+audio-focus loss or the audio-becoming-noisy event (headphones pulled) paused playback but left the
+reconnect machinery armed, so the app could resume audio nobody asked it to keep. `ReconnectPolicy`
+now also reacts to `onPlaybackSuppressionReasonChanged` and calls `stop()`, not only `cancel()`, for
+the audio-focus-loss and audio-becoming-noisy reasons; `PlaybackConductor` gates its settings and
+now-playing collection on whether the player is actually playing.
+
+~~**Now playing tracked the API poll, not the audio.**~~ **BUILT 2026-09-10**: a listener heard a
+title change out of step with what was actually in their buffer, and the stream's own ICY metadata
+was ignored entirely. A new pure `NowPlayingGate` holds a reading until playback has actually reached
+it; the HTTP data source now requests ICY metadata, and an ICY title feeds the gate directly from the
+stream.
+
+~~**An untrusted certificate failed with a generic error.**~~ **BUILT 2026-09-10**: a station behind
+a self-signed or internal-CA certificate gave the listener no way to tell what was wrong.
+`StationCheck.Untrusted` and a matching `Message.Untrusted` carry the cause, detected by a private
+`untrustedCertificateCause()` helper, and a new string resource names it.
+
+**All four of the above were written and committed without ever compiling.** This sandbox has no
+Java runtime at all (no `java` on the path, no JDK under `/Library/Java/JavaVirtualMachines`), so
+`./gradlew` could not run for any of them. Each is a hand-reviewed diff against the existing style
+and against the Media3 API it calls, not a compiler-verified one.
+
+### The desktop app
+
+~~**The conductor's retry-after-failure loop was not independently testable.**~~ **BUILT
+2026-09-10**: `PlaybackConductor` now takes an optional `TimeProvider`, implements `IDisposable`, and
+raises a `RetryDue` event; `ListenerViewModel` factors `PlayChosenMountAsync` out of `ToggleAsync` so
+a retry replays the same path a manual play does.
+
+~~**The player did not notice the Mac had slept.**~~ **BUILT 2026-09-10**: after sleep and wake, the
+native macOS audio player did not report failure the way it does on an ordinary disconnect, so the
+conductor's retry logic never engaged and playback stayed dead until the listener noticed and pressed
+play again. The native `DeadairPlayer.m` now reports `FAILED` the same way it does for an ordinary
+stream drop, so the existing conductor retry picks it up on its own. **This one still needs a person
+at the actual Mac**: build the app, play, sleep it, wake it, and confirm the reconnect actually
+fires. Neither this sandbox's lack of a usable local Objective-C build nor its lack of a .NET SDK
+(below) can stand in for that.
+
+~~**The system Next key could skip the station forward for anyone.**~~ **BUILT 2026-09-10**: fine
+for an operator's own machine, and exactly the kind of remote-control surface that should not be on
+by default for a listener. A new `NextSkips` desktop setting (default false) is wired through
+`SettingsViewModel` and a toggle in `SettingsView.axaml`; `ShellViewModel.ApplySession` only enables
+system Next when the setting is on and the session is the operator's own.
+
+~~**An untrusted certificate failed with no explanation, same as the phone.**~~ **BUILT 2026-09-10**:
+a new `StationProbeResult.Untrusted` value is detected when `ProbeAsync`'s `HttpRequestException`
+wraps an `AuthenticationException`, and setup copy names the certificate and the system-keychain
+remedy.
+
+~~**Now playing could jump ahead of what was actually audible.**~~ **BUILT 2026-09-10**: the display
+and the artwork updated the instant a new item was announced rather than when the listener could
+actually hear it, the desktop half of the same gap as the Android metadata fix above. A new
+`NowPlayingHold` (a five-second `NowPlayingLead`) holds a reading until the audio has caught up
+before releasing it to the view model, so the widget and artwork update once per item, in step with
+what is playing.
+
+**All five of the above were written and committed without ever compiling, for a different reason
+than the Android ones.** `apps/desktop/global.json` pins SDK `10.0.400`; this environment has
+`10.0.302`, and `dotnet build`/`dotnet test` refuse to even restore before touching a line of code.
+Each is a hand-reviewed diff against the existing style and against the .NET and Avalonia APIs it
+calls.
+
+### Product decisions taken with the operator
+
+- Featured-artist dislikes use a full credits table (the new migration), not a text match.
+- The apps and the audience gate use pause-to-stop only. No sleep timer was built, and none is
+  planned.
+- The desktop system Next button stays, kept behind a setting, off by default.
+- Backups get a doc sentence only (below, in the README); `docs/todo/backup-and-restore.md` stays
+  deferred as a design document.
+
+### Two things the build itself turned up
+
+- Fixing the quarantine's default-pick log line changed the sense of an existing test:
+  `mixer.service.test.ts` had a case asserting silence on a single candidate, which is exactly the
+  behaviour this pass removes. The test was updated to match rather than left failing.
+- The quarantine console fields (`lastError`, `nextProbeAt`) regenerate `apps/site`'s API reference
+  docs along with everything else `.ck` generates, and this branch was cut before `apps/site` existed
+  on it. The regenerated reference is held as a patch, `15-site-reference.patch`, beside this run's
+  packages rather than applied, for whoever merges the two.
+
 ## What is deliberately not wanted
 
 Recording these stops the survey being re-run to reach the same answer.
 
-- **Player skins, native apps, a public player.** This console is a broadcast desk and deliberately
-  does not play the mount. The listener surface is the mount itself plus whatever the operator points
-  at it.
+- **Player skins built into the console, and a public player hosted on the operator's behalf.** This
+  console is a broadcast desk and deliberately does not play the mount. As of the eighth pass the
+  listener surface is no longer only the mount and whatever the operator points at it: the Android
+  app (`apps/android`) and the desktop app (`apps/desktop`) are listener surfaces of their own,
+  standing beside the mount rather than inside the console.
 - **A community catalog of shared personas, skills and shows**, and the three pages around it: a
   directory of other stations broadcasting now, a dispatch blog, and a shelf of third-party players.
   The catalog is a good design (prompt-only by contract, so the reviewed exchange can never carry

@@ -50,6 +50,21 @@ describe('the settings registry', () => {
         expect(findDescriptor('station.djName')?.group).toBe('personas');
     });
 
+    it('keeps what Icecast advertises on the stream card', () => {
+        // Nothing but Icecast reads these. On the station card, beside the name, they read as the
+        // station's identity and invite the question of what they do there.
+        for (const key of [
+            STREAM_KEYS.publicUrl,
+            STREAM_KEYS.hostname,
+            STREAM_KEYS.description,
+            STREAM_KEYS.genre,
+            STREAM_KEYS.location,
+            STREAM_KEYS.language,
+        ]) {
+            expect(findDescriptor(key)?.group, key).toBe('stream');
+        }
+    });
+
     it('only makes a descriptor depend on a key that exists', () => {
         // A `dependsOn` naming a key nothing declares is a field the console hides forever, which
         // reads to an operator as a setting that was never built rather than as a typo.

@@ -245,28 +245,6 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
     },
     {
         group: 'station',
-        key: STREAM_KEYS.description,
-        label: 'Description',
-        type: 'string',
-        default: STREAM_DEFAULTS.description,
-    },
-    {
-        group: 'station',
-        key: STREAM_KEYS.genre,
-        label: 'Genre',
-        type: 'string',
-        default: STREAM_DEFAULTS.genre,
-    },
-    {
-        group: 'station',
-        key: STREAM_KEYS.publicUrl,
-        label: 'Public URL',
-        type: 'url',
-        default: STREAM_DEFAULTS.publicUrl,
-        help: 'Where listeners reach the station. Also where the hostname is derived from when one is not set below.',
-    },
-    {
-        group: 'station',
         key: STREAM_KEYS.mount,
         label: 'Mount',
         type: 'string',
@@ -367,6 +345,18 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         max: 20,
         help: 'How much a player is told about at once. More is more delay and more tolerance of a bad connection; fewer is the opposite. Segment length multiplied by this is roughly how far behind live a listener starts.',
     },
+    // How Icecast describes the station to players and directories. These were on the Station card,
+    // beside the name, which made them read as the station's identity; nothing but Icecast and the
+    // headers Liquidsoap sends it reads any of them, so they sit with the hostname, location and
+    // language that are the same kind of thing.
+    {
+        group: 'stream',
+        key: STREAM_KEYS.publicUrl,
+        label: 'Public URL',
+        type: 'url',
+        default: STREAM_DEFAULTS.publicUrl,
+        help: 'Where listeners reach the station. Also where the hostname is derived from when one is not set below.',
+    },
     {
         group: 'stream',
         key: STREAM_KEYS.hostname,
@@ -374,6 +364,22 @@ export const SETTING_DESCRIPTORS: readonly SettingDescriptor[] = [
         type: 'string',
         default: STREAM_DEFAULTS.hostname,
         help: 'What Icecast calls itself. Leave empty to derive it from the public URL.',
+    },
+    {
+        group: 'stream',
+        key: STREAM_KEYS.description,
+        label: 'Description',
+        type: 'string',
+        default: STREAM_DEFAULTS.description,
+        help: 'A line about the station, as Icecast advertises it. Players and directories that show one show it under the name.',
+    },
+    {
+        group: 'stream',
+        key: STREAM_KEYS.genre,
+        label: 'Genre',
+        type: 'string',
+        default: STREAM_DEFAULTS.genre,
+        help: 'The genre Icecast advertises for the station, which players and directories show beside the name.',
     },
     {
         group: 'stream',

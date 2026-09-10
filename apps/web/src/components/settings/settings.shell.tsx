@@ -97,7 +97,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
         label: 'Stream',
         hint: 'What puts it on air, in what formats',
         group: 'stream',
-        blurb: 'The mounts the station publishes to: their formats and bitrates, HLS, and the Icecast connection they all go through. Icecast and Liquidsoap read these from files rendered on save, so a change reaches them on their next restart.',
+        blurb: 'The mounts the station publishes to: their formats and bitrates, HLS, how Icecast describes the station to players and directories, and the Icecast connection they all go through. Icecast and Liquidsoap read these from files rendered on save, so a change reaches them on their next restart.',
     },
     {
         id: 'housekeeping',

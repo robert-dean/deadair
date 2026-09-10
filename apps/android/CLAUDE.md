@@ -197,7 +197,8 @@ neither matters for something built only to prove R8 still works.
 **CI builds `bundleRelease` for R8's sake alone.** Minification is the one part of this build that
 breaks without a source change — a dependency arrives, nothing keeps its reflection, the
 serializers are stripped — and it fails at DECODE on a phone rather than at compile on a runner.
-The release path is verified on every push for that reason.
+The release path is verified on every push that touches the listener or its SDK for that reason;
+`.github/scripts/changes.sh` decides which pushes those are, and fails open when it cannot tell.
 
 ## Conventions
 

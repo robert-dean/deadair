@@ -6,8 +6,28 @@ on:
         # defaults to TRUE, so a caller that passes nothing gets every job: the same fail-open rule
         # the detection itself follows.
         inputs:
+            tree:
+                description: Anything but prose changed
+                type: boolean
+                default: true
+            node:
+                description: The TypeScript workspace the test suite covers changed
+                type: boolean
+                default: true
+            generated:
+                description: Anything codegen reads or writes changed
+                type: boolean
+                default: true
+            sidecar:
+                description: The measurement sidecar changed
+                type: boolean
+                default: true
             android:
                 description: The Android listener or its SDK changed
+                type: boolean
+                default: true
+            desktop:
+                description: The desktop app or its SDK changed
                 type: boolean
                 default: true
 
@@ -21,7 +41,11 @@ jobs:
     # — `apps/api`'s build task IS `tsc` — and it is also the only writer of the task cache. The
     # tests below do not wait on it: they compile what they need themselves, out of the same cache,
     # which costs a little duplicated work and saves the whole of this job's minute on the clock.
+    #
+    # It runs for anything but prose, because it is also the formatting check for every file
+    # Prettier reads and the build of the website, whose broken links fail it.
     build:
+        if: inputs.tree
         runs-on: ubuntu-latest
         timeout-minutes: 20
 
@@ -125,7 +149,11 @@ jobs:
     # by hand has changed. Verified before relying on it: the root run is 310 files and 5329
     # assertions, which is exactly the sum of the thirteen per-package reports it replaces, and the
     # four shards come to 78 + 78 + 77 + 77 — the same 310, so no file is dropped or run twice.
+    #
+    # Only when the workspace it covers changed: a push that touched nothing but a listener app, the
+    # website or the audio chain has nothing for these 310 files to say.
     test:
+        if: inputs.node
         runs-on: ubuntu-latest
         timeout-minutes: 20
 
@@ -178,8 +206,10 @@ jobs:
     # share with either.
     #
     # No `pnpm install`, no `dist`: this installs the sidecar's own pins with pip and runs
-    # pytest directly against `analysis/`, the same way it runs on a laptop.
+    # pytest directly against `analysis/`, the same way it runs on a laptop. Only when `analysis/`
+    # changed, which is rarely: one commit in sixty, measured, against a job that ran for all sixty.
     sidecar:
+        if: inputs.sidecar
         runs-on: ubuntu-latest
         timeout-minutes: 10
 
@@ -314,12 +344,15 @@ jobs:
     # It runs on macOS rather than Ubuntu because the app's player is the platform's own — the first
     # release targets Apple Silicon and the player project builds against AVFoundation, which exists
     # on no other runner. That costs roughly ten times an Ubuntu minute, which is why this job builds
-    # and tests and does nothing else.
+    # and tests and does nothing else, and why it runs only when the app or its SDK changed: it ran
+    # for every push, and in sixty commits sixteen had anything for it to check.
     #
     # Like `android`, it is also the only thing that COMPILES its generated SDK. The `generated` job
     # below regenerates `packages/sdk-csharp` from the contracts and checks it did not move; this
-    # checks it is C# a compiler accepts, which is a different question.
+    # checks it is C# a compiler accepts, which is a different question. A contract change that moves
+    # the SDK changes a file under `packages/sdk-csharp`, which is what brings this job back.
     desktop:
+        if: inputs.desktop
         runs-on: macos-latest
         timeout-minutes: 20
 
@@ -386,7 +419,13 @@ jobs:
     # somewhere NEW is the same failure as one whose output changed, and an untracked file does not
     # show up in a diff. Everything the job itself writes (`.env`, `.turbo`, `.contractkit/`) is
     # already ignored.
+    #
+    # Only when something codegen reads or writes changed, which is a wider net than it sounds: all of
+    # `apps/api` (the contracts, permissions and migrations are there, and so are the committed
+    # outputs a hand-edit would move), the three SDKs, the website's reference and spec, and the
+    # tool versions in the lockfile. Drift needs one of those to change, so nothing else can cause it.
     generated:
+        if: inputs.generated
         runs-on: ubuntu-latest
         timeout-minutes: 20
 

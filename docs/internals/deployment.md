@@ -96,11 +96,30 @@ different on every single build — consumed at the top of the final stage it wo
 supervisor and the install for a string none of them read. So it is declared with the others and spent at the
 bottom, on two lines that are metadata over the layer beneath them and rebuild nothing.
 
+## What CI runs, and for which push
+
+**A job runs when the part of the tree it checks changed, and everything runs when that cannot be
+told.** The tree is several apps in several languages, and until this rule each push paid for all of
+them: over sixty commits the macOS desktop build ran sixty times with sixteen changes to check, and
+the sidecar's tests ran sixty times for one. `.github/scripts/changes.sh` diffs the push (or the pull
+request's merge commit) against its base and answers one flag per part: `tree` (anything but prose,
+which gates the build and formatting check), `node` (the TypeScript workspace, which gates the test
+shards), `generated`, `sidecar`, `android` and `desktop`. `changes.yml` runs it first in both
+`pr.yml` and `release.yml`, and `build.yml` takes the flags as inputs that default to true.
+
+**It fails open, and that is the part not to weaken.** No usable base commit (a tag push, a manual run,
+a new branch, a force push) turns every flag on, so a release always builds everything. A change to a
+workflow turns on the jobs it defines, and a change to the script or to a workflow that calls it turns
+on everything. The rules are paths in one file, and `BASE=<commit> HEAD_REF=<commit>
+.github/scripts/changes.sh` answers for any commit by hand, which is how a new rule should be checked
+against history before it is trusted.
+
 ## The sidecar's own CI
 
 **The sidecar is Python, and CI proves it two ways that TypeScript's checks cannot reach.** A
-`sidecar` job in `build.yml` installs the four pins `analysis/requirements.txt` carries (numpy,
-scipy, fastapi, pydantic) plus pytest, and runs `python3 -m pytest analysis/` directly — no
+`sidecar` job in `build.yml`, run for any push that touches `analysis/`, installs the four pins
+`analysis/requirements.txt` carries (numpy, scipy, fastapi, pydantic) plus pytest, and runs
+`python3 -m pytest analysis/` directly — no
 `pnpm install`, no `dist`, the same command a laptop runs. It stands alone rather than joining the
 turbo test path or the root `vitest.config.ts`, which both assume a Node workspace this job never
 touches. And `images.yml` proves the built image itself rather than only the source: after the

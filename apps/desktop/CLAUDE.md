@@ -20,7 +20,9 @@ port to be attempted afterwards.
 **Not a pnpm workspace member, deliberately.** There is no `package.json`, so the `apps/*` glob in
 `pnpm-workspace.yaml` skips it and turbo and the root `vitest.config.ts` never see it. A .NET
 solution shares no task graph, no `dist` and no test runner with the TypeScript tree, so one CI job
-of its own is cheaper and more honest than making it pretend. Same arrangement as `apps/android` and
+of its own is cheaper and more honest than making it pretend. That job runs on macOS at roughly ten
+times an Ubuntu minute, so it runs only for a push that touches `apps/desktop` or
+`packages/sdk-csharp` (`.github/scripts/changes.sh`). Same arrangement as `apps/android` and
 `analysis/`. Build droppings go in the ROOT `.gitignore`, because that is the only one in the tree.
 
 **Two projects and a generated third.** `packages/sdk-csharp` is the API client, generated;

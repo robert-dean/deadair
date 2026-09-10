@@ -15,7 +15,12 @@ jobs:
         needs: [changes]
         uses: ./.github/workflows/build.yml
         with:
+            tree: ${{ needs.changes.outputs.tree == 'true' }}
+            node: ${{ needs.changes.outputs.node == 'true' }}
+            generated: ${{ needs.changes.outputs.generated == 'true' }}
+            sidecar: ${{ needs.changes.outputs.sidecar == 'true' }}
             android: ${{ needs.changes.outputs.android == 'true' }}
+            desktop: ${{ needs.changes.outputs.desktop == 'true' }}
         secrets: inherit
 
     # Built and thrown away. A Dockerfile that has stopped building is worth knowing about

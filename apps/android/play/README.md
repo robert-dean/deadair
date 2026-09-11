@@ -12,7 +12,13 @@ listing/en-US/
     icon.png                512x512, generated
     featureGraphic.png      1024x500, generated
     phoneScreenshots/       2 to 8, portrait
+whatsnew/
+  whatsnew-en-US            the release notes, 500 characters at most
 ```
+
+`whatsnew/` is the one part that IS pushed: the publish workflow uploads it as the notes of every
+build, so it is edited in the commit before a publish. A build uploaded with last release's notes
+tells every tester the same news twice.
 
 The names are fastlane `supply`'s layout, so a tool that pushes listings can take this directory as
 it is. Nothing pushes it today: listing edits are rare enough to paste into Play Console → Grow →

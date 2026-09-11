@@ -145,6 +145,11 @@ jobs:
                   releaseFiles: apps/android/app/build/outputs/bundle/release/app-release.aab
                   # R8 renames everything, so without this a crash in the console is unreadable.
                   mappingFile: apps/android/app/build/outputs/mapping/release/mapping.txt
+                  # One `whatsnew-<locale>` file per language, 500 characters each. Whatever the
+                  # file says at this commit is what testers and listeners read, so it is edited in
+                  # the commit before a publish rather than typed into the console after one.
+                  # Promotion carries the notes with the build.
+                  whatsNewDirectory: apps/android/play/whatsnew
                   # `tracks`, plural: the singular is deprecated and the action warns on it.
                   tracks: ${{ inputs.track }}
                   status: ${{ inputs.status }}

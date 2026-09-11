@@ -27,6 +27,28 @@ Store presence → Main store listing. When one of these files changes, paste it
 `icon.png` and `featureGraphic.png` come out of `tools/make-launcher-icon.py` with the launcher
 icon, so the store and the phone cannot show two different marks. Do not edit them by hand.
 
+### The screenshots
+
+Taken on the emulator against a live station, at `adb shell wm size 1080x1920`. Not the device's
+own 1080x2400, because Play refuses a screenshot longer than twice its width, and 16:9 is also the
+shape on which the Now playing layout is tightest, so a shot that looks right there looks right
+everywhere. The rest of the recipe, so the next set matches this one:
+
+- dark theme (`cmd uimode night yes`) with wallpaper colours OFF, which is the station's own green
+  on carbon rather than whatever the emulator's wallpaper suggests
+- the status bar in demo mode: `settings put global sysui_demo_allowed 1`, then the
+  `com.android.systemui.demo` broadcasts for a 12:00 clock, a full battery and full wifi
+- the emulator's own notifications snoozed (`cmd notification snooze`) before the shade is shot
+- no screen showing the station's address, which is why the format picker is scrolled past it.
+  This tree names no operator's network, and a screenshot is part of the tree
+
+Saved as 24-bit PNG, because Play refuses an alpha channel. The cover art is whatever the station
+was playing. Commercial artwork in a store screenshot can draw an intellectual-property rejection,
+and a set taken while something else is on air is the fix if one arrives.
+
+Only the listener's screens are here. Up next, Played, What's on and the record pages need a
+signed-in operator, and are the ones worth adding next.
+
 ## Store settings
 
 | Field | Value |

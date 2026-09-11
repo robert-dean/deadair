@@ -111,6 +111,11 @@ CLAUDE.local.md
 apps/site/docs/install.md
 apps/site/docs/licensing.md
 
+# The console capture's working space: a signed-in browser state for one operator's station, and the
+# full-size PNGs before they are converted. The webp it writes to `static/img/console/` is committed;
+# this never is, and the state file in particular would sign somebody in.
+apps/site/.capture/
+
 # A per-developer Vite override: `VITE_ALLOWED_HOSTS` names whatever hostname a tunnel forwards
 # through, which is one machine's arrangement rather than the project's.
 .env.local

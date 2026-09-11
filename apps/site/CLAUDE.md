@@ -50,3 +50,13 @@ than to a file the next regeneration would overwrite.
 the phosphor accent and the faces from `apps/web/src/tokens.css` and `theme.ts`, because the console
 publishes them through Mantine and this site does not load Mantine. The brand images are served
 straight from `apps/web/public` through `staticDirectories`, so there is one copy of the logo.
+
+**The screenshots are of a real station, and taking them spends a session.** `scripts/console.capture.mjs`
+(`pnpm --filter @deadair/site capture login`, then `capture shoot`) drives a browser signed in to a
+running console and writes `static/img/console/*.webp`, which is committed. Signing in is done by a
+person in the window `login` opens: nothing here holds a password. The saved state under `.capture/`
+is gitignored and goes stale on every use, because the console's refresh token is single-use and
+presenting a spent one revokes its whole family, so `shoot` writes the new cookie back as soon as the
+first page is up and again on the way out. Never run two at once and never copy the file. Look at
+every image before committing it: cover art and news headlines are other people's, and `--blur-art`
+is there for the first.

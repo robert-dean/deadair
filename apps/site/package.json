@@ -4,6 +4,7 @@
     "license": "MIT",
     "scripts": {
         "start": "node scripts/docs.sync.mjs && docusaurus start",
+        "capture": "node scripts/console.capture.mjs",
         "build": "tsc --noEmit && node scripts/docs.sync.mjs && docusaurus build --out-dir dist",
         "serve": "docusaurus serve --dir dist",
         "clear": "docusaurus clear",
@@ -26,6 +27,7 @@
         "@repo/config-typescript": "workspace:*",
         "@types/node": "^26.1.2",
         "@types/react": "^19.2.18",
+        "playwright": "^1.63.0",
         "prettier": "^3.9.6",
         "prism-react-renderer": "^2.4.1",
         "react": "^19.2.8",

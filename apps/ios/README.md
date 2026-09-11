@@ -50,3 +50,20 @@ put on air for five minutes by somebody opening Settings.
 HLS is the one to choose on a phone that moves between wifi and mobile data. An Icecast mount is a
 single long-lived connection and does not survive the handover; HLS is a series of requests and does.
 
+## Publishing
+
+The iOS release workflow uploads a build to TestFlight when an `ios-v<version>` tag is pushed on
+main, or when it is run by hand. The version is decided in a changeset naming `@deadair/ios`, and the
+tag has to match `MARKETING_VERSION` in `Config/Version.xcconfig`. None of it can run until Apple
+has these, all of which belong to the account and none to this tree:
+
+- an Apple Developer Program membership, with its current agreement accepted in App Store Connect;
+- the App ID `com.maroonedsoftware.deadair`, and an app record in App Store Connect under it;
+- an App Store Connect API key with the **Admin** role, which cloud-managed signing needs;
+- in the repository's Actions settings, the secrets `APP_STORE_CONNECT_KEY_ID`,
+  `APP_STORE_CONNECT_ISSUER_ID` and `APP_STORE_CONNECT_KEY_P8` (the `.p8` file, base64-encoded),
+  and the variable `APPLE_TEAM_ID`.
+
+There is no certificate or provisioning profile to keep anywhere: the workflow signs through Apple's
+cloud with the key. What the App Store listing says is in `appstore/`, and what the app keeps on the
+phone is in `PRIVACY.md`.

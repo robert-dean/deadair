@@ -105,6 +105,12 @@ DerivedData/
 # published app can never be updated again, only replaced under a new application id.
 *.jks
 *.keystore
+# And Apple's: an App Store Connect API key, a signing identity, a provisioning profile. The release
+# workflow signs through Apple's cloud with the key from a secret, so none of these belongs anywhere.
+*.p8
+*.p12
+*.mobileprovision
+
 # Robert's own working notes, which name this install and this operator rather than the project.
 # The `.local.md` suffix is the convention for exactly that and this file was tracked against it.
 CLAUDE.local.md

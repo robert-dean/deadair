@@ -184,6 +184,14 @@ describe('the desktop release’s notes', () => {
     });
 });
 
+describe('the iOS release’s notes', () => {
+    it('are cut from the iOS changelog, by the same program as the station’s', () => {
+        const programs = awkPrograms('ios-release.yml');
+        expect([...programs.keys()]).toEqual(['apps/ios/CHANGELOG.md']);
+        expect(programs.get('apps/ios/CHANGELOG.md')).toBe([...awkPrograms('release.yml').values()][0]);
+    });
+});
+
 describe('the mirrored versions', () => {
     const gradle = 'android {\n    defaultConfig {\n        versionCode = gitCommitCount.get()\n        versionName = "0.1.0"\n    }\n}\n';
     const xml = '<Project>\n  <PropertyGroup>\n    <Version>0.1.0</Version>\n  </PropertyGroup>\n</Project>\n';

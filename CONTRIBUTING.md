@@ -122,6 +122,8 @@ The listener apps are numbered by the same pull request and published on their o
 `android-v<version>` tag on main publishes that build to Play's internal track, and anything further
 is the Android release workflow run by hand (`apps/android/README.md` walks it). The Desktop release
 workflow, run by hand, cuts `desktop-v<version>` with the entry from `apps/desktop/CHANGELOG.md`.
+Pushing an `ios-v<version>` tag on main uploads that build to TestFlight through the iOS release
+workflow (`apps/ios/README.md` lists what Apple needs first).
 
 ## Commit messages
 

@@ -170,9 +170,28 @@ branch never releases.
 
 **The tag is the last thing a release does, not the first.** It was: a hand-pushed `v*` tag
 triggered the run, so the version was fixed to a commit before anything had tested it, and a red run
-left a tag nobody could release again without deleting it. Now `publish` cuts it with
-`gh release create --target` after `promote`, which is after the tests. Made with the workflow token,
-it triggers nothing, and nothing listens for one.
+left a tag nobody could release again without deleting it. Now `publish` cuts it after `promote`,
+which is after the tests: the tag first, then the release on it with `--verify-tag`. A tag it made is
+deleted again if the release cannot be created, because a tag with no release would read as "went
+out" and no later push would retry, and a release that already exists is success, so a re-run of a
+run that got that far stays green.
+
+**It publishes with a GitHub App's token, because the workflow token is refused exactly when it
+matters.** GitHub requires the `workflows` permission to create a tag or a release on a commit that
+no branch or tag points at when workflow files differ from what is reachable, and `GITHUB_TOKEN` can
+never hold that permission. The commit a release run tags is in that state whenever main moves while
+the run is testing. 0.2.0 was: a setup-dotnet bump merged two minutes after the version pull request,
+the version's own run got a 403 on `POST /releases`, and 0.2.0 went out from the bump's run instead,
+tagged on the bump's commit. The App token is minted inside `publish` for this repository alone with
+contents and workflows, and revoked when the job ends. Without the App the job falls back to the
+workflow token, which works whenever main has not moved, and warns.
+
+Setting it up, once: create a GitHub App on the account that owns the repository, with no webhook and
+two repository permissions, Contents and Workflows, both read and write. Install it on this repository
+only. Put its client ID in the repository's Actions **variables** as `RELEASE_APP_CLIENT_ID` and a
+private key it generates in the Actions **secrets** as `RELEASE_APP_PRIVATE_KEY`. A tag or release the
+App makes can start workflows where the workflow token's cannot, and none listens: `release.yml` runs
+on pushes to main, and the Android release's tags are `android-v*`.
 
 **The version pull request is not `changesets/action`**, which the kits use. That action writes the
 pull request's body out of every bumped package's `CHANGELOG.md` and dies on the first that has

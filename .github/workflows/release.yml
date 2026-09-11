@@ -188,14 +188,26 @@ jobs:
     # at images that failed their tests would be worse than no entry at all, and because the tag is
     # what tells the next run this version went out: cut before the tests, a red release would never
     # be retried.
+    #
+    # It writes with a GitHub App's token rather than the workflow's own, because of a rule GitHub
+    # applies to both a new tag and a new release: when the commit has no branch or tag pointing at it
+    # and workflow files differ from what is reachable, the token needs the `workflows` permission, and
+    # `GITHUB_TOKEN` can never hold it. That commit is exactly what this job tags whenever main moves
+    # while the release run is testing. On 0.2.0 a workflow bump merged two minutes after the version
+    # pull request, the version's own run was refused with a 403, and the release went out from the
+    # NEXT push instead, on a commit it was not cut for. The App token is minted in the job for this
+    # repository alone, with contents and workflows, and is revoked when the job ends.
+    #
+    # Without the App configured it falls back to the workflow token, which works whenever main has
+    # not moved, and says so. Setting the App up is under "Releasing" in docs/internals/deployment.md.
     publish:
         needs: [version, promote]
         if: needs.version.outputs.value != ''
         runs-on: ubuntu-latest
         timeout-minutes: 10
         permissions:
-            # The one job that writes anything to the repository, and the only reason the
-            # workflow-level `contents: read` is widened at all.
+            # For the fallback only: with the App configured, everything this job writes is written
+            # with the App's token.
             contents: write
         steps:
             - name: Checkout
@@ -225,19 +237,77 @@ jobs:
                   fi
                   cat notes.md
 
-            # `gh release create` makes the tag itself, on this commit, when there is none, which is
-            # the only way this run is reached. Made with the workflow token, it triggers no run of
-            # its own, and nothing is listening for one.
-            - name: Tag it and publish it
+            # A job-level `if` cannot read a secret, so whether the App is configured is a step's output.
+            - name: Look for the release App
+              id: app
               env:
-                  GH_TOKEN: ${{ github.token }}
+                  CLIENT_ID: ${{ vars.RELEASE_APP_CLIENT_ID }}
+                  PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+              run: |
+                  if [ -n "${CLIENT_ID}" ] && [ -n "${PRIVATE_KEY}" ]; then
+                      echo "present=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "::warning::The release App is not configured (RELEASE_APP_CLIENT_ID, RELEASE_APP_PRIVATE_KEY), so this publishes with the workflow token, which GitHub refuses if main has moved on with a workflow change."
+                      echo "present=false" >> "$GITHUB_OUTPUT"
+                  fi
+
+            # `client-id` rather than `app-id`, which v3.1 deprecated. actionlint's table of this
+            # action predates that and reports both inputs wrongly.
+            - name: Mint the App token
+              id: token
+              if: steps.app.outputs.present == 'true'
+              uses: actions/create-github-app-token@v3
+              with:
+                  client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+                  private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+                  permission-contents: write
+                  permission-workflows: write
+
+            # The tag first, and the release on it with `--verify-tag`, so the release can only ever
+            # name the tag this step made on this commit.
+            #
+            # Two cases have to leave the next run able to try again, because `version` reads "there is
+            # a tag" as "this version went out". A tag this step made is deleted again if the release
+            # cannot be created, since a tag with no release would stop every later push from retrying.
+            # And a release that already exists is success, so re-running a run that got this far does
+            # not turn it red.
+            #
+            # Made with the App's token, the tag and the release CAN start workflows, unlike anything
+            # the workflow token does. None listens: this workflow runs on pushes to main, not tags, and
+            # the Android release's tag is `android-v*`, which `v*` is not.
+            - name: Tag it, then publish it
+              env:
+                  GH_TOKEN: ${{ steps.token.outputs.token || github.token }}
                   VERSION: ${{ needs.version.outputs.value }}
               run: |
                   set -euo pipefail
-                  gh release create "v${VERSION}" \
-                      --target "${GITHUB_SHA}" \
-                      --title "deadair ${VERSION}" \
-                      --notes-file notes.md
+                  tag="v${VERSION}"
+
+                  if gh release view "$tag" > /dev/null 2>&1; then
+                      echo "${tag} is already released."
+                      exit 0
+                  fi
+
+                  existing="$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${tag}" --jq ".[] | select(.ref == \"refs/tags/${tag}\") | .object.sha")"
+                  made=false
+                  if [ -z "$existing" ]; then
+                      if ! gh api "repos/${GITHUB_REPOSITORY}/git/refs" -f ref="refs/tags/${tag}" -f sha="${GITHUB_SHA}" > /dev/null; then
+                          echo "::error::Could not create ${tag}. If this is a 403 and the release App is not configured, see \"Releasing\" in docs/internals/deployment.md; the next push to main releases ${VERSION} either way."
+                          exit 1
+                      fi
+                      made=true
+                  elif [ "$existing" != "$GITHUB_SHA" ]; then
+                      echo "::error::${tag} already points at ${existing}, not ${GITHUB_SHA}, and has no release. Delete the tag if nothing shipped from it, and the next push to main releases ${VERSION}."
+                      exit 1
+                  fi
+
+                  if ! gh release create "$tag" --verify-tag --title "deadair ${VERSION}" --notes-file notes.md; then
+                      if [ "$made" = true ]; then
+                          gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}" ||
+                              echo "::error::Could not delete ${tag} after the release failed. Delete it by hand, or no later push will retry ${VERSION}."
+                      fi
+                      exit 1
+                  fi
 
     # The plugin SDK on npm, which is how somebody outside this repository writes a plugin against it.
     # After `publish` rather than beside it, so a version on npm always has a tag and a release behind

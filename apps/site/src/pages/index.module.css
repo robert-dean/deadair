@@ -1,6 +1,7 @@
 .page {
-    background: radial-gradient(ellipse 120% 60% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
+    background: radial-gradient(ellipse 120% 40% at 50% 0%, var(--da-bg-glow) 0%, var(--da-bg) 60%);
     padding-bottom: 6rem;
+    overflow-x: clip;
 }
 
 .page h2 {
@@ -9,30 +10,17 @@
     margin-bottom: 0.75rem;
 }
 
-/* The hero. */
+/* The hero: words centred over one big screenshot. */
 
 .hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 3rem;
-    align-items: center;
-    max-width: 72rem;
+    max-width: 56rem;
     margin: 0 auto;
-    padding: 6rem 1.5rem 4rem;
-}
-
-.eyebrow,
-.label {
-    font-family: var(--ifm-font-family-monospace);
-    font-size: 0.8rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--da-phosphor);
-    margin-bottom: 0.75rem;
+    padding: 6rem 1.5rem 3rem;
+    text-align: center;
 }
 
 .headline {
-    font-size: clamp(2.4rem, 1.6rem + 3.4vw, 4.2rem);
+    font-size: clamp(2.4rem, 1.6rem + 3.4vw, 4.4rem);
     font-weight: 700;
     line-height: 1.05;
     letter-spacing: -0.01em;
@@ -43,13 +31,14 @@
     font-size: 1.2rem;
     line-height: 1.6;
     color: var(--da-text-secondary);
-    max-width: 38rem;
-    margin-bottom: 2rem;
+    max-width: 42rem;
+    margin: 0 auto 2rem;
 }
 
 .actions {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 0.75rem;
 }
 
@@ -90,66 +79,55 @@
     text-decoration: none;
 }
 
-.mark {
-    width: 280px;
-    height: 280px;
-    filter: drop-shadow(0 0 48px var(--da-phosphor-glow));
+/* Four facts in a mono strip, dot-separated, like the rule under a masthead. */
+.facts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem 0;
+    list-style: none;
+    margin: 2.25rem 0 0;
+    padding: 0;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--da-text-dimmed);
 }
 
-/* The one-line statement under the hero. */
+.facts li + li::before {
+    content: '·';
+    margin: 0 0.9rem;
+    color: var(--da-border-strong);
+}
+
+.showcase {
+    max-width: 82rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+/* The one-line statement under the showcase. */
 
 .statement {
-    max-width: 72rem;
+    max-width: 48rem;
     margin: 0 auto;
-    padding: 2rem 1.5rem 3rem;
-    border-top: 1px solid var(--da-border);
+    padding: 5rem 1.5rem 0;
+    text-align: center;
 }
 
 .statement p {
     font-size: 1.1rem;
-    color: var(--da-text-secondary);
-    max-width: 40rem;
-}
-
-/* What it does. */
-
-.features {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-    gap: 1px;
-    /* The other sections are 72rem with 1.5rem of padding each side, so this lines up with their text. */
-    width: calc(100% - 3rem);
-    max-width: 69rem;
-    margin: 0 auto;
-    background: var(--da-border);
-    border: 1px solid var(--da-border);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.feature {
-    background: var(--da-panel);
-    padding: 1.75rem 1.5rem;
-}
-
-.feature h3 {
-    font-size: 1.2rem;
-    font-weight: 600;
-    margin-bottom: 0.6rem;
-}
-
-.feature p:last-child {
-    color: var(--da-text-secondary);
     line-height: 1.6;
-    margin-bottom: 0;
+    color: var(--da-text-secondary);
 }
 
-/* The two long sections. */
+/* The long sections after the six parts. */
 
 .section {
     max-width: 72rem;
     margin: 0 auto;
-    padding: 5rem 1.5rem 0;
+    padding: 6rem 1.5rem 0;
 }
 
 .sectionLede {
@@ -158,6 +136,24 @@
     line-height: 1.6;
     max-width: 44rem;
     margin-bottom: 2rem;
+}
+
+.subhead {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.themes {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+}
+
+.stack {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
 }
 
 .diagram {
@@ -176,7 +172,58 @@
     line-height: 1.45;
 }
 
-.tags {
+.library {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem 3rem;
+    margin-bottom: 1.5rem;
+}
+
+.providers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.providers li {
+    padding: 0.45rem 0.9rem;
+    font-family: var(--da-font-display);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--da-text);
+    background: var(--da-raised);
+    border: 1px solid var(--da-border-strong);
+    border-radius: 4px;
+}
+
+/* The licensing warning, which is the one thing on the page that is a warning. */
+.callout {
+    padding: 1.5rem;
+    border: 1px solid var(--da-border);
+    border-left: 3px solid var(--da-tally);
+    border-radius: 4px;
+    background: var(--da-panel);
+}
+
+.callout p {
+    color: var(--da-text-secondary);
+    line-height: 1.6;
+    max-width: 52rem;
+    margin-bottom: 0;
+}
+
+.callout strong {
+    color: var(--da-text);
+}
+
+.tags,
+.listen {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
     gap: 1rem;
@@ -191,13 +238,22 @@
 }
 
 .tag code {
-    display: block;
     background: none;
     border: none;
     padding: 0;
-    margin-bottom: 1rem;
     color: var(--da-phosphor);
     font-size: 0.95rem;
+}
+
+.tag > code {
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.tag p:last-child {
+    color: var(--da-text-secondary);
+    line-height: 1.6;
+    margin-bottom: 0;
 }
 
 .tag dl {
@@ -226,35 +282,34 @@
     max-width: 44rem;
 }
 
-/* The licensing warning, which is the one thing on the page that is a warning. */
-
-.callout {
-    width: calc(100% - 3rem);
-    max-width: 69rem;
-    margin: 5rem auto 0;
-    padding: 2rem 1.5rem;
-    border: 1px solid var(--da-border);
-    border-left: 3px solid var(--da-tally);
-    border-radius: 4px;
-    background: var(--da-panel);
+/* The last word, and the same three ways in as the top of the page. */
+.end {
+    max-width: 48rem;
+    margin: 7rem auto 0;
+    padding: 4rem 1.5rem 0;
+    border-top: 1px solid var(--da-border);
+    text-align: center;
 }
 
-.callout p {
+.end p {
     color: var(--da-text-secondary);
-    max-width: 48rem;
-    margin-bottom: 0;
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+}
+
+@media (max-width: 900px) {
+    .stack,
+    .themes {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 800px) {
     .hero {
-        grid-template-columns: 1fr;
-        padding-top: 3rem;
-        gap: 2rem;
+        padding-top: 3.5rem;
     }
 
-    .mark {
-        order: -1;
-        width: 160px;
-        height: 160px;
+    .section {
+        padding-top: 4.5rem;
     }
 }

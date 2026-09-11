@@ -55,7 +55,7 @@ signed-in operator, and are the ones worth adding next.
 | --- | --- |
 | App name | `deadair radio`, as `title.txt`. The launcher still says `deadair` (`app_name`), which is what fits under an icon |
 | Category | Music & Audio |
-| Contact email | the one [`PRIVACY.md`](../PRIVACY.md) gives. They are one address on purpose; change both or neither |
+| Contact email | `android@deadair.radio`, the one [`PRIVACY.md`](../PRIVACY.md) gives. They are one address on purpose; change both or neither |
 | Website | https://deadair.radio |
 | Privacy policy | https://github.com/robert-dean/deadair/blob/main/apps/android/PRIVACY.md |
 

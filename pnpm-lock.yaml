@@ -157,6 +157,9 @@ importers:
       '@contractkit/plugin-kotlin':
         specifier: ^0.1.4
         version: 0.1.4
+      '@contractkit/plugin-swift':
+        specifier: ^0.1.4
+        version: 0.1.4
       '@contractkit/plugin-typescript':
         specifier: ^0.38.3
         version: 0.38.3
@@ -1594,6 +1597,9 @@ packages:
 
   '@contractkit/plugin-kotlin@0.1.4':
     resolution: {integrity: sha512-3k4cSCpkhxUupr0uQnOleO6ClFvxhQRHUPvtB8WXQuJh7KgdC6SnvidK47H8L+KSpmgKjVfQH4F043rjru+ETg==}
+
+  '@contractkit/plugin-swift@0.1.4':
+    resolution: {integrity: sha512-06EU1bY8ELSqfo+IYUBFRWqks/HrRQKLW0Mb2T+kSuFa8HXzIg7bL6SLDAdkCQHRUbJIZY2Lp0uIWGcAtf3ojQ==}
 
   '@contractkit/plugin-typescript@0.38.3':
     resolution: {integrity: sha512-nRmrTUubR8h52UA21WiWhbu2LzzkDTqdX85pBjfCucQp2Y2QRSj1romEbSrRay0l4tguWGbFWyZ3lV8POvv61A==}
@@ -10683,6 +10689,10 @@ snapshots:
       '@contractkit/core': 0.30.1
 
   '@contractkit/plugin-kotlin@0.1.4':
+    dependencies:
+      '@contractkit/core': 0.30.1
+
+  '@contractkit/plugin-swift@0.1.4':
     dependencies:
       '@contractkit/core': 0.30.1
 

@@ -40,6 +40,7 @@ apps/desktop/*
 !apps/desktop/package.json
 packages/sdk-kotlin
 packages/sdk-csharp
+packages/sdk-swift
 
 # The tests, which the image has no way to run and no reason to hold. Every package keeps them in
 # a top-level `tests/` beside `src/`, and every build tsconfig includes `src` alone, so this costs

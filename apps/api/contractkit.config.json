@@ -34,6 +34,11 @@
             "namespace": "MaroonedSoftware.Deadair.Sdk",
             "sdkName": "DeadairSdk"
         },
+        "@contractkit/plugin-swift": {
+            "baseDir": "packages/sdk-swift/",
+            "moduleName": "DeadairSdk",
+            "sdkName": "Deadair"
+        },
         "@contractkit/plugin-docs": {
             "docusaurus": {
                 "baseDir": "apps/site/docs/",

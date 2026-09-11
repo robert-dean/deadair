@@ -122,11 +122,13 @@ The script's own header says why it is a script rather than an exported crop.
 
 ## Releasing it
 
-The app ships through Google Play under the Marooned Software account, currently to the **internal
-testing** track: testers are named by email address, review is light, and it installs and updates
-through Play like anything else. A production listing also needs a store listing, a content rating,
-a data safety form and a privacy policy. The listing's text and art, and the answers to each of
-those forms with the facts behind them, are in [`play/`](play/README.md).
+The app ships through Google Play under the Marooned Software account. Every build lands on the
+**internal testing** track first: testers are named by email address, review is light, and it
+installs and updates through Play like anything else. Production is reached by promoting a build
+that has been listened to there, never by uploading to it directly; see
+[Going to production](#going-to-production). A production listing also needs a store listing, a
+content rating, a data safety form and a privacy policy. The listing's text and art, and the answers
+to each of those forms with the facts behind them, are in [`play/`](play/README.md).
 
 Play wants an **App Bundle**, not an APK:
 
@@ -231,6 +233,29 @@ that closely, but for production the app opens on a text field asking for an add
 to type, and that reads as broken. Play's **App access** section is where to give instructions and
 a reachable station, and it is worth filling in before anyone looks. The suggested wording is in
 [`play/README.md`](play/README.md).
+
+### Going to production
+
+The account is a personal one created before 13 November 2023, so Play's rule that newer personal
+accounts run a fourteen-day closed test with twelve testers before production does not apply. What
+does:
+
+1. **Policy → App content**, every section, from [`play/README.md`](play/README.md). The
+   foreground-service declaration wants a video link, so record that first.
+2. **The store listing**, pasted from `play/listing/en-US`, with the icon, feature graphic and
+   screenshots from its `images/`.
+3. **The notes**, in `play/whatsnew/whatsnew-en-US`, edited in the commit that will ship. Publish
+   that commit to internal and listen to it on a real phone.
+4. **Promote** it: from `internal` to `production`, status `inProgress`, `user_fraction` 0.2. The
+   first production release waits for Google's review, which can take days; later ones are
+   usually quicker.
+5. **Widen** it with promote, `production` on both sides: `inProgress` at 0.5, then `completed`.
+   If Android vitals shows crashes or ANRs the build did not have on internal, `halted` instead,
+   and the fix goes out as a new build through the same five steps.
+
+`versionName` stays `0.1.0` for the first production release. That is a decision, not an oversight:
+the listing and the notes say what the app is, and the number can move when there is a reason for
+it to.
 
 ## Where the API types come from
 

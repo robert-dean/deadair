@@ -6,13 +6,6 @@ import { StatusLamp } from '../shared/status.lamp';
 /** The capability a plugin declares when it can walk an operator through a provider's consent screen. */
 export const OAUTH_CAPABILITY = 'oauth';
 
-/**
- * The capability a plugin declares when the station's track fetcher is what turns its records into
- * audio. Keyed on the capability rather than on a plugin id, because what earns the authorization
- * card is feeding the fetcher, and a second provider that did would want the same card.
- */
-export const STREAM_CAPABILITY = 'stream';
-
 interface StatusDescriptor {
     label: string;
     /** What KIND of state this is, in the console's one status vocabulary. */
@@ -54,9 +47,17 @@ export function hasOAuth(plugin: PluginSummary): boolean {
     return plugin.capabilities.includes(OAUTH_CAPABILITY);
 }
 
-/** Whether this plugin's records are fetched through the station's own track fetcher. */
+/**
+ * Whether this plugin's records are fetched through the station's own track fetcher, which is what
+ * earns it the playback authorization card.
+ *
+ * Not the `stream` capability, which is what this read until Navidrome showed why not: that only
+ * says a plugin can put a record on air, and Navidrome does it by minting its own URLs, so its page
+ * offered a Spotify fetcher login it has no use for. And not a plugin id either, because what earns
+ * the card is feeding the fetcher, and a second provider that did would want the same card.
+ */
 export function feedsTrackFetcher(plugin: PluginSummary): boolean {
-    return plugin.capabilities.includes(STREAM_CAPABILITY);
+    return plugin.usesTrackFetcher === true;
 }
 
 export interface PluginStatusProps {

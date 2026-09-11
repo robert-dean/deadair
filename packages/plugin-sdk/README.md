@@ -439,6 +439,11 @@ Requires the `trackFetcher` permission. **Do not reach for it when your audio ca
 simply be fetched.** Mint the URL yourself and keep your credentials to yourself,
 which is both simpler and narrower.
 
+Declaring the permission is also what puts the console's playback authorization
+card on your plugin's page, where the operator authorizes the fetcher itself.
+Declaring `stream` does not: a plugin that mints its own URLs has nothing there to
+authorize.
+
 ## Enriching artists and albums, not just tracks
 
 `enrichTrack` is the only method an enrichment plugin must write.

@@ -8,6 +8,7 @@ import { render, screen, setupUser } from '../../utils/render';
 const getPlugin = vi.fn();
 const testPluginConnection = vi.fn();
 const startPluginOAuthAuthorization = vi.fn();
+const readFetcherAuthorization = vi.fn();
 
 vi.mock('../../../src/api/client', () => ({
     sdk: {
@@ -16,6 +17,9 @@ vi.mock('../../../src/api/client', () => ({
             testPluginConnection: (...args: unknown[]) => testPluginConnection(...args),
             startPluginOAuthAuthorization: (...args: unknown[]) => startPluginOAuthAuthorization(...args),
             updatePluginConfiguration: vi.fn(),
+        },
+        stream: {
+            readFetcherAuthorization: (...args: unknown[]) => readFetcherAuthorization(...args),
         },
     },
 }));
@@ -35,6 +39,7 @@ afterEach(() => {
     getPlugin.mockReset();
     testPluginConnection.mockReset();
     startPluginOAuthAuthorization.mockReset();
+    readFetcherAuthorization.mockReset();
     assign.mockReset();
 });
 
@@ -86,5 +91,28 @@ describe('PluginDetailPage', () => {
 
         expect(await screen.findByText('Settings')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Connect' })).not.toBeInTheDocument();
+    });
+
+    it('offers the playback authorization card to a plugin that uses the station track fetcher', async () => {
+        getPlugin.mockResolvedValue(pluginDetail({ capabilities: ['catalog', 'stream', 'oauth'], usesTrackFetcher: true }));
+        readFetcherAuthorization.mockResolvedValue({ reachable: true, configured: true, authorized: true, session: true });
+
+        render(<PluginDetailPage id="deadair.spotify" />);
+
+        expect(await screen.findByText('Playback authorization')).toBeInTheDocument();
+    });
+
+    // Navidrome streams by minting its own URLs. Keyed on the `stream` capability, its page offered
+    // a Spotify fetcher login and, once enabled, warned that every record would be dropped.
+    it('offers no playback authorization card to a plugin that streams without the fetcher', async () => {
+        getPlugin.mockResolvedValue(
+            pluginDetail({ id: 'deadair.navidrome', name: 'Navidrome', capabilities: ['catalog', 'stream', 'enrichment'], usesTrackFetcher: false }),
+        );
+
+        render(<PluginDetailPage id="deadair.navidrome" />);
+
+        expect(await screen.findByText('Settings')).toBeInTheDocument();
+        expect(screen.queryByText('Playback authorization')).not.toBeInTheDocument();
+        expect(readFetcherAuthorization).not.toHaveBeenCalled();
     });
 });

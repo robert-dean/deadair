@@ -19,7 +19,7 @@ vi.mock('../../../src/api/client', () => ({
     },
 }));
 
-const spotify = pluginDetail({ capabilities: ['catalog', 'stream', 'oauth'] });
+const spotify = pluginDetail({ capabilities: ['catalog', 'stream', 'oauth'], usesTrackFetcher: true });
 
 /** What the fetcher says when it is running but has never been authorized: the state this exists for. */
 const unauthorized = {

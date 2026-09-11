@@ -45,7 +45,7 @@ and points at that entry file from its own `package.json`:
         "plugin": "./dist/index.js"
     },
     "peerDependencies": {
-        "@deadair/plugin-sdk": "^0.0.1",
+        "@deadair/plugin-sdk": ">=0.1.0",
         "zod": "^4.0.0"
     }
 }
@@ -53,6 +53,15 @@ and points at that entry file from its own `package.json`:
 
 The `deadair.plugin` field is how the host finds your entry point. Without it,
 your package is just a package.
+
+The SDK and zod are PEERS, and that is the one part of this file that is not a
+matter of taste: the station hands your plugin its own copy of each, linked into
+the plugins directory beside it, so a class you extend is the class the host
+checks against. Ship neither. The range that is enforced is your manifest's
+`apiVersion` (see [Versioning](#versioning)); the package range is advice to
+whoever installs your devDependencies, which is why it is a floor rather than a
+caret. How to build, package and install one from outside this repository is on
+the website, at https://deadair.radio/docs/plugin-development.
 
 ## The rules
 
@@ -1037,3 +1046,17 @@ Two things to get right, because the failure is a setup loop with no way in:
 `PLUGIN_API_VERSION` is the API version this SDK implements. Your manifest's
 `apiVersion` is a semver **range** (`^1.0.0`), and the host refuses to load a
 plugin whose range does not cover its own version.
+
+That is one number, and the package's version is another. `@deadair/plugin-sdk`
+is released with the station and carries the station's version, so SDK `0.4.2`
+is exactly the SDK that station `0.4.2` runs. It moves on every station release
+whether or not anything here changed, which is why a plugin's peer range is a
+floor (`>=0.1.0`) and never a caret: `^0.1.0` would refuse the next station
+minor for no reason. `PLUGIN_API_VERSION` moves only when the contract does, and
+a major step there is the only thing that ever makes a working plugin stop
+loading.
+
+The published `package.json` lists two `@repo/config-*` packages at `0.0.0` among
+its devDependencies. They are this repository's shared lint and compiler
+configs, are never installed by anybody who depends on the SDK, and are not on
+npm.

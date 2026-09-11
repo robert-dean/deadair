@@ -94,23 +94,24 @@ every other call's. `art_assets` rows are keyed by their source URL, so a URL
 that varied per call would mean a new row and a fresh download of identical
 bytes every time the same image was mentioned.
 
-## Installing it as an operator would
+## Developing it against a running server
 
-The plugin is not bundled with the station: it is discovered under `PLUGINS_DIR`
-(`apps/api/data/plugins` by default, `./.docvol/plugins` in the prod compose
-overlay). To develop against a running server, symlink it — the loader follows
-symlinks for exactly this reason:
-
-```bash
-mkdir -p apps/api/data/plugins && ln -s ../../../../plugins/navidrome apps/api/data/plugins/navidrome
-```
-
-Then build it, because the host loads `dist/` and not `src/`:
+The plugin is bundled: it is on the host's own list in
+`apps/api/src/modules/plugins/plugins.bundled.ts`, and `pnpm dev` loads it from
+`plugins/navidrome/dist`. So the loop is to build it, because the host loads
+`dist/` and not `src/`:
 
 ```bash
 pnpm --filter @deadair/plugin-navidrome build
 ```
 
-After a code change: rebuild, then `POST /plugins/deadair.navidrome/reload`. No
-server restart. If you forget the build, the plugin is quarantined with a
-message saying so rather than an import stack.
+and then to restart the API. `POST /plugins/deadair.navidrome/reload` re-runs
+`init` against the new settings, but it does not load new code: Node caches an ES
+module by its URL for the life of the process, so a reload or a rescan is handed
+the module the host imported at boot. If you forget the build, the plugin is
+quarantined with a message saying so rather than an import stack.
+
+Symlinking this directory into `PLUGINS_DIR` as well (`apps/api/data/plugins` in
+a dev checkout) does not give you a second copy to work on: the bundled copy is
+loaded first and keeps the id, and the symlinked one is quarantined as a
+duplicate.

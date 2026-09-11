@@ -131,6 +131,22 @@ jobs:
             - name: Build
               run: pnpm build
 
+            # The plugin SDK is the one package this tree publishes, so what it would publish is checked
+            # here rather than found out on npm: the built entry, the testing entry a plugin's tests
+            # import, and no source.
+            - name: Check what the plugin SDK would publish
+              run: |
+                  set -euo pipefail
+                  pnpm --filter @deadair/plugin-sdk pack --pack-destination "$RUNNER_TEMP/sdk-pack"
+                  listing="$(tar tzf "$RUNNER_TEMP"/sdk-pack/deadair-plugin-sdk-*.tgz)"
+                  for wanted in package/dist/index.js package/dist/index.d.ts package/dist/testing/index.js package/LICENSE package/README.md; do
+                      printf '%s\n' "$listing" | grep -qx "$wanted" || { echo "::error::the plugin SDK tarball has no ${wanted}"; exit 1; }
+                  done
+                  if printf '%s\n' "$listing" | grep -q '^package/src/'; then
+                      echo "::error::the plugin SDK tarball carries its source"
+                      exit 1
+                  fi
+
             # Every run saves an entry holding what it restored PLUS what it added, so left alone
             # this grows by a full build per commit and spends the repository's cache budget on
             # results nothing will ask for again. A week is well past the point where a task's

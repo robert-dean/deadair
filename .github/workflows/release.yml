@@ -239,6 +239,86 @@ jobs:
                       --title "deadair ${VERSION}" \
                       --notes-file notes.md
 
+    # The plugin SDK on npm, which is how somebody outside this repository writes a plugin against it.
+    # After `publish` rather than beside it, so a version on npm always has a tag and a release behind
+    # it: an author pinning `0.4.0` can read what shipped with it. The SDK is in the station's fixed
+    # version group, so its version IS this release's version, and the step below checks that rather
+    # than trusting it.
+    #
+    # It never fails the release it follows. No token is a warning, because the images and the tag are
+    # already out and a station release is not blocked on a package registry. A version already on npm
+    # is success, because a re-run of a release that got this far, or a version somebody published by
+    # hand, must not turn the run red.
+    npm:
+        needs: [version, publish]
+        if: needs.version.outputs.value != ''
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: read
+            # The provenance statement npm attaches to the package is signed with this.
+            id-token: write
+        steps:
+            # A job-level `if` cannot read a secret, so whether there is one is a step's output.
+            - name: Look for a token
+              id: token
+              env:
+                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+                  VERSION: ${{ needs.version.outputs.value }}
+              run: |
+                  if [ -n "${NPM_TOKEN}" ]; then
+                      echo "present=true" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "::warning::NPM_TOKEN is not set, so @deadair/plugin-sdk ${VERSION} was not published to npm."
+                      echo "present=false" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Checkout
+              if: steps.token.outputs.present == 'true'
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Install pnpm
+              if: steps.token.outputs.present == 'true'
+              uses: pnpm/action-setup@v6
+
+            - name: Setup Node
+              if: steps.token.outputs.present == 'true'
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 26
+                  cache: pnpm
+                  registry-url: https://registry.npmjs.org
+
+            - name: Build the SDK
+              if: steps.token.outputs.present == 'true'
+              run: |
+                  pnpm install --frozen-lockfile --filter '@deadair/plugin-sdk...'
+                  pnpm --filter @deadair/plugin-sdk build
+
+            # `--no-git-checks` because the checkout is a detached commit, which pnpm otherwise refuses
+            # to publish from. Provenance is the environment variable rather than a flag: pnpm passes
+            # it through to the npm registry client and has no option of its own for it.
+            - name: Publish unless this version is already there
+              if: steps.token.outputs.present == 'true'
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+                  NPM_CONFIG_PROVENANCE: 'true'
+                  VERSION: ${{ needs.version.outputs.value }}
+              run: |
+                  set -euo pipefail
+                  manifest="$(jq -r .version packages/plugin-sdk/package.json)"
+                  if [ "$manifest" != "$VERSION" ]; then
+                      echo "::error::packages/plugin-sdk is at ${manifest} but this release is ${VERSION}. The SDK is meant to be in the station's fixed version group in .changeset/config.json."
+                      exit 1
+                  fi
+                  if npm view "@deadair/plugin-sdk@${VERSION}" version >/dev/null 2>&1; then
+                      echo "@deadair/plugin-sdk ${VERSION} is already on npm."
+                      exit 0
+                  fi
+                  pnpm --filter @deadair/plugin-sdk publish --access public --no-git-checks
+
     # The version pull request. Every push to main that carries a changeset opens it, or rebuilds it
     # from main's tip if it is open; merging it is the release, because its merge is the first commit
     # on main whose manifest names a version with no tag, which is what `version` above looks for.

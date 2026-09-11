@@ -34,7 +34,10 @@ and the wrong port.
 is the same mechanism doing less damage.
 
 **Migrations run at boot** and wait for the database rather than depending on it, so one rule covers a bundled
-database and an operator's slower one.
+database and an operator's slower one. The URL `scripts/migrate` composes carries `search_path=public` for the
+same reason: without it, a role named `deadair` resolves dbmate's bookkeeping table into the `deadair` schema the
+moment the first migration creates it, and that migration is applied on every boot forever. The bundled cluster
+also pins its role's path in `scripts/init-database`, but the URL is what covers a database the operator brought.
 
 And **everything the station keeps is under `/data`**, so a backup is one directory; the runtime user is
 99:100 to match what a home server's app share is owned by, so there is no ownership step.

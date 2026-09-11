@@ -36,7 +36,27 @@ encoded_password=$(
         'process.stdout.write(encodeURIComponent(process.env.DATABASE_PASSWORD ?? ""))'
 )
 
-export DATABASE_URL="postgres://${DATABASE_USER}:${encoded_password}@${DATABASE_HOST}:${DATABASE_PORT:-5432}/${DATABASE_NAME}?sslmode=${DATABASE_SSLMODE:-disable}"
+# The search path is part of the URL because dbmate asks the database where its own bookkeeping
+# table lives when the URL does not say, and asks again for every statement that touches it. The
+# answer is `select current_schema()`, and PostgreSQL's default path is `"$user", public`, so for a
+# role named `deadair` (the obvious name beside this station's own DATABASE_NAME default) the
+# answer changes the moment the first migration creates the `deadair` schema. The table was made in
+# `public`; the insert recording that migration looks for it in `deadair`, fails, and rolls the
+# migration back. Every boot then applies the first migration and gets no further. `init-database`
+# fixes that for the cluster this image brings by setting the role's path; the URL fixes it for
+# every database, including one the operator brought and set up any way they liked.
+#
+# It moves no install that already works. dbmate takes the first schema on this path as the table's
+# home, and a database that got past the first migration keeps it in `public`: a role named after no
+# schema resolves there, and so does the bundled one. The migrations themselves run under this path
+# too, which is the one they already get on the bundled database, in development and in CI, and each
+# of them names `deadair.` rather than relying on it.
+#
+# The exception is a database that already had a schema named after its role when the station first
+# migrated it, which is PostgreSQL's own advice for keeping a role out of `public`: the table was
+# made in that schema. That install says so with DBMATE_MIGRATIONS_TABLE=<schema>.schema_migrations
+# in the container's environment, which dbmate reads itself and ranks above the URL.
+export DATABASE_URL="postgres://${DATABASE_USER}:${encoded_password}@${DATABASE_HOST}:${DATABASE_PORT:-5432}/${DATABASE_NAME}?sslmode=${DATABASE_SSLMODE:-disable}&search_path=public"
 
 cd /app/apps/api
 

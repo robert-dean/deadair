@@ -365,6 +365,27 @@ describe('ModelTalkBreakWriter', () => {
             expect(on.writer.detailOfLastWrite()?.raw).toBe('"That was Solid Air."');
         });
 
+        it('keeps the answer it refused, beside why, whether or not the operator asked for the raw one', async () => {
+            // An audition reads declines, and "it named neither record" is only half of one without
+            // the words. Captured with the switch OFF, which is the ordinary state.
+            const refused = 'Tonight the groove lands. Friend, a cue rises.';
+            const { writer } = build({ answer: refused });
+
+            expect(await writer.write({ kind: TALK_BREAK_KIND, previous, next })).toBeUndefined();
+
+            expect(writer.detailOfLastWrite()?.refused).toBe(refused);
+            expect(writer.detailOfLastWrite()?.reason).toBeDefined();
+            expect(writer.detailOfLastWrite()?.raw).toBeUndefined();
+        });
+
+        it('keeps nothing as refused when the answer aired', async () => {
+            const { writer } = build();
+
+            await writer.write({ kind: TALK_BREAK_KIND, previous });
+
+            expect(writer.detailOfLastWrite()?.refused).toBeUndefined();
+        });
+
         it('forgets the last write before starting the next one', async () => {
             const { writer } = build({ values: { [MODEL_WRITER_KEYS.enabled]: false } });
 

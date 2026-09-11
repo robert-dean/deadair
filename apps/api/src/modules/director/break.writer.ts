@@ -591,6 +591,15 @@ export interface WriteDetail {
     prompt?: unknown;
     /** The answer before the station tidied it. Only when the operator asked for it to be kept. */
     raw?: string;
+    /**
+     * The answer the station REFUSED, as the writer was given it, on a write that declined.
+     *
+     * Kept whatever `llm.captureWrites` says, unlike {@link raw}: that setting is for an evening and
+     * carries the whole prompt, while this is one break's worth of words and is the only evidence
+     * for the {@link reason} beside it. An audition exists to read declines, and one whose declined
+     * text depended on a debugging switch could say "it read a sample line back" and never which.
+     */
+    refused?: string;
 }
 
 export abstract class BreakWriter {

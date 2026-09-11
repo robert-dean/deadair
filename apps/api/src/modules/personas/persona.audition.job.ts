@@ -351,12 +351,21 @@ const busyModel = (attempts: readonly { outcome: string; code?: string }[]): boo
  * is written the reason already says what happened in words, and a code on the row would be a second
  * spelling of it for nobody.
  */
-function toAttempt(attempt: { writer: string; outcome: string; written?: { script: string }; reason?: string; durationMs: number }): AuditionAttempt {
+function toAttempt(attempt: {
+    writer: string;
+    outcome: string;
+    written?: { script: string };
+    reason?: string;
+    durationMs: number;
+    detail?: { refused?: string };
+}): AuditionAttempt {
     return {
         writer: attempt.writer,
         outcome: attempt.outcome,
         durationMs: attempt.durationMs,
         ...(attempt.written === undefined ? {} : { script: attempt.written.script }),
         ...(attempt.reason === undefined ? {} : { reason: attempt.reason }),
+        // Only on a decline: a written attempt's words are `script`, and a failed one produced none.
+        ...(attempt.outcome === 'declined' && attempt.detail?.refused !== undefined ? { refused: attempt.detail.refused } : {}),
     };
 }

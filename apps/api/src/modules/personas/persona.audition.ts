@@ -60,6 +60,12 @@ export interface AuditionAttempt {
     durationMs: number;
     script?: string;
     reason?: string;
+    /**
+     * The words a declined writer produced and the station refused. What {@link reason} is ABOUT, so
+     * an operator reading "read a sample line back" can see which line. Kept on the row only: the
+     * console does not draw it yet. See `WriteDetail.refused`.
+     */
+    refused?: string;
 }
 
 /**

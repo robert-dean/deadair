@@ -89,3 +89,28 @@ html[data-theme='dark'] {
     color: var(--da-phosphor);
     margin-bottom: 0.75rem;
 }
+
+/*
+ * A screenshot in the docs. The pages are CommonMark, so a figure is an image followed on the next
+ * line by an italic caption, and both land in one paragraph: the caption is the `em` right after the
+ * `img`, and is set the way the front page sets a figcaption.
+ */
+.theme-doc-markdown p > img {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin: 1.5rem 0 0;
+    border: 1px solid var(--da-border-strong);
+    border-radius: 6px;
+}
+
+.theme-doc-markdown p > img + em {
+    display: block;
+    margin: 0.75rem 0 1.5rem;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.72rem;
+    font-style: normal;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--da-text-dimmed);
+}

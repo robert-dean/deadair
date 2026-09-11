@@ -62,7 +62,7 @@ pydantic==2.13.1
 # have a GPU. The CPU build is 176 MB and exists only on this index.
 #
 # **The versions are pinned WITHOUT `+cpu`, and that is deliberate rather than
-# sloppy.** The obvious `torch==2.9.1+cpu` builds on x86_64 and fails outright on
+# sloppy.** The obvious `torch==2.12.1+cpu+cpu` builds on x86_64 and fails outright on
 # arm64, because the `+cpu` local version is published for x86_64 and Windows
 # only -- on aarch64 there is no CUDA build to distinguish it from, so the plain
 # wheel IS the CPU wheel. Pinning the local version therefore makes the file
@@ -83,7 +83,7 @@ pydantic==2.13.1
 # because beat_this imports it for its log-mel front end; nothing loads audio
 # through it.
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.9.1
+torch==2.12.1+cpu
 torchaudio==2.9.1
 einops==0.8.2
 rotary-embedding-torch==0.9.1

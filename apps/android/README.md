@@ -269,11 +269,19 @@ does:
 4. **Choose the countries** on the production track (Countries / regions). A production release
    cannot be created without them, and until one exists "Send for review" stays greyed out: an app
    that has only ever been on internal testing has no reviewed track for its listing to go with.
-5. **Promote** it: from `internal` to `production`. The FIRST production release is `completed`,
-   because Play has no staged rollout for a first release; it reaches everybody in those countries
-   the moment Google approves it, and the review can take days. Turn on Managed publishing first
-   if the moment it goes live should be yours rather than the reviewer's. Every later release is
-   `inProgress` at `user_fraction` 0.2.
+5. **Promote** it: from `internal` to `production`. The FIRST one is status `draft`, because an
+   app Play has never published is a "draft app" and the API refuses anything else on it ("Only
+   releases with status draft may be created on draft app", measured). Then, in the console:
+   Production → Releases → Edit release → Next → Save, and Publishing overview → Submit changes
+   for review, which sends the release, the listing and the declarations together. Play has no
+   staged rollout for a first release, so it reaches everybody in those countries the moment
+   Google approves it, and the review can take days; turn on Managed publishing first if that
+   moment should be yours. Every later release is promoted as `inProgress` at `user_fraction` 0.2.
+
+   Play runs quick checks before it sends anything, and on 2026-09-11 they reported the GitHub
+   privacy policy URL as a 404 while it answered 200 to every agent tried, Googlebot's included.
+   "I have fixed issues with my privacy policy page" cleared it. If it comes back, move the
+   policy to a page on deadair.radio rather than arguing with the check.
 6. **Widen** an update with promote, `production` on both sides: `inProgress` at 0.5, then
    `completed`. If Android vitals shows crashes or ANRs the build did not have on internal,
    `halted` instead, and the fix goes out as a new build through the same steps.

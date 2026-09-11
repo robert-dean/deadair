@@ -1,0 +1,23 @@
+version: 2
+
+updates:
+    # The workflows' actions, and nothing else yet. Every action that is not GitHub's own is pinned to
+    # a commit with its version in a trailing comment, because a tag is a pointer its owner can move,
+    # and some of these actions are handed the registry token and the Play service account. A pin
+    # nobody moves goes stale, so this is what moves them, comment included.
+    #
+    # One pull request a week for all of them, and nothing younger than a week, which is the same
+    # caution pnpm's minimum release age applies to packages: a compromised release is usually noticed
+    # and pulled inside a few days.
+    - package-ecosystem: github-actions
+      directory: /
+      schedule:
+          interval: weekly
+      cooldown:
+          default-days: 7
+      groups:
+          actions:
+              patterns:
+                  - '*'
+      commit-message:
+          prefix: ci

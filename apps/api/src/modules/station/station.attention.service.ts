@@ -34,7 +34,7 @@ import type { StationAttention } from './types/station.types.js';
  *
  * ## The silence comes through `getStatus`
  *
- * Rather than diagnosing again here, which would be a second composition of ten gates and a second
+ * Rather than diagnosing again here, which would be a second composition of eleven gates and a second
  * set of sentences. The status call is what the console already polls for the transport strip, so
  * this is the same answer arriving by a second road rather than a different one.
  */

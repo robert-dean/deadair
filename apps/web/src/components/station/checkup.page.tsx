@@ -67,7 +67,7 @@ export function CheckupPage() {
                     <Stack gap="xs">
                         <Group gap="sm" wrap="wrap">
                             {/* The station's own verdict rather than a second one worked out here.
-                                It composes ten gates in causal order and words the answer, and a
+                                It composes eleven gates in causal order and words the answer, and a
                                 sentence of our own would be a thing to disagree with it.
 
                                 Read through `readSilence`, which is the same reading the tally in

@@ -31,6 +31,9 @@ on:
                     - alpha
                     - beta
                     - production
+            # `inProgress` is a staged rollout and takes `user_fraction`. `halted` stops one where it
+            # stands and is promote-only, with the same track on both sides; so is widening one,
+            # which is promote again with a larger fraction, and finishing it, which is `completed`.
             status:
                 description: Release status on that track
                 type: choice
@@ -38,6 +41,12 @@ on:
                 options:
                     - completed
                     - draft
+                    - inProgress
+                    - halted
+            user_fraction:
+                description: 'inProgress only: share of users to reach, above 0 and below 1 (0.2 is 20%)'
+                type: string
+                default: ''
             from_track:
                 description: 'promote only: track to take the build FROM'
                 type: choice
@@ -66,6 +75,27 @@ jobs:
         timeout-minutes: 30
 
         steps:
+            # Before anything is built, so a mistyped fraction costs seconds rather than a ten-minute
+            # build that then fails to upload. The promote job leaves this to the script.
+            - name: Check the rollout
+              env:
+                  STATUS: ${{ inputs.status }}
+                  FRACTION: ${{ inputs.user_fraction }}
+              run: |
+                  if [ "$STATUS" = halted ]; then
+                      echo "::error::halted stops a rollout that is already in Play. Run promote, with the same track on both sides."
+                      exit 1
+                  fi
+                  if [ "$STATUS" = inProgress ]; then
+                      if ! awk -v f="$FRACTION" 'BEGIN { exit !(f ~ /^0?\.[0-9]+$/ && f > 0 && f < 1) }'; then
+                          echo "::error::inProgress needs a user_fraction above 0 and below 1, such as 0.2."
+                          exit 1
+                      fi
+                  elif [ -n "$FRACTION" ]; then
+                      echo "::error::user_fraction applies only to inProgress. $STATUS reaches everybody on the track."
+                      exit 1
+                  fi
+
             # `fetch-depth: 0` rather than the shallow default, and it is load-bearing: `versionCode`
             # is `git rev-list --count HEAD`, and a shallow checkout answers 1. Publishing from one
             # would upload version code 1 and every later release would be rejected as lower.
@@ -153,6 +183,8 @@ jobs:
                   # `tracks`, plural: the singular is deprecated and the action warns on it.
                   tracks: ${{ inputs.track }}
                   status: ${{ inputs.status }}
+                  # Empty unless staged; the action reads an empty input as unset.
+                  userFraction: ${{ inputs.status == 'inProgress' && inputs.user_fraction || '' }}
 
     # Promotion touches no artifact, so this job is handed no signing key and builds nothing. It
     # needs the checkout only for the script, and not even a deep one: there is no version code to
@@ -179,10 +211,12 @@ jobs:
             - name: Promote
               env:
                   PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+                  USER_FRACTION: ${{ inputs.user_fraction }}
               run: |
                   python3 apps/android/tools/promote-play-release.py \
                       --package com.maroonedsoftware.deadair \
                       --from-track '${{ inputs.from_track }}' \
                       --to-track '${{ inputs.track }}' \
                       --status '${{ inputs.status }}' \
-                      ${{ inputs.version_code != '' && format('--version-code {0}', inputs.version_code) || '' }}
+                      ${{ inputs.version_code != '' && format('--version-code {0}', inputs.version_code) || '' }} \
+                      ${USER_FRACTION:+--user-fraction "$USER_FRACTION"}

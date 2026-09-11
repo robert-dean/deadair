@@ -1,21 +1,30 @@
 #!/usr/bin/env python3
 """Move a build that is already in Play, without rebuilding it.
 
-Two things the upload path cannot do, because it can only publish something new:
+Three things the upload path cannot do, because it can only publish something new:
 
   * make a draft live on the track it is already on
   * carry a build from one track to a wider one
+  * move a staged rollout: widen it, halt it, or finish it
 
-Both are the same API call — a track's releases are a list of version codes with a status, so
+All three are the same API call — a track's releases are a list of version codes with a status, so
 "promote" is writing that list somewhere else, or writing it back with a different status. No
 artifact is uploaded and no signing key is involved, which is why the workflow runs this in a job
 that is handed neither.
+
+A staged rollout is a release with status `inProgress` and a `userFraction`. Widening it is writing
+it back with a larger fraction, halting it is writing it back as `halted`, and finishing it is
+writing it back as `completed`. Play needs only that one release in the request, not the completed
+one the rest of the users are still on.
 
 Credentials come from PLAY_SERVICE_ACCOUNT_JSON, the key's JSON itself rather than a path, which is
 the shape a CI secret already has.
 
     promote-play-release.py --package com.example.app --from-track internal --to-track internal \
         --status completed [--version-code 1288]
+
+    promote-play-release.py --package com.example.app --from-track production --to-track production \
+        --status inProgress --user-fraction 0.5
 
 With no --version-code it takes whatever is on the source track, which is almost always what you
 mean and is the difference between this being one command and being a lookup followed by a command.
@@ -55,7 +64,16 @@ def main():
     p.add_argument('--to-track', default='internal')
     p.add_argument('--status', default='completed', choices=['completed', 'draft', 'halted', 'inProgress'])
     p.add_argument('--version-code', type=int, default=None)
+    p.add_argument('--user-fraction', type=float, default=None)
     args = p.parse_args()
+
+    # Checked before any credentials are read, because the API's own refusal arrives after an edit
+    # has been opened and names the field without saying which status wanted it.
+    if args.status == 'inProgress':
+        if args.user_fraction is None or not 0 < args.user_fraction < 1:
+            fail('inProgress needs a --user-fraction above 0 and below 1, such as 0.2.')
+    elif args.user_fraction is not None:
+        fail(f'--user-fraction applies only to inProgress. {args.status} does not take one.')
 
     raw = os.environ.get('PLAY_SERVICE_ACCOUNT_JSON', '').strip()
     if not raw:
@@ -82,9 +100,12 @@ def main():
             fail(f'Version code {args.version_code} is not on the {args.from_track} track. There: {available}')
 
     codes = chosen.get('versionCodes') or []
-    print(f'promoting {codes} from {args.from_track} ({chosen.get("status")}) to {args.to_track} ({args.status})')
+    target = args.status if args.user_fraction is None else f'{args.status} at {args.user_fraction:.0%}'
+    print(f'promoting {codes} from {args.from_track} ({chosen.get("status")}) to {args.to_track} ({target})')
 
     release = {'versionCodes': codes, 'status': args.status}
+    if args.user_fraction is not None:
+        release['userFraction'] = args.user_fraction
     # Carried rather than dropped: notes belong to the build, not to the track it sits on.
     if chosen.get('releaseNotes'):
         release['releaseNotes'] = chosen['releaseNotes']
@@ -96,7 +117,7 @@ def main():
         f'Writing the {args.to_track} track',
     )
     check(session.post(f'{base}/{edit}:commit'), 'Committing the edit')
-    print(f'done: {codes} is {args.status} on {args.to_track}')
+    print(f'done: {codes} is {target} on {args.to_track}')
 
 
 if __name__ == '__main__':

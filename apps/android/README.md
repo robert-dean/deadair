@@ -192,6 +192,13 @@ Promote exists because `versionCode` is the commit count. A build is uploadable 
 "make yesterday's build live" cannot be done by running publish again — there is no new version code
 to give it. That is a property of the scheme rather than a limitation of the workflow.
 
+**A staged rollout** is status `inProgress` with a `user_fraction` between 0 and 1, and it is how a
+build reaches production: to a fifth of users first, where a crash costs a fifth of the reviews.
+Every later step is promote with `production` on both sides and the version code left blank. Widen
+it with `inProgress` and a larger fraction, stop it where it stands with `halted`, and finish it
+with `completed`. Both modes refuse a fraction on any other status, and publish refuses `halted`,
+before anything is built.
+
 It needs five repository secrets. Four come from the key you already have:
 
 ```

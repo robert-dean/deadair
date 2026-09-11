@@ -7756,6 +7756,9 @@ components:
                         type: string
                         minLength: 1
                         maxLength: 100
+                usesTrackFetcher:
+                    type: boolean
+                    description: "Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not"
                 status:
                     '$ref': '#/components/schemas/PluginStatus'
                 enabled:

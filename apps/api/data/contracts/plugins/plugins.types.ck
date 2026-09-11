@@ -71,6 +71,7 @@ contract PluginSummary: {
     name: string(min=1, max=200)
     version: string(min=1, max=100)
     capabilities: array(string(min=1, max=100))
+    usesTrackFetcher?: boolean # Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not
     status: PluginStatus
     enabled: boolean
     description?: string(max=2000)

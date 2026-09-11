@@ -315,6 +315,8 @@ data class PluginSummary(
     val name: String,
     val version: String,
     val capabilities: List<String>,
+    /** Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not */
+    val usesTrackFetcher: Boolean? = null,
     val status: PluginStatus,
     val enabled: Boolean,
     val description: String? = null,
@@ -337,6 +339,8 @@ data class PluginSummaryInput(
     val name: String,
     val version: String,
     val capabilities: List<String>,
+    /** Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not */
+    val usesTrackFetcher: Boolean? = null,
     val status: PluginStatus,
     val enabled: Boolean,
     val description: String? = null,
@@ -355,6 +359,8 @@ data class PluginDetail(
     val name: String,
     val version: String,
     val capabilities: List<String>,
+    /** Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not */
+    val usesTrackFetcher: Boolean? = null,
     val status: PluginStatus,
     val enabled: Boolean,
     val description: String? = null,
@@ -380,6 +386,8 @@ data class PluginDetailInput(
     val name: String,
     val version: String,
     val capabilities: List<String>,
+    /** Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not */
+    val usesTrackFetcher: Boolean? = null,
     val status: PluginStatus,
     val enabled: Boolean,
     val description: String? = null,

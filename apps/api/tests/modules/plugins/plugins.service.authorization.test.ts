@@ -446,6 +446,40 @@ describe('PluginsService: lastError and nextProbeAt on listPlugins', () => {
     });
 });
 
+// The console draws the playback authorization card from this, and it drew it from the `stream`
+// capability before: Navidrome declares that too, by minting its own URLs, and was offered a
+// Spotify fetcher login it has no use for.
+describe('PluginsService: usesTrackFetcher on listPlugins', () => {
+    const NAVIDROME_ID = 'deadair.navidrome';
+
+    it('is true only for a plugin whose manifest declares the trackFetcher permission', async () => {
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(
+            record(SPOTIFY_ID, {
+                manifest: manifest({
+                    capabilities: ['catalog', 'stream', 'oauth'],
+                    permissions: { network: [], storage: false, oauth: true, trackFetcher: true },
+                }),
+            }),
+        );
+        registry.upsert(record(NAVIDROME_ID, { manifest: manifest({ id: NAVIDROME_ID, capabilities: ['catalog', 'stream', 'enrichment'] }) }));
+
+        const list = await service.listPlugins();
+
+        expect(list.find(p => p.id === SPOTIFY_ID)?.usesTrackFetcher).toBe(true);
+        expect(list.find(p => p.id === NAVIDROME_ID)?.usesTrackFetcher).toBe(false);
+    });
+
+    it('is false for a quarantined candidate with no manifest to read', async () => {
+        const { service, registry } = makeService(userActor('u-admin', ['admin']));
+        registry.upsert(record(OTHER_ID, { status: 'failed', manifest: undefined, instance: undefined, error: 'manifest did not parse' }));
+
+        const list = await service.listPlugins();
+
+        expect(list.find(p => p.id === OTHER_ID)?.usesTrackFetcher).toBe(false);
+    });
+});
+
 /**
  * The manual replacement for the `plugin_configs` notify listener this run
  * removed: nothing watches the table any more, so an out-of-band edit is

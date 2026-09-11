@@ -32,7 +32,15 @@ function serviceWith(testConnection: () => Promise<{ ok: boolean; message?: stri
         id: PLUGIN_ID,
         dir: '/plugins/example',
         status: 'active',
-        manifest: { id: PLUGIN_ID, name: 'Example', version: '1', capabilities: [], apiVersion: '^1.0.0', configFields: [] },
+        manifest: {
+            id: PLUGIN_ID,
+            name: 'Example',
+            version: '1',
+            capabilities: [],
+            apiVersion: '^1.0.0',
+            permissions: { network: [], storage: false, oauth: false },
+            configFields: [],
+        },
         instance: { testConnection },
     } as unknown as PluginRecord);
     const invoker = new PluginInvoker(registry, stubPluginLog().log);

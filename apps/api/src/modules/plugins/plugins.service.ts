@@ -880,6 +880,9 @@ export class PluginsService {
             name: manifest?.name ?? record.id,
             version: manifest?.version ?? UNKNOWN,
             capabilities: manifest?.capabilities ?? [],
+            // The permission rather than the `stream` capability: Navidrome streams too, by minting
+            // its own URLs, and has nothing for the station's fetcher to be authorized for.
+            usesTrackFetcher: manifest?.permissions.trackFetcher === true,
             status: record.status,
             enabled: readModel.enabled,
             // A quarantined candidate has no manifest to describe itself with,

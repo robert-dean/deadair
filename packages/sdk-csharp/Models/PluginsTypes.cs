@@ -484,6 +484,11 @@ public sealed record PluginSummary
     [JsonPropertyName("capabilities")]
     public required List<string> Capabilities { get; init; }
 
+    /// <summary>Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not</summary>
+    [JsonPropertyName("usesTrackFetcher")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? UsesTrackFetcher { get; init; }
+
     [JsonPropertyName("status")]
     public required PluginStatus Status { get; init; }
 
@@ -536,6 +541,11 @@ public sealed record PluginSummaryInput
     [JsonPropertyName("capabilities")]
     public required List<string> Capabilities { get; init; }
 
+    /// <summary>Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not</summary>
+    [JsonPropertyName("usesTrackFetcher")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? UsesTrackFetcher { get; init; }
+
     [JsonPropertyName("status")]
     public required PluginStatus Status { get; init; }
 
@@ -577,6 +587,11 @@ public sealed record PluginDetail
 
     [JsonPropertyName("capabilities")]
     public required List<string> Capabilities { get; init; }
+
+    /// <summary>Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not</summary>
+    [JsonPropertyName("usesTrackFetcher")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? UsesTrackFetcher { get; init; }
 
     [JsonPropertyName("status")]
     public required PluginStatus Status { get; init; }
@@ -639,6 +654,11 @@ public sealed record PluginDetailInput
 
     [JsonPropertyName("capabilities")]
     public required List<string> Capabilities { get; init; }
+
+    /// <summary>Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not</summary>
+    [JsonPropertyName("usesTrackFetcher")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? UsesTrackFetcher { get; init; }
 
     [JsonPropertyName("status")]
     public required PluginStatus Status { get; init; }

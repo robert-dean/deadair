@@ -12,6 +12,7 @@ import {
     contradictsDayPart,
     dayGreeting,
     dayPart,
+    namesWrongSky,
     namesWrongTimeOfDay,
     roughTime,
     saysTime,
@@ -427,5 +428,114 @@ describe('namesWrongTimeOfDay', () => {
 
     it('says nothing about a script that named no time of day at all', () => {
         expect(namesWrongTimeOfDay('That was Blue Monday, from New Order.', at(16, 30), UTC)).toBeUndefined();
+    });
+});
+
+// The time said with no word for it. A `conspiracy` audition at 15:48 in New York passed "Night
+// falls, my listeners" and "Sunrise bleeds, my listeners" in the same run that refused "tonight"
+// twice, because neither of the checks above reads what the sky is doing.
+describe('namesWrongSky', () => {
+    const NEW_YORK = 'America/New_York';
+    /** The audition's own instant: 15:48 on 2026-09-11, New York. */
+    const AUDITION = Date.parse('2026-09-11T15:48:00-04:00');
+
+    describe('refuses the sky stated as now, at the wrong time', () => {
+        it('refuses night falling at a quarter to four, which is the break that passed', () => {
+            expect(namesWrongSky('Night falls, my listeners—Bush’s “Glycerine” rolls in.', AUDITION, NEW_YORK)).toBe('night falls');
+        });
+
+        it('refuses a sunrise at a quarter to four, which passed beside it', () => {
+            expect(namesWrongSky('Sunrise bleeds, my listeners—dust swirling, a quiet storm.', AUDITION, NEW_YORK)).toBe('sunrise bleeds');
+        });
+
+        // From the live station's written scripts. The verb is never the same twice, which is why
+        // an opener takes any present tense rather than a list of them.
+        it('refuses the openers the station has already aired in the daytime', () => {
+            expect(namesWrongSky('Night settles over Deadair, and my listeners, I bring you the final chord.', at(9, 0), UTC)).toBe('night settles');
+            expect(namesWrongSky('Sunrise cracks over the horizon just as we glide from Boston.', at(11, 0), UTC)).toBe('sunrise cracks');
+            expect(namesWrongSky('Staying up feels like a second pulse. Night stretches.', at(10, 0), UTC)).toBe('night stretches');
+        });
+
+        it('refuses the same claims made in the middle of a sentence', () => {
+            expect(namesWrongSky('And as the night falls on Deadair, here is Slayer.', at(14, 0), UTC)).toBe('the night falls');
+            expect(namesWrongSky('It rolls out over this night, my friends.', at(14, 0), UTC)).toBe('this night');
+            expect(namesWrongSky('The sun’s coming up, my friends, and here is Boston.', at(14, 0), UTC)).toBe("the sun's coming up");
+            expect(namesWrongSky('Dawn is breaking over the transmitter.', at(14, 0), UTC)).toBe('dawn is breaking');
+        });
+    });
+
+    describe('takes the same words when they are true', () => {
+        it('takes night falling in the evening and late at night', () => {
+            expect(namesWrongSky('Night falls, my listeners.', at(20, 0), UTC)).toBeUndefined();
+            expect(namesWrongSky('Night falls, my listeners.', at(2, 0), UTC)).toBeUndefined();
+        });
+
+        it('takes a sunrise in the early morning', () => {
+            expect(namesWrongSky('Sunrise bleeds, my listeners.', at(6, 30), UTC)).toBeUndefined();
+        });
+
+        // Night is judged by the daypart and not by an hour of its own, so it refuses exactly where
+        // "tonight" is refused and nowhere else. Two lines between afternoon and evening would be two
+        // answers to one question.
+        it('draws the night line where the daypart table draws it', () => {
+            expect(namesWrongSky('Night falls, my listeners.', at(17, 59), UTC)).toBe('night falls');
+            expect(namesWrongSky('Night falls, my listeners.', at(18, 0), UTC)).toBeUndefined();
+        });
+
+        it('reads the station zone rather than the hosts', () => {
+            // 19:48 UTC is a quarter to four in New York and a quarter to nine in London.
+            expect(namesWrongSky('Night falls, my listeners.', AUDITION, 'Europe/London')).toBeUndefined();
+        });
+    });
+
+    // The host's whole story is a night, told in the past with a determiner in front of it. Refusing
+    // that would refuse the character for the thing he is.
+    describe('asks nothing of a night that is not now', () => {
+        it('takes the story told in the past tense', () => {
+            for (const script of [
+                'That night they took me, and the lawn never grew back.',
+                'The night was black, the streetlights blinked, and then the light.',
+                'Night fell over the wheat field in nineteen ninety-seven.',
+                'The night of the abduction still lingers in me.',
+                'The night aliens took me, my watch stopped.',
+            ]) {
+                expect(namesWrongSky(script, AUDITION, NEW_YORK), script).toBeUndefined();
+            }
+        });
+
+        it('takes a present tense about later or about a habit', () => {
+            expect(namesWrongSky('It stutters on the airwaves long after the night falls.', AUDITION, NEW_YORK)).toBeUndefined();
+            expect(namesWrongSky('Beats that will have you humming till night falls.', AUDITION, NEW_YORK)).toBeUndefined();
+            expect(namesWrongSky('Stay with me until the sun is coming up.', AUDITION, NEW_YORK)).toBeUndefined();
+        });
+
+        // Each of these was in the same audition, or in the station's own daytime scripts, and each
+        // is a picture or a mood rather than a clock. See `namesWrongSky` for why each was left out.
+        it('takes imagery that says nothing about the hour', () => {
+            for (const script of [
+                'The sound lingers like ash under moonlight.',
+                'Shiver in the dark, my listeners—Angel Of Death blares out.',
+                'Whispers crackle, my listeners, the moon drifts over a black-sided sky.',
+                'A station that keeps the night alive.',
+                'It will keep you dancing all night long!',
+                'That chorus hits like a sunrise on a skateboard ramp.',
+                'Those riffs remind me of the sun rising over the Autobahn.',
+                'Bark at the Moon just hit the airwaves.',
+            ]) {
+                expect(namesWrongSky(script, AUDITION, NEW_YORK), script).toBeUndefined();
+            }
+        });
+    });
+
+    // The trade, pinned so it stays a decision. A story told in the historic present reads exactly
+    // like a claim within its own sentence, and it goes to the floor. One sentence lost, against a
+    // listener told at a quarter to four that night is falling.
+    it('refuses a story told in the historic present, which is the price', () => {
+        expect(namesWrongSky('Nineteen ninety-seven. Night falls. Then the lights.', AUDITION, NEW_YORK)).toBe('night falls');
+    });
+
+    it('asks nothing of a break that was never told when it airs', () => {
+        expect(namesWrongSky('Night falls, my listeners.', undefined, NEW_YORK)).toBeUndefined();
+        expect(namesWrongSky('Night falls, my listeners.', AUDITION, undefined)).toBeUndefined();
     });
 });

@@ -969,6 +969,11 @@ const HOSTS = [
         // the spread the note above could not account for, and it is carried by every prompt
         // regardless of kind because a quirk is.
         //
+        // (There are THREE now. `namesWrongSky` came after a 2026-09-11 audition at 15:48 passed
+        // "Night falls, my listeners" and "Sunrise bleeds, my listeners". It refuses the sky stated as
+        // the present, and not night in his story, which he tells in the past tense. That is a guard
+        // change and not a reason to put a prohibition back here, on the argument below.)
+        //
         // So the prohibition is gone rather than being widened to cover `midnight`. He defers to the
         // daypart the station already hands him, in his own words, like any other given fact — which
         // is what every other sheet does by saying nothing about it at all. The abduction keeps the

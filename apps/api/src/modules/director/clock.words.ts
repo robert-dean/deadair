@@ -208,6 +208,145 @@ const holdsAt = (hour: number, window: { fromHour: number; untilHour: number }):
     window.fromHour <= window.untilHour ? hour >= window.fromHour && hour < window.untilHour : hour >= window.fromHour || hour < window.untilHour;
 
 /**
+ * The sky a script described as happening NOW that the clock says is not, or `undefined`.
+ *
+ * ## The failure it exists for
+ *
+ * The other two checks look for a WORD that names the time. A model told "this afternoon" can also
+ * say what the sky is doing, and neither of them reads that. Measured on a `conspiracy` audition
+ * run at 15:48 in New York on 2026-09-11: "Night falls, my listeners" and "Sunrise bleeds, my
+ * listeners" both passed, in the same run that correctly refused "tonight" twice and "midnight" once.
+ * The live station's 1302 model-written scripts have the same shape: "Night settles over Deadair" at
+ * nine in the morning and "Sunrise cracks over the horizon" at eleven. This character opens a break
+ * on "<noun> <verb>s, my listeners" as a habit, so whenever the noun is a time of day the opening
+ * says what time it is.
+ *
+ * ## Why it is phrases in the present tense and not the words
+ *
+ * The same 1302 scripts say `night` 262 times with `moon`, `dark`, `dawn` and `sunset` beside it, and
+ * almost none of those are claims about now. Some are the host's own story, told in the past tense
+ * with a determiner: "that night they took me", "the night was black", "the night of the
+ * abduction". Some are similes: "like moonlight over a blistered lawn", "a sunrise on a skateboard
+ * ramp". Some are titles, or said in passing: "Bark at the Moon", "Rainbow in the Dark", "a
+ * late-night drive". A check on the word would refuse all of them. What separates the claims from
+ * the rest is GRAMMAR: the sky is the subject of a present-tense verb ("night falls", "the sun is
+ * coming up"), or a bare time noun opens a sentence with a present-tense verb after it ("Sunrise
+ * bleeds"). {@link SKY_NOW} holds those shapes and nothing looser.
+ *
+ * ## What it does not catch, deliberately
+ *
+ * - **"Under the moon", "moonlight".** The moon is up in the daytime on about half the days of a
+ *   month, so "the moon drifts over" is not wrong at four in the afternoon. Every daytime
+ *   `moonlight` in the corpus is a simile ("lingers like ash under moonlight").
+ * - **"In the dark".** It describes the room and not the hour ("shiver in the dark"). This
+ *   character's own welcome describes his studio as black, and every other daytime use in the corpus
+ *   is an idiom or a title ("dancing in the dark", "Shot in the Dark").
+ * - **"Into the night", "all night long", "through the night".** These are said as hype and mood.
+ *   They are loose enough that refusing them would cost more good breaks than wrong ones.
+ * - **Sunset and dusk.** Sunset falls in the afternoon half of the year and in the evening the other
+ *   half, so no one daypart could judge it, and nothing in the corpus claimed it as now.
+ * - **A present tense after `until`, `before`, `after`, `when` or `once`** ("humming till night
+ *   falls", "long after the night falls"). That is about a later time or a habit, not about now.
+ *
+ * ## What it costs
+ *
+ * A story told in the historic present ("Nineteen ninety-seven. Night falls. Then the lights.") is
+ * refused, because in its own sentence it reads exactly like a claim. So is an opening like "Night
+ * owls, this one is for you", where the heuristic takes a plural noun for a verb, and a record
+ * called "Night Moves" named at the start of a sentence when it is not one of the records the break
+ * was shown. Each of these costs one sentence to the floor. Against that, the station stops telling
+ * a listener at a quarter to four that night is falling. That is the same trade
+ * {@link DAYPART_LEADS} makes for "the morning after".
+ *
+ * Read by the break guard and not by `checkBeat`. A phone-in's callers tell their stories in the
+ * historic present as a matter of course, and on a production a false refusal costs a rewrite of a
+ * beat that has a caller in it.
+ *
+ * Answers `undefined` without the slot instant or the zone, on {@link namesWrongTimeOfDay}'s bargain.
+ */
+export function namesWrongSky(script: string, at: number | undefined, zone: string | undefined): string | undefined {
+    if (at === undefined || zone === undefined) return undefined;
+
+    // Lower-cased for `saysTime`'s reason, and the curly apostrophes folded so "the sun’s coming up"
+    // reads like the straight one.
+    const text = script.toLowerCase().replace(/[‘’ʼ′]/g, "'");
+
+    for (const sky of SKY_NOW) {
+        if (sky.holds(at, zone)) continue;
+
+        for (const claim of sky.claims) {
+            const said = claim.exec(text)?.[1];
+            if (said !== undefined) return said.replace(/\s+/g, ' ');
+        }
+    }
+
+    return undefined;
+}
+
+/**
+ * The words in front of a present tense that make it about later or about a habit, not about now.
+ *
+ * A lookbehind to go in front of a claim, so "till night falls" and "long after the night falls"
+ * are not read as the script saying night is falling now. `as` is left out: "as night falls" is
+ * the script saying it is falling now.
+ */
+const NOT_NOW = String.raw`(?<!\b(?:until|till|til|before|after|once|when|whenever)\s+(?:the\s+)?)`;
+
+/**
+ * A bare time noun opening a sentence, followed by a present-tense verb.
+ *
+ * "Sunrise bleeds", "Night settles over Deadair", "Night stretches." There is no tagger, so the
+ * present tense is approximated by a word ending in `s`. That keeps it open to whatever verb the
+ * model picks, and those are never the same twice ("bleeds", "hums", "cracks"). `was` is the one
+ * such word that turns this into the past. The noun must be BARE: the host tells his story with a
+ * determiner ("the night aliens took me", "that night"), and "the" is the word that would let a
+ * plural noun after it be read as a verb.
+ *
+ * A sentence starts at the top of the script or after a stop, a colon, a semicolon or a dash. The
+ * dash is there because this model uses it between sentences constantly.
+ */
+const opens = (nouns: string): RegExp => new RegExp(String.raw`(?:^|[.!?;:—–…\n])\s*["“”(]*((?:${nouns})\s+(?!was(?![a-z]))[a-z]+s)(?![a-z'])`);
+
+/**
+ * Shapes that state the time by the sky, and when each one is true.
+ *
+ * Night is judged by the DAYPART rather than by an hour window. "Night falls" makes the same claim as
+ * "tonight", so it is refused whenever "tonight" is, which is whenever the prompt said the morning or
+ * the afternoon. That is also what the model was told: the check reads {@link dayPart} for the same
+ * instant. An hour window of its own would put a second line between afternoon and evening, and the
+ * two lines would disagree.
+ *
+ * Sunrise is a POINT in the day, so it takes an hour window as {@link TIMES_OF_DAY} does. The window
+ * is four to ten because sunrise falls between about four and half past nine across the year
+ * anywhere up to sixty degrees north. The station knows its zone but not its latitude, so the window
+ * has to hold for every station.
+ *
+ * Every shape is in the corpus, or is what this model plainly says next to one that is. `dawn` and
+ * `sunset` are not openers: Dawn is a caller's name and the Sunset Strip is on-topic for a rock
+ * station, and both would take a verb after them.
+ */
+const SKY_NOW: readonly { claims: readonly RegExp[]; holds: (at: number, zone: string) => boolean }[] = [
+    {
+        claims: [
+            new RegExp(
+                String.raw`${NOT_NOW}(?<![a-z])((?:the\s+)?night(?:\s+(?:falls|settles|descends)|(?:\s+is|'s)\s+(?:falling|settling|descending)|(?:\s+has|'s)\s+(?:fallen|settled|descended)))(?![a-z])`,
+            ),
+            /(?<![a-z])(this\s+night)(?![a-z])/,
+            opens('night|nightfall'),
+        ],
+        holds: (at, zone) => stretchOf(dayPart(at, zone).words) === 'night',
+    },
+    {
+        claims: [
+            new RegExp(String.raw`${NOT_NOW}(?<![a-z])(the\s+sun(?:\s+(?:rises|comes\s+up)|(?:\s+is|'s)\s+(?:rising|coming\s+up)))(?![a-z])`),
+            new RegExp(String.raw`${NOT_NOW}(?<![a-z])(dawn(?:\s+breaks|(?:\s+is|'s)\s+breaking)|day(?:\s+is|'s)\s+breaking)(?![a-z])`),
+            opens('sunrise'),
+        ],
+        holds: (at, zone) => holdsAt(wallClock(at, zone).hour, { fromHour: 4, untilHour: 10 }),
+    },
+];
+
+/**
  * Whether a script carries a word, as a word.
  *
  * **{@link saysTime} cannot be used for this and the reason is concrete**: it is `includes`, and

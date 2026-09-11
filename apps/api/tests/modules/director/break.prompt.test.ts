@@ -1510,6 +1510,45 @@ describe('readAnswer, against the half of the day it was told', () => {
         expect(declined?.fault).toBe('wrong-daypart');
     });
 
+    // The third question, which the audition at a quarter to four passed twice. See `namesWrongSky`.
+    describe('when the sky is what said the time', () => {
+        const glycerine = { title: 'Glycerine - 2014 Remastered', artist: 'Bush' };
+        const nightMoves = { title: 'Night Moves', artist: 'Bob Seger' };
+
+        it('declines night falling in the afternoon, and names the words', () => {
+            const declined = writeDecline('Night falls, my listeners—Bush’s “Glycerine” rolls in.', { moment: moment(15), names: [glycerine] });
+
+            expect(declined?.fault).toBe('wrong-daypart');
+            expect(declined?.reason).toContain('it said "night falls"');
+        });
+
+        it('takes the same break in the evening', () => {
+            const script = 'Night falls, my listeners—Bush’s “Glycerine” rolls in.';
+
+            expect(readAnswer(script, { dayPart: at(20), moment: moment(20), names: [glycerine] })).toBe(script);
+        });
+
+        // The name comes out before the sky is read, as it does for every other clock word.
+        it('takes a break that opens on a record it was shown called Night Moves', () => {
+            const script = 'Night Moves, from Bob Seger. That one still stings.';
+
+            expect(readAnswer(script, { moment: moment(15), names: [nightMoves] })).toBe(script);
+            // And the name is the whole of why: unshown, the title reads as night moving now.
+            expect(readAnswer(script, { moment: moment(15) })).toBeUndefined();
+        });
+
+        // The name stripping used to hand back bare words with every stop gone, and an opener cannot
+        // be found in a script with no sentences left in it.
+        it('still finds a sentence opening on the sky after a name was taken out in front of it', () => {
+            const declined = writeDecline('That was Glycerine, from Bush. Sunrise bleeds through the static.', {
+                moment: moment(15),
+                names: [{ title: 'Glycerine', artist: 'Bush' }],
+            });
+
+            expect(declined?.reason).toContain('it said "sunrise bleeds"');
+        });
+    });
+
     it('reports naming nothing ahead of the daypart, because it is the more basic fault', () => {
         // The two orders in `readAnswer` and `writeDecline` have to stay one story, and this is the
         // assertion that holds them together at the position the new check was inserted at.

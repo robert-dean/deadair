@@ -55,7 +55,7 @@ import type { PersonaNotesForPrompt } from '#modules/personas/persona.note.js';
 import type { PersonaStoryForPrompt } from '#modules/personas/persona.story.js';
 import type { SpokenWeather } from '#modules/weather/weather.words.js';
 import type { BreakStory, BreakTrack, BreakWriteRequest } from './break.writer.js';
-import { contradictsDayPart, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
+import { contradictsDayPart, namesWrongSky, namesWrongTimeOfDay, type RoughTime } from './clock.words.js';
 
 /**
  * What makes one KIND of break's prompt different from another's.
@@ -1857,12 +1857,14 @@ const cuesWrongly = (script: string, guard: AnswerGuard): boolean => guard.cues 
  * The measurement behind refusing at all is in {@link contradictsDayPart}. The short version is that
  * the prompt asks and is obeyed most of the time, and the times it is not are all the same word.
  *
- * Two questions rather than one, because a daypart is a STRETCH and some words a break reaches for
+ * Three questions rather than one, because a daypart is a STRETCH and some words a break reaches for
  * name a point inside one — "midday" is the afternoon at ten past twelve and still the afternoon at
  * half past four, so no comparison of stretches will ever separate them. See
- * {@link namesWrongTimeOfDay}. They share this predicate, and through it the `wrong-daypart` fault
- * and its sentence, because they are the same thing to a listener: the station saying what time it
- * is and being wrong.
+ * {@link namesWrongTimeOfDay}. The third is the sky, which names the time without naming a word for
+ * it at all ("Night falls, my listeners" at a quarter to four). See {@link namesWrongSky}, which is
+ * asked here and not of a production, for the reason given there. All three share this predicate,
+ * and through it the `wrong-daypart` fault and its sentence, because they are the same thing to a
+ * listener: the station saying what time it is and being wrong.
  *
  * ## It answers the WORD, and that is the whole of why it is not a boolean
  *
@@ -1882,7 +1884,11 @@ const cuesWrongly = (script: string, guard: AnswerGuard): boolean => guard.cues 
 const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined => {
     const spoken = withoutRecordNames(script, guard);
 
-    return contradictsDayPart(spoken, guard.dayPart) ?? namesWrongTimeOfDay(spoken, guard.moment?.at, guard.moment?.zone);
+    return (
+        contradictsDayPart(spoken, guard.dayPart) ??
+        namesWrongTimeOfDay(spoken, guard.moment?.at, guard.moment?.zone) ??
+        namesWrongSky(spoken, guard.moment?.at, guard.moment?.zone)
+    );
 };
 
 /**
@@ -1918,9 +1924,9 @@ const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined 
  *
  * Names are MATCHED as {@link bareWords}, because a curly apostrophe or a comma inside a title is not
  * a reason to miss it. They are CUT out of the lower-cased text itself, though, and not out of the
- * bare-words copy. The copy threw every stop away, and a check that asks how a sentence OPENS needs
- * them: with no stops left, every word looks like the middle of one sentence. Both checks read the
- * result exactly as they read the bare copy:
+ * bare-words copy. The copy threw every stop away, and {@link namesWrongSky} needs the stops: it
+ * looks for a sentence that OPENS on "Night falls", and with no stops left every word looks like
+ * the middle of one sentence. Both older checks read the result exactly as they read the bare copy:
  * `saysTime` lower-cases before its `includes`, `saysWholeWord` bounds on letters, and the
  * no-records path above always handed them the punctuated script anyway.
  */

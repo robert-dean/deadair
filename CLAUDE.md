@@ -48,8 +48,19 @@ tasks cross more than one of them, and for those the order matters:
 | a plugin, or a capability on the host | `packages/plugin-sdk/CLAUDE.md`, then its `README.md` |
 | the schema | the generated-output rule below first, because the types are not yours to edit |
 
-`docs/todo/` holds work designed against the real tree and then deliberately deferred. **Read it
-before designing a station feature from scratch: the call may already have been made.**
+Work designed against the real tree and then deliberately deferred lives in the
+[Ideas](https://github.com/robert-dean/deadair/discussions/categories/ideas) category of GitHub
+Discussions, labelled by subsystem (`area: director`, `area: render`, and so on). **Read it before
+designing a station feature from scratch: the call may already have been made.** The roadmap is
+#4. It moved there from `docs/todo/` on 2026-09-11, so a comment citing a discussion URL is citing
+what used to be a file. From a session (it needs the network):
+
+```bash
+gh api graphql -f query='{repository(owner:"robert-dean",name:"deadair"){discussions(first:100,categoryId:"DIC_kwDOT1dAaM4DFUWO"){nodes{number title labels(first:5){nodes{name}}}}}}'
+gh api graphql -f query='{repository(owner:"robert-dean",name:"deadair"){discussion(number:37){title body comments(first:10){nodes{body}}}}}'
+```
+
+Read the comments too: the two ideas longer than GitHub's body limit continue in their first one.
 
 The long-form arguments the rest of the tree cites by name live in the scoped files above, each under
 its own heading. There is no separate directory of them, and a comment or a doc that points at one is

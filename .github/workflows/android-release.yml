@@ -1,18 +1,27 @@
 # Publishing the Android listener to Google Play.
 #
-# Deliberately `workflow_dispatch` and NOT a push trigger, which is the one real decision in this
-# file. `release.yml` publishes Docker images on every push to main that changes them, and that is
-# right for images: a tag is overwritten and nobody downstream is counting them. A Play upload is not
-# like that. Every upload burns a version code permanently, appears in the console's release history
-# for good, and on a track with real testers reaches their phones. `versionCode` is the commit count,
-# so a push trigger would technically work and would also ship a build for every README typo.
+# NOT on a push to a branch, which is the one real decision in this file. `release.yml` publishes
+# Docker images on every push to main that changes them, and that is right for images: a tag is
+# overwritten and nobody downstream is counting them. A Play upload is not like that. Every upload
+# burns a version code permanently, appears in the console's release history for good, and on a
+# track with real testers reaches their phones. `versionCode` is the commit count, so a branch
+# trigger would technically work and would also ship a build for every README typo.
 #
-# So this runs when somebody asks for it. Adding `on: push: tags: ['v*']` later is one line, once
-# the manual path has been walked enough times to trust it.
+# So this runs when somebody asks for it, in one of two ways. Run workflow can do anything below.
+# A tag can do exactly one thing: `android-v<versionName>` on a commit already on main builds that
+# commit and publishes it to INTERNAL, completed. No tag reaches production. Getting there is a
+# promote, run by hand once somebody has listened to the build, because nothing automated here plays
+# the minified bundle on a phone; the app's README walks it under "Going to production".
+#
+# `android-v`, not `v`, for the reason `desktop-release.yml` gives for `desktop-v`: the bare `v*`
+# namespace is the station's own releases, and `release.yml` publishes images on it.
 
 name: Android release
 
 on:
+    push:
+        tags:
+            - 'android-v[0-9]*'
     workflow_dispatch:
         inputs:
             mode:
@@ -68,9 +77,15 @@ concurrency:
 permissions:
     contents: read
 
+# Where a publish goes. A tag push has no inputs at all, so it lands on these defaults, and they are
+# the whole of what a tag may do. A click always has both inputs and the defaults never apply.
+env:
+    TRACK: ${{ inputs.track || 'internal' }}
+    STATUS: ${{ inputs.status || 'completed' }}
+
 jobs:
     publish:
-        if: inputs.mode == 'publish'
+        if: github.event_name == 'push' || inputs.mode == 'publish'
         runs-on: ubuntu-latest
         timeout-minutes: 30
 
@@ -79,7 +94,6 @@ jobs:
             # build that then fails to upload. The promote job leaves this to the script.
             - name: Check the rollout
               env:
-                  STATUS: ${{ inputs.status }}
                   FRACTION: ${{ inputs.user_fraction }}
               run: |
                   if [ "$STATUS" = halted ]; then
@@ -104,6 +118,31 @@ jobs:
               with:
                   persist-credentials: false
                   fetch-depth: 0
+
+            # The version is written in one place, `versionName` in `app/build.gradle.kts`, and a tag
+            # that disagrees with it is refused rather than believed: otherwise `android-v0.2.0` could
+            # publish a build whose notes and User-Agent say 0.1.0. Main, because a tag is pushed by
+            # hand and can sit on a commit no pull request ever checked. And main is also what the
+            # version codes count along, so a build from a branch could collide with one from main.
+            - name: Check the tag
+              if: github.event_name == 'push'
+              env:
+                  TAG: ${{ github.ref_name }}
+              run: |
+                  version=$(sed -n 's/^ *versionName = "\(.*\)"$/\1/p' apps/android/app/build.gradle.kts)
+                  if [ -z "$version" ] || [ "$(printf '%s\n' "$version" | wc -l)" -ne 1 ]; then
+                      echo "::error::Could not read one versionName out of apps/android/app/build.gradle.kts."
+                      exit 1
+                  fi
+                  if [ "$TAG" != "android-v$version" ]; then
+                      echo "::error::The tag is $TAG but versionName is $version. Tag android-v$version, or change versionName first."
+                      exit 1
+                  fi
+                  if ! git merge-base --is-ancestor HEAD origin/main; then
+                      echo "::error::$TAG is not on main. Merge the commit first, then tag it there."
+                      exit 1
+                  fi
+                  echo "Publishing $version to $TRACK."
 
             - name: Setup Java
               uses: actions/setup-java@v6
@@ -181,10 +220,10 @@ jobs:
                   # Promotion carries the notes with the build.
                   whatsNewDirectory: apps/android/play/whatsnew
                   # `tracks`, plural: the singular is deprecated and the action warns on it.
-                  tracks: ${{ inputs.track }}
-                  status: ${{ inputs.status }}
+                  tracks: ${{ env.TRACK }}
+                  status: ${{ env.STATUS }}
                   # Empty unless staged; the action reads an empty input as unset.
-                  userFraction: ${{ inputs.status == 'inProgress' && inputs.user_fraction || '' }}
+                  userFraction: ${{ env.STATUS == 'inProgress' && inputs.user_fraction || '' }}
 
     # Promotion touches no artifact, so this job is handed no signing key and builds nothing. It
     # needs the checkout only for the script, and not even a deep one: there is no version code to

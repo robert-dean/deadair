@@ -176,14 +176,29 @@ Keep it true if the app ever gains a dependency that phones home.
 ### Publishing from CI
 
 [`.github/workflows/android-release.yml`](../../.github/workflows/android-release.yml) builds,
-verifies and uploads a signed bundle. It is **manually triggered** — Actions, Android release, Run
-workflow — with a track and a status to choose. It is not on a push trigger on purpose: every
-upload burns a version code permanently and lands in the console's history, and `versionCode` being
-the commit count would otherwise ship a build for every README typo.
+verifies and uploads a signed bundle. It is never triggered by a push to a branch, on purpose:
+every upload burns a version code permanently and lands in the console's history, and `versionCode`
+being the commit count would otherwise ship a build for every README typo. It runs one of two ways.
 
-It has two modes.
+**A tag** publishes to internal and does nothing else. The tag is `android-v` followed by the
+`versionName` in `app/build.gradle.kts`, on a commit already on main, and the workflow refuses any
+other:
 
-**publish** builds a signed bundle from the current commit and uploads it. That is the normal one.
+```bash
+git tag android-v0.1.0 && git push origin android-v0.1.0
+```
+
+`android-v` rather than `v`, because `v*` tags are the station's own releases and `release.yml`
+publishes Docker images on them. A tag names a version, so the next one needs `versionName` raised
+first. Internal builds in between go through Run workflow.
+
+**Run workflow** (Actions, Android release) chooses the track and the status, and is the only way to
+reach production. A tag cannot, because nothing automated plays the minified bundle on a phone and
+that has to happen before listeners get it.
+
+Run workflow has two modes.
+
+**publish** builds a signed bundle from the current commit and uploads it. It is what a tag runs.
 
 **promote** moves a build that is already in Play and rebuilds nothing: it makes a draft live on the
 track it is already on, or carries a build from one track to a wider one. It is handed no signing
@@ -245,7 +260,7 @@ does:
 2. **The store listing**, pasted from `play/listing/en-US`, with the icon, feature graphic and
    screenshots from its `images/`.
 3. **The notes**, in `play/whatsnew/whatsnew-en-US`, edited in the commit that will ship. Publish
-   that commit to internal and listen to it on a real phone.
+   that commit to internal, by tag or by Run workflow, and listen to it on a real phone.
 4. **Promote** it: from `internal` to `production`, status `inProgress`, `user_fraction` 0.2. The
    first production release waits for Google's review, which can take days; later ones are
    usually quicker.

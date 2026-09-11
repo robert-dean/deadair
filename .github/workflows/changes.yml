@@ -28,6 +28,9 @@ on:
             desktop:
                 description: The desktop app or its SDK
                 value: ${{ jobs.changes.outputs.desktop }}
+            ios:
+                description: The iOS listener or its SDK
+                value: ${{ jobs.changes.outputs.ios }}
             image:
                 description: Anything the station image is built from
                 value: ${{ jobs.changes.outputs.image }}
@@ -46,6 +49,7 @@ jobs:
             sidecar: ${{ steps.detect.outputs.sidecar }}
             android: ${{ steps.detect.outputs.android }}
             desktop: ${{ steps.detect.outputs.desktop }}
+            ios: ${{ steps.detect.outputs.ios }}
             image: ${{ steps.detect.outputs.image }}
 
         steps:

@@ -21,6 +21,7 @@ jobs:
             sidecar: ${{ needs.changes.outputs.sidecar == 'true' }}
             android: ${{ needs.changes.outputs.android == 'true' }}
             desktop: ${{ needs.changes.outputs.desktop == 'true' }}
+            ios: ${{ needs.changes.outputs.ios == 'true' }}
 
     # Built and thrown away. A Dockerfile that has stopped building is worth knowing about
     # before it is merged, not on the release that needed it; a pull request that changes nothing

@@ -101,6 +101,7 @@ jobs:
             sidecar: ${{ needs.version.outputs.value != '' || needs.changes.outputs.sidecar == 'true' }}
             android: ${{ needs.version.outputs.value != '' || needs.changes.outputs.android == 'true' }}
             desktop: ${{ needs.version.outputs.value != '' || needs.changes.outputs.desktop == 'true' }}
+            ios: ${{ needs.version.outputs.value != '' || needs.changes.outputs.ios == 'true' }}
         secrets: inherit
 
     # Deliberately NOT `needs: [build]`. It was, and the cost was the whole of the build job on

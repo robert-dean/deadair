@@ -30,6 +30,10 @@ on:
                 description: The desktop app or its SDK changed
                 type: boolean
                 default: true
+            ios:
+                description: The iOS listener or its SDK changed
+                type: boolean
+                default: true
 
 # The build reads the repo and nothing else. Publishing is the images workflow's job,
 # with its own credentials.
@@ -497,6 +501,59 @@ jobs:
             - name: Check formatting
               working-directory: apps/desktop
               run: dotnet format --verify-no-changes --no-restore || echo "::warning title=Formatting::dotnet format found unformatted files (listed in this step's log). Run dotnet format in apps/desktop to fix them."
+
+    # The iOS listener, which is Swift and Xcode and stands alone for the reason the three jobs above
+    # do: an Xcode project shares no task graph, no `dist` and no test runner with the TypeScript
+    # tree. No `pnpm install`, no Node. macOS because nothing else has Xcode, which is why it runs
+    # only when the app or its SDK changed.
+    #
+    # Three gates in order, each failing as itself. The generated SDK builds first and by name, as
+    # `android` builds `:sdk:build` first: a generator that emitted Swift which does not compile
+    # should fail here rather than as a puzzling error inside the app, and the Swift generator's
+    # first compile against these contracts did find one. Then `DeadairCore`, which holds every
+    # test the app has, including the decode and encode fixtures for the SDK: compiling is one gate
+    # and decoding is another. Both run on the macOS host, which needs no simulator and is the fast
+    # half. Then the app itself, for a generic simulator with signing off, since CI holds no
+    # certificate and a build for a simulator needs none.
+    ios:
+        if: inputs.ios
+        runs-on: macos-latest
+        timeout-minutes: 30
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            # The newest Xcode 16 or later on the image, found by name rather than pinned: the images
+            # rotate Xcode versions, and a pinned path fails the day the image drops it. Xcode 16 is
+            # the floor because the project uses its synchronized folders.
+            - name: Select Xcode
+              run: |
+                  set -euo pipefail
+                  xcode="$(ls -d /Applications/Xcode_1[6-9]*.app /Applications/Xcode_[2-9][0-9]*.app 2>/dev/null | sort -V | tail -1)"
+                  test -n "$xcode"
+                  sudo xcode-select -s "$xcode/Contents/Developer"
+                  xcodebuild -version
+
+            - name: Build the generated SDK
+              run: swift build --package-path packages/sdk-swift -Xswiftc -warnings-as-errors
+
+            - name: Test the core
+              run: apps/ios/Packages/DeadairCore/test.sh
+
+            # Parsing only, and seconds. The project file is hand-maintained, and a damaged one fails
+            # every later step with "the project is damaged" and no line number.
+            - name: Check the project opens
+              run: xcodebuild -list -project apps/ios/Deadair.xcodeproj
+
+            - name: Build the app
+              working-directory: apps/ios
+              run: >-
+                  xcodebuild build -quiet -project Deadair.xcodeproj -scheme Deadair
+                  -destination 'generic/platform=iOS Simulator' -derivedDataPath .derived
+                  CODE_SIGNING_ALLOWED=NO
 
     # Whether what is COMMITTED is what the inputs actually produce.
     #

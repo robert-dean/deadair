@@ -235,6 +235,31 @@ describe('PersonaAuditionJob: writing one transition', () => {
         expect(send).toHaveBeenCalled();
     });
 
+    it('keeps what a declined writer wrote, so the reason can be checked against the words', async () => {
+        const refused = 'That was a sample line, read straight back.';
+        const result = {
+            written: { script: 'That was Green Onions.' },
+            writer: 'phrasings',
+            attempts: [
+                { writer: 'model', outcome: 'declined', durationMs: 40, reason: 'it read a sample line back', detail: { refused } },
+                {
+                    writer: 'phrasings',
+                    outcome: 'written',
+                    durationMs: 1,
+                    written: { script: 'That was Green Onions.' },
+                    detail: { refused: 'never kept' },
+                },
+            ],
+        };
+        const { run, recordBreak } = build({ claimed: audition(), result });
+        await run({ auditionId: 'audition-1', ordinal: 0 });
+
+        const written = recordBreak.mock.calls[0]![2];
+        expect(written.attempts[0]).toEqual({ writer: 'model', outcome: 'declined', durationMs: 40, reason: 'it read a sample line back', refused });
+        // Only a decline's words: a written attempt's are its script.
+        expect(written.attempts[1]).not.toHaveProperty('refused');
+    });
+
     it('keeps the records as they were offered', async () => {
         const { run, recordBreak } = build({ claimed: audition() });
         await run({ auditionId: 'audition-1', ordinal: 0 });

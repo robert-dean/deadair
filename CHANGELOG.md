@@ -9,6 +9,11 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-09-11
+
+- A station can now run plugins it did not ship with. Copy a plugin into `plugins/` on the data volume and press Rescan: the station lends it its own SDK, where before every such plugin failed to load. The console marks a plugin you installed, and one that failed to load names the folder it was read from. The plugin SDK is published to npm as `@deadair/plugin-sdk`, and deadair.radio has a new section on writing, testing and installing a plugin, walking through a complete example.
+- Navidrome's plugin page no longer shows the playback authorization card. That card authorizes the station's own track fetcher, which only Spotify uses. Navidrome was being offered a Spotify login it has no use for and, once enabled, a warning that every record would be dropped.
+
 ## [0.1.0] — 2026-09-09
 
 The first release. Everything below has been running on one station for some time; what is new is
@@ -51,5 +56,6 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/robert-dean/deadair/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/v0.1.0

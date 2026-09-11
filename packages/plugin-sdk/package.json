@@ -1,6 +1,6 @@
 {
     "name": "@deadair/plugin-sdk",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "The contract a deadair plugin is written against: the manifest, the capabilities, the host it is handed, and a fake host for its tests.",
     "keywords": [
         "deadair",

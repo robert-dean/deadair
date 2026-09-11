@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+    - name: Report a security vulnerability
+      url: https://github.com/robert-dean/deadair/security/advisories/new
+      about: Privately, through a security advisory, and never as a public issue. SECURITY.md says what to expect.
+    - name: Ask a question
+      url: https://github.com/robert-dean/deadair/discussions
+      about: Running the station, choosing a voice or a model, or anything that is not a bug.

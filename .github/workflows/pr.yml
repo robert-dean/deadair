@@ -21,7 +21,6 @@ jobs:
             sidecar: ${{ needs.changes.outputs.sidecar == 'true' }}
             android: ${{ needs.changes.outputs.android == 'true' }}
             desktop: ${{ needs.changes.outputs.desktop == 'true' }}
-        secrets: inherit
 
     # Built and thrown away. A Dockerfile that has stopped building is worth knowing about
     # before it is merged, not on the release that needed it; a pull request that changes nothing
@@ -32,3 +31,38 @@ jobs:
         uses: ./.github/workflows/images.yml
         with:
             push: false
+
+    # The one check the ruleset on main requires. Every job above runs or skips by what the pull
+    # request changed, and the test shards and image variants are named by their matrix, so no fixed
+    # list of names could be required without going stale. This waits for all of them instead.
+    #
+    # `always()`, because a job whose need failed is skipped rather than failed, and a skipped
+    # required check reads as a pass. For the same reason `changes` has to have SUCCEEDED: when it
+    # fails, `build` and `images` are skipped behind it and would otherwise wave this through.
+    # Anything else skipped is a part of the tree the pull request did not touch.
+    ci-ok:
+        needs: [changes, build, images]
+        if: always()
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - name: Every job passed or had nothing to check
+              env:
+                  CHANGES: ${{ needs.changes.result }}
+                  BUILD: ${{ needs.build.result }}
+                  IMAGES: ${{ needs.images.result }}
+              run: |
+                  echo "changes=$CHANGES build=$BUILD images=$IMAGES"
+                  if [ "$CHANGES" != success ]; then
+                      echo "::error::The change detection ended $CHANGES, so nothing behind it can be trusted to have run."
+                      exit 1
+                  fi
+                  for result in "$BUILD" "$IMAGES"; do
+                      case "$result" in
+                          success | skipped) ;;
+                          *)
+                              echo "::error::A required job ended $result."
+                              exit 1
+                              ;;
+                      esac
+                  done

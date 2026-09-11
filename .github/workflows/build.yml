@@ -60,7 +60,7 @@ jobs:
             # ship a corepack binary, so `corepack enable` on a modern runner is a command
             # that is not there. The version still comes from the repo's `packageManager`.
             - name: Install pnpm
-              uses: pnpm/action-setup@v6
+              uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
             - name: Setup Node
               uses: actions/setup-node@v7
@@ -198,7 +198,7 @@ jobs:
                   persist-credentials: false
 
             - name: Install pnpm
-              uses: pnpm/action-setup@v6
+              uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
             - name: Setup Node
               uses: actions/setup-node@v7
@@ -378,7 +378,7 @@ jobs:
             # This job is the one that WRITES the shared cache; see `android-release` for why only
             # one of the two may.
             - name: Setup Gradle
-              uses: gradle/actions/setup-gradle@v6
+              uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
             - name: Accept the SDK licences
               run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
@@ -422,7 +422,7 @@ jobs:
             # commit. Both writing raced and logged `ReserveCacheError: another job may be creating
             # this cache` on every run; the entry either job would have written is the same one.
             - name: Setup Gradle
-              uses: gradle/actions/setup-gradle@v6
+              uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
               with:
                   cache-read-only: true
 
@@ -551,7 +551,7 @@ jobs:
                   persist-credentials: false
 
             - name: Install pnpm
-              uses: pnpm/action-setup@v6
+              uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
             - name: Setup Node
               uses: actions/setup-node@v7

@@ -127,6 +127,20 @@ on everything. The rules are paths in one file, and `BASE=<commit> HEAD_REF=<com
 .github/scripts/changes.sh` answers for any commit by hand, which is how a new rule should be checked
 against history before it is trusted.
 
+**A pull request has one required check, `ci-ok`, and it is the last job in `pr.yml`.** The ruleset on
+`main` requires it by that name from the GitHub Actions app. Nothing else can be required: the jobs it
+waits on run or skip by the flags above, and the test shards and image variants are named by their
+matrix, so a list of names would go stale on the next edit. It passes when `changes` succeeded and
+everything else succeeded or was skipped, and it has to insist on `changes` because a failed detection
+skips every job behind it and a skipped check reads as a pass. Two things it does not do. It proves
+nothing about a pull request that edits `.github/`, because the workflow a pull request runs is the one
+in the pull request, so a hostile one can make `ci-ok` pass by rewriting it. `pr-paths.yml` is the
+answer to that, and it is the one `pull_request_target` workflow here because it has to be the copy on
+`main`: it labels a fork's pull request `review-before-checkout` when it touches `.github/`, agent
+instructions or settings, install hooks or the image, and it checks nothing out to do it. And the
+`chore: update versions` pull request never gets it, because it runs no checks (see "Releasing"), so
+merging it takes the admin bypass.
+
 ## The sidecar's own CI
 
 **The sidecar is Python, and CI proves it two ways that TypeScript's checks cannot reach.** A

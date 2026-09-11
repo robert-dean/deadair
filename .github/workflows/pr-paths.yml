@@ -1,0 +1,61 @@
+name: Pull Request Paths
+
+# Labels a pull request from a fork `review-before-checkout` when it touches a file that acts before
+# anybody has read the diff: the instructions and settings a Claude session loads from the checkout,
+# the install and build hooks `pnpm install` runs, CI itself, and the image. Checking out such a
+# branch and opening a session or running an install in it executes the contributor's code on the
+# maintainer's machine, so the label is the cue to read those files on GitHub first.
+#
+# It is `pull_request_target`, the one trigger this repository otherwise never uses, and that is the
+# point: it runs THIS file from main rather than the pull request's copy, so a pull request cannot
+# delete the check that would have flagged it. The price is a token that can write, which is safe here
+# on three conditions that must all keep holding:
+#
+#   - Nothing from the pull request is checked out or executed. The file list comes from the API.
+#   - No pull-request-controlled string (a title, a branch, a file name) is interpolated into the
+#     script with `${{ }}`. The number and the repository are the only values that are, and neither is
+#     the contributor's to choose.
+#   - The token can label pull requests and do nothing else.
+#
+# It also runs without waiting for the approval every fork's `pull_request` run needs, so the label is
+# there before anybody decides whether to approve CI.
+on:
+    pull_request_target:
+        types: [opened, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+    label:
+        if: github.event.pull_request.head.repo.full_name != github.repository
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            pull-requests: write
+        steps:
+            - name: Label the pull request if it touches a file that acts before review
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  NUMBER: ${{ github.event.pull_request.number }}
+              run: |
+                  set -euo pipefail
+                  files="$(gh api --paginate "repos/${REPO}/pulls/${NUMBER}/files" --jq '.[].filename')"
+                  # Agent instructions and settings, install hooks and the lockfile, editor tasks that
+                  # run on opening a folder, CI, the image and the root scripts package.json calls.
+                  pattern='(^|/)\.claude/|(^|/)CLAUDE\.md$|(^|/)AGENTS\.md$|(^|/)\.mcp\.json$|(^|/)package\.json$|^pnpm-(workspace|lock)\.yaml$|(^|/)\.npmrc$|(^|/)\.pnpmfile\.c?js$|^\.vscode/|^\.devcontainer/|^\.github/|(^|/)Dockerfile|^docker/|^docker-compose|^scripts/'
+                  if ! hits="$(printf '%s\n' "$files" | grep -E "$pattern")"; then
+                      echo "Nothing on the list."
+                      exit 0
+                  fi
+                  # The file names are the contributor's, so they go to the summary, which renders
+                  # them as text, and never to the log, where a line can be read as a workflow command.
+                  {
+                      echo '### Touches files that act before review'
+                      echo
+                      echo 'Read these on GitHub before checking the branch out, installing, or opening a session in it.'
+                      echo
+                      printf '%s\n' "$hits" | sed 's/^/- /'
+                  } >> "$GITHUB_STEP_SUMMARY"
+                  gh api -X POST "repos/${REPO}/issues/${NUMBER}/labels" -f 'labels[]=review-before-checkout' > /dev/null
+                  echo "Labelled review-before-checkout; the files are in the step summary."

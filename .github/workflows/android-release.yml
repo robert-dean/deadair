@@ -153,7 +153,7 @@ jobs:
                   java-version: 21
 
             - name: Setup Gradle
-              uses: gradle/actions/setup-gradle@v6
+              uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
             - name: Accept the SDK licences
               run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
@@ -209,7 +209,7 @@ jobs:
                   echo "Signed. Version code: $(git rev-list --count HEAD)"
 
             - name: Upload to Play
-              uses: r0adkll/upload-google-play@v1
+              uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
               with:
                   serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
                   packageName: com.maroonedsoftware.deadair

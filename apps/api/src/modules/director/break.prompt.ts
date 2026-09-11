@@ -1913,27 +1913,53 @@ const wrongDayPartIn = (script: string, guard: AnswerGuard): string | undefined 
  *
  * A guard carrying no records changes nothing, which keeps every kind that populates no names — a
  * welcome, a bulletin, a link at the top of an order — reading exactly the script it always did.
- * The answer is {@link bareWords} rather than the original text because that is the form the names
- * can be matched in at all, and both checks read it the same: `saysTime` lower-cases before its
- * `includes`, and `saysWholeWord` bounds on letters that punctuation was never part of.
+ *
+ * ## The names come out and the punctuation stays
+ *
+ * Names are MATCHED as {@link bareWords}, because a curly apostrophe or a comma inside a title is not
+ * a reason to miss it. They are CUT out of the lower-cased text itself, though, and not out of the
+ * bare-words copy. The copy threw every stop away, and a check that asks how a sentence OPENS needs
+ * them: with no stops left, every word looks like the middle of one sentence. Both checks read the
+ * result exactly as they read the bare copy:
+ * `saysTime` lower-cases before its `includes`, `saysWholeWord` bounds on letters, and the
+ * no-records path above always handed them the punctuated script anyway.
  */
 const withoutRecordNames = (script: string, guard: AnswerGuard): string => {
     const records = (guard.names ?? []).filter((record): record is BreakTrack => record !== undefined);
     if (records.length === 0) return script;
 
-    // Both possessive endings beside the plain name, for the reason `saysName` carries them: what is
-    // in the text after a presenter names a record is `iron maiden's`, and a plain search for the
-    // band never finds it.
-    let spoken = ` ${bareWords(script)} `;
+    // The script's words exactly as `bareWords` splits them (reactions and pads out first, then every
+    // run of anything else turned into one space), each with where it sits in the text.
+    const text = withoutPads(withoutCues(script))
+        .toLowerCase()
+        .replace(/[‘’ʼ′]/g, "'");
+    const words = [...text.matchAll(/[a-z0-9']+/g)];
+
+    let spoken = text;
     for (const candidate of records.flatMap(identifiersOf)) {
-        for (const form of [` ${candidate} `, ` ${candidate}'s `, ` ${candidate}' `]) {
-            // Every occurrence, not the first: a break may name the same record twice, and the two
-            // spaces put back are what keeps the words either side of it separate.
-            while (spoken.includes(form)) spoken = spoken.replace(form, '  ');
+        const parts = candidate.split(' ');
+
+        // Every occurrence, not the first: a break may name the same record twice.
+        for (let at = 0; at + parts.length <= words.length; at++) {
+            const named = parts.every((part, index) => {
+                const word = words[at + index]![0];
+                // Both possessive endings on the last word, for the reason `saysName` carries them:
+                // what is in the text after a presenter names a record is `iron maiden's`, and a plain
+                // search for the band never finds it.
+                return word === part || (index === parts.length - 1 && (word === `${part}'s` || word === `${part}'`));
+            });
+            if (!named) continue;
+
+            // From the first word to the end of the last, so the comma inside `Tonight, Tonight` goes
+            // with the title. Blanked rather than removed, so every offset above stays true.
+            const from = words[at]!.index;
+            const last = words[at + parts.length - 1]!;
+            const until = last.index + last[0].length;
+            spoken = spoken.slice(0, from) + ' '.repeat(until - from) + spoken.slice(until);
         }
     }
 
-    // Back to single spacing, because `contradictsDayPart` looks for a PHRASE and a doubled space
+    // Back to single spacing, because `contradictsDayPart` looks for a PHRASE and a run of spaces
     // where a title used to be would hide `this morning` from it.
     return spoken.replace(/\s+/g, ' ').trim();
 };

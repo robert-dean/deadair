@@ -131,7 +131,10 @@ matrix, so a list of names would go stale on the next edit. It passes when `chan
 everything else succeeded or was skipped, and it has to insist on `changes` because a failed detection
 skips every job behind it and a skipped check reads as a pass. Two things it does not do. It proves
 nothing about a pull request that edits `.github/`, because the workflow a pull request runs is the one
-in the pull request, so a hostile one can make `ci-ok` pass by rewriting it. And the
+in the pull request, so a hostile one can make `ci-ok` pass by rewriting it. `pr-paths.yml` is the
+answer to that, and it is the one `pull_request_target` workflow here because it has to be the copy on
+`main`: it labels a fork's pull request `review-before-checkout` when it touches `.github/`, agent
+instructions or settings, install hooks or the image, and it checks nothing out to do it. And the
 `chore: update versions` pull request never gets it, because it runs no checks (see "Releasing"), so
 merging it takes the admin bypass.
 

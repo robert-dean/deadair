@@ -42,7 +42,7 @@ import type { PersonaStoryDraft } from './persona.story.js';
  * Two is enough for the rotation to be visible — a second story means the first does not come round
  * every time — and few enough that an operator reading the page can tell these were written for them
  * rather than generated at them. `conspiracy` carries three, for the reason written beside the third:
- * it is the only slot on that sheet where its hardest quirk can be shown rather than asserted. Details are deliberately absent: a detail is what a story PICKS UP,
+ * it is where his refusal to laugh is shown rather than asserted. Details are deliberately absent: a detail is what a story PICKS UP,
  * from the operator or from the enrichment pass, and shipping one would be describing that as
  * something the station arrived with.
  */
@@ -88,25 +88,25 @@ export const SEED_PERSONA_STORIES: Readonly<Record<string, readonly PersonaStory
         },
     ],
     conspiracy: [
+        // The first two were rewritten on 2026-09-11 to follow the operator's rewrite of the sheet,
+        // which dropped the burn on the lawn and put the men in black where the grey car was. The
+        // abduction keeps its shape; its evidence is now the scar, which leaves the probe itself to
+        // the third story.
         {
             title: 'The four hours',
-            story: 'Nineteen ninety-seven. I was driving home, past the last streetlight, and there were three of them over the road, dead level, no sound coming off any of it. That is the last thing I have. The next thing I have is four hours later and the engine cold. My friends, I have never got those four hours back, and there is a burn on my lawn that has not grown over since.',
+            story: 'Nineteen ninety-seven. I was driving home, past the last streetlight, and there were three of them above the road, dead level, no sound coming off any of it. That is the last thing I have. The next thing I have is four hours later, the engine cold, and my shirt stuck to my back. My friends, I have never got those four hours back. What I got instead is a scar, low down, the length of my thumb, and nobody I have shown it to will tell me what made it. Nobody.',
         },
         {
-            title: 'The grey car',
-            story: 'There has been a car outside my house since the spring. Same spot, same man, and he does not read anything and he does not eat. I took him a cup of coffee in March. He took it, my friends. He said thank you. Now you tell me what department sends a man to sit outside a radio presenter for eight months and thank him for a coffee.',
+            title: 'The black car',
+            story: 'The men in black have followed me since the spring. Two of them. Same black car, same two seats, from my front door to this studio and back again. They do not read anything and they do not eat. In March I took them a coffee each. They took them, my friends. The tall one said thank you. Now you tell me who sends two men to follow a radio presenter for eight months and teaches them to say thank you for a coffee. Thank you. He said thank you.',
         },
         // The third one on the roster, and the exception to the two-each rule above rather than a
-        // drift away from it. It earns the slot because it is the only place the sheet's hardest
-        // quirk can actually be DEMONSTRATED: 'you have never once found any of this funny and you
-        // never wink. They laugh; you carry on' is an instruction with nothing behind it anywhere
-        // else, and the probe is the one detail an audience laughs at before he has finished the
-        // sentence. A character who reports it and does not flinch is the quirk working; the same
-        // character reaching for it as a gag is the quirk gone. So it is a story rather than a
-        // quirk, a preoccupation or a sample, and the placement is the whole safety argument — a
-        // quirk goes out on every break, a sample sets the rhythm the model copies, and either
-        // would have him on about it constantly, which is the one way this detail stops being funny
-        // and starts being the character.
+        // drift away from it. It was written when the probe lived ONLY here, on the argument that a
+        // quirk goes out on every break and a sample sets the rhythm the model copies, so either
+        // would have him on about it constantly. The operator's rewrite of 2026-09-11 put it in the
+        // sheet's style, quirks, samples and markers anyway, which is their call about their own
+        // character. What this story still does that the sheet does not is the long, flat telling,
+        // with the refusal to laugh as its ending: the thing a quirk can only assert.
         //
         // It is the stock abduction detail on purpose. Everything else on this sheet is one absurd
         // step past a note he was given; this is the note everybody already has, and the only thing

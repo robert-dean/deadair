@@ -1,5 +1,6 @@
 package com.maroonedsoftware.deadair.net
 
+import com.maroonedsoftware.deadair.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
@@ -13,8 +14,14 @@ import okhttp3.Response
  * second listener. An interceptor on the shared client cannot be forgotten by a new caller.
  */
 object UserAgent : Interceptor {
-    /** Named after the app and its version, so a station's logs can tell this client apart. */
-    const val VALUE: String = "deadair-android/0.1.0"
+    /**
+     * Named after the app and its version, so a station's logs can tell this client apart.
+     *
+     * The version is `versionName` from the build rather than written here a second time, because
+     * the copy here would stay behind the first time the real one moved, and every phone would go on
+     * telling the station it was 0.1.0.
+     */
+    const val VALUE: String = "deadair-android/" + BuildConfig.VERSION_NAME
 
     private const val HEADER = "User-Agent"
 

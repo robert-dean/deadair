@@ -1,10 +1,19 @@
 package com.maroonedsoftware.deadair.net
 
+import com.maroonedsoftware.deadair.BuildConfig
 import okhttp3.Request
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class UserAgentTest {
+    @Test
+    fun `names the app and the version it was built as`() {
+        assertTrue(BuildConfig.VERSION_NAME.isNotBlank())
+        assertTrue(UserAgent.VALUE.startsWith("deadair-android/"))
+        assertTrue(UserAgent.VALUE.endsWith(BuildConfig.VERSION_NAME))
+    }
+
     @Test
     fun `puts the app's agent on a request that had none`() {
         val sent = UserAgent.withUserAgent(Request.Builder().url("https://radio.example/api/art/1").build())

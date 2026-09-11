@@ -363,6 +363,9 @@ describe('spoken', () => {
         ['Pet Sounds (Mono)', 'Pet Sounds'],
         ['Blue Monday (1988 Mix)', 'Blue Monday'],
         ['Wish You Were Here (Radio Edit)', 'Wish You Were Here'],
+        // A reissue series, as the conspiracy host's audition read it out.
+        ['Tornado Of Souls - 2004 Remix', 'Tornado Of Souls'],
+        ['Hangar 18 (2004 Remix)', 'Hangar 18'],
     ])('drops catalogue furniture from %s', (filed, read) => {
         expect(spoken(filed)).toBe(read);
     });
@@ -372,6 +375,8 @@ describe('spoken', () => {
         ["(Don't Fear) The Reaper", "(Don't Fear) The Reaper"],
         ['Empire State of Mind (feat. Alicia Keys)', 'Empire State of Mind (feat. Alicia Keys)'],
         ['Sgt. Pepper - Reprise', 'Sgt. Pepper - Reprise'],
+        // A different recording, and the remixer is the reason it was picked.
+        ['Bizarre Love Triangle (Shep Pettibone Remix)', 'Bizarre Love Triangle (Shep Pettibone Remix)'],
         ['Marquee Moon', 'Marquee Moon'],
     ])('leaves %s alone', (filed, read) => {
         expect(spoken(filed)).toBe(read);

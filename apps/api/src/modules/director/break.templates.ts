@@ -386,7 +386,10 @@ export function renderTemplate(template: string, inputs: TemplateInputs, spoken:
     const fill = (text: string, optional: boolean): string | undefined => {
         let unfilled = false;
 
-        const filled = text.replace(/\{\{\s*([^}]*?)\s*\}\}/g, (_, name: string) => {
+        // The period straight after a placeholder is taken with it, so a value that already ends a
+        // sentence can absorb it: "from {{previous.artist}}." over R.E.M. aired as "R.E.M..", and
+        // over "Where Is My Mind?" as "?.".
+        const filled = text.replace(/\{\{\s*([^}]*?)\s*\}\}(\.?)/g, (_, name: string, period: string) => {
             const value = VALUES[name]?.(inputs);
             if (value === undefined || value.trim().length === 0) {
                 unfilled = true;
@@ -395,7 +398,8 @@ export function renderTemplate(template: string, inputs: TemplateInputs, spoken:
 
             if (name.startsWith('previous.')) saysPrevious = true;
             if (name.startsWith('next.')) saysNext = true;
-            return SPOKEN_VALUES.has(name) ? spoken(value) : value;
+            const said = SPOKEN_VALUES.has(name) ? spoken(value) : value;
+            return /[.?!…]$/.test(said) ? said : said + period;
         });
 
         if (!unfilled) return filled;
@@ -488,6 +492,9 @@ function refrainOf(template: string): string | undefined {
         // The same collapse `renderTemplate` puts the script through, so a run is compared against
         // the spacing the script actually carries rather than the spacing the template was typed in.
         .map(run => run.replace(/\s{2,}/g, ' '))
+        // A period opening a run follows a placeholder, and `renderTemplate` lets the value there
+        // absorb it, so it is not something every script says.
+        .map(run => run.replace(/^\./, ''))
         // A run of nothing but joinery clears the floor as easily as a phrase does — ` — and `,
         // ` ... ` — and identifies nothing, so it is held to having a word in it as well.
         .filter(run => run.length >= REFRAIN_FLOOR && /[\p{L}\p{N}]/u.test(run));

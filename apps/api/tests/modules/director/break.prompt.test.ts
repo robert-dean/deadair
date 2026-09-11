@@ -58,6 +58,18 @@ describe('breakPrompt', () => {
         expect(rules).toMatch(/not certain/i);
     });
 
+    it('shows the model a title as it is read, not as it is filed', () => {
+        // A model shown the catalogue entry reads it out: an audition aired "Glycerine by Bush, 2014
+        // remaster" beside a floor that said the clean title.
+        const glycerine = { title: 'Glycerine - 2014 Remastered', artist: 'Bush', album: 'Sixteen Stone (Remastered)', year: 1994 };
+        const messages = prompt({ kind: 'talkbreak', previous: glycerine, next: { title: 'Tornado Of Souls - 2004 Remix', artist: 'Megadeth' } });
+        const shown = `${system(messages)}\n${user(messages)}`;
+
+        expect(shown).toContain('- Title: Glycerine\n');
+        expect(shown).toContain('- Title: Tornado Of Souls\n');
+        expect(shown).not.toMatch(/remaster|remix/i);
+    });
+
     it('asks for one point, and says what the words that buys are for', () => {
         // Both halves, because asking for less was only half a rule: every other instruction in this
         // prompt points downwards, and the captured breaks came in at half the ceiling with nothing
@@ -1212,6 +1224,15 @@ describe('readAnswer, against the records it was shown', () => {
         expect(readAnswer('The Reaper is a gentler record than anybody remembers.', { names: [reaper] })).toBeDefined();
     });
 
+    it('takes a reissue named by its title as it is read', () => {
+        // The title the model is SHOWN has its catalogue furniture off, so saying that title is naming
+        // the record. Before this, "Tornado Of Souls" for "Tornado Of Souls - 2004 Remix" without the
+        // artist was refused for naming neither.
+        const tornado = { title: 'Tornado Of Souls - 2004 Remix', artist: 'Megadeth' };
+
+        expect(readAnswer('Tornado Of Souls still sounds like a warning nobody took.', { names: [tornado] })).toBeDefined();
+    });
+
     it('asks nothing of a break that was shown no records', () => {
         // Every welcome, and a link at the top of an order. A break cannot be refused for failing to
         // name something it was never given.
@@ -1281,6 +1302,15 @@ describe('readAnswer, against the side of the break a record is on', () => {
 
     it('declines a break that cues the record already played as if it were coming', () => {
         expect(readAnswer('Coming up, Madhouse, and it never did settle down.', { cues: between })).toBeUndefined();
+    });
+
+    it('declines a back-announce of the record to come, when it is named by its title as it is read', () => {
+        const reissues = {
+            previous: { title: 'Glycerine - 2014 Remastered', artist: 'Bush' },
+            next: { title: 'Tornado Of Souls - 2004 Remix', artist: 'Megadeth' },
+        };
+
+        expect(readAnswer('That was Tornado Of Souls, and the room is still shaking.', { cues: reissues })).toBeUndefined();
     });
 
     it('takes a back-announce of the record that actually finished', () => {

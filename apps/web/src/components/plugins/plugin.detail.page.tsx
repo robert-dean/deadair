@@ -12,7 +12,7 @@ import { PluginConfigForm } from './plugin.config.form';
 import { PluginLogsCard } from './plugin.logs.card';
 import { PluginOAuthCard } from './plugin.oauth.card';
 import { PluginPermissionsCard } from './plugin.permissions.card';
-import { feedsTrackFetcher, hasConfigForm, hasOAuth, PluginStatusLamp, statusOf } from './plugin.status';
+import { feedsTrackFetcher, hasConfigForm, hasOAuth, PluginOriginBadge, PluginStatusLamp, statusOf } from './plugin.status';
 import { StreamAuthorizationCard } from './stream.authorization.card';
 
 export interface PluginDetailPageProps {
@@ -85,6 +85,7 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                         <Text size="sm" c="dimmed">
                             {status.description}
                         </Text>
+                        <PluginOriginBadge plugin={detail} />
                     </Group>
 
                     {detail.capabilities.length > 0 ? (
@@ -107,6 +108,14 @@ export function PluginDetailPage({ id }: PluginDetailPageProps) {
                         <Text size="sm" ff="monospace" style={{ overflowWrap: 'anywhere' }}>
                             {detail.lastError}
                         </Text>
+                        {/* A plugin that never loaded is usually a directory problem: an unbuilt
+                            install, a missing entry, a copy in the wrong place. Where the station
+                            looked is the first thing needed to fix any of them. */}
+                        {detail.status === 'failed' ? (
+                            <Text size="xs" c="dimmed" ff="monospace" mt="xs" style={{ overflowWrap: 'anywhere' }}>
+                                Loaded from {detail.dir}
+                            </Text>
+                        ) : undefined}
                     </ErrorAlert>
                 ) : undefined}
             </Stack>

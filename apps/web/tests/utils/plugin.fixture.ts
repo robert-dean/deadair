@@ -9,6 +9,7 @@ export function pluginSummary(overrides: Partial<PluginSummary> = {}): PluginSum
         version: '0.0.1',
         capabilities: ['catalog', 'oauth'],
         status: 'active',
+        origin: 'bundled',
         enabled: true,
         // A plugin that is on has necessarily been enabled before, so the default fixture carries
         // the stamp. A case about the FIRST enable overrides it to undefined and says so.
@@ -23,6 +24,7 @@ export function pluginSummary(overrides: Partial<PluginSummary> = {}): PluginSum
 export function pluginDetail(overrides: Partial<PluginDetail> = {}): PluginDetail {
     return {
         ...pluginSummary(overrides),
+        dir: '/app/plugins/spotify',
         config: {},
         logLevel: 'info',
         ...overrides,

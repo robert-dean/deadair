@@ -6,7 +6,7 @@ import type { PluginSummary } from '@deadair/sdk';
 import { useSetPluginEnabled } from '../../api/plugins.queries';
 import { apiErrorMessage } from '../../api/sdk.error';
 import { severityColor, toneColor } from '../shared/status';
-import { PluginStatusLamp, statusOf } from './plugin.status';
+import { PluginOriginBadge, PluginStatusLamp, statusOf } from './plugin.status';
 import { PluginTrustDialog } from './plugin.trust.dialog';
 
 export interface PluginCardProps {
@@ -32,7 +32,10 @@ export function PluginCard({ plugin }: PluginCardProps) {
                             {plugin.id} · {plugin.version}
                         </Text>
                     </Stack>
-                    <PluginStatusLamp status={plugin.status} />
+                    <Group gap="xs" wrap="nowrap">
+                        <PluginOriginBadge plugin={plugin} />
+                        <PluginStatusLamp status={plugin.status} />
+                    </Group>
                 </Group>
 
                 <Text size="sm" c="dimmed" lineClamp={2}>

@@ -1,6 +1,6 @@
 ---
 title: 'PluginSummary'
-sidebar_position: 9
+sidebar_position: 10
 mdx:
     format: 'md'
 ---
@@ -8,7 +8,7 @@ mdx:
 > A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set
 
 <details>
-<summary>Attributes (14)</summary>
+<summary>Attributes (15)</summary>
 
 | Attribute           | Type                      | Required | Description                                                                                                                                                                                                                                                                                               |
 | ------------------- | ------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -18,6 +18,7 @@ mdx:
 | `capabilities`      | `string[]`                | Yes      |                                                                                                                                                                                                                                                                                                           |
 | `usesTrackFetcher`  | `boolean`                 | No       | Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not |
 | `status`            | `PluginStatus`            | Yes      |                                                                                                                                                                                                                                                                                                           |
+| `origin`            | `PluginOrigin`            | Yes      |                                                                                                                                                                                                                                                                                                           |
 | `enabled`           | `boolean`                 | Yes      |                                                                                                                                                                                                                                                                                                           |
 | `description`       | `string`                  | No       |                                                                                                                                                                                                                                                                                                           |
 | `icon`              | `string`                  | No       |                                                                                                                                                                                                                                                                                                           |

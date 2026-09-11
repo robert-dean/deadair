@@ -54,6 +54,26 @@ describe('PluginDetailPage', () => {
         expect(screen.getByText('The host could not start it. See the error below.')).toBeInTheDocument();
     });
 
+    it('names the directory a plugin that failed to load was read from', async () => {
+        getPlugin.mockResolvedValue(
+            pluginDetail({ status: 'failed', origin: 'installed', dir: '/data/plugins/charts', lastError: 'entry "./dist/index.js" does not exist' }),
+        );
+
+        render(<PluginDetailPage id="charts" />);
+
+        expect(await screen.findByText('Loaded from /data/plugins/charts')).toBeInTheDocument();
+        expect(screen.getByText('Installed')).toBeInTheDocument();
+    });
+
+    it('keeps the directory out of the way of a plugin that is merely unhappy', async () => {
+        getPlugin.mockResolvedValue(pluginDetail({ status: 'misconfigured', lastError: 'the client id is required' }));
+
+        render(<PluginDetailPage id="deadair.spotify" />);
+
+        expect(await screen.findByText('the client id is required')).toBeInTheDocument();
+        expect(screen.queryByText(/Loaded from/)).not.toBeInTheDocument();
+    });
+
     it('reports a failed connection test as an answer rather than an error', async () => {
         getPlugin.mockResolvedValue(pluginDetail());
         testPluginConnection.mockResolvedValue({ ok: false, message: 'token expired' });

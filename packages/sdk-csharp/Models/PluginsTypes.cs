@@ -30,6 +30,20 @@ public enum PluginStatus
     Failed,
 }
 
+/// <summary>
+/// Where the station found a plugin: shipped inside the image, or installed by the operator into the plugins
+/// directory on the data volume. Says nothing about trust; both kinds run inside the station with its privileges
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<PluginOrigin>))]
+public enum PluginOrigin
+{
+    [JsonStringEnumMemberName("bundled")]
+    Bundled,
+
+    [JsonStringEnumMemberName("installed")]
+    Installed,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<ConfigFieldType>))]
 public enum ConfigFieldType
 {
@@ -492,6 +506,9 @@ public sealed record PluginSummary
     [JsonPropertyName("status")]
     public required PluginStatus Status { get; init; }
 
+    [JsonPropertyName("origin")]
+    public required PluginOrigin Origin { get; init; }
+
     [JsonPropertyName("enabled")]
     public required bool Enabled { get; init; }
 
@@ -549,6 +566,9 @@ public sealed record PluginSummaryInput
     [JsonPropertyName("status")]
     public required PluginStatus Status { get; init; }
 
+    [JsonPropertyName("origin")]
+    public required PluginOrigin Origin { get; init; }
+
     [JsonPropertyName("enabled")]
     public required bool Enabled { get; init; }
 
@@ -596,6 +616,9 @@ public sealed record PluginDetail
     [JsonPropertyName("status")]
     public required PluginStatus Status { get; init; }
 
+    [JsonPropertyName("origin")]
+    public required PluginOrigin Origin { get; init; }
+
     [JsonPropertyName("enabled")]
     public required bool Enabled { get; init; }
 
@@ -628,6 +651,10 @@ public sealed record PluginDetail
     [JsonPropertyName("nextProbeAt")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateTimeOffset? NextProbeAt { get; init; }
+
+    /// <summary>Absolute path of the plugin's directory on the station</summary>
+    [JsonPropertyName("dir")]
+    public required string Dir { get; init; }
 
     [JsonPropertyName("config")]
     public required Dictionary<string, JsonElement> Config { get; init; }
@@ -663,6 +690,9 @@ public sealed record PluginDetailInput
     [JsonPropertyName("status")]
     public required PluginStatus Status { get; init; }
 
+    [JsonPropertyName("origin")]
+    public required PluginOrigin Origin { get; init; }
+
     [JsonPropertyName("enabled")]
     public required bool Enabled { get; init; }
 
@@ -685,6 +715,10 @@ public sealed record PluginDetailInput
     [JsonPropertyName("lastError")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? LastError { get; init; }
+
+    /// <summary>Absolute path of the plugin's directory on the station</summary>
+    [JsonPropertyName("dir")]
+    public required string Dir { get; init; }
 
     [JsonPropertyName("config")]
     public required Dictionary<string, JsonElement> Config { get; init; }

@@ -18,7 +18,14 @@ const __dt = (v: unknown, path: string): DateTime => {
 export type PluginStatus = 'discovered' | 'disabled' | 'misconfigured' | 'active' | 'failed';
 
 /**
- * generated from [ConfigFieldType](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L9)
+ * Where the station found a plugin: shipped inside the image, or installed by the operator into the plugins
+ * directory on the data volume. Says nothing about trust; both kinds run inside the station with its privileges
+ * generated from [PluginOrigin](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L11)
+ */
+export type PluginOrigin = 'bundled' | 'installed';
+
+/**
+ * generated from [ConfigFieldType](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L13)
  */
 export type ConfigFieldType = 'string' | 'text' | 'url' | 'secret' | 'number' | 'boolean' | 'select' | 'multiselect' | 'list' | 'note';
 
@@ -26,7 +33,7 @@ export type ConfigFieldType = 'string' | 'text' | 'url' | 'secret' | 'number' | 
  * What a `number` field's value is measured in. The stored value is always in this unit; only the
  * control the operator touches changes, so a byte count stays a byte count everywhere it is read and
  * a `fraction` stays the share between 0 and 1 that the code multiplying by it wants
- * generated from [ConfigFieldUnit](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L14)
+ * generated from [ConfigFieldUnit](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L18)
  */
 export type ConfigFieldUnit = 'bytes' | 'fraction';
 
@@ -35,13 +42,13 @@ export type ConfigFieldUnit = 'bytes' | 'fraction';
  * per field rather than inferred, because a slider is right for a value you feel for and wrong for
  * one you have to hit exactly, and `tags` is right for a comma-separated line that is really a SET
  * and wrong for one that is prose. Nothing about the stored value changes either way
- * generated from [ConfigFieldControl](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L20)
+ * generated from [ConfigFieldControl](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L24)
  */
 export type ConfigFieldControl = 'slider' | 'tags';
 
 /**
  * One choice of a `select` config field
- * generated from [ConfigFieldOption](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L23)
+ * generated from [ConfigFieldOption](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L27)
  */
 export interface ConfigFieldOption {
     value: string;
@@ -52,7 +59,7 @@ export interface ConfigFieldOption {
  * Where a field's or a column's choices come from when only the console can enumerate them: the
  * station's own tables, the platform's zone list, the enabled plugins that can do one of four jobs,
  * or the models the selected model plugin currently offers. Resolved by the console either way
- * generated from [ConfigFieldOptionSource](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L31)
+ * generated from [ConfigFieldOptionSource](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L35)
  */
 export type ConfigFieldOptionSource =
     | 'station.newsCategories'
@@ -65,13 +72,13 @@ export type ConfigFieldOptionSource =
     | 'llm.models';
 
 /**
- * generated from [PluginLogLevel](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L86)
+ * generated from [PluginLogLevel](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L91)
  */
 export type PluginLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
  * A submitted settings form. Secret values arrive in here and are never echoed back
- * generated from [PluginConfigInput](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L117)
+ * generated from [PluginConfigInput](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L123)
  */
 export interface PluginConfigInput {
     config: Record<string, unknown>;
@@ -80,13 +87,13 @@ export interface PluginConfigInput {
 /**
  * What a plugin may do with a capability it asked for. Denied is the default and needs no row: a
  * capability is refused until somebody allows it, so "never answered" and "refused" are one state
- * generated from [GrantDecision](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L123)
+ * generated from [GrantDecision](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L129)
  */
 export type GrantDecision = 'allowed' | 'denied';
 
 /**
  * Outcome of the plugin's own `testConnection()`
- * generated from [PluginTestResult](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L147)
+ * generated from [PluginTestResult](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L153)
  */
 export interface PluginTestResult {
     ok: boolean;
@@ -96,7 +103,7 @@ export interface PluginTestResult {
 /**
  * Where the console should send the browser to obtain the operator's consent. Reported rather than
  * redirected to: the route is behind the Bearer floor, so a browser cannot follow a redirect from it
- * generated from [PluginOAuthStart](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L165)
+ * generated from [PluginOAuthStart](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L171)
  */
 export interface PluginOAuthStart {
     url: string;
@@ -104,7 +111,7 @@ export interface PluginOAuthStart {
 
 /**
  * Outcome of an OAuth callback
- * generated from [PluginOAuthResult](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L170)
+ * generated from [PluginOAuthResult](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L176)
  */
 export interface PluginOAuthResult {
     pluginId: string;
@@ -113,7 +120,7 @@ export interface PluginOAuthResult {
 }
 
 /**
- * generated from [PluginOAuthCallbackQuery](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L176)
+ * generated from [PluginOAuthCallbackQuery](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L182)
  */
 export interface PluginOAuthCallbackQuery {
     code?: string;
@@ -133,7 +140,7 @@ export interface PluginOAuthCallbackQuery {
  * Live choices for a plugin's config fields, keyed by field key, out of the plugin's own
  * `suggestConfigOptions()`. What `ConfigFieldDescriptor.options` cannot be: fixed when the manifest
  * was written, where these are whatever the operator's own server currently says
- * generated from [PluginFieldSuggestions](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L155)
+ * generated from [PluginFieldSuggestions](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L161)
  */
 export interface PluginFieldSuggestions {
     /** Keys the plugin had nothing to say about are simply absent, rather than present and empty */
@@ -148,7 +155,7 @@ export interface PluginFieldSuggestions {
 /**
  * One column of a `list` field. Every ordinary cell is stored as a string in the row, so this describes the
  * control rather than the value; a `secret` cell is encrypted on its own and is never in the row at all
- * generated from [ConfigFieldColumn](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L35)
+ * generated from [ConfigFieldColumn](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L39)
  */
 export interface ConfigFieldColumn {
     key: string;
@@ -165,7 +172,7 @@ export interface ConfigFieldColumn {
 }
 
 /**
- * generated from [PluginLogEntry](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L88)
+ * generated from [PluginLogEntry](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L93)
  */
 export interface PluginLogEntry {
     ts: string;
@@ -175,7 +182,7 @@ export interface PluginLogEntry {
 }
 
 /**
- * generated from [PluginLogQuery](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L100)
+ * generated from [PluginLogQuery](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L105)
  */
 export interface PluginLogQuery {
     limit?: number;
@@ -183,7 +190,7 @@ export interface PluginLogQuery {
 }
 
 /**
- * generated from [PluginLogLevelInput](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L105)
+ * generated from [PluginLogLevelInput](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L110)
  */
 export interface PluginLogLevelInput {
     level: PluginLogLevel;
@@ -192,7 +199,7 @@ export interface PluginLogLevelInput {
 /**
  * One capability a plugin asked for, with the station's answer. The ask is the plugin's manifest and
  * the answer is a row, so a plugin that stops asking stops appearing here whatever was stored
- * generated from [PluginGrant](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L127)
+ * generated from [PluginGrant](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L133)
  */
 export interface PluginGrant {
     pluginId: string;
@@ -209,7 +216,7 @@ export interface PluginGrant {
 }
 
 /**
- * generated from [PluginGrantInput](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L141)
+ * generated from [PluginGrantInput](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L147)
  */
 export interface PluginGrantInput {
     capability: string;
@@ -218,7 +225,7 @@ export interface PluginGrantInput {
 
 /**
  * Mirrors the plugin SDK's `ConfigField`: enough for a console to render the settings form with no per-plugin code
- * generated from [ConfigFieldDescriptor](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L48)
+ * generated from [ConfigFieldDescriptor](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L52)
  */
 export interface ConfigFieldDescriptor {
     key: string;
@@ -250,7 +257,7 @@ export interface ConfigFieldDescriptor {
 }
 
 /**
- * generated from [PluginLogPage](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L94)
+ * generated from [PluginLogPage](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L99)
  */
 export interface PluginLogPage {
     pluginId: string;
@@ -260,7 +267,7 @@ export interface PluginLogPage {
 }
 
 /**
- * generated from [PluginGrantList](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L137)
+ * generated from [PluginGrantList](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L143)
  */
 export interface PluginGrantList {
     /** Every capability every installed plugin is asking for, refused ones included */
@@ -269,7 +276,7 @@ export interface PluginGrantList {
 
 /**
  * A plugin as the settings list sees it. Carries no configured VALUES, only which secrets are set
- * generated from [PluginSummary](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L69)
+ * generated from [PluginSummary](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L73)
  */
 export interface PluginSummary {
     id: string;
@@ -279,6 +286,7 @@ export interface PluginSummary {
     /** Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not */
     usesTrackFetcher?: boolean;
     status: PluginStatus;
+    origin: PluginOrigin;
     enabled: boolean;
     description?: string;
     icon?: string;
@@ -301,6 +309,7 @@ export interface PluginSummaryInput {
     /** Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not */
     usesTrackFetcher?: boolean;
     status: PluginStatus;
+    origin: PluginOrigin;
     enabled: boolean;
     description?: string;
     icon?: string;
@@ -325,15 +334,19 @@ export function revivePluginSummary(raw: PluginSummary): PluginSummary {
 
 /**
  * A summary plus the stored NON-SECRET configuration
- * generated from [PluginDetail](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L110)
+ * generated from [PluginDetail](../../../../../apps/api/data/contracts/plugins/plugins.types.ck#L115)
  */
 export interface PluginDetail extends PluginSummary {
+    /** Absolute path of the plugin's directory on the station */
+    dir: string;
     config: Record<string, unknown>;
     oauthConnected?: boolean;
     logLevel: PluginLogLevel;
 }
 
 export interface PluginDetailInput extends PluginSummaryInput {
+    /** Absolute path of the plugin's directory on the station */
+    dir: string;
     config: Record<string, unknown>;
     oauthConnected?: boolean;
     logLevel: PluginLogLevel;

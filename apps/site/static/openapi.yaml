@@ -7595,6 +7595,10 @@ components:
             type: string
             enum: [discovered, disabled, misconfigured, active, failed]
             description: 'Lifecycle state of a plugin the host knows about'
+        PluginOrigin:
+            type: string
+            enum: [bundled, installed]
+            description: "Where the station found a plugin: shipped inside the image, or installed by the operator into the plugins\ndirectory on the data volume. Says nothing about trust; both kinds run inside the station with its privileges"
         ConfigFieldType:
             type: string
             enum: [string, text, url, secret, number, boolean, select, multiselect, list, note]
@@ -7761,6 +7765,8 @@ components:
                     description: "Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not"
                 status:
                     '$ref': '#/components/schemas/PluginStatus'
+                origin:
+                    '$ref': '#/components/schemas/PluginOrigin'
                 enabled:
                     type: boolean
                 description:
@@ -7798,6 +7804,7 @@ components:
                 - version
                 - capabilities
                 - status
+                - origin
                 - enabled
                 - configFields
                 - secretsConfigured
@@ -7853,6 +7860,11 @@ components:
                 - '$ref': '#/components/schemas/PluginSummary'
                 - type: object
                   properties:
+                      dir:
+                          type: string
+                          minLength: 1
+                          maxLength: 4096
+                          description: "Absolute path of the plugin's directory on the station"
                       config:
                           type: object
                           additionalProperties: {}
@@ -7860,7 +7872,7 @@ components:
                           type: boolean
                       logLevel:
                           '$ref': '#/components/schemas/PluginLogLevel'
-                  required: [config, logLevel]
+                  required: [dir, config, logLevel]
         PluginConfigInput:
             type: object
             properties:

@@ -55,6 +55,18 @@ describe('PluginsPage', () => {
         expect(screen.getByText('2 installed')).toBeInTheDocument();
     });
 
+    it('marks a plugin the operator installed, and leaves the bundled ones unmarked', async () => {
+        listPlugins.mockResolvedValue([
+            pluginSummary(),
+            pluginSummary({ id: 'example.apple-music-charts', name: 'Apple Music charts', origin: 'installed' }),
+        ]);
+
+        render(<PluginsPage />);
+
+        expect(await screen.findByText('Apple Music charts')).toBeInTheDocument();
+        expect(screen.getAllByText('Installed')).toHaveLength(1);
+    });
+
     it('says so when the host has nothing mounted', async () => {
         listPlugins.mockResolvedValue([]);
 

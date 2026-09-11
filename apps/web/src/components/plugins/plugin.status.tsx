@@ -1,3 +1,4 @@
+import { Badge } from '@mantine/core';
 import type { PluginStatus, PluginSummary } from '@deadair/sdk';
 
 import type { StatusTone } from '../shared/status';
@@ -69,4 +70,22 @@ export interface PluginStatusProps {
 export function PluginStatusLamp({ status, size = 'sm' }: PluginStatusProps) {
     const { label, tone } = statusOf(status);
     return <StatusLamp tone={tone} label={label} size={size} />;
+}
+
+export interface PluginOriginBadgeProps {
+    plugin: Pick<PluginSummary, 'origin'>;
+}
+
+/**
+ * Marks a plugin the operator installed, as against one the image shipped with. Drawn only for the
+ * installed kind: the bundled set is the ordinary case, and a badge on every card would say nothing.
+ * It is a fact about where the code came from and never a trust level, since both run as the station.
+ */
+export function PluginOriginBadge({ plugin }: PluginOriginBadgeProps) {
+    if (plugin.origin !== 'installed') return undefined;
+    return (
+        <Badge size="xs" variant="outline" color="gray" tt="none" title="Added to the plugins folder on this station, not shipped with it">
+            Installed
+        </Badge>
+    );
 }

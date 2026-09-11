@@ -860,6 +860,9 @@ export class PluginsService {
         const supportsOAuth = record.manifest?.capabilities.includes(PLUGIN_CAPABILITY_OAUTH) ?? false;
         return {
             ...this.toSummary(record, readModel),
+            // Behind the operator gate with the rest of the detail. What it is for is a failed
+            // install: the directory the station read is the first thing an operator needs.
+            dir: record.dir,
             config: readModel.config,
             // The in-memory record is the fresher of the two: it carries the
             // reason for a status the database has not been told about yet.
@@ -884,6 +887,7 @@ export class PluginsService {
             // its own URLs, and has nothing for the station's fetcher to be authorized for.
             usesTrackFetcher: manifest?.permissions.trackFetcher === true,
             status: record.status,
+            origin: record.origin,
             enabled: readModel.enabled,
             // A quarantined candidate has no manifest to describe itself with,
             // so the quarantine reason stands in for the description.

@@ -6,6 +6,10 @@ options {
 
 contract PluginStatus: enum(discovered, disabled, misconfigured, active, failed) # Lifecycle state of a plugin the host knows about
 
+# Where the station found a plugin: shipped inside the image, or installed by the operator into the plugins
+# directory on the data volume. Says nothing about trust; both kinds run inside the station with its privileges
+contract PluginOrigin: enum(bundled, installed)
+
 contract ConfigFieldType: enum(string, text, url, secret, number, boolean, select, multiselect, list, note)
 
 # What a `number` field's value is measured in. The stored value is always in this unit; only the
@@ -73,6 +77,7 @@ contract PluginSummary: {
     capabilities: array(string(min=1, max=100))
     usesTrackFetcher?: boolean # Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not
     status: PluginStatus
+    origin: PluginOrigin
     enabled: boolean
     description?: string(max=2000)
     icon?: string(max=2000)
@@ -108,6 +113,7 @@ contract PluginLogLevelInput: {
 
 # A summary plus the stored NON-SECRET configuration
 contract PluginDetail: PluginSummary & {
+    dir: string(min=1, max=4096) # Absolute path of the plugin's directory on the station
     config: record(string, unknown)
     oauthConnected?: boolean
     logLevel: PluginLogLevel

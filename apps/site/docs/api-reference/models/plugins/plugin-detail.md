@@ -1,6 +1,6 @@
 ---
 title: 'PluginDetail'
-sidebar_position: 15
+sidebar_position: 16
 mdx:
     format: 'md'
 ---
@@ -10,12 +10,13 @@ mdx:
 Extends [`PluginSummary`](./plugin-summary.md)
 
 <details>
-<summary>Attributes (3)</summary>
+<summary>Attributes (4)</summary>
 
-| Attribute        | Type                      | Required | Description |
-| ---------------- | ------------------------- | -------- | ----------- |
-| `config`         | `Record<string, unknown>` | Yes      |             |
-| `oauthConnected` | `boolean`                 | No       |             |
-| `logLevel`       | `PluginLogLevel`          | Yes      |             |
+| Attribute        | Type                      | Required | Description                                            |
+| ---------------- | ------------------------- | -------- | ------------------------------------------------------ |
+| `dir`            | `string`                  | Yes      | Absolute path of the plugin's directory on the station |
+| `config`         | `Record<string, unknown>` | Yes      |                                                        |
+| `oauthConnected` | `boolean`                 | No       |                                                        |
+| `logLevel`       | `PluginLogLevel`          | Yes      |                                                        |
 
 </details>

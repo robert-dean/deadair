@@ -32,6 +32,18 @@ enum class PluginStatus {
     FAILED,
 }
 
+/**
+ * Where the station found a plugin: shipped inside the image, or installed by the operator into the plugins
+ * directory on the data volume. Says nothing about trust; both kinds run inside the station with its privileges
+ */
+@Serializable
+enum class PluginOrigin {
+    @SerialName("bundled")
+    BUNDLED,
+    @SerialName("installed")
+    INSTALLED,
+}
+
 @Serializable
 enum class ConfigFieldType {
     @SerialName("string")
@@ -318,6 +330,7 @@ data class PluginSummary(
     /** Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not */
     val usesTrackFetcher: Boolean? = null,
     val status: PluginStatus,
+    val origin: PluginOrigin,
     val enabled: Boolean,
     val description: String? = null,
     val icon: String? = null,
@@ -342,6 +355,7 @@ data class PluginSummaryInput(
     /** Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not */
     val usesTrackFetcher: Boolean? = null,
     val status: PluginStatus,
+    val origin: PluginOrigin,
     val enabled: Boolean,
     val description: String? = null,
     val icon: String? = null,
@@ -362,6 +376,7 @@ data class PluginDetail(
     /** Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not */
     val usesTrackFetcher: Boolean? = null,
     val status: PluginStatus,
+    val origin: PluginOrigin,
     val enabled: Boolean,
     val description: String? = null,
     val icon: String? = null,
@@ -374,6 +389,8 @@ data class PluginDetail(
     val lastError: String? = null,
     /** When the breaker will probe this plugin again on its own. Absent means no probe is pending */
     val nextProbeAt: Instant? = null,
+    /** Absolute path of the plugin's directory on the station */
+    val dir: String,
     val config: Map<String, JsonElement>,
     val oauthConnected: Boolean? = null,
     val logLevel: PluginLogLevel,
@@ -389,6 +406,7 @@ data class PluginDetailInput(
     /** Whether the manifest declares the `trackFetcher` permission, so its records reach air through the station's own track fetcher and that fetcher needs its own authorization. Not the same as the `stream` capability, which a plugin that mints its own stream URLs declares too. Absent means it does not */
     val usesTrackFetcher: Boolean? = null,
     val status: PluginStatus,
+    val origin: PluginOrigin,
     val enabled: Boolean,
     val description: String? = null,
     val icon: String? = null,
@@ -397,6 +415,8 @@ data class PluginDetailInput(
     val secretsConfigured: Map<String, Boolean>,
     /** The last recorded failure. Absent means it is not currently unhappy */
     val lastError: String? = null,
+    /** Absolute path of the plugin's directory on the station */
+    val dir: String,
     val config: Map<String, JsonElement>,
     val oauthConnected: Boolean? = null,
     val logLevel: PluginLogLevel,

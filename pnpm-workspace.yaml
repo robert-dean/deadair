@@ -33,6 +33,10 @@ overrides:
     # Never in the image.
     'copy-webpack-plugin@11>serialize-javascript': ^7.0.5
     'css-minimizer-webpack-plugin@5>serialize-javascript': ^7.0.5
+    # The build of every package and plugin. tsup 8.5.1 is the latest and still asks for ^0.27, and
+    # the advisory is esbuild's own dev server on Windows, which nothing here runs. Vite and the rest
+    # already allow 0.28. The image strips tsup and esbuild with the rest of the dev half.
+    'tsup>esbuild': ^0.28.1
 
 confirmModulesPurge: false
 

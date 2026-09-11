@@ -29,6 +29,15 @@ pnpm build
 invocation instead, which is faster for a reason explained in `CLAUDE.md`; running them by hand is
 unchanged.
 
+CI on a pull request from a fork waits for the maintainer to approve each run, because the workflow a
+pull request runs is the one in the pull request. Expect a short delay before the checks start. The
+one that has to pass is `ci-ok`, which stands for everything else. Pull requests are squash-merged, so
+the commit messages inside yours are yours to write however you like; the merge gets a subject in the
+form described under "Commit messages".
+
+Security problems go through a private advisory rather than an issue or a pull request, as
+`SECURITY.md` explains.
+
 ## The rules that will bounce a change
 
 **Generated output is never hand-edited.** ContractKit routers and types come from the `.ck` files

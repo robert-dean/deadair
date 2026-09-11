@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-09-11
+
+- The plugin SDK on npm is now published by the release itself, with a provenance attestation that ties each version to the commit and the workflow run that built it. 0.2.0 was published by hand and has none. Nothing in the SDK's API changes.
+
 ## [0.2.0] — 2026-09-11
 
 - A station can now run plugins it did not ship with. Copy a plugin into `plugins/` on the data volume and press Rescan: the station lends it its own SDK, where before every such plugin failed to load. The console marks a plugin you installed, and one that failed to load names the folder it was read from. The plugin SDK is published to npm as `@deadair/plugin-sdk`, and deadair.radio has a new section on writing, testing and installing a plugin, walking through a complete example.
@@ -56,6 +60,7 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/robert-dean/deadair/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/robert-dean/deadair/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/v0.1.0

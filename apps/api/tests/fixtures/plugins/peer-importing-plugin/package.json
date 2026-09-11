@@ -1,0 +1,8 @@
+{
+    "name": "test-fixture-peer-importing-plugin",
+    "private": true,
+    "type": "module",
+    "deadair": {
+        "plugin": "entry.js"
+    }
+}

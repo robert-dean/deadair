@@ -9,6 +9,7 @@ import { PluginConfigService } from '../../../src/modules/plugins/plugin.config.
 import type { PluginHostFactory } from '../../../src/modules/plugins/plugin.host.factory.js';
 import type { PluginInvoker } from '../../../src/modules/plugins/plugin.invoker.js';
 import type { PluginLoader } from '../../../src/modules/plugins/plugin.loader.js';
+import type { PluginPeerLinker } from '../../../src/modules/plugins/plugin.peers.js';
 import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.record.js';
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 import { stubContainer } from '../../utils/stub.container.js';
@@ -66,12 +67,34 @@ function makeManager(registry: PluginRegistry, discovered: PluginRecord[], confi
         [PluginConfigService, {} as PluginConfigService],
     ]);
 
-    const manager = new PluginLifecycleManager(pluginLoader, registry, pluginHostFactory, pluginInvoker, container, stubPluginLog().log);
+    // Links nothing: the peers link is `plugin.peers.test.ts`'s subject, and here it only has to be
+    // called ahead of the loader.
+    const pluginPeerLinker = { link: vi.fn(async () => ({ pluginsDir: '/srv/plugins', results: [] })) } as unknown as PluginPeerLinker;
 
-    return { manager, pluginLoader, pluginHostFactory, createScopedContainer, disposeAsync };
+    const manager = new PluginLifecycleManager(
+        pluginLoader,
+        registry,
+        pluginHostFactory,
+        pluginInvoker,
+        container,
+        stubPluginLog().log,
+        pluginPeerLinker,
+    );
+
+    return { manager, pluginLoader, pluginHostFactory, pluginPeerLinker, createScopedContainer, disposeAsync };
 }
 
 describe('PluginLifecycleManager.rescan', () => {
+    it('links the peers into the plugins directory before the loader imports anything', async () => {
+        const { manager, pluginLoader, pluginPeerLinker } = makeManager(new PluginRegistry(), [], [config()]);
+
+        await manager.rescan();
+
+        const linked = vi.mocked(pluginPeerLinker.link).mock.invocationCallOrder[0];
+        const discovered = vi.mocked(pluginLoader.discover).mock.invocationCallOrder[0];
+        expect(linked).toBeLessThan(discovered!);
+    });
+
     it('keeps a running plugin when discovery quarantines a duplicate copy of its id', async () => {
         const registry = new PluginRegistry();
         const dispose = vi.fn();
@@ -80,6 +103,7 @@ describe('PluginLifecycleManager.rescan', () => {
             id: 'spotify',
             manifest: manifest(),
             dir: '/app/plugins/spotify',
+            origin: 'bundled',
             status: 'active',
             instance,
         };
@@ -91,10 +115,11 @@ describe('PluginLifecycleManager.rescan', () => {
         const { manager } = makeManager(
             registry,
             [
-                { id: 'spotify', manifest: manifest(), dir: '/app/plugins/spotify', status: 'discovered' },
+                { id: 'spotify', manifest: manifest(), dir: '/app/plugins/spotify', origin: 'bundled', status: 'discovered' },
                 {
                     id: 'spotify',
                     dir: '/srv/plugins/spotify-dev',
+                    origin: 'installed',
                     status: 'failed',
                     error: 'duplicate plugin id "spotify"; the copy loaded first wins',
                 },
@@ -120,7 +145,7 @@ describe('PluginLifecycleManager.rescan', () => {
         const registry = new PluginRegistry();
         const { manager } = makeManager(
             registry,
-            [{ id: 'broken', dir: '/srv/plugins/broken', status: 'failed', error: 'entry "dist/index.js" does not exist' }],
+            [{ id: 'broken', dir: '/srv/plugins/broken', origin: 'installed', status: 'failed', error: 'entry "dist/index.js" does not exist' }],
             [],
         );
 
@@ -137,6 +162,7 @@ describe('PluginLifecycleManager.rescan', () => {
                 id: 'spotify',
                 manifest: manifest(),
                 dir: '/app/plugins/spotify',
+                origin: 'bundled',
                 status: 'active',
                 instance: { init: async () => {}, dispose } as unknown as PluginInstance,
             },

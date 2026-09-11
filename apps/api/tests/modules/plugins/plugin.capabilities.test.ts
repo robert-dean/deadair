@@ -22,6 +22,7 @@ const manifest = (capabilities: string[]): PluginManifest => ({ capabilities }) 
 const record = (capabilities: string[], instance: Record<string, unknown>, status: PluginRecord['status'] = 'active'): PluginRecord => ({
     id: 'deadair.example',
     dir: '/plugins/example',
+    origin: 'bundled',
     status,
     manifest: manifest(capabilities),
     instance: instance as unknown as PluginInstance,

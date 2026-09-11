@@ -45,7 +45,7 @@ function manifest(overrides: Partial<PluginManifest> = {}): PluginManifest {
 }
 
 function record(id: string, overrides: Partial<PluginRecord> = {}): PluginRecord {
-    return { id, dir: `/plugins/${id}`, status: 'active', manifest: manifest({ id }), instance: {} as never, ...overrides };
+    return { id, dir: `/plugins/${id}`, origin: 'bundled', status: 'active', manifest: manifest({ id }), instance: {} as never, ...overrides };
 }
 
 interface Harness {

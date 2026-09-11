@@ -214,6 +214,22 @@ write and its own `setStatus` upsert then waits on the lock the request is holdi
 request waits on it. Postgres does not call that a deadlock, because only one of the two is waiting
 in the database. `reloadPlugin` is inline precisely because it writes nothing.
 
+**The plugins directory carries the host's SDK and zod as symlinks, and the host writes them.** A plugin
+declares both as PEERS so it shares the host's single copy, and for a bundled plugin `docker/link-peers.mjs`
+satisfies that by linking them into `/app/node_modules`, which Node's walk up from `/app/plugins/<name>` reaches.
+An installed plugin lives under `/data/plugins`, and that walk never reaches `/app`: its first
+`import '@deadair/plugin-sdk'` failed with `ERR_MODULE_NOT_FOUND` and it was quarantined for a package it
+correctly declared it does not own. So `PluginPeerLinker` (`modules/plugins/plugin.peers.ts`) links
+`<PLUGINS_DIR>/node_modules/{@deadair/plugin-sdk,zod}` at the host's own resolved copies before every discovery
+and every rescan, derived from the SDK's non-optional `peerDependencies` exactly as `link-peers.mjs` is, so a peer
+added later is covered without anybody remembering this. Node keys the module cache on the real path, so the
+plugin is handed the host's very instance, and `plugin.peers.test.ts` proves it by spawning a real `node`,
+because vitest resolves a bare specifier from the project root wherever it appears and so passes either way.
+Two ways to break it quietly: tidying it into a one-off at boot (an image upgrade moves the store path the link
+points at, and Rescan is what puts that right), and making `PLUGINS_DIR` a read-only mount, whose symptom is a
+warning at boot and every installed plugin quarantined with an import error. A missing directory is not created,
+and a real directory where a link belongs is left alone.
+
 ## Conventions
 
 **Import aliases** are `#src/*`, `#routes/*`, `#modules/*`, and they are declared THREE times

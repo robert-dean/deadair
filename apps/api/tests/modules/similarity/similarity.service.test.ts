@@ -44,7 +44,7 @@ function record(id: string, options: InstanceOptions = {}, overrides: Partial<Pl
     };
     if (options.artistTopTracks) instance.artistTopTracks = options.artistTopTracks;
 
-    return { id, dir: `/plugins/${id}`, status: 'active', manifest: manifest(id), instance: instance as never, ...overrides };
+    return { id, dir: `/plugins/${id}`, origin: 'bundled', status: 'active', manifest: manifest(id), instance: instance as never, ...overrides };
 }
 
 const build = (records: PluginRecord[]): SimilarityService => {

@@ -10,6 +10,7 @@ import { PLUGIN_OAUTH_SECRET_KEY, PluginHostFactory } from './plugin.host.factor
 import { DISPOSE_OP, PluginInvoker } from './plugin.invoker.js';
 import { PluginLoader } from './plugin.loader.js';
 import { PluginLog } from './plugin.log.js';
+import { PluginPeerLinker } from './plugin.peers.js';
 import { PluginRegistry, firstWinsById } from './plugin.registry.js';
 import type { PluginRecord, PluginStatus } from './types/plugin.record.js';
 import { PluginLogLevel } from './types/plugins.types.js';
@@ -48,6 +49,7 @@ export class PluginLifecycleManager {
         private readonly pluginInvoker: PluginInvoker,
         private readonly container: Container,
         private readonly pluginLog: PluginLog,
+        private readonly pluginPeerLinker: PluginPeerLinker,
     ) {}
 
     /**
@@ -56,6 +58,10 @@ export class PluginLifecycleManager {
      * {@link PluginLifecycleManager.initAllEnabled}, which runs off the boot path.
      */
     async discoverAll(): Promise<void> {
+        // Before the loader imports anything, because an installed plugin's first line is an import
+        // of the SDK and this is what makes that import resolve. Never rejects.
+        await this.pluginPeerLinker.link();
+
         let records: PluginRecord[] = [];
         try {
             records = await this.pluginLoader.discover();
@@ -81,6 +87,10 @@ export class PluginLifecycleManager {
      * directory has disappeared are disposed and dropped.
      */
     async rescan(): Promise<void> {
+        // Again on every rescan: a plugins directory created after boot, or a link an image upgrade
+        // left pointing at a store path that no longer exists, is put right by pressing Rescan.
+        await this.pluginPeerLinker.link();
+
         let records: PluginRecord[];
         try {
             records = await this.pluginLoader.discover();

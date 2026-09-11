@@ -17,6 +17,7 @@ import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.rec
 const record = (): PluginRecord => ({
     id: lastfmManifest.id,
     dir: '/plugins/lastfm',
+    origin: 'bundled',
     status: 'active',
     manifest: lastfmManifest,
     instance: new LastfmPlugin() as never,

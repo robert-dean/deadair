@@ -47,7 +47,7 @@ function harness(): Harness {
     const handleCallback = vi.fn(async (_params: Record<string, string>) => {});
 
     const instance = { getAuthorizeUrl, handleCallback } as unknown as PluginInstance;
-    const record: PluginRecord = { id: PLUGIN_ID, dir: '/plugins/oauth', status: 'active', manifest: manifest(), instance };
+    const record: PluginRecord = { id: PLUGIN_ID, dir: '/plugins/oauth', origin: 'bundled', status: 'active', manifest: manifest(), instance };
 
     const registry = new PluginRegistry();
     registry.upsert(record);

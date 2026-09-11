@@ -22,6 +22,7 @@ function record(overrides: Partial<PluginRecord> = {}): PluginRecord {
     return {
         id: 'test.plugin',
         dir: '/plugins/test-plugin',
+        origin: 'bundled',
         status: 'discovered',
         ...overrides,
     };

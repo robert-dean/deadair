@@ -39,6 +39,7 @@ function record(id: string, search: unknown, overrides: Partial<PluginRecord> = 
     return {
         id,
         dir: `/plugins/${id}`,
+        origin: 'bundled',
         status: 'active',
         manifest: manifest(id),
         instance: { init: vi.fn(), search } as never,

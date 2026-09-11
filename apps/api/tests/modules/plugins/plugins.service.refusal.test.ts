@@ -57,7 +57,14 @@ function manifest(schema: unknown): PluginManifest {
 
 function makeService(schema: unknown = configSchema, saveConfig = vi.fn(async () => {})): PluginsService {
     const registry = new PluginRegistry();
-    const record: PluginRecord = { id: PLUGIN_ID, dir: `/plugins/${PLUGIN_ID}`, status: 'active', manifest: manifest(schema), instance: {} as never };
+    const record: PluginRecord = {
+        id: PLUGIN_ID,
+        dir: `/plugins/${PLUGIN_ID}`,
+        origin: 'bundled',
+        status: 'active',
+        manifest: manifest(schema),
+        instance: {} as never,
+    };
     registry.upsert(record);
 
     const grants = new Set([`plugin:${PLUGIN_ID}:configure:u-owner`]);

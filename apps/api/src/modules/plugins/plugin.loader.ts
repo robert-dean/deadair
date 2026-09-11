@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { Injectable } from 'injectkit';
 import { satisfies, validRange } from 'semver';
 import { PLUGIN_API_VERSION, pluginManifestSchema, type DeadairPlugin, type PluginManifest } from '@deadair/plugin-sdk';
-import type { PluginRecord } from './types/plugin.record.js';
+import type { PluginOrigin, PluginRecord } from './types/plugin.record.js';
 import { errorText } from '#modules/shared/error.text.js';
 
 /**
@@ -65,17 +65,20 @@ export class PluginLoader {
      * Never rejects.
      */
     async discover(): Promise<PluginRecord[]> {
-        const dirs = [...this.options.bundledDirs.map(dir => resolve(dir)), ...(await this.scanPluginsDir())];
+        const candidates: { dir: string; origin: PluginOrigin }[] = [
+            ...this.options.bundledDirs.map(dir => ({ dir: resolve(dir), origin: 'bundled' as const })),
+            ...(await this.scanPluginsDir()).map(dir => ({ dir, origin: 'installed' as const })),
+        ];
 
         const records: PluginRecord[] = [];
         const seenDirs = new Set<string>();
         const seenIds = new Set<string>();
 
-        for (const dir of dirs) {
+        for (const { dir, origin } of candidates) {
             if (seenDirs.has(dir)) continue;
             seenDirs.add(dir);
 
-            const record = await this.loadCandidate(dir, seenIds);
+            const record = await this.loadCandidate(dir, origin, seenIds);
             if (record) records.push(record);
         }
 
@@ -99,6 +102,10 @@ export class PluginLoader {
 
         const dirs: string[] = [];
         for (const entry of entries) {
+            // The station's own: `PluginPeerLinker` keeps the host's SDK and zod here so an installed
+            // plugin can resolve them. It has no package.json and would be skipped anyway, but it is
+            // never a plugin, so it is not even looked at.
+            if (entry.name === 'node_modules') continue;
             const full = resolve(root, entry.name);
             if (entry.isDirectory()) {
                 dirs.push(full);
@@ -125,7 +132,7 @@ export class PluginLoader {
      * `seenIds` is mutated: the first plugin to claim an id keeps it, and every
      * later claimant is quarantined.
      */
-    private async loadCandidate(dir: string, seenIds: Set<string>): Promise<PluginRecord | undefined> {
+    private async loadCandidate(dir: string, origin: PluginOrigin, seenIds: Set<string>): Promise<PluginRecord | undefined> {
         let entry: string;
         let entryPath: string;
         try {
@@ -134,57 +141,58 @@ export class PluginLoader {
             entry = declared;
             entryPath = resolve(dir, declared);
         } catch (error) {
-            return this.quarantine(dir, `unreadable package.json: ${errorText(error)}`);
+            return this.quarantine(dir, origin, `unreadable package.json: ${errorText(error)}`);
         }
 
         // A plugin that declares a built entry it never shipped is the single
         // most common operator mistake (an unbuilt checkout). Naming the entry
         // and the fix beats surfacing a raw ERR_MODULE_NOT_FOUND stack.
         if (!(await fileExists(entryPath))) {
-            return this.quarantine(dir, `entry "${entry}" does not exist; the plugin has not been built (run pnpm build)`);
+            return this.quarantine(dir, origin, `entry "${entry}" does not exist; the plugin has not been built (run pnpm build)`);
         }
 
         let module: unknown;
         try {
             module = await import(pathToFileURL(entryPath).href);
         } catch (error) {
-            return this.quarantine(dir, `failed to import entry "${entryPath}": ${errorText(error)}`);
+            return this.quarantine(dir, origin, `failed to import entry "${entryPath}": ${errorText(error)}`);
         }
 
         const exported = (module as { default?: unknown }).default;
         if (typeof exported !== 'object' || exported === null) {
-            return this.quarantine(dir, 'entry has no default export; a plugin must default-export definePlugin(manifest, factory)');
+            return this.quarantine(dir, origin, 'entry has no default export; a plugin must default-export definePlugin(manifest, factory)');
         }
 
         const { manifest, factory } = exported as Partial<DeadairPlugin>;
         if (typeof factory !== 'function') {
-            return this.quarantine(dir, 'default export has no factory function');
+            return this.quarantine(dir, origin, 'default export has no factory function');
         }
 
         const parsed = pluginManifestSchema.safeParse(manifest);
         if (!parsed.success) {
             const issues = parsed.error.issues.map(issue => `${issue.path.join('.') || '(root)'}: ${issue.message}`).join('; ');
-            return this.quarantine(dir, `invalid manifest: ${issues}`);
+            return this.quarantine(dir, origin, `invalid manifest: ${issues}`);
         }
         const validated = parsed.data as PluginManifest;
 
         if (!validRange(validated.apiVersion)) {
-            return this.quarantine(dir, `manifest apiVersion "${validated.apiVersion}" is not a valid semver range`, validated.id);
+            return this.quarantine(dir, origin, `manifest apiVersion "${validated.apiVersion}" is not a valid semver range`, validated.id);
         }
         if (!satisfies(PLUGIN_API_VERSION, validated.apiVersion)) {
             return this.quarantine(
                 dir,
+                origin,
                 `plugin requires plugin API "${validated.apiVersion}" but this host implements ${PLUGIN_API_VERSION}`,
                 validated.id,
             );
         }
 
         if (seenIds.has(validated.id)) {
-            return this.quarantine(dir, `duplicate plugin id "${validated.id}"; the copy loaded first wins`, validated.id);
+            return this.quarantine(dir, origin, `duplicate plugin id "${validated.id}"; the copy loaded first wins`, validated.id);
         }
         seenIds.add(validated.id);
 
-        return { id: validated.id, manifest: validated, dir, status: 'discovered' };
+        return { id: validated.id, manifest: validated, dir, origin, status: 'discovered' };
     }
 
     /**
@@ -211,7 +219,7 @@ export class PluginLoader {
     }
 
     /** A `failed` record: error text, no manifest, no instance. */
-    private quarantine(dir: string, error: string, id?: string): PluginRecord {
-        return { id: id ?? basename(dir), dir, status: 'failed', error };
+    private quarantine(dir: string, origin: PluginOrigin, error: string, id?: string): PluginRecord {
+        return { id: id ?? basename(dir), dir, origin, status: 'failed', error };
     }
 }

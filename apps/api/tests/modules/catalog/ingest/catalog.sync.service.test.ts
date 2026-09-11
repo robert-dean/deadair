@@ -90,6 +90,7 @@ function record(id: string, overrides: Partial<PluginRecord> = {}): PluginRecord
     return {
         id,
         dir: `/plugins/${id}`,
+        origin: 'bundled',
         status: 'active',
         manifest: manifest({ id }),
         instance: fakeProvider().instance as never,

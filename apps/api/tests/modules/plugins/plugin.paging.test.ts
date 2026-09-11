@@ -24,7 +24,7 @@ const stubLogger = (): Logger => ({
 
 function build() {
     const registry = new PluginRegistry();
-    registry.upsert({ id: 'p', dir: '/plugins/p', status: 'active' });
+    registry.upsert({ id: 'p', dir: '/plugins/p', origin: 'bundled', status: 'active' });
     return { invoker: new PluginInvoker(registry, stubPluginLog().log), logger: stubLogger() };
 }
 

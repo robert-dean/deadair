@@ -15,6 +15,15 @@ Read the ones covering whatever you are about to change. The always-loaded index
 
 **In plugin code, `undefined` means "not set". Never `null`.**
 
+**An installed plugin reaches the host's SDK through a link the host makes, not through its own
+`node_modules`.** A plugin under `PLUGINS_DIR` cannot walk up to the station's tree, so the host links its
+copies of this package and of every non-optional peer into `<PLUGINS_DIR>/node_modules` before each
+discovery (`apps/api/src/modules/plugins/plugin.peers.ts`; the reasoning is in `apps/api/CLAUDE.md` under
+"Plugins, from the host side"). So a new REQUIRED peer here is a new link there with no other change, and an
+optional one is not linked at all, which is why `vitest` is optional. A plugin that ships its own copy in a
+`node_modules` beside it gets that copy instead, and the brand on `PluginError` and the duck-typed zod check
+are what keep that working rather than what it is designed around.
+
 ## Trust and egress
 
 **Plugins are trusted code, permanently.** They load through a plain dynamic `import()` into the host realm and can reach `process.env`, `fs`, and the pg pool. `host.fetch` protects an honest plugin from a hostile upstream and protects the operator from a careless plugin. It does not contain a hostile one, and no future version will: the subprocess option is closed, not deferred. Do not write docs, UI copy, or comments claiming otherwise, and do not reintroduce a constraint whose only justification is a move that is not happening.

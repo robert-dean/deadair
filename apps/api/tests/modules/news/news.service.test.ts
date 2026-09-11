@@ -59,7 +59,15 @@ function instance(options: InstanceOptions = {}) {
 }
 
 function record(id: string, overrides: Partial<PluginRecord> = {}, options: InstanceOptions = {}): PluginRecord {
-    return { id, dir: `/plugins/${id}`, status: 'active', manifest: manifest(id), instance: instance(options) as never, ...overrides };
+    return {
+        id,
+        dir: `/plugins/${id}`,
+        origin: 'bundled',
+        status: 'active',
+        manifest: manifest(id),
+        instance: instance(options) as never,
+        ...overrides,
+    };
 }
 
 /** One of the operator's categories, as the repository answers with it. */

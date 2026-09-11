@@ -66,7 +66,15 @@ function catalogInstance(overrides: Partial<Record<'listPlaylists' | 'getPlaylis
 }
 
 function record(id: string, overrides: Partial<PluginRecord> = {}): PluginRecord {
-    return { id, dir: `/plugins/${id}`, status: 'active', manifest: manifest({ id }), instance: catalogInstance() as never, ...overrides };
+    return {
+        id,
+        dir: `/plugins/${id}`,
+        origin: 'bundled',
+        status: 'active',
+        manifest: manifest({ id }),
+        instance: catalogInstance() as never,
+        ...overrides,
+    };
 }
 
 /**
@@ -271,7 +279,7 @@ describe('PlaylistsService.listPlaylists', () => {
         // this page for an enrichment plugin's failure is worse than silence. The
         // plugins page is where a manifest-less failure belongs.
         const { service, registry } = makeService(userActor('u-admin', ['admin']));
-        registry.upsert({ id: SPOTIFY_ID, dir: '/plugins/x', status: 'failed', error: 'manifest did not validate' });
+        registry.upsert({ id: SPOTIFY_ID, dir: '/plugins/x', origin: 'bundled', status: 'failed', error: 'manifest did not validate' });
 
         const page = await service.listPlaylists();
 

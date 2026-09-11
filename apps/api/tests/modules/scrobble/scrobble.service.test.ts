@@ -50,7 +50,7 @@ function record(id: string, options: InstanceOptions = {}, overrides: Partial<Pl
     if (options.nowPlaying) instance.nowPlaying = options.nowPlaying;
     if (options.maxBatchSize !== undefined) instance.maxBatchSize = options.maxBatchSize;
 
-    return { id, dir: `/plugins/${id}`, status: 'active', manifest: manifest(id), instance: instance as never, ...overrides };
+    return { id, dir: `/plugins/${id}`, origin: 'bundled', status: 'active', manifest: manifest(id), instance: instance as never, ...overrides };
 }
 
 function build(records: PluginRecord[]) {

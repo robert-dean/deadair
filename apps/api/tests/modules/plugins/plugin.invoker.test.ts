@@ -15,7 +15,7 @@ import type { PluginRecord } from '../../../src/modules/plugins/types/plugin.rec
 import { stubPluginLog } from '../../utils/plugin.log.fixture.js';
 
 function record(overrides: Partial<PluginRecord> = {}): PluginRecord {
-    return { id: 'p', dir: '/plugins/p', status: 'active', ...overrides };
+    return { id: 'p', dir: '/plugins/p', origin: 'bundled', status: 'active', ...overrides };
 }
 
 afterEach(() => {

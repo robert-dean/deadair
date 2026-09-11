@@ -177,9 +177,26 @@ describe('PluginLoader.discover', () => {
         const records = await loader.discover();
 
         expect(records).toHaveLength(2);
-        expect(records[0]).toMatchObject({ id: 'test.valid', dir: bundledDir, status: 'discovered' });
+        expect(records[0]).toMatchObject({ id: 'test.valid', dir: bundledDir, origin: 'bundled', status: 'discovered' });
         expect(records[1]).toMatchObject({ status: 'failed' });
         expect(records[1]?.error).toMatch(/duplicate/i);
+    });
+
+    it('marks what it found under pluginsDir as installed, quarantined candidates included', async () => {
+        const records = await discoverWith('valid-plugin', 'bad-manifest');
+
+        expect(recordFor(records, 'test.valid')).toMatchObject({ origin: 'installed', status: 'discovered' });
+        expect(records.find(record => record.status === 'failed')).toMatchObject({ origin: 'installed' });
+    });
+
+    it('never treats the node_modules the station keeps in pluginsDir as a plugin', async () => {
+        const pluginsDir = await pluginsDirWith('valid-plugin');
+        // A package.json carrying the plugin field, so only the name keeps it out.
+        await cp(join(FIXTURES_ROOT, 'valid-plugin'), join(pluginsDir, 'node_modules'), { recursive: true });
+
+        const records = await new PluginLoader(new PluginLoaderOptions(pluginsDir)).discover();
+
+        expect(records.map(record => record.dir)).toEqual([join(pluginsDir, '0-valid-plugin')]);
     });
 
     it('resolves with only the bundled results when pluginsDir does not exist', async () => {

@@ -11,6 +11,7 @@ import { PluginInvoker } from './plugin.invoker.js';
 import { PluginLifecycleManager } from './plugin.lifecycle.manager.js';
 import { PluginLoader, PluginLoaderOptions } from './plugin.loader.js';
 import { PluginLog, PluginLogOptions } from './plugin.log.js';
+import { PluginPeerLinker } from './plugin.peers.js';
 import { PluginGrantsRepository } from './plugin.grants.repository.js';
 import { PluginGrantsService } from './plugin.grants.service.js';
 import { PluginOAuthStateStore } from './plugin.oauth.state.store.js';
@@ -63,6 +64,9 @@ export const PluginsModule: ServerKitModule = {
             .useFactory(() => new PluginLoaderOptions(pluginsDir, bundledPluginDirs))
             .asSingleton();
         registry.register(PluginLoader).useClass(PluginLoader).asSingleton();
+        // Beside the loader because it serves the same directory: it links the host's SDK and zod
+        // into it so an installed plugin can import them. See `plugin.peers.ts`.
+        registry.register(PluginPeerLinker).useClass(PluginPeerLinker).asSingleton();
 
         // Singleton by necessity, not convenience: the registry IS the host's
         // record of what is running, and a per-scope copy would hand each

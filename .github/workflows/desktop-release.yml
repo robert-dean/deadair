@@ -68,7 +68,9 @@ jobs:
             # The version is NOT an input. It was, defaulting to a literal that also appeared in
             # `Directory.Build.props`, in the bundle script and in the release notes — four copies,
             # so a release could stamp a bundle with a number the assembly inside it disagreed with.
-            # `Directory.Build.props` is the one place it is written; everything below reads this.
+            # Now it is decided in a changeset, which bumps `apps/desktop/package.json`, and
+            # `pnpm release:version` copies it into `Directory.Build.props`; the build job fails when
+            # the two disagree. This reads the props, because that is what the assembly is stamped from.
             - name: Read the version
               id: version
               run: |

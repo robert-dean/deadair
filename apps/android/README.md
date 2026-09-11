@@ -157,8 +157,10 @@ which is what lets CI run `bundleRelease` on every push to catch R8 breaking.
 
 Derived from `git rev-list --count HEAD`, so it rises with every commit and no release step has to
 remember to bump anything. Play refuses a code it has already accepted, and forgetting is the usual
-way that goes wrong. `versionName` stays hand-written, because it is a decision rather than a fact
-about the tree.
+way that goes wrong. `versionName` is a decision rather than a fact about the tree, so it comes from
+a changeset: `pnpm changeset`, naming `@deadair/android`, and the version pull request that follows
+bumps `package.json`, copies the number into `app/build.gradle.kts` and writes
+[CHANGELOG.md](CHANGELOG.md). Edit the manifest, never the Gradle line; CI fails when they disagree.
 
 A shallow checkout answers 1. That is why CI's bundle is not uploadable, and it does not need to
 be.
@@ -189,8 +191,9 @@ git tag android-v0.1.0 && git push origin android-v0.1.0
 ```
 
 `android-v` rather than `v`, because `v*` tags are the station's own releases and `release.yml`
-publishes Docker images on them. A tag names a version, so the next one needs `versionName` raised
-first. Internal builds in between go through Run workflow.
+publishes Docker images on them. A tag names a version, so the next one needs the version raised
+first, by a changeset naming `@deadair/android` and the version pull request that consumes it. Internal
+builds in between go through Run workflow.
 
 **Run workflow** (Actions, Android release) chooses the track and the status, and is the only way to
 reach production. A tag cannot, because nothing automated plays the minified bundle on a phone and

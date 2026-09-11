@@ -871,7 +871,11 @@ It keeps its settings in `~/Library/Application Support/deadair/settings.json`, 
 file from anything to do with a session: signing out must not take the station address with it,
 because somebody who signs out is still a listener. The session itself is in the Keychain.
 
-To cut a release, run the `Desktop release` workflow with a version. It runs the same gates as the
+The version is `apps/desktop/package.json`, bumped by a changeset naming `@deadair/desktop` and
+copied into `Directory.Build.props` by `pnpm release:version`; CI fails when the two disagree, so edit
+the manifest and never the props. The changelog is `apps/desktop/CHANGELOG.md`, written from the same
+changesets. To cut a release, run the `Desktop release` workflow; it takes no version, and reads the
+one in `Directory.Build.props`. It runs the same gates as the
 ordinary build, then the bundle script, and archives with `ditto` rather than `zip` — a plain zip
 loses the resource forks and symlinks inside a bundle and produces something macOS unpacks into an
 app that will not launch.

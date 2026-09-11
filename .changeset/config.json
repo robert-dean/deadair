@@ -1,0 +1,12 @@
+{
+    "$schema": "https://unpkg.com/@changesets/config@4.0.0/schema.json",
+    "changelog": false,
+    "commit": false,
+    "fixed": [["@deadair/api", "@deadair/web", "@deadair/sdk", "@deadair/error-codes", "@deadair/plugin-*"]],
+    "linked": [],
+    "access": "restricted",
+    "baseBranch": "main",
+    "updateInternalDependencies": "patch",
+    "ignore": ["@deadair/site", "@repo/config-eslint", "@repo/config-typescript"],
+    "privatePackages": { "version": true, "tag": false }
+}

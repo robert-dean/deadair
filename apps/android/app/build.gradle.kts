@@ -27,8 +27,10 @@ val hasUploadKey =
 // forgetting to raise one. This is the commit count: it only ever grows on a branch nobody
 // rewrites, so every commit is uploadable and no release step has to remember anything.
 //
-// `versionName` stays a hand-written marketing string, because that one is a decision rather
-// than a fact about the tree.
+// `versionName` is a decision rather than a fact about the tree, so it is not derived here. It is
+// made in a changeset naming `@deadair/android`, lands in `apps/android/package.json`, and is copied
+// onto the line below by `pnpm release:version`. Edit the manifest rather than this line: CI fails
+// when the two disagree.
 //
 // A checkout with no git history answers 1, which builds and cannot be uploaded twice. That is
 // the right way round: a source tarball still compiles, and nobody ships from one by accident.

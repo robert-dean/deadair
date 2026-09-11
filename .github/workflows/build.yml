@@ -117,6 +117,15 @@ jobs:
             - name: Check formatting
               run: pnpm format:check || echo "::warning title=Formatting::Prettier found unformatted files (listed in this step's log). Run pnpm format to fix them."
 
+            # Each listener app's version is written twice: in its package.json, which is what
+            # changesets bumps, and in the Gradle or MSBuild file that stamps the artifact, which is
+            # what the app actually reports. `pnpm release:version` keeps them equal, so they differ
+            # only after a hand edit to one, and that is red here rather than a build shipped under a
+            # number its changelog never mentions. A FAILURE, unlike the formatting above: two seconds
+            # of string comparison, and the thing it catches is a wrong release rather than a style.
+            - name: Check the listener apps' versions are in step
+              run: pnpm release:version --check
+
             # Never `codegen` here. The contracts, permissions and Kysely types are committed,
             # and regenerating them needs a live database (build:datatypes runs after migrate:up).
             - name: Build

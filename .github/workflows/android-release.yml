@@ -119,9 +119,11 @@ jobs:
                   persist-credentials: false
                   fetch-depth: 0
 
-            # The version is written in one place, `versionName` in `app/build.gradle.kts`, and a tag
-            # that disagrees with it is refused rather than believed: otherwise `android-v0.2.0` could
-            # publish a build whose notes and User-Agent say 0.1.0. Main, because a tag is pushed by
+            # The version the build is stamped with is `versionName` in `app/build.gradle.kts`, copied
+            # there from `apps/android/package.json` by `pnpm release:version` (the build job fails
+            # when the two disagree), and a tag that disagrees with it is refused rather than
+            # believed: otherwise `android-v0.2.0` could publish a build whose notes and User-Agent
+            # say 0.1.0. Main, because a tag is pushed by
             # hand and can sit on a commit no pull request ever checked. And main is also what the
             # version codes count along, so a build from a branch could collide with one from main.
             - name: Check the tag

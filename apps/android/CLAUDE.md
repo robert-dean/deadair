@@ -194,8 +194,11 @@ not on its own.
 
 **`versionCode` is `git rev-list --count HEAD` and is not edited by hand.** Play refuses a code it
 has already accepted and the usual way that goes wrong is a human forgetting, so the number is a
-fact about the tree rather than a step in a checklist. `versionName` stays hand-written, being a
-decision. A shallow checkout answers 1, which is why CI's bundle is unsigned AND unuploadable, and
+fact about the tree rather than a step in a checklist. `versionName` is a decision rather than a
+fact, and is made in a changeset: changesets bumps `package.json`, `pnpm release:version` copies the
+number into `app/build.gradle.kts`, and the build job's `pnpm release:version --check` fails when a
+hand edit moved one copy without the other. The changelog is `CHANGELOG.md` beside it, written from
+the same changesets. A shallow checkout answers 1, which is why CI's bundle is unsigned AND unuploadable, and
 neither matters for something built only to prove R8 still works.
 
 **CI builds `bundleRelease` for R8's sake alone.** Minification is the one part of this build that

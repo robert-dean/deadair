@@ -90,8 +90,9 @@ else
     flag tree '.' '^(docs/|\.claude/|LICENSE$)|\.md$'
 fi
 
-# The TypeScript workspace the test suite covers, and the root config that shapes it.
-flag node "^(apps/api/|apps/web/|plugins/|packages/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|vitest\.config\.ts$)|${build_yml}" "${listener_sdks}|\.md$"
+# The TypeScript workspace the test suite covers, the root config that shapes it, and the release
+# scripts, whose tests the root config also runs.
+flag node "^(apps/api/|apps/web/|plugins/|packages/|scripts/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|vitest\.config\.ts$)|${build_yml}" "${listener_sdks}|\.md$"
 
 # Everything `pnpm codegen` reads or writes: the contracts, permissions and migrations under
 # `apps/api`, the three SDKs, the website's API reference and spec, and the tool versions.

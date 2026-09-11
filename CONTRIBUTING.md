@@ -63,8 +63,38 @@ and add to it rather than to the root file.
 **Read it before designing a feature from scratch**: the call may already have been made, and the
 file will say what it cost.
 
+## Releasing
+
+Three things are released from this tree, each with its own version and changelog: the station
+(every `@deadair/*` package under `apps/api`, `apps/web`, `packages/` and `plugins/`, which ship as one
+image and share one number), the Android listener (`@deadair/android`) and the desktop app
+(`@deadair/desktop`).
+
+A change somebody running the station or listening to it would notice gets a changeset, in the same
+pull request:
+
+```bash
+pnpm changeset
+```
+
+It asks which packages the change touches and how far each bumps, and writes a file under
+`.changeset/` holding a paragraph that becomes a changelog bullet word for word. Name the package you
+changed; naming any station package bumps the whole station. Without the prompts:
+
+```bash
+pnpm changeset --minor @deadair/plugin-rss --patch @deadair/android -m 'RSS feeds keep their order.'
+```
+
+`.changeset/README.md` says the same in fewer words.
+
+`pnpm release:version` consumes the pending changesets: changesets bumps the manifests, and the
+script writes one entry per unit into `CHANGELOG.md`, `apps/android/CHANGELOG.md` and
+`apps/desktop/CHANGELOG.md`, then copies each app's number into the file its build stamps
+(`app/build.gradle.kts`, `Directory.Build.props`). Change an app's version in its `package.json` and
+nowhere else; the build job fails when a copy disagrees.
+
 ## Commit messages
 
 A subject of the form `area: what changed`, in prose, lower case, no trailing full stop. The body
-says why, and is the part worth writing. There is no conventional-commit tooling and no changelog
-generation reading these, so write them for a person.
+says why, and is the part worth writing. There is no conventional-commit tooling, and the changelogs
+are written from changesets rather than from these, so write them for a person.

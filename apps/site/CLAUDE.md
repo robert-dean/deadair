@@ -59,4 +59,5 @@ is gitignored and goes stale on every use, because the console's refresh token i
 presenting a spent one revokes its whole family, so `shoot` writes the new cookie back as soon as the
 first page is up and again on the way out. Never run two at once and never copy the file. Look at
 every image before committing it: cover art and news headlines are other people's, and `--blur-art`
-is there for the first.
+is there for the first. `unraid/deadair.xml` links five of them by raw GitHub URL as its
+`<Screenshot>`s, so renaming or deleting one breaks the Unraid listing with nothing here failing.

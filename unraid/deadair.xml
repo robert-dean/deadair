@@ -51,6 +51,11 @@
     </Branch>
     <WebUI>http://[IP]:[PORT:80]/</WebUI>
     <Icon>https://raw.githubusercontent.com/robert-dean/deadair/main/apps/web/public/logo-mark.png</Icon>
+    <Screenshot>https://raw.githubusercontent.com/robert-dean/deadair/main/apps/site/static/img/console/desk.webp</Screenshot>
+    <Screenshot>https://raw.githubusercontent.com/robert-dean/deadair/main/apps/site/static/img/console/schedule.today.webp</Screenshot>
+    <Screenshot>https://raw.githubusercontent.com/robert-dean/deadair/main/apps/site/static/img/console/voice.said.webp</Screenshot>
+    <Screenshot>https://raw.githubusercontent.com/robert-dean/deadair/main/apps/site/static/img/console/voice.characters.webp</Screenshot>
+    <Screenshot>https://raw.githubusercontent.com/robert-dean/deadair/main/apps/site/static/img/console/checkup.webp</Screenshot>
     <ExtraParams></ExtraParams>
     <PostArgs></PostArgs>
     <DonateText></DonateText>

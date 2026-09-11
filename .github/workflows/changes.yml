@@ -34,6 +34,9 @@ on:
             image:
                 description: Anything the station image is built from
                 value: ${{ jobs.changes.outputs.image }}
+            variants:
+                description: Anything that could build in one image variant and not another
+                value: ${{ jobs.changes.outputs.variants }}
 
 permissions:
     contents: read
@@ -51,6 +54,7 @@ jobs:
             desktop: ${{ steps.detect.outputs.desktop }}
             ios: ${{ steps.detect.outputs.ios }}
             image: ${{ steps.detect.outputs.image }}
+            variants: ${{ steps.detect.outputs.variants }}
 
         steps:
             - name: Checkout

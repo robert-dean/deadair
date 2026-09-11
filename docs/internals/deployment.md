@@ -107,8 +107,15 @@ them: over sixty commits the macOS desktop build ran sixty times with sixteen ch
 the sidecar's tests ran sixty times for one. `.github/scripts/changes.sh` diffs the push (or the pull
 request's merge commit) against its base and answers one flag per part: `tree` (anything but prose,
 which gates the build and the formatting check, a warning rather than a failure), `node` (the TypeScript workspace, which gates the test
-shards), `generated`, `sidecar`, `android`, `desktop`, `ios` and `image`. `changes.yml` runs it first in
+shards), `generated`, `sidecar`, `android`, `desktop`, `ios`, `image` and `variants`. `changes.yml` runs it first in
 both `pr.yml` and `release.yml`, and `build.yml` takes the flags as inputs that default to true.
+
+**A pull request builds the `slim` image alone unless `variants` is on.** The three variants differ
+only in the speech server and the database the Dockerfile lays down around the station's own tree,
+so a change to the station's code builds in all of them or in none, and `slim` is the cheapest way
+to find out which. `variants` turns on for the Dockerfile and its ignore file, `docker/`, `stream/`,
+the nginx snippets, `analysis/` and `images.yml`, and then the pull request builds all three. Every
+push to main builds all three whatever it says, because `promote` moves a tag onto each.
 
 **`image` is the one that deploys.** It is what the Dockerfile copies in, less what `.dockerignore`
 keeps out, and without it neither workflow builds the three variants and `release.yml` does not

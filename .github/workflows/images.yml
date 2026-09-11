@@ -15,6 +15,14 @@ on:
                     in release.yml.
                 type: string
                 default: ''
+            variants:
+                description: >-
+                    Which variants to build, as a JSON list of names. All three by default, which is
+                    what every push to main builds; a pull request that changed nothing that could
+                    build in one variant and break in another asks for `slim` alone (see `variants`
+                    in `.github/scripts/changes.sh`).
+                type: string
+                default: '["slim", "latest", "full"]'
 permissions:
     contents: read
 
@@ -31,25 +39,12 @@ jobs:
         strategy:
             # One variant failing should not hide the state of the others.
             fail-fast: false
+            # The names alone. What each one means is the table in `Work out the variant` below,
+            # rather than `include` entries here, because an `include` entry that matches no name
+            # in the list is not dropped: it becomes a job of its own, so a pull request asking for
+            # `slim` would have built all three anyway.
             matrix:
-                include:
-                    # The station and nothing under it: the operator brings a database, a cache
-                    # and a speech server of their own.
-                    - variant: slim
-                      args: |
-                          WITH_TTS=0
-                          WITH_DB=0
-                    # The default. A speech server is bundled because a station with no voice is
-                    # not a station; the database and cache are still the operator's.
-                    - variant: latest
-                      args: |
-                          WITH_TTS=1
-                          WITH_DB=0
-                    # Everything, for a host with nothing on it.
-                    - variant: full
-                      args: |
-                          WITH_TTS=1
-                          WITH_DB=1
+                variant: ${{ fromJSON(inputs.variants) }}
 
         steps:
             - name: Checkout
@@ -136,9 +131,6 @@ jobs:
             # nobody pulls by name costs nothing if the tests then fail, where waiting for them
             # cost four and a half minutes on every release.
             #
-            # `latest` is the default variant, so its commit tag is the bare sha; the other two
-            # prefix theirs, because a sha alone would not say which station it was.
-            #
             # The VERSION tag is NOT published here, though it once was, on the argument that an
             # exact version is immutable and belongs with the immutable commit tag. It stopped being
             # true when releases stopped being tags: a release whose tests fail now cuts no git tag
@@ -146,21 +138,41 @@ jobs:
             # here before the tests would name an untested image until the retry overwrote it. It is
             # a registry retag in `promote` instead, after the tests, so it exists only once the
             # release does.
-            - name: Work out the tags
-              id: tags
+            #
+            # The variants, from the two build arguments the Dockerfile reads. `latest` is the
+            # default variant, so its commit tag is the bare sha; the other two prefix theirs,
+            # because a sha alone would not say which station it was. A name not in this table
+            # fails here rather than building something nobody asked for.
+            - name: Work out the variant
+              id: variant
+              env:
+                  VARIANT: ${{ matrix.variant }}
               run: |
                   set -eu
-                  if [ "${{ matrix.variant }}" = "latest" ]; then
-                      prefix=""
-                  else
-                      prefix="${{ matrix.variant }}-"
-                  fi
+                  case "$VARIANT" in
+                      # The station and nothing under it: the operator brings a database, a cache
+                      # and a speech server of their own.
+                      slim) tts=0 db=0 prefix="slim-" ;;
+                      # The default. A speech server is bundled because a station with no voice is
+                      # not a station; the database and cache are still the operator's.
+                      latest) tts=1 db=0 prefix="" ;;
+                      # Everything, for a host with nothing on it.
+                      full) tts=1 db=1 prefix="full-" ;;
+                      *)
+                          echo "::error::No image variant is called '${VARIANT}'."
+                          exit 1
+                          ;;
+                  esac
 
                   # Written a line at a time rather than built as one multi-line string: a
                   # continuation line inside this block carries the YAML's own indentation, which
-                  # would end up INSIDE the tag.
+                  # would end up INSIDE the value.
                   {
-                      echo "value<<TAGS"
+                      echo "args<<ARGS"
+                      echo "WITH_TTS=${tts}"
+                      echo "WITH_DB=${db}"
+                      echo "ARGS"
+                      echo "tags<<TAGS"
                       echo "${IMAGE}:${prefix}${GITHUB_SHA}"
                       echo "TAGS"
                   } >> "$GITHUB_OUTPUT"
@@ -180,14 +192,14 @@ jobs:
                   outputs: ${{ !inputs.push && 'type=cacheonly' || '' }}
                   platforms: linux/amd64
                   # The variant's own two arguments, plus the commit, which every variant gets and
-                  # so is not in the matrix. It is the same sha the tag above is built from — the
+                  # so is not in the table. It is the same sha the tag above is built from — the
                   # point of putting it INSIDE the image is that a running station can be asked
                   # what it is without anybody having to know which tag it was pulled from.
                   build-args: |
-                      ${{ matrix.args }}
+                      ${{ steps.variant.outputs.args }}
                       REVISION=${{ github.sha }}
                       VERSION=${{ inputs.version }}
-                  tags: ${{ steps.tags.outputs.value }}
+                  tags: ${{ steps.variant.outputs.tags }}
                   # The cache lives in the registry beside the images rather than in the Actions
                   # cache, which holds ten gigabytes for the whole repository — less than these
                   # three variants together, so they would spend every run evicting each other and

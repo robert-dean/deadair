@@ -117,6 +117,8 @@ jobs:
     # station reports as its revision. Waiting on `changes` costs seconds. A release run always
     # builds them, for the reason `build` above gives: the push retrying a failed release may change
     # nothing the image is built from, and a release with no images to promote would never publish.
+    # All three variants, always, by passing no `variants`: `promote` moves a tag onto each of them,
+    # and a pull request is the only caller that may build fewer.
     images:
         needs: [version, changes]
         if: needs.version.outputs.value != '' || needs.changes.outputs.image == 'true'

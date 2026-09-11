@@ -26,12 +26,18 @@ jobs:
     # Built and thrown away. A Dockerfile that has stopped building is worth knowing about
     # before it is merged, not on the release that needed it; a pull request that changes nothing
     # the image is built from cannot stop it building.
+    #
+    # `slim` alone unless the pull request touched something that could build in one variant and
+    # break in another (`variants` in `.github/scripts/changes.sh`). The other two differ from it
+    # only in the speech server and the database, which a change to the station's own code cannot
+    # reach, and they were the two slowest jobs in the run. The push to main builds all three.
     images:
         needs: [changes]
         if: needs.changes.outputs.image == 'true'
         uses: ./.github/workflows/images.yml
         with:
             push: false
+            variants: ${{ needs.changes.outputs.variants == 'true' && '["slim", "latest", "full"]' || '["slim"]' }}
 
     # The one check the ruleset on main requires. Every job above runs or skips by what the pull
     # request changed, and the test shards and image variants are named by their matrix, so no fixed

@@ -362,6 +362,13 @@ export default function Home() {
                             </p>
                         </div>
                         <div className={styles.tag}>
+                            <p className="da-eyebrow">iPhone</p>
+                            <p>
+                                Background playback, the lock screen and Control Center, and the format your station publishes.{' '}
+                                <Link href={`${repository}/tree/main/apps/ios`}>Build it from source.</Link>
+                            </p>
+                        </div>
+                        <div className={styles.tag}>
                             <p className="da-eyebrow">macOS</p>
                             <p>
                                 A listener with a real player and the operator’s desk in one window, on Apple Silicon.{' '}

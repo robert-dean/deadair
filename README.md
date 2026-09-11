@@ -117,8 +117,8 @@ station fetch audio. With only the first, your playlists list correctly and ever
 ## The console
 
 A broadcast desk rather than a player. It deliberately does not play the mount: the listener surface
-is the mount itself, plus the Android app (`apps/android`) and the desktop app (`apps/desktop`) if
-you build and run either one.
+is the mount itself, plus the Android app (`apps/android`), the iPhone app (`apps/ios`) and the
+desktop app (`apps/desktop`) if you build and run one.
 
 A rail down the left carries four destinations, with a key each: D, P, L and V. **Desk** is the
 running order, live, with the playhead, every item's state and whatever needs you. **Programme** is

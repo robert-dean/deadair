@@ -1,7 +1,7 @@
 ---
 title: Listening
 sidebar_position: 12
-description: The stream and its formats, why the first seconds after pressing play are quiet, and the Android and macOS apps.
+description: The stream and its formats, why the first seconds after pressing play are quiet, and the Android, iPhone and macOS apps.
 ---
 
 A deadair station is heard through one address. Everybody who connects hears the same broadcast at the same moment: there is no per-listener shuffle and no skip button. It is served from the same port as the console, so whatever already fronts that port carries the station too.
@@ -34,6 +34,14 @@ Signed in with the operator's account, the same email and password the console t
 
 It is built from source with a JDK and the Android SDK. A Google Play listing exists but is limited to invited testers for now. The build instructions are in [the app's directory](https://github.com/robert-dean/deadair/tree/main/apps/android).
 
+## On an iPhone
+
+The iPhone app is a listener: background playback, the lock screen and Control Center, what is on air with its artwork, and a choice of format, read from what your station publishes. Give it your station's address and it shows you the name of the station that answered before keeping it. A station on your own network makes iOS ask for Local Network access the first time, which is expected. Pause and stop both drop the connection, and a phone call stops the stream rather than holding it, because a held connection still counts as a listener. Listening needs no account.
+
+It can sign in with the operator's account, the same email and password the console takes, and answer an authenticator code. The remote the Android app has is not in it yet.
+
+It is built from source with Xcode 16 or later. The build instructions are in [the app's directory](https://github.com/robert-dean/deadair/tree/main/apps/ios).
+
 ## On a Mac
 
 The desktop app is a listener with a proper player and the operator's desk in one window. The first release is for macOS on Apple Silicon and nothing else.
@@ -46,4 +54,4 @@ It is built from source with .NET 10. The bundle it produces is unsigned, so the
 
 ## In the console
 
-The console does not play the station, deliberately: it is the desk, and the listening surfaces are the mount and the two apps. Which formats are published, and whether HLS is on, are under **Settings**, **Stream**. What puts the station on air is under **Settings**, **Playout**, and on the **Desk** under **Why is it not on air?**. The listener count and the published mounts are on **Check-up**, **Machinery**.
+The console does not play the station, deliberately: it is the desk, and the listening surfaces are the mount and the three apps. Which formats are published, and whether HLS is on, are under **Settings**, **Stream**. What puts the station on air is under **Settings**, **Playout**, and on the **Desk** under **Why is it not on air?**. The listener count and the published mounts are on **Check-up**, **Machinery**.

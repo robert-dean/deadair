@@ -229,8 +229,9 @@ export default function Home() {
                         the station’s own log. So “why was it silent at three in the morning” is a question with an answer.
                     </p>
                     <p>
-                        The mount is leased, not held. A crashed station takes itself off the air within seconds rather than leaving a bed playing to
-                        nobody’s plan. By default it airs only while somebody is listening, and the console says so rather than reporting a fault.
+                        Some of that quiet is on purpose. The station stays on the air only by renewing its claim every few seconds, so a crash or a
+                        redeploy takes it off within seconds instead of leaving a fallback loop playing that nobody chose. And by default it
+                        broadcasts only while somebody is listening: with nobody tuned in, the console reads <strong>ready</strong>, not faulty.
                     </p>
                 </FeatureRow>
 

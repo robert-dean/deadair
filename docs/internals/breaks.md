@@ -184,6 +184,24 @@ all. It declines to the floor rather than re-drafting, on the writer registry's 
 of a break that was never told the time. A first cut grouped the day as light against dark, which got the
 evening pair right and quietly permitted "this morning" being called "this afternoon".
 
+**A break can also say the time without a word for it, by saying what the sky is doing.** On
+2026-09-11 a `conspiracy` audition at 15:48 passed "Night falls, my listeners" and "Sunrise bleeds, my
+listeners". The same run refused "tonight" twice and "midnight" once. `namesWrongSky` is the third
+question behind `wrong-daypart`, and it matches GRAMMAR rather than words. The 1302 model-written scripts
+on the live station say `night` 262 times alongside `moon`, `dark` and `dawn`, and nearly all of those are
+the host's own story in the past tense, a simile or a title. So it refuses the sky as the subject of a
+present-tense verb ("night falls", "the sun is coming up", "this night"), or a bare time noun opening a
+sentence with a present-tense verb after it. Night is judged by the same daypart as "tonight", so the
+line between afternoon and evening stays in one place; sunrise takes an hour window, as "breakfast"
+does. Replayed over those scripts it refuses 6 of 1114 breaks, every one a real claim ("Night settles over
+Deadair" at nine in the morning), and it matches nothing at any hour that is not. Left out on purpose:
+moonlight and "in the dark", which were only ever similes and the lighting in the room; "into the night"
+and "all night long", which are mood; and sunset, which one daypart cannot judge. The known price is a
+story told in the historic present ("Night falls. Then the lights."), which goes to the floor. It is
+asked of breaks and not of productions, because callers tell their stories in exactly that tense.
+`withoutRecordNames` now keeps the punctuation it used to strip, since an opener needs to see where a
+sentence starts.
+
 **A PRODUCTION gets the daypart and never `roughTime`**, since a programme takes minutes to write and more to
 render and an hour phrasing's window is seven or eight minutes wide; `checkBeat` asks the same question, which
 on a station writing `outlined` productions never runs, so there it is prevention alone. The whole of it rests

@@ -16,6 +16,24 @@ minimumReleaseAgeExclude:
     - '@maroonedsoftware/*'
     - '@contractkit/*'
 
+# Transitive packages with a security advisory whose parent has no release that takes the fix. Each
+# names its parent, so it moves that one edge and nothing else, and each is deleted when the parent
+# catches up: an override outliving its reason pins a package nobody remembers pinning. A parent with
+# a fixed release gets bumped instead, and a range the parent already allows is a lockfile refresh.
+overrides:
+    # The website's dev server. Docusaurus 3.10 requires webpack-dev-server 5, which is on express 4,
+    # which pins qs to ~6.15. Never in the image.
+    'express@4>qs': ^6.16.0
+    # Same dev server. sockjs is unmaintained at 0.3.24 and only ever calls `v4()`, which the advisory
+    # (v3, v5 and v6 writing into a caller's buffer) does not touch, and which uuid 11 still exports to
+    # `require`. Never in the image.
+    'sockjs>uuid': ^11.1.1
+    # The website's production build. Docusaurus 3.10's bundler pins these two plugins a major behind
+    # the releases that take serialize-javascript 7, which is the same CommonJS function on Node 20+.
+    # Never in the image.
+    'copy-webpack-plugin@11>serialize-javascript': ^7.0.5
+    'css-minimizer-webpack-plugin@5>serialize-javascript': ^7.0.5
+
 confirmModulesPurge: false
 
 # See the workspace CLAUDE.md: pnpm's pre-run dependency check misfires in sandboxed

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # First publish and trusted-publisher setup for the packages deadair puts on npm.
 #
-# npm's OIDC trusted publishing, which the `npm` job in .github/workflows/release.yml is meant to use,
+# npm's OIDC trusted publishing, which the `npm` job in .github/workflows/release.yml publishes with,
 # can only publish a package that already exists AND already names a trusted publisher. A brand-new
 # package has neither, so the first version and the trust config are made once, here, with your own
 # npm login. After that every release publishes from CI with no token at all.

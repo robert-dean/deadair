@@ -315,10 +315,16 @@ jobs:
     # version group, so its version IS this release's version, and the step below checks that rather
     # than trusting it.
     #
-    # It never fails the release it follows. No token is a warning, because the images and the tag are
-    # already out and a station release is not blocked on a package registry. A version already on npm
-    # is success, because a re-run of a release that got this far, or a version somebody published by
-    # hand, must not turn the run red.
+    # Published by npm's trusted publishing, with no token stored anywhere: npm trades this job's OIDC
+    # identity for a publish token that lives for one command, and accepts it only from this
+    # repository's `release.yml`. That trust is configured on the package, and npm will only configure
+    # it on a package that already exists, so the first version is published once by hand with
+    # `scripts/bootstrap.npm.packages.sh`. Until that has been run this job warns and publishes nothing.
+    #
+    # A release is not failed by a package npm has never seen, because the images and the tag are
+    # already out. A version already on npm is success, because a re-run of a release that got this far
+    # must not turn the run red. A refused publish IS a failure: once the package exists, the only way
+    # to get there is a trust configuration that no longer matches this workflow.
     npm:
         needs: [version, publish]
         if: needs.version.outputs.value != ''
@@ -326,55 +332,44 @@ jobs:
         timeout-minutes: 10
         permissions:
             contents: read
-            # The provenance statement npm attaches to the package is signed with this.
+            # What npm exchanges for the publish token, and what signs the provenance statement.
             id-token: write
         steps:
-            # A job-level `if` cannot read a secret, so whether there is one is a step's output.
-            - name: Look for a token
-              id: token
-              env:
-                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-                  VERSION: ${{ needs.version.outputs.value }}
-              run: |
-                  if [ -n "${NPM_TOKEN}" ]; then
-                      echo "present=true" >> "$GITHUB_OUTPUT"
-                  else
-                      echo "::warning::NPM_TOKEN is not set, so @deadair/plugin-sdk ${VERSION} was not published to npm."
-                      echo "present=false" >> "$GITHUB_OUTPUT"
-                  fi
-
             - name: Checkout
-              if: steps.token.outputs.present == 'true'
               uses: actions/checkout@v7
               with:
                   persist-credentials: false
 
             - name: Install pnpm
-              if: steps.token.outputs.present == 'true'
               uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
             - name: Setup Node
-              if: steps.token.outputs.present == 'true'
               uses: actions/setup-node@v7
               with:
                   node-version: 26
                   cache: pnpm
                   registry-url: https://registry.npmjs.org
 
+            # Trusted publishing is npm's, from 11.5.1. Node 26 ships a newer npm than that, and this
+            # says so plainly if a runner image ever does not, rather than failing as a 401.
+            - name: Check npm can publish with OIDC
+              run: |
+                  required="11.5.1"
+                  current="$(npm -v)"
+                  if [ "$(printf '%s\n%s\n' "$required" "$current" | sort -V | head -1)" != "$required" ]; then
+                      echo "::error::npm ${current} cannot use trusted publishing, which needs ${required} or later."
+                      exit 1
+                  fi
+
             - name: Build the SDK
-              if: steps.token.outputs.present == 'true'
               run: |
                   pnpm install --frozen-lockfile --filter '@deadair/plugin-sdk...'
                   pnpm --filter @deadair/plugin-sdk build
 
-            # `--no-git-checks` because the checkout is a detached commit, which pnpm otherwise refuses
-            # to publish from. Provenance is the environment variable rather than a flag: pnpm passes
-            # it through to the npm registry client and has no option of its own for it.
+            # Packed by pnpm and published by npm. pnpm is what rewrites a `workspace:` range in the
+            # manifest into a real one, and npm is what performs the OIDC exchange.
             - name: Publish unless this version is already there
-              if: steps.token.outputs.present == 'true'
               env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-                  NPM_CONFIG_PROVENANCE: 'true'
                   VERSION: ${{ needs.version.outputs.value }}
               run: |
                   set -euo pipefail
@@ -383,11 +378,22 @@ jobs:
                       echo "::error::packages/plugin-sdk is at ${manifest} but this release is ${VERSION}. The SDK is meant to be in the station's fixed version group in .changeset/config.json."
                       exit 1
                   fi
-                  if npm view "@deadair/plugin-sdk@${VERSION}" version >/dev/null 2>&1; then
+
+                  if ! seen="$(npm view @deadair/plugin-sdk version 2>&1)"; then
+                      if printf '%s' "$seen" | grep -q E404; then
+                          echo "::warning::@deadair/plugin-sdk is not on npm yet, so ${VERSION} was not published. Run scripts/bootstrap.npm.packages.sh once; every release after it publishes from here."
+                          exit 0
+                      fi
+                      printf '%s\n' "$seen"
+                      exit 1
+                  fi
+                  if npm view "@deadair/plugin-sdk@${VERSION}" version > /dev/null 2>&1; then
                       echo "@deadair/plugin-sdk ${VERSION} is already on npm."
                       exit 0
                   fi
-                  pnpm --filter @deadair/plugin-sdk publish --access public --no-git-checks
+
+                  pnpm --filter @deadair/plugin-sdk pack --pack-destination "${RUNNER_TEMP}/sdk"
+                  npm publish "${RUNNER_TEMP}/sdk/deadair-plugin-sdk-${VERSION}.tgz" --access public --provenance
 
     # The version pull request. Every push to main that carries a changeset opens it, or rebuilds it
     # from main's tip if it is open; merging it is the release, because its merge is the first commit

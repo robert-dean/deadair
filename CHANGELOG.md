@@ -9,6 +9,10 @@ release. The listener apps keep their own changelogs, in
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-09-11
+
+- The presenter no longer reads a reissue's "2004 Remix" out as part of the title, and no longer doubles a full stop after a name that already ends in one, such as R.E.M.
+
 ## [0.2.1] — 2026-09-11
 
 - The plugin SDK on npm is now published by the release itself, with a provenance attestation that ties each version to the commit and the workflow run that built it. 0.2.0 was published by hand and has none. Nothing in the SDK's API changes.
@@ -60,7 +64,8 @@ that there is now a number to name it by.
   procedure is in the README.
 - **`latest` follows `main`.** Pin `0.1` to track releases only.
 
-[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/robert-dean/deadair/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/robert-dean/deadair/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/robert-dean/deadair/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/robert-dean/deadair/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/robert-dean/deadair/releases/tag/v0.1.0

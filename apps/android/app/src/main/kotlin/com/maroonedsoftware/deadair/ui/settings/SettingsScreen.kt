@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
 import com.maroonedsoftware.deadair.auth.SessionState
 import com.maroonedsoftware.deadair.station.StreamFormat
+import com.maroonedsoftware.deadair.ui.PrivacyPolicyLink
 import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
 import com.maroonedsoftware.deadair.ui.theme.Gutter
@@ -58,8 +59,8 @@ import com.maroonedsoftware.deadair.ui.theme.supportsDynamicColour
  * filled in from `/nowplaying`'s `mounts[]` once a reading has arrived; until then all are offered,
  * because greying a format out on no evidence is worse than offering one that turns out to be off.
  *
- * The account section is last and is optional: listening needs no account, and the station issues
- * only the operator's own. See `AccountSection`.
+ * The account section is optional: listening needs no account, and the station issues only the
+ * operator's own. See `AccountSection`. Below it is the privacy policy, and nothing else.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -188,6 +189,10 @@ fun SettingsScreen(
                     onStartAgain = onStartAgain,
                     onSignOut = onSignOut,
                 )
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+
+                PrivacyPolicyLink()
 
                 Spacer(Modifier.height(24.dp))
             }

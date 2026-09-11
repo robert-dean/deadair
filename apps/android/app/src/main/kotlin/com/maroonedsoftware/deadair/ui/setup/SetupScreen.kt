@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.maroonedsoftware.deadair.R
+import com.maroonedsoftware.deadair.ui.PrivacyPolicyLink
 import com.maroonedsoftware.deadair.ui.settings.StationEntryState
 import com.maroonedsoftware.deadair.ui.text.resolve
 import com.maroonedsoftware.deadair.ui.theme.FormMaxWidth
@@ -90,6 +91,9 @@ fun SetupScreen(
                         }
                     }
                 }
+
+                // Before any station, because this is the one screen a person without one can reach.
+                PrivacyPolicyLink(modifier = Modifier.align(Alignment.CenterHorizontally))
             }
         }
     }

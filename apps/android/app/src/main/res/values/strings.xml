@@ -65,6 +65,7 @@
     <string name="section_appearance">Appearance</string>
     <string name="use_wallpaper_colours">Use wallpaper colours</string>
     <string name="use_wallpaper_colours_detail">Off, and the app wears the station\'s own green on carbon</string>
+    <string name="privacy_policy">Privacy policy</string>
 
     <!-- The account -->
     <string name="account_optional">Optional. Listening needs no account. Signing in adds what the station has played and what is on next.</string>

@@ -220,6 +220,8 @@ importers:
 
   apps/desktop: {}
 
+  apps/ios: {}
+
   apps/site:
     devDependencies:
       '@docusaurus/core':

@@ -7,6 +7,8 @@
 **/yarn.lock
 # NuGet writes this one, two-space, on every restore. Same argument as the lockfiles above it.
 **/packages.lock.json
+# Xcode writes an asset catalog's JSON, in its own style, whenever anybody touches one in Xcode.
+**/*.xcassets/
 **/node_modules/
 **/dist/
 **/routeTree.gen.ts

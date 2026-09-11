@@ -1,0 +1,10 @@
+// The app's version, and the only place the project states it. Mirrored from apps/ios/package.json by
+// `pnpm release:version`; change the version with a changeset naming @deadair/ios, never here, and
+// the build job's `pnpm release:version --check` fails when the two disagree.
+//
+// Neither setting may appear in project.pbxproj: a setting there silently beats the same setting
+// here. CURRENT_PROJECT_VERSION is the build number, which the release workflow overrides on the
+// command line with `git rev-list --count HEAD` so App Store Connect never sees one twice; the 1
+// below is only what a build from Xcode carries.
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1

@@ -88,12 +88,23 @@ obj/
 TestResults/
 apps/desktop/artifacts/
 
+# The iOS listener is the fourth, and these are Xcode's and SwiftPM's droppings. User state is
+# per developer and per machine; the shared scheme under `xcshareddata/` is committed, because a
+# runner has no user and `xcodebuild` needs a scheme. `.build/` and `.swiftpm/` are what
+# `swift build` and `swift test` leave beside `packages/sdk-swift` and `DeadairCore`.
+xcuserdata/
+*.xcuserstate
+DerivedData/
+.derived/
+.build/
+.swiftpm/
+*.xcarchive
+
 # Signing keys, which live outside the repo and are ignored here anyway as a second line of
 # defence. The upload key is the one artifact this project cannot regenerate: lose it and the
 # published app can never be updated again, only replaced under a new application id.
 *.jks
 *.keystore
-
 # Robert's own working notes, which name this install and this operator rather than the project.
 # The `.local.md` suffix is the convention for exactly that and this file was tracked against it.
 CLAUDE.local.md

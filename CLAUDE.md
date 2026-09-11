@@ -26,6 +26,7 @@ was shipped first and was wrong.
 | `plugins/**`, `packages/plugin-sdk/**` | [`packages/plugin-sdk/CLAUDE.md`](packages/plugin-sdk/CLAUDE.md), then its [`README.md`](packages/plugin-sdk/README.md) |
 | `apps/android/**`, `packages/sdk-kotlin/**` | [`apps/android/CLAUDE.md`](apps/android/CLAUDE.md) |
 | `apps/desktop/**`, `packages/sdk-csharp/**` | [`apps/desktop/CLAUDE.md`](apps/desktop/CLAUDE.md) |
+| `apps/ios/**`, `packages/sdk-swift/**` | [`apps/ios/CLAUDE.md`](apps/ios/CLAUDE.md) |
 | the running order, briefs, periods, committing, track audio | [`docs/internals/director.md`](docs/internals/director.md) |
 | which records get chosen, ratings, advisory, the search tool | [`docs/internals/programming.md`](docs/internals/programming.md) |
 | what a break says, facts, phrasings, bulletins, the format clock | [`docs/internals/breaks.md`](docs/internals/breaks.md) |
@@ -107,6 +108,9 @@ apps/desktop      Avalonia listener and operator desk (.NET 10, C#). Its own sol
                   and a package.json that is a version for changesets, as apps/android's is
 packages/sdk-csharp   the same contracts as a C#/System.Text.Json client, for the desktop app.
                       Generated, save for the one project file; no package.json
+apps/ios          SwiftUI listener app (AVFoundation). Its own Xcode project and CI job, a local
+                  Swift package holding every tested decision, and a package.json that is a
+                  version for changesets, as the other two apps' are
 packages/sdk-swift    the same contracts as a Swift/Codable client, for the iOS app. Generated,
                       save for Package.swift; no package.json
 packages/error-codes  shared error code constants

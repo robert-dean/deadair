@@ -212,8 +212,10 @@ Promote exists because `versionCode` is the commit count. A build is uploadable 
 "make yesterday's build live" cannot be done by running publish again — there is no new version code
 to give it. That is a property of the scheme rather than a limitation of the workflow.
 
-**A staged rollout** is status `inProgress` with a `user_fraction` between 0 and 1, and it is how a
-build reaches production: to a fifth of users first, where a crash costs a fifth of the reviews.
+**A staged rollout** is status `inProgress` with a `user_fraction` between 0 and 1, and it is how an
+UPDATE reaches production: to a fifth of users first, where a crash costs a fifth of the reviews.
+Play offers no staged rollout for an app's first production release, which goes to everyone in the
+chosen countries once Google approves it, so that one is promoted as `completed`.
 Every later step is promote with `production` on both sides and the version code left blank. Widen
 it with `inProgress` and a larger fraction, stop it where it stands with `halted`, and finish it
 with `completed`. Both modes refuse a fraction on any other status, and publish refuses `halted`,
@@ -264,12 +266,17 @@ does:
    screenshots from its `images/`.
 3. **The notes**, in `play/whatsnew/whatsnew-en-US`, edited in the commit that will ship. Publish
    that commit to internal, by tag or by Run workflow, and listen to it on a real phone.
-4. **Promote** it: from `internal` to `production`, status `inProgress`, `user_fraction` 0.2. The
-   first production release waits for Google's review, which can take days; later ones are
-   usually quicker.
-5. **Widen** it with promote, `production` on both sides: `inProgress` at 0.5, then `completed`.
-   If Android vitals shows crashes or ANRs the build did not have on internal, `halted` instead,
-   and the fix goes out as a new build through the same five steps.
+4. **Choose the countries** on the production track (Countries / regions). A production release
+   cannot be created without them, and until one exists "Send for review" stays greyed out: an app
+   that has only ever been on internal testing has no reviewed track for its listing to go with.
+5. **Promote** it: from `internal` to `production`. The FIRST production release is `completed`,
+   because Play has no staged rollout for a first release; it reaches everybody in those countries
+   the moment Google approves it, and the review can take days. Turn on Managed publishing first
+   if the moment it goes live should be yours rather than the reviewer's. Every later release is
+   `inProgress` at `user_fraction` 0.2.
+6. **Widen** an update with promote, `production` on both sides: `inProgress` at 0.5, then
+   `completed`. If Android vitals shows crashes or ANRs the build did not have on internal,
+   `halted` instead, and the fix goes out as a new build through the same steps.
 
 `versionName` stays `0.1.0` for the first production release. That is a decision, not an oversight:
 the listing and the notes say what the app is, and the number can move when there is a reason for

@@ -55,7 +55,7 @@
     "devDependencies": {
         "@repo/config-eslint": "workspace:*",
         "@repo/config-typescript": "workspace:*",
-        "vitest": "^4.1.10",
+        "vitest": "^4.1.11",
         "zod": "^4.5.4"
     },
     "dependencies": {

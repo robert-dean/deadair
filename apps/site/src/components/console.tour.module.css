@@ -1,0 +1,49 @@
+.tour {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3rem 2.5rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.stop {
+    margin: 0;
+}
+
+/* The figure carries its own caption; in the tour the numbered words below say it instead. */
+.stop figcaption {
+    display: none;
+}
+
+.words {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1rem;
+    margin-top: 1.25rem;
+}
+
+.number {
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.85rem;
+    color: var(--da-phosphor);
+    padding-top: 0.2rem;
+}
+
+.words h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.words p {
+    color: var(--da-text-secondary);
+    line-height: 1.6;
+    margin: 0;
+}
+
+@media (max-width: 800px) {
+    .tour {
+        grid-template-columns: 1fr;
+    }
+}

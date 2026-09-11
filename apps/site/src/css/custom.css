@@ -75,3 +75,17 @@ html[data-theme='dark'] {
     --ifm-footer-title-color: var(--da-text);
     border-top: 1px solid var(--da-border);
 }
+
+/*
+ * The mono, uppercase, phosphor label over a heading: "Part three · The presenter". Global rather
+ * than in a module because the front page and every component on it wear the same one, and three
+ * copies of four lines is how a site ends up with three letter-spacings for one label.
+ */
+.da-eyebrow {
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--da-phosphor);
+    margin-bottom: 0.75rem;
+}

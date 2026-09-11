@@ -1,0 +1,68 @@
+.figure {
+    margin: 0;
+    min-width: 0;
+}
+
+/* A button so the picture can be opened from the keyboard, dressed as nothing but the frame. */
+.frame {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 1px solid var(--da-border-strong);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--da-panel);
+    box-shadow:
+        0 0 0 1px rgb(0 0 0 / 40%),
+        0 24px 60px -20px rgb(0 0 0 / 70%);
+    cursor: zoom-in;
+    transition: border-color 120ms ease;
+}
+
+.frame:hover,
+.frame:focus-visible {
+    border-color: var(--da-phosphor);
+}
+
+.frame:focus-visible {
+    outline: 2px solid var(--da-phosphor);
+    outline-offset: 3px;
+}
+
+.frame img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+}
+
+.caption {
+    margin-top: 0.75rem;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.72rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--da-text-dimmed);
+    white-space: pre-wrap;
+}
+
+.dialog {
+    max-width: min(96vw, 1920px);
+    max-height: 96vh;
+    padding: 0;
+    border: 1px solid var(--da-border-strong);
+    border-radius: 6px;
+    background: var(--da-bg);
+    overflow: auto;
+    cursor: zoom-out;
+}
+
+.dialog::backdrop {
+    background: rgb(5 7 6 / 85%);
+}
+
+.dialog img {
+    display: block;
+    width: 100%;
+    height: auto;
+}

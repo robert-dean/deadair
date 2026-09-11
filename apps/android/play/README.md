@@ -55,28 +55,32 @@ signed-in operator, and are the ones worth adding next.
 | --- | --- |
 | App name | `deadair radio`, as `title.txt`. The launcher still says `deadair` (`app_name`), which is what fits under an icon |
 | Category | Music & Audio |
-| Contact email | the one [`PRIVACY.md`](../PRIVACY.md) gives |
+| Contact email | the one [`PRIVACY.md`](../PRIVACY.md) gives. They are one address on purpose; change both or neither |
 | Website | https://deadair.radio |
 | Privacy policy | https://github.com/robert-dean/deadair/blob/main/apps/android/PRIVACY.md |
 
 ## App content
 
 Policy → App content in the console. Each answer is given with the fact that decides it, so the
-next person can tell whether the answer is still true rather than copying it forward.
+next person can tell whether the answer is still true rather than copying it forward. Every answer
+below was checked against the console on 2026-09-11 and is what it holds, including the two that
+were chosen over a more cautious alternative.
 
 **Ads: no.** There is no ad SDK and nothing is sold.
 
-**App access: some functionality is restricted.** The app opens on an empty address field, and a
-reviewer with nothing to type into it will call it broken. The instructions give a reachable
-station's address, and that address is written in the console only: this tree names no operator's
-network, and this file is no exception. Suggested wording:
+**Sign in details (was App access): no, nothing is restricted.** Chosen knowingly, and it is the
+answer most likely to come back from review. The app opens on an empty address field and signing in
+unlocks the operator's screens, so a reviewer with nothing to type can call it broken. If a review
+is rejected on access, the fix is to answer yes and give a reachable station's address in the
+instructions, written in the console only, because this tree names no operator's network. Wording
+for that day:
 
 > Enter the station address below on the first screen and press Check, then Listen. Everything a
 > listener sees works without an account. Signing in is for the person who operates the station
 > and controls what it broadcasts, which is why no listener account exists to give you.
 
-Giving the reviewer operator credentials as well is a separate decision. They would reach every
-screen, and they would also be able to skip records and stop the station for everyone listening.
+Operator credentials are a further step again: the reviewer would reach every screen, and could
+also skip records and stop the station for everyone listening.
 
 **Content rating.** The facts the questionnaire asks about: there is no interaction between users,
 no location is shared, nothing is bought, there is no gambling and no general web browsing. The
@@ -91,8 +95,12 @@ Families policy, which this app is not built to meet.
 **News app: no.** A station may air news bulletins, but the app is a player for one station, not a
 news publisher. Likewise no to the government, financial, health and COVID-19 declarations.
 
-**Data safety.** Google defines collection as any data transmitted off the device, whoever receives
-it, so the conservative reading is the one declared:
+**Data safety: no data collected or shared.** The reading behind it: everything the app sends goes
+to a server the user chose and runs (or whose operator they trust), never to Marooned Software or
+to a third party, which is how self-hosted clients are commonly declared. It is not the only
+reading. Google defines collection as any data transmitted off the device, whoever receives it,
+and on that literal reading the sign-in would be declared as below. If Google ever asks, this is
+the answer to switch to:
 
 | Question | Answer | Why |
 | --- | --- | --- |
@@ -108,8 +116,8 @@ The IP address and the `deadair-android/<version>` User-Agent reach the station 
 any server a phone connects to. Neither is a data type the form lists. What an operator does from
 the phone (a skip, a rating) is a command to their own station rather than data about them.
 
-**Foreground service: media playback.** The console asks what the service does and for a video
-link showing it. Description:
+**Foreground service: media playback. Not yet declared**, and it is the one App content section
+still open. The console asks what the service does and for a video link showing it. Description:
 
 > Plays the radio station the user chose, and keeps playing when the app is in the background or
 > the screen is off. Started only when the user presses play, in the app, on the notification, on

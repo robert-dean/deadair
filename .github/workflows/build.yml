@@ -229,6 +229,74 @@ jobs:
             - name: Test
               run: pnpm exec vitest run --shard=${{ matrix.shard }}/4
 
+    # The example plugin, built the way somebody outside this repository builds one: plain `npm`, no
+    # workspace, against the SDK as it would be published. It is the only thing that proves that path,
+    # because every plugin under `plugins/` resolves the SDK through the workspace and would keep
+    # passing through a broken tarball, a missing export or a peer the station stopped providing.
+    #
+    # `npm pkg set` points the example at the tarball this commit packs rather than at npm, which is
+    # the same recipe an author uses against an unreleased SDK. It edits the checkout and nothing
+    # commits it. The last step is the station's own loader installing the built plugin into a fresh
+    # plugins directory, so a plugin that builds and passes its own tests but that the station would
+    # quarantine still fails here.
+    plugin-example:
+        if: inputs.node
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        defaults:
+            run:
+                working-directory: examples/plugins/apple-music-charts
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v6
+
+            - name: Setup Node
+              uses: actions/setup-node@v7
+              with:
+                  node-version: 26
+                  cache: pnpm
+
+            - name: Restore the task cache
+              uses: actions/cache/restore@v6
+              with:
+                  path: .turbo/cache
+                  key: turbo-${{ runner.os }}-${{ github.sha }}
+                  restore-keys: turbo-${{ runner.os }}-
+
+            # The station's side: what the API's loader imports, built.
+            - name: Install and build the station's packages
+              working-directory: .
+              run: |
+                  pnpm install --frozen-lockfile
+                  pnpm exec turbo run build --filter='@deadair/api^...'
+
+            - name: Pack the plugin SDK
+              working-directory: .
+              run: pnpm --filter @deadair/plugin-sdk pack --pack-destination "$RUNNER_TEMP/sdk-pack"
+
+            - name: Install the example against the packed SDK
+              run: |
+                  set -euo pipefail
+                  tarball="$(ls "$RUNNER_TEMP"/sdk-pack/deadair-plugin-sdk-*.tgz)"
+                  npm pkg set "devDependencies.@deadair/plugin-sdk=file:${tarball}"
+                  npm install --no-package-lock --no-audit --no-fund
+
+            - name: Type-check, test and build it
+              run: |
+                  npm run typecheck
+                  npm test
+                  npm run build
+
+            - name: Load it with the station's own loader
+              working-directory: apps/api
+              run: pnpm plugin:prove ../../examples/plugins/apple-music-charts --expect example.apple-music-charts
+
     # The measurement sidecar is Python, not TypeScript, and stands alone here rather than
     # riding the turbo test path or the root `vitest.config.ts` — a Python job has nothing to
     # share with either.

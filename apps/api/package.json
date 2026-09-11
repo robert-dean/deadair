@@ -30,6 +30,7 @@
         "build:permissions": "pdsl",
         "build:datatypes": "pnpm sync:enum-overrides && kysely-codegen",
         "sync:enum-overrides": "node --no-warnings --import @swc-node/register/esm-register scripts/sync.enum.overrides.ts",
+        "plugin:prove": "node --no-warnings --import @swc-node/register/esm-register scripts/plugin.prove.ts",
         "migrate:up": "dbmate -d ./data/migrations --no-dump-schema up",
         "migrate:down": "dbmate -d ./data/migrations --no-dump-schema down",
         "migrate:down:all": "./scripts/rollbackall.sh",

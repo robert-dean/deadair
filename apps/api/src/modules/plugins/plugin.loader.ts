@@ -148,7 +148,11 @@ export class PluginLoader {
         // most common operator mistake (an unbuilt checkout). Naming the entry
         // and the fix beats surfacing a raw ERR_MODULE_NOT_FOUND stack.
         if (!(await fileExists(entryPath))) {
-            return this.quarantine(dir, origin, `entry "${entry}" does not exist; the plugin has not been built (run pnpm build)`);
+            return this.quarantine(
+                dir,
+                origin,
+                `entry "${entry}" does not exist; the plugin has not been built (run its build, and install dist/ with its package.json)`,
+            );
         }
 
         let module: unknown;

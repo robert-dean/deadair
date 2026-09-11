@@ -91,8 +91,9 @@ else
 fi
 
 # The TypeScript workspace the test suite covers, the root config that shapes it, and the release
-# scripts, whose tests the root config also runs.
-flag node "^(apps/api/|apps/web/|plugins/|packages/|scripts/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|vitest\.config\.ts$)|${build_yml}" "${listener_sdks}|\.md$"
+# scripts, whose tests the root config also runs. And the example plugin, which is outside the
+# workspace on purpose and is built and loaded by a job of its own under this same flag.
+flag node "^(apps/api/|apps/web/|plugins/|packages/|examples/|scripts/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|vitest\.config\.ts$)|${build_yml}" "${listener_sdks}|\.md$"
 
 # Everything `pnpm codegen` reads or writes: the contracts, permissions and migrations under
 # `apps/api`, the three SDKs, the website's API reference and spec, and the tool versions.

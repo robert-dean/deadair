@@ -45,3 +45,8 @@ packages/sdk-csharp
 # a top-level `tests/` beside `src/`, and every build tsconfig includes `src` alone, so this costs
 # the build nothing and stops a test-only commit from invalidating the workspace copy.
 **/tests
+
+# The example plugin is built by CI and by whoever copies it, never by the image, and it sits outside
+# the workspace globs. Ignored so an edit to it does not invalidate the `COPY . .` the manifests stage
+# starts from.
+examples/

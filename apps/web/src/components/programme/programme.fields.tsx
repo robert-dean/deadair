@@ -190,7 +190,7 @@ export function BriefField({ description, ...input }: GetInputPropsReturnType & 
     return (
         <Textarea
             label="Asked to play"
-            description={description ?? 'In your own words, for the model that chooses records. Leave it empty and the host programmes.'}
+            description={description ?? 'In your own words, for the model that chooses records. Leave it empty and the station plays its ordinary rotation. The host only presents.'}
             autosize
             minRows={2}
             maxLength={BRIEF_MAX}

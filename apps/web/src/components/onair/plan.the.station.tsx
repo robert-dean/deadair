@@ -171,7 +171,7 @@ export function PlanTheStation({ order, disabled = false }: PlanTheStationProps)
                     <BriefField
                         description={
                             keeping
-                                ? 'This steers every refill for the rest of the broadcast, not just these records. Empty it to hand the programming back to the host.'
+                                ? 'This steers every refill for the rest of the broadcast, not just these records. Empty it and the station goes back to its ordinary rotation.'
                                 : 'In your own words, for the model that chooses records. It keeps steering every refill until the station is put on air again.'
                         }
                         {...form.getInputProps('brief')}

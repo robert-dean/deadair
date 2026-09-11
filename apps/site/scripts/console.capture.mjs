@@ -9,7 +9,8 @@
 //     pnpm --filter @deadair/site capture login
 //     pnpm --filter @deadair/site capture shoot
 //     pnpm --filter @deadair/site capture shoot --only desk,checkup --blur-art
-//     pnpm --filter @deadair/site capture shoot --only settings.appearance --theme white
+//     pnpm --filter @deadair/site capture shoot --only desk --theme white
+//     pnpm --filter @deadair/site capture shoot --only voice.said --hide 'news flash'
 //
 // ## The signed-in state goes stale every time it is used
 //
@@ -89,6 +90,7 @@ const { values, positionals } = parseArgs({
         track: { type: 'string' },
         theme: { type: 'string', default: 'carbon' },
         scrub: { type: 'string', multiple: true, default: [] },
+        hide: { type: 'string', multiple: true, default: [] },
         'blur-art': { type: 'boolean', default: false },
         'keep-png': { type: 'boolean', default: false },
         settle: { type: 'string', default: '1500' },
@@ -102,7 +104,7 @@ if (!themes.includes(values.theme)) fail(`--theme must be one of ${themes.join('
 
 if (command === 'login') await login();
 else if (command === 'shoot') await shoot();
-else fail('Usage: capture login | capture shoot [--only id,id] [--theme carbon|white|neon] [--scrub TEXT] [--blur-art]');
+else fail('Usage: capture login | capture shoot [--only id,id] [--theme carbon|white|neon] [--scrub TEXT] [--hide TEXT] [--blur-art]');
 
 function fail(message) {
     console.error(message);
@@ -145,6 +147,7 @@ async function shoot() {
     if (chosen.length === 0) fail(`Nothing matches --only. The ids are: ${targets.map(target => target.id).join(', ')}.`);
 
     const scrub = values.scrub.map(text => text.trim()).filter(Boolean);
+    const hide = values.hide.map(text => text.trim()).filter(Boolean);
     const settle = Number.parseInt(values.settle, 10);
 
     await mkdir(rawDir, { recursive: true });
@@ -172,9 +175,11 @@ async function shoot() {
             if (target.open === 'track') await openTrack(page);
             await settleOn(page, target, settle);
             if (scrub.length > 0) await page.evaluate(scrubText, { needles: scrub, replacement: scrubbedAs });
+            if (hide.length > 0) await page.evaluate(hideRows, hide);
             if (values['blur-art']) await page.addStyleTag({ content: 'img[src*="/api/"] { filter: blur(10px); }' });
 
-            const name = target.id === 'settings.appearance' && values.theme !== 'carbon' ? `${target.id}.${values.theme}` : target.id;
+            // Carbon is the site's own scheme, so it is the plain name and every other theme is a suffix.
+            const name = values.theme === 'carbon' ? target.id : `${target.id}.${values.theme}`;
             await write(page, name);
         }
     } finally {
@@ -245,6 +250,38 @@ function scrubText({ needles, replacement }) {
             const value = element.getAttribute(attribute);
             if (value) element.setAttribute(attribute, swap(value));
         }
+    }
+}
+
+/**
+ * Runs in the page. Hides every list row whose text contains one of the needles.
+ *
+ * A live station's lists hold whatever it wrote last: a bulletin read from somebody else's headline,
+ * a phone-in on a subject nobody wants on a front page. This is how one of those is left out of a
+ * picture without posing the rest. What is hidden is the nearest ancestor with at least two siblings
+ * of its own tag and class: a table row or an entry in a feed, or a single line where a card is made
+ * of lines like it. Look at the result, which is the only way to know which of those it was.
+ */
+function hideRows(needles) {
+    const isRow = element => {
+        const siblings = element.parentElement ? [...element.parentElement.children] : [];
+        return siblings.filter(sibling => sibling.tagName === element.tagName && sibling.className === element.className).length >= 3;
+    };
+    const walker = document.createTreeWalker(document.querySelector('#main') ?? document.body, NodeFilter.SHOW_TEXT);
+    const hits = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (needles.some(needle => (node.nodeValue ?? '').toLowerCase().includes(needle.toLowerCase()))) hits.push(node.parentElement);
+    }
+    for (let element of hits) {
+        // A table's cells are siblings of one class too, and hiding one shifts the rest of its row
+        // under the wrong headings. A table row or list item is always the row when there is one.
+        const row = element?.closest('tr, li');
+        if (row) {
+            row.style.display = 'none';
+            continue;
+        }
+        while (element && !isRow(element)) element = element.parentElement;
+        if (element) element.style.display = 'none';
     }
 }
 

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -41,6 +43,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.maroonedsoftware.deadair.R
@@ -68,7 +72,9 @@ import com.maroonedsoftware.deadair.ui.theme.Gutter
  * to be a tablet, the cover sits beside them. That is not a nicety: a full-width square in
  * landscape is as tall as the screen, and the first version of this measured the play button out
  * of existence there. The same thing happened upright at the largest accessibility text size,
- * which is why both layouts scroll when their content outgrows them.
+ * which is why both layouts scroll when their content outgrows them. And upright on a SHORT phone,
+ * 16:9 or a larger display size, a full-width cover pushed the button below the fold, so upright
+ * the cover now takes only what the words and the button leave (`CoverAbove`).
  */
 @Composable
 fun NowPlayingScreen(
@@ -117,14 +123,58 @@ fun NowPlayingScreen(
             }
         } else {
             CentredColumn {
-                Artwork(url = artworkUrl, stale = state.stale, onOpen = onArtwork, modifier = Modifier.fillMaxWidth().widthIn(max = ArtworkMaxWidth))
-                Words(state, modifier = Modifier.padding(top = 32.dp))
-                Controls(state, playhead, onPlay, onStop, onOpenFormat)
+                // The operator's controls sit below the fold on a short phone, and that is fine: the
+                // cover makes room for what every listener needs, which is the play button.
+                CoverAbove(
+                    viewportHeight = viewportHeight,
+                    cover = { Artwork(url = artworkUrl, stale = state.stale, onOpen = onArtwork) },
+                    under = {
+                        Words(state, modifier = Modifier.padding(top = 32.dp))
+                        Controls(state, playhead, onPlay, onStop, onOpenFormat)
+                    },
+                )
                 Operator(transport, handlers, silence)
             }
         }
     }
 }
+
+/**
+ * The cover, and what a listener came for under it, with the cover sized to what that leaves.
+ *
+ * A `Layout` rather than a weight, because this lives inside a scrolling column and a scrolling
+ * column has no height to divide: the words and controls are measured first, then the cover is
+ * measured at the side [coverSide] gives it. One pass, so the cover never draws at full size for a
+ * frame and then jumps.
+ */
+@Composable
+private fun CoverAbove(viewportHeight: Dp, cover: @Composable () -> Unit, under: @Composable ColumnScope.() -> Unit) {
+    Layout(
+        contents = listOf(cover, { Column(horizontalAlignment = Alignment.CenterHorizontally, content = under) }),
+    ) { (coverMeasurables, underMeasurables), constraints ->
+        val width = constraints.maxWidth
+        val below = underMeasurables.single().measure(Constraints(maxWidth = width))
+        val side =
+            coverSide(
+                viewport = viewportHeight.roundToPx(),
+                under = below.height,
+                widest = minOf(width, ArtworkMaxWidth.roundToPx()),
+                minimum = CoverMinimum.roundToPx(),
+                breathing = CoverBreathing.roundToPx(),
+            )
+        val drawn = coverMeasurables.single().measure(Constraints.fixed(side, side))
+        layout(width, side + below.height) {
+            drawn.place((width - side) / 2, 0)
+            below.place((width - below.width) / 2, side)
+        }
+    }
+}
+
+/** Below this the cover stops shrinking and the column scrolls instead. */
+private val CoverMinimum = 160.dp
+
+/** Kept clear above and below when the cover shrinks, so it does not butt against the app bar. */
+private val CoverBreathing = 32.dp
 
 @Composable
 private fun Words(state: NowPlayingUiState, modifier: Modifier = Modifier) {

@@ -2,7 +2,7 @@
 # Which parts of the tree a push or a pull request changed, as one true/false flag per part.
 #
 # Every job that is not worth running for every commit reads one of these: the tests, the sidecar,
-# the three listener apps, the codegen check and the images. The rules live here rather than in the
+# the three listener apps, the codegen check, the images and which of the images a pull request builds. The rules live here rather than in the
 # workflows so that there is one list, and so that it can be run by hand against real history:
 #
 #     BASE=<commit> HEAD_REF=<commit> .github/scripts/changes.sh
@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-FLAGS="tree node generated sidecar android desktop ios image"
+FLAGS="tree node generated sidecar android desktop ios image variants"
 HEAD_REF="${HEAD_REF:-HEAD}"
 
 emit() {
@@ -107,3 +107,14 @@ flag ios "^(apps/ios/|packages/sdk-swift/)|${build_yml}"
 # What the Dockerfile copies in, less what `.dockerignore` keeps out: the station's workspace, the
 # audio chain, the sidecar, the pads and the image's own config. Tests and prose change nothing in it.
 flag image "^(Dockerfile$|\.dockerignore$|docker/|stream/|nginx/snippets/|analysis/|assets/|apps/api/|apps/web/|plugins/|packages/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|turbo\.json$|\.github/workflows/images\.yml$)" "${listener_sdks}|/tests/|\.md$"
+
+# Whether a pull request builds all three variants or `slim` alone. The variants differ only in what
+# the Dockerfile lays down around the station's own tree: the speech server and the database, and the
+# supervisor's services trimmed to match. Nothing under `apps/`, `packages/` or `plugins/` can build
+# in one variant and break in another, so `slim` proves a change to them and the other two are
+# builds nobody learns anything from. This names what could: the Dockerfile and its ignore file, the
+# image's own config and rootfs, the audio chain and the sidecar, which the final stage copies in,
+# and the workflow that builds them. It is wider than strictly needed on purpose, because building
+# two images too many costs minutes and building one too few merges a variant that does not build.
+# Every push to main builds all three whatever this says.
+flag variants "^(Dockerfile$|\.dockerignore$|docker/|stream/|nginx/snippets/|analysis/|\.github/workflows/images\.yml$)" "/tests/|\.md$"

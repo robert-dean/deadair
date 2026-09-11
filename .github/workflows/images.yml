@@ -15,6 +15,14 @@ on:
                     in release.yml.
                 type: string
                 default: ''
+            variants:
+                description: >-
+                    Which variants to build, as a JSON list of names. All three by default, which is
+                    what every push to main builds; a pull request that changed nothing that could
+                    build in one variant and break in another asks for `slim` alone (see `variants`
+                    in `.github/scripts/changes.sh`).
+                type: string
+                default: '["slim", "latest", "full"]'
 permissions:
     contents: read
 
@@ -31,25 +39,12 @@ jobs:
         strategy:
             # One variant failing should not hide the state of the others.
             fail-fast: false
+            # The names alone. What each one means is the table in `Work out the variant` below,
+            # rather than `include` entries here, because an `include` entry that matches no name
+            # in the list is not dropped: it becomes a job of its own, so a pull request asking for
+            # `slim` would have built all three anyway.
             matrix:
-                include:
-                    # The station and nothing under it: the operator brings a database, a cache
-                    # and a speech server of their own.
-                    - variant: slim
-                      args: |
-                          WITH_TTS=0
-                          WITH_DB=0
-                    # The default. A speech server is bundled because a station with no voice is
-                    # not a station; the database and cache are still the operator's.
-                    - variant: latest
-                      args: |
-                          WITH_TTS=1
-                          WITH_DB=0
-                    # Everything, for a host with nothing on it.
-                    - variant: full
-                      args: |
-                          WITH_TTS=1
-                          WITH_DB=1
+                variant: ${{ fromJSON(inputs.variants) }}
 
         steps:
             - name: Checkout
@@ -59,34 +54,48 @@ jobs:
 
             # A hosted runner arrives with an Android SDK, a .NET installation and a tool cache
             # holding several language runtimes, none of which this job touches: it checks out a
-            # repository and hands a Dockerfile to a daemon. They are worth about twenty gigabytes,
-            # and without them gone the two variants carrying a speech server fill the disk — far
-            # enough that the runner could not write its own log, which is why that failure arrived
-            # as a job with no output rather than as an error.
+            # repository and hands a Dockerfile to a daemon. Deleting them recovers about 25GB. The
+            # voiced variants once filled the disk without that, far enough that the runner could
+            # not write its own log, which is why that failure arrived as a job with no output
+            # rather than as an error.
             #
-            # `df` on both sides because the next person to run out of room should be able to see
-            # how much this actually bought on the day it stopped being enough.
+            # It MEASURES before it deletes, and deletes only when the runner is short. The disk it
+            # was written for is not the disk the runners have now: on 2026-09-11 every run's own
+            # `df` read 145GB with 86GB free before a single file went, and the deletions still
+            # took anything from thirty seconds to nearly three minutes of I/O, on the critical path
+            # of every pull request and every release. The threshold is what to raise the day a
+            # variant fails for room with this step saying it skipped. The same guard covers
+            # `slim`, which never needed the room; a runner that is genuinely short hurts it too.
             #
-            # It is skipped for `slim`, which carries neither a speech server nor a database and
-            # was never the variant that filled the disk — a minute and a half of deleting things
-            # to make room for an image that already fits.
+            # The deletions themselves are unchanged and deliberately so. When they run, this step
+            # is the only thing between the big variants and a job with no output, so they go in
+            # parallel to spend less wall clock, never fewer of them.
             #
-            # The paths go in parallel rather than as one `rm -rf`. The list is unchanged and
-            # deliberately so: this step is the only thing standing between the big variants and a
-            # failure that arrives as a job with no output, so the way to make it cheaper is to
-            # spend less WALL CLOCK on the same deletions, never to delete less of them.
-            - name: Make room for the image
-              if: matrix.variant != 'slim'
+            # `df` on both sides stays, so the next person to run out of room can see what the
+            # runner had and what this bought on the day.
+            - name: Make room for the image, if the runner is short
+              env:
+                  NEED_GB: 40
               run: |
                   df -h /
+                  avail="$(df --output=avail -BG / | tail -1 | tr -dc '0-9')"
+                  if [ "$avail" -ge "$NEED_GB" ]; then
+                      echo "${avail}GB free, which is at least ${NEED_GB}GB, so nothing is deleted."
+                      exit 0
+                  fi
+                  echo "${avail}GB free, under ${NEED_GB}GB, so the toolchains this job never uses are going."
                   for path in /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/share/swift /opt/hostedtoolcache; do
                       sudo rm -rf "$path" &
                   done
                   wait
                   df -h /
 
+            # No teardown: the builder is removed with the runner, and the action's own post step
+            # spent ten seconds removing it first.
             - name: Set up Buildx
               uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+              with:
+                  cleanup: false
 
             # Asked before the build rather than discovered at the login step, so that a release
             # with no credentials says the one useful sentence instead of failing somewhere in
@@ -122,9 +131,6 @@ jobs:
             # nobody pulls by name costs nothing if the tests then fail, where waiting for them
             # cost four and a half minutes on every release.
             #
-            # `latest` is the default variant, so its commit tag is the bare sha; the other two
-            # prefix theirs, because a sha alone would not say which station it was.
-            #
             # The VERSION tag is NOT published here, though it once was, on the argument that an
             # exact version is immutable and belongs with the immutable commit tag. It stopped being
             # true when releases stopped being tags: a release whose tests fail now cuts no git tag
@@ -132,21 +138,41 @@ jobs:
             # here before the tests would name an untested image until the retry overwrote it. It is
             # a registry retag in `promote` instead, after the tests, so it exists only once the
             # release does.
-            - name: Work out the tags
-              id: tags
+            #
+            # The variants, from the two build arguments the Dockerfile reads. `latest` is the
+            # default variant, so its commit tag is the bare sha; the other two prefix theirs,
+            # because a sha alone would not say which station it was. A name not in this table
+            # fails here rather than building something nobody asked for.
+            - name: Work out the variant
+              id: variant
+              env:
+                  VARIANT: ${{ matrix.variant }}
               run: |
                   set -eu
-                  if [ "${{ matrix.variant }}" = "latest" ]; then
-                      prefix=""
-                  else
-                      prefix="${{ matrix.variant }}-"
-                  fi
+                  case "$VARIANT" in
+                      # The station and nothing under it: the operator brings a database, a cache
+                      # and a speech server of their own.
+                      slim) tts=0 db=0 prefix="slim-" ;;
+                      # The default. A speech server is bundled because a station with no voice is
+                      # not a station; the database and cache are still the operator's.
+                      latest) tts=1 db=0 prefix="" ;;
+                      # Everything, for a host with nothing on it.
+                      full) tts=1 db=1 prefix="full-" ;;
+                      *)
+                          echo "::error::No image variant is called '${VARIANT}'."
+                          exit 1
+                          ;;
+                  esac
 
                   # Written a line at a time rather than built as one multi-line string: a
                   # continuation line inside this block carries the YAML's own indentation, which
-                  # would end up INSIDE the tag.
+                  # would end up INSIDE the value.
                   {
-                      echo "value<<TAGS"
+                      echo "args<<ARGS"
+                      echo "WITH_TTS=${tts}"
+                      echo "WITH_DB=${db}"
+                      echo "ARGS"
+                      echo "tags<<TAGS"
                       echo "${IMAGE}:${prefix}${GITHUB_SHA}"
                       echo "TAGS"
                   } >> "$GITHUB_OUTPUT"
@@ -156,20 +182,24 @@ jobs:
               with:
                   context: .
                   push: ${{ inputs.push }}
-                  # buildx refuses `load` and `push` together, so `load` is on only for a run
-                  # that does not push — the smoke step below is conditional on the same
-                  # expression for the same reason.
-                  load: ${{ !inputs.push }}
+                  # A run that does not publish exports NOTHING: the image is built into the
+                  # builder's own cache and thrown away with the runner. It used to be loaded into
+                  # the runner's daemon, which cost two minutes of exporting and re-importing a
+                  # multi-gigabyte image on every pull request, and the only thing that read it was
+                  # a two-second `import app` against the sidecar. That check is a layer in the
+                  # Dockerfile now, so it runs inside this build in every variant and on every run,
+                  # publishing or not, and nothing downstream needs the image on disk.
+                  outputs: ${{ !inputs.push && 'type=cacheonly' || '' }}
                   platforms: linux/amd64
                   # The variant's own two arguments, plus the commit, which every variant gets and
-                  # so is not in the matrix. It is the same sha the tag above is built from — the
+                  # so is not in the table. It is the same sha the tag above is built from — the
                   # point of putting it INSIDE the image is that a running station can be asked
                   # what it is without anybody having to know which tag it was pulled from.
                   build-args: |
-                      ${{ matrix.args }}
+                      ${{ steps.variant.outputs.args }}
                       REVISION=${{ github.sha }}
                       VERSION=${{ inputs.version }}
-                  tags: ${{ steps.tags.outputs.value }}
+                  tags: ${{ steps.variant.outputs.tags }}
                   # The cache lives in the registry beside the images rather than in the Actions
                   # cache, which holds ten gigabytes for the whole repository — less than these
                   # three variants together, so they would spend every run evicting each other and
@@ -180,13 +210,3 @@ jobs:
                   # last release left and publishes nothing, which is the whole shape of this
                   # workflow one level down.
                   cache-to: ${{ inputs.push && format('type=registry,ref={0}:buildcache-{1},mode=max', env.IMAGE, matrix.variant) || '' }}
-
-            # Proves the sidecar's own venv can actually import its app inside the built image —
-            # the two Dockerfile definitions diverging on the beat tracker (one installed it, the
-            # other silently didn't) built clean and only died at container start, which is
-            # exactly the failure a smoke test at build time is for. Only runs when the image was
-            # loaded above, i.e. the same `!inputs.push` runs this workflow builds for a pull
-            # request rather than publishes.
-            - name: Smoke-test the sidecar's imports
-              if: ${{ !inputs.push }}
-              run: docker run --rm -w /opt/analysis --entrypoint /opt/analysis/venv/bin/python ${{ steps.tags.outputs.value }} -c "import app"

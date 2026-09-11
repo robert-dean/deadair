@@ -107,8 +107,15 @@ them: over sixty commits the macOS desktop build ran sixty times with sixteen ch
 the sidecar's tests ran sixty times for one. `.github/scripts/changes.sh` diffs the push (or the pull
 request's merge commit) against its base and answers one flag per part: `tree` (anything but prose,
 which gates the build and the formatting check, a warning rather than a failure), `node` (the TypeScript workspace, which gates the test
-shards), `generated`, `sidecar`, `android`, `desktop`, `ios` and `image`. `changes.yml` runs it first in
+shards), `generated`, `sidecar`, `android`, `desktop`, `ios`, `image` and `variants`. `changes.yml` runs it first in
 both `pr.yml` and `release.yml`, and `build.yml` takes the flags as inputs that default to true.
+
+**A pull request builds the `slim` image alone unless `variants` is on.** The three variants differ
+only in the speech server and the database the Dockerfile lays down around the station's own tree,
+so a change to the station's code builds in all of them or in none, and `slim` is the cheapest way
+to find out which. `variants` turns on for the Dockerfile and its ignore file, `docker/`, `stream/`,
+the nginx snippets, `analysis/` and `images.yml`, and then the pull request builds all three. Every
+push to main builds all three whatever it says, because `promote` moves a tag onto each.
 
 **`image` is the one that deploys.** It is what the Dockerfile copies in, less what `.dockerignore`
 keeps out, and without it neither workflow builds the three variants and `release.yml` does not
@@ -149,12 +156,14 @@ merging it takes the admin bypass.
 `python3 -m pytest analysis/` directly — no
 `pnpm install`, no `dist`, the same command a laptop runs. It stands alone rather than joining the
 turbo test path or the root `vitest.config.ts`, which both assume a Node workspace this job never
-touches. And `images.yml` proves the built image itself rather than only the source: after the
-build step loads the image into the runner's daemon, `docker run … -c "import app"` against the
-sidecar's own venv is what would have caught the two Dockerfile definitions diverging on the beat
-tracker before a release shipped it — one installed it, the other silently didn't, and both built
-clean. The smoke step runs only when the build also loaded the image, which is only a run that is
-not publishing; a push still builds and pushes without either.
+touches. And the image build proves the built environment itself rather than only the source: a
+`RUN … python -c "import app"` against the sidecar's own venv, directly after its modules are
+copied into the root `Dockerfile`, fails the build when a module or a pin the service imports is
+missing from the image, which otherwise builds clean and crash-loops at start. It does not reach
+the beat tracker, which nothing `app` imports. It is a layer rather than a CI step, so it runs in
+every variant on every build, publishing or not. It was a `docker run` after the build, which needed
+the image loaded into the runner's daemon first, and that load was two of the eight minutes every
+pull request waited for. A pull request's image build now exports nothing (`type=cacheonly`).
 
 ## Releasing
 

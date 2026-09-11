@@ -356,6 +356,19 @@ COPY analysis/requirements.nodeps.txt /opt/analysis/requirements.nodeps.txt
 RUN /opt/analysis/venv/bin/pip install --no-cache-dir --no-deps -r /opt/analysis/requirements.nodeps.txt
 COPY analysis/measure.py analysis/loudness.py analysis/tags.py analysis/join.py analysis/app.py /opt/analysis/
 
+# Proves the environment above can import the service it exists for, HERE, inside the build. It
+# was a `docker run … -c "import app"` in `images.yml` after the build, which meant loading the
+# finished image into the runner's daemon first: two minutes of exporting and re-importing a
+# multi-gigabyte image, paid by every pull request, for a two-second check. As a layer it runs
+# in every variant on every build, is free when nothing above it moved, and fails as itself.
+#
+# What it catches is a module or a pin the service imports and this image does not carry: a file
+# missed from the list above, as `tags.py` once was in the sidecar's own image, builds clean and
+# crash-loops at start. What it does NOT catch is the beat tracker, which nothing `app` imports
+# reaches, so `requirements.nodeps.txt` being installed is still proved only by reading this file.
+# `PYTHONDONTWRITEBYTECODE` so the import leaves no `__pycache__` behind and the layer stays empty.
+RUN cd /opt/analysis && PYTHONDONTWRITEBYTECODE=1 venv/bin/python -c "import app"
+
 # The station's own soundboard, copied into the pad library once on a station that has never held a
 # pad. Below the fence with everything else the repository produces, and it is genuinely empty today:
 # `docs/internals/render.md` § "Pads" refuses attribution-requiring audio, because a radio station has
